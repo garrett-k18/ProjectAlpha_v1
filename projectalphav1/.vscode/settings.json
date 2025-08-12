@@ -1,0 +1,7 @@
+{
+  "python.defaultInterpreterPath": "c:\\Users\\garre\\ProjectAlpha_v1\\projectalphav1\\.venv\\Scripts\\python.exe",
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}"
+  ],
+  "python.terminal.activateEnvironment": true
+}
