@@ -14,6 +14,15 @@ class Seller(models.Model):
     def __str__(self):
         return self.name
 
+    class Meta:
+        verbose_name = "Seller"
+        verbose_name_plural = "Sellers"
+        ordering = ['name']
+        indexes = [
+            models.Index(fields=['name']),
+        ]
+        db_table = 'seller'
+
 
 class Trade(models.Model):
     """Many trades belong to one seller...Need to make sure IDs start at 1000"""
@@ -24,9 +33,17 @@ class Trade(models.Model):
     def __str__(self):
         return f"Trade for {self.seller.name}"
 
+    class Meta:
+        verbose_name = "Trade"
+        verbose_name_plural = "Trades"
+        ordering = ['trade_name']
+        indexes = [
+            models.Index(fields=['seller']),
+        ]
+        db_table = 'trade'
+
 
 class SellerRawData(models.Model):
-    """Structured financial data for a seller's trade."""
     seller = models.ForeignKey(Seller, on_delete=models.CASCADE, related_name='seller_raw_data')
     trade = models.ForeignKey(Trade, on_delete=models.CASCADE, related_name='seller_raw_data')
     sellertape_id = models.IntegerField()
@@ -100,13 +117,22 @@ class SellerRawData(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
+        verbose_name = "Seller Raw Data"
         verbose_name_plural = "Seller Raw Data"
         unique_together = ('seller', 'trade')
         indexes = [
-            models.Index(fields=['status']),
-            models.Index(fields=['maturity_date']),
+            models.Index(fields=['id']),  # Primary key index
+            models.Index(fields=['asset_status']),
+            models.Index(fields=['seller']),
+            models.Index(fields=['trade']),
+            models.Index(fields=['state']),
         ]
         ordering = ['-created_at']
+        db_table = 'seller_raw_data'  
+    
+
+
+   #Calced fields#
     
     def calculate_total_debt(self):
         """Calculate the total debt from all debt components

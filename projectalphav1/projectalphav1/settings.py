@@ -75,20 +75,35 @@ WSGI_APPLICATION = 'projectalphav1.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 DATABASES = {
+    # The default database points to the core schema
     'default': {
-        # Use PostgreSQL (Django docs: https://docs.djangoproject.com/en/5.2/ref/databases/#postgresql-notes)
         'ENGINE': 'django.db.backends.postgresql',
-        # Database name: adjust if your DB name differs. Using project name by default.
         'NAME': 'projectalphav1',
-        # Credentials provided by user
-        'USER': 'postgresql',
+        'USER': 'postgres',
         'PASSWORD': '1218',
-        # Host/port
         'HOST': 'localhost',
         'PORT': '5432',
-        # Options for psycopg3 can go under 'OPTIONS' if needed later.
-    }
+        'OPTIONS': {
+            'options': '-c search_path=core,public'
+        },
+    },
+    # The seller_data schema database connection
+    'seller_data': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'projectalphav1',  # Same database, different schema
+        'USER': 'postgres',
+        'PASSWORD': '1218',
+        'HOST': 'localhost',
+        'PORT': '5432',
+        'OPTIONS': {
+            'options': '-c search_path=seller_data,public'
+        },
+    },
+
 }
+
+# Configure the database routers
+DATABASE_ROUTERS = ['projectalphav1.router.SchemaRouter']
 
 
 # Password validation

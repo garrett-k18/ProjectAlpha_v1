@@ -1,3 +1,12 @@
+// home
+const homeRoute = [
+    {
+        path: "/",
+        name: "home",
+        component: () => import("@/1_global/structure/home.vue"),
+    },
+];
+
 // auth
 const authRoutes = [
     {
@@ -927,4 +936,10 @@ const componentRoutes = [...uiRoutes, ...extendedRoutes, ...widgetRoute, ...icon
 
 export const authProtectedRoutes = [...dashboardRoutes, ...appRoutes, ...customRoutes, ...componentRoutes]
 
-export const allRoutes = [...landingRoutes, ...authRoutes, ...errorPageRoutes, ...authProtectedRoutes]
+export const allRoutes = [
+    ...homeRoute,
+    ...landingRoutes,
+    ...dashboardRoutes, 
+    ...authRoutes, 
+    ...errorPageRoutes, 
+    ...authProtectedRoutes]

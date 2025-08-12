@@ -1,4 +1,5 @@
-from multiprocessing import current_process
+#Assumptions Django Models: Servicing, State Reference, Loan Level Assumptions, Trade Level Assumptions
+
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from .seller import Trade, SellerRawData
@@ -6,7 +7,7 @@ from .seller import Trade, SellerRawData
 
 class Servicer(models.Model):
     """Model to store servicer information for loan servicing"""
-    name = models.CharField(max_length=100, unique=True)
+    servicer_name = models.CharField(max_length=100, unique=True)
     contact_name = models.CharField(max_length=100)
     contact_email = models.EmailField()
     contact_phone = models.CharField(max_length=20)
@@ -33,8 +34,17 @@ class Servicer(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
+    class Meta:
+        verbose_name = "Servicer"
+        verbose_name_plural = "Servicers"
+        ordering = ['servicer_name']
+        indexes = [
+            models.Index(fields=['servicer_name']),
+        ]
+        db_table = 'servicers'
+    
     def __str__(self):
-        return self.name
+        return self.servicer_name
 
 
 class StateReference(models.Model):
@@ -48,6 +58,7 @@ class StateReference(models.Model):
     rehab_duration = models.IntegerField(help_text="Average months to complete rehab")
     reo_marketing_duration = models.IntegerField(help_text="Average months to complete reo marketing")
     reo_local_market_ext_duration = models.IntegerField(help_text="Average months to complete reo local market extension")
+    dil_duration_avg = models.IntegerField(help_text="Average months to complete dilution")
     
 
     # Tax data
@@ -67,6 +78,15 @@ class StateReference(models.Model):
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "State Reference"
+        verbose_name_plural = "State References"
+        ordering = ['state_name']
+        indexes = [
+            models.Index(fields=['state_code']),
+        ]
+        db_table = 'state_reference'
     
     def __str__(self):
         return self.state_name
@@ -112,6 +132,15 @@ class LoanLevelAssumption(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
+    class Meta:
+        verbose_name = "Loan Level Assumption"
+        verbose_name_plural = "Loan Level Assumptions"
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['seller_raw_data']),
+        ]
+        db_table = 'loan_level_assumptions'
+    
     def __str__(self):
         return f"Assumption for Loan {self.seller_raw_data.id}"
 
@@ -142,6 +171,15 @@ class TradeLevelAssumption(models.Model):
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Trade Level Assumption"
+        verbose_name_plural = "Trade Level Assumptions"
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['trade']),
+        ]
+        db_table = 'trade_level_assumptions'
     
     def __str__(self):
         return f"Trade Assumptions for {self.trade.trade_name}"
