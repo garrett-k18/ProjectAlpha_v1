@@ -12,7 +12,8 @@ const authRoutes = [
     {
         path: "/login",
         name: "login",
-        component: () => import("@/views/authentication/login.vue")
+        // Use the user's custom login component under 1_global structure
+        component: () => import("@/1_global/structure/1.login.vue")
     },
     {
         path: "/login-2",

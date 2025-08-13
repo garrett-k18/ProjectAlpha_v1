@@ -1,4 +1,5 @@
-from django.urls import path
+
+from django.urls import path, re_path
 from .views.view_seller_data import get_seller_trade_data
 
 # This defines the URL patterns for the acq_module app.

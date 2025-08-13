@@ -21,7 +21,6 @@ class Seller(models.Model):
         indexes = [
             models.Index(fields=['name']),
         ]
-        db_table = 'seller'
 
 
 class Trade(models.Model):
@@ -40,7 +39,6 @@ class Trade(models.Model):
         indexes = [
             models.Index(fields=['seller']),
         ]
-        db_table = 'trade'
 
 
 class SellerRawData(models.Model):
@@ -127,8 +125,7 @@ class SellerRawData(models.Model):
             models.Index(fields=['trade']),
             models.Index(fields=['state']),
         ]
-        ordering = ['-created_at']
-        db_table = 'seller_raw_data'  
+        ordering = ['-created_at']  
     
 
 

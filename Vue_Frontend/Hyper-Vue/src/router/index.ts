@@ -1,11 +1,21 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import {allRoutes} from "@/router/routes";
-import {useFakeAuthStore} from "@/stores/fakeAuth";
+// Import our Django auth store instead of fake auth
+import {useDjangoAuthStore} from "@/stores/djangoAuth";
 
+// Flag to bypass authentication in development mode
+// Set this to false when you want to re-enable authentication
+const BYPASS_AUTH_IN_DEV = true;
+
+// Check if we're in development mode
+// In Vite, we use import.meta.env instead of process.env
+const isDevelopment = import.meta.env.DEV; // DEV is a boolean that's true in development mode
 
 
 const router = createRouter({
-  history: createWebHistory(import.meta.env.BASE_URL),
+  // Use empty string as base URL for development
+  // In Vite, we use import.meta.env instead of process.env
+  history: createWebHistory(import.meta.env.BASE_URL || ''),  // BASE_URL is defined in Vite
   routes: allRoutes,
 
   scrollBehavior(to, from, savedPosition) {
@@ -26,10 +36,17 @@ router.beforeEach((routeTo, routeFrom, next) => {
 
   // If auth isn't required for the route, just continue.
   if (!authRequired) return next()
+  
+  // Check if we're in development mode and bypassing auth
+  if (isDevelopment && BYPASS_AUTH_IN_DEV) {
+    console.log('Development mode: Bypassing authentication check');
+    return next();
+  }
 
-  let useFakeAuth = useFakeAuthStore()
+  // Use our Django auth store for authentication checks
+  let djangoAuth = useDjangoAuthStore()
   // If auth is required and the user is logged in...
-  if (useFakeAuth.isAuthenticated) {
+  if (djangoAuth.isAuthenticated) {
     return next()
   }
 

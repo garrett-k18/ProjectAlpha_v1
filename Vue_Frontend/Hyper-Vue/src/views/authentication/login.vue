@@ -33,7 +33,12 @@
 
                             <b-form @submit.prevent="logIn">
 
-                                <div v-if="error" class="text-danger text-center mb-2">Please enter valid details</div>
+                                <div v-if="error" class="text-danger text-center mb-2">
+    {{ errorMessage || 'Please enter valid details' }}
+</div>
+<div v-if="loading" class="text-center mb-2">
+    <b-spinner small variant="primary"></b-spinner> Logging in...
+</div>
 
                                 <b-form-group label="Email address" label-for="emailaddress" class="mb-3">
                                     <b-form-input type="email" id="emailaddress" v-model="email" placeholder="Enter your email" required />
@@ -88,7 +93,8 @@
 </template>
 
 <script lang="ts">
-import { useFakeAuthStore } from "@/stores/fakeAuth";
+// Import our custom Django auth store instead of fake auth
+import { useDjangoAuthStore } from "@/stores/djangoAuth";
 import router from "@/router";
 import DefaultLayout from '@/components/layouts/default-layout.vue';
 import Footer2 from '@/components/layouts/partials/footer-2.vue';
@@ -98,18 +104,31 @@ export default {
     data() {
         return {
             checked: true,
-            useFakeAuth: useFakeAuthStore(),
-            email: 'test@test.com',
-            password: 'password',
-            error: false
+            // Use our Django auth store
+            djangoAuth: useDjangoAuthStore(),
+            email: '',
+            password: '',
+            error: false,
+            errorMessage: '',
+            loading: false
         }
     },
     methods: {
-        logIn() {
-            if (this.useFakeAuth.logIn(this.email, this.password)) {
-                return router.push('/')
+        async logIn() {
+            this.error = false;
+            this.errorMessage = '';
+            this.loading = true;
+            
+            try {
+                // Use our Django auth store to log in
+                await this.djangoAuth.logIn(this.email, this.password);
+                this.loading = false;
+                return router.push('/');
+            } catch (error) {
+                this.error = true;
+                this.errorMessage = this.djangoAuth.error || 'Login failed';
+                this.loading = false;
             }
-            this.error = true
         }
     }
 
