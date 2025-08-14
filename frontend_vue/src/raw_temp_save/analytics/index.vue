@@ -18,7 +18,7 @@
               </a>
             </form>
           </div>
-          <h4 class="page-title">Analytics</h4>
+          <h4 class="page-title">Acquisitions</h4>
         </div>
       </b-col>
     </b-row>
@@ -117,14 +117,14 @@
 <script lang="ts">
 import Layout from "@/components/layouts/layout.vue";
 import DateRangePicker from "@/components/custom/date-range-picker.vue";
-import Overview from "@/views/dashboards/analytics/overview.vue";
-import Views from "@/views/dashboards/analytics/views.vue";
-import Browser from "@/views/dashboards/analytics/browser.vue";
-import System from "@/views/dashboards/analytics/system.vue";
-import Channel from "@/views/dashboards/analytics/channel.vue";
-import Media from "@/views/dashboards/analytics/media.vue";
-import EngagementOverview from "@/views/dashboards/analytics/engagement-overview.vue";
-import Country from "@/views/dashboards/analytics/country.vue";
+import Overview from "@/views/dashboards/acquisitions/overview.vue";
+import Views from "@/views/dashboards/acquisitions/views.vue";
+import Browser from "@/views/dashboards/acquisitions/browser.vue";
+import System from "@/views/dashboards/acquisitions/system.vue";
+import Channel from "@/views/dashboards/acquisitions/channel.vue";
+import Media from "@/views/dashboards/acquisitions/media.vue";
+import EngagementOverview from "@/views/dashboards/acquisitions/engagement-overview.vue";
+import Country from "@/views/dashboards/acquisitions/country.vue";
 
 export default {
   components: {
@@ -141,7 +141,7 @@ export default {
   },
   mounted() {
     // this.useMeta({
-    //   title: "Analytics Dashboard",
+    //   title: "Acquisitions Dashboard",
     // });
   }
 };

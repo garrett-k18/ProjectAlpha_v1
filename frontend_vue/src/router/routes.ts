@@ -109,10 +109,10 @@ const dashboardRoutes = [
         meta: {authRequired: true},
         children: [
             {
-                name: 'Analytics',
-                path: 'analytics',
+                name: 'Acquisitions',
+                path: 'acquisitions',
                 meta: {authRequired: true},
-                component: () => import('@/views/dashboards/analytics/index.vue'),
+                component: () => import('@/views/dashboards/acquisitions/index.vue'),
             },
             {
                 name: 'Ecommerce',

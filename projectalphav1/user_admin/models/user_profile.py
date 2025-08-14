@@ -56,12 +56,13 @@ def create_user_profile(sender, instance, created, **kwargs):
 
 
 @receiver(post_save, sender=User)
-def save_user_profile(sender, instance, **kwargs):
+def save_user_profile(sender, instance, created=False, **kwargs):
     """
-    Signal to automatically save a UserProfile when a User is saved
-    
-    Args:
-        sender: The model class (User)
-        instance: The actual instance being saved
+    Ensure a UserProfile exists and save it whenever a User is saved.
+    This handles cases where existing users (created before signals were added)
+    don't yet have an associated profile. Login updates last_login and triggers
+    post_save on User, so we must not assume instance.profile exists.
     """
-    instance.profile.save()
+    # Create the profile if missing, then save it
+    profile, _ = UserProfile.objects.get_or_create(user=instance)
+    profile.save()

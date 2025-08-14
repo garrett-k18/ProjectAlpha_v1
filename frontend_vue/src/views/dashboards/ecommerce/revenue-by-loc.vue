@@ -3,7 +3,8 @@
     <div class="d-flex card-header justify-content-between align-items-center">
       <h4 class="header-title">Revenue By Location</h4>
       <div class="float-end">
-        <b-dropdown toggle-class="arrow-none card-drop p-0" variant="black" right>
+        <!-- Using 'dark' variant instead of 'black' as per BootstrapVue valid variants -->
+        <b-dropdown toggle-class="arrow-none card-drop p-0" variant="dark" right>
           <template v-slot:button-content>
             <i class="mdi mdi-dots-vertical"></i>
           </template>

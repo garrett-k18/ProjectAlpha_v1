@@ -32,7 +32,10 @@ import 'flatpickr/dist/flatpickr.min.css'
 import '@/assets/scss/app-saas.scss'
 import '@/assets/scss/icons.scss'
 
-
+// AG Grid: register all Community features globally before any grid is created.
+// Reference: https://www.ag-grid.com/vue-data-grid/getting-started/ (Modules section)
+import { ModuleRegistry, AllCommunityModule } from 'ag-grid-community'
+ModuleRegistry.registerModules([AllCommunityModule])
 
 const app = createApp(App)
 

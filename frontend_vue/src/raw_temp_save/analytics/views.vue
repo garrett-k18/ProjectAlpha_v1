@@ -4,7 +4,7 @@
       <h4 class="header-title">Views Per Minute</h4>
 
       <div class="float-end">
-        <b-dropdown toggle-class="arrow-none card-drop p-0" variant="black" right>
+        <b-dropdown toggle-class="arrow-none card-drop p-0" variant="dark" right>
           <template v-slot:button-content>
             <i class="mdi mdi-dots-vertical"></i>
           </template>
@@ -76,9 +76,10 @@ export default {
     }
   },
   data() {
-    let categories = [];
+    // Initialize categories array to store time references for the chart
+    let categories: string[] = [];
     return {
-      categories,
+      categories, // Array of time references (e.g. "1 min ago", "2 min ago")
       series: [
         {
           name: 'Views',
@@ -149,7 +150,7 @@ export default {
         },
         tooltip: {
           y: {
-            formatter: function (val) {
+            formatter: function (val: number): number {
               return val
             },
           },

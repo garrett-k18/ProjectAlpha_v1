@@ -4,7 +4,7 @@
       <h4 class="header-title">Sessions by Browser</h4>
 
       <div class="float-end">
-        <b-dropdown toggle-class="arrow-none card-drop p-0" variant="black" right>
+        <b-dropdown toggle-class="arrow-none card-drop p-0" variant="dark" right>
           <template v-slot:button-content>
             <i class="mdi mdi-dots-vertical"></i>
           </template>
@@ -56,7 +56,7 @@ export default {
         colors: ['#727cf5'],
         yaxis: {
           labels: {
-            formatter: function (val) {
+            formatter: function (val: number): string {
               return val + '%'
             },
           },

@@ -55,7 +55,7 @@
           <b-collapse id="sidebarDashboards" class="b-collapse">
             <ul class="side-nav-second-level">
               <li>
-                <router-link to="/analytics" class="side-nav-link-ref">Analytics</router-link>
+                <router-link to="/acquisitions" class="side-nav-link-ref">Acquisitions</router-link>
               </li>
               <li>
                 <router-link to="/" class="side-nav-link-ref">Ecommerce</router-link>
@@ -778,35 +778,98 @@ export default {
     this.initSidenav()
   },
   methods: {
+    /**
+     * Activates the appropriate menu items based on the current URL path.
+     * This function applies 'active' and related classes to menu items and their parent
+     * elements to visually indicate the current page in the navigation.
+     * 
+     * The function performs the following steps:
+     * 1. Gets all navigation links with class 'side-nav-link-ref'
+     * 2. Finds the link matching the current URL pathname
+     * 3. Applies appropriate classes to the matched link and its parent elements
+     */
     activateMenuItems() {
+      // Get all side navigation links
       const links = document.getElementsByClassName('side-nav-link-ref')
 
+      // Variable to store the matched menu item element
       let menuItemEl = null
+      
+      // Iterate through all links to find the one matching current URL path
       for (let i = 0; i < links.length; i++) {
-        if (window.location.pathname === links[i]['pathname']) {
-          menuItemEl = links[i]
-          break
+        // Type-safe check for the pathname property using explicit type guard
+        if (links[i] instanceof HTMLAnchorElement) {
+          // Now TypeScript recognizes this is an HTMLAnchorElement with pathname property
+          const anchorElement = links[i] as HTMLAnchorElement;
+          const linkPath = anchorElement.pathname;
+          
+          // If this link's path matches the current window location
+          if (window.location.pathname === linkPath) {
+            menuItemEl = links[i];
+            break; // Exit loop once match is found
+          }
         }
       }
 
 
       if (menuItemEl) {
-        const parentEl = menuItemEl.parentElement
-        // level 0
+        // Always add active class to the selected menu item
         menuItemEl.classList.add('active')
+        
+        // Get parent element with null check
+        const parentEl = menuItemEl.parentElement
+        if (!parentEl) return // Exit if no parent element
+        
+        // Level 0 - Add active class to direct parent
         parentEl.classList.add('menuitem-active')
-
-        if (parentEl.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement) {
-          // level 2 nested
-          parentEl.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.classList.add('menuitem-active')
-          parentEl.parentElement.parentElement.parentElement.classList.add('menuitem-active')
-          parentEl.parentElement.parentElement.parentElement.children[0].classList.add('active')
-          parentEl.parentElement.parentElement.parentElement.parentElement.parentElement.classList.add('show')
-          parentEl.parentElement.parentElement.classList.add('show')
+        
+        // Get parent's parent element
+        const p1 = parentEl.parentElement
+        if (!p1) return // Exit if no parent's parent
+        
+        // Get next level parent
+        const p2 = p1.parentElement
+        if (!p2) return // Exit if no further parent
+        
+        // Get next level parent
+        const p3 = p2.parentElement
+        if (!p3) return // Exit if no further parent
+        
+        // Check for deep nesting (level 2)
+        const p4 = p3.parentElement
+        if (p4) {
+          const p5 = p4.parentElement
+          if (p5) {
+            const p6 = p5.parentElement
+            if (p6) {
+              // Level 2 nested - handle deep nesting
+              p6.classList.add('menuitem-active') // Level 6
+              p3.classList.add('menuitem-active') // Level 3
+              
+              // Only access children if they exist
+              if (p3.children && p3.children.length > 0) {
+                p3.children[0].classList.add('active')
+              }
+              
+              // Add show class to relevant parents
+              p5.classList.add('show') // Level 5
+              p2.classList.add('show') // Level 2
+            } else {
+              // Level 1 nested - simpler nesting
+              p3.classList.add('menuitem-active') // Level 3
+              p2.classList.add('show') // Level 2
+            }
+          } else {
+            // Fallback for level 1 nested
+            p3.classList.add('menuitem-active') // Level 3
+            p2.classList.add('show') // Level 2
+          }
         } else {
-          // level 1 nested
-          parentEl.parentElement.parentElement.parentElement.classList.add('menuitem-active')
-          parentEl.parentElement.parentElement.classList.add('show')
+          // Minimal nesting - handle as level 1
+          if (p2 && p3) {
+            p3.classList.add('menuitem-active') // Level 3
+            p2.classList.add('show') // Level 2
+          }
         }
       }
     },
@@ -814,27 +877,52 @@ export default {
     initSidenav() {
 
       setTimeout(function () {
+        // Get the activated menu item with specific HTMLElement type
         let activatedItem = document.querySelector<HTMLElement>('.side-nav-link-ref.active');
         if (activatedItem != null) {
-          let simplebarContent = document.querySelector('.leftside-menu .simplebar-content-wrapper');
+          // Get the scrollable container with specific HTMLElement type
+          let simplebarContent = document.querySelector<HTMLElement>('.leftside-menu .simplebar-content-wrapper');
           let offset = activatedItem.offsetTop - 300;
           if (simplebarContent && offset > 100) {
+            // Now simplebarContent is properly typed as HTMLElement
             scrollTo(simplebarContent, offset, 600);
           }
         }
       }, 200);
 
       // scrollTo (Sidenav Active Menu)
-      function easeInOutQuad(t, b, c, d) {
+      /**
+       * Easing function for smooth scrolling animation using quadratic easing in/out
+       * @param t - Current time
+       * @param b - Start value
+       * @param c - Change in value
+       * @param d - Duration
+       * @returns Calculated easing value
+       */
+      function easeInOutQuad(t: number, b: number, c: number, d: number): number {
         t /= d / 2;
         if (t < 1) return c / 2 * t * t + b;
         t--;
         return -c / 2 * (t * (t - 2) - 1) + b;
       }
 
-      function scrollTo(element, to, duration) {
-        let start = element.scrollTop, change = to - start, currentTime = 0, increment = 20;
-        let animateScroll = function () {
+      /**
+       * Smoothly scrolls an element to a specified position
+       * @param element - The DOM element to scroll
+       * @param to - Target scroll position
+       * @param duration - Animation duration in milliseconds
+       */
+      function scrollTo(element: HTMLElement, to: number, duration: number): void {
+        let start = element.scrollTop, 
+            change = to - start, 
+            currentTime = 0, 
+            increment = 20;
+            
+        /**
+         * Animation step function
+         * Recursively calls itself until animation duration is complete
+         */
+        const animateScroll = function(): void {
           currentTime += increment;
           let val = easeInOutQuad(currentTime, start, change, duration);
           element.scrollTop = val;
@@ -842,6 +930,8 @@ export default {
             setTimeout(animateScroll, increment);
           }
         };
+        
+        // Start the animation
         animateScroll();
       }
     },

@@ -8,71 +8,96 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
+
+Notes:
+- Environment variables are loaded from a project-root `.env` using python-dotenv.
+Docs reviewed:
+* Django settings: https://docs.djangoproject.com/en/5.2/topics/settings/
+* python-dotenv: https://saurabh-kumar.com/python-dotenv/ (official docs)
 """
 
 from pathlib import Path
+import os
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load environment variables from project root `.env` if present
+# This allows local development without exporting env vars manually.
+load_dotenv(dotenv_path=str(BASE_DIR / '.env'))
+
+# Helper for parsing booleans from env in a robust way
+def env_bool(key: str, default: bool) -> bool:
+    val = os.getenv(key)
+    if val is None:
+        return default
+    return val.strip().lower() in ('1', 'true', 'yes', 'on')
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-)(-!^!99&ij_&$e8di2c+#==-h@wiabm5*-1t+eh1gm=wq%i+a'
+# Read from env with a sane development default. Ensure you set DJANGO_SECRET_KEY in production.
+SECRET_KEY = os.getenv(
+'DJANGO_SECRET_KEY',
+'django-insecure-)(-!^!99&ij_&$e8di2c+#==-h@wiabm5*-1t+eh1gm=wq%i+a'
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = env_bool('DJANGO_DEBUG', True)
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+h.strip() for h in os.getenv('DJANGO_ALLOWED_HOSTS', '').split(',') if h.strip()
+]
 
 
 # Application definition
 
 INSTALLED_APPS = [
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
-    # Third-party apps
-    'rest_framework',
-    'rest_framework.authtoken',
-    'corsheaders',
-    # Local apps
-    'acq_module',
-    'am_module',
-    'user_admin',  
+'django.contrib.admin',
+'django.contrib.auth',
+'django.contrib.contenttypes',
+'django.contrib.sessions',
+'django.contrib.messages',
+'django.contrib.staticfiles',
+# Third-party apps
+'rest_framework',
+'rest_framework.authtoken',
+'corsheaders',
+# Local apps
+'acq_module',
+'am_module',
+'user_admin',  
 ]
 
 MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'corsheaders.middleware.CorsMiddleware',  # CORS middleware - must be before CommonMiddleware
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+'django.middleware.security.SecurityMiddleware',
+'django.contrib.sessions.middleware.SessionMiddleware',
+'corsheaders.middleware.CorsMiddleware',  # CORS middleware - must be before CommonMiddleware
+'django.middleware.common.CommonMiddleware',
+'django.middleware.csrf.CsrfViewMiddleware',
+'django.contrib.auth.middleware.AuthenticationMiddleware',
+'django.contrib.messages.middleware.MessageMiddleware',
+'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
 ROOT_URLCONF = 'projectalphav1.urls'
 
 TEMPLATES = [
-    {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
-        'APP_DIRS': True,
-        'OPTIONS': {
-            'context_processors': [
-                'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
-            ],
-        },
-    },
+{
+'BACKEND': 'django.template.backends.django.DjangoTemplates',
+'DIRS': [],
+'APP_DIRS': True,
+'OPTIONS': {
+'context_processors': [
+'django.template.context_processors.request',
+'django.contrib.auth.context_processors.auth',
+'django.contrib.messages.context_processors.messages',
+],
+},
+},
 ]
 
 WSGI_APPLICATION = 'projectalphav1.wsgi.application'
@@ -85,25 +110,27 @@ DATABASES = {
     # The default database points to the core schema
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'projectalphav1',
-        'USER': 'postgres',
-        'PASSWORD': '1218',
-        'HOST': 'localhost',
-        'PORT': '5432',
+        'NAME': os.getenv('DB_NAME', 'projectalphav1'),
+        'USER': os.getenv('DB_USER', 'postgres'),
+        'PASSWORD': os.getenv('DB_PASSWORD', '1218'),  # Default password for development
+        'HOST': os.getenv('DB_HOST', 'localhost'),
+        'PORT': os.getenv('DB_PORT', '5432'),
         'OPTIONS': {
-            'options': '-c search_path=core,public'
+            # Include seller_data so admin queries on default can join to seller tables
+            'options': '-c search_path=core,seller_data,public'
         },
     },
     # The seller_data schema database connection
     'seller_data': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'projectalphav1',  # Same database, different schema
-        'USER': 'postgres',
-        'PASSWORD': '1218',
-        'HOST': 'localhost',
-        'PORT': '5432',
+        'NAME': os.getenv('DB_NAME', 'projectalphav1'),  # Same database, different schema
+        'USER': os.getenv('DB_USER', 'postgres'),
+        'PASSWORD': os.getenv('DB_PASSWORD', '1218'),  # Default password for development
+        'HOST': os.getenv('DB_HOST', 'localhost'),
+        'PORT': os.getenv('DB_PORT', '5432'),
         'OPTIONS': {
-            'options': '-c search_path=seller_data,public'
+            # Include core so seller_data connection can see non-seller tables
+            'options': '-c search_path=seller_data,core,public'
         },
     },
 
@@ -117,18 +144,18 @@ DATABASE_ROUTERS = ['projectalphav1.router.SchemaRouter']
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
+{
+'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+},
+{
+'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+},
+{
+'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+},
+{
+'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+},
 ]
 
 
@@ -156,23 +183,26 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # REST Framework settings
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.TokenAuthentication',
-        'rest_framework.authentication.SessionAuthentication',
-    ],
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated',
-    ],
+'DEFAULT_AUTHENTICATION_CLASSES': [
+'rest_framework.authentication.TokenAuthentication',
+'rest_framework.authentication.SessionAuthentication',
+],
+'DEFAULT_PERMISSION_CLASSES': [
+'rest_framework.permissions.IsAuthenticated',
+]
 }
 
 # CORS settings
-CORS_ALLOW_ALL_ORIGINS = True  # For development only, set to False in production
-CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_ALL_ORIGINS = env_bool('DJANGO_CORS_ALLOW_ALL_ORIGINS', True)  # For development only, set to False in production
+CORS_ALLOW_CREDENTIALS = env_bool('DJANGO_CORS_ALLOW_CREDENTIALS', True)
 CORS_ALLOWED_ORIGINS = [
-    'http://localhost:8080',  # Vue development server
-    'http://localhost:8000',  # Django development server
+o.strip() for o in os.getenv(
+'DJANGO_CORS_ALLOWED_ORIGINS',
+'http://localhost:8080,http://localhost:8000'
+).split(',') if o.strip()
 ]
 
 # Media files
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+

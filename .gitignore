@@ -1,0 +1,38 @@
+# ProjectAlpha_v1 root ignore
+# Keep secrets and local artifacts out of version control
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.eggs/
+.build/
+.pytest_cache/
+.coverage*
+htmlcov/
+
+# Django
+/media/
+/staticfiles/
+
+# Virtual envs
+.venv/
+venv/
+ENV/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Env files
+.env
+.env.*.local
+
+# Node/Frontend
+frontend_vue/node_modules/
+frontend_vue/dist/
+frontend_vue/.vite/
