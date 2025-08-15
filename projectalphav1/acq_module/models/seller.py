@@ -84,10 +84,10 @@ class SellerRawData(models.Model):
     origination_arv = models.DecimalField(max_digits=15, decimal_places=2)
     origination_value_date = models.DateField()
     
-    seller_asis_value = models.DecimalField(max_digits=15, decimal_places=2)
-    seller_arv_value = models.DecimalField(max_digits=15, decimal_places=2)
     seller_value_date = models.DateField()
+    seller_arv_value = models.DecimalField(max_digits=15, decimal_places=2)
 
+    seller_asis_value = models.DecimalField(max_digits=15, decimal_places=2)
     additional_asis_value = models.DecimalField(max_digits=15, decimal_places=2)
     additional_arv_value = models.DecimalField(max_digits=15, decimal_places=2)
     additional_value_date = models.DateField()

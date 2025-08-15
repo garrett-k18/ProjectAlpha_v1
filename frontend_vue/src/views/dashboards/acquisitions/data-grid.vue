@@ -43,6 +43,53 @@
 
     <div class="card-body pt-0">
       <!--
+        Filter controls row:
+        - Seller dropdown (populated from /api/acq/sellers/)
+        - Trade dropdown (depends on seller, populated from /api/acq/trades/{sellerId}/)
+        Data is only loaded into the grid when BOTH seller and trade are selected.
+      -->
+      <div class="row g-2 align-items-end mb-3">
+        <!-- Seller selector: choose a seller first -->
+        <div class="col-12 col-md-4">
+          <label class="form-label" for="sellerSelect">Seller</label>
+          <select
+            id="sellerSelect"
+            class="form-select"
+            v-model="selectedSellerId"
+            :disabled="sellersLoading"
+          >
+            <option :value="null">Select a seller</option>
+            <option v-for="s in sellers" :key="s.id" :value="s.id">{{ s.name }}</option>
+          </select>
+        </div>
+
+        <!-- Trade selector: populated after a seller is chosen -->
+        <div class="col-12 col-md-4">
+          <label class="form-label" for="tradeSelect">Trade</label>
+          <select
+            id="tradeSelect"
+            class="form-select"
+            v-model="selectedTradeId"
+            :disabled="!selectedSellerId || tradesLoading"
+          >
+            <option :value="null">Select a trade</option>
+            <option v-for="t in trades" :key="t.id" :value="t.id">{{ t.trade_name }}</option>
+          </select>
+        </div>
+
+        <!-- Status / helper text area -->
+        <div class="col-12 col-md-4">
+          <div class="form-text">
+            <!-- Provide simple status guidance for users -->
+            <span v-if="sellersLoading">Loading sellers…</span>
+            <span v-else-if="selectedSellerId && tradesLoading">Loading trades…</span>
+            <span v-else-if="selectedSellerId && !selectedTradeId">Select a trade to view data.</span>
+            <span v-else-if="!selectedSellerId">Select a seller to begin.</span>
+          </div>
+        </div>
+      </div>
+
+      <!--
         The AG Grid Vue component. We set a fixed height for the example; adjust as needed.
         The CSS theme class 'ag-theme-quartz' applies the Quartz theme styling.
       -->
@@ -71,8 +118,8 @@ import { AgGridVue } from 'ag-grid-vue3'
 import { themeQuartz } from 'ag-grid-community'
 
 // Import types for better TypeScript support
-import type { ColDef } from 'ag-grid-community'
-import { ref, onMounted } from 'vue'
+import type { ColDef, ValueFormatterParams } from 'ag-grid-community'
+import { ref, onMounted, watch, computed } from 'vue'
 
 // ---------------------------------------------------------------------------
 // Column Definitions: describe the columns shown in the grid.
@@ -100,6 +147,29 @@ const defaultColDef: ColDef = {
 // ---------------------------------------------------------------------------
 // Strongly type rowData as a Vue Ref to satisfy TS lints and enable reactivity
 const rowData = ref<Record<string, unknown>[]>([])
+
+// ---------------------------------------------------------------------------
+// Dropdown data sources and selection state
+// - sellers: options for the seller dropdown
+// - trades: options for the trade dropdown (depends on selected seller)
+// - selectedSellerId / selectedTradeId: the chosen IDs
+// - loading flags: indicate network activity
+// ---------------------------------------------------------------------------
+interface SellerOption { id: number; name: string }
+interface TradeOption { id: number; trade_name: string }
+
+const sellers = ref<SellerOption[]>([])
+const trades = ref<TradeOption[]>([])
+
+const selectedSellerId = ref<number | null>(null)
+const selectedTradeId = ref<number | null>(null)
+
+const sellersLoading = ref<boolean>(false)
+const tradesLoading = ref<boolean>(false)
+const gridLoading = ref<boolean>(false)
+
+// Whether we have both IDs selected (i.e., grid is allowed to load data)
+const hasBothSelections = computed(() => !!selectedSellerId.value && !!selectedTradeId.value)
 
 // ---------------------------------------------------------------------------
 // Utility: Convert a field name (e.g., seller_id, current_balance) to a
@@ -136,6 +206,114 @@ const headerNameMappings: { [key: string]: string } = {
   bk_chapter: 'BK Chapter',
 
   // Add more custom mappings here as needed
+}
+
+// ---------------------------------------------------------------------------
+// Display formatters and field typing helpers
+// - Keep backend values raw; UI handles presentation per AG Grid docs
+//   https://www.ag-grid.com/vue-data-grid/value-formatters/
+// - Dates: MM/DD/YYYY (US style)
+// - Percents: 2 decimals, auto-multiply if value appears fractional
+// - Currency-like: commas, no decimals (uses Intl.NumberFormat)
+// ---------------------------------------------------------------------------
+
+// Fields that should show thousand separators with no decimals (currency-like)
+const commaNoDecimalFields = new Set<string>([
+  'current_balance',
+  'original_balance',
+  'deferred_balance',
+  'accrued_note_interest',
+  'accrued_default_interest',
+  'escrow_balance',
+  'mod_initial_balance',
+  'total_debt',
+])
+
+// Fields that should display as dates in MM/DD/YYYY
+const dateFields = new Set<string>([
+  'as_of_date',
+  'next_due_date',
+  'origination_date',
+  'maturity_date',
+  'first_payment_date',
+  'last_payment_date',
+])
+
+// Fields that should display as percents with two decimals
+const percentFields = new Set<string>([
+  'interest_rate',
+  'discount_rate',
+  'cap_rate',
+])
+
+/**
+ * formatNumberNoDecimals
+ * Renders a value with thousand separators and no decimal places.
+ * Leaves non-numeric inputs untouched (except null/undefined -> empty string).
+ */
+function formatNumberNoDecimals(value: unknown): string {
+  const num = typeof value === 'number' ? value : parseFloat(String(value))
+  if (Number.isNaN(num)) {
+    return value === null || value === undefined ? '' : String(value)
+  }
+  return new Intl.NumberFormat(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(num)
+}
+
+// AG Grid valueFormatter wrapper to use in ColDefs
+function numberNoDecimalFormatter(params: ValueFormatterParams): string {
+  return formatNumberNoDecimals(params.value)
+}
+
+/**
+ * formatDateMMDDYYYY
+ * Safely formats a value into MM/DD/YYYY using Intl.DateTimeFormat.
+ * Accepts Date, timestamp, or parseable string.
+ */
+function formatDateMMDDYYYY(value: unknown): string {
+  if (value === null || value === undefined || value === '') return ''
+  const d = value instanceof Date ? value : new Date(String(value))
+  if (isNaN(d.getTime())) return String(value)
+  return new Intl.DateTimeFormat('en-US', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(d)
+}
+
+// AG Grid valueFormatter for dates
+function dateMMDDYYYYFormatter(params: ValueFormatterParams): string {
+  return formatDateMMDDYYYY(params.value)
+}
+
+/**
+ * formatPercentTwoDecimals
+ * Formats a numeric value as a percentage with two decimals.
+ * If |value| <= 1, assumes fractional and multiplies by 100.
+ */
+function formatPercentTwoDecimals(value: unknown): string {
+  const num = typeof value === 'number' ? value : parseFloat(String(value))
+  if (Number.isNaN(num)) return value === null || value === undefined ? '' : String(value)
+  const normalized = Math.abs(num) <= 1 ? num * 100 : num
+  return `${normalized.toFixed(2)}%`
+}
+
+// AG Grid valueFormatter for percents
+function percentTwoDecimalFormatter(params: ValueFormatterParams): string {
+  return formatPercentTwoDecimals(params.value)
+}
+
+// Simple name-based heuristics for resilience if backend field names evolve
+function isLikelyDateField(field: string): boolean {
+  const lc = field.toLowerCase()
+  return lc.endsWith('_date') || lc.includes('date')
+}
+
+function isLikelyPercentField(field: string): boolean {
+  const lc = field.toLowerCase()
+  return lc.includes('rate') || lc.endsWith('_pct') || lc.endsWith('_percent')
 }
 
 // Reference to the AG Grid instance for accessing columnApi
@@ -229,6 +407,7 @@ function toggleAllColumns(visible: boolean): void {
 
 onMounted(async () => {
   try {
+    // Fetch column field names for grid definition
     const resp = await fetch('/api/acq/raw-data/fields/', {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
@@ -238,13 +417,27 @@ onMounted(async () => {
     const json = (await resp.json()) as { fields: string[] }
 
     // Build minimal columnDefs from field names only
-    columnDefs.value = json.fields.map((field: string) => ({
-      // Use custom mapping if available, otherwise prettify the field name
-      headerName: headerNameMappings[field] || prettifyHeader(field),
-      field: field,
-      sortable: true,
-      filter: true,
-    }))
+    columnDefs.value = json.fields.map((field: string) => {
+      // Base definition shared by all fields
+      const base: ColDef = {
+        headerName: headerNameMappings[field] || prettifyHeader(field),
+        field: field,
+        sortable: true,
+        filter: true,
+      }
+      // Attach display formatters (do not change underlying values used by sorting/filtering)
+      // Priority: explicit sets > heuristics; first match wins
+      if (!base.valueFormatter && commaNoDecimalFields.has(field)) {
+        base.valueFormatter = numberNoDecimalFormatter
+      }
+      if (!base.valueFormatter && (dateFields.has(field) || isLikelyDateField(field))) {
+        base.valueFormatter = dateMMDDYYYYFormatter
+      }
+      if (!base.valueFormatter && (percentFields.has(field) || isLikelyPercentField(field))) {
+        base.valueFormatter = percentTwoDecimalFormatter
+      }
+      return base
+    })
     
     // Alternative approach: You can also hide columns after grid initialization
     // using the columnApi. This is useful for dynamic column hiding based on user preferences.
@@ -282,17 +475,132 @@ onMounted(async () => {
       'interest_rate',
     ]
 
-    // Map fallback fields to AG Grid ColDefs with basic UX settings.
-    columnDefs.value = fallbackFields.map((f): ColDef => ({
-      field: f,                              // data key
-      headerName: prettifyHeader(f),         // user-friendly header
-      sortable: true,                        // allow sorting
-      filter: true,                          // basic filtering
-    }))
+    // Map fallback fields to AG Grid ColDefs with basic UX settings + formatters
+    columnDefs.value = fallbackFields.map((f): ColDef => {
+      const col: ColDef = {
+        field: f,                              // data key
+        headerName: prettifyHeader(f),         // user-friendly header
+        sortable: true,                        // allow sorting
+        filter: true,                          // basic filtering
+      }
+      if (!col.valueFormatter && commaNoDecimalFields.has(f)) {
+        col.valueFormatter = numberNoDecimalFormatter
+      }
+      if (!col.valueFormatter && (dateFields.has(f) || isLikelyDateField(f))) {
+        col.valueFormatter = dateMMDDYYYYFormatter
+      }
+      if (!col.valueFormatter && (percentFields.has(f) || isLikelyPercentField(f))) {
+        col.valueFormatter = percentTwoDecimalFormatter
+      }
+      return col
+    })
 
     // Optional: you can also set a minimal sample row to verify rendering.
     // Leaving rowData empty will render headers only, which is sufficient for layout.
     // rowData.value = []
+  }
+
+  // Always try to load sellers for the first dropdown after column setup
+  await fetchSellers()
+})
+
+// ---------------------------------------------------------------------------
+// Networking helpers: fetch sellers, trades (by seller), and grid row data
+// All functions include defensive checks and extensive comments for clarity.
+// ---------------------------------------------------------------------------
+async function fetchSellers(): Promise<void> {
+  // Guard: prevent duplicate concurrent requests
+  if (sellersLoading.value) return
+  sellersLoading.value = true
+  try {
+    const resp = await fetch('/api/acq/sellers/', {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      credentials: 'same-origin',
+    })
+    if (!resp.ok) throw new Error(`Failed to fetch sellers: ${resp.status}`)
+    const data = (await resp.json()) as SellerOption[]
+    sellers.value = data
+  } catch (e) {
+    console.error('Failed to load sellers', e)
+    sellers.value = []
+  } finally {
+    sellersLoading.value = false
+  }
+}
+
+async function fetchTrades(sellerId: number): Promise<void> {
+  // Guard: require a valid sellerId
+  if (!sellerId) {
+    trades.value = []
+    return
+  }
+  tradesLoading.value = true
+  try {
+    const resp = await fetch(`/api/acq/trades/${sellerId}/`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      credentials: 'same-origin',
+    })
+    if (!resp.ok) throw new Error(`Failed to fetch trades: ${resp.status}`)
+    const data = (await resp.json()) as TradeOption[]
+    trades.value = data
+  } catch (e) {
+    console.error('Failed to load trades', e)
+    trades.value = []
+  } finally {
+    tradesLoading.value = false
+  }
+}
+
+async function fetchGridData(sellerId: number, tradeId: number): Promise<void> {
+  // Guard: require both IDs; if not present, clear the grid
+  if (!sellerId || !tradeId) {
+    rowData.value = []
+    return
+  }
+  gridLoading.value = true
+  try {
+    const resp = await fetch(`/api/acq/raw-data/${sellerId}/${tradeId}/`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      credentials: 'same-origin',
+    })
+    if (!resp.ok) throw new Error(`Failed to fetch grid data: ${resp.status}`)
+    const data = (await resp.json()) as Record<string, unknown>[]
+    rowData.value = data
+  } catch (e) {
+    console.error('Failed to load grid data', e)
+    rowData.value = []
+  } finally {
+    gridLoading.value = false
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Watchers: react to selection changes
+// - When seller changes: reset trade selection and fetch trades for that seller
+// - When either selection changes: if both selected, load grid data
+// ---------------------------------------------------------------------------
+watch(selectedSellerId, async (newSellerId) => {
+  // Clear previous dependent state
+  selectedTradeId.value = null
+  trades.value = []
+  rowData.value = []
+
+  // If a seller is chosen, load trades for that seller
+  if (newSellerId) {
+    await fetchTrades(newSellerId)
+  }
+})
+
+watch([selectedSellerId, selectedTradeId], async ([sellerId, tradeId]) => {
+  // Only fetch when both selections are truthy
+  if (sellerId && tradeId) {
+    await fetchGridData(sellerId, tradeId)
+  } else {
+    // If either selection is missing, clear the grid to enforce data siloing
+    rowData.value = []
   }
 })
 </script>

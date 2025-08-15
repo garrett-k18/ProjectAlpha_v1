@@ -1,5 +1,5 @@
 from django.http import JsonResponse
-from ..models.seller import SellerRawData
+from ..models.seller import Seller, Trade, SellerRawData
 from django.db.models import Q
 
 def get_seller_trade_data(request, seller_id, trade_id=None):
@@ -29,18 +29,20 @@ def get_seller_trade_data(request, seller_id, trade_id=None):
     # Using Q objects keeps the expression explicit and readable.
     query = Q(seller_id=seller_id) & Q(trade_id=trade_id)
 
-    # Retrieve matching entries. `select_related('trade')` is harmless here but not required
-    # since we only return `entry.data`. Keeping it in case future logic inspects trade fields.
-    entries = SellerRawData.objects.filter(query).select_related('trade')
+    # Retrieve matching entries. Keep the query efficient with values() to return
+    # simple dictionaries consumable by the frontend grid without custom encoders.
+    entries_qs = (
+        SellerRawData.objects
+        .filter(query)
+        .values()  # returns a dict per row with concrete field names
+    )
 
     # If there are no matches, return an empty list to avoid 404s or cross-trade leakage.
-    if not entries.exists():
+    if not entries_qs.exists():
         return JsonResponse([], safe=False)
 
-    # Return ONLY the `data` field to keep records siloed and minimal.
-    data_list = [entry.data for entry in entries]
-    # Note: In Django 5.x, JsonResponse no longer accepts the `encoder` kwarg.
-    # The default encoder is sufficient for lists of primitives.
+    # Return list of dicts (field: value) suitable for AG Grid rowData.
+    data_list = list(entries_qs)
     return JsonResponse(data_list, safe=False)
 
 
@@ -108,3 +110,33 @@ def get_seller_rawdata_field_names(request):
     ]
     # Fields to exclude: "id", "created_at", "updated_at", "data", "is_active", "is_verified"
     return JsonResponse({"fields": field_names})
+
+
+def list_sellers(request):
+    """
+    List all Sellers with minimal fields for dropdown population.
+
+    Returns:
+        JsonResponse: list of { id, name }
+    """
+    sellers = Seller.objects.all().order_by('name').values('id', 'name')
+    return JsonResponse(list(sellers), safe=False)
+
+
+def list_trades_by_seller(request, seller_id: int):
+    """
+    List Trades belonging to a specific Seller for dependent dropdowns.
+
+    Args:
+        seller_id (int): The Seller ID to filter trades by.
+
+    Returns:
+        JsonResponse: list of { id, trade_name }
+    """
+    trades = (
+        Trade.objects
+        .filter(seller_id=seller_id)
+        .order_by('trade_name')
+        .values('id', 'trade_name')
+    )
+    return JsonResponse(list(trades), safe=False)
