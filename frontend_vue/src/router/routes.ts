@@ -427,6 +427,24 @@ const landingRoutes = [
     }
 ];
 
+// loan level (custom app pages)
+const loanlvlRoutes = [
+    {
+        path: '/loanlvl',
+        name: 'Loan Level',
+        meta: { authRequired: true },
+        children: [
+            {
+                path: 'products-details',
+                name: 'Loan Product Details',
+                component: () => import('@/views/loanlvl/products-details.vue'),
+                // Provide productId prop from query string (?id=123)
+                props: (route: any) => ({ productId: route.query.id })
+            }
+        ]
+    }
+]
+
 // layouts
 const layoutRoutes = [
     {
@@ -931,7 +949,7 @@ const mapRoutes = [
 
 const appRoutes = [...calendarAppsRoutes, ...chatAppsRoutes, ...crmAppsRoutes, ...ecommerceAppsRoutes, ...emailAppsRoutes, ...projectAppsRoutes,  ...socialFeedAppsRoutes,...taskAppsRoutes, ...fileManagerAppsRoutes]
 
-const customRoutes = [...pagesRoutes,...landingRoutes,...layoutRoutes]
+const customRoutes = [...pagesRoutes, ...landingRoutes, ...layoutRoutes, ...loanlvlRoutes]
 
 const componentRoutes = [...uiRoutes, ...extendedRoutes, ...widgetRoute, ...iconsRoutes, ...chartsRoutes, ...formsRoutes, ...tablesRoutes, ...mapRoutes]
 

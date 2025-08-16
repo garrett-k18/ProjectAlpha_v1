@@ -101,9 +101,50 @@
         :rowData="rowData"
         :columnDefs="columnDefs"
         :defaultColDef="defaultColDef"
+        rowSelection="multiple"
         :animateRows="true"
         @grid-ready="onGridReady"
       />
+      
+      <!--
+        Product Details Modal
+        - Controlled by productDetailsModal (boolean)
+        - Title computed by productModalTitle
+        - Resets state on @hidden
+        - Embeds existing ProductsDetails component from loanlvl
+      -->
+      <b-modal
+        id="product-details-modal"
+        v-model="productDetailsModal"
+        :title="productModalTitle"
+        title-class="h4"
+        hide-footer
+        centered
+        :size="modalSize"
+        scrollable
+        @hidden="onProductModalHidden"
+      >
+        <!-- Custom modal header: keep title left; add actions on the right per BootstrapVue header slot docs -->
+        <template #header>
+          <div class="d-flex align-items-center w-100">
+            <h4 class="modal-title mb-0">{{ productModalTitle }}</h4>
+            <!-- Top-right actions: explicit Open full page action + close (X). Using built-in button styles. -->
+            <div class="ms-auto d-flex align-items-center gap-2">
+              <button
+                type="button"
+                class="btn btn-sm btn-primary"
+                @click="openFullPage"
+                title="Open full page (Ctrl+Enter)"
+              >
+                Open full page
+              </button>
+              <button type="button" class="btn-close" aria-label="Close" @click="productDetailsModal = false"></button>
+            </div>
+          </div>
+        </template>
+        <!-- Content-only details; no sidebar/breadcrumb in modal -->
+        <ProductDetailsContent :row="activeRow" :product-id="activeRow && activeRow.id" />
+      </b-modal>
     </div>
   </div>
 </template>
@@ -119,7 +160,45 @@ import { themeQuartz } from 'ag-grid-community'
 
 // Import types for better TypeScript support
 import type { ColDef, ValueFormatterParams } from 'ag-grid-community'
-import { ref, onMounted, watch, computed } from 'vue'
+import { ref, onMounted, watch, computed, onBeforeUnmount } from 'vue'
+import { useRouter } from 'vue-router'
+// Actions cell renderer for the first column
+import ActionsCell from './components/ActionsCell.vue'
+// ID link cell renderer to open modal with details when clicking the internal ID
+import IdLinkCell from './components/IdLinkCell.vue'
+// Existing product details page to be displayed inside the modal
+import ProductDetailsContent from '@/views/loanlvl/components/ProductDetailsContent.vue'
+
+// ---------------------------------------------------------------------------
+// Responsive modal sizing
+// - We compute the BootstrapVue <b-modal> size based on viewport width.
+// - 'xl' on >=1200px (Bootstrap's lg breakpoint and above), otherwise 'lg'.
+// Docs: BootstrapVue3 modal props (size): https://github.com/cdmoro/bootstrap-vue-3#modal
+// ---------------------------------------------------------------------------
+const windowWidth = ref<number>(typeof window !== 'undefined' ? window.innerWidth : 0)
+
+/**
+ * handleResize
+ * Keeps the reactive 'windowWidth' in sync with the current viewport width.
+ */
+function handleResize(): void {
+  windowWidth.value = window.innerWidth
+}
+
+/**
+ * modalSize
+ * Returns a supported BootstrapVue modal size: 'xl' on large screens, 'lg' on smaller.
+ */
+const modalSize = computed(() => (windowWidth.value >= 1200 ? 'xl' : 'lg'))
+
+// Initialize and subscribe to resize events on mount
+onMounted(() => {
+  windowWidth.value = window.innerWidth
+  window.addEventListener('resize', handleResize)
+})
+
+// Safety: detach resize listener when the component unmounts
+onBeforeUnmount(() => window.removeEventListener('resize', handleResize))
 
 // ---------------------------------------------------------------------------
 // Column Definitions: describe the columns shown in the grid.
@@ -136,6 +215,11 @@ const columnDefs = ref<ColDef[]>([])
 const defaultColDef: ColDef = {
   resizable: true,
   filter: true,
+  // Allow long header captions to wrap onto multiple lines and
+  // automatically grow the header row height to fit.
+  // Docs: https://www.ag-grid.com/javascript-data-grid/column-headers/#text-wrapping
+  wrapHeaderText: true,
+  autoHeaderHeight: true,
   // Enable floating filters for all columns per AG Grid docs
   // https://www.ag-grid.com/vue-data-grid/filter-floating/
   floatingFilter: true,
@@ -325,6 +409,84 @@ import type { GridApi, GridReadyEvent } from 'ag-grid-community'
 const gridRef = ref<any>(null)
 const gridApi = ref<GridApi | null>(null)
 
+// ---------------------------------------------------------------------------
+// Modal state to show product details inside a BootstrapVue modal
+// - productDetailsModal: controls visibility of the modal
+// - activeRow: holds the row object for which the modal is opened
+// ---------------------------------------------------------------------------
+const productDetailsModal = ref<boolean>(false)
+const activeRow = ref<Record<string, unknown> | null>(null)
+
+/**
+ * openProductModal
+ * Sets the current row context and opens the modal. This is passed to the
+ * ID cell renderer via cellRendererParams and called on click.
+ */
+function openProductModal(row: any): void {
+  // Save row context for future use (e.g., passing an ID to a details component)
+  activeRow.value = row
+  // Open the modal per BootstrapVue's v-model API
+  productDetailsModal.value = true
+}
+
+/**
+ * onProductModalHidden
+ * Resets transient state when the modal is fully hidden to avoid stale data
+ * lingering across openings. Also ensures any keyboard listeners are removed.
+ */
+function onProductModalHidden(): void {
+  activeRow.value = null
+  window.removeEventListener('keydown', handleKeydown)
+}
+
+/**
+ * productModalTitle
+ * Computes a friendly modal title, including the current record's ID when
+ * available. Keeps UX consistent with Hyper UI headings.
+ */
+const productModalTitle = computed(() => {
+  const id = (activeRow.value as any)?.id
+  return id ? `Product Details — ${id}` : 'Product Details'
+})
+
+// Router instance for navigating to full-page details view
+const router = useRouter()
+
+/**
+ * openFullPage
+ * Navigates to the full-page Loan Level Product Details route with sidebar/topbar.
+ * Uses the query param `id` to pass the product identifier.
+ */
+function openFullPage(): void {
+  const id = (activeRow.value as any)?.id
+  if (!id) return
+  productDetailsModal.value = false
+  router.push({ path: '/loanlvl/products-details', query: { id: String(id) } })
+}
+
+/**
+ * handleKeydown
+ * Ctrl+Enter (or Cmd+Enter on macOS) opens the full page view from the modal.
+ */
+function handleKeydown(e: KeyboardEvent): void {
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault()
+    openFullPage()
+  }
+}
+
+// When modal opens, attach shortcut; when it closes, detach
+watch(productDetailsModal, (isOpen) => {
+  if (isOpen) {
+    window.addEventListener('keydown', handleKeydown)
+  } else {
+    window.removeEventListener('keydown', handleKeydown)
+  }
+})
+
+// Safety: ensure listeners removed on unmount
+onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
+
 /**
  * Event handler for when the grid is ready
  * This is called when the grid is initialized and ready to be interacted with
@@ -405,6 +567,16 @@ function toggleAllColumns(visible: boolean): void {
   console.log(`All columns are now ${visible ? 'visible' : 'hidden'}`)
 }
 
+/**
+ * Handle actions from the ActionsCell buttons. Replace the
+ * console logs with modal open logic as needed.
+ */
+function onRowAction(action: string, row: any): void {
+  // TODO: Integrate your modal system here
+  // eslint-disable-next-line no-console
+  console.log(`[Grid] action=\\"${action}\\"`, row)
+}
+
 onMounted(async () => {
   try {
     // Fetch column field names for grid definition
@@ -417,7 +589,7 @@ onMounted(async () => {
     const json = (await resp.json()) as { fields: string[] }
 
     // Build minimal columnDefs from field names only
-    columnDefs.value = json.fields.map((field: string) => {
+    const generated = json.fields.map((field: string) => {
       // Base definition shared by all fields
       const base: ColDef = {
         headerName: headerNameMappings[field] || prettifyHeader(field),
@@ -436,8 +608,40 @@ onMounted(async () => {
       if (!base.valueFormatter && (percentFields.has(field) || isLikelyPercentField(field))) {
         base.valueFormatter = percentTwoDecimalFormatter
       }
+      // Render the internal ID as a clickable link that opens the modal
+      // We rely on AG Grid's Vue cellRenderer with a small dedicated component
+      if (field === 'id') {
+        base.cellRenderer = IdLinkCell as any
+        base.cellRendererParams = { onOpen: openProductModal }
+        // Keep ID narrow by default
+        base.width = 120
+        base.maxWidth = 140
+      }
+      // Encourage header wrapping on specific columns by setting a smaller width
+      if (field === 'current_balance') {
+        base.width = 140
+        base.maxWidth = 160
+      }
       return base
     })
+
+    // Prepend an Actions column with a Vue cell renderer
+    const actionsCol: ColDef = {
+      headerName: 'Actions',
+      colId: 'actions',
+      pinned: 'left',
+      sortable: false,
+      filter: false,
+      // AG Grid v34+: disable the header menu button and header context menu
+      suppressHeaderMenuButton: true,
+      suppressHeaderContextMenu: true,
+      width: 220,
+      minWidth: 160,
+      cellRenderer: ActionsCell as any,
+      cellRendererParams: { onAction: onRowAction },
+    }
+
+    columnDefs.value = [actionsCol, ...generated]
     
     // Alternative approach: You can also hide columns after grid initialization
     // using the columnApi. This is useful for dynamic column hiding based on user preferences.
@@ -476,7 +680,7 @@ onMounted(async () => {
     ]
 
     // Map fallback fields to AG Grid ColDefs with basic UX settings + formatters
-    columnDefs.value = fallbackFields.map((f): ColDef => {
+    const fallbackGenerated = fallbackFields.map((f): ColDef => {
       const col: ColDef = {
         field: f,                              // data key
         headerName: prettifyHeader(f),         // user-friendly header
@@ -492,8 +696,30 @@ onMounted(async () => {
       if (!col.valueFormatter && (percentFields.has(f) || isLikelyPercentField(f))) {
         col.valueFormatter = percentTwoDecimalFormatter
       }
+      if (f === 'current_balance') {
+        col.width = 140
+        col.maxWidth = 160
+      }
       return col
     })
+
+    // Add the Actions column for the fallback as well
+    const fallbackActionsCol: ColDef = {
+      headerName: 'Actions',
+      colId: 'actions',
+      pinned: 'left',
+      sortable: false,
+      filter: false,
+      // AG Grid v34+: disable the header menu button and header context menu
+      suppressHeaderMenuButton: true,
+      suppressHeaderContextMenu: true,
+      width: 220,
+      minWidth: 160,
+      cellRenderer: ActionsCell as any,
+      cellRendererParams: { onAction: onRowAction },
+    }
+
+    columnDefs.value = [fallbackActionsCol, ...fallbackGenerated]
 
     // Optional: you can also set a minimal sample row to verify rendering.
     // Leaving rowData empty will render headers only, which is sufficient for layout.
