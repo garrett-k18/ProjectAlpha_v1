@@ -101,7 +101,8 @@
         :rowData="rowData"
         :columnDefs="columnDefs"
         :defaultColDef="defaultColDef"
-        rowSelection="multiple"
+        rowSelecti
+        on="multiple"
         :animateRows="true"
         @grid-ready="onGridReady"
       />
@@ -122,6 +123,8 @@
         centered
         :size="modalSize"
         scrollable
+        dialog-class="product-details-dialog"
+        content-class="product-details-content"
         @hidden="onProductModalHidden"
       >
         <!-- Custom modal header: keep title left; add actions on the right per BootstrapVue header slot docs -->
@@ -143,7 +146,7 @@
           </div>
         </template>
         <!-- Content-only details; no sidebar/breadcrumb in modal -->
-        <ProductDetailsContent :row="activeRow" :product-id="activeRow && activeRow.id" />
+        <ProductDetailsContent :row="activeRow" :product-id="activeProductId" />
       </b-modal>
     </div>
   </div>
@@ -447,6 +450,17 @@ function onProductModalHidden(): void {
 const productModalTitle = computed(() => {
   const id = (activeRow.value as any)?.id
   return id ? `Product Details — ${id}` : 'Product Details'
+})
+
+/**
+ * activeProductId
+ * Strongly-typed computed accessor for the current row's ID to satisfy
+ * TypeScript in template bindings. Ensures we only pass string | number | null.
+ * - Returns null when there is no active row or id is not a string/number.
+ */
+const activeProductId = computed<string | number | null>(() => {
+  const maybeId = (activeRow.value as any)?.id
+  return typeof maybeId === 'string' || typeof maybeId === 'number' ? maybeId : null
 })
 
 // Router instance for navigating to full-page details view
@@ -858,4 +872,71 @@ watch([selectedSellerId, selectedTradeId], async ([sellerId, tradeId]) => {
 /* :deep(.seller-grid .ag-floating-filter-body) {
   justify-content: center;
 } */
+</style>
+
+<style>
+/*
+  Product Details modal sizing (global)
+  We use global styles because the modal content is teleported to <body>, so
+  scoped styles would not apply. These hooks come from dialog-class/content-class.
+*/
+.product-details-dialog {
+  width: 93.1vw;            /* 5% smaller than 98vw */
+  max-width: 93.1vw !important;
+  margin-left: auto;        /* ensure horizontal centering */
+  margin-right: auto;       /* ensure horizontal centering */
+  position: relative;       /* allow horizontal left offset without affecting flow */
+  left: 0;                  /* default: no offset; overridden per sidebar state below */
+}
+
+@media (min-width: 1200px) {
+  .product-details-dialog {
+    width: 81.7vw;          /* 5% smaller than 86vw */
+    max-width: 81.7vw !important;
+  }
+}
+
+/*
+  Layout-aware horizontal centering over content area (excluding sidebar)
+  We shift the dialog right by 50% of the current sidebar width so the modal
+  aligns with the visual center of `.content-page` instead of full viewport.
+  Sidebar widths come from Hyper UI CSS variables compiled as Bootstrap `--bs-*`:
+  --bs-leftbar-width (default), --bs-leftbar-width-md (compact), --bs-leftbar-width-sm (condensed).
+  Reference: `src/assets/scss/config/creative/_theme-mode.scss` and
+             `src/assets/scss/custom/structure/_sidenav.scss`.
+*/
+
+/* Default/full-size sidebar (typically 260px) */
+html[data-sidenav-size="default"] .product-details-dialog {
+  left: calc(var(--bs-leftbar-width) / 2); /* shift by half the sidebar width */
+}
+
+/* Compact sidebar (typically 160px) */
+html[data-sidenav-size="compact"] .product-details-dialog {
+  left: calc(var(--bs-leftbar-width-md) / 2);
+}
+
+/* Condensed and small-hover modes (typically 70px) */
+html[data-sidenav-size="condensed"] .product-details-dialog,
+html[data-sidenav-size="sm-hover"] .product-details-dialog,
+html[data-sidenav-size="sm-hover-active"] .product-details-dialog {
+  left: calc(var(--bs-leftbar-width-sm) / 2);
+}
+
+/* Full and fullscreen sidebar modes overlay or hide the sidebar; no offset */
+html[data-sidenav-size="full"] .product-details-dialog,
+html[data-sidenav-size="fullscreen"] .product-details-dialog {
+  left: 0;
+}
+
+.product-details-content {
+  height: 89.3vh;           /* 5% smaller than 94vh; body still scrolls */
+  display: flex;
+  flex-direction: column;
+}
+
+.product-details-content .modal-body {
+  flex: 1 1 auto;           /* fill remaining height */
+  overflow: auto;           /* scroll inner body, keep header fixed */
+}
 </style>

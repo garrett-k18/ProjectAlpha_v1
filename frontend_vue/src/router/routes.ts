@@ -437,7 +437,7 @@ const loanlvlRoutes = [
             {
                 path: 'products-details',
                 name: 'Loan Product Details',
-                component: () => import('@/views/loanlvl/products-details.vue'),
+                component: () => import('@/views/loanlvl/loanlvl_snapshot.vue'),
                 // Provide productId prop from query string (?id=123)
                 props: (route: any) => ({ productId: route.query.id })
             }
