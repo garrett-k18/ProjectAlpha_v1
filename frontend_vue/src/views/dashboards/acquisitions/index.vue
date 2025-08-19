@@ -115,9 +115,30 @@
     <!-- Full-width AG Grid data table row -->
     <b-row>
       <b-col class="col-12">
-        <DataGrid />
+        <!-- Pass behavior control to the grid: modal-first with onOpenLoan callback -->
+        <DataGrid :open-mode="'modal'" :open-loan="onOpenLoan" />
       </b-col>
     </b-row>
+
+    <!-- Loan-Level Modal wrapper using BootstrapVue Next -->
+    <!-- Docs: https://bootstrap-vue-next.github.io/bootstrap-vue-next/docs/components/modal -->
+    <BModal
+      v-model="showLoanModal"
+      :title="modalTitle"
+      size="xl"
+      body-class="p-0"
+      dialog-class="product-details-dialog"
+      content-class="product-details-content"
+      @hidden="onModalHidden"
+    >
+      <!-- Render the centralized loan-level wrapper inside the modal -->
+      <LoanLevelIndex
+        :productId="selectedId"
+        :row="selectedRow"
+        :address="selectedAddr"
+        :standalone="false"
+      />
+    </BModal>
   </Layout>
 </template>
 
@@ -134,6 +155,10 @@ import EngagementOverview from "@/views/dashboards/acquisitions/engagement-overv
 import Country from "@/views/dashboards/acquisitions/country.vue";
 // AG Grid: modular data grid component for acquisitions dashboard
 import DataGrid from "@/views/dashboards/acquisitions/data-grid.vue";
+// BootstrapVue Next modal component (Vue 3 compatible)
+import { BModal } from 'bootstrap-vue-next';
+// Centralized loan-level wrapper used for both full-page and modal
+import LoanLevelIndex from '@/views/acq_module/loanlvl/loanlvl_index.vue'
 
 export default {
   components: {
@@ -149,6 +174,51 @@ export default {
     DataGrid,
     DateRangePicker,
     Layout,
+    // Register modal + loan-level wrapper
+    BModal,
+    LoanLevelIndex,
+  },
+  data() {
+    return {
+      // Whether the Loan-Level modal is visible
+      showLoanModal: false as boolean,
+      // Payload selected from the grid link
+      selectedId: null as string | null,
+      selectedRow: null as any,
+      selectedAddr: null as string | null,
+    }
+  },
+  computed: {
+    // Builds a friendly modal title similar to the full-page breadcrumb title
+    modalTitle(): string {
+      const id = this.selectedId ? String(this.selectedId) : ''
+      const addr = this.selectedAddr ? String(this.selectedAddr) : ''
+      if (id && addr) return `${id} — ${addr}`
+      if (id) return id
+      if (addr) return addr
+      return 'Asset Details'
+    },
+  },
+  methods: {
+    /**
+     * onOpenLoan
+     * Called by IdLinkCell via data-grid when user clicks the ID and
+     * openMode==='modal'. Opens the BootstrapVue Next modal and stores payload.
+     */
+    onOpenLoan(payload: { id: string; row: any; addr?: string }): void {
+      this.selectedId = payload?.id ?? null
+      this.selectedRow = payload?.row ?? null
+      this.selectedAddr = payload?.addr ?? null
+      this.showLoanModal = true
+    },
+    /**
+     * Clear state when modal fully hides
+     */
+    onModalHidden(): void {
+      this.selectedId = null
+      this.selectedRow = null
+      this.selectedAddr = null
+    },
   },
   mounted() {
     // this.useMeta({

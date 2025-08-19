@@ -324,6 +324,14 @@ export default {
       intervalSlide: 0,
     }
   },
+  methods: {
+    // Handle BootstrapVue 3 <b-carousel> 'sliding-start' event.
+    // The event payload is the target slide index (number).
+    // We mirror it into this.slide to keep v-model in sync when needed.
+    onSlideStart(newIndex: number) {
+      this.slide = newIndex
+    },
+  },
   mounted() {
     setInterval(() => {
       if (this.slide < 2) {

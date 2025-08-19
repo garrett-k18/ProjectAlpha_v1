@@ -1,3 +1,4 @@
+import type { RouteRecordRaw } from 'vue-router'
 // home
 const homeRoute = [
     {
@@ -437,9 +438,13 @@ const loanlvlRoutes = [
             {
                 path: 'products-details',
                 name: 'Loan Product Details',
-                component: () => import('@/views/loanlvl/loanlvl_snapshot.vue'),
+                component: () => import('@/views/acq_module/loanlvl/loanlvl_index.vue'),
                 // Provide productId prop from query string (?id=123)
-                props: (route: any) => ({ productId: route.query.id })
+                props: (route: any) => ({
+                    productId: route.query.id,
+                    // forward best-effort address when available (?addr=...)
+                    address: route.query.addr ?? null,
+                })
             }
         ]
     }
@@ -953,9 +958,9 @@ const customRoutes = [...pagesRoutes, ...landingRoutes, ...layoutRoutes, ...loan
 
 const componentRoutes = [...uiRoutes, ...extendedRoutes, ...widgetRoute, ...iconsRoutes, ...chartsRoutes, ...formsRoutes, ...tablesRoutes, ...mapRoutes]
 
-export const authProtectedRoutes = [...dashboardRoutes, ...appRoutes, ...customRoutes, ...componentRoutes]
+export const authProtectedRoutes: RouteRecordRaw[] = [...dashboardRoutes as any, ...appRoutes as any, ...customRoutes as any, ...componentRoutes as any]
 
-export const allRoutes = [
+export const allRoutes: RouteRecordRaw[] = [
     ...homeRoute,
     ...landingRoutes,
     ...dashboardRoutes, 

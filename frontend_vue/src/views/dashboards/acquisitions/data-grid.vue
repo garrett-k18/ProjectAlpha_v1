@@ -101,53 +101,12 @@
         :rowData="rowData"
         :columnDefs="columnDefs"
         :defaultColDef="defaultColDef"
-        rowSelecti
-        on="multiple"
+        rowSelection="multiple"
         :animateRows="true"
         @grid-ready="onGridReady"
       />
       
-      <!--
-        Product Details Modal
-        - Controlled by productDetailsModal (boolean)
-        - Title computed by productModalTitle
-        - Resets state on @hidden
-        - Embeds existing ProductsDetails component from loanlvl
-      -->
-      <b-modal
-        id="product-details-modal"
-        v-model="productDetailsModal"
-        :title="productModalTitle"
-        title-class="h4"
-        hide-footer
-        centered
-        :size="modalSize"
-        scrollable
-        dialog-class="product-details-dialog"
-        content-class="product-details-content"
-        @hidden="onProductModalHidden"
-      >
-        <!-- Custom modal header: keep title left; add actions on the right per BootstrapVue header slot docs -->
-        <template #header>
-          <div class="d-flex align-items-center w-100">
-            <h4 class="modal-title mb-0">{{ productModalTitle }}</h4>
-            <!-- Top-right actions: explicit Open full page action + close (X). Using built-in button styles. -->
-            <div class="ms-auto d-flex align-items-center gap-2">
-              <button
-                type="button"
-                class="btn btn-sm btn-primary"
-                @click="openFullPage"
-                title="Open full page (Ctrl+Enter)"
-              >
-                Open full page
-              </button>
-              <button type="button" class="btn-close" aria-label="Close" @click="productDetailsModal = false"></button>
-            </div>
-          </div>
-        </template>
-        <!-- Content-only details; no sidebar/breadcrumb in modal -->
-        <ProductDetailsContent :row="activeRow" :product-id="activeProductId" />
-      </b-modal>
+      <!-- Details modal removed: this component is grid-only by design -->
     </div>
   </div>
 </template>
@@ -163,45 +122,27 @@ import { themeQuartz } from 'ag-grid-community'
 
 // Import types for better TypeScript support
 import type { ColDef, ValueFormatterParams } from 'ag-grid-community'
-import { ref, onMounted, watch, computed, onBeforeUnmount } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted, watch, computed } from 'vue'
 // Actions cell renderer for the first column
 import ActionsCell from './components/ActionsCell.vue'
-// ID link cell renderer to open modal with details when clicking the internal ID
+// ID link cell renderer for the internal ID link (no modal logic here)
 import IdLinkCell from './components/IdLinkCell.vue'
-// Existing product details page to be displayed inside the modal
-import ProductDetailsContent from '@/views/loanlvl/components/ProductDetailsContent.vue'
+// Grid-only: remove modal, tabs, and product image imports
+
+// Grid-only: removed modal sizing and resize listeners
+
+// Grid-only: removed demo images used by modal snapshot tab
 
 // ---------------------------------------------------------------------------
-// Responsive modal sizing
-// - We compute the BootstrapVue <b-modal> size based on viewport width.
-// - 'xl' on >=1200px (Bootstrap's lg breakpoint and above), otherwise 'lg'.
-// Docs: BootstrapVue3 modal props (size): https://github.com/cdmoro/bootstrap-vue-3#modal
+// Props: allow parent to control how the ID link opens (modal vs page)
+// - openMode: 'modal' | 'page' (default behavior can be controlled by parent)
+// - openLoan: callback invoked when openMode==='modal' to open a parent modal
+// This keeps the grid component UI-agnostic while enabling modal-first flows.
 // ---------------------------------------------------------------------------
-const windowWidth = ref<number>(typeof window !== 'undefined' ? window.innerWidth : 0)
-
-/**
- * handleResize
- * Keeps the reactive 'windowWidth' in sync with the current viewport width.
- */
-function handleResize(): void {
-  windowWidth.value = window.innerWidth
-}
-
-/**
- * modalSize
- * Returns a supported BootstrapVue modal size: 'xl' on large screens, 'lg' on smaller.
- */
-const modalSize = computed(() => (windowWidth.value >= 1200 ? 'xl' : 'lg'))
-
-// Initialize and subscribe to resize events on mount
-onMounted(() => {
-  windowWidth.value = window.innerWidth
-  window.addEventListener('resize', handleResize)
-})
-
-// Safety: detach resize listener when the component unmounts
-onBeforeUnmount(() => window.removeEventListener('resize', handleResize))
+const props = defineProps<{
+  openMode?: 'modal' | 'page'
+  openLoan?: (payload: { id: string; row: any; addr?: string }) => void
+}>()
 
 // ---------------------------------------------------------------------------
 // Column Definitions: describe the columns shown in the grid.
@@ -333,6 +274,13 @@ const percentFields = new Set<string>([
   'cap_rate',
 ])
 
+// Fields that should behave as the primary clickable ID column to open loan-level details
+// Recognize a small, explicit allow-list to avoid making unrelated *_id fields clickable
+const clickableIdFields = new Set<string>(['id', 'sellertape_id', 'loan_id'])
+function isClickableIdField(field: string): boolean {
+  return clickableIdFields.has(field)
+}
+
 /**
  * formatNumberNoDecimals
  * Renders a value with thousand separators and no decimal places.
@@ -412,45 +360,32 @@ import type { GridApi, GridReadyEvent } from 'ag-grid-community'
 const gridRef = ref<any>(null)
 const gridApi = ref<GridApi | null>(null)
 
-// ---------------------------------------------------------------------------
-// Modal state to show product details inside a BootstrapVue modal
-// - productDetailsModal: controls visibility of the modal
-// - activeRow: holds the row object for which the modal is opened
-// ---------------------------------------------------------------------------
-const productDetailsModal = ref<boolean>(false)
-const activeRow = ref<Record<string, unknown> | null>(null)
-
-/**
- * openProductModal
- * Sets the current row context and opens the modal. This is passed to the
- * ID cell renderer via cellRendererParams and called on click.
- */
-function openProductModal(row: any): void {
-  // Save row context for future use (e.g., passing an ID to a details component)
-  activeRow.value = row
-  // Open the modal per BootstrapVue's v-model API
-  productDetailsModal.value = true
-}
-
-/**
- * onProductModalHidden
- * Resets transient state when the modal is fully hidden to avoid stale data
- * lingering across openings. Also ensures any keyboard listeners are removed.
- */
-function onProductModalHidden(): void {
-  activeRow.value = null
-  window.removeEventListener('keydown', handleKeydown)
-}
+// Grid-only: removed modal state and handlers
 
 /**
  * productModalTitle
  * Computes a friendly modal title, including the current record's ID when
  * available. Keeps UX consistent with Hyper UI headings.
  */
-const productModalTitle = computed(() => {
-  const id = (activeRow.value as any)?.id
-  return id ? `Product Details — ${id}` : 'Product Details'
-})
+// ---------------------------------------------------------------------------
+// Title helpers for the Product Details Modal
+// - Build a one-line address from common field names present on the row
+// - Compose the title as: "<ID> — <Full Address>"
+//   (falls back gracefully if some parts are missing)
+// ---------------------------------------------------------------------------
+
+// Grid-only: removed address helpers used for modal title
+
+/**
+ * productModalTitle
+ * Title format: "<ID> — <Full Address>"
+ * - If only ID exists, return ID
+ * - If only address exists, return address
+ * - If neither exists, return empty string (no static prefix)
+ * Docs: BootstrapVue3 modal `title` prop and header slot accept any string
+ * https://github.com/cdmoro/bootstrap-vue-3#modal
+ */
+// Grid-only: removed modal title
 
 /**
  * activeProductId
@@ -458,48 +393,11 @@ const productModalTitle = computed(() => {
  * TypeScript in template bindings. Ensures we only pass string | number | null.
  * - Returns null when there is no active row or id is not a string/number.
  */
-const activeProductId = computed<string | number | null>(() => {
-  const maybeId = (activeRow.value as any)?.id
-  return typeof maybeId === 'string' || typeof maybeId === 'number' ? maybeId : null
-})
+// Grid-only: removed activeProductId used by modal tabs
 
-// Router instance for navigating to full-page details view
-const router = useRouter()
+// Grid-only: removed router navigation logic
 
-/**
- * openFullPage
- * Navigates to the full-page Loan Level Product Details route with sidebar/topbar.
- * Uses the query param `id` to pass the product identifier.
- */
-function openFullPage(): void {
-  const id = (activeRow.value as any)?.id
-  if (!id) return
-  productDetailsModal.value = false
-  router.push({ path: '/loanlvl/products-details', query: { id: String(id) } })
-}
-
-/**
- * handleKeydown
- * Ctrl+Enter (or Cmd+Enter on macOS) opens the full page view from the modal.
- */
-function handleKeydown(e: KeyboardEvent): void {
-  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-    e.preventDefault()
-    openFullPage()
-  }
-}
-
-// When modal opens, attach shortcut; when it closes, detach
-watch(productDetailsModal, (isOpen) => {
-  if (isOpen) {
-    window.addEventListener('keydown', handleKeydown)
-  } else {
-    window.removeEventListener('keydown', handleKeydown)
-  }
-})
-
-// Safety: ensure listeners removed on unmount
-onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
+// Grid-only: removed modal keyboard shortcuts and watchers
 
 /**
  * Event handler for when the grid is ready
@@ -622,11 +520,16 @@ onMounted(async () => {
       if (!base.valueFormatter && (percentFields.has(field) || isLikelyPercentField(field))) {
         base.valueFormatter = percentTwoDecimalFormatter
       }
-      // Render the internal ID as a clickable link that opens the modal
-      // We rely on AG Grid's Vue cellRenderer with a small dedicated component
-      if (field === 'id') {
+      // Render the primary ID as a clickable link using a dedicated cell renderer
+      if (isClickableIdField(field)) {
         base.cellRenderer = IdLinkCell as any
-        base.cellRendererParams = { onOpen: openProductModal }
+        // Pass behavior controls to the cell renderer
+        base.cellRendererParams = {
+          openMode: props.openMode,
+          onOpen: props.openLoan,
+        }
+        // Debug which field is wired as the ID link
+        console.debug('[Grid] Configured ID link cell renderer for field', field)
         // Keep ID narrow by default
         base.width = 120
         base.maxWidth = 140
@@ -709,6 +612,17 @@ onMounted(async () => {
       }
       if (!col.valueFormatter && (percentFields.has(f) || isLikelyPercentField(f))) {
         col.valueFormatter = percentTwoDecimalFormatter
+      }
+      if (isClickableIdField(f)) {
+        // Mirror params for fallback columns as well
+        col.cellRenderer = IdLinkCell as any
+        col.cellRendererParams = {
+          openMode: props.openMode,
+          onOpen: props.openLoan,
+        }
+        console.debug('[Grid] Configured ID link cell renderer for field', f)
+        col.width = 120
+        col.maxWidth = 140
       }
       if (f === 'current_balance') {
         col.width = 140
@@ -875,68 +789,5 @@ watch([selectedSellerId, selectedTradeId], async ([sellerId, tradeId]) => {
 </style>
 
 <style>
-/*
-  Product Details modal sizing (global)
-  We use global styles because the modal content is teleported to <body>, so
-  scoped styles would not apply. These hooks come from dialog-class/content-class.
-*/
-.product-details-dialog {
-  width: 93.1vw;            /* 5% smaller than 98vw */
-  max-width: 93.1vw !important;
-  margin-left: auto;        /* ensure horizontal centering */
-  margin-right: auto;       /* ensure horizontal centering */
-  position: relative;       /* allow horizontal left offset without affecting flow */
-  left: 0;                  /* default: no offset; overridden per sidebar state below */
-}
-
-@media (min-width: 1200px) {
-  .product-details-dialog {
-    width: 81.7vw;          /* 5% smaller than 86vw */
-    max-width: 81.7vw !important;
-  }
-}
-
-/*
-  Layout-aware horizontal centering over content area (excluding sidebar)
-  We shift the dialog right by 50% of the current sidebar width so the modal
-  aligns with the visual center of `.content-page` instead of full viewport.
-  Sidebar widths come from Hyper UI CSS variables compiled as Bootstrap `--bs-*`:
-  --bs-leftbar-width (default), --bs-leftbar-width-md (compact), --bs-leftbar-width-sm (condensed).
-  Reference: `src/assets/scss/config/creative/_theme-mode.scss` and
-             `src/assets/scss/custom/structure/_sidenav.scss`.
-*/
-
-/* Default/full-size sidebar (typically 260px) */
-html[data-sidenav-size="default"] .product-details-dialog {
-  left: calc(var(--bs-leftbar-width) / 2); /* shift by half the sidebar width */
-}
-
-/* Compact sidebar (typically 160px) */
-html[data-sidenav-size="compact"] .product-details-dialog {
-  left: calc(var(--bs-leftbar-width-md) / 2);
-}
-
-/* Condensed and small-hover modes (typically 70px) */
-html[data-sidenav-size="condensed"] .product-details-dialog,
-html[data-sidenav-size="sm-hover"] .product-details-dialog,
-html[data-sidenav-size="sm-hover-active"] .product-details-dialog {
-  left: calc(var(--bs-leftbar-width-sm) / 2);
-}
-
-/* Full and fullscreen sidebar modes overlay or hide the sidebar; no offset */
-html[data-sidenav-size="full"] .product-details-dialog,
-html[data-sidenav-size="fullscreen"] .product-details-dialog {
-  left: 0;
-}
-
-.product-details-content {
-  height: 89.3vh;           /* 5% smaller than 94vh; body still scrolls */
-  display: flex;
-  flex-direction: column;
-}
-
-.product-details-content .modal-body {
-  flex: 1 1 auto;           /* fill remaining height */
-  overflow: auto;           /* scroll inner body, keep header fixed */
-}
+/* Global styles intentionally left empty; no modal styles in grid component */
 </style>
