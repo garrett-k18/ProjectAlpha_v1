@@ -3,7 +3,7 @@
     LoanTabs
     - Encapsulates the tabbed UI used by the acquisitions modal and the loan-level pages
     - Keeps the AG Grid view lean by outsourcing tab structure and async loading here
-    - Uses BootstrapVue3 tabs per docs: https://github.com/cdmoro/bootstrap-vue-3#tabs
+    - Uses BootstrapVue Next tabs per docs: https://bootstrap-vue-next.github.io/bootstrap-vue-next/docs/components/tabs
   -->
   <b-tabs
     nav-class="nav-bordered mb-3"      
@@ -11,8 +11,8 @@
   >
     <!-- Snapshot (default active) -->
     <b-tab title="Snapshot" active>
-      <!-- SnapshotTab expects carousel images along with row context and productId -->
-      <SnapshotTab :images="images" :row="row" :productId="productId" />
+      <!-- SnapshotTab now fetches its own photos; no demo images passed -->
+      <SnapshotTab :row="row" :productId="productId" />
     </b-tab>
 
     <!-- Loan Details -->
@@ -49,16 +49,11 @@
 
 import { defineAsyncComponent } from 'vue'
 
-// Type used by SnapshotTab for its photo carousel prop
-import type { PhotoItem } from '@/1_global/components/PhotoCarousel.vue'
-
 // Define props for strong typing and reusability
-// - images: carousel items for Snapshot tab
 // - row: the active row object (nullable)
 // - productId: id extracted from the row (nullable)
 // These props are forwarded to the tab components.
 const props = defineProps<{
-  images: PhotoItem[]
   row: Record<string, unknown> | null
   productId: string | number | null
 }>()

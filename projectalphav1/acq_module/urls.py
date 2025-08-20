@@ -6,6 +6,9 @@ from .views.view_seller_data import (
     list_sellers,
     list_trades_by_seller,
 )
+from .views.photos_api import (
+    list_photos_by_raw_id,
+)
 
 # This defines the URL patterns for the acq_module app.
 urlpatterns = [
@@ -18,4 +21,6 @@ urlpatterns = [
     # Dropdown data sources
     path('sellers/', list_sellers, name='api_list_sellers'),
     path('trades/<int:seller_id>/', list_trades_by_seller, name='api_list_trades_by_seller'),
+    # Photos endpoint (all photo types) by SellerRawData id
+    path('photos/<int:id>/', list_photos_by_raw_id, name='api_list_photos_by_raw_id'),
 ]

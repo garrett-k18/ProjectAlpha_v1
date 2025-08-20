@@ -1,5 +1,8 @@
 import { defineStore } from "pinia";
-import axios from "axios";
+// Use centralized Axios instance instead of global axios defaults
+// Docs: Axios Instances https://axios-http.com/docs/instance
+// This instance reads baseURL from Vite env (set in .env files)
+import http from "@/lib/http";
 import { useStorage } from "@vueuse/core";
 
 // Define user interface for TypeScript type checking
@@ -20,9 +23,9 @@ interface UserProfile {
   profile_picture?: string;
 }
 
-// Configure axios defaults for Django backend
-axios.defaults.baseURL = 'http://localhost:8000'; // Django backend URL
-axios.defaults.headers.common['Content-Type'] = 'application/json';
+// Note:
+// We intentionally do NOT set global axios defaults.
+// All requests below use the http instance which points to VITE_API_BASE_URL (or "/api").
 
 /**
  * Django Authentication Store
@@ -57,10 +60,11 @@ export const useDjangoAuthStore = defineStore("djangoAuth", {
      * Set axios auth header when token changes
      */
     setAuthHeader() {
+      // Attach/detach the token to our http instance only
       if (this.token) {
-        axios.defaults.headers.common['Authorization'] = `Token ${this.token}`;
+        http.defaults.headers.common['Authorization'] = `Token ${this.token}`;
       } else {
-        delete axios.defaults.headers.common['Authorization'];
+        delete http.defaults.headers.common['Authorization'];
       }
     },
 
@@ -75,7 +79,8 @@ export const useDjangoAuthStore = defineStore("djangoAuth", {
       
       try {
         this.setAuthHeader();
-        const res = await axios.get('/api/auth/user/');
+        // Relative path so it works with Vite proxy in dev and env baseURL in prod
+        const res = await http.get('/auth/user/');
         this.authUser = res.data;
       } catch (error: any) {
         console.error('Error fetching user:', error);
@@ -102,7 +107,7 @@ export const useDjangoAuthStore = defineStore("djangoAuth", {
       this.error = null;
       
       try {
-        const res = await axios.post('/api/auth/register/', {
+        const res = await http.post('/auth/register/', {
           first_name,
           last_name,
           email,
@@ -133,7 +138,7 @@ export const useDjangoAuthStore = defineStore("djangoAuth", {
       this.error = null;
       
       try {
-        const res = await axios.post('/api/auth/login/', { email, password });
+        const res = await http.post('/auth/login/', { email, password });
         this.authUser = res.data;
         this.token = res.data.token;
         this.setAuthHeader();
@@ -155,7 +160,7 @@ export const useDjangoAuthStore = defineStore("djangoAuth", {
       if (this.token) {
         try {
           this.setAuthHeader();
-          await axios.post('/api/auth/logout/');
+          await http.post('/auth/logout/');
         } catch (error) {
           console.error('Logout error:', error);
           // Continue with logout even if API call fails
@@ -166,7 +171,7 @@ export const useDjangoAuthStore = defineStore("djangoAuth", {
       this.authUser = null;
       this.token = null;
       this.error = null;
-      delete axios.defaults.headers.common['Authorization'];
+      delete http.defaults.headers.common['Authorization'];
     },
 
     /**
@@ -182,7 +187,7 @@ export const useDjangoAuthStore = defineStore("djangoAuth", {
       
       try {
         this.setAuthHeader();
-        const res = await axios.put('/api/auth/user/', userData);
+        const res = await http.put('/auth/user/', userData);
         // Update only changed fields
         this.authUser = { ...this.authUser as UserProfile, ...userData };
         return res.data;

@@ -1,3 +1,13 @@
 {
-    "folder-color.pathColors": []
+    "folder-color.pathColors": [
+        {
+            "folderPath": "ProjectAlpha_v1\\frontend_vue\\",
+            "color": "foldercolorizer.color_00cc99",
+            "badge": "💻"
+        },
+        {
+            "folderPath": "ProjectAlpha_v1\\projectalphav1\\",
+            "color": "foldercolorizer.color_99ff00"
+        }
+    ]
 }

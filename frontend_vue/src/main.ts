@@ -1,5 +1,7 @@
 import {createApp,type Plugin} from 'vue'
 import {createPinia} from 'pinia'
+// Ensure authenticated requests include the Token header on startup
+import { useDjangoAuthStore } from '@/stores/djangoAuth'
 
 import App from './App.vue'
 import router from './router'
@@ -55,11 +57,20 @@ const MetaPlug: Plugin = {
     },
 };
 
-app.use(createPinia())
+// Create Pinia instance so we can initialize auth before mounting
+const pinia = createPinia()
+app.use(pinia)
 app.use(router)
 app.use(BootstrapVueNext)
 app.use(VueApexCharts)
 app.use(VueTheMask);
 app.use(MetaPlug);
+
+// Initialize authentication from persisted token and attach Authorization header
+// This avoids 401s when calling protected APIs (e.g., /api/acq/photos/:id/)
+const auth = useDjangoAuthStore(pinia)
+auth.setAuthHeader()
+// Fire-and-forget fetching of current user; header is already set above
+auth.initAuth()
 
 app.mount('#app')

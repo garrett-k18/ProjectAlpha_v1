@@ -15,14 +15,21 @@ class LoginView(ObtainAuthToken):
     """
     def post(self, request, *args, **kwargs):
         # Get email/username and password from request data
-        email_or_username = request.data.get('email')  # Could be email or username
-        password = request.data.get('password')
+        # Ensure they're strings to prevent TypeError during checks
+        email_or_username = request.data.get('email') or ''  # Could be email or username
+        password = request.data.get('password') or ''
+
+        # Validate required fields early to avoid 500 errors on bad input
+        if not email_or_username or not password:
+            return Response({
+                'error': 'Email and password are required'
+            }, status=status.HTTP_400_BAD_REQUEST)
         
         # Try to authenticate with the provided value as username first
         user = authenticate(username=email_or_username, password=password)
         
         # If that fails, try to find a user with the provided email and authenticate
-        if not user and '@' in email_or_username:
+        if not user and ('@' in email_or_username):
             try:
                 # Look up the user by email
                 user_obj = User.objects.get(email=email_or_username)
@@ -34,10 +41,13 @@ class LoginView(ObtainAuthToken):
         if user:
             # Generate or get token
             token, created = Token.objects.get_or_create(user=user)
-            
-            # Get user profile
-            profile = UserProfile.objects.get(user=user)
-            
+
+            # Ensure profile exists (signal should create it, but guard just in case)
+            try:
+                profile = UserProfile.objects.get(user=user)
+            except UserProfile.DoesNotExist:
+                profile = UserProfile.objects.create(user=user)
+
             # Return token and user data
             return Response({
                 'token': token.key,

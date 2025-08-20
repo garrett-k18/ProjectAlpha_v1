@@ -5,7 +5,7 @@ from django.utils.html import format_html
 from .models import (
     Seller, Trade, SellerRawData,
     Servicer, StateReference, LoanLevelAssumption, TradeLevelAssumption,
-    InternalValuation, BrokerValues, BrokerPhoto
+    InternalValuation, BrokerValues, BrokerPhoto, PublicPhoto, DocumentPhoto
 )
 
 # Inline admin classes for related models
@@ -33,6 +33,72 @@ class BrokerPhotoInline(admin.TabularInline):
             return format_html('<img src="{}" width="150" height="150" />', obj.photo.url)
         return "No Image"
     
+    image_preview.short_description = 'Preview'
+
+
+class DocumentPhotoInline(admin.TabularInline):
+    """Inline admin for DocumentPhoto model to display in SellerRawData admin.
+
+    Shows images extracted from documents with a small preview for quick review.
+    """
+    model = DocumentPhoto
+    extra = 1
+    readonly_fields = ('image_preview',)
+
+    def image_preview(self, obj):
+        """Display a thumbnail preview of the image (if present)."""
+        if obj.photo:
+            return format_html('<img src="{}" width="150" height="150" />', obj.photo.url)
+        return "No Image"
+
+    image_preview.short_description = 'Preview'
+
+
+@admin.register(DocumentPhoto)
+class DocumentPhotoAdmin(admin.ModelAdmin):
+    """Admin configuration for DocumentPhoto model (images extracted from documents)."""
+    list_display = (
+        'seller_raw_data', 'source_document_type', 'page_number',
+        'is_primary', 'photo', 'extracted_at', 'image_preview'
+    )
+    list_filter = (
+        'source_document_type',
+        'seller_raw_data__seller',
+        'seller_raw_data__trade',
+    )
+    search_fields = (
+        'seller_raw_data__seller__name',
+        'seller_raw_data__trade__trade_name',
+        'source_document_name',
+        'caption',
+    )
+    readonly_fields = ('image_preview',)
+
+    def image_preview(self, obj):
+        """Display a thumbnail preview of the image (if present)."""
+        if obj.photo:
+            return format_html('<img src="{}" width="150" height="150" />', obj.photo.url)
+        return "No Image"
+
+    image_preview.short_description = 'Preview'
+
+
+class PublicPhotoInline(admin.TabularInline):
+    """Inline admin for PublicPhoto model to display in SellerRawData admin.
+
+    This allows quick viewing and management of scraped/public photos attached to a
+    specific `SellerRawData` record, including a small image preview.
+    """
+    model = PublicPhoto
+    extra = 1
+    readonly_fields = ('image_preview',)
+
+    def image_preview(self, obj):
+        """Display a thumbnail preview of the image (if present)."""
+        if obj.photo:
+            return format_html('<img src="{}" width="150" height="150" />', obj.photo.url)
+        return "No Image"
+
     image_preview.short_description = 'Preview'
 
 # Main admin classes
@@ -93,6 +159,8 @@ class SellerRawDataAdmin(admin.ModelAdmin):
             'fields': ('mod_flag', 'mod_date', 'mod_maturity_date', 'mod_term', 'mod_rate', 'mod_initial_balance')
         }),
     )
+    # Show scraped public photos and document-extracted photos inline
+    inlines = [PublicPhotoInline, DocumentPhotoInline]
 
 @admin.register(Servicer)
 class ServicerAdmin(admin.ModelAdmin):
@@ -145,4 +213,30 @@ class BrokerPhotoAdmin(admin.ModelAdmin):
             return format_html('<img src="{}" width="150" height="150" />', obj.photo.url)
         return "No Image"
     
+    image_preview.short_description = 'Preview'
+
+
+@admin.register(PublicPhoto)
+class PublicPhotoAdmin(admin.ModelAdmin):
+    """Admin configuration for PublicPhoto model (public/scraped images)."""
+    list_display = ('seller_raw_data', 'source', 'is_primary', 'photo', 'scraped_at', 'image_preview')
+    list_filter = (
+        'source',
+        'seller_raw_data__seller',
+        'seller_raw_data__trade',
+    )
+    search_fields = (
+        'seller_raw_data__seller__name',
+        'seller_raw_data__trade__trade_name',
+        'caption',
+        'source_url',
+    )
+    readonly_fields = ('image_preview',)
+
+    def image_preview(self, obj):
+        """Display a thumbnail preview of the image (if present)."""
+        if obj.photo:
+            return format_html('<img src="{}" width="150" height="150" />', obj.photo.url)
+        return "No Image"
+
     image_preview.short_description = 'Preview'

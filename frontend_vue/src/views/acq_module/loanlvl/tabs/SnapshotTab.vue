@@ -4,81 +4,41 @@
        so it can be embedded within a modal body. -->
   <div>
     <!-- Top summary row with photos and quick facts -->
-    <b-row>
-      <b-col lg="5">
+    <!-- Use gx-0 to eliminate horizontal gutters; add px on row so content doesn't touch modal edges -->
+    <b-row class="gx-0 px-3 px-lg-4 align-items-stretch">
+      <!-- First column: Photo carousel area, displays images and thumbnails -->
+      <b-col lg="4">
         <!-- Reusable global PhotoCarousel component displays product/asset images -->
+        <!-- Show carousel only when we have images; otherwise show a small placeholder -->
         <PhotoCarousel
-          :images="images"
+          v-if="imagesToShow.length > 0"
+          :images="imagesToShow"
           :controls="false"
           :indicators="false"
           :loop="true"
           :show-thumbnails="true"
           :interval="0"
-          img-class="d-block mx-auto"
-          :img-max-width="520"
-          :img-max-height="420"
-          :container-max-width="520"
+          img-class="d-block mx-auto w-100"
+          :img-max-width="carouselWidth"
+          :img-max-height="carouselHeight"
+          :container-max-width="carouselWidth"
+          :thumb-width="thumbWidth"
+          :thumb-height="thumbHeight"
         />
+        <div v-else class="text-muted text-center py-4 small">Loading photos…</div>
       </b-col>
-      <b-col lg="7">
-        <!-- Sample static details. Replace with real bindings to `row` / `productId` as wired. -->
-        <b-form class="ps-lg-4">
-          <h3 class="mt-0">
-            Amazing Modern Chair (Orange)
-            <a href="javascript: void(0);" class="text-muted"><i class="mdi mdi-square-edit-outline ms-2"></i></a>
-          </h3>
-          <p class="mb-1">Added Date: 09/12/2018</p>
-          <p class="font-16">
-            <span class="text-warning mdi mdi-star"></span>
-            <span class="text-warning mdi mdi-star"></span>
-            <span class="text-warning mdi mdi-star"></span>
-            <span class="text-warning mdi mdi-star"></span>
-            <span class="text-warning mdi mdi-star"></span>
-          </p>
 
-          <div class="mt-3">
-            <h4><span class="badge badge-success-lighten">Instock</span></h4>
-          </div>
+      <!-- Second column: Property details area, shows dynamic details from SellerRawData -->
+      <b-col lg="4">
+        <!-- Use the SnapshotDetails component to display property information from the row data -->
+        <div class="ps-lg-4">
+          <SnapshotDetails :row="row" />
+        </div>
+      </b-col>
 
-          <div class="mt-4">
-            <h6 class="font-14">Retail Price:</h6>
-            <h3> $139.58</h3>
-          </div>
-
-          <div class="mt-4">
-            <h6 class="font-14">Quantity</h6>
-            <div class="d-flex">
-              <input type="number" min="1" value="1" class="form-control" placeholder="Qty" style="width: 90px;" />
-              <b-button variant="danger" class="ms-2"><i class="mdi mdi-cart me-1"></i> Add to cart</b-button>
-            </div>
-          </div>
-
-          <div class="mt-4">
-            <h6 class="font-14">Description:</h6>
-            <p>
-              It is a long established fact that a reader will be distracted by the readable content of a page when
-              looking at its layout. The point of using Lorem Ipsum is that it has a more-or-less normal distribution
-              of letters, as opposed to using 'Content here, content here', making it look like readable English.
-            </p>
-          </div>
-
-          <div class="mt-4">
-            <b-row>
-              <b-col md="4">
-                <h6 class="font-14">Available Stock:</h6>
-                <p class="text-sm lh-150">1784</p>
-              </b-col>
-              <b-col md="4">
-                <h6 class="font-14">Number of Orders:</h6>
-                <p class="text-sm lh-150">5,458</p>
-              </b-col>
-              <b-col md="4">
-                <h6 class="font-14">Revenue:</h6>
-                <p class="text-sm lh-150">$8,57,014</p>
-              </b-col>
-            </b-row>
-          </div>
-        </b-form>
+      <!-- Third column: Spacer card, provides visual separation between photo and details sections -->
+      <b-col lg="4" class="px-3 d-none d-lg-block">
+        <b-card class="h-100 bg-body border-0"></b-card>
       </b-col>
     </b-row>
 
@@ -160,20 +120,85 @@
 // Import the reusable global PhotoCarousel and its PhotoItem type for strong typing
 import PhotoCarousel from '@/1_global/components/PhotoCarousel.vue'
 import type { PhotoItem } from '@/1_global/components/PhotoCarousel.vue'
+// Import the SnapshotDetails component to display property information
+import SnapshotDetails from '@/views/acq_module/loanlvl/components/snapshotdetails.vue'
 
-// Vue composition API helpers (no state here, only props)
-import { withDefaults, defineProps } from 'vue'
+// Vue composition API helpers
+import { withDefaults, defineProps, ref, computed, watch } from 'vue'
+// Centralized Axios instance (baseURL from env; proxied to Django in dev)
+import http from '@/lib/http'
+// Photos API is public in development; no auth gating required
 
-// Strongly-typed props so parent can pass images and optional context
+// Strongly-typed props for context
 const props = withDefaults(defineProps<{
-  // images: array of photo items displayed in the carousel
-  images: PhotoItem[]
   // row: optional dataset row for future bindings
   row?: Record<string, any> | null
   // productId: optional identifier for the asset
   productId?: string | number | null
+  // Optional sizing overrides for the PhotoCarousel
+  // Accept number (pixels) or string (e.g., '100%')
+  carouselWidth?: number | string
+  carouselHeight?: number | string
+  // Optional thumbnail sizing for PhotoCarousel
+  thumbWidth?: number | string
+  thumbHeight?: number | string
 }>(), {
   row: null,
   productId: null,
+  // Fill the column by default and give a taller viewport
+  carouselWidth: '100%',
+  carouselHeight: 640,
+  // Larger, clearer thumbnails by default
+  thumbWidth: 120,
+  thumbHeight: 90,
 })
+
+// Local state: dynamically fetched images from backend
+const fetchedImages = ref<PhotoItem[]>([])
+
+// Compute the effective images to display: only fetched photos
+const imagesToShow = computed<PhotoItem[]>(() => fetchedImages.value || [])
+
+// Determine which SellerRawData id to load photos for
+// Order: productId prop -> row.id -> null
+const sourceId = computed<number | null>(() => {
+  const idFromProduct = props.productId != null ? Number(props.productId) : null
+  const idFromRow = (props.row && props.row.id != null) ? Number(props.row.id) : null
+  return idFromProduct ?? idFromRow ?? null
+})
+
+// No auth token required for photo fetches (public endpoint in development)
+
+// Fetch photos from backend and normalize into PhotoItem[]
+async function loadPhotos(id: number) {
+  try {
+    // GET /api/acq/photos/<id>/ via baseURL '/api' in dev
+    const res = await http.get(`/acq/photos/${id}/`)
+    // Response already in { src, alt?, thumb? } format
+    const items = (res.data || []) as PhotoItem[]
+    fetchedImages.value = items
+    // Debug: id and count to help diagnose when demo images still show
+    console.debug('[SnapshotTab] loaded photos for', id, 'count:', items.length)
+  } catch (err) {
+    // Provide actionable logging, but avoid leaking sensitive data
+    const status = (err as any)?.response?.status
+    if (status === 401) {
+      console.warn('[SnapshotTab] 401 Unauthorized fetching photos. Check that an auth token exists and is attached.')
+    } else {
+      console.warn('Failed to load photos for id', id, err)
+    }
+    fetchedImages.value = []
+  }
+}
+
+// Load immediately when id is available and whenever it changes
+watch(sourceId, (id) => {
+  if (id && !Number.isNaN(id)) {
+    loadPhotos(id)
+  } else {
+    fetchedImages.value = []
+  }
+}, { immediate: true })
+
+// No token watcher needed since photos endpoint is public in development
 </script>

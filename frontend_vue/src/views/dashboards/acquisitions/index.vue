@@ -124,13 +124,31 @@
     <!-- Docs: https://bootstrap-vue-next.github.io/bootstrap-vue-next/docs/components/modal -->
     <BModal
       v-model="showLoanModal"
-      :title="modalTitle"
       size="xl"
       body-class="p-0"
       dialog-class="product-details-dialog"
       content-class="product-details-content"
+      hide-footer
+      @shown="onModalShown"
       @hidden="onModalHidden"
     >
+      <!-- Custom header with action button (far right) -->
+      <template #header>
+        <div class="d-flex align-items-center w-100">
+          <h5 class="modal-title mb-0">{{ modalTitle }}</h5>
+          <div class="ms-auto">
+            <button
+              type="button"
+              class="btn btn-sm btn-primary"
+              @click="openFullPage"
+              title="Open full page (Ctrl + Enter)"
+              aria-label="Open full page"
+            >
+              Full Page <span class="text-white-50">(Ctrl + Enter)</span>
+            </button>
+          </div>
+        </div>
+      </template>
       <!-- Render the centralized loan-level wrapper inside the modal -->
       <LoanLevelIndex
         :productId="selectedId"
@@ -201,6 +219,13 @@ export default {
   },
   methods: {
     /**
+     * onModalShown
+     * Attach a keydown listener while modal is open to support Ctrl+Enter shortcut.
+     */
+    onModalShown(): void {
+      document.addEventListener('keydown', this.onKeydown as any)
+    },
+    /**
      * onOpenLoan
      * Called by IdLinkCell via data-grid when user clicks the ID and
      * openMode==='modal'. Opens the BootstrapVue Next modal and stores payload.
@@ -212,9 +237,33 @@ export default {
       this.showLoanModal = true
     },
     /**
+     * openFullPage
+     * Navigate to the full page route with current selection, then hide modal.
+     */
+    openFullPage(): void {
+      if (!this.selectedId) return
+      const query: any = { id: this.selectedId }
+      if (this.selectedAddr) query.addr = this.selectedAddr
+      // Close modal first for cleanliness
+      this.showLoanModal = false
+      // Navigate to the loan-level details page
+      this.$router.push({ path: '/loanlvl/products-details', query })
+    },
+    /**
+     * onKeydown
+     * Handles Ctrl+Enter shortcut to trigger openFullPage while modal is open.
+     */
+    onKeydown(e: KeyboardEvent): void {
+      if (e.ctrlKey && (e.key === 'Enter' || e.code === 'Enter')) {
+        e.preventDefault()
+        this.openFullPage()
+      }
+    },
+    /**
      * Clear state when modal fully hides
      */
     onModalHidden(): void {
+      document.removeEventListener('keydown', this.onKeydown as any)
       this.selectedId = null
       this.selectedRow = null
       this.selectedAddr = null

@@ -199,13 +199,17 @@ export default defineComponent({
     })
 
     // Compute inline style for the outer carousel container
+    // Always fill available column width; optionally constrain via max-width if provided
     const containerStyleObject = computed(() => {
-      if (!props.containerMaxWidth) return {} as Record<string, string>
-      const mw =
-        typeof props.containerMaxWidth === 'number'
-          ? `${props.containerMaxWidth}px`
-          : props.containerMaxWidth
-      return { maxWidth: mw, width: '100%' } as Record<string, string>
+      const style: Record<string, string> = { width: '100%' }
+      if (props.containerMaxWidth) {
+        const mw =
+          typeof props.containerMaxWidth === 'number'
+            ? `${props.containerMaxWidth}px`
+            : props.containerMaxWidth
+        style.maxWidth = mw
+      }
+      return style
     })
 
     // Method to set the current slide from thumbnail click

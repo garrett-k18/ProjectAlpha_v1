@@ -11,6 +11,9 @@ export default defineConfig({
   // Dev server proxy: forward /api requests to Django backend
   // Docs: https://vitejs.dev/config/server-options.html#server-proxy
   server: {
+    // Listen on all interfaces so the app is reachable from other devices on LAN
+    // Docs: https://vitejs.dev/config/server-options.html#server-host
+    host: true,
     proxy: {
       '/api': {
         target: 'http://localhost:8000', // Django dev server

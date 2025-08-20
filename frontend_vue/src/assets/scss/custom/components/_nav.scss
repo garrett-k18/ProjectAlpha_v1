@@ -5,7 +5,9 @@
 .nav-tabs,
 .nav-pills {
     > li {
-        > a {
+        // Bootstrap 5 allows <a> or <button> as the tab control.
+        // Target the standard class applied to both: .nav-link
+        > .nav-link {
             color: var(--#{$prefix}secondary-color);
             font-weight: $font-weight-semibold;
         }
@@ -13,7 +15,8 @@
 }
 
 .nav-pills {
-    > a {
+    // When pills are used without <li> wrappers, ensure direct children get styled
+    > .nav-link {
         color: var(--#{$prefix}body-color);
         font-weight: $font-weight-semibold;
     }
@@ -35,11 +38,12 @@
     }
 
     li {
-        a {
-            border: 0;
+        // Normalize default Bootstrap tab borders and spacing
+        .nav-link {
+            border: 0; // remove default borders so only bottom border shows on active
             padding: 0.625rem 1.25rem;
         }
-        a.active {
+        .nav-link.active {
             border-bottom: 2px solid var(--#{$prefix}primary);
         }
     }
