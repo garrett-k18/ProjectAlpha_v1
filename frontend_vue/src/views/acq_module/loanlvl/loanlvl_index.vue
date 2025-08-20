@@ -13,7 +13,7 @@
       Delegated tab structure to `LoanTabs.vue` for modularity and reuse.
       Docs (BootstrapVue Next tabs used inside LoanTabs): https://bootstrap-vue-next.github.io/bootstrap-vue-next/docs/components/tabs
     -->
-    <LoanTabs :row="row" :productId="productId" />
+    <LoanTabs :row="effectiveRow" :productId="productId" />
   </component>
 </template>
 
@@ -27,7 +27,9 @@ import LoanTabs from '@/views/acq_module/loanlvl/tabs/LoanTabs.vue'
 // (No demo images; SnapshotTab fetches real photos from backend)
 
 // Vue reactivity utilities
-import { ref, computed, toRef, withDefaults, defineProps } from 'vue'
+import { ref, computed, toRef, withDefaults, defineProps, watch } from 'vue'
+// Centralized Axios instance
+import http from '@/lib/http'
 
 // Strongly-typed props forwarded from router or parent (e.g., when used in a modal)
 const props = withDefaults(defineProps<{
@@ -78,6 +80,33 @@ const displayTitle = computed<string>(() => {
 })
 
 // No demo images; SnapshotTab will render a loading placeholder until fetch
+
+// Loaded row for full-page navigation when only an id is available
+const fetchedRow = ref<Record<string, any> | null>(null)
+
+// Prefer explicit row prop when provided (e.g., in modal), otherwise fallback to fetched
+const effectiveRow = computed(() => row.value ?? fetchedRow.value)
+
+// Fetch SellerRawData by id when navigating to full-page and row is not provided
+async function loadRowById(id: number) {
+  try {
+    const res = await http.get(`/acq/raw-data/by-id/${id}/`)
+    // Return {} when not found; normalize to null to simplify downstream checks
+    fetchedRow.value = res.data && Object.keys(res.data).length ? res.data : null
+    console.debug('[LoanLevelIndex] loaded row for', id)
+  } catch (err) {
+    console.warn('[LoanLevelIndex] failed to load row for', id, err)
+    fetchedRow.value = null
+  }
+}
+
+// Trigger fetch when productId changes and only if a row isn't already supplied
+watch(productId, (raw) => {
+  const id = raw != null ? Number(raw) : NaN
+  if (!row.value && Number.isFinite(id)) {
+    loadRowById(id)
+  }
+}, { immediate: true })
 </script>
 
 <style>

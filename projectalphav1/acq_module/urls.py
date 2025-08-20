@@ -5,6 +5,7 @@ from .views.view_seller_data import (
     get_seller_rawdata_field_names,
     list_sellers,
     list_trades_by_seller,
+    get_seller_raw_by_id,
 )
 from .views.photos_api import (
     list_photos_by_raw_id,
@@ -16,6 +17,8 @@ urlpatterns = [
     re_path(r'^raw-data/(?P<seller_id>\d+)/(?P<trade_id>\d+)/$', get_seller_trade_data, name='api_get_seller_trade_data'),
     # Get all trades for a specific seller
     path('raw-data/<int:seller_id>/', get_seller_trade_data, name='api_get_seller_data'),
+    # Get a single SellerRawData by id (flat dict of fields)
+    path('raw-data/by-id/<int:id>/', get_seller_raw_by_id, name='api_get_seller_raw_by_id'),
     # Get concrete field names for SellerRawData (for AG Grid columnDefs)
     path('raw-data/fields/', get_seller_rawdata_field_names, name='api_get_seller_rawdata_fields'),
     # Dropdown data sources

@@ -140,3 +140,26 @@ def list_trades_by_seller(request, seller_id: int):
         .values('id', 'trade_name')
     )
     return JsonResponse(list(trades), safe=False)
+
+
+def get_seller_raw_by_id(request, id: int):
+    """
+    Fetch a single SellerRawData row by its primary key `id` and return a flat dict
+    of its concrete fields suitable for direct frontend consumption.
+
+    Args:
+        request: Django request object (unused)
+        id (int): Primary key of SellerRawData
+
+    Returns:
+        JsonResponse: {} when not found, or a dict of field: value when found
+    """
+    # Use values() to avoid custom encoders; returns a plain dict per row
+    entry = (
+        SellerRawData.objects
+        .filter(id=id)
+        .values()
+        .first()
+    )
+    # Return empty object if not found for predictable client handling
+    return JsonResponse(entry or {}, safe=False)

@@ -106,7 +106,10 @@
  * - Ensures modularity by defining a clear interface and avoiding side effects.
  */
 
-import { defineComponent, computed } from 'vue'
+import { defineComponent, computed, ref, watch } from 'vue'
+import type { PropType } from 'vue'
+// Centralized Axios instance (Vite baseURL proxies to Django in dev)
+import http from '@/lib/http'
 
 export default defineComponent({
   name: 'SnapshotDetails', // Component name for easy identification in Vue DevTools
@@ -117,8 +120,18 @@ export default defineComponent({
      * Default is null to handle cases where no data is provided.
      */
     row: {
-      type: Object as () => Record<string, any> | null,
+      type: Object as PropType<Record<string, any> | null>,
       default: null
+    },
+    /**
+     * Optional identifier for the SellerRawData row. When provided and `row` is
+     * not passed (e.g., full-page navigation), this component will fetch the row
+     * from the backend for self-sufficiency, mirroring how other tabs handle
+     * full-page vs modal contexts.
+     */
+    productId: {
+      type: [String, Number] as PropType<string | number | null>,
+      default: null,
     }
   },
   setup(props) {
@@ -156,36 +169,73 @@ export default defineComponent({
       return 'N/A'
     }
 
+    // Local state for fallback-fetched row (used only when prop `row` is not provided)
+    const fetchedRow = ref<Record<string, any> | null>(null)
+
+    /**
+     * Normalize access to the active row: prefer explicit prop `row` (modal),
+     * otherwise fallback to `fetchedRow` (full-page). Expose as `row` so the
+     * existing template bindings remain unchanged.
+     */
+    const row = computed<Record<string, any> | null>(() => props.row ?? fetchedRow.value)
+
     // Computed properties for formatting various fields
-    const formattedBalance = computed(() => formatCurrency(props.row?.current_balance))
-    const formattedTotalDebt = computed(() => formatCurrency(props.row?.total_debt))
-    const formattedArvValue = computed(() => formatCurrency(props.row?.seller_arv_value))
-    const formattedAsIsValue = computed(() => formatCurrency(props.row?.seller_asis_value))
-    const formattedInterestRate = computed(() => formatPercentage(props.row?.interest_rate))
-    const formattedDueDate = computed(() => formatDate(props.row?.next_due_date))
+    const formattedBalance = computed(() => formatCurrency(row.value?.current_balance))
+    const formattedTotalDebt = computed(() => formatCurrency(row.value?.total_debt))
+    const formattedArvValue = computed(() => formatCurrency(row.value?.seller_arv_value))
+    const formattedAsIsValue = computed(() => formatCurrency(row.value?.seller_asis_value))
+    const formattedInterestRate = computed(() => formatPercentage(row.value?.interest_rate))
+    const formattedDueDate = computed(() => formatDate(row.value?.next_due_date))
 
     /**
      * Computed property to check if any data is available for display.
      * Used to determine whether to show the fallback message.
      */
     const hasAnyData = computed(() => {
-      return props.row && (
-        props.row.street_address ||
-        props.row.city ||
-        props.row.state ||
-        props.row.zip ||
-        props.row.asset_status ||
-        props.row.current_balance ||
-        props.row.interest_rate ||
-        props.row.next_due_date ||
-        props.row.months_dlq ||
-        props.row.total_debt ||
-        props.row.seller_arv_value ||
-        props.row.seller_asis_value
-      )
+      const r = row.value
+      return !!(r && (
+        r.street_address ||
+        r.city ||
+        r.state ||
+        r.zip ||
+        r.asset_status ||
+        r.current_balance ||
+        r.interest_rate ||
+        r.next_due_date ||
+        r.months_dlq ||
+        r.total_debt ||
+        r.seller_arv_value ||
+        r.seller_asis_value
+      ))
     })
 
+    /**
+     * Fetch helper: load a SellerRawData row by id. Returns {} when not found; we
+     * normalize to null for simpler checks.
+     */
+    async function loadRowById(id: number) {
+      try {
+        const res = await http.get(`/acq/raw-data/by-id/${id}/`)
+        fetchedRow.value = res.data && Object.keys(res.data).length ? res.data : null
+        // eslint-disable-next-line no-console
+        console.debug('[SnapshotDetails] loaded row for', id)
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('[SnapshotDetails] failed to load row for', id, err)
+        fetchedRow.value = null
+      }
+    }
+
+    // Trigger fallback fetch on productId change when no prop `row` is provided
+    watch(() => props.productId, (raw) => {
+      const id = raw != null ? Number(raw) : NaN
+      if (!props.row && Number.isFinite(id)) {
+        loadRowById(id)
+      }
+    }, { immediate: true })
+
     return {
+      row,
       formattedBalance,
       formattedTotalDebt,
       formattedArvValue,

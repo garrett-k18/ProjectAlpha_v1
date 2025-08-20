@@ -4,41 +4,52 @@
        so it can be embedded within a modal body. -->
   <div>
     <!-- Top summary row with photos and quick facts -->
-    <!-- Use gx-0 to eliminate horizontal gutters; add px on row so content doesn't touch modal edges -->
-    <b-row class="gx-0 px-3 px-lg-4 align-items-stretch">
+    <!-- Use responsive gutters for better spacing; keep padding so content doesn't touch edges -->
+    <!-- Center the two primary columns horizontally; rely on Bootstrap utilities per docs -->
+    <b-row class="g-3 g-lg-4 px-3 px-lg-4 align-items-stretch justify-content-center">
       <!-- First column: Photo carousel area, displays images and thumbnails -->
-      <b-col lg="4">
-        <!-- Reusable global PhotoCarousel component displays product/asset images -->
-        <!-- Show carousel only when we have images; otherwise show a small placeholder -->
-        <PhotoCarousel
-          v-if="imagesToShow.length > 0"
-          :images="imagesToShow"
-          :controls="false"
-          :indicators="false"
-          :loop="true"
-          :show-thumbnails="true"
-          :interval="0"
-          img-class="d-block mx-auto w-100"
-          :img-max-width="carouselWidth"
-          :img-max-height="carouselHeight"
-          :container-max-width="carouselWidth"
-          :thumb-width="thumbWidth"
-          :thumb-height="thumbHeight"
-        />
-        <div v-else class="text-muted text-center py-4 small">Loading photos…</div>
-      </b-col>
-
-      <!-- Second column: Property details area, shows dynamic details from SellerRawData -->
-      <b-col lg="4">
-        <!-- Use the SnapshotDetails component to display property information from the row data -->
-        <div class="ps-lg-4">
-          <SnapshotDetails :row="row" />
+      <b-col lg="4" class="d-flex">
+        <!-- Match Hyper UI card look used by Details/Map: white background + subtle shadow -->
+        <div class="w-100">
+          <div class="card h-100 d-flex flex-column">
+            <div class="card-body d-flex flex-column justify-content-center">
+              <!-- Reusable global PhotoCarousel component displays product/asset images -->
+              <!-- Show carousel only when we have images; otherwise show a small placeholder -->
+              <PhotoCarousel
+                v-if="imagesToShow.length > 0"
+                :images="imagesToShow"
+                :controls="false"
+                :indicators="false"
+                :loop="true"
+                :show-thumbnails="true"
+                :interval="0"
+                img-class="d-block mx-auto w-100"
+                :img-max-width="carouselWidth"
+                :img-max-height="carouselHeight"
+                :container-max-width="carouselWidth"
+                :thumb-width="thumbWidth"
+                :thumb-height="thumbHeight"
+              />
+              <div v-else class="text-muted text-center py-4 small">Loading photos…</div>
+            </div>
+          </div>
         </div>
       </b-col>
 
-      <!-- Third column: Spacer card, provides visual separation between photo and details sections -->
-      <b-col lg="4" class="px-3 d-none d-lg-block">
-        <b-card class="h-100 bg-body border-0"></b-card>
+      <!-- Second column: Property details area, shows dynamic details from SellerRawData -->
+      <b-col lg="4" class="d-flex">
+        <!-- Use the SnapshotDetails component to display property information from the row data -->
+        <div class="ps-lg-4 w-100">
+          <!-- Apply h-100 via root-attribute inheritance so the card fills the column height -->
+          <SnapshotDetails class="h-100 d-flex flex-column" :row="row" :productId="productId" />
+        </div>
+      </b-col>
+      
+      <!-- Third column: Property map to the right of Property details -->
+      <b-col lg="4" class="d-flex">
+        <div class="ps-lg-4 w-100">
+          <PropertyMap class="h-100 d-flex flex-column" :row="row" :productId="productId" :height="300" />
+        </div>
       </b-col>
     </b-row>
 
@@ -122,6 +133,8 @@ import PhotoCarousel from '@/1_global/components/PhotoCarousel.vue'
 import type { PhotoItem } from '@/1_global/components/PhotoCarousel.vue'
 // Import the SnapshotDetails component to display property information
 import SnapshotDetails from '@/views/acq_module/loanlvl/components/snapshotdetails.vue'
+// Reusable map component to show geocoded address
+import PropertyMap from '@/1_global/components/PropertyMap.vue'
 
 // Vue composition API helpers
 import { withDefaults, defineProps, ref, computed, watch } from 'vue'
@@ -145,9 +158,9 @@ const props = withDefaults(defineProps<{
 }>(), {
   row: null,
   productId: null,
-  // Fill the column by default and give a taller viewport
-  carouselWidth: '100%',
-  carouselHeight: 640,
+  // Use fixed dimensions to ensure consistent photo sizing and prevent card resizing
+  carouselWidth: 500,
+  carouselHeight: 300,
   // Larger, clearer thumbnails by default
   thumbWidth: 120,
   thumbHeight: 90,
@@ -198,6 +211,12 @@ watch(sourceId, (id) => {
   } else {
     fetchedImages.value = []
   }
+}, { immediate: true })
+
+// Debug: observe when row data is supplied so we can verify full-page fetch vs modal-provided props
+watch(() => props.row, (r) => {
+  // eslint-disable-next-line no-console
+  console.debug('[SnapshotTab] row updated:', r ? Object.keys(r) : null)
 }, { immediate: true })
 
 // No token watcher needed since photos endpoint is public in development

@@ -184,6 +184,7 @@ export default defineComponent({
     })
 
     // Compute inline style for main image based on props
+    // Using fixed dimensions with object-fit: cover to ensure consistent sizing
     const imgStyleObject = computed(() => {
       const mw = typeof props.imgMaxWidth === 'number' ? `${props.imgMaxWidth}px` : props.imgMaxWidth
       const mh = props.imgMaxHeight
@@ -191,11 +192,23 @@ export default defineComponent({
           ? `${props.imgMaxHeight}px`
           : props.imgMaxHeight
         : undefined
-      return {
-        maxWidth: mw,
-        ...(mh ? { maxHeight: mh } : {}),
-        objectFit: 'contain',
-      } as Record<string, string>
+      
+      // Use fixed width and height instead of max-width/max-height for consistent dimensions
+      const style: Record<string, string> = {
+        objectFit: 'cover', // Changed from 'contain' to 'cover' for consistent sizing
+      }
+      
+      // Set fixed dimensions if both width and height are provided
+      if (mw && mh) {
+        style.width = mw
+        style.height = mh
+      } else {
+        // Fallback to max dimensions if only one is provided
+        style.maxWidth = mw
+        if (mh) style.maxHeight = mh
+      }
+      
+      return style
     })
 
     // Compute inline style for the outer carousel container
