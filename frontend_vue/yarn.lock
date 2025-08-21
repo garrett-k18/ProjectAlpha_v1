@@ -113,12 +113,12 @@
   resolved "https://registry.npmjs.org/@fullcalendar/vue3/-/vue3-6.1.15.tgz"
   integrity sha512-ctfTICGrNEIj7gmLHQcUYe0WzDTSW5Vd9hyOnVChxPU75AZU9WqdDMkHwJYnfNxNhT6QQuiMHq/qsRRd5zQwOw==
 
-"@googlemaps/js-api-loader@^1.12.11":
-  version "1.16.8"
-  resolved "https://registry.npmjs.org/@googlemaps/js-api-loader/-/js-api-loader-1.16.8.tgz"
-  integrity sha512-CROqqwfKotdO6EBjZO/gQGVTbeDps5V7Mt9+8+5Q+jTg5CRMi3Ii/L9PmV3USROrt2uWxtGzJHORmByxyo9pSQ==
+"@googlemaps/js-api-loader@^1.16.10", "@googlemaps/js-api-loader@^1.16.2":
+  version "1.16.10"
+  resolved "https://registry.npmjs.org/@googlemaps/js-api-loader/-/js-api-loader-1.16.10.tgz"
+  integrity sha512-c2erv2k7P2ilYzMmtYcMgAR21AULosQuUHJbStnrvRk2dG93k5cqptDrh9A8p+ZNlyhiqEOgHW7N9PAizdUM7Q==
 
-"@googlemaps/markerclusterer@^2.0.6":
+"@googlemaps/markerclusterer@^2.4.0":
   version "2.5.3"
   resolved "https://registry.npmjs.org/@googlemaps/markerclusterer/-/markerclusterer-2.5.3.tgz"
   integrity sha512-x7lX0R5yYOoiNectr10wLgCBasNcXFHiADIBdmn7jQllF2B5ENQw5XtZK+hIw4xnV0Df0xhN4LN98XqA5jaiOw==
@@ -150,6 +150,11 @@
   version "18.2.4"
   resolved "https://registry.npmjs.org/@tsconfig/node18/-/node18-18.2.4.tgz"
   integrity sha512-5xxU8vVs9/FNcvm3gE07fPbn9tl6tqGGWA9tSlwsUEkBxtRnTsNmwrV8gasZ9F/EobaSv9+nu8AxUKccw77JpQ==
+
+"@types/google.maps@^3.58.1":
+  version "3.58.1"
+  resolved "https://registry.npmjs.org/@types/google.maps/-/google.maps-3.58.1.tgz"
+  integrity sha512-X9QTSvGJ0nCfMzYOnaVs/k6/4L+7F5uCS+4iUmkLEls6J9S/Phv+m/i3mDeyc49ZBgwab3EFO1HEoBY7k98EGQ==
 
 "@types/lodash-es@^4.17.6":
   version "4.17.12"
@@ -2683,12 +2688,7 @@ validate-npm-package-license@^3.0.1:
     spdx-correct "^3.0.0"
     spdx-expression-parse "^3.0.0"
 
-vite-plugin-css-injected-by-js@^3.2.1:
-  version "3.5.1"
-  resolved "https://registry.npmjs.org/vite-plugin-css-injected-by-js/-/vite-plugin-css-injected-by-js-3.5.1.tgz"
-  integrity sha512-9ioqwDuEBxW55gNoWFEDhfLTrVKXEEZgl5adhWmmqa88EQGKfTmexy4v1Rh0pAS6RhKQs2bUYQArprB32JpUZQ==
-
-"vite@^4.0.0 || ^5.0.0", vite@^4.4.6, vite@>2.0.0-0:
+"vite@^4.0.0 || ^5.0.0", vite@^4.4.6:
   version "4.5.3"
   resolved "https://registry.npmjs.org/vite/-/vite-4.5.3.tgz"
   integrity sha512-kQL23kMeX92v3ph7IauVkXkikdDRsYMGTVl5KY2E9OY4ONLvkHf04MDTbnfo6NKxZiDLWzVpP5oTa8hQD8U3dg==
@@ -2782,7 +2782,7 @@ vue-tsc@^1.8.6:
     "@vue/language-core" "1.8.27"
     semver "^7.5.4"
 
-"vue@^2.0.0 || >=3.0.0", "vue@^2.6.14 || ^3.3.0", vue@^3.0.0, "vue@^3.0.0-0 || ^2.6.0", "vue@^3.0.0-0 || ^2.7.0", vue@^3.0.11, vue@^3.0.5, vue@^3.2.0, vue@^3.2.2, vue@^3.2.25, vue@^3.2.41, vue@^3.3.4, vue@^3.5.0, "vue@> 3.0.0", vue@>=2.5.17, vue@>=3, vue@3.5.5:
+"vue@^2.0.0 || >=3.0.0", "vue@^2.6.14 || ^3.3.0", vue@^3, vue@^3.0.0, "vue@^3.0.0-0 || ^2.6.0", "vue@^3.0.0-0 || ^2.7.0", vue@^3.0.11, vue@^3.0.5, vue@^3.2.0, vue@^3.2.2, vue@^3.2.25, vue@^3.2.41, vue@^3.3.4, vue@^3.5.0, "vue@> 3.0.0", vue@>=2.5.17, vue@>=3, vue@3.5.5:
   version "3.5.5"
   resolved "https://registry.npmjs.org/vue/-/vue-3.5.5.tgz"
   integrity sha512-ybC+xn67K4+df1yVeov4UjBGyVcXM0a1g7JVZr+pWVUX3xF6ntXU0wIjkTkduZBUIpxTlsftJSxz2kwhsT7dgA==
@@ -2841,15 +2841,14 @@ vue3-form-wizard@^0.2.1:
   resolved "https://registry.npmjs.org/vue3-form-wizard/-/vue3-form-wizard-0.2.4.tgz"
   integrity sha512-muf+lxSCSv0Yl9mu5OT6+cdROQ4nZdKuaHhiaazDVSiLWKEmX5wOcKwXhXG7mqaTg8q25u4J34kBvVuVzGSIXw==
 
-vue3-google-map@^0.16.0:
-  version "0.16.0"
-  resolved "https://registry.npmjs.org/vue3-google-map/-/vue3-google-map-0.16.0.tgz"
-  integrity sha512-9I5g3ZjfSHbf+1jjyZicmbTdTuMT03zO5gwmKLfIbEvcde4OVJT6AI6iQXSXH0HJpSrEd78g5VTZ9mqQ+fOAkA==
+vue3-google-map@^0.23.1:
+  version "0.23.1"
+  resolved "https://registry.npmjs.org/vue3-google-map/-/vue3-google-map-0.23.1.tgz"
+  integrity sha512-fdNUy8ycn4cNWzqynjSRI8mtiCe/KpRSnIkgwiZsTRhdIm7U9bTFp+sEDjHnP/T3Zqf+1KNxMfwVnOnBiCEDPA==
   dependencies:
-    "@googlemaps/js-api-loader" "^1.12.11"
-    "@googlemaps/markerclusterer" "^2.0.6"
+    "@googlemaps/js-api-loader" "^1.16.2"
+    "@googlemaps/markerclusterer" "^2.4.0"
     fast-deep-equal "^3.1.3"
-    vite-plugin-css-injected-by-js "^3.2.1"
 
 vuelidate@^0.7.7:
   version "0.7.7"

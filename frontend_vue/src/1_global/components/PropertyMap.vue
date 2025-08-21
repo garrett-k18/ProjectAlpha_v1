@@ -22,10 +22,12 @@
           :zoom-control="true"
           :clickable-icons="false"
           :disable-default-ui="false"
+          :map-id="mapId"
           :style="{ height: typeof height === 'number' ? `${height}px` : (height || '100%'), width: '100%' }"
         >
-          <!-- TODO: Switch to <AdvancedMarker> after upgrading vue3-google-map to a version that exports it -->
-          <Marker v-if="showMarker && markerPosition" :options="{ position: markerPosition }" />
+          <!-- Use AdvancedMarker when a vector Map ID is configured; otherwise fall back to legacy Marker -->
+          <AdvancedMarker v-if="showMarker && markerPosition && useAdvanced" :options="{ position: markerPosition }" />
+          <Marker v-else-if="showMarker && markerPosition" :options="{ position: markerPosition }" />
         </GoogleMap>
         <div v-else class="text-muted small d-flex align-items-center justify-content-center h-100">Loading map…</div>
 
@@ -38,7 +40,7 @@
 <script setup lang="ts">
 // Imports at the top: Vue 3 Composition API and vue3-google-map components.
 import { computed, ref, watch, watchEffect, withDefaults, defineProps } from 'vue'
-import { GoogleMap, Marker } from 'vue3-google-map'
+import { GoogleMap, Marker, AdvancedMarker } from 'vue3-google-map'
 import { googleApiPromise } from '@/lib/googleMapsLoader'
 import http from '@/lib/http'
 
@@ -75,10 +77,14 @@ const props = withDefaults(defineProps<{
   defaultMapType: 'roadmap',
 })
 
-// Read API key from Vite env. This is required by vue3-google-map to load Maps JS API.
+// Read API key from Vite env (kept for potential future usage)
 const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined
-// Optional: When we migrate to AdvancedMarker, provide a vector map style id via VITE_GMAPS_MAP_ID
-// const mapId = import.meta.env.VITE_GMAPS_MAP_ID as string | undefined
+// Vector Map ID enables AdvancedMarker and vector basemap styling
+const mapId = import.meta.env.VITE_GMAPS_MAP_ID as string | undefined
+// Prefer AdvancedMarker when a Map ID is available; otherwise fall back
+const useAdvanced = computed<boolean>(() => {
+  return !!mapId
+})
 
 // Local state for fallback-fetched row when `row` prop is not provided
 const fetchedRow = ref<Record<string, any> | null>(null)

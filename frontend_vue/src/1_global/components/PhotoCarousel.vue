@@ -6,9 +6,9 @@
     - Exposes v-model (modelValue) to control the active slide from parent components.
     - Avoids custom JS/CSS and relies on framework utilities, per project guidelines.
   -->
-  <div>
+  <div class="d-flex flex-column h-100">
     <!-- Main carousel region -->
-    <div class="text-center d-block mb-3 mx-auto" :style="containerStyleObject">
+    <div class="text-center d-block flex-fill mb-2 mx-auto" :style="containerStyleObject">
       <!--
         b-carousel props:
         - v-model binds the active slide index (number)
@@ -22,18 +22,18 @@
         :controls="controls"
         :indicators="indicators"
         :wrap="loop"
-        :class="bgTransparent ? 'bg-transparent' : ''"
+        :class="['h-100', bgTransparent ? 'bg-transparent' : '']"
         @sliding-start="$emit('slide', current)"
         @sliding-end="$emit('slid', current)"
       >
-        <!-- Render a slide for each image; set background via built-in prop to override default gray -->
-        <b-carousel-slide v-for="(img, idx) in images" :key="idx" :background="slideBackground">
+        <!-- Render a slide for each image; make slide fill height for stable layout -->
+        <b-carousel-slide v-for="(img, idx) in images" :key="idx" :background="slideBackground" class="h-100">
           <template #img>
             <!-- The displayed image for the slide -->
             <img
               :src="img.src"
               :alt="img.alt || `Slide ${idx + 1}`"
-              :class="`img-fluid ${imgClass}`"
+              :class="imgClass"
               :style="imgStyleObject"
             />
           </template>
@@ -42,7 +42,7 @@
     </div>
 
     <!-- Optional thumbnail strip below the main carousel (hidden on < lg by design) -->
-    <div v-if="showThumbnails && images.length > 1" class="d-lg-flex d-none justify-content-center">
+    <div v-if="showThumbnails && images.length > 1" class="d-lg-flex d-none justify-content-center flex-nowrap">
       <a
         v-for="(img, idx) in images"
         :key="`thumb-${idx}`"
@@ -106,7 +106,9 @@ export default defineComponent({
     // Extra classes for the main <img> element inside each slide
     imgClass: {
       type: String,
-      default: 'd-block mx-auto',
+      // Keep 'img-fluid' by default for typical usage, but allow callers to override
+      // it (e.g., provide 'w-100 h-100' for fixed viewport fill without height:auto !important)
+      default: 'img-fluid d-block mx-auto',
     },
     // Constrain main image max width/height (numbers are treated as px)
     imgMaxWidth: {
@@ -138,6 +140,13 @@ export default defineComponent({
     },
     // Optionally constrain the outer carousel container's max width
     containerMaxWidth: {
+      type: [String, Number] as PropType<string | number>,
+      default: undefined,
+    },
+    // Optional explicit height for the outer carousel container. When set to '100%',
+    // and the parent provides a height via flexbox, the main image will fill the
+    // available vertical space above the thumbnails.
+    containerHeight: {
       type: [String, Number] as PropType<string | number>,
       default: undefined,
     },
@@ -177,10 +186,11 @@ export default defineComponent({
           ? `${props.thumbHeight}px`
           : props.thumbHeight
         : undefined
-      return {
-        maxWidth: width,
-        ...(height ? { maxHeight: height } : {}),
-      } as Record<string, string>
+      const style: Record<string, string> = {
+        width: width,
+      }
+      if (height) style.height = height
+      return style
     })
 
     // Compute inline style for main image based on props
@@ -212,7 +222,7 @@ export default defineComponent({
     })
 
     // Compute inline style for the outer carousel container
-    // Always fill available column width; optionally constrain via max-width if provided
+    // Always fill available column width; optionally constrain via max-width/height if provided
     const containerStyleObject = computed(() => {
       const style: Record<string, string> = { width: '100%' }
       if (props.containerMaxWidth) {
@@ -221,6 +231,11 @@ export default defineComponent({
             ? `${props.containerMaxWidth}px`
             : props.containerMaxWidth
         style.maxWidth = mw
+      }
+      if (props.containerHeight) {
+        const ch =
+          typeof props.containerHeight === 'number' ? `${props.containerHeight}px` : props.containerHeight
+        style.height = ch
       }
       return style
     })
@@ -242,5 +257,11 @@ export default defineComponent({
 </script>
 
 <style scoped>
-/* No custom CSS beyond utility classes; using Bootstrap/Hyper utilities. */
+/* Ensure the carousel's internal containers honor the fixed height */
+:deep(.carousel-inner) {
+  height: 100%;
+}
+:deep(.carousel-item) {
+  height: 100%;
+}
 </style>

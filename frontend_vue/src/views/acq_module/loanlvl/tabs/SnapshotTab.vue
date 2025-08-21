@@ -2,31 +2,33 @@
   <!-- Snapshot tab content used inside the product details modal.
        This component intentionally excludes page-level wrappers (Layout, Breadcrumb)
        so it can be embedded within a modal body. -->
-  <div>
+  <div class="overflow-hidden">
     <!-- Top summary row with photos and quick facts -->
-    <!-- Use responsive gutters for better spacing; keep padding so content doesn't touch edges -->
-    <!-- Center the two primary columns horizontally; rely on Bootstrap utilities per docs -->
-    <b-row class="g-3 g-lg-4 px-3 px-lg-4 align-items-stretch justify-content-center">
+    <!-- Keep gutters on row; apply horizontal padding on a wrapper to avoid row negative-margin overflow in modal -->
+    <div class="px-3 px-lg-4">
+      <b-row class="g-3 g-lg-4 align-items-stretch justify-content-center">
       <!-- First column: Photo carousel area, displays images and thumbnails -->
       <b-col lg="4" class="d-flex">
         <!-- Match Hyper UI card look used by Details/Map: white background + subtle shadow -->
         <div class="w-100 h-100">
           <div class="card h-100 d-flex flex-column">
-            <div class="card-body d-flex flex-column justify-content-center">
+            <div class="card-body d-flex flex-column h-100 overflow-hidden">
               <!-- Reusable global PhotoCarousel component displays product/asset images -->
               <!-- Show carousel only when we have images; otherwise show a small placeholder -->
               <PhotoCarousel
                 v-if="imagesToShow.length > 0"
+                class="flex-fill h-100"
                 :images="imagesToShow"
                 :controls="false"
                 :indicators="false"
                 :loop="true"
                 :show-thumbnails="true"
                 :interval="0"
-                img-class="d-block mx-auto w-100"
-                :img-max-width="carouselWidth"
-                :img-max-height="carouselHeight"
-                :container-max-width="carouselWidth"
+                img-class="d-block w-100 h-100"
+                :img-max-width="'100%'"
+                :img-max-height="'100%'"
+                :container-height="carouselHeight"
+                :container-max-width="'100%'"
                 :thumb-width="thumbWidth"
                 :thumb-height="thumbHeight"
               />
@@ -51,10 +53,12 @@
           <PropertyMap class="h-100 d-flex flex-column" :row="row" :productId="productId" height="100%" />
         </div>
       </b-col>
-    </b-row>
+      </b-row>
+    </div>
 
     <!-- Documents quick view row -->
-    <b-row class="g-3 g-lg-4 px-3 px-lg-4 mt-1">
+    <div class="px-3 px-lg-4">
+      <b-row class="g-3 g-lg-4 mt-1">
       <b-col lg="3" class="d-flex">
         <div class="w-100 h-100">
           <!-- Reusable global DocumentsQuickView widget; data-agnostic and styled with Hyper UI cards -->
@@ -74,78 +78,16 @@
             :context="quickSummaryContext"
             :max-bullets="4"
             :lazy="true"
-            title="AI Summary"
+            title="Asset Highlights"
           />
         </div>
       </b-col>
     </b-row>
+    </div>
 
     <!-- Pricing/stock by outlet table -->
-    <div class="table-responsive mt-4">
-      <table class="table table-bordered table-centered mb-0">
-        <thead class="table-light">
-          <tr>
-            <th>Outlets</th>
-            <th>Price</th>
-            <th>Stock</th>
-            <th>Revenue</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>ASOS Ridley Outlet - NYC</td>
-            <td>$139.58</td>
-            <td>
-              <div class="progress-w-percent mb-0">
-                <span class="progress-value">478 </span>
-                <div class="progress progress-sm">
-                  <div class="progress-bar bg-success" role="progressbar" style="width: 56%;" aria-valuenow="56" aria-valuemin="0" aria-valuemax="100"></div>
-                </div>
-              </div>
-            </td>
-            <td>$1,89,547</td>
-          </tr>
-          <tr>
-            <td>Marco Outlet - SRT</td>
-            <td>$149.99</td>
-            <td>
-              <div class="progress-w-percent mb-0">
-                <span class="progress-value">73 </span>
-                <div class="progress progress-sm">
-                  <div class="progress-bar bg-danger" role="progressbar" style="width: 16%;" aria-valuenow="16" aria-valuemin="0" aria-valuemax="100"></div>
-                </div>
-              </div>
-            </td>
-            <td>$87,245</td>
-          </tr>
-          <tr>
-            <td>Chairtest Outlet - HY</td>
-            <td>$135.87</td>
-            <td>
-              <div class="progress-w-percent mb-0">
-                <span class="progress-value">781 </span>
-                <div class="progress progress-sm">
-                  <div class="progress-bar bg-success" role="progressbar" style="width: 72%;" aria-valuenow="72" aria-valuemin="0" aria-valuemax="100"></div>
-                </div>
-              </div>
-            </td>
-            <td>$5,87,478</td>
-          </tr>
-          <tr>
-            <td>Nworld Group - India</td>
-            <td>$159.89</td>
-            <td>
-              <div class="progress-w-percent mb-0">
-                <span class="progress-value">815 </span>
-                <div class="progress progress-sm">
-                  <div class="progress-bar bg-success" role="progressbar" style="width: 89%;" aria-valuenow="89" aria-valuemin="0" aria-valuemax="100"></div>
-                </div>
-              </div>
-            </td>
-            <td>$55,781</td>
-          </tr>
-        </tbody>
-      </table>
+    <div class="px-3 px-lg-4">
+      <ValuationMatrix />
     </div>
   </div>
 </template>
@@ -167,6 +109,8 @@ import DocumentsQuickView from '@/1_global/components/DocumentsQuickView.vue'
 import type { DocumentItem } from '@/1_global/components/DocumentsQuickView.vue'
 // Global AI quick summary card (server-side generated bullets)
 import QuickSummary from '@/1_global/components/QuickSummary.vue'
+// Modular pricing/stock grid card extracted from inline markup
+import ValuationMatrix from '@/views/acq_module/loanlvl/components/valuationMatrix.vue'
 
 // Vue composition API helpers
 import { withDefaults, defineProps, ref, computed, watch } from 'vue'

@@ -2,7 +2,7 @@
   <!-- Display property details horizontally using Bootstrap grid system from Hyper UI -->
   <div class="card">
     <div class="card-body d-flex flex-column">
-      <h5 class="card-title mb-3 text-center">Property Details</h5>
+      <!-- Header removed as requested -->
       
       <!-- Horizontal layout using Bootstrap rows and columns -->
       <div class="row g-3 align-items-stretch flex-grow-1">

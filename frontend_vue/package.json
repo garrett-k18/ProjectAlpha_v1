@@ -18,6 +18,7 @@
     "@fullcalendar/list": "^6.1.8",
     "@fullcalendar/timegrid": "^6.1.8",
     "@fullcalendar/vue3": "^6.1.8",
+    "@googlemaps/js-api-loader": "^1.16.10",
     "@lezer/common": "^1.0.0",
     "@popperjs/core": "^2.11.7",
     "@types/prismjs": "^1.26.0",
@@ -77,11 +78,12 @@
     "vue3-datepicker": "^0.4.0",
     "vue3-dropzone": "^2.0.1",
     "vue3-form-wizard": "^0.2.1",
-    "vue3-google-map": "^0.16.0",
+    "vue3-google-map": "^0.23.1",
     "vuelidate": "^0.7.7"
   },
   "devDependencies": {
     "@tsconfig/node18": "^18.2.0",
+    "@types/google.maps": "^3.58.1",
     "@types/node": "^18.17.1",
     "@vitejs/plugin-vue": "^4.2.3",
     "@vue/tsconfig": "^0.4.0",
