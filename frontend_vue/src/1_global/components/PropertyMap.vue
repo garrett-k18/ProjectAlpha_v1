@@ -7,27 +7,29 @@
     Uses vue3-google-map and a Vite env API key.
   -->
   <div class="card">
-    <div class="card-body">
-      <h4 class="header-title mb-3">Property Map</h4>
-      <!-- Map container; relies on framework utilities (no custom CSS) -->
-      <GoogleMap
-        v-if="apiKey && mapCenter"
-        :api-key="apiKey"
-        :zoom="zoom"
-        :center="mapCenter"
-        :street-view-control="false"
-        :map-type-control="false"
-        :fullscreen-control="true"
-        :zoom-control="true"
-        :clickable-icons="false"
-        :disable-default-ui="false"
-        :style="{ height: typeof height === 'number' ? `${height}px` : height }"
-      >
-        <Marker v-if="showMarker && markerPosition" :options="{ position: markerPosition }" />
-      </GoogleMap>
-      <div v-else class="text-muted small">Loading map…</div>
+    <div class="card-body d-flex flex-column p-0">
+      <!-- Map fills entire card body (no header) -->
+      <div class="flex-grow-1">
+        <GoogleMap
+          v-if="apiKey && mapCenter"
+          :api-key="apiKey"
+          :zoom="zoom"
+          :center="mapCenter"
+          :street-view-control="true"
+          :map-type-control="true"
+          :map-type-id="defaultMapType"
+          :fullscreen-control="true"
+          :zoom-control="true"
+          :clickable-icons="false"
+          :disable-default-ui="false"
+          :style="{ height: typeof height === 'number' ? `${height}px` : (height || '100%'), width: '100%' }"
+        >
+          <Marker v-if="showMarker && markerPosition" :options="{ position: markerPosition }" />
+        </GoogleMap>
+        <div v-else class="text-muted small d-flex align-items-center justify-content-center h-100">Loading map…</div>
 
-      <div v-if="geocodeError" class="text-danger small mt-2">{{ geocodeError }}</div>
+        <div v-if="geocodeError" class="text-danger small m-2">{{ geocodeError }}</div>
+      </div>
     </div>
   </div>
 </template>
@@ -37,6 +39,9 @@
 import { computed, ref, watch, watchEffect, withDefaults, defineProps } from 'vue'
 import { GoogleMap, Marker } from 'vue3-google-map'
 import http from '@/lib/http'
+
+// Narrow type for Google Map type id to avoid stringly-typed usage
+type MapType = 'roadmap' | 'satellite' | 'hybrid' | 'terrain'
 
 // Props with defaults. Keep this component reusable and self-sufficient.
 const props = withDefaults(defineProps<{
@@ -53,6 +58,8 @@ const props = withDefaults(defineProps<{
   zoom?: number
   height?: number | string
   showMarker?: boolean
+  /** Default base map type; allows built-in toggle to Satellite/Map without custom JS */
+  defaultMapType?: MapType
 }>(), {
   row: null,
   productId: null,
@@ -63,6 +70,7 @@ const props = withDefaults(defineProps<{
   zoom: 14,
   height: 300,
   showMarker: true,
+  defaultMapType: 'roadmap',
 })
 
 // Read API key from Vite env. This is required by vue3-google-map to load Maps JS API.

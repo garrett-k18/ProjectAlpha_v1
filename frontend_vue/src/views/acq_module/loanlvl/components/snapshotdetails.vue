@@ -1,85 +1,83 @@
 <template>
   <!-- Display property details horizontally using Bootstrap grid system from Hyper UI -->
   <div class="card">
-    <div class="card-body">
+    <div class="card-body d-flex flex-column">
       <h5 class="card-title mb-3">Property Details</h5>
       
       <!-- Horizontal layout using Bootstrap rows and columns -->
-      <div class="row g-3">
-        <!-- Combined address field displayed as two lines -->
-        <div v-if="row?.street_address || row?.city || row?.state || row?.zip" class="col-md-6 col-lg-4">
-          <div class="d-flex flex-column">
-            <small class="text-muted fw-bold">ADDRESS</small>
-            <div class="text-dark">
-              <div v-if="row?.street_address">{{ row.street_address }}</div>
-              <div v-if="row?.city || row?.state || row?.zip">{{ row.city }}, {{ row.state }} {{ row.zip }}</div>
+      <div class="row g-3 align-items-stretch flex-grow-1">
+        <!-- Column 1: Address + Current Balance + Total Debt + Seller As-Is + Seller ARV (stacked vertically, evenly spaced) -->
+        <div v-if="hasCol1Data" class="col-md-6 col-lg-4 d-flex flex-column h-100">
+          <div ref="col1Stack" class="d-flex flex-column justify-content-between gap-2 flex-fill h-100 pb-3 column-stack">
+            <!-- Address block (label + value grouped as one item for even spacing) -->
+            <div class="d-flex flex-column">
+              <small class="text-muted fw-normal">Address</small>
+              <div class="text-dark fw-semibold">
+                <div v-if="row?.street_address">{{ row.street_address }}</div>
+                <div v-if="row?.city || row?.state || row?.zip">{{ row.city }}, {{ row.state }} {{ row.zip }}</div>
+              </div>
+            </div>
+
+            <!-- Stacked under Address: Current Balance -->
+            <div v-if="row?.current_balance" class="d-flex flex-column">
+              <small class="text-muted fw-normal">Current Balance</small>
+              <span class="text-dark fw-semibold">{{ formattedBalance }}</span>
+            </div>
+
+            <!-- Stacked under Address: Total Debt -->
+            <div v-if="row?.total_debt" class="d-flex flex-column">
+              <small class="text-muted fw-normal">Total Debt</small>
+              <span class="text-dark fw-semibold">{{ formattedTotalDebt }}</span>
+            </div>
+
+            <!-- Stacked under Address: Seller As-Is -->
+            <div v-if="row?.seller_asis_value" class="d-flex flex-column">
+              <small class="text-muted fw-normal">Seller As-Is</small>
+              <span class="text-dark fw-semibold">{{ formattedAsIsValue }}</span>
+            </div>
+
+            <!-- Stacked under Address: Seller ARV -->
+            <div v-if="row?.seller_arv_value" class="d-flex flex-column">
+              <small class="text-muted fw-normal">Seller ARV</small>
+              <span class="text-dark fw-semibold">{{ formattedArvValue }}</span>
             </div>
           </div>
         </div>
         
-        <!-- Asset status field -->
-        <div v-if="row?.asset_status" class="col-md-6 col-lg-4">
-          <div class="d-flex flex-column">
-            <small class="text-muted fw-bold">ASSET STATUS</small>
-            <span class="text-dark">{{ row.asset_status }}</span>
+        <!-- Column 2: Asset Status + Months DLQ + Interest Rate + Next Due Date (stacked vertically) -->
+        <div v-if="hasCol2Data" class="col-md-6 col-lg-4 d-flex flex-column h-100">
+          <div ref="col2Stack" class="d-flex flex-column justify-content-between gap-2 flex-fill h-100 pb-3 column-stack">
+            <div v-if="row?.asset_status" class="d-flex flex-column">
+              <small class="text-muted fw-normal">Asset Status</small>
+              <span class="text-dark fw-semibold">{{ row.asset_status }}</span>
+            </div>
+            <div v-if="row?.months_dlq" class="d-flex flex-column">
+              <small class="text-muted fw-normal">Months DLQ</small>
+              <span class="text-dark fw-semibold">{{ row.months_dlq }}</span>
+            </div>
+            <div v-if="row?.interest_rate" class="d-flex flex-column">
+              <small class="text-muted fw-normal">Interest Rate</small>
+              <span class="text-dark fw-semibold">{{ formattedInterestRate }}</span>
+            </div>
+            <div v-if="row?.next_due_date" class="d-flex flex-column">
+              <small class="text-muted fw-normal">Next Due Date</small>
+              <span class="text-dark fw-semibold">{{ formattedDueDate }}</span>
+            </div>
           </div>
         </div>
         
-        <!-- Current balance field -->
-        <div v-if="row?.current_balance" class="col-md-6 col-lg-4">
-          <div class="d-flex flex-column">
-            <small class="text-muted fw-bold">CURRENT BALANCE</small>
-            <span class="text-dark fw-semibold">{{ formattedBalance }}</span>
-          </div>
-        </div>
+        <!-- Current Balance moved under Address column -->
+        <!-- Interest Rate moved under Column 2 -->
         
-        <!-- Interest rate field -->
-        <div v-if="row?.interest_rate" class="col-md-6 col-lg-4">
-          <div class="d-flex flex-column">
-            <small class="text-muted fw-bold">INTEREST RATE</small>
-            <span class="text-dark">{{ formattedInterestRate }}</span>
-          </div>
-        </div>
+        <!-- Next Due Date moved under Column 2 -->
         
-        <!-- Next due date field -->
-        <div v-if="row?.next_due_date" class="col-md-6 col-lg-4">
-          <div class="d-flex flex-column">
-            <small class="text-muted fw-bold">NEXT DUE DATE</small>
-            <span class="text-dark">{{ formattedDueDate }}</span>
-          </div>
-        </div>
+        <!-- Months DLQ moved under Column 2 -->
         
-        <!-- Months delinquent field -->
-        <div v-if="row?.months_dlq" class="col-md-6 col-lg-4">
-          <div class="d-flex flex-column">
-            <small class="text-muted fw-bold">MONTHS DLQ</small>
-            <span class="text-dark">{{ row.months_dlq }}</span>
-          </div>
-        </div>
+        <!-- Total Debt moved under Address column -->
         
-        <!-- Total debt field -->
-        <div v-if="row?.total_debt" class="col-md-6 col-lg-4">
-          <div class="d-flex flex-column">
-            <small class="text-muted fw-bold">TOTAL DEBT</small>
-            <span class="text-dark fw-semibold">{{ formattedTotalDebt }}</span>
-          </div>
-        </div>
+        <!-- Seller ARV moved under Address column -->
         
-        <!-- Seller ARV value field -->
-        <div v-if="row?.seller_arv_value" class="col-md-6 col-lg-4">
-          <div class="d-flex flex-column">
-            <small class="text-muted fw-bold">SELLER ARV</small>
-            <span class="text-dark fw-semibold">{{ formattedArvValue }}</span>
-          </div>
-        </div>
-        
-        <!-- Seller as-is value field -->
-        <div v-if="row?.seller_asis_value" class="col-md-6 col-lg-4">
-          <div class="d-flex flex-column">
-            <small class="text-muted fw-bold">SELLER AS-IS</small>
-            <span class="text-dark fw-semibold">{{ formattedAsIsValue }}</span>
-          </div>
-        </div>
+        <!-- Seller As-Is moved under Address column -->
       </div>
       
       <!-- Fallback message if no data is provided -->
@@ -106,7 +104,7 @@
  * - Ensures modularity by defining a clear interface and avoiding side effects.
  */
 
-import { defineComponent, computed, ref, watch } from 'vue'
+import { defineComponent, computed, ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import type { PropType } from 'vue'
 // Centralized Axios instance (Vite baseURL proxies to Django in dev)
 import http from '@/lib/http'
@@ -142,7 +140,12 @@ export default defineComponent({
      */
     const formatCurrency = (value: any) => {
       if (value != null && !isNaN(value)) {
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value)
+        // Grouped number with 0 decimals and NO currency symbol
+        return new Intl.NumberFormat('en-US', {
+          style: 'decimal',
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 0,
+        }).format(Number(value))
       }
       return 'N/A'
     }
@@ -164,13 +167,22 @@ export default defineComponent({
      */
     const formatPercentage = (value: any) => {
       if (value != null && !isNaN(value)) {
-        return `${(value * 100).toFixed(4)}%`
+        // Interest rate with 3 decimals; expects decimal input (e.g., 0.0416)
+        return new Intl.NumberFormat('en-US', {
+          style: 'percent',
+          minimumFractionDigits: 3,
+          maximumFractionDigits: 3,
+        }).format(Number(value))
       }
       return 'N/A'
     }
 
     // Local state for fallback-fetched row (used only when prop `row` is not provided)
     const fetchedRow = ref<Record<string, any> | null>(null)
+
+    // Refs to column stacks for dynamic height syncing
+    const col1Stack = ref<HTMLElement | null>(null)
+    const col2Stack = ref<HTMLElement | null>(null)
 
     /**
      * Normalize access to the active row: prefer explicit prop `row` (modal),
@@ -210,6 +222,31 @@ export default defineComponent({
     })
 
     /**
+     * Column guard: render Column 1 when ANY of its fields exist.
+     * This prevents one field from depending on another (e.g., Address missing).
+     * Fields covered: address parts, current_balance, total_debt, seller_asis_value, seller_arv_value.
+     */
+    const hasCol1Data = computed(() => {
+      const r = row.value
+      return !!(r && (
+        r.street_address || r.city || r.state || r.zip ||
+        r.current_balance || r.total_debt ||
+        r.seller_asis_value || r.seller_arv_value
+      ))
+    })
+
+    /**
+     * Column guard: render Column 2 when ANY of its fields exist.
+     * Fields covered: asset_status, months_dlq, interest_rate, next_due_date.
+     */
+    const hasCol2Data = computed(() => {
+      const r = row.value
+      return !!(r && (
+        r.asset_status || r.months_dlq || r.interest_rate || r.next_due_date
+      ))
+    })
+
+    /**
      * Fetch helper: load a SellerRawData row by id. Returns {} when not found; we
      * normalize to null for simpler checks.
      */
@@ -234,6 +271,51 @@ export default defineComponent({
       }
     }, { immediate: true })
 
+    /**
+     * Dynamically sync the heights of both column stacks to the tallest one
+     * at md+ breakpoints so the last item can anchor to the bottom.
+     * Clears heights on smaller screens where columns stack vertically.
+     */
+    let ro1: ResizeObserver | null = null
+    let ro2: ResizeObserver | null = null
+
+    const applySyncHeights = () => {
+      const isMdUp = typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches
+      const el1 = col1Stack.value
+      const el2 = col2Stack.value
+      if (!el1 || !el2) return
+      // Reset before measuring to avoid compounding
+      el1.style.minHeight = ''
+      el2.style.minHeight = ''
+      if (!isMdUp) return
+      const h1 = el1.offsetHeight
+      const h2 = el2.offsetHeight
+      const max = Math.max(h1, h2)
+      el1.style.minHeight = `${max}px`
+      el2.style.minHeight = `${max}px`
+    }
+
+    onMounted(() => {
+      // Observe size changes of each stack and window resizes
+      if (typeof ResizeObserver !== 'undefined') {
+        ro1 = new ResizeObserver(() => applySyncHeights())
+        ro2 = new ResizeObserver(() => applySyncHeights())
+        if (col1Stack.value) ro1.observe(col1Stack.value)
+        if (col2Stack.value) ro2.observe(col2Stack.value)
+      }
+      window.addEventListener('resize', applySyncHeights)
+      // Next tick to ensure DOM is rendered before syncing
+      nextTick(() => applySyncHeights())
+    })
+
+    onBeforeUnmount(() => {
+      window.removeEventListener('resize', applySyncHeights)
+      if (ro1 && col1Stack.value) ro1.unobserve(col1Stack.value)
+      if (ro2 && col2Stack.value) ro2.unobserve(col2Stack.value)
+      ro1 = null
+      ro2 = null
+    })
+
     return {
       row,
       formattedBalance,
@@ -242,8 +324,22 @@ export default defineComponent({
       formattedAsIsValue,
       formattedInterestRate,
       formattedDueDate,
-      hasAnyData
+      hasAnyData,
+      hasCol1Data,
+      hasCol2Data,
+      col1Stack,
+      col2Stack
     }
   }
 })
 </script>
+
+<style scoped>
+/* column-stack: flex column that can consume available height in the column */
+.column-stack { /* container for field blocks in a column */
+  display: flex; /* ensure flex, even if utility classes change */
+  flex-direction: column; /* vertical stacking of field groups */
+  min-height: 100%; /* let it grow with its parent column height */
+}
+
+</style>

@@ -10,7 +10,7 @@
       <!-- First column: Photo carousel area, displays images and thumbnails -->
       <b-col lg="4" class="d-flex">
         <!-- Match Hyper UI card look used by Details/Map: white background + subtle shadow -->
-        <div class="w-100">
+        <div class="w-100 h-100">
           <div class="card h-100 d-flex flex-column">
             <div class="card-body d-flex flex-column justify-content-center">
               <!-- Reusable global PhotoCarousel component displays product/asset images -->
@@ -39,7 +39,7 @@
       <!-- Second column: Property details area, shows dynamic details from SellerRawData -->
       <b-col lg="4" class="d-flex">
         <!-- Use the SnapshotDetails component to display property information from the row data -->
-        <div class="ps-lg-4 w-100">
+        <div class="ps-lg-4 w-100 h-100">
           <!-- Apply h-100 via root-attribute inheritance so the card fills the column height -->
           <SnapshotDetails class="h-100 d-flex flex-column" :row="row" :productId="productId" />
         </div>
@@ -47,8 +47,8 @@
       
       <!-- Third column: Property map to the right of Property details -->
       <b-col lg="4" class="d-flex">
-        <div class="ps-lg-4 w-100">
-          <PropertyMap class="h-100 d-flex flex-column" :row="row" :productId="productId" :height="300" />
+        <div class="ps-lg-4 w-100 h-100">
+          <PropertyMap class="h-100 d-flex flex-column" :row="row" :productId="productId" height="100%" />
         </div>
       </b-col>
     </b-row>

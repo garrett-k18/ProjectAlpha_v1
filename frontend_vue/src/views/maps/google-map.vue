@@ -4,10 +4,17 @@
     <b-row>
       <b-col lg="12">
         <div class="card">
-          <div class="card-body">
+          <div class="card-body d-flex flex-column" style="height: 60vh">
             <h4 class="header-title mb-3">Basic Google Map</h4>
             <!-- basic map -->
-            <GoogleMap :api-key="api" :center="{ lat: 2, lng: 2 }" :zoom="5" style="height: 300px"></GoogleMap>
+            <div class="flex-grow-1">
+              <GoogleMap
+                :api-key="api"
+                :center="{ lat: 2, lng: 2 }"
+                :zoom="5"
+                style="height: 100%; width: 100%"
+              ></GoogleMap>
+            </div>
           </div>
         </div>
       </b-col>
