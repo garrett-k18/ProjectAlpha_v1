@@ -10,6 +10,7 @@ from .views.view_seller_data import (
 from .views.photos_api import (
     list_photos_by_raw_id,
 )
+from .views.ai_summary import generate_quick_summary
 
 # This defines the URL patterns for the acq_module app.
 urlpatterns = [
@@ -26,4 +27,6 @@ urlpatterns = [
     path('trades/<int:seller_id>/', list_trades_by_seller, name='api_list_trades_by_seller'),
     # Photos endpoint (all photo types) by SellerRawData id
     path('photos/<int:id>/', list_photos_by_raw_id, name='api_list_photos_by_raw_id'),
+    # AI summary endpoint
+    path('ai/summary/', generate_quick_summary, name='api_ai_quick_summary'),
 ]

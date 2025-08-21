@@ -2,7 +2,7 @@
   <!-- Display property details horizontally using Bootstrap grid system from Hyper UI -->
   <div class="card">
     <div class="card-body d-flex flex-column">
-      <h5 class="card-title mb-3">Property Details</h5>
+      <h5 class="card-title mb-3 text-center">Property Details</h5>
       
       <!-- Horizontal layout using Bootstrap rows and columns -->
       <div class="row g-3 align-items-stretch flex-grow-1">
@@ -10,7 +10,7 @@
         <div v-if="hasCol1Data" class="col-md-6 col-lg-4 d-flex flex-column h-100">
           <div ref="col1Stack" class="d-flex flex-column justify-content-between gap-2 flex-fill h-100 pb-3 column-stack">
             <!-- Address block (label + value grouped as one item for even spacing) -->
-            <div class="d-flex flex-column">
+            <div class="d-flex flex-column align-items-center text-center">
               <small class="text-muted fw-normal">Address</small>
               <div class="text-dark fw-semibold">
                 <div v-if="row?.street_address">{{ row.street_address }}</div>
@@ -19,25 +19,25 @@
             </div>
 
             <!-- Stacked under Address: Current Balance -->
-            <div v-if="row?.current_balance" class="d-flex flex-column">
+            <div v-if="row?.current_balance" class="d-flex flex-column align-items-center text-center">
               <small class="text-muted fw-normal">Current Balance</small>
               <span class="text-dark fw-semibold">{{ formattedBalance }}</span>
             </div>
 
             <!-- Stacked under Address: Total Debt -->
-            <div v-if="row?.total_debt" class="d-flex flex-column">
+            <div v-if="row?.total_debt" class="d-flex flex-column align-items-center text-center">
               <small class="text-muted fw-normal">Total Debt</small>
               <span class="text-dark fw-semibold">{{ formattedTotalDebt }}</span>
             </div>
 
             <!-- Stacked under Address: Seller As-Is -->
-            <div v-if="row?.seller_asis_value" class="d-flex flex-column">
+            <div v-if="row?.seller_asis_value" class="d-flex flex-column align-items-center text-center">
               <small class="text-muted fw-normal">Seller As-Is</small>
               <span class="text-dark fw-semibold">{{ formattedAsIsValue }}</span>
             </div>
 
             <!-- Stacked under Address: Seller ARV -->
-            <div v-if="row?.seller_arv_value" class="d-flex flex-column">
+            <div v-if="row?.seller_arv_value" class="d-flex flex-column align-items-center text-center">
               <small class="text-muted fw-normal">Seller ARV</small>
               <span class="text-dark fw-semibold">{{ formattedArvValue }}</span>
             </div>
@@ -47,21 +47,47 @@
         <!-- Column 2: Asset Status + Months DLQ + Interest Rate + Next Due Date (stacked vertically) -->
         <div v-if="hasCol2Data" class="col-md-6 col-lg-4 d-flex flex-column h-100">
           <div ref="col2Stack" class="d-flex flex-column justify-content-between gap-2 flex-fill h-100 pb-3 column-stack">
-            <div v-if="row?.asset_status" class="d-flex flex-column">
+            <div v-if="row?.asset_status" class="d-flex flex-column align-items-center text-center">
               <small class="text-muted fw-normal">Asset Status</small>
-              <span class="text-dark fw-semibold">{{ row.asset_status }}</span>
+              <span :class="['badge', assetStatusBadgeClass, 'rounded-pill', 'm-0', 'mt-1', 'align-self-center']">{{ row.asset_status }}</span>
             </div>
-            <div v-if="row?.months_dlq" class="d-flex flex-column">
+            <div v-if="row?.months_dlq" class="d-flex flex-column align-items-center text-center">
               <small class="text-muted fw-normal">Months DLQ</small>
               <span class="text-dark fw-semibold">{{ row.months_dlq }}</span>
             </div>
-            <div v-if="row?.interest_rate" class="d-flex flex-column">
+            <div v-if="row?.interest_rate" class="d-flex flex-column align-items-center text-center">
               <small class="text-muted fw-normal">Interest Rate</small>
               <span class="text-dark fw-semibold">{{ formattedInterestRate }}</span>
             </div>
-            <div v-if="row?.next_due_date" class="d-flex flex-column">
+            <div v-if="row?.next_due_date" class="d-flex flex-column align-items-center text-center">
               <small class="text-muted fw-normal">Next Due Date</small>
               <span class="text-dark fw-semibold">{{ formattedDueDate }}</span>
+            </div>
+            <div v-if="row?.mod_maturity_date || row?.current_maturity_date || row?.original_maturity_date" class="d-flex flex-column align-items-center text-center">
+              <small class="text-muted fw-normal">Maturity Date</small>
+              <span class="text-dark fw-semibold">{{ formattedMaturityDate }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Column 3: Origination Date + Original Balance + FC Flag + BK Flag (stacked vertically, evenly spaced) -->
+        <div v-if="hasCol3Data" class="col-md-6 col-lg-4 d-flex flex-column h-100">
+          <div ref="col3Stack" class="d-flex flex-column justify-content-between gap-2 flex-fill h-100 pb-3 column-stack">
+            <div v-if="row?.origination_date" class="d-flex flex-column align-items-center text-center">
+              <small class="text-muted fw-normal">Origination Date</small>
+              <span class="text-dark fw-semibold">{{ formattedOriginationDate }}</span>
+            </div>
+            <div v-if="row?.original_balance" class="d-flex flex-column align-items-center text-center">
+              <small class="text-muted fw-normal">Original Balance</small>
+              <span class="text-dark fw-semibold">{{ formattedOriginalBalance }}</span>
+            </div>
+            <div v-if="row?.fc_flag !== undefined && row?.fc_flag !== null" class="d-flex flex-column align-items-center text-center">
+              <small class="text-muted fw-normal">FC Flag</small>
+              <span :class="['badge', flagBadgeClass(row.fc_flag), 'rounded-pill', 'm-0', 'mt-1', 'align-self-center']">{{ formatFlag(row.fc_flag) }}</span>
+            </div>
+            <div v-if="row?.bk_flag !== undefined && row?.bk_flag !== null" class="d-flex flex-column align-items-center text-center">
+              <small class="text-muted fw-normal">BK Flag</small>
+              <span :class="['badge', flagBadgeClass(row.bk_flag), 'rounded-pill', 'm-0', 'mt-1', 'align-self-center']">{{ formatFlag(row.bk_flag) }}</span>
             </div>
           </div>
         </div>
@@ -177,12 +203,61 @@ export default defineComponent({
       return 'N/A'
     }
 
+    /**
+     * Helper to format boolean/flag-like values consistently to Yes/No.
+     * Accepts booleans, 'Y'/'N', 'yes'/'no', 1/0. Returns 'N/A' if empty.
+     */
+    const formatFlag = (value: any) => {
+      if (value === undefined || value === null || value === '') return 'N/A'
+      // Normalize to string for broad matching
+      const v = String(value).trim().toLowerCase()
+      if (v === 'y' || v === 'yes' || v === 'true' || v === '1') return 'Yes'
+      if (v === 'n' || v === 'no' || v === 'false' || v === '0') return 'No'
+      if (value === true) return 'Yes'
+      if (value === false) return 'No'
+      // Fallback: any other non-empty value considered truthy
+      return 'Yes'
+    }
+
+    /**
+     * Map asset status values to Bootstrap 5.3 subtle badge classes used by Hyper UI.
+     * Returns a pair of classes like 'bg-success-subtle text-success'. Defaults to secondary.
+     */
+    const assetStatusBadgeClass = computed<string>(() => {
+      const raw = String(row.value?.asset_status ?? '').trim().toLowerCase()
+      // Lookup map for common statuses (extend as needed)
+      const map: Record<string, string> = {
+        'performing': 'bg-success-subtle text-success',
+        'current': 'bg-success-subtle text-success',
+        'reperforming': 'bg-info-subtle text-info',
+        'non-performing': 'bg-danger-subtle text-danger',
+        'delinquent': 'bg-warning-subtle text-warning',
+        'default': 'bg-danger-subtle text-danger',
+        'foreclosure': 'bg-danger-subtle text-danger',
+        'reo': 'bg-warning-subtle text-warning',
+        'bankruptcy': 'bg-danger-subtle text-danger',
+      }
+      return map[raw] || 'bg-secondary-subtle text-secondary'
+    })
+
+    /**
+     * Compute badge class for Yes/No-like flags (e.g., FC, BK).
+     * Truthy => danger subtle (attention). Falsy => success subtle (clear).
+     */
+    const flagBadgeClass = (value: any): string => {
+      const f = formatFlag(value)
+      if (f === 'Yes') return 'bg-danger-subtle text-danger'
+      if (f === 'No') return 'bg-success-subtle text-success'
+      return 'bg-secondary-subtle text-secondary'
+    }
+
     // Local state for fallback-fetched row (used only when prop `row` is not provided)
     const fetchedRow = ref<Record<string, any> | null>(null)
 
     // Refs to column stacks for dynamic height syncing
     const col1Stack = ref<HTMLElement | null>(null)
     const col2Stack = ref<HTMLElement | null>(null)
+    const col3Stack = ref<HTMLElement | null>(null)
 
     /**
      * Normalize access to the active row: prefer explicit prop `row` (modal),
@@ -198,6 +273,13 @@ export default defineComponent({
     const formattedAsIsValue = computed(() => formatCurrency(row.value?.seller_asis_value))
     const formattedInterestRate = computed(() => formatPercentage(row.value?.interest_rate))
     const formattedDueDate = computed(() => formatDate(row.value?.next_due_date))
+    // Prefer modified maturity date, then current, then original (whichever is available)
+    const formattedMaturityDate = computed(() => {
+      const raw = row.value?.mod_maturity_date ?? row.value?.current_maturity_date ?? row.value?.original_maturity_date
+      return formatDate(raw)
+    })
+    const formattedOriginationDate = computed(() => formatDate(row.value?.origination_date))
+    const formattedOriginalBalance = computed(() => formatCurrency(row.value?.original_balance))
 
     /**
      * Computed property to check if any data is available for display.
@@ -217,7 +299,12 @@ export default defineComponent({
         r.months_dlq ||
         r.total_debt ||
         r.seller_arv_value ||
-        r.seller_asis_value
+        r.seller_asis_value ||
+        r.mod_maturity_date || r.current_maturity_date || r.original_maturity_date ||
+        r.origination_date ||
+        r.original_balance ||
+        r.fc_flag ||
+        r.bk_flag
       ))
     })
 
@@ -242,7 +329,19 @@ export default defineComponent({
     const hasCol2Data = computed(() => {
       const r = row.value
       return !!(r && (
-        r.asset_status || r.months_dlq || r.interest_rate || r.next_due_date
+        r.asset_status || r.months_dlq || r.interest_rate || r.next_due_date ||
+        r.mod_maturity_date || r.current_maturity_date || r.original_maturity_date
+      ))
+    })
+
+    /**
+     * Column guard: render Column 3 when ANY of its fields exist.
+     * Fields: origination_date, original_balance, fc_flag, bk_flag.
+     */
+    const hasCol3Data = computed(() => {
+      const r = row.value
+      return !!(r && (
+        r.origination_date || r.original_balance || r.fc_flag || r.bk_flag
       ))
     })
 
@@ -278,21 +377,17 @@ export default defineComponent({
      */
     let ro1: ResizeObserver | null = null
     let ro2: ResizeObserver | null = null
+    let ro3: ResizeObserver | null = null
 
     const applySyncHeights = () => {
       const isMdUp = typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches
-      const el1 = col1Stack.value
-      const el2 = col2Stack.value
-      if (!el1 || !el2) return
+      const els: HTMLElement[] = [col1Stack.value, col2Stack.value, col3Stack.value].filter(Boolean) as HTMLElement[]
+      if (els.length === 0) return
       // Reset before measuring to avoid compounding
-      el1.style.minHeight = ''
-      el2.style.minHeight = ''
-      if (!isMdUp) return
-      const h1 = el1.offsetHeight
-      const h2 = el2.offsetHeight
-      const max = Math.max(h1, h2)
-      el1.style.minHeight = `${max}px`
-      el2.style.minHeight = `${max}px`
+      els.forEach(el => { el.style.minHeight = '' })
+      if (!isMdUp || els.length < 2) return
+      const max = Math.max(...els.map(el => el.offsetHeight))
+      els.forEach(el => { el.style.minHeight = `${max}px` })
     }
 
     onMounted(() => {
@@ -300,8 +395,10 @@ export default defineComponent({
       if (typeof ResizeObserver !== 'undefined') {
         ro1 = new ResizeObserver(() => applySyncHeights())
         ro2 = new ResizeObserver(() => applySyncHeights())
+        ro3 = new ResizeObserver(() => applySyncHeights())
         if (col1Stack.value) ro1.observe(col1Stack.value)
         if (col2Stack.value) ro2.observe(col2Stack.value)
+        if (col3Stack.value) ro3.observe(col3Stack.value)
       }
       window.addEventListener('resize', applySyncHeights)
       // Next tick to ensure DOM is rendered before syncing
@@ -312,8 +409,10 @@ export default defineComponent({
       window.removeEventListener('resize', applySyncHeights)
       if (ro1 && col1Stack.value) ro1.unobserve(col1Stack.value)
       if (ro2 && col2Stack.value) ro2.unobserve(col2Stack.value)
+      if (ro3 && col3Stack.value) ro3.unobserve(col3Stack.value)
       ro1 = null
       ro2 = null
+      ro3 = null
     })
 
     return {
@@ -324,11 +423,19 @@ export default defineComponent({
       formattedAsIsValue,
       formattedInterestRate,
       formattedDueDate,
+      formattedMaturityDate,
+      formattedOriginationDate,
+      formattedOriginalBalance,
       hasAnyData,
       hasCol1Data,
       hasCol2Data,
+      hasCol3Data,
       col1Stack,
-      col2Stack
+      col2Stack,
+      col3Stack,
+      formatFlag,
+      assetStatusBadgeClass,
+      flagBadgeClass
     }
   }
 })

@@ -9,7 +9,7 @@
             <!-- basic map -->
             <div class="flex-grow-1">
               <GoogleMap
-                :api-key="api"
+                :api-promise="googleApiPromise"
                 :center="{ lat: 2, lng: 2 }"
                 :zoom="5"
                 style="height: 100%; width: 100%"
@@ -28,6 +28,7 @@ import Layout from "@/components/layouts/layout.vue";
 import Breadcrumb from "@/components/breadcrumb.vue";
 
 import {GoogleMap} from "vue3-google-map";
+import { googleApiPromise } from '@/lib/googleMapsLoader'
 
 export default {
 
@@ -49,8 +50,8 @@ export default {
           active: true,
         },
       ],
-      // Read key from Vite env per vue3-google-map docs
-      api: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
+      // Expose shared async loader promise to the template
+      googleApiPromise,
     }
   },
   methods: {},

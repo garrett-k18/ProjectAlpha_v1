@@ -4,15 +4,15 @@
     Purpose: Display a Google Map centered on the property's geocoded address.
     Works with either a provided `row` object (modal context) or a `productId`
     (full-page context, where this component will fetch the row itself).
-    Uses vue3-google-map and a Vite env API key.
+    Uses vue3-google-map with an external async loader and a Vite env API key.
   -->
   <div class="card">
     <div class="card-body d-flex flex-column p-0">
       <!-- Map fills entire card body (no header) -->
       <div class="flex-grow-1">
         <GoogleMap
-          v-if="apiKey && mapCenter"
-          :api-key="apiKey"
+          v-if="mapCenter"
+          :api-promise="googleApiPromise"
           :zoom="zoom"
           :center="mapCenter"
           :street-view-control="true"
@@ -24,6 +24,7 @@
           :disable-default-ui="false"
           :style="{ height: typeof height === 'number' ? `${height}px` : (height || '100%'), width: '100%' }"
         >
+          <!-- TODO: Switch to <AdvancedMarker> after upgrading vue3-google-map to a version that exports it -->
           <Marker v-if="showMarker && markerPosition" :options="{ position: markerPosition }" />
         </GoogleMap>
         <div v-else class="text-muted small d-flex align-items-center justify-content-center h-100">Loading map…</div>
@@ -38,6 +39,7 @@
 // Imports at the top: Vue 3 Composition API and vue3-google-map components.
 import { computed, ref, watch, watchEffect, withDefaults, defineProps } from 'vue'
 import { GoogleMap, Marker } from 'vue3-google-map'
+import { googleApiPromise } from '@/lib/googleMapsLoader'
 import http from '@/lib/http'
 
 // Narrow type for Google Map type id to avoid stringly-typed usage
@@ -75,6 +77,8 @@ const props = withDefaults(defineProps<{
 
 // Read API key from Vite env. This is required by vue3-google-map to load Maps JS API.
 const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined
+// Optional: When we migrate to AdvancedMarker, provide a vector map style id via VITE_GMAPS_MAP_ID
+// const mapId = import.meta.env.VITE_GMAPS_MAP_ID as string | undefined
 
 // Local state for fallback-fetched row when `row` prop is not provided
 const fetchedRow = ref<Record<string, any> | null>(null)

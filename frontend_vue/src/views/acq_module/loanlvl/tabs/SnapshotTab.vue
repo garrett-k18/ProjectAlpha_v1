@@ -53,6 +53,33 @@
       </b-col>
     </b-row>
 
+    <!-- Documents quick view row -->
+    <b-row class="g-3 g-lg-4 px-3 px-lg-4 mt-1">
+      <b-col lg="3" class="d-flex">
+        <div class="w-100 h-100">
+          <!-- Reusable global DocumentsQuickView widget; data-agnostic and styled with Hyper UI cards -->
+          <DocumentsQuickView
+            title="Document Quick View"
+            :docs="docItems"
+            :maxItems="5"
+            :showViewAll="false"
+          />
+        </div>
+      </b-col>
+      <!-- Quick AI Summary next to documents list -->
+      <b-col lg="9" class="d-flex">
+        <div class="ps-lg-4 w-100 h-100">
+          <QuickSummary
+            class="h-100 d-flex flex-column"
+            :context="quickSummaryContext"
+            :max-bullets="4"
+            :lazy="true"
+            title="AI Summary"
+          />
+        </div>
+      </b-col>
+    </b-row>
+
     <!-- Pricing/stock by outlet table -->
     <div class="table-responsive mt-4">
       <table class="table table-bordered table-centered mb-0">
@@ -135,12 +162,18 @@ import type { PhotoItem } from '@/1_global/components/PhotoCarousel.vue'
 import SnapshotDetails from '@/views/acq_module/loanlvl/components/snapshotdetails.vue'
 // Reusable map component to show geocoded address
 import PropertyMap from '@/1_global/components/PropertyMap.vue'
+// Reusable documents quick view card (data-agnostic)
+import DocumentsQuickView from '@/1_global/components/DocumentsQuickView.vue'
+import type { DocumentItem } from '@/1_global/components/DocumentsQuickView.vue'
+// Global AI quick summary card (server-side generated bullets)
+import QuickSummary from '@/1_global/components/QuickSummary.vue'
 
 // Vue composition API helpers
 import { withDefaults, defineProps, ref, computed, watch } from 'vue'
 // Centralized Axios instance (baseURL from env; proxied to Django in dev)
 import http from '@/lib/http'
 // Photos API is public in development; no auth gating required
+// Demo documents below are pure metadata; no image thumbnails required
 
 // Strongly-typed props for context
 const props = withDefaults(defineProps<{
@@ -220,4 +253,61 @@ watch(() => props.row, (r) => {
 }, { immediate: true })
 
 // No token watcher needed since photos endpoint is public in development
+
+// -----------------------------------------------------------------------------
+// Documents quick view data (placeholder)
+// -----------------------------------------------------------------------------
+// This widget is data-agnostic. Until a backend endpoint is wired, we expose a
+// computed array that parents can override in the future. Keeping it empty will
+// show the component's empty state.
+const docItems = computed<DocumentItem[]>(() => {
+  // Demo items renamed per request
+  return [
+    {
+      id: 'pdf-bpo',
+      name: 'BPO.pdf',
+      type: 'application/pdf',
+      sizeBytes: Math.round(2.3 * 1024 * 1024),
+      previewUrl: '#',
+      downloadUrl: '#',
+    },
+    {
+      id: 'pdf-appraisal',
+      name: 'Appraisal.pdf',
+      type: 'application/pdf',
+      sizeBytes: Math.round(3.25 * 1024 * 1024),
+      previewUrl: '#',
+      downloadUrl: '#',
+    },
+    {
+      id: 'doc-memo',
+      name: 'Memo.docx',
+      type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      sizeBytes: Math.round(7.05 * 1024 * 1024),
+      previewUrl: '#',
+      downloadUrl: '#',
+    },
+  ]
+})
+
+// Build a concise context string for the AI summary from available row fields
+// Keep this defensively coded so modal usage without row data does not break
+const quickSummaryContext = computed<string>(() => {
+  const r = props.row || {}
+  const parts: string[] = []
+  // Address
+  const addr = [r.street_address, r.city, r.state, r.zip].filter(Boolean).join(', ')
+  if (addr) parts.push(`Address: ${addr}`)
+  // Financials
+  if (r.current_balance != null) parts.push(`Current Balance: ${r.current_balance}`)
+  if (r.total_debt != null) parts.push(`Total Debt: ${r.total_debt}`)
+  if (r.seller_as_is != null) parts.push(`Seller As-Is: ${r.seller_as_is}`)
+  if (r.seller_arv != null) parts.push(`Seller ARV: ${r.seller_arv}`)
+  // Categorical flags
+  if (r.asset_status) parts.push(`Asset Status: ${r.asset_status}`)
+  if (r.fc_flag) parts.push(`FC Flag: ${r.fc_flag}`)
+  if (r.bk_flag) parts.push(`BK Flag: ${r.bk_flag}`)
+  // Join into a short paragraph for summarization
+  return parts.join(' | ')
+})
 </script>

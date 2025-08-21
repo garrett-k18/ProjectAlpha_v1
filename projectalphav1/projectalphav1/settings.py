@@ -23,9 +23,18 @@ from dotenv import load_dotenv
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Load environment variables from project root `.env` if present
+# Load environment variables from project `.env` if present
 # This allows local development without exporting env vars manually.
 load_dotenv(dotenv_path=str(BASE_DIR / '.env'))
+
+# ALSO load from the repository root `.env` if present (one level above BASE_DIR)
+# This supports setups where the top-level workspace stores environment vars.
+try:
+    from pathlib import Path as _Path
+    load_dotenv(dotenv_path=str(_Path(BASE_DIR).parent / '.env'))
+except Exception:
+    # Non-fatal; continue if the extra .env is not present
+    pass
 
 # Helper for parsing booleans from env in a robust way
 def env_bool(key: str, default: bool) -> bool:

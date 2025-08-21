@@ -155,6 +155,7 @@ html[data-sidenav-size='fullscreen'] .product-details-dialog {
 }
 .product-details-content .modal-body {
   flex: 1 1 auto;
-  overflow: auto;
+  overflow-y: auto;   /* keep vertical scroll */
+  overflow-x: hidden; /* disable horizontal scroll */
 }
 </style>
