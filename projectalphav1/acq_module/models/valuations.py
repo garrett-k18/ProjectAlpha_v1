@@ -36,10 +36,21 @@ class InternalValuation(models.Model):
         related_name='internal_valuation'
     )
     
-    # Internal underwriting values
+    # Internal underwriting values and Rehab estimates
     internal_uw_asis_value = models.DecimalField(max_digits=15, decimal_places=2)
     internal_uw_arv_value = models.DecimalField(max_digits=15, decimal_places=2)
     internal_uw_value_date = models.DateField()
+    internal_rehab_est_total = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    roof_est = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    kitchen_est = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    bath_est = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    flooring_est = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    windows_est = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    appliances_est = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    plumbing_est = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    electrical_est = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    landscaping_est = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    
 
     # Third-party values
     thirdparty_asis_value = models.DecimalField(max_digits=15, decimal_places=2)

@@ -56,39 +56,50 @@
       </b-row>
     </div>
 
-    <!-- Documents quick view row -->
+    <!-- Documents + Valuation + Summary row (condensed grid). Place Valuation left of Documents. -->
     <div class="px-3 px-lg-4">
-      <b-row class="g-3 g-lg-4 mt-1">
-      <b-col lg="3" class="d-flex">
-        <div class="w-100 h-100">
-          <!-- Reusable global DocumentsQuickView widget; data-agnostic and styled with Hyper UI cards -->
-          <DocumentsQuickView
-            title="Document Quick View"
-            :docs="docItems"
-            :maxItems="5"
-            :showViewAll="false"
-          />
-        </div>
-      </b-col>
-      <!-- Quick AI Summary next to documents list -->
-      <b-col lg="9" class="d-flex">
-        <div class="ps-lg-4 w-100 h-100">
-          <QuickSummary
-            class="h-100 d-flex flex-column"
-            :context="quickSummaryContext"
-            :max-bullets="4"
-            :lazy="true"
-            title="Asset Highlights"
-          />
-        </div>
-      </b-col>
-    </b-row>
+      <!-- Slightly tighter gutters so three cards fit comfortably in the modal width -->
+      <b-row class="g-2 g-lg-3 mt-1 align-items-stretch">
+        <!-- Valuation Matrix card (left, reduced) -->
+        <b-col lg="6" class="d-flex">
+          <div class="w-100 h-100">
+            <div class="card h-100 d-flex flex-column">
+              <div class="card-body p-2">
+                <!-- Child renders only the table; parent provides the card wrapper and spacing -->
+                <ValuationMatrix :row="row" :productId="productId" />
+              </div>
+            </div>
+          </div>
+        </b-col>
+
+        <!-- Quick AI Summary (middle, same width as Documents) -->
+        <b-col lg="3" class="d-flex">
+          <div class="ps-lg-3 w-100 h-100">
+            <QuickSummary
+              class="h-100 d-flex flex-column"
+              :context="quickSummaryContext"
+              :max-bullets="4"
+              :lazy="true"
+              title="Asset Highlights"
+            />
+          </div>
+        </b-col>
+
+        <!-- Documents quick view card (right, original width) -->
+        <b-col lg="3" class="d-flex">
+          <div class="ps-lg-3 w-100 h-100">
+            <DocumentsQuickView
+              title="Document Quick View"
+              :docs="docItems"
+              :maxItems="5"
+              :showViewAll="false"
+            />
+          </div>
+        </b-col>
+      </b-row>
     </div>
 
-    <!-- Pricing/stock by outlet table -->
-    <div class="px-3 px-lg-4">
-      <ValuationMatrix />
-    </div>
+    <!-- Valuation matrix moved into the row above, wrapped in a card for visual consistency. -->
   </div>
 </template>
 
@@ -254,4 +265,5 @@ const quickSummaryContext = computed<string>(() => {
   // Join into a short paragraph for summarization
   return parts.join(' | ')
 })
+
 </script>

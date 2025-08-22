@@ -11,6 +11,7 @@ from .views.photos_api import (
     list_photos_by_raw_id,
 )
 from .views.ai_summary import generate_quick_summary
+from .views.internal_valuation_api import internal_valuation_detail
 
 # This defines the URL patterns for the acq_module app.
 urlpatterns = [
@@ -29,4 +30,6 @@ urlpatterns = [
     path('photos/<int:id>/', list_photos_by_raw_id, name='api_list_photos_by_raw_id'),
     # AI summary endpoint
     path('ai/summary/', generate_quick_summary, name='api_ai_quick_summary'),
+    # Internal valuation (internal underwriting values) by SellerRawData id
+    path('valuations/internal/<int:seller_id>/', internal_valuation_detail, name='api_internal_valuation_detail'),
 ]
