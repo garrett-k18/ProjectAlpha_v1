@@ -18,7 +18,8 @@
     </b-row>
   </Layout>
 
-  <!-- Public token route: render without site chrome -->
+  <!-- Public token route: render without site chrome and WITHOUT profile/sidebar
+       Only show the broker form fields to keep this page isolated from the rest of the app. -->
   <div v-else>
     <!-- Error banner for invalid/expired/used tokens -->
     <b-alert
@@ -41,16 +42,9 @@
     <!-- Main content only when token is valid in public mode -->
     <div v-else-if="tokenStatus === 'valid'">
       <b-row>
-        <b-col xl="4" lg="5">
-          <Profile />
-        </b-col>
-        <b-col xl="8" lg="7">
+        <b-col cols="12">
           <b-card>
-            <b-tabs content-class="mt-3" pills justified nav-class="bg-nav-pills">
-              <b-tab active title="Settings" title-link-class="rounded-0">
-                <Settings />
-              </b-tab>
-            </b-tabs>
+            <Settings />
           </b-card>
         </b-col>
       </b-row>

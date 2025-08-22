@@ -5,39 +5,55 @@
   -->
   <div class="card">
     <div class="d-flex card-header justify-content-between align-items-center">
-      <h4 class="header-title">Seller Data Tape</h4>
-      
-      <!-- Column visibility controls -->
-      <div class="dropdown">
-        <button class="btn btn-sm btn-light dropdown-toggle" type="button" id="columnVisibilityMenu" 
-                data-bs-toggle="dropdown" aria-expanded="false">
-          <i class="mdi mdi-eye-outline me-1"></i> Column Visibility
-        </button>
-        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="columnVisibilityMenu">
-          <!-- All columns toggle -->
-          <li>
-            <a class="dropdown-item" href="#" @click.prevent="toggleAllColumns(true)">
-              <i class="mdi mdi-eye me-1"></i> Show All
-            </a>
-          </li>
-          <li>
-            <a class="dropdown-item" href="#" @click.prevent="toggleAllColumns(false)">
-              <i class="mdi mdi-eye-off me-1"></i> Hide All
-            </a>
-          </li>
-          <li><hr class="dropdown-divider"></li>
-          <!-- Individual column toggles -->
-          <li v-for="col in columnDefs" :key="col.field">
-            <a 
-              class="dropdown-item" 
-              href="#" 
-              @click.prevent="col.field && toggleColumnVisibility(col.field)"
-            >
-              <i :class="['mdi', col.hide ? 'mdi-eye-off' : 'mdi-eye', 'me-1']"></i>
-              {{ col.headerName }}
-            </a>
-          </li>
-        </ul>
+      <h4 class="header-title">{{ viewTitle }}</h4>
+
+      <!-- Right-side controls: View selector + Column visibility -->
+      <div class="d-flex align-items-center gap-2">
+        <!-- View selector to switch between column presets -->
+        <div class="d-flex align-items-center">
+          <label for="viewSelect" class="me-2 small mb-0">View</label>
+          <select
+            id="viewSelect"
+            class="form-select form-select-sm"
+            v-model="activeView"
+          >
+            <option value="sellerDataTape">Seller Data Tape</option>
+            <option value="localAgents">Local Agents</option>
+          </select>
+        </div>
+
+        <!-- Column visibility controls -->
+        <div class="dropdown">
+          <button class="btn btn-sm btn-light dropdown-toggle" type="button" id="columnVisibilityMenu" 
+                  data-bs-toggle="dropdown" aria-expanded="false">
+            <i class="mdi mdi-eye-outline me-1"></i> Column Visibility
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="columnVisibilityMenu">
+            <!-- All columns toggle -->
+            <li>
+              <a class="dropdown-item" href="#" @click.prevent="toggleAllColumns(true)">
+                <i class="mdi mdi-eye me-1"></i> Show All
+              </a>
+            </li>
+            <li>
+              <a class="dropdown-item" href="#" @click.prevent="toggleAllColumns(false)">
+                <i class="mdi mdi-eye-off me-1"></i> Hide All
+              </a>
+            </li>
+            <li><hr class="dropdown-divider"></li>
+            <!-- Individual column toggles -->
+            <li v-for="col in columnDefs" :key="col.field">
+              <a 
+                class="dropdown-item" 
+                href="#" 
+                @click.prevent="col.field && toggleColumnVisibility(col.field)"
+              >
+                <i :class="['mdi', col.hide ? 'mdi-eye-off' : 'mdi-eye', 'me-1']"></i>
+                {{ col.headerName }}
+              </a>
+            </li>
+          </ul>
+        </div>
       </div>
     </div>
 
@@ -148,9 +164,18 @@ const props = defineProps<{
 // Column Definitions: describe the columns shown in the grid.
 // Each ColDef defines a column's header name, the field in the data, and behavior.
 // ---------------------------------------------------------------------------
-// Reactive column definitions that will be populated from the backend
-// API that exposes Django model field names for SellerRawData.
+// Reactive column definitions currently applied to the grid
 const columnDefs = ref<ColDef[]>([])
+
+// Preserve the default (Seller Data Tape) columns after generation so we can
+// switch between views without losing the original definitions.
+const sellerDataTapeColumns = ref<ColDef[] | null>(null)
+
+// View selector state: 'sellerDataTape' (default) | 'localAgents'
+const activeView = ref<'sellerDataTape' | 'localAgents'>('sellerDataTape')
+
+// Friendly title reflecting the active view
+const viewTitle = computed(() => (activeView.value === 'sellerDataTape' ? 'Seller Data Tape' : 'Local Agents'))
 
 // ---------------------------------------------------------------------------
 // Default Column Definition: applied to all columns unless overridden above.
@@ -175,6 +200,45 @@ const defaultColDef: ColDef = {
 // ---------------------------------------------------------------------------
 // Strongly type rowData as a Vue Ref to satisfy TS lints and enable reactivity
 const rowData = ref<Record<string, unknown>[]>([])
+
+// Selected agent per row (by row id or sellertape_id).
+// Persisted in localStorage, namespaced by sellerId and tradeId.
+// Keys are normalized to strings to avoid number/string key mismatches after JSON parse.
+const selectedAgents = ref<Record<string, string>>({})
+
+// Broker options keyed by state, supplied by backend endpoint
+const brokerOptionsByState = ref<Record<string, string[]>>({})
+
+// ---------------------------------------------------------------------------
+// Persistence for Agent selections (per sellerId + tradeId)
+// ---------------------------------------------------------------------------
+const STORAGE_KEY_PREFIX = 'acq_local_agents_selected_agents'
+
+function storageKey(): string {
+  // Use 'null' placeholders to ensure stable keys when IDs are missing
+  const sid = selectedSellerId.value ?? 'null'
+  const tid = selectedTradeId.value ?? 'null'
+  return `${STORAGE_KEY_PREFIX}:${sid}:${tid}`
+}
+
+function saveSelectedAgentsToStorage(): void {
+  try {
+    // Persist the current map for the active seller/trade
+    localStorage.setItem(storageKey(), JSON.stringify(selectedAgents.value))
+  } catch (e) {
+    console.debug('[LocalAgents] Failed to persist selected agents', e)
+  }
+}
+
+function loadSelectedAgentsFromStorage(): void {
+  try {
+    const raw = localStorage.getItem(storageKey())
+    selectedAgents.value = raw ? (JSON.parse(raw) as Record<string, string>) : {}
+  } catch (e) {
+    console.debug('[LocalAgents] Failed to load persisted selected agents', e)
+    selectedAgents.value = {}
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Dropdown data sources and selection state
@@ -279,6 +343,14 @@ const percentFields = new Set<string>([
 const clickableIdFields = new Set<string>(['id', 'sellertape_id', 'loan_id'])
 function isClickableIdField(field: string): boolean {
   return clickableIdFields.has(field)
+}
+
+// Helper to pick a stable row key (prefer 'id', else 'sellertape_id')
+function getRowKey(row: any): string | number | undefined {
+  if (!row) return undefined
+  if (row.id !== undefined && row.id !== null) return row.id as any
+  if (row.sellertape_id !== undefined && row.sellertape_id !== null) return row.sellertape_id as any
+  return undefined
 }
 
 /**
@@ -410,6 +482,138 @@ const onGridReady = (params: GridReadyEvent) => {
   
   // Log initialization success
   console.log('AG Grid initialized successfully')
+}
+
+// ---------------------------------------------------------------------------
+// Local Agents view: curated column set including an "Agent" select editor
+// Options are populated by state via backend batch endpoint.
+// ---------------------------------------------------------------------------
+
+function formatBrokerLabel(b: { broker_name?: string | null; broker_firm?: string | null; broker_city?: string | null; broker_email?: string | null }): string {
+  const name = (b.broker_name || '').trim()
+  const firm = (b.broker_firm || '').trim()
+  const city = (b.broker_city || '').trim()
+  const email = (b.broker_email || '').trim()
+  // Label format: "Broker name - broker firm - Broker city" with email fallback
+  const parts: string[] = []
+  if (name) parts.push(name)
+  if (firm) parts.push(firm)
+  if (city) parts.push(city)
+  const label = parts.join(' - ')
+  return label || email
+}
+
+function buildAgentColumn(): ColDef {
+  return {
+    headerName: 'Agent',
+    field: '__agent__',
+    editable: true,
+    cellEditor: 'agSelectCellEditor' as any,
+    cellEditorParams: (params: any) => {
+      const st = String(params.data?.state || '').trim().toUpperCase()
+      const values = brokerOptionsByState.value[st] || []
+      return { values }
+    },
+    // Allow single-click to start editing to reinforce that it's a dropdown
+    singleClickEdit: true,
+    // Display a subtle placeholder when no agent is selected so users know
+    // they can interact with this cell. This does NOT change the underlying
+    // value; it only affects rendering.
+    valueFormatter: (params: any) => {
+      const v = (params.value ?? '').toString().trim()
+      return v || 'Choose agent…'
+    },
+    // Add a muted style when the cell has no value to make the placeholder
+    // look distinct from a real selection.
+    cellClassRules: {
+      'agent-placeholder': (p: any) => !p.value || String(p.value).trim() === ''
+    },
+    // Helpful tooltip: when empty, prompt the user; otherwise show the value
+    tooltipValueGetter: (p: any) => {
+      const v = (p.value ?? '').toString().trim()
+      return v || 'Click to choose an agent'
+    },
+    // Pointer cursor hints interactivity even before editing
+    cellStyle: () => ({ cursor: 'pointer' }),
+    // No custom cell class; rely on AG Grid's default caret only while editing
+    valueGetter: (params: any) => {
+      const key = getRowKey(params.data)
+      if (key === undefined) return ''
+      const k = String(key)
+      return selectedAgents.value[k] || ''
+    },
+    valueSetter: (params: any) => {
+      const key = getRowKey(params.data)
+      if (key === undefined) return false
+      const k = String(key)
+      selectedAgents.value[k] = params.newValue
+      // Persist immediately so a hard refresh restores the choice
+      saveSelectedAgentsToStorage()
+      return true
+    },
+    width: 240,
+    minWidth: 200,
+  }
+}
+
+function buildLocalAgentsColumns(): ColDef[] {
+  // Actions column (reuse existing renderer)
+  const actionsCol: ColDef = {
+    headerName: 'Actions',
+    colId: 'actions',
+    pinned: 'left',
+    sortable: false,
+    filter: false,
+    suppressHeaderMenuButton: true,
+    suppressHeaderContextMenu: true,
+    width: 220,
+    minWidth: 160,
+    cellRenderer: ActionsCell as any,
+    cellRendererParams: { onAction: onRowAction },
+  }
+
+  // Prefer 'id'; fallback to 'sellertape_id' clickable id
+  const idField = 'id'
+  const idCol: ColDef = {
+    headerName: headerNameMappings[idField] || prettifyHeader(idField),
+    field: idField,
+    sortable: true,
+    filter: true,
+    cellRenderer: IdLinkCell as any,
+    cellRendererParams: {
+      openMode: props.openMode,
+      onOpen: props.openLoan,
+    },
+    width: 120,
+    maxWidth: 140,
+  }
+
+  const cols: ColDef[] = [
+    actionsCol,
+    idCol,
+    { headerName: 'Address', field: 'street_address', sortable: true, filter: true },
+    { headerName: 'City', field: 'city', sortable: true, filter: true },
+    { headerName: 'State', field: 'state', sortable: true, filter: true, width: 110, maxWidth: 120 },
+    { headerName: 'Current Balance', field: 'current_balance', sortable: true, filter: true, valueFormatter: numberNoDecimalFormatter, width: 160 },
+    { headerName: 'Total Debt', field: 'total_debt', sortable: true, filter: true, valueFormatter: numberNoDecimalFormatter, width: 140 },
+    { headerName: 'Seller As Is', field: 'seller_asis_value', sortable: true, filter: true, valueFormatter: numberNoDecimalFormatter, width: 140 },
+    { headerName: 'Seller ARV', field: 'seller_arv_value', sortable: true, filter: true, valueFormatter: numberNoDecimalFormatter, width: 140 },
+    buildAgentColumn(),
+  ]
+
+  return cols
+}
+
+function applyViewColumns(view: 'sellerDataTape' | 'localAgents') {
+  if (view === 'sellerDataTape') {
+    // Restore original generated columns
+    if (sellerDataTapeColumns.value) {
+      columnDefs.value = sellerDataTapeColumns.value
+    }
+  } else {
+    // Switch to curated Local Agents set
+    columnDefs.value = buildLocalAgentsColumns()
+  }
 }
 
 /**
@@ -559,6 +763,8 @@ onMounted(async () => {
     }
 
     columnDefs.value = [actionsCol, ...generated]
+    // Preserve as the default view's columns
+    sellerDataTapeColumns.value = columnDefs.value
     
     // Alternative approach: You can also hide columns after grid initialization
     // using the columnApi. This is useful for dynamic column hiding based on user preferences.
@@ -648,6 +854,7 @@ onMounted(async () => {
     }
 
     columnDefs.value = [fallbackActionsCol, ...fallbackGenerated]
+    sellerDataTapeColumns.value = columnDefs.value
 
     // Optional: you can also set a minimal sample row to verify rendering.
     // Leaving rowData empty will render headers only, which is sufficient for layout.
@@ -656,6 +863,12 @@ onMounted(async () => {
 
   // Always try to load sellers for the first dropdown after column setup
   await fetchSellers()
+
+  // Apply initial view columns after defaults are prepared
+  applyViewColumns(activeView.value)
+
+  // Load any persisted Agent selections for the current seller/trade
+  loadSelectedAgentsFromStorage()
 })
 
 // ---------------------------------------------------------------------------
@@ -757,6 +970,66 @@ watch([selectedSellerId, selectedTradeId], async ([sellerId, tradeId]) => {
     rowData.value = []
   }
 })
+
+// When row data changes, gather distinct states and fetch broker options batch
+watch(rowData, async (rows) => {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    brokerOptionsByState.value = {}
+    return
+  }
+  // Only fetch broker options when Local Agents view is relevant or prefetch anyway
+  const states = Array.from(new Set((rows as any[])
+    .map(r => (r && r.state ? String(r.state).trim().toUpperCase() : ''))
+    .filter(Boolean)
+  ))
+  if (states.length === 0) return
+  await fetchBrokerOptionsByStates(states)
+})
+
+// Reload persisted Agent selections when seller or trade changes
+watch([selectedSellerId, selectedTradeId], () => {
+  loadSelectedAgentsFromStorage()
+})
+
+// Switch columns when the active view changes
+watch(activeView, async (v) => {
+  applyViewColumns(v)
+  // If switching to Local Agents and we already have rows, ensure broker options are loaded
+  if (v === 'localAgents' && Array.isArray(rowData.value) && rowData.value.length > 0) {
+    const states = Array.from(new Set((rowData.value as any[])
+      .map(r => (r && r.state ? String(r.state).trim().toUpperCase() : ''))
+      .filter(Boolean)
+    ))
+    if (states.length > 0) {
+      await fetchBrokerOptionsByStates(states)
+    }
+  }
+})
+
+// Fetch broker options by state via backend batch endpoint
+async function fetchBrokerOptionsByStates(states: string[]): Promise<void> {
+  try {
+    const qp = encodeURIComponent(states.join(','))
+    const resp = await fetch(`/api/acq/broker-invites/by-state-batch/?states=${qp}` , {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      credentials: 'same-origin',
+    })
+    if (!resp.ok) throw new Error(`Failed to fetch brokers by state: ${resp.status}`)
+    const json = await resp.json()
+    const results = (json && json.results) || {}
+    const mapped: Record<string, string[]> = {}
+    for (const [state, arr] of Object.entries(results)) {
+      mapped[state.toUpperCase()] = Array.isArray(arr)
+        ? arr.map((b: any) => formatBrokerLabel(b)).filter(lbl => !!lbl && lbl.trim().length > 0)
+        : []
+    }
+    brokerOptionsByState.value = mapped
+  } catch (e) {
+    console.error('Failed to load brokers by state', e)
+    brokerOptionsByState.value = {}
+  }
+}
 </script>
 
 <!--
@@ -786,6 +1059,18 @@ watch([selectedSellerId, selectedTradeId], async ([sellerId, tradeId]) => {
 /* :deep(.seller-grid .ag-floating-filter-body) {
   justify-content: center;
 } */
+
+/* Subtle placeholder appearance for empty Agent cells */
+:deep(.seller-grid .agent-placeholder) {
+  color: #6c757d;       /* muted gray similar to Bootstrap text-muted */
+  font-style: italic;   /* differentiate from real selections */
+}
+
+/* Agent cell text in blue when a value is selected (non-placeholder) */
+:deep(.seller-grid .ag-cell[col-id="__agent__"]:not(.agent-placeholder)) {
+  color: #2563eb; /* tailwind blue-600 */
+}
+/* Custom persistent chevron removed per request; default AG Grid icon shows only while editing */
 </style>
 
 <style>

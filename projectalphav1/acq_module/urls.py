@@ -16,6 +16,7 @@ from .views.broker_invite_api import (
     create_broker_invite,
     validate_broker_invite,
     submit_broker_values_with_token,
+    list_brokers_by_state_batch,
 )
 
 # This defines the URL patterns for the acq_module app.
@@ -39,6 +40,8 @@ urlpatterns = [
     path('valuations/internal/<int:seller_id>/', internal_valuation_detail, name='api_internal_valuation_detail'),
     # Broker invite/token endpoints (public)
     path('broker-invites/', create_broker_invite, name='api_create_broker_invite'),  # POST
+    # Broker listing for UI (state-based batch) MUST come before the catch-all token path
+    path('broker-invites/by-state-batch/', list_brokers_by_state_batch, name='api_list_brokers_by_state_batch'),  # GET
     path('broker-invites/<str:token>/', validate_broker_invite, name='api_validate_broker_invite'),  # GET
     path('broker-invites/<str:token>/submit/', submit_broker_values_with_token, name='api_submit_broker_values_with_token'),  # POST
 ]

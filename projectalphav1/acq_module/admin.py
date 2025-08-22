@@ -39,19 +39,15 @@ class BrokerPhotoInline(admin.TabularInline):
 
 @admin.register(Brokercrm)
 class BrokercrmAdmin(admin.ModelAdmin):
-    """Admin configuration for Brokercrm (broker invite) model."""
+    """Admin configuration for Brokercrm (broker directory) model."""
     list_display = (
-        'seller_raw_data', 'token', 'broker_email', 'expires_at', 'single_use', 'used_at', 'created_at'
+        'broker_name', 'broker_firm', 'broker_email', 'broker_state', 'broker_city', 'created_at'
     )
     list_filter = (
-        'single_use',
-        'seller_raw_data__seller',
-        'seller_raw_data__trade',
+        'broker_state',
     )
     search_fields = (
-        'token', 'broker_email', 'broker_name',
-        'seller_raw_data__seller__name',
-        'seller_raw_data__trade__trade_name',
+        'broker_name', 'broker_email', 'broker_firm', 'broker_city'
     )
 
 
