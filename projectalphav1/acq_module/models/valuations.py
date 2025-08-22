@@ -84,9 +84,10 @@ class BrokerValues(models.Model):
     )
     
     # Broker values
-    broker_asis_value = models.DecimalField(max_digits=15, decimal_places=2)
-    broker_arv_value = models.DecimalField(max_digits=15, decimal_places=2)
-    broker_value_date = models.DateField()
+    broker_asis_value = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    broker_arv_value = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    broker_value_date = models.DateField(null=True, blank=True)
+    broker_rehab_est = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
     broker_notes = models.TextField(blank=True, null=True)
     
     # Timestamps

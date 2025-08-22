@@ -34,7 +34,7 @@ from rest_framework.response import Response
 from rest_framework import status, serializers
 
 from ..models.seller import SellerRawData
-from ..models.valuations import InternalValuation
+from ..models.valuations import InternalValuation, BrokerValues
 
 
 class InternalValuationSerializer(serializers.Serializer):
@@ -46,6 +46,15 @@ class InternalValuationSerializer(serializers.Serializer):
     internal_uw_arv_value = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
     internal_rehab_est_total = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
     internal_uw_value_date = serializers.DateField(required=False, allow_null=True)
+    # Read-only exposure of third-party values for display in UI (3rd Party BPO row)
+    thirdparty_asis_value = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
+    thirdparty_arv_value = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
+    thirdparty_value_date = serializers.DateField(required=False, allow_null=True)
+    # Read-only exposure of broker values for display in UI (Local Agent/Broker row)
+    broker_asis_value = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
+    broker_arv_value = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
+    broker_rehab_est = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
+    broker_value_date = serializers.DateField(required=False, allow_null=True)
 
     def to_representation(self, instance: Optional[InternalValuation]):
         if instance is None:
@@ -55,6 +64,15 @@ class InternalValuationSerializer(serializers.Serializer):
                 "internal_uw_arv_value": None,
                 "internal_rehab_est_total": None,
                 "internal_uw_value_date": None,
+                # Keep response shape stable when missing
+                "thirdparty_asis_value": None,
+                "thirdparty_arv_value": None,
+                "thirdparty_value_date": None,
+                # Broker values shape
+                "broker_asis_value": None,
+                "broker_arv_value": None,
+                "broker_rehab_est": None,
+                "broker_value_date": None,
             }
         return {
             "seller_raw_data": instance.seller_raw_data_id,
@@ -62,6 +80,15 @@ class InternalValuationSerializer(serializers.Serializer):
             "internal_uw_arv_value": str(instance.internal_uw_arv_value) if instance.internal_uw_arv_value is not None else None,
             "internal_rehab_est_total": str(instance.internal_rehab_est_total) if instance.internal_rehab_est_total is not None else None,
             "internal_uw_value_date": instance.internal_uw_value_date.isoformat() if instance.internal_uw_value_date else None,
+            # Third-party values surfaced for read in the valuation matrix (non-editable here)
+            "thirdparty_asis_value": str(instance.thirdparty_asis_value) if getattr(instance, 'thirdparty_asis_value', None) is not None else None,
+            "thirdparty_arv_value": str(instance.thirdparty_arv_value) if getattr(instance, 'thirdparty_arv_value', None) is not None else None,
+            "thirdparty_value_date": instance.thirdparty_value_date.isoformat() if getattr(instance, 'thirdparty_value_date', None) else None,
+            # Broker values fields included for convenience even when also using BrokerValues overlay
+            "broker_asis_value": None,
+            "broker_arv_value": None,
+            "broker_rehab_est": None,
+            "broker_value_date": None,
         }
 
 
@@ -87,6 +114,20 @@ def internal_valuation_detail(request, seller_id: int):
         data = InternalValuationSerializer().to_representation(iv)
         # Ensure seller id is present even when iv is None (null payload)
         data["seller_raw_data"] = raw.id
+        # Surface live BrokerValues as 3rd party values when available
+        try:
+            broker = BrokerValues.objects.get(seller_raw_data=raw)
+            data["thirdparty_asis_value"] = str(broker.broker_asis_value) if broker.broker_asis_value is not None else None
+            data["thirdparty_arv_value"] = str(broker.broker_arv_value) if broker.broker_arv_value is not None else None
+            data["thirdparty_value_date"] = broker.broker_value_date.isoformat() if broker.broker_value_date else None
+            # Also return explicit broker_* keys for Local Agent/Broker row consumption
+            data["broker_asis_value"] = str(broker.broker_asis_value) if broker.broker_asis_value is not None else None
+            data["broker_arv_value"] = str(broker.broker_arv_value) if broker.broker_arv_value is not None else None
+            data["broker_rehab_est"] = str(broker.broker_rehab_est) if getattr(broker, 'broker_rehab_est', None) is not None else None
+            data["broker_value_date"] = broker.broker_value_date.isoformat() if broker.broker_value_date else None
+        except BrokerValues.DoesNotExist:
+            # Leave whatever came from InternalValuation (possibly None)
+            pass
         return Response(data, status=status.HTTP_200_OK)
 
     # Handle PATCH/PUT

@@ -1,7 +1,7 @@
 <template>
   <!-- Valuation matrix table only; parent provides the card wrapper and spacing -->
   <div class="table-responsive mb-0">
-    <table class="table table-bordered table-centered mb-0">
+    <table class="table table-bordered table-centered align-middle mb-0">
       <colgroup>
         <col />
         <col style="width: 28%" />
@@ -81,9 +81,27 @@
         <!-- Render remaining live valuation rows (Seller, Agent, BPO, and any props.rows) -->
         <tr v-for="(r, idx) in otherRows" :key="idx">
           <td>{{ r.source }}</td>
-          <td>{{ r.asIs }}</td>
-          <td>{{ r.arv }}</td>
-          <td>{{ r.rehab }}</td>
+          <td>
+            <div class="row gx-0">
+              <div class="col-7 col-lg-8">
+                <div class="form-control-plaintext text-start ps-2 pe-0">{{ r.asIs }}</div>
+              </div>
+            </div>
+          </td>
+          <td>
+            <div class="row gx-0">
+              <div class="col-7 col-lg-8">
+                <div class="form-control-plaintext text-start ps-2 pe-0">{{ r.arv }}</div>
+              </div>
+            </div>
+          </td>
+          <td>
+            <div class="row gx-0">
+              <div class="col-7 col-lg-8">
+                <div class="form-control-plaintext text-start ps-2 pe-0">{{ r.rehab }}</div>
+              </div>
+            </div>
+          </td>
         </tr>
       </tbody>
     </table>
@@ -151,14 +169,17 @@ const sellerId = computed<number | null>(() => {
  * Returns Local Agent and 3rd Party BPO rows.
  */
 function buildOtherDerivedRows(r: Record<string, any>): ValuationRow[] {
-  // Local Agent
-  const agentAsIs = (r as any).local_agent_as_is ?? (r as any).agent_as_is_value ?? (r as any).agent_as_is ?? null
-  const agentArv = (r as any).local_agent_arv ?? (r as any).agent_arv_value ?? (r as any).agent_arv ?? null
-  const agentRehab = (r as any).local_agent_rehab_estimate ?? (r as any).agent_rehab_estimate ?? null
+  // Local Agent / Broker
+  // Prefer broker values loaded from InternalValuation API; fallback to any fields present on the raw row.
+  const agentAsIs = brokerAsIsDigits.value || (r as any).local_agent_as_is || (r as any).agent_as_is_value || (r as any).agent_as_is || null
+  const agentArv = brokerArvDigits.value || (r as any).local_agent_arv || (r as any).agent_arv_value || (r as any).agent_arv || null
+  const agentRehab = brokerRehabDigits.value || (r as any).local_agent_rehab_estimate || (r as any).agent_rehab_estimate || null
 
   // 3rd Party BPO
-  const bpoAsIs = (r as any).bpo_as_is ?? (r as any).third_party_bpo_as_is_value ?? (r as any).third_party_as_is ?? null
-  const bpoArv = (r as any).bpo_arv ?? (r as any).third_party_bpo_arv_value ?? (r as any).third_party_arv ?? null
+  // Prefer values from InternalValuation API (thirdparty_* fields), which are authoritative
+  // Fallback to any fields present on the raw row if available.
+  const bpoAsIs = thirdPartyAsIsDigits.value || (r as any).bpo_as_is || (r as any).third_party_bpo_as_is_value || (r as any).third_party_as_is || null
+  const bpoArv = thirdPartyArvDigits.value || (r as any).bpo_arv || (r as any).third_party_bpo_arv_value || (r as any).third_party_arv || null
   const bpoRehab = (r as any).bpo_rehab_estimate ?? (r as any).third_party_rehab_estimate ?? null
 
   return [
@@ -217,6 +238,13 @@ const internalRehab = ref<string>('')
 const serverAsIs = ref<string | null>(null)
 const serverArv = ref<string | null>(null)
 const serverRehab = ref<string | null>(null)
+/** Third-party values (digits) loaded from InternalValuation for 3rd Party BPO row. */
+const thirdPartyAsIsDigits = ref<string>('')
+const thirdPartyArvDigits = ref<string>('')
+/** Broker values (digits) loaded from InternalValuation for Local Agent/Broker row. */
+const brokerAsIsDigits = ref<string>('')
+const brokerArvDigits = ref<string>('')
+const brokerRehabDigits = ref<string>('')
 /** Flag to disable inputs during save. */
 const saving = ref<boolean>(false)
 /** UI flags to show errors only after user interaction. */
@@ -266,12 +294,25 @@ async function loadInternalValuation(id: number) {
     const asIsDigits = toDigitsFromValue(d.internal_uw_asis_value)
     const arvDigits = toDigitsFromValue(d.internal_uw_arv_value)
     const rehabDigits = toDigitsFromValue(d.internal_rehab_est_total)
+    // Third-party (BPO) values are read-only here; use them to populate the BPO row
+    const tpAsIsDigits = toDigitsFromValue(d.thirdparty_asis_value)
+    const tpArvDigits = toDigitsFromValue(d.thirdparty_arv_value)
+    // Broker values (Local Agent row) are read-only here; populate from API
+    const brAsIsDigits = toDigitsFromValue(d.broker_asis_value)
+    const brArvDigits = toDigitsFromValue(d.broker_arv_value)
+    const brRehabDigits = toDigitsFromValue(d.broker_rehab_est)
     serverAsIs.value = asIsDigits || null
     serverArv.value = arvDigits || null
     serverRehab.value = rehabDigits || null
     internalAsIs.value = formatWithCommasFromDigits(asIsDigits)
     internalArv.value = formatWithCommasFromDigits(arvDigits)
     internalRehab.value = formatWithCommasFromDigits(rehabDigits)
+    // Store raw digits for formatting in computed rows
+    thirdPartyAsIsDigits.value = tpAsIsDigits
+    thirdPartyArvDigits.value = tpArvDigits
+    brokerAsIsDigits.value = brAsIsDigits
+    brokerArvDigits.value = brArvDigits
+    brokerRehabDigits.value = brRehabDigits
     asIsTouched.value = false
     arvTouched.value = false
     rehabTouched.value = false
@@ -284,6 +325,11 @@ async function loadInternalValuation(id: number) {
     internalAsIs.value = ''
     internalArv.value = ''
     internalRehab.value = ''
+    thirdPartyAsIsDigits.value = ''
+    thirdPartyArvDigits.value = ''
+    brokerAsIsDigits.value = ''
+    brokerArvDigits.value = ''
+    brokerRehabDigits.value = ''
     asIsTouched.value = false
     arvTouched.value = false
     rehabTouched.value = false
@@ -382,6 +428,11 @@ watch(sellerId, (id) => {
     internalAsIs.value = ''
     internalArv.value = ''
     internalRehab.value = ''
+    thirdPartyAsIsDigits.value = ''
+    thirdPartyArvDigits.value = ''
+    brokerAsIsDigits.value = ''
+    brokerArvDigits.value = ''
+    brokerRehabDigits.value = ''
     asIsTouched.value = false
     arvTouched.value = false
     rehabTouched.value = false

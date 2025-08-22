@@ -450,6 +450,23 @@ const loanlvlRoutes = [
     }
 ]
 
+// acq module
+const acqModuleRoutes = [
+    {
+        path: '/acq',
+        name: 'Acquisition Module',
+        meta: { authRequired: true },
+        children: [
+            {
+                path: 'brokerview',
+                name: 'Brokerview',
+                // New Brokerview page copied from pages/profile-2
+                component: () => import('@/views/acq_module/brokerview/index.vue'),
+            },
+        ],
+    },
+]
+
 // layouts
 const layoutRoutes = [
     {
@@ -954,7 +971,20 @@ const mapRoutes = [
 
 const appRoutes = [...calendarAppsRoutes, ...chatAppsRoutes, ...crmAppsRoutes, ...ecommerceAppsRoutes, ...emailAppsRoutes, ...projectAppsRoutes,  ...socialFeedAppsRoutes,...taskAppsRoutes, ...fileManagerAppsRoutes]
 
-const customRoutes = [...pagesRoutes, ...landingRoutes, ...layoutRoutes, ...loanlvlRoutes]
+// Public, tokenized access for external brokers (no auth)
+const externalPublicRoutes = [
+    {
+        path: '/brokerview/:token',
+        name: 'BrokerviewPublic',
+        // explicit: do not require auth for this public route
+        meta: { authRequired: false },
+        // Pass token and set standalone=false so the component renders without site chrome
+        props: (route: any) => ({ token: route.params.token, standalone: false }),
+        component: () => import('@/views/acq_module/brokerview/index.vue'),
+    },
+]
+
+const customRoutes = [...pagesRoutes, ...landingRoutes, ...layoutRoutes, ...loanlvlRoutes, ...acqModuleRoutes, ...externalPublicRoutes]
 
 const componentRoutes = [...uiRoutes, ...extendedRoutes, ...widgetRoute, ...iconsRoutes, ...chartsRoutes, ...formsRoutes, ...tablesRoutes, ...mapRoutes]
 

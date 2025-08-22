@@ -5,7 +5,8 @@ from django.utils.html import format_html
 from .models import (
     Seller, Trade, SellerRawData,
     Servicer, StateReference, LoanLevelAssumption, TradeLevelAssumption,
-    InternalValuation, BrokerValues, BrokerPhoto, PublicPhoto, DocumentPhoto
+    InternalValuation, BrokerValues, BrokerPhoto, PublicPhoto, DocumentPhoto,
+    Brokercrm,
 )
 
 # Inline admin classes for related models
@@ -34,6 +35,24 @@ class BrokerPhotoInline(admin.TabularInline):
         return "No Image"
     
     image_preview.short_description = 'Preview'
+
+
+@admin.register(Brokercrm)
+class BrokercrmAdmin(admin.ModelAdmin):
+    """Admin configuration for Brokercrm (broker invite) model."""
+    list_display = (
+        'seller_raw_data', 'token', 'broker_email', 'expires_at', 'single_use', 'used_at', 'created_at'
+    )
+    list_filter = (
+        'single_use',
+        'seller_raw_data__seller',
+        'seller_raw_data__trade',
+    )
+    search_fields = (
+        'token', 'broker_email', 'broker_name',
+        'seller_raw_data__seller__name',
+        'seller_raw_data__trade__trade_name',
+    )
 
 
 class DocumentPhotoInline(admin.TabularInline):
