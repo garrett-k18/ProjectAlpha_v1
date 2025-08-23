@@ -463,6 +463,14 @@ const acqModuleRoutes = [
                 // New Brokerview page copied from pages/profile-2
                 component: () => import('@/views/acq_module/brokerview/index.vue'),
             },
+            {
+                path: 'brokers/:brokerId',
+                name: 'Broker Detail',
+                meta: { authRequired: true },
+                // Pass the brokerId as a prop for better type-safety in the component
+                props: (route: any) => ({ brokerId: Number(route.params.brokerId) }),
+                component: () => import('@/views/acq_module/brokers/detail.vue'),
+            },
         ],
     },
 ]

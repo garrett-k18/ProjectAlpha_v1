@@ -1,4 +1,3 @@
-
 from django.urls import path, re_path
 from .views.view_seller_data import (
     get_seller_trade_data,
@@ -17,6 +16,11 @@ from .views.broker_invite_api import (
     validate_broker_invite,
     submit_broker_values_with_token,
     list_brokers_by_state_batch,
+)
+from .views.geocode import geocode_markers
+from .views.brokers_api import (
+    broker_detail,
+    list_assigned_loans,
 )
 
 # This defines the URL patterns for the acq_module app.
@@ -44,4 +48,9 @@ urlpatterns = [
     path('broker-invites/by-state-batch/', list_brokers_by_state_batch, name='api_list_brokers_by_state_batch'),  # GET
     path('broker-invites/<str:token>/', validate_broker_invite, name='api_validate_broker_invite'),  # GET
     path('broker-invites/<str:token>/submit/', submit_broker_values_with_token, name='api_submit_broker_values_with_token'),  # POST
+    # Broker detail and assigned loans
+    path('brokers/<int:broker_id>/', broker_detail, name='api_broker_detail'),  # GET
+    path('brokers/<int:broker_id>/assigned-loans/', list_assigned_loans, name='api_broker_assigned_loans'),  # GET
+    # Geocoded markers for seller+trade
+    path('geocode/markers/<int:seller_id>/<int:trade_id>/', geocode_markers, name='api_geocode_markers'),
 ]

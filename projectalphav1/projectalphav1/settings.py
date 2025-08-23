@@ -201,6 +201,22 @@ REST_FRAMEWORK = {
 ]
 }
 
+# Django cache settings
+# Docs reviewed:
+# * Django cache framework: https://docs.djangoproject.com/en/5.2/topics/cache/
+# Provide a safe default local-memory cache for development and small deployments.
+# For production, consider Redis or Memcached backends.
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'projectalphav1-local',
+        # Prefix all keys to avoid collisions when multiple projects share a cache
+        'KEY_PREFIX': os.getenv('DJANGO_CACHE_KEY_PREFIX', 'projectalphav1'),
+        # Default cache timeout (seconds). Per-key timeouts in code will override this.
+        'TIMEOUT': int(os.getenv('DJANGO_CACHE_TIMEOUT', '300')),
+    }
+}
+
 # CORS settings
 CORS_ALLOW_ALL_ORIGINS = env_bool('DJANGO_CORS_ALLOW_ALL_ORIGINS', True)  # For development only, set to False in production
 CORS_ALLOW_CREDENTIALS = env_bool('DJANGO_CORS_ALLOW_CREDENTIALS', True)

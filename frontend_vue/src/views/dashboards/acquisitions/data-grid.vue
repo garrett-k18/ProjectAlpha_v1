@@ -115,6 +115,7 @@
         style="width: 100%; height: 420px"
         :theme="themeQuartz"
         :rowData="rowData"
+        overlayNoRowsTemplate="Choose Seller and Trade"
         :columnDefs="columnDefs"
         :defaultColDef="defaultColDef"
         rowSelection="multiple"
@@ -139,6 +140,9 @@ import { themeQuartz } from 'ag-grid-community'
 // Import types for better TypeScript support
 import type { ColDef, ValueFormatterParams } from 'ag-grid-community'
 import { ref, onMounted, watch, computed } from 'vue'
+import { useAcqSelectionsStore } from '@/stores/acqSelections'
+import { useAgGridRowsStore } from '@/stores/agGridRows'
+import { storeToRefs } from 'pinia'
 // Actions cell renderer for the first column
 import ActionsCell from './components/ActionsCell.vue'
 // ID link cell renderer for the internal ID link (no modal logic here)
@@ -195,11 +199,12 @@ const defaultColDef: ColDef = {
 }
 
 // ---------------------------------------------------------------------------
-// Row Data: example dataset to render in the grid. Replace with real data later.
-// Each object represents a row; keys must match the 'field' values in columnDefs.
+// Row Data: provided by centralized Pinia store (agGridRows)
+// - Keeps data cached by sellerId:tradeId and shared across components
+// - We map store refs to local names for minimal template changes
 // ---------------------------------------------------------------------------
-// Strongly type rowData as a Vue Ref to satisfy TS lints and enable reactivity
-const rowData = ref<Record<string, unknown>[]>([])
+const gridRowsStore = useAgGridRowsStore()
+const { rows: rowData, loadingRows: gridLoading } = storeToRefs(gridRowsStore)
 
 // Selected agent per row (by row id or sellertape_id).
 // Persisted in localStorage, namespaced by sellerId and tradeId.
@@ -253,12 +258,13 @@ interface TradeOption { id: number; trade_name: string }
 const sellers = ref<SellerOption[]>([])
 const trades = ref<TradeOption[]>([])
 
-const selectedSellerId = ref<number | null>(null)
-const selectedTradeId = ref<number | null>(null)
+// Use centralized Pinia store for selections to share state across components
+const acqStore = useAcqSelectionsStore()
+const { selectedSellerId, selectedTradeId } = storeToRefs(acqStore)
 
 const sellersLoading = ref<boolean>(false)
 const tradesLoading = ref<boolean>(false)
-const gridLoading = ref<boolean>(false)
+// gridLoading now comes from the store
 
 // Whether we have both IDs selected (i.e., grid is allowed to load data)
 const hasBothSelections = computed(() => !!selectedSellerId.value && !!selectedTradeId.value)
@@ -505,7 +511,7 @@ function formatBrokerLabel(b: { broker_name?: string | null; broker_firm?: strin
 
 function buildAgentColumn(): ColDef {
   return {
-    headerName: 'Agent',
+    headerName: 'Agent Assignment',
     field: '__agent__',
     editable: true,
     cellEditor: 'agSelectCellEditor' as any,
@@ -780,85 +786,8 @@ onMounted(async () => {
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error('Error loading SellerRawData fields for AG Grid:', err)
-    // Fallback: populate a sensible default set of columns so the grid still renders
-    // when the backend is unavailable or returns 500. These fields mirror a subset
-    // of the Django `SellerRawData` model in `acq_module/models/seller.py`.
-    // This is for development resilience only and can be removed once the API is stable.
-    const fallbackFields = [
-      // Identifiers
-      'seller_id',
-      'trade_id',
-      'sellertape_id',
-      // Status / dates
-      'asset_status',
-      'as_of_date',
-      'next_due_date',
-      // Location
-      'city',
-      'state',
-      'zip',
-      // Key finance
-      'current_balance',
-      'interest_rate',
-    ]
-
-    // Map fallback fields to AG Grid ColDefs with basic UX settings + formatters
-    const fallbackGenerated = fallbackFields.map((f): ColDef => {
-      const col: ColDef = {
-        field: f,                              // data key
-        headerName: prettifyHeader(f),         // user-friendly header
-        sortable: true,                        // allow sorting
-        filter: true,                          // basic filtering
-      }
-      if (!col.valueFormatter && commaNoDecimalFields.has(f)) {
-        col.valueFormatter = numberNoDecimalFormatter
-      }
-      if (!col.valueFormatter && (dateFields.has(f) || isLikelyDateField(f))) {
-        col.valueFormatter = dateMMDDYYYYFormatter
-      }
-      if (!col.valueFormatter && (percentFields.has(f) || isLikelyPercentField(f))) {
-        col.valueFormatter = percentTwoDecimalFormatter
-      }
-      if (isClickableIdField(f)) {
-        // Mirror params for fallback columns as well
-        col.cellRenderer = IdLinkCell as any
-        col.cellRendererParams = {
-          openMode: props.openMode,
-          onOpen: props.openLoan,
-        }
-        console.debug('[Grid] Configured ID link cell renderer for field', f)
-        col.width = 120
-        col.maxWidth = 140
-      }
-      if (f === 'current_balance') {
-        col.width = 140
-        col.maxWidth = 160
-      }
-      return col
-    })
-
-    // Add the Actions column for the fallback as well
-    const fallbackActionsCol: ColDef = {
-      headerName: 'Actions',
-      colId: 'actions',
-      pinned: 'left',
-      sortable: false,
-      filter: false,
-      // AG Grid v34+: disable the header menu button and header context menu
-      suppressHeaderMenuButton: true,
-      suppressHeaderContextMenu: true,
-      width: 220,
-      minWidth: 160,
-      cellRenderer: ActionsCell as any,
-      cellRendererParams: { onAction: onRowAction },
-    }
-
-    columnDefs.value = [fallbackActionsCol, ...fallbackGenerated]
-    sellerDataTapeColumns.value = columnDefs.value
-
-    // Optional: you can also set a minimal sample row to verify rendering.
-    // Leaving rowData empty will render headers only, which is sufficient for layout.
-    // rowData.value = []
+    // Per request: no fallbacks — if dynamic column load fails, exit early.
+    return
   }
 
   // Always try to load sellers for the first dropdown after column setup
@@ -920,29 +849,7 @@ async function fetchTrades(sellerId: number): Promise<void> {
   }
 }
 
-async function fetchGridData(sellerId: number, tradeId: number): Promise<void> {
-  // Guard: require both IDs; if not present, clear the grid
-  if (!sellerId || !tradeId) {
-    rowData.value = []
-    return
-  }
-  gridLoading.value = true
-  try {
-    const resp = await fetch(`/api/acq/raw-data/${sellerId}/${tradeId}/`, {
-      method: 'GET',
-      headers: { 'Accept': 'application/json' },
-      credentials: 'same-origin',
-    })
-    if (!resp.ok) throw new Error(`Failed to fetch grid data: ${resp.status}`)
-    const data = (await resp.json()) as Record<string, unknown>[]
-    rowData.value = data
-  } catch (e) {
-    console.error('Failed to load grid data', e)
-    rowData.value = []
-  } finally {
-    gridLoading.value = false
-  }
-}
+// fetchGridData is now provided by the agGridRows store (fetchRows)
 
 // ---------------------------------------------------------------------------
 // Watchers: react to selection changes
@@ -953,7 +860,10 @@ watch(selectedSellerId, async (newSellerId) => {
   // Clear previous dependent state
   selectedTradeId.value = null
   trades.value = []
-  rowData.value = []
+  // Clear grid rows via store when seller changes
+  gridRowsStore.resetRows()
+  // Also clear markers when seller changes
+  acqStore.resetMarkers()
 
   // If a seller is chosen, load trades for that seller
   if (newSellerId) {
@@ -964,10 +874,15 @@ watch(selectedSellerId, async (newSellerId) => {
 watch([selectedSellerId, selectedTradeId], async ([sellerId, tradeId]) => {
   // Only fetch when both selections are truthy
   if (sellerId && tradeId) {
-    await fetchGridData(sellerId, tradeId)
+    // Load grid rows via centralized store (with caching)
+    await gridRowsStore.fetchRows(sellerId, tradeId)
+    // Fetch geocoded markers for US map when both IDs are set
+    await acqStore.fetchMarkers()
   } else {
     // If either selection is missing, clear the grid to enforce data siloing
-    rowData.value = []
+    gridRowsStore.resetRows()
+    // Also reset markers when selection incomplete
+    acqStore.resetMarkers()
   }
 })
 
@@ -1069,6 +984,18 @@ async function fetchBrokerOptionsByStates(states: string[]): Promise<void> {
 /* Agent cell text in blue when a value is selected (non-placeholder) */
 :deep(.seller-grid .ag-cell[col-id="__agent__"]:not(.agent-placeholder)) {
   color: #2563eb; /* tailwind blue-600 */
+}
+
+/* Subtle blue border around Agent cells (no background) */
+:deep(.seller-grid .ag-cell[col-id="__agent__"]) {
+  box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.35); /* blue-600 @ 35% */
+  border-radius: 6px; /* gentle rounding */
+}
+
+/* Slightly stronger border on hover/focus for clarity */
+:deep(.seller-grid .ag-cell[col-id="__agent__"]:hover),
+:deep(.seller-grid .ag-cell[col-id="__agent__"].ag-cell-focus) {
+  box-shadow: inset 0 0 0 1.5px rgba(37, 99, 235, 0.6);
 }
 /* Custom persistent chevron removed per request; default AG Grid icon shows only while editing */
 </style>

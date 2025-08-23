@@ -156,6 +156,13 @@
   resolved "https://registry.npmjs.org/@types/google.maps/-/google.maps-3.58.1.tgz"
   integrity sha512-X9QTSvGJ0nCfMzYOnaVs/k6/4L+7F5uCS+4iUmkLEls6J9S/Phv+m/i3mDeyc49ZBgwab3EFO1HEoBY7k98EGQ==
 
+"@types/jquery@^3.5.33":
+  version "3.5.33"
+  resolved "https://registry.npmjs.org/@types/jquery/-/jquery-3.5.33.tgz"
+  integrity sha512-SeyVJXlCZpEki5F0ghuYe+L+PprQta6nRZqhONt9F13dWBtR/ftoaIbdRQ7cis7womE+X2LKhsDdDtkkDhJS6g==
+  dependencies:
+    "@types/sizzle" "*"
+
 "@types/lodash-es@^4.17.6":
   version "4.17.12"
   resolved "https://registry.npmjs.org/@types/lodash-es/-/lodash-es-4.17.12.tgz"
@@ -179,6 +186,11 @@
   version "1.26.4"
   resolved "https://registry.npmjs.org/@types/prismjs/-/prismjs-1.26.4.tgz"
   integrity sha512-rlAnzkW2sZOjbqZ743IHUhFcvzaGbqijwOu8QZnZCjfQzBqFE3s4lOTJEsxikImav9uzz/42I+O7YUs1mWgMlg==
+
+"@types/sizzle@*":
+  version "2.3.9"
+  resolved "https://registry.npmjs.org/@types/sizzle/-/sizzle-2.3.9.tgz"
+  integrity sha512-xzLEyKB50yqCUPUJkIsrVvoWNfFUbIZI+RspLWt8u+tIW/BetMBZtgV2LY/2o+tYH8dRvQ+eoPf3NdhQCcLE2w==
 
 "@types/vuelidate@^0.7.18":
   version "0.7.21"
