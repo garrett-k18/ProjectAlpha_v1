@@ -54,6 +54,16 @@
             </li>
           </ul>
         </div>
+
+        <!-- Assign Selected: posts invites grouped by chosen agent per row -->
+        <button
+          class="btn btn-sm btn-primary"
+          @click="assignSelected"
+          :disabled="!gridApi || selectedCount === 0"
+          title="Assign selected rows to their chosen agents"
+        >
+          <i class="mdi mdi-send me-1"></i> Assign Selected
+        </button>
       </div>
     </div>
 
@@ -121,9 +131,21 @@
         rowSelection="multiple"
         :animateRows="true"
         @grid-ready="onGridReady"
+        @selection-changed="onSelectionChanged"
       />
       
       <!-- Details modal removed: this component is grid-only by design -->
+      <!-- Simple portal results list to surface created URLs -->
+      <div v-if="portalResults.length > 0" class="alert alert-info mt-2" role="alert">
+        <div class="fw-semibold mb-1">Broker Portal Links</div>
+        <ul class="mb-0">
+          <li v-for="r in portalResults" :key="r.token">
+            Broker {{ r.broker_id }} — {{ r.count }} invite(s):
+            <a :href="r.url" target="_blank" rel="noopener">{{ r.url }}</a>
+          </li>
+        </ul>
+        <div class="small text-muted mt-1">Share the portal link with the broker to access all active invites.</div>
+      </div>
     </div>
   </div>
 </template>
@@ -143,6 +165,8 @@ import { ref, onMounted, watch, computed } from 'vue'
 import { useAcqSelectionsStore } from '@/stores/acqSelections'
 import { useAgGridRowsStore } from '@/stores/agGridRows'
 import { storeToRefs } from 'pinia'
+// Centralized Axios instance for API calls
+import http from '@/lib/http'
 // Actions cell renderer for the first column
 import ActionsCell from './components/ActionsCell.vue'
 // ID link cell renderer for the internal ID link (no modal logic here)
@@ -212,7 +236,16 @@ const { rows: rowData, loadingRows: gridLoading } = storeToRefs(gridRowsStore)
 const selectedAgents = ref<Record<string, string>>({})
 
 // Broker options keyed by state, supplied by backend endpoint
-const brokerOptionsByState = ref<Record<string, string[]>>({})
+// Store objects so we can retain IDs while showing labels in the select editor
+type BrokerOption = { id: number; label: string }
+const brokerOptionsByState = ref<Record<string, BrokerOption[]>>({})
+// Global label->id lookup to translate cell selections back to broker_id
+const labelToIdMap = ref<Record<string, number>>({})
+
+// Track current selection count for enabling the Assign button
+const selectedCount = ref<number>(0)
+// Latest portal results to display to the user after assignment
+const portalResults = ref<Array<{ broker_id: number; url: string; token: string; count: number }>>([])
 
 // ---------------------------------------------------------------------------
 // Persistence for Agent selections (per sellerId + tradeId)
@@ -490,6 +523,17 @@ const onGridReady = (params: GridReadyEvent) => {
   console.log('AG Grid initialized successfully')
 }
 
+/**
+ * Update selectedCount when grid selection changes.
+ */
+function onSelectionChanged(): void {
+  if (!gridApi.value) {
+    selectedCount.value = 0
+    return
+  }
+  selectedCount.value = gridApi.value.getSelectedRows()?.length || 0
+}
+
 // ---------------------------------------------------------------------------
 // Local Agents view: curated column set including an "Agent" select editor
 // Options are populated by state via backend batch endpoint.
@@ -517,8 +561,9 @@ function buildAgentColumn(): ColDef {
     cellEditor: 'agSelectCellEditor' as any,
     cellEditorParams: (params: any) => {
       const st = String(params.data?.state || '').trim().toUpperCase()
-      const values = brokerOptionsByState.value[st] || []
-      return { values }
+      const opts = brokerOptionsByState.value[st] || []
+      // agSelectCellEditor accepts a string[]; provide labels for UX
+      return { values: opts.map(o => o.label) }
     },
     // Allow single-click to start editing to reinforce that it's a dropdown
     singleClickEdit: true,
@@ -925,24 +970,105 @@ watch(activeView, async (v) => {
 async function fetchBrokerOptionsByStates(states: string[]): Promise<void> {
   try {
     const qp = encodeURIComponent(states.join(','))
-    const resp = await fetch(`/api/acq/broker-invites/by-state-batch/?states=${qp}` , {
-      method: 'GET',
-      headers: { 'Accept': 'application/json' },
-      credentials: 'same-origin',
+    // Use Axios instance (baseURL='/api') -> GET /api/acq/broker-invites/by-state-batch/
+    const { data: json } = await http.get<any>(`acq/broker-invites/by-state-batch/`, {
+      params: { states: states.join(',') },
     })
-    if (!resp.ok) throw new Error(`Failed to fetch brokers by state: ${resp.status}`)
-    const json = await resp.json()
     const results = (json && json.results) || {}
-    const mapped: Record<string, string[]> = {}
+    const mapped: Record<string, BrokerOption[]> = {}
+    const labelIndex: Record<string, number> = {}
     for (const [state, arr] of Object.entries(results)) {
-      mapped[state.toUpperCase()] = Array.isArray(arr)
-        ? arr.map((b: any) => formatBrokerLabel(b)).filter(lbl => !!lbl && lbl.trim().length > 0)
-        : []
+      const upper = state.toUpperCase()
+      const list: BrokerOption[] = []
+      if (Array.isArray(arr)) {
+        for (const b of arr as any[]) {
+          const label = formatBrokerLabel(b)
+          if (!label || !label.trim()) continue
+          const id = Number(b?.id)
+          if (!Number.isFinite(id)) continue
+          list.push({ id, label })
+          // Maintain a fast label->id lookup (labels are effectively unique per our dedupe rules)
+          if (labelIndex[label] === undefined) labelIndex[label] = id
+        }
+      }
+      mapped[upper] = list
     }
     brokerOptionsByState.value = mapped
+    labelToIdMap.value = labelIndex
   } catch (e) {
     console.error('Failed to load brokers by state', e)
     brokerOptionsByState.value = {}
+    labelToIdMap.value = {}
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Assign Selected: group selected SRD rows by chosen agent and POST invites
+// Endpoint (DRF): POST /api/acq/broker-portal/assign/
+// Body: { broker_id: number, seller_raw_data_ids: number[], expires_in_hours?, portal_expires_in_hours? }
+// Docs reviewed:
+// - DRF Views/Serializers: https://www.django-rest-framework.org/api-guide/serializers/
+// - AG Grid Selection API: https://www.ag-grid.com/vue-data-grid/row-selection/
+// ---------------------------------------------------------------------------
+async function assignSelected(): Promise<void> {
+  if (!gridApi.value) return
+  const rows = gridApi.value.getSelectedRows() || []
+  if (rows.length === 0) {
+    alert('Please select at least one row.')
+    return
+  }
+
+  // Build groups keyed by broker label (as stored in selectedAgents)
+  const groups = new Map<number, number[]>() // broker_id -> srd ids
+  const missing: Array<string | number> = []
+
+  for (const r of rows as any[]) {
+    const key = getRowKey(r)
+    if (key === undefined) continue
+    const label = selectedAgents.value[String(key)] || ''
+    if (!label) {
+      missing.push(key as any)
+      continue
+    }
+    const brokerId = labelToIdMap.value[label]
+    if (!brokerId) {
+      console.warn('No broker_id found for label', label)
+      missing.push(key as any)
+      continue
+    }
+    const srdId = Number(r?.id)
+    if (!Number.isFinite(srdId)) continue
+    const list = groups.get(brokerId) || []
+    list.push(srdId)
+    groups.set(brokerId, list)
+  }
+
+  if (groups.size === 0) {
+    alert('No rows had an assigned agent. Use the Agent Assignment column to choose an agent per row.')
+    return
+  }
+
+  const results: Array<{ broker_id: number; url: string; token: string; count: number }> = []
+  for (const [broker_id, seller_raw_data_ids] of groups.entries()) {
+    try {
+      const { data } = await http.post<any>('acq/broker-portal/assign/', {
+        broker_id,
+        seller_raw_data_ids,
+      })
+      const portal = data?.portal || {}
+      if (portal?.url && portal?.token) {
+        results.push({ broker_id, url: portal.url, token: portal.token, count: seller_raw_data_ids.length })
+      }
+    } catch (e: any) {
+      console.error('Assign API failed for broker', broker_id, e)
+      alert(`Failed to assign ${seller_raw_data_ids.length} rows to broker ${broker_id}.`)
+    }
+  }
+
+  portalResults.value = results
+  if (results.length > 0) {
+    // Basic acknowledgement; results are shown below the grid
+    console.log('Broker portal URLs created:', results)
   }
 }
 </script>

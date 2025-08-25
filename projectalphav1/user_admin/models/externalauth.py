@@ -86,3 +86,66 @@ class BrokerTokenAuth(models.Model):
         if self.single_use and self.is_used:
             return False
         return True
+
+
+class BrokerPortalToken(models.Model):
+    """Multi-use portal token that represents a single public URL per broker.
+
+    Design:
+    - This token is used to render a broker's "portal" page listing all currently
+      active assigned invites (most recent token per SRD) without requiring the
+      broker to switch between multiple links.
+    - It is intentionally multi-use and time-bound. When expired, a new portal
+      token can be generated and shared again.
+    - Per-loan access and submissions are still governed by `BrokerTokenAuth`.
+    """
+
+    # Canonical broker directory entry
+    broker = models.ForeignKey(
+        'acq_module.Brokercrm',
+        on_delete=models.CASCADE,
+        related_name='portal_tokens',
+        help_text='Broker this portal token is issued for.'
+    )
+
+    # Opaque token used in public URL
+    token = models.CharField(
+        max_length=64,
+        unique=True,
+        db_index=True,
+        help_text='Opaque portal token used in public URL.'
+    )
+
+    # Expiration (multi-use until this time)
+    expires_at = models.DateTimeField(help_text='When this portal token expires.')
+
+    # Audit / metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    notes = models.TextField(blank=True, null=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['broker']),
+            models.Index(fields=['expires_at']),
+        ]
+        db_table = 'user_admin_broker_portal_token'
+        ordering = ['-created_at']
+        verbose_name = 'Broker Portal Token'
+        verbose_name_plural = 'Broker Portal Tokens'
+
+    def __str__(self) -> str:  # pragma: no cover - debug aid
+        return f"Portal token for broker {self.broker_id} (expires {self.expires_at.isoformat()})"
+
+    @staticmethod
+    def generate_token() -> str:
+        """Generate a URL-safe opaque token (reusing same strategy as invites)."""
+        return secrets.token_urlsafe(32)
+
+    @property
+    def is_expired(self) -> bool:
+        """Whether the portal token has reached or passed its expiration."""
+        return timezone.now() >= self.expires_at
+
+    def is_valid(self) -> bool:
+        """Validity check: true when not expired."""
+        return not self.is_expired

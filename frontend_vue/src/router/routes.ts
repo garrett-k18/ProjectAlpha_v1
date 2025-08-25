@@ -456,22 +456,11 @@ const acqModuleRoutes = [
         path: '/acq',
         name: 'Acquisition Module',
         meta: { authRequired: true },
-        children: [
-            {
-                path: 'brokerview',
-                name: 'Brokerview',
-                // New Brokerview page copied from pages/profile-2
-                component: () => import('@/views/acq_module/brokerview/index.vue'),
-            },
-            {
-                path: 'brokers/:brokerId',
-                name: 'Broker Detail',
-                meta: { authRequired: true },
-                // Pass the brokerId as a prop for better type-safety in the component
-                props: (route: any) => ({ brokerId: Number(route.params.brokerId) }),
-                component: () => import('@/views/acq_module/brokers/detail.vue'),
-            },
-        ],
+        // The app now uses ONLY the public tokenized broker page at `/brokerview/:token`.
+        // We intentionally remove internal broker pages to avoid confusion; Django Admin
+        // is used for internal management. Keep this section for future authenticated
+        // Acq module routes unrelated to brokers.
+        children: [],
     },
 ]
 

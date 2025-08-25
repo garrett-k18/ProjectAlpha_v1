@@ -1,15 +1,32 @@
 """
-Broker Invite API endpoints for tokenized, loginless access by external brokers.
+Public (token-based) broker invite API endpoints.
+
+Responsibilities:
+- Public invite lifecycle (single-use token links)
+- By-state batch broker listing for UI population
+- Token-bound access; endpoints are AllowAny but guarded by token validation
+- Separate from internal staff endpoints (`internal.py`) and portal batch flows (`portal.py`)
+
+Plain-language overview:
+- These endpoints power the external broker workflow via loginless token links.
+- Tokens are created by internal users and sent to brokers; the broker uses the
+  tokenized link to view/submit data for a single asset (SellerRawData).
+- SECURITY: Access is controlled by the token; therefore these endpoints are
+  AllowAny. Ensure tokens are sufficiently random and time-bounded.
+- Shared, read-only data needs for internal UI should live in
+  acq_module.services.brokers to avoid duplication.
+
+Endpoints provided here:
+- POST /api/acq/broker-invites/                     -> create_broker_invite
+- GET  /api/acq/broker-invites/<token>/             -> validate_broker_invite
+- POST /api/acq/broker-invites/<token>/submit/      -> submit_broker_values_with_token
+- GET  /api/acq/broker-invites/by-state-batch/      -> list_brokers_by_state_batch
 
 Docs reviewed:
 - DRF API Views: https://www.django-rest-framework.org/api-guide/views/
 - DRF Serializers: https://www.django-rest-framework.org/api-guide/serializers/
 - DRF Permissions: https://www.django-rest-framework.org/api-guide/permissions/
 - Django timezone utilities: https://docs.djangoproject.com/en/5.0/topics/i18n/timezones/
-
-Security notes:
-- validate/submit endpoints are public (AllowAny) because access control is via the token.
-- create endpoint is also AllowAny for now to match existing project style; tighten to IsAuthenticated in prod.
 """
 from decimal import Decimal, InvalidOperation
 from typing import Optional
@@ -23,11 +40,12 @@ from rest_framework.response import Response
 from rest_framework import status, serializers
 from django.db.models import Q
 
-from ..models import SellerRawData, BrokerValues, Brokercrm
+from ...models import SellerRawData, BrokerValues, Brokercrm
 from user_admin.models import BrokerTokenAuth
 
 
 class BrokerValuesInputSerializer(serializers.Serializer):
+    """Serializer for values a broker can submit via a tokenized form."""
     broker_asis_value = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
     broker_arv_value = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
     broker_value_date = serializers.DateField(required=False, allow_null=True)
@@ -36,6 +54,7 @@ class BrokerValuesInputSerializer(serializers.Serializer):
 
 
 def _parse_decimal(value) -> Optional[Decimal]:
+    """Utility to parse a decimal-like input safely."""
     if value in (None, "", "null"):
         return None
     try:
@@ -44,14 +63,14 @@ def _parse_decimal(value) -> Optional[Decimal]:
         raise serializers.ValidationError("Invalid decimal value")
 
 
-@api_view(["POST"])  # TODO: tighten to IsAuthenticated before production
+@api_view(["POST"])  # TODO: tighten to IsAuthenticated before production if required
 @permission_classes([AllowAny])
 def create_broker_invite(request):
     """Create a new token invite for a SellerRawData id (via BrokerTokenAuth).
 
     Body fields:
     - seller_raw_data: int (required)
-    - expires_in_hours: int (optional, default 72)
+    - expires_in_hours: int (optional, default 360 [15 days])
     - expires_at: ISO date-time string (optional; overrides expires_in_hours)
     - broker_id: int (optional, FK to acq_module.Brokercrm)
     - single_use: bool (default True)
@@ -72,7 +91,7 @@ def create_broker_invite(request):
         except serializers.ValidationError as e:
             return Response({"expires_at": e.detail}, status=status.HTTP_400_BAD_REQUEST)
     else:
-        hours = payload.get("expires_in_hours", 72)
+        hours = payload.get("expires_in_hours", 360)  # default 15 days
         try:
             hours = int(hours)
         except (TypeError, ValueError):
@@ -108,7 +127,7 @@ def create_broker_invite(request):
     )
 
 
-@api_view(["GET"])
+@api_view(["GET"])  # Public validation for loginless flow
 @permission_classes([AllowAny])
 def validate_broker_invite(request, token: str):
     """Validate a broker invite token and return minimal context.
@@ -156,7 +175,7 @@ def validate_broker_invite(request, token: str):
     )
 
 
-@api_view(["POST"])
+@api_view(["POST"])  # Public submission endpoint
 @permission_classes([AllowAny])
 def submit_broker_values_with_token(request, token: str):
     """Submit broker values using a valid invite token.
@@ -219,7 +238,7 @@ def submit_broker_values_with_token(request, token: str):
     )
 
 
-@api_view(["GET"])  # Exposed for internal UI use; keep auth open for now
+@api_view(["GET"])  # Exposed for internal UI use; open for now
 @permission_classes([AllowAny])
 def list_brokers_by_state_batch(request):
     """Return unique brokers keyed by state for the provided state codes.
@@ -246,35 +265,29 @@ def list_brokers_by_state_batch(request):
     }
     """
     states_param = request.query_params.get("states", "")
-    # Normalize requested states to uppercase without whitespace
     states = [s.strip().upper() for s in states_param.split(",") if s.strip()]
     if not states:
         return Response({"detail": "states is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Fetch all Brokercrm rows that have one of the requested states (case-insensitive).
-    # Use Q objects to ensure case-insensitive matching per element.
     q = Q()
     for s in states:
         q |= Q(broker_state__iexact=s)
     qs = Brokercrm.objects.filter(q)
 
-    # Build a map of state -> unique broker entries
     results = {state: [] for state in states}
-    # Track seen keys per state to de-duplicate
     seen_keys = {state: set() for state in states}
 
-    for b in qs.only("broker_state", "broker_name", "broker_email", "broker_firm", "broker_city"):
+    for b in qs.only("id", "broker_state", "broker_name", "broker_email", "broker_firm", "broker_city"):
         state = (b.broker_state or "").upper()
         if state not in results:
-            # If a Brokercrm row has a state not requested, skip it
             continue
-        # Compose a stable deduplication key
         key = (b.broker_email or "").lower().strip() or f"{(b.broker_name or '').strip()}|{(b.broker_firm or '').strip()}"
         if key in seen_keys[state]:
             continue
         seen_keys[state].add(key)
         results[state].append(
             {
+                "id": b.id,
                 "broker_name": b.broker_name,
                 "broker_email": b.broker_email,
                 "broker_firm": b.broker_firm,

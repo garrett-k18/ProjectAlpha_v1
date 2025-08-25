@@ -11,14 +11,18 @@ from .views.photos_api import (
 )
 from .views.ai_summary import generate_quick_summary
 from .views.internal_valuation_api import internal_valuation_detail
-from .views.broker_invite_api import (
+from .views.brokers.invites import (
     create_broker_invite,
     validate_broker_invite,
     submit_broker_values_with_token,
     list_brokers_by_state_batch,
 )
+from .views.brokers.portal import (
+    assign_broker_batch,
+    broker_portal_detail,
+)
 from .views.geocode import geocode_markers
-from .views.brokers_api import (
+from .views.brokers.internal import (
     broker_detail,
     list_assigned_loans,
 )
@@ -48,6 +52,9 @@ urlpatterns = [
     path('broker-invites/by-state-batch/', list_brokers_by_state_batch, name='api_list_brokers_by_state_batch'),  # GET
     path('broker-invites/<str:token>/', validate_broker_invite, name='api_validate_broker_invite'),  # GET
     path('broker-invites/<str:token>/submit/', submit_broker_values_with_token, name='api_submit_broker_values_with_token'),  # POST
+    # Broker portal endpoints
+    path('broker-portal/assign/', assign_broker_batch, name='api_assign_broker_batch'),  # POST (internal)
+    path('broker-portal/<str:token>/', broker_portal_detail, name='api_broker_portal_detail'),  # GET (public)
     # Broker detail and assigned loans
     path('brokers/<int:broker_id>/', broker_detail, name='api_broker_detail'),  # GET
     path('brokers/<int:broker_id>/assigned-loans/', list_assigned_loans, name='api_broker_assigned_loans'),  # GET

@@ -41,13 +41,58 @@
 
     <!-- Main content only when token is valid in public mode -->
     <div v-else-if="tokenStatus === 'valid'">
-      <b-row>
-        <b-col cols="12">
-          <b-card>
-            <Settings />
-          </b-card>
-        </b-col>
-      </b-row>
+      <!-- Portal mode: single URL per broker that lists active assigned invites -->
+      <div v-if="portalMode">
+        <b-row>
+          <b-col cols="12">
+            <b-card class="mb-3">
+              <h4 class="mb-1">{{ portalMeta?.broker?.broker_name || 'Broker Portal' }}</h4>
+              <p class="mb-0 text-muted">
+                Portal expires at: <strong>{{ portalMeta?.expires_at }}</strong>
+              </p>
+            </b-card>
+          </b-col>
+        </b-row>
+
+        <!-- Active invites list -->
+        <b-row>
+          <b-col cols="12" v-if="(portalInvites?.length || 0) === 0">
+            <b-alert show variant="info">No active assigned loans are available right now.</b-alert>
+          </b-col>
+
+          <b-col cols="12" v-else>
+            <b-card v-for="(entry, idx) in portalInvites" :key="entry.seller_raw_data" class="mb-3">
+              <div class="d-flex justify-content-between align-items-start">
+                <div>
+                  <h5 class="mb-1">SRD #{{ entry.seller_raw_data }}</h5>
+                  <div class="text-muted">
+                    {{ entry.address?.street_address || '—' }}, {{ entry.address?.city || '—' }}, {{ entry.address?.state || '—' }} {{ entry.address?.zip || '' }}
+                  </div>
+                  <div class="small mt-1">
+                    Token expires: {{ entry.token?.expires_at || '—' }}
+                    <span v-if="entry.has_submission" class="badge bg-success ms-2">Submitted</span>
+                  </div>
+                </div>
+                <div>
+                  <!-- Provide a direct link to the single-loan view as a fallback -->
+                  <a class="btn btn-sm btn-primary" :href="`/brokerview/${entry.token?.value}`" target="_blank" rel="noopener">Open</a>
+                </div>
+              </div>
+            </b-card>
+          </b-col>
+        </b-row>
+      </div>
+
+      <!-- Single-invite mode: legacy per-loan token flow (unchanged) -->
+      <div v-else>
+        <b-row>
+          <b-col cols="12">
+            <b-card>
+              <Settings />
+            </b-card>
+          </b-col>
+        </b-row>
+      </div>
     </div>
   </div>
 </template>
@@ -97,6 +142,12 @@ export default {
       tokenStatus: this.standalone ? 'valid' : 'loading', // 'loading' | 'valid' | 'invalid' | 'expired' | 'used'
       tokenError: null as any,
       sellerRawDataId: null as number | null,
+      // When true, the provided token is a portal token tied to a broker (multi-use)
+      portalMode: false as boolean,
+      // Raw portal metadata returned from backend (includes broker info and expiry)
+      portalMeta: null as any,
+      // Active invites to render in portal mode (array of entries from service layer)
+      portalInvites: [] as any[],
     }
   },
     mounted() {
@@ -112,8 +163,38 @@ export default {
                 this.tokenStatus = 'invalid'
                 return
             }
+            // First try broker portal endpoint; if not found or invalid, fall back to single-invite
             try {
-                // Use relative URL so it works in all envs; DRF route registered at /api/acq/broker-invites/<token>/
+                const portalRes = await fetch(`/api/acq/broker-portal/${encodeURIComponent(this.token)}/`, {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' },
+                    credentials: 'same-origin',
+                })
+                if (portalRes.ok) {
+                    const data = await portalRes.json()
+                    if (data.valid) {
+                        // Enter portal mode: show all active invites on one page
+                        this.portalMode = true
+                        this.portalMeta = { broker: data.broker, expires_at: data.expires_at }
+                        this.portalInvites = data.active_invites || []
+                        this.tokenStatus = 'valid'
+                        return
+                    }
+                } else if (portalRes.status === 400) {
+                    const err = await portalRes.json().catch(() => ({}))
+                    const reason = err?.reason || err?.detail
+                    if (reason === 'expired') {
+                        this.tokenStatus = 'expired'
+                        this.tokenError = err
+                        return
+                    }
+                }
+            } catch (e) {
+                // Ignore portal network errors and try single-invite
+            }
+
+            // Fallback: single-invite validation
+            try {
                 const res = await fetch(`/api/acq/broker-invites/${encodeURIComponent(this.token)}/`, {
                     method: 'GET',
                     headers: { 'Accept': 'application/json' },
