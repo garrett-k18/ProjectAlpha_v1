@@ -1,49 +1,71 @@
 <template>
-<b-card class="text-center">
-    <b-avatar src="@/assets/images/users/avatar-1.jpg" variant="light" class="avatar-lg img-thumbnail"  rounded="circle" alt="profile-image" />
+  <!-- Broker profile card: renders the broker's public details when provided.
+       This component is chrome-agnostic and fits inside the broker portal page. -->
+  <b-card class="text-center">
+    <!-- Avatar rendered as initials (no images). Uses broker name/email; falls back to 'BR'. -->
+    <!-- Use built-in size prop to enlarge avatar and Bootstrap fs-2 to scale initials -->
+    <b-avatar
+      :text="initials"
+      variant="primary"
+      size="4rem"
+      class="img-thumbnail text-white fs-2"
+      rounded="circle"
+      aria-label="broker-initials-avatar"
+    />
 
-    <h4 class="mb-0 mt-2">Dominic Keller</h4>
-    <p class="text-muted font-14">Founder</p>
+    <!-- Name and firm come from the broker object when available. -->
+    <h4 class="mb-0 mt-2">{{ broker?.broker_name || 'Broker' }}</h4>
+    <p class="text-muted font-14 mb-1">{{ broker?.broker_firm || '—' }}</p>
+    <p class="text-muted font-13" v-if="broker?.broker_email">
+      <a :href="`mailto:${broker.broker_email}`" class="text-muted">{{ broker.broker_email }}</a>
+    </p>
 
-    <b-button class="mb-2 me-1" size="sm" variant="success">Follow</b-button>
-    <b-button class="mb-2" size="sm" variant="danger">Message</b-button>
-
-    <div class="text-start mt-3">
-        <h4 class="font-13 text-uppercase">About Me :</h4>
-        <p class="text-muted font-13 mb-3">
-            Hi I'm Johnathn Deo,has been the industry's standard dummy text ever since the
-            1500s, when an unknown printer took a galley of type.
-        </p>
-        <p class="text-muted mb-2 font-13"><strong>Full Name :</strong> <span class="ms-2">Geneva
-                D. McKnight</span></p>
-
-        <p class="text-muted mb-2 font-13"><strong>Mobile :</strong><span class="ms-2">(123)
-                123 1234</span></p>
-
-        <p class="text-muted mb-2 font-13"><strong>Email :</strong> <span class="ms-2 ">user@email.domain</span></p>
-
-        <p class="text-muted mb-1 font-13"><strong>Location :</strong> <span class="ms-2">USA</span></p>
+    <!-- Optional action buttons hidden for public portal; leave markup for consistent spacing/style. -->
+    <div class="d-none">
+      <b-button class="mb-2 me-1" size="sm" variant="success">Follow</b-button>
+      <b-button class="mb-2" size="sm" variant="danger">Message</b-button>
     </div>
 
-    <ul class="social-list list-inline mt-3 mb-0">
-        <li class="list-inline-item">
-            <a href="javascript: void(0);" class="social-list-item border-primary text-primary"><i class="mdi mdi-facebook"></i></a>
-        </li>
-        <li class="list-inline-item">
-            <a href="javascript: void(0);" class="social-list-item border-danger text-danger"><i class="mdi mdi-google"></i></a>
-        </li>
-        <li class="list-inline-item">
-            <a href="javascript: void(0);" class="social-list-item border-info text-info"><i class="mdi mdi-twitter"></i></a>
-        </li>
-        <li class="list-inline-item">
-            <a href="javascript: void(0);" class="social-list-item border-secondary text-secondary"><i class="mdi mdi-github"></i></a>
-        </li>
-    </ul>
-</b-card> <!-- end card -->
+    <!-- Removed duplicate details section to keep the card compact. -->
+
+    <!-- Social list removed for public portal (no external links needed). Keep structure hidden if desired. -->
+    <ul class="social-list list-inline mt-3 mb-0 d-none"></ul>
+  </b-card>
 </template>
 
 <script lang="ts">
 export default {
-
+  props: {
+    // Broker object with fields: id, broker_name, broker_email, broker_firm
+    // When null (e.g., single-invite tokens without broker context), the UI shows fallbacks.
+    broker: { type: Object, default: null },
+  },
+  computed: {
+    // Compute initials to display in the avatar.
+    // Rules:
+    // - Prefer broker_name (take first letters of first two words)
+    // - Else derive from broker_email (first two letters before '@')
+    // - Fallback to 'BR' (for Broker)
+    initials(): string {
+      // Extract from broker_name when available
+      const name: string = (this as any).broker?.broker_name || ''
+      if (name.trim().length > 0) {
+        const parts = name.trim().split(/\s+/).filter(Boolean)
+        const first = parts[0]?.charAt(0) || ''
+        const second = parts[1]?.charAt(0) || ''
+        return `${first}${second}`.toUpperCase() || (first || '').toUpperCase() || 'BR'
+      }
+      // Else, derive from email when available
+      const email: string = (this as any).broker?.broker_email || ''
+      if (email.includes('@')) {
+        const local = email.split('@')[0]
+        const a = local.charAt(0)
+        const b = local.charAt(1)
+        return `${a}${b}`.toUpperCase() || (a || '').toUpperCase() || 'BR'
+      }
+      // Final fallback
+      return 'BR'
+    }
+  }
 }
 </script>

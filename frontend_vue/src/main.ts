@@ -34,6 +34,9 @@ import 'flatpickr/dist/flatpickr.min.css'
 import '@/assets/scss/app-saas.scss'
 import '@/assets/scss/icons.scss'
 
+// Global directives
+import currencyDirective from '@/lib/directives/currency'
+
 // AG Grid: register all Community features globally before any grid is created.
 // Reference: https://www.ag-grid.com/vue-data-grid/getting-started/ (Modules section)
 import { ModuleRegistry, AllCommunityModule } from 'ag-grid-community'
@@ -65,6 +68,9 @@ app.use(BootstrapVueNext)
 app.use(VueApexCharts)
 app.use(VueTheMask);
 app.use(MetaPlug);
+
+// Register global currency directive: v-currency
+app.directive('currency', currencyDirective)
 
 // Initialize authentication from persisted token and attach Authorization header
 // This avoids 401s when calling protected APIs (e.g., /api/acq/photos/:id/)

@@ -30,7 +30,7 @@ from rest_framework.permissions import AllowAny  # TODO: tighten to IsAuthentica
 from rest_framework.response import Response
 from rest_framework import status, serializers
 
-from ...models import Brokercrm, SellerRawData
+from ...models import Brokercrm, SellerRawData, BrokerValues
 from ...services.brokers import list_assigned_loan_entries
 from user_admin.models import BrokerTokenAuth
 from user_admin.models.externalauth import BrokerPortalToken
@@ -150,10 +150,36 @@ def broker_portal_detail(request, token: str):
 
     broker = portal.broker
 
-    # Build entries using shared service, then filter to "active" tokens only
+    # Build entries using shared service
     entries = list_assigned_loan_entries(broker)
+
+    # Enrich with any saved BrokerValues so the UI can prefill even if the invite
+    # is expired/used. This preserves previously submitted values in the portal.
+    srd_ids = [e.get("seller_raw_data") for e in entries if e.get("seller_raw_data") is not None]
+    values_by_srd = {
+        bv.seller_raw_data_id: bv for bv in BrokerValues.objects.filter(seller_raw_data_id__in=srd_ids)
+    }
+
+    enriched_entries = []
+    for e in entries:
+        srd_id = e.get("seller_raw_data")
+        bv = values_by_srd.get(srd_id)
+        if bv:
+            e = {
+                **e,
+                "values": {
+                    "broker_asis_value": str(bv.broker_asis_value) if getattr(bv, "broker_asis_value", None) is not None else None,
+                    "broker_arv_value": str(bv.broker_arv_value) if getattr(bv, "broker_arv_value", None) is not None else None,
+                    "broker_rehab_est": str(getattr(bv, "broker_rehab_est", None)) if getattr(bv, "broker_rehab_est", None) is not None else None,
+                    "broker_value_date": bv.broker_value_date.isoformat() if getattr(bv, "broker_value_date", None) else None,
+                    "broker_notes": getattr(bv, "broker_notes", None),
+                },
+            }
+        enriched_entries.append(e)
+
+    # Filter to active invites for submission ability
     active_entries = [
-        e for e in entries
+        e for e in enriched_entries
         if not e["token"]["is_expired"] and (not e["token"]["single_use"] or not e["token"]["is_used"])
     ]
 
@@ -167,7 +193,11 @@ def broker_portal_detail(request, token: str):
                 "broker_firm": broker.broker_firm,
             },
             "expires_at": portal.expires_at.isoformat(),
+            # Active invites allow saving (contain valid token)
             "active_invites": active_entries,
+            # Assigned entries include latest per SRD regardless of token status,
+            # enriched with any saved values to display after submission/expiry.
+            "assigned_entries": enriched_entries,
         },
         status=status.HTTP_200_OK,
     )

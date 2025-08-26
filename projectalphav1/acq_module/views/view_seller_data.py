@@ -1,3 +1,29 @@
+"""
+Views for SellerRawData API endpoints.
+
+This module contains several endpoints for fetching SellerRawData rows,
+including:
+
+- `get_seller_trade_data`: Fetch raw data specifically for a specific seller
+  AND a specific trade. Data siloing requirement: Only return data when BOTH
+  identifiers are present.
+
+- `list_sellers`: Fetch all Seller objects.
+
+- `list_trades_by_seller`: Fetch all Trade objects belonging to a specific Seller.
+
+- `get_seller_raw_by_id`: Fetch a single SellerRawData row by its primary key
+  `id` and return a flat dict of its concrete fields suitable for direct frontend
+  consumption.
+
+- `get_seller_rawdata_field_names`: Fetch concrete field names for SellerRawData
+  (for AG Grid columnDefs).
+
+- `list_photos_by_raw_id`: Fetch all photo types (public, document, broker)
+  associated with a given SellerRawData id.
+"""
+
+
 from django.http import JsonResponse
 from ..models.seller import Seller, Trade, SellerRawData
 from django.db.models import Q

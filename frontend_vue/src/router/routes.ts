@@ -975,8 +975,8 @@ const externalPublicRoutes = [
         name: 'BrokerviewPublic',
         // explicit: do not require auth for this public route
         meta: { authRequired: false },
-        // Pass token and set standalone=false so the component renders without site chrome
-        props: (route: any) => ({ token: route.params.token, standalone: false }),
+        // Pass token into the single broker view component
+        props: (route: any) => ({ token: route.params.token }),
         component: () => import('@/views/acq_module/brokerview/index.vue'),
     },
 ]
