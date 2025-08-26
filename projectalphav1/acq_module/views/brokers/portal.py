@@ -102,7 +102,8 @@ def assign_broker_batch(request):
             broker=broker,
             token=token,
             expires_at=now + timedelta(hours=invite_hours),
-            single_use=True,
+            # Portal invites must be multi-use until expiration
+            single_use=False,
         )
         invites.append(
             {
@@ -178,9 +179,10 @@ def broker_portal_detail(request, token: str):
         enriched_entries.append(e)
 
     # Filter to active invites for submission ability
+    # Requirement: Portal invites remain usable until expiration, regardless of prior submissions.
     active_entries = [
         e for e in enriched_entries
-        if not e["token"]["is_expired"] and (not e["token"]["single_use"] or not e["token"]["is_used"])
+        if not e["token"]["is_expired"]
     ]
 
     return Response(

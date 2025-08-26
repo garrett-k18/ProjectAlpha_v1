@@ -143,6 +143,18 @@ def validate_broker_invite(request, token: str):
     except BrokerTokenAuth.DoesNotExist:
         return Response({"valid": False, "reason": "not_found"}, status=status.HTTP_404_NOT_FOUND)
 
+    # Load any previously saved BrokerValues for prefill visibility even when invalid
+    bv = BrokerValues.objects.filter(seller_raw_data_id=invite.seller_raw_data_id).first()
+    values = None
+    if bv:
+        values = {
+            "broker_asis_value": str(bv.broker_asis_value) if getattr(bv, "broker_asis_value", None) is not None else None,
+            "broker_arv_value": str(bv.broker_arv_value) if getattr(bv, "broker_arv_value", None) is not None else None,
+            "broker_rehab_est": str(getattr(bv, "broker_rehab_est", None)) if getattr(bv, "broker_rehab_est", None) is not None else None,
+            "broker_value_date": bv.broker_value_date.isoformat() if getattr(bv, "broker_value_date", None) else None,
+            "broker_notes": getattr(bv, "broker_notes", None),
+        }
+
     if invite.is_expired:
         return Response(
             {
@@ -150,6 +162,7 @@ def validate_broker_invite(request, token: str):
                 "reason": "expired",
                 "expires_at": invite.expires_at.isoformat(),
                 "seller_raw_data": invite.seller_raw_data_id,
+                "values": values,
             },
             status=status.HTTP_400_BAD_REQUEST,
         )
@@ -161,6 +174,7 @@ def validate_broker_invite(request, token: str):
                 "reason": "used",
                 "expires_at": invite.expires_at.isoformat(),
                 "seller_raw_data": invite.seller_raw_data_id,
+                "values": values,
             },
             status=status.HTTP_400_BAD_REQUEST,
         )
@@ -170,6 +184,7 @@ def validate_broker_invite(request, token: str):
             "valid": True,
             "expires_at": invite.expires_at.isoformat(),
             "seller_raw_data": invite.seller_raw_data_id,
+            "values": values,
         },
         status=status.HTTP_200_OK,
     )
@@ -190,9 +205,10 @@ def submit_broker_values_with_token(request, token: str):
     except BrokerTokenAuth.DoesNotExist:
         return Response({"detail": "invalid_token"}, status=status.HTTP_404_NOT_FOUND)
 
-    if not invite.is_valid():
-        reason = "expired" if invite.is_expired else "used"
-        return Response({"detail": f"token_{reason}"}, status=status.HTTP_400_BAD_REQUEST)
+    # Portal requirement: tokens should remain usable until expiration.
+    # Only block on expiration; ignore prior submissions/used flag.
+    if invite.is_expired:
+        return Response({"detail": "token_expired"}, status=status.HTTP_400_BAD_REQUEST)
 
     srd = invite.seller_raw_data
 

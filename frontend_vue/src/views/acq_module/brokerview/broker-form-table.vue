@@ -47,8 +47,8 @@
                 inputmode="numeric"
                 pattern="[0-9,]*"
                 v-currency
-                :value="asIsInput"
-                @input="onCurrencyInput('asIs', $event)"
+                v-model="asIsInput"
+                @update:modelValue="onCurrencyModel('asIs', $event)"
                 placeholder="0"
               />
             </div>
@@ -63,8 +63,8 @@
                 inputmode="numeric"
                 pattern="[0-9,]*"
                 v-currency
-                :value="arvInput"
-                @input="onCurrencyInput('arv', $event)"
+                v-model="arvInput"
+                @update:modelValue="onCurrencyModel('arv', $event)"
                 placeholder="0"
               />
             </div>
@@ -79,8 +79,8 @@
                 inputmode="numeric"
                 pattern="[0-9,]*"
                 v-currency
-                :value="rehabInput"
-                @input="onCurrencyInput('rehab', $event)"
+                v-model="rehabInput"
+                @update:modelValue="onCurrencyModel('rehab', $event)"
                 placeholder="0"
               />
             </div>
@@ -135,15 +135,12 @@
         </tr>
       </tbody>
     </table>
-    <!-- Action bar: Save button to persist values to backend (BrokerValues) -->
+    <!-- Auto-save status indicator (replaces manual Save button) -->
     <div class="d-flex justify-content-end mt-3">
-      <b-button :disabled="!inviteToken || isSaving" variant="primary" size="sm" @click="handleSave">
-        <span v-if="!isSaving">Save</span>
-        <span v-else>Saving…</span>
-      </b-button>
-    </div>
-    <div v-if="saveMessage" class="mt-2 small" :class="saveSuccess ? 'text-success' : 'text-danger'">
-      {{ saveMessage }}
+      <small v-if="!inviteToken" class="text-muted">No active token — changes won’t save.</small>
+      <small v-else-if="autoSaveStatus === 'saving'" class="text-muted">Saving…</small>
+      <small v-else-if="autoSaveStatus === 'saved'" class="text-success">Saved</small>
+      <small v-else-if="autoSaveStatus === 'error'" class="text-danger">{{ saveMessage || 'Save failed' }}</small>
     </div>
   </b-form>
 </template>
@@ -188,7 +185,7 @@ export default defineComponent({
       default: null,
     },
   },
-  emits: ['update:modelValue'],
+  emits: ['update:modelValue', 'saved'],
   setup(props, { emit }) {
     // row: reactive single-row state for the valuation inputs.
     const row = reactive({
@@ -219,6 +216,12 @@ export default defineComponent({
     const isSaving = ref(false)
     const saveMessage = ref('')
     const saveSuccess = ref<boolean | null>(null)
+    // Auto-save state: 'idle' | 'saving' | 'saved' | 'error'
+    const autoSaveStatus = ref<'idle' | 'saving' | 'saved' | 'error'>('idle')
+    // Debounce timer id for auto-save
+    let autoSaveTimer: any = null
+    // Hydration guard: suppress auto-save while applying backend prefill
+    const hydrating = ref(false)
 
     // Formatter using Intl for commas; configured for no decimals
     const nf = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 })
@@ -236,6 +239,17 @@ export default defineComponent({
       }
     }
 
+    // Utility: convert a possibly-decimal value (e.g., '5.00', '200,000.50') to a whole-dollar integer.
+    // Returns null if not a numeric value.
+    const toWhole = (val: string | number | null | undefined): number | null => {
+      if (val === null || val === undefined) return null
+      const raw = String(val).replace(/,/g, '')
+      const num = Number(raw)
+      if (!Number.isFinite(num)) return null
+      // Round to nearest whole dollar. Adjust to Math.floor if you prefer.
+      return Math.round(num)
+    }
+
     // Sync helper: set row numeric based on field and digits string
     const setRowFromDigits = (field: 'asIs' | 'arv' | 'rehab', digits: string) => {
       const num = digits ? Number(digits) : undefined
@@ -247,28 +261,37 @@ export default defineComponent({
     const applyPrefill = () => {
       const v = props.prefillValues
       if (!v) return
-      // As-Is
-      if (v.broker_asis_value !== undefined && v.broker_asis_value !== null) {
-        const d = sanitizeDigits(String(v.broker_asis_value))
-        asIsInput.value = formatWithCommas(d)
-        setRowFromDigits('asIs', d)
-      }
-      // ARV
-      if (v.broker_arv_value !== undefined && v.broker_arv_value !== null) {
-        const d = sanitizeDigits(String(v.broker_arv_value))
-        arvInput.value = formatWithCommas(d)
-        setRowFromDigits('arv', d)
-      }
-      // Rehab
-      if (v.broker_rehab_est !== undefined && v.broker_rehab_est !== null) {
-        const d = sanitizeDigits(String(v.broker_rehab_est))
-        rehabInput.value = formatWithCommas(d)
-        setRowFromDigits('rehab', d)
-      }
-      // Notes
-      if (typeof v.broker_notes === 'string') {
-        row.notes = v.broker_notes || ''
-        emit('update:modelValue', { ...props.modelValue, valuationRow: { ...row } })
+      // Begin hydration: avoid triggering auto-save during initial population
+      hydrating.value = true
+      try {
+        // As-Is
+        if (v.broker_asis_value !== undefined && v.broker_asis_value !== null) {
+          const whole = toWhole(v.broker_asis_value)
+          const d = whole !== null ? String(whole) : ''
+          asIsInput.value = formatWithCommas(d)
+          setRowFromDigits('asIs', d)
+        }
+        // ARV
+        if (v.broker_arv_value !== undefined && v.broker_arv_value !== null) {
+          const whole = toWhole(v.broker_arv_value)
+          const d = whole !== null ? String(whole) : ''
+          arvInput.value = formatWithCommas(d)
+          setRowFromDigits('arv', d)
+        }
+        // Rehab
+        if (v.broker_rehab_est !== undefined && v.broker_rehab_est !== null) {
+          const whole = toWhole(v.broker_rehab_est)
+          const d = whole !== null ? String(whole) : ''
+          rehabInput.value = formatWithCommas(d)
+          setRowFromDigits('rehab', d)
+        }
+        // Notes
+        if (typeof v.broker_notes === 'string') {
+          row.notes = v.broker_notes || ''
+          emit('update:modelValue', { ...props.modelValue, valuationRow: { ...row } })
+        }
+      } finally {
+        hydrating.value = false
       }
     }
 
@@ -283,6 +306,16 @@ export default defineComponent({
     const onCurrencyInput = (field: 'asIs' | 'arv' | 'rehab', evt: Event) => {
       const target = evt.target as HTMLInputElement
       const digits = sanitizeDigits(target.value)
+      const formatted = formatWithCommas(digits)
+      if (field === 'asIs') asIsInput.value = formatted
+      if (field === 'arv') arvInput.value = formatted
+      if (field === 'rehab') rehabInput.value = formatted
+      setRowFromDigits(field, digits)
+    }
+
+    // Handler for BootstrapVueNext v-model update (preferred API)
+    const onCurrencyModel = (field: 'asIs' | 'arv' | 'rehab', val: string) => {
+      const digits = sanitizeDigits(val || '')
       const formatted = formatWithCommas(digits)
       if (field === 'asIs') asIsInput.value = formatted
       if (field === 'arv') arvInput.value = formatted
@@ -316,25 +349,41 @@ export default defineComponent({
       emit('update:modelValue', { ...props.modelValue, valuationRow: { ...row } })
     }
 
+    // Schedule an auto-save (debounced) when form row changes.
+    const scheduleAutoSave = () => {
+      // Do not attempt to save without an active token or while hydrating prefill.
+      if (!props.inviteToken || hydrating.value) return
+      // Indicate that a save is pending
+      autoSaveStatus.value = 'saving'
+      // Reset debounce timer
+      if (autoSaveTimer) clearTimeout(autoSaveTimer)
+      autoSaveTimer = setTimeout(() => {
+        submitNow()
+      }, 600)
+    }
+
     // Deep watch to persist any change in the row (address/value fields etc.)
     watch(
       () => row,
       () => {
+        // Emit outward for parent consumers
         emit('update:modelValue', { ...props.modelValue, valuationRow: { ...row } })
+        // Trigger auto-save after debounced delay
+        scheduleAutoSave()
       },
       { deep: true }
     )
 
-    // Save to backend (public token submit) to persist BrokerValues
-    const handleSave = async () => {
+    // Submit current values to backend immediately (used by auto-save)
+    const submitNow = async () => {
       saveMessage.value = ''
       saveSuccess.value = null
       if (!props.inviteToken) {
-        saveMessage.value = 'Missing invite token; cannot save.'
-        saveSuccess.value = false
+        autoSaveStatus.value = 'idle'
         return
       }
       isSaving.value = true
+      autoSaveStatus.value = 'saving'
       try {
         // Prepare payload: send integers (no decimals). Backend accepts Decimal and will coerce.
         const payload: Record<string, any> = {
@@ -356,9 +405,13 @@ export default defineComponent({
           const err = await res.json().catch(() => ({}))
           throw new Error(err?.detail || 'Failed to save')
         }
-        saveMessage.value = 'Saved'
+        autoSaveStatus.value = 'saved'
+        saveMessage.value = ''
         saveSuccess.value = true
+        // Notify parent so it can refresh portal payload if needed
+        emit('saved')
       } catch (e: any) {
+        autoSaveStatus.value = 'error'
         saveMessage.value = e?.message || 'Save failed'
         saveSuccess.value = false
       } finally {
@@ -380,7 +433,9 @@ export default defineComponent({
       onFilesSelected,
       addLink,
       onCurrencyInput,
-      handleSave,
+      onCurrencyModel,
+      autoSaveStatus,
+      submitNow,
     }
   },
 })
