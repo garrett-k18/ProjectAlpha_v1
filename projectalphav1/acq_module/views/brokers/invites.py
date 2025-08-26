@@ -34,13 +34,14 @@ from datetime import timedelta
 
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, parser_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status, serializers
+from rest_framework.parsers import MultiPartParser, FormParser
 from django.db.models import Q
 
-from ...models import SellerRawData, BrokerValues, Brokercrm
+from ...models import SellerRawData, BrokerValues, Brokercrm, Photo, BrokerDocument
 from user_admin.models import BrokerTokenAuth
 
 
@@ -312,3 +313,130 @@ def list_brokers_by_state_batch(request):
         )
 
     return Response({"results": results}, status=status.HTTP_200_OK)
+
+
+# ---------------------------------------------------------------------------
+# Token-based uploads (public): Photos and Documents
+# ---------------------------------------------------------------------------
+# Docs reviewed:
+# - DRF File uploads: https://www.django-rest-framework.org/api-guide/parsers/#fileuploadparser
+# - DRF parser_classes decorator: https://www.django-rest-framework.org/api-guide/parsers/
+# - Django files: https://docs.djangoproject.com/en/5.0/topics/files/
+
+
+def _get_invite_and_broker_values_or_400(token: str):
+    """Resolve an invite by token and return (invite, broker_values).
+
+    - 404 when token not found
+    - 400 when expired
+    - Creates BrokerValues if missing (upsert semantics similar to submit endpoint)
+    """
+    try:
+        invite = BrokerTokenAuth.objects.get(token=token)
+    except BrokerTokenAuth.DoesNotExist:
+        return None, Response({"detail": "invalid_token"}, status=status.HTTP_404_NOT_FOUND)
+
+    if invite.is_expired:
+        return None, Response({"detail": "token_expired"}, status=status.HTTP_400_BAD_REQUEST)
+
+    srd = invite.seller_raw_data
+    try:
+        bv = BrokerValues.objects.get(seller_raw_data=srd)
+    except BrokerValues.DoesNotExist:
+        bv = BrokerValues.objects.create(seller_raw_data=srd)
+    return (invite, bv), None
+
+
+@api_view(["POST"])  # Public upload for broker photos (images only)
+@permission_classes([AllowAny])
+@parser_classes([MultiPartParser, FormParser])
+def upload_broker_photos_with_token(request, token: str):
+    """Upload one or more image files as unified `Photo` records (source_tag='broker').
+
+    Expected multipart form fields:
+    - files: multiple file parts (preferred)
+    - photos: alias for files
+    - image: single image input (fallback)
+
+    Returns JSON with uploaded count and URLs.
+    """
+    resolved, err = _get_invite_and_broker_values_or_400(token)
+    if err is not None:
+        return err
+    _invite, bv = resolved
+
+    # Get a list of files regardless of key used
+    files = []
+    # Prefer the canonical 'files' key
+    files.extend(request.FILES.getlist("files"))
+    # Support 'photos' as an alias
+    if not files:
+        files.extend(request.FILES.getlist("photos"))
+    # Support 'image' as a fallback
+    if not files:
+        files.extend(request.FILES.getlist("image"))
+
+    if not files:
+        return Response({"detail": "No files provided"}, status=status.HTTP_400_BAD_REQUEST)
+
+    created = []
+    for f in files:
+        # Create unified Photo; storage backend saves to MEDIA_ROOT
+        p = Photo.objects.create(
+            seller_raw_data=bv.seller_raw_data,
+            image=f,
+            source_tag='broker',
+        )
+        try:
+            url = request.build_absolute_uri(p.image.url)
+        except Exception:
+            # If storage backend does not generate a URL, skip but keep record
+            url = None
+        created.append({
+            'id': p.id,
+            'url': url,
+        })
+
+    return Response({"uploaded": len(created), "items": created}, status=status.HTTP_201_CREATED)
+
+
+@api_view(["POST"])  # Public upload for broker documents (any file type)
+@permission_classes([AllowAny])
+@parser_classes([MultiPartParser, FormParser])
+def upload_broker_documents_with_token(request, token: str):
+    """Upload one or more files as `BrokerDocument` records bound to the token's asset.
+
+    Expected multipart form fields:
+    - files: multiple file parts (preferred)
+      or
+    - documents: multiple file parts (alias)
+
+    Response 201:
+    {
+      "uploaded": <int>,
+      "items": [{"id": <int>, "url": "https://...", "name": "original.ext"}]
+    }
+    """
+    resolved, err = _get_invite_and_broker_values_or_400(token)
+    if err is not None:
+        return err
+    _invite, bv = resolved
+
+    files = []
+    files.extend(request.FILES.getlist("files"))
+    if not files:
+        files.extend(request.FILES.getlist("documents"))
+
+    if not files:
+        return Response({"detail": "No files provided"}, status=status.HTTP_400_BAD_REQUEST)
+
+    created = []
+    for f in files:
+        bd = BrokerDocument.objects.create(broker_valuation=bv, file=f, original_name=getattr(f, 'name', None))
+        try:
+            url = request.build_absolute_uri(bd.file.url)
+        except Exception:
+            url = None
+        created.append({"id": bd.id, "url": url, "name": bd.original_name})
+
+    return Response({"uploaded": len(created), "items": created}, status=status.HTTP_201_CREATED)

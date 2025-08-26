@@ -22,7 +22,7 @@ from rest_framework.response import Response
 from rest_framework import status, serializers
 
 from ..models.seller import SellerRawData
-from ..models.valuations import PublicPhoto, DocumentPhoto, BrokerPhoto
+from ..models import Photo
 
 
 class OutputPhotoSerializer(serializers.Serializer):
@@ -31,10 +31,16 @@ class OutputPhotoSerializer(serializers.Serializer):
     - src: absolute URL to the image
     - alt: optional alt/caption text
     - thumb: optional thumbnail URL (defaults to src on the frontend if omitted)
+    - type: optional discriminator for source category (public|document|broker)
+
+    Docs reviewed:
+    - DRF Serializer fields: https://www.django-rest-framework.org/api-guide/serializers/#declaring-serializers
+    Adding an optional field is backward-compatible for existing clients.
     """
     src = serializers.CharField()
     alt = serializers.CharField(required=False, allow_blank=True)
     thumb = serializers.CharField(required=False, allow_blank=True)
+    type = serializers.CharField(required=False, allow_blank=True)
 
 
 @api_view(["GET"])
@@ -62,44 +68,30 @@ def list_photos_by_raw_id(request, id: int):
 
     items: List[Dict] = []
 
-    # Public photos (scraped)
-    for p in PublicPhoto.objects.filter(seller_raw_data=raw).iterator():
+    # Unified photos
+    for p in Photo.objects.filter(seller_raw_data=raw).iterator():
         try:
-            src = abs_url(p.photo.url)
+            src = abs_url(p.image.url)
         except Exception:
             # Skip records with missing files
             continue
-        alt = f"Public photo ({p.get_source_display()})" if hasattr(p, "get_source_display") else "Public photo"
-        items.append({
-            "src": src,
-            "alt": p.caption or alt,
-            "thumb": src,
-        })
 
-    # Document photos (extracted)
-    for d in DocumentPhoto.objects.filter(seller_raw_data=raw).iterator():
-        try:
-            src = abs_url(d.photo.url)
-        except Exception:
-            continue
-        page = f" p{d.page_number}" if d.page_number is not None else ""
-        alt = d.caption or f"Document photo{page}"
+        # Derive alt text based on source_tag and available metadata
+        if p.source_tag == 'public':
+            alt = p.caption or "Public photo"
+        elif p.source_tag == 'document':
+            page = f" p{p.page_number}" if p.page_number is not None else ""
+            alt = p.caption or f"Document photo{page}"
+        elif p.source_tag == 'broker':
+            alt = p.caption or "Broker photo"
+        else:
+            alt = p.caption or "Photo"
+
         items.append({
             "src": src,
             "alt": alt,
             "thumb": src,
-        })
-
-    # Broker photos (via BrokerValues -> SellerRawData)
-    for b in BrokerPhoto.objects.filter(broker_valuation__seller_raw_data=raw).iterator():
-        try:
-            src = abs_url(b.photo.url)
-        except Exception:
-            continue
-        items.append({
-            "src": src,
-            "alt": "Broker photo",
-            "thumb": src,
+            "type": p.source_tag,
         })
 
     # Serialize to enforce output contract (and future-proof additional validation)

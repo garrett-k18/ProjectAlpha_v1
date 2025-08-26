@@ -25,7 +25,8 @@
           <th class="text-nowrap">After Repair Value</th>
           <th class="text-nowrap">Estimated Rehab</th>
           <th class="text-nowrap">Notes</th>
-          <th class="text-nowrap">Uploads</th>
+          <th class="text-nowrap">Photos</th>
+          <th class="text-nowrap">Documents</th>
           <th class="text-nowrap">Links</th>
         </tr>
       </thead>
@@ -102,16 +103,48 @@
             </b-modal>
           </td>
 
-          <!-- Uploads: basic multi-file input; future enhancement could show previews/list -->
+          <!-- Photos: multi-file image input (BrokerPhoto model: one-to-many with BrokerValues) -->
+          <td style="min-width: 180px;">
+            <input
+              class="form-control form-control-sm"
+              type="file"
+              accept="image/*"
+              multiple
+              @change="onPhotoSelected"
+            />
+            <small class="text-muted d-block mt-1" v-if="row.photoFiles.length">
+              {{ row.photoFiles.length }} photo(s) selected
+            </small>
+            <small class="text-muted d-block" v-if="photoUploadPercent !== null">
+              Uploading photos… {{ photoUploadPercent }}%
+            </small>
+            <small class="text-success d-block" v-if="uploadedPhotoItems.length">
+              Uploaded {{ uploadedPhotoItems.length }} photo(s)
+            </small>
+            <small class="text-danger d-block" v-if="photoError">
+              {{ photoError }}
+            </small>
+          </td>
+
+          <!-- Documents: multi-file input for docs (stored separately; endpoint TBD) -->
           <td style="min-width: 180px;">
             <input
               class="form-control form-control-sm"
               type="file"
               multiple
-              @change="onFilesSelected"
+              @change="onDocsSelected"
             />
-            <small class="text-muted d-block mt-1" v-if="row.files.length">
-              {{ row.files.length }} file(s) selected
+            <small class="text-muted d-block mt-1" v-if="row.docFiles.length">
+              {{ row.docFiles.length }} document(s) selected
+            </small>
+            <small class="text-muted d-block" v-if="docUploadPercent !== null">
+              Uploading documents… {{ docUploadPercent }}%
+            </small>
+            <small class="text-success d-block" v-if="uploadedDocItems.length">
+              Uploaded {{ uploadedDocItems.length }} document(s)
+            </small>
+            <small class="text-danger d-block" v-if="docError">
+              {{ docError }}
             </small>
           </td>
 
@@ -147,6 +180,11 @@
 
 <script lang="ts">
 import { defineComponent, reactive, ref, watch } from 'vue'
+// Use centralized Axios instance for API calls (progress events supported).
+// Docs: https://axios-http.com/docs/api_intro
+import http from '../../../lib/http'
+// Axios progress event type (Axios v1+). Docs: https://axios-http.com/docs/req_config
+import type { AxiosProgressEvent } from 'axios'
 
 export default defineComponent({
   name: 'BrokerFormTable',
@@ -195,8 +233,10 @@ export default defineComponent({
       rehab: undefined as number | undefined,
       // Free-form note text
       notes: '' as string,
-      // Selected files for upload (kept client-side for now)
-      files: [] as File[],
+      // Selected photo files (BrokerPhoto uploads)
+      photoFiles: [] as File[],
+      // Selected document files (non-photo docs; separate storage)
+      docFiles: [] as File[],
       // List of user-provided links
       links: [] as string[],
     })
@@ -236,6 +276,88 @@ export default defineComponent({
         return nf.format(Number(digits))
       } catch {
         return digits
+      }
+    }
+
+    // ---------------------------------------------------------------------
+    // Upload handlers (photos/documents)
+    // ---------------------------------------------------------------------
+    // UI state for upload progress and results
+    const photoUploadPercent = ref<number | null>(null) // 0-100 during upload, null when idle
+    const docUploadPercent = ref<number | null>(null)   // 0-100 during upload, null when idle
+    const uploadedPhotoItems = ref<Array<{ id: number; url: string | null }>>([])
+    const uploadedDocItems = ref<Array<{ id: number; url: string | null; name?: string | null }>>([])
+    const photoError = ref('')
+    const docError = ref('')
+
+    // Upload photo files as multipart/form-data to tokenized endpoint.
+    // Docs reviewed:
+    // - FormData: https://developer.mozilla.org/en-US/docs/Web/API/FormData
+    // - Axios onUploadProgress: https://axios-http.com/docs/req_config
+    // - DRF multipart parsing: https://www.django-rest-framework.org/api-guide/parsers/#multipartparser
+    const uploadPhotosNow = async () => {
+      photoError.value = ''
+      uploadedPhotoItems.value = []
+      if (!props.inviteToken || !row.photoFiles.length) return
+      try {
+        const form = new FormData()
+        // Append each file under key 'files' (backend supports this canonical key)
+        row.photoFiles.forEach((f) => form.append('files', f))
+        photoUploadPercent.value = 0
+        const { data } = await http.post(
+          `acq/broker-invites/${encodeURIComponent(props.inviteToken)}/photos/`,
+          form,
+          {
+            headers: { 'Content-Type': 'multipart/form-data' },
+            onUploadProgress: (e: AxiosProgressEvent) => {
+              if (e.total) {
+                photoUploadPercent.value = Math.round((e.loaded / e.total) * 100)
+              }
+            },
+          }
+        )
+        // Expect shape: { uploaded: number, items: [{id, url}] }
+        uploadedPhotoItems.value = Array.isArray(data?.items) ? data.items : []
+        // Clear selected files after successful upload
+        row.photoFiles = []
+        emit('update:modelValue', { ...props.modelValue, valuationRow: { ...row } })
+      } catch (err: any) {
+        photoError.value = err?.message || 'Photo upload failed'
+      } finally {
+        // Reset progress display after a short delay for user feedback
+        setTimeout(() => { photoUploadPercent.value = null }, 600)
+      }
+    }
+
+    // Upload document files (accept any file type) to tokenized endpoint.
+    const uploadDocumentsNow = async () => {
+      docError.value = ''
+      uploadedDocItems.value = []
+      if (!props.inviteToken || !row.docFiles.length) return
+      try {
+        const form = new FormData()
+        row.docFiles.forEach((f) => form.append('files', f))
+        docUploadPercent.value = 0
+        const { data } = await http.post(
+          `acq/broker-invites/${encodeURIComponent(props.inviteToken)}/documents/`,
+          form,
+          {
+            headers: { 'Content-Type': 'multipart/form-data' },
+            onUploadProgress: (e: AxiosProgressEvent) => {
+              if (e.total) {
+                docUploadPercent.value = Math.round((e.loaded / e.total) * 100)
+              }
+            },
+          }
+        )
+        // { uploaded: number, items: [{id, url, name}] }
+        uploadedDocItems.value = Array.isArray(data?.items) ? data.items : []
+        row.docFiles = []
+        emit('update:modelValue', { ...props.modelValue, valuationRow: { ...row } })
+      } catch (err: any) {
+        docError.value = err?.message || 'Document upload failed'
+      } finally {
+        setTimeout(() => { docUploadPercent.value = null }, 600)
       }
     }
 
@@ -330,13 +452,29 @@ export default defineComponent({
       emit('update:modelValue', { ...props.modelValue, valuationRow: { ...row } })
     }
 
-    // Handler: when files are selected, capture FileList into `row.files`
-    const onFilesSelected = (evt: Event) => {
+    // Handler: when photo files are selected, capture into `row.photoFiles`
+    const onPhotoSelected = (evt: Event) => {
       const input = evt.target as HTMLInputElement
       const files = input?.files ? Array.from(input.files) : []
-      row.files = files
-      // Persist outward
+      row.photoFiles = files
+      // Persist outward for parent consumers
       emit('update:modelValue', { ...props.modelValue, valuationRow: { ...row } })
+      // Immediately upload when token present to keep UX snappy
+      if (props.inviteToken && row.photoFiles.length) {
+        void uploadPhotosNow()
+      }
+    }
+
+    // Handler: when document files are selected, capture into `row.docFiles`
+    const onDocsSelected = (evt: Event) => {
+      const input = evt.target as HTMLInputElement
+      const files = input?.files ? Array.from(input.files) : []
+      row.docFiles = files
+      // Persist outward for parent consumers
+      emit('update:modelValue', { ...props.modelValue, valuationRow: { ...row } })
+      if (props.inviteToken && row.docFiles.length) {
+        void uploadDocumentsNow()
+      }
     }
 
     // Handler: add the current linkInput to the list if valid-ish
@@ -430,12 +568,22 @@ export default defineComponent({
       saveMessage,
       saveSuccess,
       onSaveNotes,
-      onFilesSelected,
+      onPhotoSelected,
+      onDocsSelected,
       addLink,
       onCurrencyInput,
       onCurrencyModel,
       autoSaveStatus,
       submitNow,
+      // Upload state/handlers
+      photoUploadPercent,
+      docUploadPercent,
+      uploadedPhotoItems,
+      uploadedDocItems,
+      photoError,
+      docError,
+      uploadPhotosNow,
+      uploadDocumentsNow,
     }
   },
 })

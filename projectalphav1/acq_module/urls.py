@@ -16,6 +16,8 @@ from .views.brokers.invites import (
     validate_broker_invite,
     submit_broker_values_with_token,
     list_brokers_by_state_batch,
+    upload_broker_photos_with_token,
+    upload_broker_documents_with_token,
 )
 from .views.brokers.portal import (
     assign_broker_batch,
@@ -52,6 +54,8 @@ urlpatterns = [
     path('broker-invites/by-state-batch/', list_brokers_by_state_batch, name='api_list_brokers_by_state_batch'),  # GET
     path('broker-invites/<str:token>/', validate_broker_invite, name='api_validate_broker_invite'),  # GET
     path('broker-invites/<str:token>/submit/', submit_broker_values_with_token, name='api_submit_broker_values_with_token'),  # POST
+    path('broker-invites/<str:token>/photos/', upload_broker_photos_with_token, name='api_upload_broker_photos_with_token'),  # POST (public)
+    path('broker-invites/<str:token>/documents/', upload_broker_documents_with_token, name='api_upload_broker_documents_with_token'),  # POST (public)
     # Broker portal endpoints
     path('broker-portal/assign/', assign_broker_batch, name='api_assign_broker_batch'),  # POST (internal)
     path('broker-portal/<str:token>/', broker_portal_detail, name='api_broker_portal_detail'),  # GET (public)

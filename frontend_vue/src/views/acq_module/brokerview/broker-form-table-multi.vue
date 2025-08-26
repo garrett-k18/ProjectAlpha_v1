@@ -27,7 +27,8 @@
           <th class="text-nowrap">After Repair Value</th>
           <th class="text-nowrap">Estimated Rehab</th>
           <th class="text-nowrap">Notes</th>
-          <th class="text-nowrap">Uploads</th>
+          <th class="text-nowrap">Photos</th>
+          <th class="text-nowrap">Documents</th>
           <th class="text-nowrap">Links</th>
           <th class="text-nowrap" style="width:140px">Status</th>
         </tr>
@@ -53,7 +54,7 @@
                 v-model="asIsInput[idx]"
                 @update:modelValue="onCurrencyModel(idx, 'asIs', $event)"
                 placeholder="0"
-                :disabled="!entry.inviteToken"
+                :disabled="!entry.inviteToken || photoUploadStatus[idx] === 'uploading'"
               />
             </div>
           </td>
@@ -70,7 +71,7 @@
                 v-model="arvInput[idx]"
                 @update:modelValue="onCurrencyModel(idx, 'arv', $event)"
                 placeholder="0"
-                :disabled="!entry.inviteToken"
+                :disabled="!entry.inviteToken || photoUploadStatus[idx] === 'uploading'"
               />
             </div>
           </td>
@@ -87,14 +88,14 @@
                 v-model="rehabInput[idx]"
                 @update:modelValue="onCurrencyModel(idx, 'rehab', $event)"
                 placeholder="0"
-                :disabled="!entry.inviteToken"
+                :disabled="!entry.inviteToken || photoUploadStatus[idx] === 'uploading'"
               />
             </div>
           </td>
 
           <!-- Notes: opens a modal to enter a free-form note -->
           <td style="min-width: 140px;">
-            <b-button size="sm" variant="primary" @click="openNotes(idx)" :disabled="!entry.inviteToken">
+            <b-button size="sm" variant="primary" @click="openNotes(idx)" :disabled="!entry.inviteToken || photoUploadStatus[idx] === 'uploading'">
               <i class="mdi mdi-note-text-outline me-1"></i>
               Add Note
             </b-button>
@@ -114,17 +115,49 @@
             </b-modal>
           </td>
 
-          <!-- Uploads: basic multi-file input; future enhancement could show previews/list -->
+          <!-- Photos: multi-file image input (BrokerPhoto model) -->
+          <td style="min-width: 180px;">
+            <input
+              class="form-control form-control-sm"
+              type="file"
+              accept="image/*"
+              multiple
+              @change="onPhotoSelected(idx, $event)"
+              :disabled="!entry.inviteToken || photoUploadStatus[idx] === 'uploading'"
+            />
+            <small class="text-muted d-block mt-1" v-if="rowsState[idx].photoFiles.length">
+              {{ rowsState[idx].photoFiles.length }} photo(s) selected
+            </small>
+            <div class="mt-1" v-if="photoUploadStatus[idx] !== 'idle'">
+              <b-progress
+                v-if="photoUploadStatus[idx] === 'uploading'"
+                :value="photoUploadProgress[idx]"
+                :max="100"
+                height="6px"
+              />
+              <small v-if="photoUploadStatus[idx] === 'uploading'" class="text-muted">
+                Uploading {{ photoUploadProgress[idx] }}%
+              </small>
+              <small v-else-if="photoUploadStatus[idx] === 'uploaded'" class="text-success">
+                {{ photoUploadMessage[idx] || 'Photos uploaded' }}
+              </small>
+              <small v-else-if="photoUploadStatus[idx] === 'error'" class="text-danger">
+                {{ photoUploadMessage[idx] || 'Upload failed' }}
+              </small>
+            </div>
+          </td>
+
+          <!-- Documents: multi-file input for non-image docs -->
           <td style="min-width: 180px;">
             <input
               class="form-control form-control-sm"
               type="file"
               multiple
-              @change="onFilesSelected(idx, $event)"
-              :disabled="!entry.inviteToken"
+              @change="onDocsSelected(idx, $event)"
+              :disabled="!entry.inviteToken || photoUploadStatus[idx] === 'uploading'"
             />
-            <small class="text-muted d-block mt-1" v-if="rowsState[idx].files.length">
-              {{ rowsState[idx].files.length }} file(s) selected
+            <small class="text-muted d-block mt-1" v-if="rowsState[idx].docFiles.length">
+              {{ rowsState[idx].docFiles.length }} document(s) selected
             </small>
           </td>
 
@@ -134,9 +167,9 @@
               <b-form-input
                 v-model="linkInput[idx]"
                 placeholder="https://..."
-                :disabled="!entry.inviteToken"
+                :disabled="!entry.inviteToken || photoUploadStatus[idx] === 'uploading'"
               />
-              <b-button size="sm" variant="outline-secondary" @click="addLink(idx)" :disabled="!entry.inviteToken">
+              <b-button size="sm" variant="outline-secondary" @click="addLink(idx)" :disabled="!entry.inviteToken || photoUploadStatus[idx] === 'uploading'">
                 Add
               </b-button>
             </div>
@@ -164,6 +197,8 @@
 <script lang="ts">
 import { defineComponent, ref, watch } from 'vue'
 import type { PropType } from 'vue'
+import axios from 'axios'
+import type { AxiosProgressEvent } from 'axios'
 
 // Row entry provided by parent. Normalized structure used by this component.
 export interface BrokerFormEntry {
@@ -203,7 +238,8 @@ export default defineComponent({
         arv: undefined as number | undefined,
         rehab: undefined as number | undefined,
         notes: '' as string,
-        files: [] as File[],
+        photoFiles: [] as File[],
+        docFiles: [] as File[],
         links: [] as string[],
       }))
     )
@@ -221,6 +257,16 @@ export default defineComponent({
     const autoSaveStatus = ref<Array<'idle' | 'saving' | 'saved' | 'error'>>(
       props.rows.map(() => 'idle')
     )
+
+    // Per-row photo upload UI state
+    // photoUploadStatus: tracks current upload state for each row
+    // photoUploadMessage: captures last success/error message for each row
+    // photoUploadProgress: 0-100 integer progress for active upload
+    const photoUploadStatus = ref<Array<'idle' | 'uploading' | 'uploaded' | 'error'>>(
+      props.rows.map(() => 'idle')
+    )
+    const photoUploadMessage = ref<string[]>(props.rows.map(() => ''))
+    const photoUploadProgress = ref<number[]>(props.rows.map(() => 0))
 
     // Debounce timers per row index
     const timers: Record<number, any> = {}
@@ -305,7 +351,8 @@ export default defineComponent({
           arv: undefined,
           rehab: undefined,
           notes: '',
-          files: [],
+          photoFiles: [],
+          docFiles: [],
           links: [],
         })
         notesOpen.value = Array.from({ length: n }, (_, i) => notesOpen.value[i] || false)
@@ -316,6 +363,9 @@ export default defineComponent({
         isSaving.value = Array.from({ length: n }, (_, i) => isSaving.value[i] || false)
         saveMessage.value = Array.from({ length: n }, (_, i) => saveMessage.value[i] || '')
         autoSaveStatus.value = Array.from({ length: n }, (_, i) => autoSaveStatus.value[i] || 'idle')
+        photoUploadStatus.value = Array.from({ length: n }, (_, i) => photoUploadStatus.value[i] || 'idle')
+        photoUploadMessage.value = Array.from({ length: n }, (_, i) => photoUploadMessage.value[i] || '')
+        photoUploadProgress.value = Array.from({ length: n }, (_, i) => photoUploadProgress.value[i] || 0)
         // Re-apply prefill for any new rows
         applyPrefillAll()
       },
@@ -342,12 +392,78 @@ export default defineComponent({
       scheduleAutoSave(idx)
     }
 
-    // File selection handler
-    const onFilesSelected = (idx: number, evt: Event) => {
+    // File selection handlers
+    const onPhotoSelected = (idx: number, evt: Event) => {
       const input = evt.target as HTMLInputElement
       const files = input?.files ? Array.from(input.files) : []
-      rowsState.value[idx].files = files
+      rowsState.value[idx].photoFiles = files
       emit('update:modelValue', { ...props.modelValue, valuationRows: [...rowsState.value] })
+      // Immediately upload selected photos for this row using the invite token
+      if (files && files.length) {
+        uploadPhotosForRow(idx)
+      }
+    }
+
+    const onDocsSelected = (idx: number, evt: Event) => {
+      const input = evt.target as HTMLInputElement
+      const files = input?.files ? Array.from(input.files) : []
+      rowsState.value[idx].docFiles = files
+      emit('update:modelValue', { ...props.modelValue, valuationRows: [...rowsState.value] })
+    }
+
+    // Upload selected photos for a row to the backend token-based endpoint
+    // Uses axios with onUploadProgress to report progress. Backend expects multipart
+    // form field name 'files' (alias 'photos' or 'image' also accepted per backend docs).
+    const uploadPhotosForRow = async (idx: number) => {
+      const token = normalizedRows.value[idx]?.inviteToken
+      const files = rowsState.value[idx].photoFiles || []
+      if (!token || !files.length) return
+
+      // Initialize UI state for upload
+      photoUploadStatus.value[idx] = 'uploading'
+      photoUploadMessage.value[idx] = ''
+      photoUploadProgress.value[idx] = 0
+
+      try {
+        const form = new FormData()
+        for (const f of files) {
+          // Append under canonical key 'files' (backend also supports 'photos'/'image')
+          form.append('files', f)
+        }
+
+        const res = await axios.post(
+          `/api/acq/broker-invites/${encodeURIComponent(token)}/photos/`,
+          form,
+          {
+            headers: {
+              // Let the browser set Content-Type with boundary; only declare Accept
+              'Accept': 'application/json',
+            },
+            // Report upload progress for user feedback
+            onUploadProgress: (evt: AxiosProgressEvent) => {
+              if (typeof evt.total === 'number' && typeof evt.loaded === 'number' && evt.total > 0) {
+                photoUploadProgress.value[idx] = Math.round((evt.loaded / evt.total) * 100)
+              }
+            },
+            withCredentials: false,
+          }
+        )
+
+        // Success: clear selected files, show message, and notify parent to refresh data
+        const uploaded = Number((res?.data && (res.data.uploaded as any)) || files.length)
+        rowsState.value[idx].photoFiles = []
+        photoUploadStatus.value[idx] = 'uploaded'
+        photoUploadMessage.value[idx] = `${uploaded} photo(s) uploaded`
+        photoUploadProgress.value[idx] = 100
+        emit('saved')
+      } catch (e: any) {
+        // Error: capture message and allow retry by re-selecting files
+        photoUploadStatus.value[idx] = 'error'
+        photoUploadMessage.value[idx] = e?.message || 'Upload failed'
+      } finally {
+        // No additional cleanup; keep progress bar at 100 on success briefly
+        // Caller may trigger another selection to re-upload
+      }
     }
 
     // Add link
@@ -415,10 +531,15 @@ export default defineComponent({
       isSaving,
       saveMessage,
       autoSaveStatus,
+      photoUploadStatus,
+      photoUploadMessage,
+      photoUploadProgress,
       onCurrencyModel,
       openNotes,
       onSaveNotes,
-      onFilesSelected,
+      onPhotoSelected,
+      onDocsSelected,
+      uploadPhotosForRow,
       addLink,
       scheduleAutoSave,
       submitNow,
