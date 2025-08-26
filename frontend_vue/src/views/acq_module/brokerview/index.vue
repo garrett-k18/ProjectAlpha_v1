@@ -35,18 +35,13 @@
           <b-card>
             <!-- Simple form table: shows basic fields without tabs or expiry info -->
             <h4 class="mb-3">Assigned Valuations</h4>
-            <BrokerFormTable
-              v-if="selectedInviteToken"
+            <BrokerFormTableMulti
+              v-if="multiRows && multiRows.length"
               v-model="form"
-              :address="assignedAddress"
-              :inviteToken="selectedInviteToken"
-              :sellerRawDataId="sellerRawDataId ?? undefined"
-              :prefillValues="prefillValues || undefined"
+              :rows="multiRows"
               @saved="onChildSaved"
             />
-            <div v-else class="text-muted">
-              No active assignment is available at this time.
-            </div>
+            <div v-else class="text-muted">No active assignments are available at this time.</div>
           </b-card>
         </b-col>
       </b-row>
@@ -58,6 +53,8 @@
 import DefaultLayout from '@/components/layouts/default-layout.vue'
 import Profile from './profile.vue'
 import BrokerFormTable from './broker-form-table.vue'
+import BrokerFormTableMulti from './broker-form-table-multi.vue'
+import type { BrokerFormEntry } from './broker-form-table-multi.vue'
 
 /*
   Quick access URL (Vite dev default origin http://localhost:5173):
@@ -70,7 +67,7 @@ import BrokerFormTable from './broker-form-table.vue'
   For preview/prod, only the origin changes; the paths stay the same.
 */
 export default {
-  components: { DefaultLayout, Profile, BrokerFormTable },
+  components: { DefaultLayout, Profile, BrokerFormTable, BrokerFormTableMulti },
   props: {
     // Token passed from the route: /brokerview/:token
     token: { type: String, default: null },
@@ -103,6 +100,8 @@ export default {
         broker_value_date?: string | null
         broker_notes?: string | null
       },
+      // Multi-row entries for all active invites
+      multiRows: [] as BrokerFormEntry[],
     }
   },
   mounted() {
@@ -128,14 +127,55 @@ export default {
             // Recompute chosen entry using same selection logic as validateToken
             const assigned = Array.isArray(data.assigned_entries) ? data.assigned_entries : []
             const active = Array.isArray(data.active_invites) ? data.active_invites : []
+
+            // Build multiRows from active invites
+            this.multiRows = active.map((e: any) => {
+              const addr = e?.address || {}
+              const composed = [addr.street_address, addr.city, addr.state].filter(Boolean).join(', ') + (addr.zip ? ` ${addr.zip}` : '')
+              const tokenMeta = e?.token
+              const inviteToken = tokenMeta && !tokenMeta.is_expired ? (tokenMeta.value || null) : null
+              const srdId = e?.seller_raw_data ?? null
+              return {
+                key: `${srdId}:${inviteToken ?? 'na'}`,
+                srdId,
+                inviteToken,
+                address: (composed || '').trim(),
+                prefillValues: e?.values || null,
+              } as BrokerFormEntry
+            })
+            // Fallback: render assigned entries when there are no active invites
+            if ((!this.multiRows || !this.multiRows.length) && assigned.length) {
+              this.multiRows = assigned.map((e: any) => {
+                const addr = e?.address || {}
+                const composed = [addr.street_address, addr.city, addr.state].filter(Boolean).join(', ') + (addr.zip ? ` ${addr.zip}` : '')
+                const tokenMeta = e?.token
+                const inviteToken = tokenMeta && !tokenMeta.is_expired ? (tokenMeta.value || null) : null
+                const srdId = e?.seller_raw_data ?? null
+                return {
+                  key: `${srdId}:${inviteToken ?? 'na'}`,
+                  srdId,
+                  inviteToken,
+                  address: (composed || '').trim(),
+                  prefillValues: e?.values || null,
+                } as BrokerFormEntry
+              })
+            }
             const s = new URLSearchParams(window.location.search)
             const srdParam = s.get('srd')
             const srdNum = srdParam && /^\d+$/.test(srdParam) ? Number(srdParam) : null
-            let chosen = null
+            let chosen: any = null
             if (srdNum != null) {
               chosen = active.find((e: any) => e?.seller_raw_data === srdNum) || null
             }
-            if (!chosen) chosen = active.length ? active[0] : null
+            if (!chosen && active.length) {
+              // Default to the newest by token expiry (recent assigns have later expires_at)
+              const sorted = [...active].sort((a: any, b: any) => {
+                const da = a?.token?.expires_at ? new Date(a.token.expires_at).getTime() : 0
+                const db = b?.token?.expires_at ? new Date(b.token.expires_at).getTime() : 0
+                return db - da
+              })
+              chosen = sorted[0] || null
+            }
 
             // Address
             if (chosen?.address) {
@@ -178,8 +218,42 @@ export default {
             this.form.name = data?.broker?.broker_name || ''
             this.form.email = data?.broker?.broker_email || ''
             this.form.firm = data?.broker?.broker_firm || ''
-            // Choose an entry: prefer ?srd= match from active_invites, else first active invite
+            // Choose an entry: prefer ?srd= match from active_invites, else newest by token.expires_at
             const active = Array.isArray(data.active_invites) ? data.active_invites : []
+            const assigned = Array.isArray(data.assigned_entries) ? data.assigned_entries : []
+
+            // Build multiRows from active invites
+            this.multiRows = active.map((e: any) => {
+              const addr = e?.address || {}
+              const composed = [addr.street_address, addr.city, addr.state].filter(Boolean).join(', ') + (addr.zip ? ` ${addr.zip}` : '')
+              const tokenMeta = e?.token
+              const inviteToken = tokenMeta && !tokenMeta.is_expired ? (tokenMeta.value || null) : null
+              const srdId = e?.seller_raw_data ?? null
+              return {
+                key: `${srdId}:${inviteToken ?? 'na'}`,
+                srdId,
+                inviteToken,
+                address: (composed || '').trim(),
+                prefillValues: e?.values || null,
+              } as BrokerFormEntry
+            })
+            // Fallback: if no active invites, still render assigned entries (read-only if no active token)
+            if ((!this.multiRows || !this.multiRows.length) && assigned.length) {
+              this.multiRows = assigned.map((e: any) => {
+                const addr = e?.address || {}
+                const composed = [addr.street_address, addr.city, addr.state].filter(Boolean).join(', ') + (addr.zip ? ` ${addr.zip}` : '')
+                const tokenMeta = e?.token
+                const inviteToken = tokenMeta && !tokenMeta.is_expired ? (tokenMeta.value || null) : null
+                const srdId = e?.seller_raw_data ?? null
+                return {
+                  key: `${srdId}:${inviteToken ?? 'na'}`,
+                  srdId,
+                  inviteToken,
+                  address: (composed || '').trim(),
+                  prefillValues: e?.values || null,
+                } as BrokerFormEntry
+              })
+            }
             const s = new URLSearchParams(window.location.search)
             const srdParam = s.get('srd')
             const srdNum = srdParam && /^\d+$/.test(srdParam) ? Number(srdParam) : null
@@ -187,7 +261,14 @@ export default {
             if (srdNum != null) {
               chosen = active.find((e: any) => e?.seller_raw_data === srdNum) || null
             }
-            if (!chosen) chosen = active.length ? active[0] : null
+            if (!chosen && active.length) {
+              const sorted = [...active].sort((a: any, b: any) => {
+                const da = a?.token?.expires_at ? new Date(a.token.expires_at).getTime() : 0
+                const db = b?.token?.expires_at ? new Date(b.token.expires_at).getTime() : 0
+                return db - da
+              })
+              chosen = sorted[0] || null
+            }
 
             // Address from chosen entry (structured)
             if (chosen?.address) {
