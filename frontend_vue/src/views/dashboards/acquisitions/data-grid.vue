@@ -55,15 +55,7 @@
           </ul>
         </div>
 
-        <!-- Assign Selected: posts invites grouped by chosen agent per row -->
-        <button
-          class="btn btn-sm btn-primary"
-          @click="assignSelected"
-          :disabled="!gridApi || selectedCount === 0"
-          title="Assign selected rows to their chosen agents"
-        >
-          <i class="mdi mdi-send me-1"></i> Assign Selected
-        </button>
+        <!-- Row-level invite checkbox column added; header button removed -->
       </div>
     </div>
 
@@ -171,6 +163,8 @@ import http from '@/lib/http'
 import ActionsCell from './components/ActionsCell.vue'
 // ID link cell renderer for the internal ID link (no modal logic here)
 import IdLinkCell from './components/IdLinkCell.vue'
+// Per-row invite checkbox cell renderer
+import AssignInviteCell from './components/AssignInviteCell.vue'
 // Grid-only: remove modal, tabs, and product image imports
 
 // Grid-only: removed modal sizing and resize listeners
@@ -234,6 +228,9 @@ const { rows: rowData, loadingRows: gridLoading } = storeToRefs(gridRowsStore)
 // Persisted in localStorage, namespaced by sellerId and tradeId.
 // Keys are normalized to strings to avoid number/string key mismatches after JSON parse.
 const selectedAgents = ref<Record<string, string>>({})
+// Invited map: tracks whether an invite was created for a given row key.
+// Persisted in localStorage per seller/trade so checkboxes remain checked after refresh.
+const invitedMap = ref<Record<string, boolean>>({})
 
 // Broker options keyed by state, supplied by backend endpoint
 // Store objects so we can retain IDs while showing labels in the select editor
@@ -251,6 +248,7 @@ const portalResults = ref<Array<{ broker_id: number; url: string; token: string;
 // Persistence for Agent selections (per sellerId + tradeId)
 // ---------------------------------------------------------------------------
 const STORAGE_KEY_PREFIX = 'acq_local_agents_selected_agents'
+const INVITED_STORAGE_KEY_PREFIX = 'acq_local_agents_invited'
 
 function storageKey(): string {
   // Use 'null' placeholders to ensure stable keys when IDs are missing
@@ -275,6 +273,33 @@ function loadSelectedAgentsFromStorage(): void {
   } catch (e) {
     console.debug('[LocalAgents] Failed to load persisted selected agents', e)
     selectedAgents.value = {}
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Persistence for Invite checkbox state (per sellerId + tradeId)
+// ---------------------------------------------------------------------------
+function invitedStorageKey(): string {
+  const sid = selectedSellerId.value ?? 'null'
+  const tid = selectedTradeId.value ?? 'null'
+  return `${INVITED_STORAGE_KEY_PREFIX}:${sid}:${tid}`
+}
+
+function saveInvitedToStorage(): void {
+  try {
+    localStorage.setItem(invitedStorageKey(), JSON.stringify(invitedMap.value))
+  } catch (e) {
+    console.debug('[LocalAgents] Failed to persist invited map', e)
+  }
+}
+
+function loadInvitedFromStorage(): void {
+  try {
+    const raw = localStorage.getItem(invitedStorageKey())
+    invitedMap.value = raw ? (JSON.parse(raw) as Record<string, boolean>) : {}
+  } catch (e) {
+    console.debug('[LocalAgents] Failed to load invited map', e)
+    invitedMap.value = {}
   }
 }
 
@@ -607,6 +632,48 @@ function buildAgentColumn(): ColDef {
   }
 }
 
+// Determine if a row can be assigned (requires an agent selection and valid row id)
+function canAssignRow(row: any): boolean {
+  const key = getRowKey(row)
+  if (key === undefined) return false
+  const label = selectedAgents.value[String(key)] || ''
+  const brokerId = labelToIdMap.value[label]
+  const srdId = Number(row?.id)
+  return !!brokerId && Number.isFinite(srdId)
+}
+
+// Assign a single row by creating an invite via the batch endpoint
+async function assignSingleRow(row: any): Promise<boolean> {
+  const key = getRowKey(row)
+  if (key === undefined) return false
+  const label = selectedAgents.value[String(key)] || ''
+  const brokerId = labelToIdMap.value[label]
+  const srdId = Number(row?.id)
+  if (!brokerId || !Number.isFinite(srdId)) return false
+  try {
+    const { data } = await http.post<any>('acq/broker-portal/assign/', {
+      broker_id: brokerId,
+      seller_raw_data_ids: [srdId],
+    })
+    const portal = data?.portal || {}
+    if (portal?.url && portal?.token) {
+      const idx = portalResults.value.findIndex(r => r.token === portal.token && r.broker_id === brokerId)
+      const item = { broker_id: brokerId, url: portal.url, token: portal.token, count: 1 }
+      if (idx >= 0) portalResults.value[idx] = item
+      else portalResults.value.push(item)
+      // Mark row as invited and persist so the checkbox stays checked
+      const k = String(key)
+      invitedMap.value[k] = true
+      saveInvitedToStorage()
+    }
+    return true
+  } catch (e) {
+    console.error('Assign single row failed', e)
+    alert('Failed to create invite for this row.')
+    return false
+  }
+}
+
 function buildLocalAgentsColumns(): ColDef[] {
   // Actions column (reuse existing renderer)
   const actionsCol: ColDef = {
@@ -639,6 +706,26 @@ function buildLocalAgentsColumns(): ColDef[] {
     maxWidth: 140,
   }
 
+  // Per-row Invite column to create a token for a single row
+  const inviteCol: ColDef = {
+    headerName: 'Invite',
+    colId: 'invite',
+    sortable: false,
+    filter: false,
+    width: 100,
+    maxWidth: 120,
+    cellRenderer: AssignInviteCell as any,
+    cellRendererParams: {
+      onAssign: assignSingleRow,
+      canAssign: canAssignRow,
+      isInvited: (row: any) => {
+        const key = getRowKey(row)
+        if (key === undefined) return false
+        return !!invitedMap.value[String(key)]
+      },
+    },
+  }
+
   const cols: ColDef[] = [
     actionsCol,
     idCol,
@@ -650,6 +737,7 @@ function buildLocalAgentsColumns(): ColDef[] {
     { headerName: 'Seller As Is', field: 'seller_asis_value', sortable: true, filter: true, valueFormatter: numberNoDecimalFormatter, width: 140 },
     { headerName: 'Seller ARV', field: 'seller_arv_value', sortable: true, filter: true, valueFormatter: numberNoDecimalFormatter, width: 140 },
     buildAgentColumn(),
+    inviteCol,
   ]
 
   return cols
@@ -843,6 +931,8 @@ onMounted(async () => {
 
   // Load any persisted Agent selections for the current seller/trade
   loadSelectedAgentsFromStorage()
+  // Load invited state for the current seller/trade
+  loadInvitedFromStorage()
 })
 
 // ---------------------------------------------------------------------------
@@ -949,6 +1039,7 @@ watch(rowData, async (rows) => {
 // Reload persisted Agent selections when seller or trade changes
 watch([selectedSellerId, selectedTradeId], () => {
   loadSelectedAgentsFromStorage()
+  loadInvitedFromStorage()
 })
 
 // Switch columns when the active view changes
