@@ -107,17 +107,23 @@ export const useAcqSelectionsStore = defineStore('acqSelections', () => {
     try {
       const sid = selectedSellerId.value as number
       const tid = selectedTradeId.value as number
-      // Use relative path so Axios baseURL (e.g., '/api') correctly prefixes the request
-      const resp = await http.get(`acq/geocode/markers/${sid}/${tid}/`)
+      // IMPORTANT: Use a leading slash so Axios correctly joins with baseURL.
+      // If baseURL is '/api', then '/acq/..' becomes '/api/acq/..' (correct).
+      // Without the leading slash, it would become '/apiacq/..' (incorrect).
+      console.debug('[acqSelections] fetching markers', { sellerId: sid, tradeId: tid })
+      const resp = await http.get(`/acq/geocode/markers/${sid}/${tid}/`)
       const data = resp.data as { markers: BackendMarker[]; count: number; source: string; error?: string }
       markers.value = Array.isArray(data.markers) ? data.markers : []
+      console.debug('[acqSelections] fetched markers', { count: markers.value.length, source: (data as any)?.source })
       if (data.error) {
         errorMarkers.value = data.error
+        console.warn('[acqSelections] backend reported error', data.error)
       }
       lastKey.value = selectionKey.value
     } catch (e: any) {
       errorMarkers.value = e?.message || 'Failed to fetch markers'
       markers.value = []
+      console.error('[acqSelections] fetch markers failed', e)
       lastKey.value = null
     } finally {
       loadingMarkers.value = false

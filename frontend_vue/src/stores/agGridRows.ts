@@ -82,9 +82,9 @@ export const useAgGridRowsStore = defineStore('agGridRows', () => {
     loadingRows.value = true
     errorRows.value = null
     try {
-      // Relative path so Axios baseURL prefixes request
+      // Use a leading slash so Axios baseURL (e.g., '/api') joins correctly.
       // Endpoint implemented by Django: GET /api/acq/raw-data/<sellerId>/<tradeId>/
-      const resp = await http.get<GridRow[]>(`acq/raw-data/${sellerId}/${tradeId}/`)
+      const resp = await http.get<GridRow[]>(`/acq/raw-data/${sellerId}/${tradeId}/`)
       const data = Array.isArray(resp.data) ? resp.data : []
 
       // Update current rows and cache

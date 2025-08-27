@@ -80,7 +80,7 @@
 
     <b-row>
       <b-col class="col-12">
-        <Country />
+        <VectorMap />
       </b-col>
     </b-row>
 
@@ -170,7 +170,7 @@ import System from "@/views/dashboards/acquisitions/system.vue";
 import Channel from "@/views/dashboards/acquisitions/channel.vue";
 import Media from "@/views/dashboards/acquisitions/media.vue";
 import EngagementOverview from "@/views/dashboards/acquisitions/engagement-overview.vue";
-import Country from "@/views/dashboards/acquisitions/country.vue";
+import VectorMap from "@/views/dashboards/acquisitions/vectorMap.vue";
 // AG Grid: modular data grid component for acquisitions dashboard
 import DataGrid from "@/views/dashboards/acquisitions/data-grid.vue";
 // BootstrapVue Next modal component (Vue 3 compatible)
@@ -180,7 +180,7 @@ import LoanLevelIndex from '@/views/acq_module/loanlvl/loanlvl_index.vue'
 
 export default {
   components: {
-    Country,
+    VectorMap,
     EngagementOverview,
     Media,
     Channel,

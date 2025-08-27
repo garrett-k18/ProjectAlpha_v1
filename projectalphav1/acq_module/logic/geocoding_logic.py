@@ -5,22 +5,32 @@ This module contains ONLY business logic and helpers. Views should import and ca
 `geocode_markers_for_seller_trade()` and return its result as JSON.
 
 Docs reviewed:
-- Google Geocoding API: https://developers.google.com/maps/documentation/geocoding/requests-geocoding
+- Geocod.io Python client: https://pygeocodio.readthedocs.io/en/latest/geocode.html
+- Geocod.io API reference: https://www.geocod.io/docs/
 - Django cache framework: https://docs.djangoproject.com/en/5.2/topics/cache/
 - jVectorMap markers format: https://jvectormap.com/documentation/javascript-api/
 """
 from __future__ import annotations
 
-# Standard library imports for environment, HTTP requests, and JSON handling
-import os  # used to read env vars like GOOGLE_MAPS_API_KEY and TTLs
-import json  # used to parse Google Geocoding API responses
-import urllib.parse  # used to safely encode query parameters
-import urllib.request  # used to perform a simple HTTP GET request to Google API
+# Standard library imports for environment and typing
+import os  # used to read env vars (GEOCODIO_API_KEY, TTLs, etc.)
 from typing import Dict, List, Optional, Tuple, Any  # precise typing for clarity
 
 # Django imports for caching and query construction
 from django.core.cache import cache  # centralized cache per Django settings
 from django.db.models import Q  # used to filter SellerRawData by seller_id/trade_id
+
+# Third-party client for Geocod.io (handle API differences across versions)
+try:
+    # Newer pygeocodio API
+    from geocodio import GeocodioClient as _GeocodioCls  # type: ignore
+except Exception:
+    try:
+        # Some versions expose Geocodio class instead
+        from geocodio import Geocodio as _GeocodioCls  # type: ignore
+    except Exception as _e:
+        # Defer import error until runtime usage to avoid crashing Django import
+        _GeocodioCls = None  # type: ignore
 
 # App model import: `SellerRawData` contains the address fields we need
 from ..models.seller import SellerRawData
@@ -36,12 +46,31 @@ MAX_UNIQUE_ADDRESSES: int = int(os.getenv("GEOCODE_MAX_ADDRESSES", "500"))
 
 
 def _env_api_key() -> Optional[str]:
-    """Return the Google Maps Geocoding API key from env or None when missing.
+    """Return the Geocod.io API key from env or None when missing.
 
-    Env var: GOOGLE_MAPS_API_KEY
-    Keeping key server-side prevents exposing it to the frontend.
+    Tries common env var names in order to support different setups:
+    - GEOCODIO_API_KEY
+    - GEOCODIO_KEY
+    - GEOCODIO
+    - GEOCODIO_TOKEN
+    - GEOCODE
+    - geocode
+    Also checks legacy GOOGLE_MAPS_API_KEY as a last resort (for backward compat),
+    though the Geocod.io client expects a Geocod.io key.
     """
-    return os.getenv("GOOGLE_MAPS_API_KEY")
+    for name in (
+        "GEOCODIO_API_KEY",
+        "GEOCODIO_KEY",
+        "GEOCODIO",
+        "GEOCODIO_TOKEN",
+        "GEOCODE",
+        "geocode",
+        "GOOGLE_MAPS_API_KEY",
+    ):  # note: os.getenv is case-sensitive
+        val = os.getenv(name)
+        if val:
+            return val
+    return None
 
 
 def _normalize_address(parts: List[str]) -> str:
@@ -71,44 +100,88 @@ def _build_full_address(row: Dict[str, Optional[str]]) -> str:
     ]).strip(", ")
 
 
-def _geocode_google(address: str, api_key: str) -> Optional[Tuple[float, float]]:
-    """Call Google Geocoding API for a single address.
+_CLIENTS: Dict[str, Any] = {}
+
+
+def _get_geocodio_client(api_key: str) -> Any:
+    """Return a cached Geocod.io client for the given api_key.
+
+    Supports both `GeocodioClient` and legacy `Geocodio` classes depending on
+    installed pygeocodio version.
+    """
+    client = _CLIENTS.get(api_key)
+    if client is None:
+        # Set a conservative timeout to avoid hanging requests when supported
+        if _GeocodioCls is None:
+            raise ImportError(
+                "Geocod.io client class not found. Ensure a compatible client is installed (geocodio-library-python)."
+            )
+        try:
+            client = _GeocodioCls(api_key, timeout=10)
+        except TypeError:
+            # Some client versions may not accept 'timeout'
+            client = _GeocodioCls(api_key)
+        _CLIENTS[api_key] = client
+    return client
+
+
+def _geocode_geocodio(address: str, api_key: str) -> Optional[Tuple[float, float]]:
+    """Call Geocod.io API for a single address via pygeocodio.
 
     Returns:
         (lat, lng) tuple on success, or None on failure.
 
-    Reference: Google Geocoding API response structure
-    https://developers.google.com/maps/documentation/geocoding/requests-geocoding
+    Notes:
+        - pygeocodio's `coords` returns (lng, lat), so we reorder to (lat, lng).
+        - Service coverage: US and Canada.
     """
-    base_url = "https://maps.googleapis.com/maps/api/geocode/json"
-    q = urllib.parse.urlencode({"address": address, "key": api_key})
-    url = f"{base_url}?{q}"
     try:
-        with urllib.request.urlopen(url, timeout=10) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
+        client = _get_geocodio_client(api_key)
+        result = client.geocode(address)
+        if not result:
+            return None
+
+        # pygeocodio path: result.coords returns (lng, lat)
+        coords = getattr(result, "coords", None)
+        if coords:
+            try:
+                lng, lat = coords
+                if lat is None or lng is None:
+                    return None
+                return float(lat), float(lng)
+            except Exception:
+                pass
+
+        # Official geocodio-library-python path:
+        # result.results[0].location with lat/lng as attributes or dict keys
+        results_list = getattr(result, "results", None)
+        if results_list:
+            try:
+                first = results_list[0]
+                loc = getattr(first, "location", None)
+                if loc is not None:
+                    lat = getattr(loc, "lat", None)
+                    lng = getattr(loc, "lng", None)
+                    if lat is None or lng is None:
+                        # Handle dict-like location
+                        try:
+                            lat = lat or (loc.get("lat") if hasattr(loc, "get") else None)
+                            lng = lng or (loc.get("lng") if hasattr(loc, "get") else None)
+                        except Exception:
+                            pass
+                    if lat is not None and lng is not None:
+                        return float(lat), float(lng)
+            except Exception:
+                pass
+
+        return None
     except Exception:
+        # Swallow exceptions and return None; callers handle None as failure
         return None
-
-    status = data.get("status")
-    if status != "OK":
-        # Common statuses: ZERO_RESULTS, OVER_QUERY_LIMIT, REQUEST_DENIED, INVALID_REQUEST
-        return None
-
-    results = data.get("results") or []
-    if not results:
-        return None
-
-    loc = results[0].get("geometry", {}).get("location", {})
-    lat = loc.get("lat")
-    lng = loc.get("lng")
-    if lat is None or lng is None:
-        return None
-
-    return float(lat), float(lng)
 
 
 def _geocode_with_cache(full_address: str, api_key: str) -> Tuple[Optional[Tuple[float, float]], str]:
-    """Resolve an address using cache first, then Google if needed.
+    """Resolve an address using cache first, then Geocod.io if needed.
 
     Returns:
         (coords, source)
@@ -121,7 +194,7 @@ def _geocode_with_cache(full_address: str, api_key: str) -> Tuple[Optional[Tuple
     if cached:
         return cached, "cache"
 
-    coords = _geocode_google(full_address, api_key)
+    coords = _geocode_geocodio(full_address, api_key)
     if coords is not None:
         cache.set(key, coords, timeout=CACHE_TTL_SECONDS)
         return coords, "live"
@@ -149,7 +222,7 @@ def geocode_markers_for_seller_trade(seller_id: int, trade_id: int) -> Dict[str,
             "markers": [],
             "count": 0,
             "source": "none",
-            "error": "GOOGLE_MAPS_API_KEY missing on server",
+            "error": "GEOCODIO_API_KEY missing on server",
         }
 
     # Query only the fields needed to compose addresses and labels for markers

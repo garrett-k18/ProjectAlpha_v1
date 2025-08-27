@@ -52,6 +52,7 @@ class BrokerValuesInputSerializer(serializers.Serializer):
     broker_value_date = serializers.DateField(required=False, allow_null=True)
     broker_rehab_est = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
     broker_notes = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    broker_links = serializers.URLField(required=False, allow_blank=True, allow_null=True)
 
 
 def _parse_decimal(value) -> Optional[Decimal]:
@@ -154,6 +155,7 @@ def validate_broker_invite(request, token: str):
             "broker_rehab_est": str(getattr(bv, "broker_rehab_est", None)) if getattr(bv, "broker_rehab_est", None) is not None else None,
             "broker_value_date": bv.broker_value_date.isoformat() if getattr(bv, "broker_value_date", None) else None,
             "broker_notes": getattr(bv, "broker_notes", None),
+            "broker_links": getattr(bv, "broker_links", None),
         }
 
     if invite.is_expired:
@@ -234,6 +236,8 @@ def submit_broker_values_with_token(request, token: str):
         bv.broker_value_date = data["broker_value_date"]
     if "broker_notes" in data:
         bv.broker_notes = data["broker_notes"]
+    if "broker_links" in data:
+        bv.broker_links = data["broker_links"]
 
     bv.save()
 
@@ -250,6 +254,7 @@ def submit_broker_values_with_token(request, token: str):
             "broker_rehab_est": str(bv.broker_rehab_est) if getattr(bv, 'broker_rehab_est', None) is not None else None,
             "broker_value_date": bv.broker_value_date.isoformat() if bv.broker_value_date else None,
             "broker_notes": bv.broker_notes,
+            "broker_links": getattr(bv, "broker_links", None),
         },
         status=status.HTTP_200_OK,
     )

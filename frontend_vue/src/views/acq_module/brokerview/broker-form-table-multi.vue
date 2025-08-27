@@ -204,13 +204,26 @@
 
           <!-- Links: add one or more URLs (data rooms, Dropbox, etc.) -->
           <td style="min-width: 220px;">
-            <div class="d-flex gap-2">
+            <div class="d-flex align-items-center gap-2">
               <b-form-input
                 v-model="linkInput[idx]"
                 placeholder="https://..."
                 :disabled="!entry.inviteToken || photoUploadStatus[idx] === 'uploading'"
+                @input="onLinkInput(idx, ($event as any)?.target?.value ?? linkInput[idx])"
               />
-              <b-button size="sm" variant="outline-secondary" @click="addLink(idx)" :disabled="!entry.inviteToken || photoUploadStatus[idx] === 'uploading'">
+              <!-- Hyper UI style status badge -->
+              <span v-if="linkValidity[idx] === 'valid'" class="inline-flex items-center rounded-full bg-success bg-opacity-10 text-success px-2 py-1 text-xs fw-semibold">
+                <i class="mdi mdi-check-circle-outline me-1"></i> Valid
+              </span>
+              <span v-else-if="linkValidity[idx] === 'invalid'" class="inline-flex items-center rounded-full bg-danger bg-opacity-10 text-danger px-2 py-1 text-xs fw-semibold" :title="linkError[idx] || 'Please enter a full URL including http(s)://'">
+                <i class="mdi mdi-alert-circle-outline me-1"></i> Invalid URL
+              </span>
+              <b-button
+                size="sm"
+                variant="outline-secondary"
+                @click="addLink(idx)"
+                :disabled="!entry.inviteToken || photoUploadStatus[idx] === 'uploading' || linkValidity[idx] !== 'valid'"
+              >
                 Add
               </b-button>
             </div>
@@ -253,6 +266,7 @@ export interface BrokerFormEntry {
     broker_rehab_est?: string | number | null
     broker_value_date?: string | null
     broker_notes?: string | null
+    broker_links?: string | null
   } | null
 }
 
@@ -339,6 +353,40 @@ export default defineComponent({
       try { return nf.format(Number(digits)) } catch { return digits }
     }
 
+    // ---------------------------------------------------------------------
+    // Client-side URL validation for Links input (per-row)
+    // Uses the built-in URL constructor and enforces http/https protocol.
+    // ---------------------------------------------------------------------
+    const linkValidity = ref<Array<'empty' | 'valid' | 'invalid'>>(
+      props.rows.map(() => 'empty')
+    )
+    const linkError = ref<string[]>(props.rows.map(() => ''))
+
+    // Validate a URL string using native URL; only http/https allowed
+    const validateUrl = (val: string): { ok: boolean; reason?: string } => {
+      if (!val || !val.trim()) return { ok: false, reason: 'Empty' }
+      try {
+        const u = new URL(val.trim())
+        if (u.protocol === 'http:' || u.protocol === 'https:') return { ok: true }
+        return { ok: false, reason: 'Only http/https allowed' }
+      } catch {
+        return { ok: false, reason: 'Malformed URL' }
+      }
+    }
+
+    // Handle input change to update validity state
+    const onLinkInput = (idx: number, raw: string) => {
+      const v = (raw || '').trim()
+      if (!v) {
+        linkValidity.value[idx] = 'empty'
+        linkError.value[idx] = ''
+        return
+      }
+      const { ok, reason } = validateUrl(v)
+      linkValidity.value[idx] = ok ? 'valid' : 'invalid'
+      linkError.value[idx] = ok ? '' : (reason || 'Invalid URL')
+    }
+
     // Helper: normalize numeric-ish to whole-dollar number
     const toWhole = (val: string | number | null | undefined): number | null => {
       if (val === null || val === undefined) return null
@@ -384,6 +432,11 @@ export default defineComponent({
         // Notes
         if (typeof v.broker_notes === 'string') {
           rowsState.value[idx].notes = v.broker_notes || ''
+          emit('update:modelValue', { ...props.modelValue, valuationRows: [...rowsState.value] })
+        }
+        // Links (single URLField in backend, map to first item in our list)
+        if (typeof v.broker_links === 'string' && v.broker_links) {
+          rowsState.value[idx].links = [v.broker_links]
           emit('update:modelValue', { ...props.modelValue, valuationRows: [...rowsState.value] })
         }
       })
@@ -566,10 +619,17 @@ export default defineComponent({
     // Add link
     const addLink = (idx: number) => {
       const val = (linkInput.value[idx] || '').trim()
+      // Guard: require a valid URL before adding
       if (!val) return
+      if (linkValidity.value[idx] !== 'valid') return
       rowsState.value[idx].links.push(val)
       linkInput.value[idx] = ''
+      // Reset validity state after adding
+      linkValidity.value[idx] = 'empty'
+      linkError.value[idx] = ''
       emit('update:modelValue', { ...props.modelValue, valuationRows: [...rowsState.value] })
+      // Persist the new link automatically (backend expects a single URL string)
+      scheduleAutoSave(idx)
     }
 
     // Debounced auto-save per row
@@ -594,6 +654,9 @@ export default defineComponent({
           broker_arv_value: rowsState.value[idx].arv ?? null,
           broker_rehab_est: rowsState.value[idx].rehab ?? null,
           broker_notes: rowsState.value[idx].notes || null,
+          broker_links: (rowsState.value[idx].links && rowsState.value[idx].links.length > 0)
+            ? rowsState.value[idx].links[0]
+            : null,
         }
         const res = await fetch(`/api/acq/broker-invites/${encodeURIComponent(token)}/submit/`, {
           method: 'POST',
@@ -622,6 +685,8 @@ export default defineComponent({
       rowsState,
       notesOpen,
       linkInput,
+      linkValidity,
+      linkError,
       asIsInput,
       arvInput,
       rehabInput,
@@ -642,6 +707,7 @@ export default defineComponent({
       uploadPhotosForRow,
       loadThumbnailsForRow,
       addLink,
+      onLinkInput,
       scheduleAutoSave,
       submitNow,
     }

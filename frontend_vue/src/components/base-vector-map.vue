@@ -64,10 +64,33 @@ export default {
       const base = this.options || {}
       // Merge markers into options without mutating parent object
       const opts = { ...base, markers: this.markers }
-      // Destroy previous map instance by clearing container and recreating
-      // This approach avoids relying on internal mapObject methods.
-      $(el).empty()
-      $(el).vectorMap(opts)
+
+      const $el = $(el)
+      // Try to remove any existing map instance first (per jVectorMap API)
+      // Docs: https://jvectormap.com/documentation/javascript-api/#destroy
+      try {
+        const existing = ($el as any).data('mapObject')
+        if (existing && typeof existing.remove === 'function') {
+          existing.remove()
+        }
+      } catch (e) {
+        // Non-fatal cleanup failure
+        console.warn('[BaseVectorMap] previous map remove failed', e)
+      }
+
+      // Clear container then initialize
+      $el.empty()
+      try {
+        console.debug('[BaseVectorMap] render', {
+          id: this.id,
+          map: (opts as any)?.map,
+          markersCount: Array.isArray(this.markers) ? this.markers.length : 0,
+          firstMarker: Array.isArray(this.markers) ? this.markers[0] : null,
+        })
+        ;($el as any).vectorMap(opts)
+      } catch (e) {
+        console.error('[BaseVectorMap] vectorMap init failed', e, opts)
+      }
     }
   }
 }
