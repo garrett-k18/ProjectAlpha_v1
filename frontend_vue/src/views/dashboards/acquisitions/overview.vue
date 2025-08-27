@@ -11,23 +11,8 @@
         correctly.
       </b-alert>
 
-      <ul class="nav float-end d-none d-lg-flex">
-        <li class="nav-item">
-          <a class="nav-link text-muted" href="#">Today</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link text-muted" href="#">7d</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link active" href="#">15d</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link text-muted" href="#">1m</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link text-muted" href="#">1y</a>
-        </li>
-      </ul>
+      
+      <!-- Removed quick links time filters -->
       <h4 class="header-title mb-3">Sessions Overview</h4>
 
       <apexchart
@@ -87,8 +72,8 @@ export default {
         },
         yaxis: {
           labels: {
-            formatter: function (val) {
-              return val + 'k'
+            formatter: function (val: number): string {
+              return `${val}k`
             },
             offsetX: -15,
           },

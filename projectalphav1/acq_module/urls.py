@@ -5,6 +5,13 @@ from .views.view_seller_data import (
     list_sellers,
     list_trades_by_seller,
     get_seller_raw_by_id,
+    # State summary endpoints
+    get_states_for_selection,
+    get_state_count_for_selection,
+    get_count_by_state,
+    get_sum_current_balance_by_state,
+    get_sum_total_debt_by_state,
+    get_sum_seller_asis_value_by_state,
 )
 from .views.photos_api import (
     list_photos_by_raw_id,
@@ -64,4 +71,11 @@ urlpatterns = [
     path('brokers/<int:broker_id>/assigned-loans/', list_assigned_loans, name='api_broker_assigned_loans'),  # GET
     # Geocoded markers for seller+trade
     path('geocode/markers/<int:seller_id>/<int:trade_id>/', geocode_markers, name='api_geocode_markers'),
+    # State summary endpoints (per-seller, per-trade)
+    path('summary/state/list/<int:seller_id>/<int:trade_id>/', get_states_for_selection, name='api_states_for_selection'),
+    path('summary/state/count/<int:seller_id>/<int:trade_id>/', get_state_count_for_selection, name='api_state_count_for_selection'),
+    path('summary/state/count-by/<int:seller_id>/<int:trade_id>/', get_count_by_state, name='api_count_by_state'),
+    path('summary/state/sum-current-balance/<int:seller_id>/<int:trade_id>/', get_sum_current_balance_by_state, name='api_sum_current_balance_by_state'),
+    path('summary/state/sum-total-debt/<int:seller_id>/<int:trade_id>/', get_sum_total_debt_by_state, name='api_sum_total_debt_by_state'),
+    path('summary/state/sum-seller-asis-value/<int:seller_id>/<int:trade_id>/', get_sum_seller_asis_value_by_state, name='api_sum_seller_asis_value_by_state'),
 ]

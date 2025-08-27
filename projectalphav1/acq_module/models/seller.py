@@ -1,6 +1,8 @@
 #Seller Data Django Model. Contains Seller, Trade and Raw Data models
 
 from django.db import models
+from django.utils import timezone
+import re
 
 
 class Seller(models.Model):
@@ -26,11 +28,50 @@ class Seller(models.Model):
 class Trade(models.Model):
     """Many trades belong to one seller...Need to make sure IDs start at 1000"""
     seller = models.ForeignKey(Seller, on_delete=models.CASCADE, related_name='trades')
-    trade_name = models.CharField(max_length=100)
+    trade_name = models.CharField(
+        max_length=100,
+        blank=True,
+        editable=False,  # Always generated internally; not editable via admin/forms
+    )
+    # Timestamps for trade lifecycle
+    # Note: Per Django docs, auto_now/auto_now_add cannot be combined with default
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
    
     
     def __str__(self):
         return f"Trade for {self.seller.name}"
+
+    def save(self, *args, **kwargs):
+        """Override save to auto-generate trade_name on create
+
+        Behavior:
+        - Always generates '<SellerNameNoSpecials> - MM.DD.YY' on initial create.
+        - SellerNameNoSpecials removes all non-alphanumeric characters (including spaces).
+        - Date uses local date at creation time.
+        """
+        # Always generate internally on create, regardless of any provided value
+        if self.pk is None:
+            # Remove all non-alphanumeric characters from the seller's name (keep case)
+            base_name = re.sub(r"[^A-Za-z0-9]", "", self.seller.name or "")
+            # Use local date at creation time in MM.DD.YY format
+            date_str = timezone.localdate().strftime("%m.%d.%y")
+            base_prefix = f"{base_name} - {date_str}"
+
+            # Determine next sequence number for this seller and date, e.g., " - 2", " - 3"
+            existing_count = type(self).objects.filter(
+                seller=self.seller,
+                trade_name__startswith=base_prefix,
+            ).count()
+
+            # First one: no suffix. Subsequent ones: " - 2", " - 3", etc.
+            suffix = "" if existing_count == 0 else f" - {existing_count + 1}"
+
+            generated = f"{base_prefix}{suffix}"
+            # Ensure we don't exceed the DB max_length constraint
+            self.trade_name = generated[:100]
+
+        super().save(*args, **kwargs)
 
     class Meta:
         verbose_name = "Trade"
@@ -171,7 +212,21 @@ class SellerRawData(models.Model):
         return month_diff
     
     def save(self, *args, **kwargs):
-        """Override save method to calculate values if not provided"""
+        """Override save method to normalize fields and calculate derived values
+
+        Behavior:
+        - Normalize `state` to uppercase at the model layer so all reporting
+          logic can rely on a consistent value. We do not truncate or otherwise
+          modify the value here.
+        - If `total_debt` is not provided, calculate it from component fields.
+        - If `months_dlq` is not provided, calculate it from the dates.
+        """
+        # Normalize the state value if provided: strip whitespace and uppercase.
+        if self.state is not None:
+            # Ensure a consistent representation for downstream aggregations
+            cleaned = self.state.strip()
+            self.state = cleaned.upper() if cleaned else cleaned
+
         # If total_debt is not provided, calculate it
         if self.total_debt is None:
             self.total_debt = self.calculate_total_debt()

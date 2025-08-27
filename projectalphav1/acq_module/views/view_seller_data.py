@@ -26,7 +26,15 @@ including:
 
 from django.http import JsonResponse
 from ..models.seller import Seller, Trade, SellerRawData
-from django.db.models import Q
+from ..logic.common import sellertrade_qs
+from ..logic.summarystats import (
+    states_for_selection,
+    state_count_for_selection,
+    count_by_state,
+    sum_current_balance_by_state,
+    sum_total_debt_by_state,
+    sum_seller_asis_value_by_state,
+)
 
 def get_seller_trade_data(request, seller_id, trade_id=None):
     """
@@ -51,15 +59,11 @@ def get_seller_trade_data(request, seller_id, trade_id=None):
     if not seller_id or not trade_id:
         return JsonResponse([], safe=False)
 
-    # Build a strict query that matches the exact seller+trade combination only.
-    # Using Q objects keeps the expression explicit and readable.
-    query = Q(seller_id=seller_id) & Q(trade_id=trade_id)
-
-    # Retrieve matching entries. Keep the query efficient with values() to return
+    # Retrieve matching entries using centralized selection helper.
+    # Keep the query efficient with values() to return
     # simple dictionaries consumable by the frontend grid without custom encoders.
     entries_qs = (
-        SellerRawData.objects
-        .filter(query)
+        sellertrade_qs(seller_id, trade_id)
         .values()  # returns a dict per row with concrete field names
     )
 
@@ -189,3 +193,98 @@ def get_seller_raw_by_id(request, id: int):
     )
     # Return empty object if not found for predictable client handling
     return JsonResponse(entry or {}, safe=False)
+
+
+# ---------------------------------------------------------------------------
+# State Summary Endpoints (per-seller, per-trade)
+# ---------------------------------------------------------------------------
+
+def get_states_for_selection(request, seller_id: int, trade_id: int):
+    """Return a list of distinct states for the given seller+trade selection.
+
+    Uses: logic.summarystats.states_for_selection()
+
+    Returns:
+        JsonResponse (list[str]): e.g., ["AZ", "CA", "TX"]
+    """
+    # Enforce the data siloing pattern used elsewhere in this module
+    if not seller_id or not trade_id:
+        return JsonResponse([], safe=False)
+
+    result = states_for_selection(seller_id, trade_id)
+    return JsonResponse(result, safe=False)
+
+
+def get_state_count_for_selection(request, seller_id: int, trade_id: int):
+    """Return the count of distinct states for the seller+trade selection.
+
+    Uses: logic.summarystats.state_count_for_selection()
+
+    Returns:
+        JsonResponse (object): { "count": <int> }
+    """
+    if not seller_id or not trade_id:
+        return JsonResponse({"count": 0})
+
+    count = state_count_for_selection(seller_id, trade_id)
+    return JsonResponse({"count": count})
+
+
+def get_count_by_state(request, seller_id: int, trade_id: int):
+    """Return counts per state for the seller+trade selection.
+
+    Uses: logic.summarystats.count_by_state()
+
+    Returns:
+        JsonResponse (list[object]): [ { "state": "CA", "count": 42 }, ... ]
+    """
+    if not seller_id or not trade_id:
+        return JsonResponse([], safe=False)
+
+    rows = count_by_state(seller_id, trade_id)
+    return JsonResponse(list(rows), safe=False)
+
+
+def get_sum_current_balance_by_state(request, seller_id: int, trade_id: int):
+    """Return sum(current_balance) per state for the seller+trade selection.
+
+    Uses: logic.summarystats.sum_current_balance_by_state()
+
+    Returns:
+        JsonResponse (list[object]): [ { "state": "CA", "sum_current_balance": "123.45" }, ... ]
+    """
+    if not seller_id or not trade_id:
+        return JsonResponse([], safe=False)
+
+    rows = sum_current_balance_by_state(seller_id, trade_id)
+    return JsonResponse(list(rows), safe=False)
+
+
+def get_sum_total_debt_by_state(request, seller_id: int, trade_id: int):
+    """Return sum(total_debt) per state for the seller+trade selection.
+
+    Uses: logic.summarystats.sum_total_debt_by_state()
+
+    Returns:
+        JsonResponse (list[object]): [ { "state": "CA", "sum_total_debt": "123.45" }, ... ]
+    """
+    if not seller_id or not trade_id:
+        return JsonResponse([], safe=False)
+
+    rows = sum_total_debt_by_state(seller_id, trade_id)
+    return JsonResponse(list(rows), safe=False)
+
+
+def get_sum_seller_asis_value_by_state(request, seller_id: int, trade_id: int):
+    """Return sum(seller_asis_value) per state for the seller+trade selection.
+
+    Uses: logic.summarystats.sum_seller_asis_value_by_state()
+
+    Returns:
+        JsonResponse (list[object]): [ { "state": "CA", "sum_seller_asis_value": "123.45" }, ... ]
+    """
+    if not seller_id or not trade_id:
+        return JsonResponse([], safe=False)
+
+    rows = sum_seller_asis_value_by_state(seller_id, trade_id)
+    return JsonResponse(list(rows), safe=False)

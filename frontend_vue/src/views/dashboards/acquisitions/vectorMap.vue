@@ -26,8 +26,26 @@
           />
         </b-col>
         <b-col lg="4" dir="ltr">
+          <!-- Column headers for upcoming metrics (chart reflects Count) -->
+          <b-row class="mb-2">
+            <b-col cols="3"><small class="text-muted fw-semibold">Count</small></b-col>
+            <b-col cols="3" class="text-end"><small class="text-muted fw-semibold">Current Balance</small></b-col>
+            <b-col cols="3" class="text-end"><small class="text-muted fw-semibold">Total Debt</small></b-col>
+            <b-col cols="3" class="text-end"><small class="text-muted fw-semibold">Seller As-Is Value</small></b-col>
+          </b-row>
+          <!-- Loading / Error / Empty states for summaries -->
+          <div v-if="summariesLoading" class="text-center my-2">
+            <small class="text-muted">Loading state summaries…</small>
+          </div>
+          <div v-else-if="summariesError" class="text-danger my-2">
+            <small>{{ summariesError }}</small>
+          </div>
+          <div v-else-if="topCountsVal.counts.length === 0 && hasBothSelections" class="text-muted my-2">
+            <small>No state data for this selection.</small>
+          </div>
+
           <!-- Updated to show Top 10 States by COUNT (not percentage) -->
-          <BaseApexChart :height="320" :series="chartSeries" :options="chartOptions"/>
+          <BaseApexChart :key="chartKey" :height="320" :series="chartSeries" :options="chartOptions"/>
         </b-col>
       </b-row>
     </div>
@@ -45,27 +63,31 @@
 import BaseVectorMap from "@/components/base-vector-map.vue";
 import BaseApexChart from "@/components/base-apex-chart.vue";
 import { useAcqSelectionsStore } from "@/stores/acqSelections";
-import { useAgGridRowsStore } from "@/stores/agGridRows";
-import { storeToRefs } from 'pinia'
-import type { GridRow } from '@/stores/agGridRows'
+import { useStateSummariesStore } from "@/stores/stateSummaries";
+// no-op
 
 export default {
   components: { BaseApexChart, BaseVectorMap },
   // Use setup to access Pinia stores while keeping an Options API component
   setup() {
     const acqStore = useAcqSelectionsStore();
-    const gridRowsStore = useAgGridRowsStore();
+    const summariesStore = useStateSummariesStore();
 
-    const { rows: gridRows } = storeToRefs(gridRowsStore);
+    // Access getters/state directly to avoid TS lint friction around storeToRefs<any>
+    const topCounts = summariesStore.topCounts
+    const summariesLoading = summariesStore.loading
+    const summariesError = summariesStore.error
 
     return {
       // Expose the store instance to use its reactive state/getters directly
       acqStore,
       // Actions
       fetchMarkers: acqStore.fetchMarkers,
-      fetchRows: gridRowsStore.fetchRows,
-      // Row dataset to aggregate Top 10 States
-      gridRows,
+      fetchSummaries: summariesStore.fetchAll,
+      // State summaries
+      topCounts,
+      summariesLoading,
+      summariesError,
     };
   },
   data() {
@@ -111,19 +133,32 @@ export default {
   },
   computed: {
     /**
+     * topCountsVal
+     * Normalizes store's computed getter regardless of ref auto-unwrapping.
+     */
+    topCountsVal(): { labels: string[]; counts: number[]; maxCount: number } {
+      const tc: any = (this as any).topCounts
+      const val = (tc && typeof tc.value !== 'undefined') ? tc.value : tc
+      return val || { labels: [], counts: [], maxCount: 0 }
+    },
+    /**
      * selectionKey and flags proxied from the store to ensure reactivity
      */
     selectionKey(): string {
-      return this.acqStore.selectionKey
+      const v = (this.acqStore as any).selectionKey
+      return typeof v?.value !== 'undefined' ? v.value : v
     },
     hasBothSelections(): boolean {
-      return this.acqStore.hasBothSelections
+      const v = (this.acqStore as any).hasBothSelections
+      return typeof v?.value !== 'undefined' ? v.value : v
     },
     selectedSellerId(): number | null {
-      return this.acqStore.selectedSellerId
+      const v = (this.acqStore as any).selectedSellerId
+      return typeof v?.value !== 'undefined' ? v.value : v
     },
     selectedTradeId(): number | null {
-      return this.acqStore.selectedTradeId
+      const v = (this.acqStore as any).selectedTradeId
+      return typeof v?.value !== 'undefined' ? v.value : v
     },
     /**
      * mapKey
@@ -151,34 +186,21 @@ export default {
       return `${this.selectionKey}:${len}:${this.mapVersion}`
     },
     /**
-     * topStates
-     * Aggregates the current grid rows by 'state' and returns the top 10.
-     * Ensures integer counts only.
+     * chartKey
+     * Force remount of ApexChart when labels/counts change to avoid stale options.
      */
-    topStates(): { labels: string[]; counts: number[] } {
-      const rows = (this.gridRows as GridRow[]) || []
-      const counts = new Map<string, number>()
-
-      for (const r of rows) {
-        // Normalize the state value to a 2-char uppercase code when possible
-        const raw = String((r as any)?.state ?? '').trim().toUpperCase()
-        if (!raw) continue
-        counts.set(raw, (counts.get(raw) || 0) + 1)
-      }
-
-      // Sort by count desc, take top 10
-      const sorted = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 10)
-      const labels = sorted.map(([st]) => st)
-      const values = sorted.map(([, c]) => c)
-      return { labels, counts: values }
+    chartKey(): string {
+      const tc = this.topCountsVal
+      const labels = Array.isArray(tc.labels) ? tc.labels.join('|') : ''
+      const counts = Array.isArray(tc.counts) ? tc.counts.join('|') : ''
+      return `${this.selectionKey}:${labels}:${counts}`
     },
-
     /**
      * maxCount
      * The maximum count across topStates, used to set axis range and integer ticks.
      */
     maxCount(): number {
-      const arr = this.topStates.counts
+      const arr = this.topCountsVal.counts
       if (!arr || arr.length === 0) return 0
       return Math.max(...arr)
     },
@@ -189,7 +211,7 @@ export default {
      */
     chartSeries(): Array<{ name: string; data: number[] }> {
       return [
-        { name: 'Count', data: this.topStates.counts }
+        { name: 'Count', data: this.topCountsVal.counts }
       ]
     },
 
@@ -199,8 +221,25 @@ export default {
      */
     chartOptions(): Record<string, any> {
       const max = this.maxCount
-      // Prefer integer tick steps. If max is small, align tickAmount to max for step=1.
-      const tickAmount = max > 0 ? (max <= 10 ? max : 10) : 4
+      const hasCats = (this.topCountsVal.labels || []).length > 0
+      // Compute a "nice" rounded-up max so tiny values (e.g., 1) remain near 0 visually
+      const niceCeil = (x: number): number => {
+        if (!x || x <= 0) return 0
+        if (x <= 10) return 10
+        const mag = Math.pow(10, Math.floor(Math.log10(x)))
+        const n = x / mag
+        let step: number
+        if (n <= 1) step = 1
+        else if (n <= 2) step = 2
+        else if (n <= 5) step = 5
+        else step = 10
+        return step * mag
+      }
+      // Baseline so single small counts (e.g., 1) render near 0 instead of spanning too much
+      const BASELINE_MAX = 100
+      const axisMax = max > 0 ? Math.max(niceCeil(max), BASELINE_MAX) : BASELINE_MAX
+      // Keep integer ticks; fewer ticks for large ranges
+      const tickAmount = axisMax <= 10 ? axisMax : 5
       return {
         chart: {
           type: 'bar',
@@ -208,46 +247,76 @@ export default {
           toolbar: { show: false },
         },
         plotOptions: {
-          bar: { horizontal: true }
+          // Make the horizontal bar extremely thin, roughly equal to y-axis label height
+          // Docs: https://apexcharts.com/docs/options/plotoptions/bar/#barHeight
+          // Use a fixed pixel value so single-bar charts don't get fat due to % of available height
+          bar: {
+            horizontal: true,
+            barHeight: '12px',
+            // Place the data label text inside the bar for a clean look
+            // Docs: https://apexcharts.com/docs/options/plotoptions/bar/#datalabels
+            dataLabels: { position: 'center' }
+          }
         },
         colors: ['#727cf5'],
-        dataLabels: { enabled: false },
+        // Disable data labels to avoid numbers on bars; values are visible in tooltip
+        // Docs: https://apexcharts.com/docs/options/datalabels/
+        dataLabels: {
+          enabled: false,
+        },
         xaxis: {
-          categories: this.topStates.labels,
+          categories: this.topCountsVal.labels,
           min: 0,
-          // When max is 0, let Apex auto-scale; otherwise fix to max to avoid fractional normalization
-          ...(max > 0 ? { max } : {}),
+          // Fix to a rounded-up nice max with a minimum baseline to keep tiny bars tiny
+          max: axisMax,
           tickAmount,
           axisBorder: { show: false },
+          axisTicks: { show: false },
           labels: {
-            // Force integer labels on the axis
-            formatter: (val: number | string) => {
-              const num = typeof val === 'number' ? val : parseFloat(String(val))
-              if (Number.isNaN(num)) return String(val)
-              return Math.round(num).toString()
-            }
+            // Hide numeric x-axis tick labels; we show values inside bars instead
+            show: false,
+            style: { fontSize: '12px' }
           }
+        },
+        yaxis: {
+          labels: {
+            show: hasCats,
+            offsetY: 0,
+            style: { fontSize: '12px', colors: ['#343a40'] },
+            formatter: (val: string) => hasCats ? String(val) : ''
+          }
+        },
+        grid: {
+          strokeDashArray: 3,
+          borderColor: 'rgba(108, 117, 125, 0.2)'
         },
         tooltip: {
           y: {
             // Integer tooltips
             formatter: (val: number) => Math.round(val).toString()
           }
-        },
-        grid: { strokeDashArray: [5] }
+        }
       }
     }
   },
   mounted() {
+    // Debug: verify labels we pass to ApexCharts
+    console.debug('[VectorMap] initial topCounts.labels', this.topCountsVal.labels)
     // Initial fetch once mounted, if both seller and trade are selected
     this.fetchMarkersIfReady();
-    this.fetchRowsIfReady();
+    this.fetchSummariesIfReady();
   },
   watch: {
     // When the seller/trade selection pair changes, keep data in sync
     selectionKey() {
       this.fetchMarkersIfReady();
-      this.fetchRowsIfReady();
+      this.fetchSummariesIfReady();
+    },
+    // Log when topCountsVal updates to verify labels and counts
+    topCountsVal(val) {
+      try {
+        console.debug('[VectorMap] topCounts updated', { labels: val?.labels, countsLen: val?.counts?.length })
+      } catch {}
     },
     // When the raw markers array in the store changes, bump version to force remount
     'acqStore.markers': {
@@ -263,16 +332,18 @@ export default {
     // Fetch markers only when both selections are present.
     fetchMarkersIfReady() {
       if (this.hasBothSelections) {
+        console.debug('[VectorMap] fetchMarkersIfReady calling fetchMarkers')
         this.fetchMarkers();
       }
     },
-    // Ensure grid rows are available for aggregation (uses cached store data when present)
-    fetchRowsIfReady() {
+    // Ensure state summaries are available for chart
+    fetchSummariesIfReady() {
       if (this.hasBothSelections) {
         const sid = this.selectedSellerId as number
         const tid = this.selectedTradeId as number
         if (sid && tid) {
-          this.fetchRows(sid, tid)
+          console.debug('[VectorMap] fetchSummariesIfReady calling fetchSummaries', { sid, tid })
+          this.fetchSummaries(sid, tid)
         }
       }
     }
