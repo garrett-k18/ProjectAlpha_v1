@@ -145,6 +145,47 @@
                 {{ photoUploadMessage[idx] || 'Upload failed' }}
               </small>
             </div>
+            <!-- Compact viewer control using Hyper UI utilities -->
+            <div class="mt-2 d-flex align-items-center">
+              <button
+                type="button"
+                class="btn btn-outline-info btn-sm me-3"
+                @click="openPhotoViewer(idx)"
+                :disabled="!(photoThumbs[idx] && photoThumbs[idx].length)"
+              >
+                <i class="mdi mdi-camera-outline me-1"></i>
+                <span>Photos {{ (photoThumbs[idx] && photoThumbs[idx].length) || 0 }}</span>
+              </button>
+              <span v-if="!(photoThumbs[idx] && photoThumbs[idx].length)" class="badge bg-light text-muted border ms-1">No photos yet</span>
+            </div>
+
+            <!-- Modal: photo viewer per row (uses existing BootstrapVue modal, styled content with Hyper UI) -->
+            <b-modal
+              v-model="photoViewerOpen[idx]"
+              title="Broker Photos"
+              ok-only
+              ok-title="Close"
+              size="xl"
+            >
+              <div class="p-3">
+                <div v-if="photoThumbs[idx] && photoThumbs[idx].length" class="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                  <a
+                    v-for="(p, j) in photoThumbs[idx]"
+                    :key="j"
+                    :href="p.src"
+                    target="_blank"
+                    rel="noopener"
+                    class="block rounded-md overflow-hidden ring-1 ring-gray-200 hover:ring-gray-300 dark:ring-gray-700"
+                    :title="p.alt || 'Photo'"
+                  >
+                    <img :src="p.thumb || p.src" :alt="p.alt || 'Photo'" loading="lazy" class="block w-full h-28 object-cover" />
+                  </a>
+                </div>
+                <div v-else class="d-flex align-items-center justify-content-center py-4">
+                  <span class="text-muted small"><i class="mdi mdi-information-outline me-1"></i>No photos yet</span>
+                </div>
+              </div>
+            </b-modal>
           </td>
 
           <!-- Documents: multi-file input for non-image docs -->
@@ -195,7 +236,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, watch } from 'vue'
+import { defineComponent, ref, watch, onMounted } from 'vue'
 import type { PropType } from 'vue'
 import axios from 'axios'
 import type { AxiosProgressEvent } from 'axios'
@@ -214,6 +255,13 @@ export interface BrokerFormEntry {
     broker_notes?: string | null
   } | null
 }
+
+// Normalized photo item returned by `/api/acq/photos/<srdId>/`
+// src: absolute URL to the image
+// alt: alternative text provided by backend (may default for broker photos)
+// thumb: optional thumbnail URL (falls back to src)
+// type: classification tag such as 'broker', 'public', 'document'
+type OutputPhotoItem = { src: string; alt?: string; thumb?: string; type?: string }
 
 export default defineComponent({
   name: 'BrokerFormTableMulti',
@@ -250,6 +298,8 @@ export default defineComponent({
     const asIsInput = ref<string[]>(props.rows.map(() => ''))
     const arvInput = ref<string[]>(props.rows.map(() => ''))
     const rehabInput = ref<string[]>(props.rows.map(() => ''))
+    // Per-row photo viewer modal open state
+    const photoViewerOpen = ref<boolean[]>(props.rows.map(() => false))
 
     // Per-row save state
     const isSaving = ref<boolean[]>(props.rows.map(() => false))
@@ -267,6 +317,9 @@ export default defineComponent({
     )
     const photoUploadMessage = ref<string[]>(props.rows.map(() => ''))
     const photoUploadProgress = ref<number[]>(props.rows.map(() => 0))
+
+    // Per-row thumbnails for already-uploaded broker photos
+    const photoThumbs = ref<OutputPhotoItem[][]>(props.rows.map(() => []))
 
     // Debounce timers per row index
     const timers: Record<number, any> = {}
@@ -366,10 +419,46 @@ export default defineComponent({
         photoUploadStatus.value = Array.from({ length: n }, (_, i) => photoUploadStatus.value[i] || 'idle')
         photoUploadMessage.value = Array.from({ length: n }, (_, i) => photoUploadMessage.value[i] || '')
         photoUploadProgress.value = Array.from({ length: n }, (_, i) => photoUploadProgress.value[i] || 0)
+        photoThumbs.value = Array.from({ length: n }, (_, i) => photoThumbs.value[i] || [])
+        photoViewerOpen.value = Array.from({ length: n }, (_, i) => photoViewerOpen.value[i] || false)
         // Re-apply prefill for any new rows
         applyPrefillAll()
       },
       { deep: true }
+    )
+
+    // Fetch broker photo thumbnails for a row from the public photos API
+    const loadThumbnailsForRow = async (idx: number) => {
+      const srdId = normalizedRows.value[idx]?.srdId
+      if (!srdId) {
+        photoThumbs.value[idx] = []
+        return
+      }
+      try {
+        const { data } = await axios.get<OutputPhotoItem[]>(
+          `/api/acq/photos/${encodeURIComponent(String(srdId))}/`,
+          { withCredentials: false }
+        )
+        const items: OutputPhotoItem[] = Array.isArray(data) ? data : []
+        // Show only broker-sourced images in this table cell
+        photoThumbs.value[idx] = items.filter((p) => p && p.src && (p.type === 'broker'))
+      } catch (err) {
+        // Non-fatal; leave thumbnails empty on error
+        photoThumbs.value[idx] = []
+      }
+    }
+
+    // Initial load of thumbnails when component mounts
+    onMounted(() => {
+      normalizedRows.value.forEach((_, i) => loadThumbnailsForRow(i))
+    })
+
+    // When rows change (e.g., after parent refresh), reload thumbnails for visible rows
+    watch(
+      () => normalizedRows.value.map(r => r.srdId),
+      () => {
+        normalizedRows.value.forEach((_, i) => loadThumbnailsForRow(i))
+      }
     )
 
     // Input formatter handler
@@ -385,6 +474,12 @@ export default defineComponent({
 
     // Notes modal open
     const openNotes = (idx: number) => { notesOpen.value[idx] = true }
+
+    // Photo viewer modal open handler. Ensures latest thumbnails are loaded before showing.
+    const openPhotoViewer = async (idx: number) => {
+      await loadThumbnailsForRow(idx)
+      photoViewerOpen.value[idx] = true
+    }
 
     // Save notes on modal OK
     const onSaveNotes = (idx: number) => {
@@ -455,6 +550,8 @@ export default defineComponent({
         photoUploadStatus.value[idx] = 'uploaded'
         photoUploadMessage.value[idx] = `${uploaded} photo(s) uploaded`
         photoUploadProgress.value[idx] = 100
+        // Refresh thumbnails for this row now that new photos exist
+        await loadThumbnailsForRow(idx)
         emit('saved')
       } catch (e: any) {
         // Error: capture message and allow retry by re-selecting files
@@ -534,12 +631,16 @@ export default defineComponent({
       photoUploadStatus,
       photoUploadMessage,
       photoUploadProgress,
+      photoThumbs,
+      photoViewerOpen,
       onCurrencyModel,
       openNotes,
+      openPhotoViewer,
       onSaveNotes,
       onPhotoSelected,
       onDocsSelected,
       uploadPhotosForRow,
+      loadThumbnailsForRow,
       addLink,
       scheduleAutoSave,
       submitNow,
