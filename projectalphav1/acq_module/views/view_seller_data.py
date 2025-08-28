@@ -40,6 +40,8 @@ from ..logic.summarystats import (
 from ..logic.strats import (
     # Dynamic stratification helpers (NTILE with fallback)
     current_balance_stratification_dynamic,
+    total_debt_stratification_dynamic,
+    seller_asis_value_stratification_dynamic,
 )
 
 # Module-level logger
@@ -115,6 +117,9 @@ def get_seller_rawdata_field_names(request):
         'zip',
         'current_balance',
         'deferred_balance',
+        'total_debt',
+        'seller_asis_value',
+        'seller_arv_value',
         'interest_rate',
         'next_due_date',
         'last_paid_date',
@@ -374,5 +379,55 @@ def get_current_balance_stratification(request, seller_id: int, trade_id: int):
         logger.exception("Stratification failed for seller_id=%s trade_id=%s", seller_id, trade_id)
         return JsonResponse({
             "error": "Failed to compute stratification. Please try again later.",
+            "details": str(e),
+        }, status=500)
+
+
+def get_total_debt_stratification(request, seller_id: int, trade_id: int):
+    """Return dynamic stratification bands for total_debt per selection.
+
+    Uses: logic.strats.total_debt_stratification_dynamic()
+
+    Response (list[object]): same shape as current_balance stratification.
+
+    Guards:
+    - When either id is missing, return [].
+    - Null total_debt are excluded by the helper.
+    """
+    if not seller_id or not trade_id:
+        return JsonResponse([], safe=False)
+
+    try:
+        bands = total_debt_stratification_dynamic(seller_id, trade_id, bands=6)
+        return JsonResponse(bands, safe=False)
+    except Exception as e:
+        logger.exception("TotalDebt stratification failed for seller_id=%s trade_id=%s", seller_id, trade_id)
+        return JsonResponse({
+            "error": "Failed to compute total debt stratification. Please try again later.",
+            "details": str(e),
+        }, status=500)
+
+
+def get_seller_asis_value_stratification(request, seller_id: int, trade_id: int):
+    """Return dynamic stratification bands for seller_asis_value per selection.
+
+    Uses: logic.strats.seller_asis_value_stratification_dynamic()
+
+    Response (list[object]): same shape as other stratifications.
+
+    Guards:
+    - When either id is missing, return [].
+    - Null seller_asis_value are excluded by the helper.
+    """
+    if not seller_id or not trade_id:
+        return JsonResponse([], safe=False)
+
+    try:
+        bands = seller_asis_value_stratification_dynamic(seller_id, trade_id, bands=6)
+        return JsonResponse(bands, safe=False)
+    except Exception as e:
+        logger.exception("Seller As-Is stratification failed for seller_id=%s trade_id=%s", seller_id, trade_id)
+        return JsonResponse({
+            "error": "Failed to compute seller as-is stratification. Please try again later.",
             "details": str(e),
         }, status=500)

@@ -14,6 +14,8 @@ from .views.view_seller_data import (
     get_sum_seller_asis_value_by_state,
     get_pool_summary,
     get_current_balance_stratification,
+    get_total_debt_stratification,
+    get_seller_asis_value_stratification,
 )
 from .views.photos_api import (
     list_photos_by_raw_id,
@@ -84,4 +86,8 @@ urlpatterns = [
     path('summary/pool/<int:seller_id>/<int:trade_id>/', get_pool_summary, name='api_pool_summary'),
     # Dynamic current balance stratification
     path('summary/strat/current-balance/<int:seller_id>/<int:trade_id>/', get_current_balance_stratification, name='api_current_balance_stratification'),
+    # Dynamic total debt stratification
+    path('summary/strat/total-debt/<int:seller_id>/<int:trade_id>/', get_total_debt_stratification, name='api_total_debt_stratification'),
+    # Dynamic seller as-is value stratification
+    path('summary/strat/seller-asis-value/<int:seller_id>/<int:trade_id>/', get_seller_asis_value_stratification, name='api_seller_asis_value_stratification'),
 ]

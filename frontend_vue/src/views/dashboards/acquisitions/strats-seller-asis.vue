@@ -1,30 +1,30 @@
 <template>
   <div class="card">
     <div class="d-flex card-header justify-content-between align-items-center">
-      <h4 class="header-title">Current Balance</h4>
+      <h4 class="header-title">Seller As-Is Value</h4>
     </div>
 
     <div class="card-body pt-0">
       <!-- Error state -->
-      <div v-if="error" class="alert alert-danger d-flex align-items-center my-3" role="alert">
+      <div v-if="errorAsis" class="alert alert-danger d-flex align-items-center my-3" role="alert">
         <i class="mdi mdi-alert-circle-outline me-2"></i>
         <div>
-          {{ error }}
+          {{ errorAsis }}
         </div>
       </div>
 
-      <!-- Loading state -->
-      <div v-else-if="loading" class="d-flex align-items-center text-muted small py-3">
+      <!-- Loading state (reserve space) -->
+      <div v-else-if="loadingAsis" class="d-flex align-items-center text-muted small py-3">
         <div class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></div>
         Loading stratification…
       </div>
 
-      <!-- Empty-state helper when no seller/trade data is loaded or no bands -->
-      <div v-else-if="!hasRows" class="text-muted small py-3">
+      <!-- Empty-state helper when no seller/trade data is loaded or no bands (reserve space) -->
+      <div v-else-if="!hasRows" class="text-muted small py-3 d-flex align-items-center justify-content-center text-center">
         Select a seller and trade to see stratification.
       </div>
 
-      <!-- Borderless grid-table: rows are bands, columns are Count and Sum (no lines) -->
+      <!-- Borderless grid-table: rows are bands, columns are Count and Sum (no lines). Reserve space to match charts. -->
       <div v-else class="mt-2">
         <div class="table-responsive">
           <table class="table table-borderless align-middle mb-0">
@@ -50,10 +50,7 @@
         </div>
       </div>
 
-      <!-- Optional footer note with total rows considered -->
-      <div v-if="hasRows" class="mt-2 text-muted small">
-        Total loans counted: {{ formatInt(totalCount) }}
-      </div>
+      <!-- Removed footer count to reduce visual clutter and extra spacing -->
     </div>
   </div>
 </template>
@@ -76,7 +73,7 @@ const { selectedSellerId, selectedTradeId, hasBothSelections } = storeToRefs(sel
 
 // Stratification store (server-provided)
 const strats = useStratsStore()
-const { loading, error } = storeToRefs(strats)
+const { loadingAsis, errorAsis } = storeToRefs(strats)
 
 // Number parser usable for strings returned by backend
 function toNumber(val: unknown): number {
@@ -88,13 +85,13 @@ function toNumber(val: unknown): number {
 // Reactive bands fetched from backend cache
 const bands = computed<StratBand[]>(() => {
   if (!hasBothSelections.value) return []
-  return strats.getBands(selectedSellerId.value as number, selectedTradeId.value as number)
+  return strats.getBandsSellerAsIs(selectedSellerId.value as number, selectedTradeId.value as number)
 })
 
 // Fetch on mount and whenever selection changes
 async function ensureBands() {
   if (!hasBothSelections.value) return
-  await strats.fetchBands(selectedSellerId.value as number, selectedTradeId.value as number)
+  await strats.fetchBandsSellerAsIs(selectedSellerId.value as number, selectedTradeId.value as number)
 }
 
 onMounted(ensureBands)
@@ -102,9 +99,6 @@ watch([selectedSellerId, selectedTradeId], ensureBands)
 
 // Whether we have any bands available
 const hasRows = computed<boolean>(() => Array.isArray(bands.value) && bands.value.length > 0)
-
-// Total loans counted across all bands
-const totalCount = computed<number>(() => bands.value.reduce((a, b) => a + (b.count || 0), 0))
 
 // Format helpers (display only; inputs use the global v-currency directive elsewhere)
 function formatInt(n: number): string {
@@ -122,5 +116,5 @@ function formatCurrencyNoDecimals(n: number): string {
 </script>
 
 <style scoped>
-/* No extra styles needed; we deliberately use table-borderless per Bootstrap docs. */
+/* Removed fixed min-height to avoid extra whitespace at the bottom of cards. */
 </style>

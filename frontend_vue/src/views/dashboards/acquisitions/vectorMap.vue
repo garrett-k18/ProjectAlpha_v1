@@ -1,7 +1,7 @@
 <template>
   <div class="card">
     <div class="d-flex card-header justify-content-between align-items-center">
-      <h4 class="header-title">State Stats</h4>
+      <h4 class="header-title">Asset Dispersion</h4>
       <div class="float-end">
         <b-dropdown toggle-class="arrow-none card-drop p-0" variant="dark" right>
           <template v-slot:button-content>

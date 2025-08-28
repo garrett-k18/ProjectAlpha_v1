@@ -80,16 +80,25 @@
       </b-col>
     </b-row>
 
+    <!-- Stratification cards row: render all three in one row on xl screens -->
     <b-row>
-      <b-col xl="4" lg="12">
-        <Strats />
+      <b-col xl="4" lg="4" md="12">
+        <StratsCurrentBal />
       </b-col>
+      <b-col xl="4" lg="4" md="12">
+        <StratsTotalDebt />
+      </b-col>
+      <b-col xl="4" lg="4" md="12">
+        <StratsSellerAsIs />
+      </b-col>
+    </b-row>
 
-      <b-col xl="4" lg="6">
+    <!-- Other analytics cards -->
+    <b-row>
+      <b-col xl="6" lg="6">
         <Browser />
       </b-col>
-
-      <b-col xl="4" lg="6">
+      <b-col xl="6" lg="6">
         <System />
       </b-col>
     </b-row>
@@ -152,7 +161,9 @@
 <script lang="ts">
 import Layout from "@/components/layouts/layout.vue";
 import Overview from "@/views/dashboards/acquisitions/overview.vue";
-import Strats from "@/views/dashboards/acquisitions/strats.vue";
+import StratsCurrentBal from "@/views/dashboards/acquisitions/strats-current-bal.vue";
+import StratsTotalDebt from "@/views/dashboards/acquisitions/strats-total-debt.vue";
+import StratsSellerAsIs from "@/views/dashboards/acquisitions/strats-seller-asis.vue";
 import Browser from "@/views/dashboards/acquisitions/browser.vue";
 import System from "@/views/dashboards/acquisitions/system.vue";
 import Channel from "@/views/dashboards/acquisitions/channel.vue";
@@ -185,7 +196,9 @@ export default {
     Channel,
     System,
     Browser,
-    Strats,
+    StratsCurrentBal,
+    StratsTotalDebt,
+    StratsSellerAsIs,
     Overview,
     Widgets,
     // Register AG Grid data grid component

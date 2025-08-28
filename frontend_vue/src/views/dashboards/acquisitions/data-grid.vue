@@ -368,6 +368,8 @@ const headerNameMappings: { [key: string]: string } = {
   id: 'Internal ID', // Corrected 'Id' to 'id' to match the backend field name
   months_dlq: 'Months Delinquent',
   accrued_note_interest: 'Accrued Interest',
+  seller_asis_value: 'Seller As-Is Value',
+  seller_arv_value: 'Seller After Repair Value',
   fc_flag: 'FC Flag',
   fc_first_legal_date: 'FC First Legal Date',
   fc_referred_date: 'FC Referred Date',
@@ -395,6 +397,8 @@ const commaNoDecimalFields = new Set<string>([
   'current_balance',
   'original_balance',
   'deferred_balance',
+  'seller_asis_value',
+  'seller_arv_value',
   'accrued_note_interest',
   'accrued_default_interest',
   'escrow_balance',
