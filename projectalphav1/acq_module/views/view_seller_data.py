@@ -34,6 +34,7 @@ from ..logic.summarystats import (
     sum_current_balance_by_state,
     sum_total_debt_by_state,
     sum_seller_asis_value_by_state,
+    count_upb_td_val_summary,
 )
 
 def get_seller_trade_data(request, seller_id, trade_id=None):
@@ -288,3 +289,38 @@ def get_sum_seller_asis_value_by_state(request, seller_id: int, trade_id: int):
 
     rows = sum_seller_asis_value_by_state(seller_id, trade_id)
     return JsonResponse(list(rows), safe=False)
+
+
+# ---------------------------------------------------------------------------
+# Pool Summary Endpoint (single aggregate for top widgets)
+# ---------------------------------------------------------------------------
+def get_pool_summary(request, seller_id: int, trade_id: int):
+    """Return combined pool-level summary for the given seller+trade selection.
+
+    Uses: logic.summarystats.count_upb_td_val_summary()
+
+    Response:
+        JsonResponse (object): {
+            "assets": int,
+            "current_balance": Decimal (JSON-serialized as string),
+            "total_debt": Decimal (JSON-serialized as string),
+            "seller_asis_value": Decimal (JSON-serialized as string)
+        }
+
+    Notes:
+    - Guard clause keeps behavior consistent with other endpoints: when either
+      id is missing, returns a zeroed payload instead of broader datasets.
+    - Django's JSON serialization will represent Decimals as strings; the
+      frontend can format them for display.
+    """
+    # Enforce data siloing: require BOTH seller_id and trade_id
+    if not seller_id or not trade_id:
+        return JsonResponse({
+            "assets": 0,
+            "current_balance": "0.00",
+            "total_debt": "0.00",
+            "seller_asis_value": "0.00",
+        })
+
+    summary = count_upb_td_val_summary(seller_id, trade_id)
+    return JsonResponse(summary)

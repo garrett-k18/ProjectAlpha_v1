@@ -12,6 +12,7 @@ from .views.view_seller_data import (
     get_sum_current_balance_by_state,
     get_sum_total_debt_by_state,
     get_sum_seller_asis_value_by_state,
+    get_pool_summary,
 )
 from .views.photos_api import (
     list_photos_by_raw_id,
@@ -78,4 +79,6 @@ urlpatterns = [
     path('summary/state/sum-current-balance/<int:seller_id>/<int:trade_id>/', get_sum_current_balance_by_state, name='api_sum_current_balance_by_state'),
     path('summary/state/sum-total-debt/<int:seller_id>/<int:trade_id>/', get_sum_total_debt_by_state, name='api_sum_total_debt_by_state'),
     path('summary/state/sum-seller-asis-value/<int:seller_id>/<int:trade_id>/', get_sum_seller_asis_value_by_state, name='api_sum_seller_asis_value_by_state'),
+    # Pool summary (single aggregate for top widgets)
+    path('summary/pool/<int:seller_id>/<int:trade_id>/', get_pool_summary, name='api_pool_summary'),
 ]

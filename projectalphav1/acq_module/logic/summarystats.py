@@ -26,7 +26,7 @@ Used by view endpoints (acq_module/views/view_seller_data.py):
 
 from __future__ import annotations
 
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from typing import Dict, List
 
 # Django ORM aggregation and functions
@@ -36,12 +36,119 @@ from django.db.models.functions import Coalesce
 # Centralized base selector for seller+trade
 from .common import sellertrade_qs
 
+# ---------------------------------------------------------------------------
+# Pool Level Summary Stats
+# ---------------------------------------------------------------------------
+def total_assets(seller_id: int, trade_id: int) -> int:
+    """Return the row count for the selected seller and trade.
+
+    Django docs (Aggregation/Count): https://docs.djangoproject.com/en/stable/topics/db/aggregation/
+    """
+    # Start from the validated base queryset
+    qs = sellertrade_qs(seller_id, trade_id)
+    # Ask the database for the count (returns int)
+    count = qs.count()
+    return count
+    
+def total_current_balance(seller_id: int, trade_id: int) -> Decimal:
+    """Return the sum of current_balance for the selected seller and trade.
+
+    Null-safe via Coalesce to keep a Decimal result.
+    Django docs (Coalesce): https://docs.djangoproject.com/en/stable/ref/models/database-functions/#coalesce
+    """
+    qs = sellertrade_qs(seller_id, trade_id)
+    zero_dec = Value(Decimal("0.00"), output_field=DecimalField(max_digits=15, decimal_places=2))
+    agg = qs.aggregate(total=Coalesce(Sum("current_balance"), zero_dec))
+    return agg["total"]
+
+def total_debt(seller_id: int, trade_id: int) -> Decimal:
+    """Return the sum of total_debt for the selected seller and trade (null-safe)."""
+    qs = sellertrade_qs(seller_id, trade_id)
+    zero_dec = Value(Decimal("0.00"), output_field=DecimalField(max_digits=15, decimal_places=2))
+    agg = qs.aggregate(total=Coalesce(Sum("total_debt"), zero_dec))
+    return agg["total"]
+
+def total_seller_asis_value(seller_id: int, trade_id: int) -> Decimal:
+    """Return the sum of seller_asis_value for the selected seller and trade (null-safe)."""
+    qs = sellertrade_qs(seller_id, trade_id)
+    zero_dec = Value(Decimal("0.00"), output_field=DecimalField(max_digits=15, decimal_places=2))
+    agg = qs.aggregate(total=Coalesce(Sum("seller_asis_value"), zero_dec))
+    return agg["total"]
 
 
+def count_upb_td_val_summary(seller_id: int, trade_id: int) -> Dict[str, object]:
+    """Return a one-shot aggregate for pool-level tiles (count, UPB, total debt, as-is value).
+
+    This performs a single SQL query using COUNT and SUM with Coalesce to avoid NULLs.
+
+    Output shape:
+        {
+          'assets': int,                     # row count
+          'current_balance': Decimal,         # UPB sum
+          'total_debt': Decimal,              # total_debt sum
+          'seller_asis_value': Decimal,       # seller_asis_value sum
+          'upb_ltv_percent': Decimal,         # (UPB / As-Is) * 100, 2dp
+          'td_ltv_percent': Decimal           # (Total Debt / As-Is) * 100, 2dp
+        }
+
+    Docs:
+      - Aggregation: https://docs.djangoproject.com/en/stable/topics/db/aggregation/
+      - Functions (Coalesce): https://docs.djangoproject.com/en/stable/ref/models/database-functions/
+    """
+    # Build the validated base queryset filtered by seller and trade
+    qs = sellertrade_qs(seller_id, trade_id)
+    # Define a typed zero Decimal so Coalesce preserves Decimal typing in DB adapters
+    zero_dec = Value(Decimal("0.00"), output_field=DecimalField(max_digits=15, decimal_places=2))
+    # Execute a single aggregate call to compute all required metrics
+    agg = qs.aggregate(
+        assets=Count("id"),
+        current_balance=Coalesce(Sum("current_balance"), zero_dec),
+        total_debt=Coalesce(Sum("total_debt"), zero_dec),
+        seller_asis_value=Coalesce(Sum("seller_asis_value"), zero_dec),
+    )
+    # Compute simple LTV percentages from the same aggregate to avoid extra queries
+    asis: Decimal = agg["seller_asis_value"] or Decimal("0.00")
+    upb: Decimal = agg["current_balance"] or Decimal("0.00")
+    td: Decimal = agg["total_debt"] or Decimal("0.00")
+
+    def _pct(n: Decimal, d: Decimal) -> Decimal:
+        if not d or d == 0:
+            return Decimal("0.00")
+        return (n * Decimal("100") / d).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+    upb_ltv_percent = _pct(upb, asis)
+    td_ltv_percent = _pct(td, asis)
+
+    # Normalize and return a predictable dict for API/consumers
+    return {
+        "assets": int(agg.get("assets", 0)),
+        "current_balance": upb,
+        "total_debt": td,
+        "seller_asis_value": asis,
+        "upb_ltv_percent": upb_ltv_percent,
+        "td_ltv_percent": td_ltv_percent,
+    }
+# ---------------------------------------------------------------------------
+# Pool LTVs
+# ---------------------------------------------------------------------------
+
+def upb_ltv(seller_id: int, trade_id: int) -> Decimal:
+    """Return the UPB LTV for the selected seller and trade."""
+    qs = sellertrade_qs(seller_id, trade_id)
+    zero_dec = Value(Decimal("0.00"), output_field=DecimalField(max_digits=15, decimal_places=2))
+    agg = qs.aggregate(upb_ltv=Coalesce(Sum("current_balance"), zero_dec))
+    return agg["upb_ltv"]
+
+def td_ltv(seller_id: int, trade_id: int) -> Decimal:
+    """Return the Total Debt LTV for the selected seller and trade."""
+    qs = sellertrade_qs(seller_id, trade_id)
+    zero_dec = Value(Decimal("0.00"), output_field=DecimalField(max_digits=15, decimal_places=2))
+    agg = qs.aggregate(td_ltv=Coalesce(Sum("total_debt"), zero_dec))
+    return agg["td_ltv"]
 
 
 # ---------------------------------------------------------------------------
-# Public state summary helpers (return concrete Python lists)
+# By State summary helpers (return concrete Python lists)
 # ---------------------------------------------------------------------------
 
 def states_for_selection(seller_id: int, trade_id: int) -> List[str]:

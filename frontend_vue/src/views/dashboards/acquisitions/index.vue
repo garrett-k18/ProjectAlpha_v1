@@ -6,67 +6,64 @@
           <div class="page-title-right">
             <!-- Removed refresh button/form -->
           </div>
-          <h4 class="page-title">Acquisitions</h4>
+          <h4 class="page-title">Acquisition Module</h4>
         </div>
       </b-col>
     </b-row>
 
-    <!-- Top metrics: four tiles across -->
-    <b-row class="g-3">
-      <b-col xl="3" lg="6">
-        <div class="card tilebox-one">
-          <div class="card-body">
-            <i class="uil uil-users-alt float-end"></i>
-            <h6 class="text-uppercase mt-0">Active Users</h6>
-            <h2 class="my-2" id="active-users-count">121</h2>
-            <p class="mb-0 text-muted">
-              <span class="text-success me-2"><span class="mdi mdi-arrow-up-bold"></span> 5.27%</span>
-              <span class="text-nowrap">Since last month</span>
-            </p>
+    <!-- Prominent, centered selectors: MUST choose before page functions -->
+    <b-row class="mb-3">
+      <b-col class="col-12">
+        <div class="card">
+          <div class="card-body py-3">
+            <div class="d-flex flex-column align-items-center">
+              <div class="fw-bold text-center mb-2 fs-5">Select Seller and Trade</div>
+              <div class="row g-2 justify-content-center w-100">
+                <div class="col-12 col-md-4 col-lg-3">
+                  <label class="form-label fw-bold text-center w-100" for="topSellerSelect">Seller</label>
+                  <select
+                    id="topSellerSelect"
+                    class="form-select text-center"
+                    v-model="selectedSellerId"
+                    :disabled="sellersLoading"
+                  >
+                    <option :value="null">Select a seller</option>
+                    <option v-for="s in sellers" :key="s.id" :value="s.id">{{ s.name }}</option>
+                  </select>
+                </div>
+                <div class="col-12 col-md-4 col-lg-3">
+                  <label class="form-label fw-bold text-center w-100" for="topTradeSelect">Trade</label>
+                  <select
+                    id="topTradeSelect"
+                    class="form-select text-center"
+                    v-model="selectedTradeId"
+                    :disabled="!selectedSellerId || tradesLoading"
+                  >
+                    <option :value="null">Select a trade</option>
+                    <option v-for="t in trades" :key="t.id" :value="t.id">{{ t.trade_name }}</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-text text-center mt-2">
+                <span v-if="sellersLoading">Loading sellers…</span>
+                <span v-else-if="selectedSellerId && tradesLoading">Loading trades…</span>
+                <span v-else-if="selectedSellerId && !selectedTradeId">Select a trade to view data.</span>
+                <span v-else-if="!selectedSellerId">Select a seller to begin.</span>
+              </div>
+            </div>
           </div>
         </div>
       </b-col>
+    </b-row>
 
-      <b-col xl="3" lg="6">
-        <div class="card tilebox-one">
-          <div class="card-body">
-            <i class="uil uil-window-restore float-end"></i>
-            <h6 class="text-uppercase mt-0">Views per minute</h6>
-            <h2 class="my-2" id="active-views-count">560</h2>
-            <p class="mb-0 text-muted">
-              <span class="text-danger me-2"><span class="mdi mdi-arrow-down-bold"></span> 1.08%</span>
-              <span class="text-nowrap">Since previous week</span>
-            </p>
-          </div>
-        </div>
-      </b-col>
+    <!-- Top metrics widgets rendered by a dedicated component -->
+    <Widgets />
 
-      <b-col xl="3" lg="6">
-        <div class="card tilebox-one">
-          <div class="card-body">
-            <i class="uil uil-chart-line float-end"></i>
-            <h6 class="text-uppercase mt-0">New Sessions</h6>
-            <h2 class="my-2" id="new-sessions-count">2,430</h2>
-            <p class="mb-0 text-muted">
-              <span class="text-success me-2"><span class="mdi mdi-arrow-up-bold"></span> 3.12%</span>
-              <span class="text-nowrap">Since last week</span>
-            </p>
-          </div>
-        </div>
-      </b-col>
-
-      <b-col xl="3" lg="6">
-        <div class="card tilebox-one">
-          <div class="card-body">
-            <i class="uil uil-chart-down float-end"></i>
-            <h6 class="text-uppercase mt-0">Bounce Rate</h6>
-            <h2 class="my-2" id="bounce-rate-count">32%</h2>
-            <p class="mb-0 text-muted">
-              <span class="text-danger me-2"><span class="mdi mdi-arrow-down-bold"></span> 0.84%</span>
-              <span class="text-nowrap">Since last month</span>
-            </p>
-          </div>
-        </div>
+    <!-- Seller Data Tape card (AG Grid) moved directly under top metrics -->
+    <b-row class="mt-2">
+      <b-col class="col-12">
+        <!-- Pass behavior control to the grid: modal-first with onOpenLoan callback -->
+        <DataGrid :open-mode="'modal'" :open-loan="onOpenLoan" :show-filters="false" />
       </b-col>
     </b-row>
 
@@ -111,14 +108,7 @@
       </b-col>
     </b-row>
 
-    <!-- Full-width AG Grid data table row -->
-    <b-row>
-      <b-col class="col-12">
-        <!-- Pass behavior control to the grid: modal-first with onOpenLoan callback -->
-        <DataGrid :open-mode="'modal'" :open-loan="onOpenLoan" />
-      </b-col>
-    </b-row>
-
+    
     <!-- Loan-Level Modal wrapper using BootstrapVue Next -->
     <!-- Docs: https://bootstrap-vue-next.github.io/bootstrap-vue-next/docs/components/modal -->
     <BModal
@@ -169,12 +159,23 @@ import Channel from "@/views/dashboards/acquisitions/channel.vue";
 import Media from "@/views/dashboards/acquisitions/media.vue";
 import EngagementOverview from "@/views/dashboards/acquisitions/engagement-overview.vue";
 import VectorMap from "@/views/dashboards/acquisitions/vectorMap.vue";
+import Widgets from "@/views/dashboards/acquisitions/widgets.vue";
 // AG Grid: modular data grid component for acquisitions dashboard
 import DataGrid from "@/views/dashboards/acquisitions/data-grid.vue";
 // BootstrapVue Next modal component (Vue 3 compatible)
 import { BModal } from 'bootstrap-vue-next';
 // Centralized loan-level wrapper used for both full-page and modal
 import LoanLevelIndex from '@/views/acq_module/loanlvl/loanlvl_index.vue'
+// Selections store + helpers
+import { useAcqSelectionsStore } from '@/stores/acqSelections'
+import { storeToRefs } from 'pinia'
+import { ref, watch, onMounted } from 'vue'
+// Centralized Axios instance (baseURL='/api')
+import http from '@/lib/http'
+
+// Types for dropdown options (module-scope to satisfy TS export typing)
+export interface SellerOption { id: number; name: string }
+export interface TradeOption { id: number; trade_name: string }
 
 export default {
   components: {
@@ -186,12 +187,80 @@ export default {
     Browser,
     Views,
     Overview,
+    Widgets,
     // Register AG Grid data grid component
     DataGrid,
     Layout,
     // Register modal + loan-level wrapper
     BModal,
     LoanLevelIndex,
+  },
+  setup() {
+    // Local lists for options
+    const sellers = ref<SellerOption[]>([])
+    const trades = ref<TradeOption[]>([])
+    const sellersLoading = ref<boolean>(false)
+    const tradesLoading = ref<boolean>(false)
+
+    // Shared selection state via Pinia store
+    const acqStore = useAcqSelectionsStore()
+    const { selectedSellerId, selectedTradeId } = storeToRefs(acqStore)
+
+    // Fetch sellers using centralized Axios instance
+    async function fetchSellers(): Promise<void> {
+      if (sellersLoading.value) return
+      sellersLoading.value = true
+      try {
+        // Leading slash to correctly join with baseURL '/api' -> '/api/acq/sellers/'
+        const resp = await http.get<SellerOption[]>(`/acq/sellers/`)
+        sellers.value = Array.isArray(resp.data) ? resp.data : []
+      } catch (e) {
+        console.error('[Acq Index] Failed to load sellers', e)
+        sellers.value = []
+      } finally {
+        sellersLoading.value = false
+      }
+    }
+
+    // Fetch trades for a specific seller
+    async function fetchTrades(sellerId: number): Promise<void> {
+      if (!sellerId) { trades.value = []; return }
+      tradesLoading.value = true
+      try {
+        const resp = await http.get<TradeOption[]>(`/acq/trades/${sellerId}/`)
+        trades.value = Array.isArray(resp.data) ? resp.data : []
+      } catch (e) {
+        console.error('[Acq Index] Failed to load trades', e)
+        trades.value = []
+      } finally {
+        tradesLoading.value = false
+      }
+    }
+
+    // Watch seller selection -> clear trade and load trades list
+    watch(selectedSellerId, async (newSellerId) => {
+      // Clear current trade list and selection
+      trades.value = []
+      selectedTradeId.value = null
+      if (newSellerId) await fetchTrades(newSellerId)
+    })
+
+    onMounted(async () => {
+      await fetchSellers()
+      // If a seller already selected (e.g., persisted), load trades
+      if (selectedSellerId.value) {
+        await fetchTrades(selectedSellerId.value)
+      }
+    })
+
+    return {
+      sellers,
+      trades,
+      sellersLoading,
+      tradesLoading,
+      selectedSellerId,
+      selectedTradeId,
+    }
   },
   data() {
     return {

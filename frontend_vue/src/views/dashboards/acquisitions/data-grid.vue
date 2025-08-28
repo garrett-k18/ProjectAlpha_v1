@@ -66,7 +66,7 @@
         - Trade dropdown (depends on seller, populated from /api/acq/trades/{sellerId}/)
         Data is only loaded into the grid when BOTH seller and trade are selected.
       -->
-      <div class="row g-2 align-items-end mb-3">
+      <div v-if="props.showFilters" class="row g-2 align-items-end mb-3">
         <!-- Seller selector: choose a seller first -->
         <div class="col-12 col-md-4">
           <label class="form-label" for="sellerSelect">Seller</label>
@@ -175,12 +175,14 @@ import AssignInviteCell from './components/AssignInviteCell.vue'
 // Props: allow parent to control how the ID link opens (modal vs page)
 // - openMode: 'modal' | 'page' (default behavior can be controlled by parent)
 // - openLoan: callback invoked when openMode==='modal' to open a parent modal
+// - showFilters: whether to render internal Seller/Trade filters (defaults to true)
 // This keeps the grid component UI-agnostic while enabling modal-first flows.
 // ---------------------------------------------------------------------------
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   openMode?: 'modal' | 'page'
   openLoan?: (payload: { id: string; row: any; addr?: string }) => void
-}>()
+  showFilters?: boolean
+}>(), { showFilters: true })
 
 // ---------------------------------------------------------------------------
 // Column Definitions: describe the columns shown in the grid.
@@ -923,8 +925,10 @@ onMounted(async () => {
     return
   }
 
-  // Always try to load sellers for the first dropdown after column setup
-  await fetchSellers()
+  // Load sellers only when internal filters are visible
+  if (props.showFilters) {
+    await fetchSellers()
+  }
 
   // Apply initial view columns after defaults are prepared
   applyViewColumns(activeView.value)
@@ -1001,7 +1005,7 @@ watch(selectedSellerId, async (newSellerId) => {
   acqStore.resetMarkers()
 
   // If a seller is chosen, load trades for that seller
-  if (newSellerId) {
+  if (newSellerId && props.showFilters) {
     await fetchTrades(newSellerId)
   }
 })
