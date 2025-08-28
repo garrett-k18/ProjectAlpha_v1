@@ -25,6 +25,7 @@ including:
 
 
 from django.http import JsonResponse
+import logging
 from ..models.seller import Seller, Trade, SellerRawData
 from ..logic.common import sellertrade_qs
 from ..logic.summarystats import (
@@ -36,6 +37,13 @@ from ..logic.summarystats import (
     sum_seller_asis_value_by_state,
     count_upb_td_val_summary,
 )
+from ..logic.strats import (
+    # Dynamic stratification helpers (NTILE with fallback)
+    current_balance_stratification_dynamic,
+)
+
+# Module-level logger
+logger = logging.getLogger(__name__)
 
 def get_seller_trade_data(request, seller_id, trade_id=None):
     """
@@ -324,3 +332,47 @@ def get_pool_summary(request, seller_id: int, trade_id: int):
 
     summary = count_upb_td_val_summary(seller_id, trade_id)
     return JsonResponse(summary)
+
+
+# ---------------------------------------------------------------------------
+# Stratification Endpoints
+# ---------------------------------------------------------------------------
+def get_current_balance_stratification(request, seller_id: int, trade_id: int):
+    """Return dynamic stratification bands for current_balance per selection.
+
+    Uses: logic.strats.current_balance_stratification_dynamic()
+
+    Response (list[object]):
+      [
+        {
+          "key": str,
+          "index": int,                 # 1-based band index
+          "lower": Decimal | null,      # band lower bound
+          "upper": Decimal | null,      # band upper bound
+          "count": int,                 # instances in band
+          "sum_current_balance": str,   # Decimal serialized as string
+          "sum_total_debt": str,        # Decimal serialized as string
+          "sum_seller_asis_value": str, # Decimal serialized as string
+          "label": str                  # friendly label (e.g., "$300k – $450k")
+        },
+        ...
+      ]
+
+    Guards:
+    - When either id is missing, return [].
+    - Null balances are excluded by the underlying helper.
+    """
+    if not seller_id or not trade_id:
+        return JsonResponse([], safe=False)
+
+    try:
+        bands = current_balance_stratification_dynamic(seller_id, trade_id, bands=6)
+        # JsonResponse will convert Decimals to strings; Vue formats them for display.
+        return JsonResponse(bands, safe=False)
+    except Exception as e:
+        # Log full stack trace for debugging while returning a structured error
+        logger.exception("Stratification failed for seller_id=%s trade_id=%s", seller_id, trade_id)
+        return JsonResponse({
+            "error": "Failed to compute stratification. Please try again later.",
+            "details": str(e),
+        }, status=500)

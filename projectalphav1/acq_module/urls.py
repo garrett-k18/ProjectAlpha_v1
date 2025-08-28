@@ -13,6 +13,7 @@ from .views.view_seller_data import (
     get_sum_total_debt_by_state,
     get_sum_seller_asis_value_by_state,
     get_pool_summary,
+    get_current_balance_stratification,
 )
 from .views.photos_api import (
     list_photos_by_raw_id,
@@ -81,4 +82,6 @@ urlpatterns = [
     path('summary/state/sum-seller-asis-value/<int:seller_id>/<int:trade_id>/', get_sum_seller_asis_value_by_state, name='api_sum_seller_asis_value_by_state'),
     # Pool summary (single aggregate for top widgets)
     path('summary/pool/<int:seller_id>/<int:trade_id>/', get_pool_summary, name='api_pool_summary'),
+    # Dynamic current balance stratification
+    path('summary/strat/current-balance/<int:seller_id>/<int:trade_id>/', get_current_balance_stratification, name='api_current_balance_stratification'),
 ]

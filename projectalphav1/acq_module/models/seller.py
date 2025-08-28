@@ -158,7 +158,6 @@ class SellerRawData(models.Model):
     class Meta:
         verbose_name = "Seller Raw Data"
         verbose_name_plural = "Seller Raw Data"
-        unique_together = ('seller', 'trade')
         indexes = [
             models.Index(fields=['id']),  # Primary key index
             models.Index(fields=['asset_status']),

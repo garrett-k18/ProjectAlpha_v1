@@ -3,7 +3,7 @@
     Card container to match existing dashboard aesthetics.
     Contains the AG Grid Vue component styled with the Quartz theme.
   -->
-  <div class="card">
+  <div class="card" ref="cardRef" :class="{ 'fullscreen-card': isFullscreen }">
     <div class="d-flex card-header justify-content-between align-items-center">
       <h4 class="header-title">{{ viewTitle }}</h4>
 
@@ -56,6 +56,17 @@
         </div>
 
         <!-- Row-level invite checkbox column added; header button removed -->
+        <!-- Fullscreen toggle -->
+        <button
+          class="btn btn-sm btn-light"
+          type="button"
+          :title="isFullscreen ? 'Exit Full Page' : 'Full Page'"
+          :aria-pressed="isFullscreen ? 'true' : 'false'"
+          aria-label="Toggle full page view"
+          @click="toggleFullscreen"
+        >
+          <i class="mdi" :class="isFullscreen ? 'mdi-fullscreen-exit' : 'mdi-fullscreen'"></i>
+        </button>
       </div>
     </div>
 
@@ -113,8 +124,8 @@
       -->
       <ag-grid-vue
         ref="gridRef"
-        class="seller-grid"  
-        style="width: 100%; height: 420px"
+        class="seller-grid"
+        :style="gridStyle"
         :theme="themeQuartz"
         :rowData="rowData"
         overlayNoRowsTemplate="Choose Seller and Trade"
@@ -153,7 +164,8 @@ import { themeQuartz } from 'ag-grid-community'
 
 // Import types for better TypeScript support
 import type { ColDef, ValueFormatterParams } from 'ag-grid-community'
-import { ref, onMounted, watch, computed } from 'vue'
+import type { GridApi, GridReadyEvent } from 'ag-grid-community'
+import { ref, onMounted, onBeforeUnmount, watch, computed, nextTick } from 'vue'
 import { useAcqSelectionsStore } from '@/stores/acqSelections'
 import { useAgGridRowsStore } from '@/stores/agGridRows'
 import { storeToRefs } from 'pinia'
@@ -216,6 +228,9 @@ const defaultColDef: ColDef = {
   // Enable floating filters for all columns per AG Grid docs
   // https://www.ag-grid.com/vue-data-grid/filter-floating/
   floatingFilter: true,
+  // Guardrail so columns never collapse to unreadable widths
+  // This works together with autosize and fit behaviors
+  minWidth: 120,
 }
 
 // ---------------------------------------------------------------------------
@@ -490,13 +505,94 @@ function isLikelyPercentField(field: string): boolean {
 }
 
 // Reference to the AG Grid instance for accessing columnApi
-// Import the necessary types from AG Grid for proper typing
 // Using type-only imports as required by TypeScript verbatimModuleSyntax
-import type { GridApi, GridReadyEvent } from 'ag-grid-community'
 
 // Using proper types for the grid API references
 const gridRef = ref<any>(null)
 const gridApi = ref<GridApi | null>(null)
+
+// Fullscreen: track the card element and state
+const cardRef = ref<HTMLElement | null>(null)
+const isFullscreen = ref<boolean>(false)
+
+// Style for the grid area; expands to fill when fullscreen
+const gridStyle = computed(() => (
+  isFullscreen.value
+    ? { width: '100%', height: '100%' }
+    : { width: '100%', height: '420px' }
+))
+
+function updateGridSize(): void {
+  // Wait for DOM/layout changes, then notify grid to fit columns
+  nextTick(() => {
+    try {
+      const api = gridApi.value as any
+      if (!api) return
+      // In fullscreen, avoid squeezing every column to fit the viewport width.
+      // Instead, autosize based on header/contents and allow horizontal scroll.
+      if (isFullscreen.value || document.fullscreenElement) {
+        // Prefer Grid API if available (newer versions), fallback to Column API for older
+        if (api.autoSizeAllColumns) {
+          api.autoSizeAllColumns()
+        } else if (api.columnApi?.autoSizeAllColumns) {
+          api.columnApi.autoSizeAllColumns()
+        }
+      } else {
+        // In normal card mode, keep the compact “fit to card” behavior.
+        api.sizeColumnsToFit?.()
+      }
+    } catch (e) {
+      console.debug('[Grid] column resize attempt failed (non-fatal)', e)
+    }
+  })
+}
+
+async function enterFullscreen(): Promise<void> {
+  const el = cardRef.value as any
+  try {
+    if (el && el.requestFullscreen) {
+      await el.requestFullscreen()
+    } else {
+      // Graceful fallback when Fullscreen API is unavailable
+      isFullscreen.value = true
+    }
+  } catch (e) {
+    console.debug('[Grid] requestFullscreen failed, using fallback', e)
+    isFullscreen.value = true
+  } finally {
+    updateGridSize()
+  }
+}
+
+async function exitFullscreen(): Promise<void> {
+  try {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen()
+    } else {
+      isFullscreen.value = false
+    }
+  } catch (e) {
+    console.debug('[Grid] exitFullscreen failed', e)
+  } finally {
+    // In case we used fallback state
+    isFullscreen.value = false
+    updateGridSize()
+  }
+}
+
+function toggleFullscreen(): void {
+  if (isFullscreen.value || document.fullscreenElement) {
+    exitFullscreen()
+  } else {
+    enterFullscreen()
+  }
+}
+
+function onFsChange(): void {
+  const el = cardRef.value
+  isFullscreen.value = document.fullscreenElement === el
+  updateGridSize()
+}
 
 // Grid-only: removed modal state and handlers
 
@@ -548,6 +644,8 @@ const onGridReady = (params: GridReadyEvent) => {
   
   // Log initialization success
   console.log('AG Grid initialized successfully')
+  // Perform initial sizing; may autosize/fit depending on fullscreen state
+  updateGridSize()
 }
 
 /**
@@ -560,6 +658,7 @@ function onSelectionChanged(): void {
   }
   selectedCount.value = gridApi.value.getSelectedRows()?.length || 0
 }
+
 
 // ---------------------------------------------------------------------------
 // Local Agents view: curated column set including an "Agent" select editor
@@ -755,6 +854,8 @@ function applyViewColumns(view: 'sellerDataTape' | 'localAgents') {
     // Switch to curated Local Agents set
     columnDefs.value = buildLocalAgentsColumns()
   }
+  // After changing the active column set, re-run sizing logic
+  nextTick(() => updateGridSize())
 }
 
 /**
@@ -835,6 +936,8 @@ function onRowAction(action: string, row: any): void {
 }
 
 onMounted(async () => {
+  // Track Fullscreen API changes so Esc or browser UI updates state
+  document.addEventListener('fullscreenchange', onFsChange)
   try {
     // Fetch column field names for grid definition
     const resp = await fetch('/api/acq/raw-data/fields/', {
@@ -1219,6 +1322,41 @@ async function assignSelected(): Promise<void> {
   box-shadow: inset 0 0 0 1.5px rgba(37, 99, 235, 0.6);
 }
 /* Custom persistent chevron removed per request; default AG Grid icon shows only while editing */
+
+/* Fullscreen styles (also used as graceful fallback when Fullscreen API not available) */
+.fullscreen-card {
+  position: fixed;
+  inset: 0;
+  z-index: 1060; /* above modals if needed; adjust if theme uses different stack */
+  display: flex;
+  flex-direction: column;
+  border-radius: 0;
+}
+.fullscreen-card .card-body {
+  flex: 1;
+  min-height: 0;
+  /* Reduce top padding because header already present */
+  padding-top: 0.5rem !important;
+}
+/* Ensure grid fills available vertical space inside fullscreen card */
+.fullscreen-card :deep(.seller-grid) {
+  height: 100% !important;
+}
+
+/* Native Fullscreen API styles using :fullscreen pseudo-class */
+.card:fullscreen {
+  display: flex;
+  flex-direction: column;
+  border-radius: 0;
+}
+.card:fullscreen .card-body {
+  flex: 1;
+  min-height: 0;
+  padding-top: 0.5rem !important;
+}
+.card:fullscreen :deep(.seller-grid) {
+  height: 100% !important;
+}
 </style>
 
 <style>

@@ -82,7 +82,7 @@
 
     <b-row>
       <b-col xl="4" lg="12">
-        <Views />
+        <Strats />
       </b-col>
 
       <b-col xl="4" lg="6">
@@ -152,7 +152,7 @@
 <script lang="ts">
 import Layout from "@/components/layouts/layout.vue";
 import Overview from "@/views/dashboards/acquisitions/overview.vue";
-import Views from "@/views/dashboards/acquisitions/views.vue";
+import Strats from "@/views/dashboards/acquisitions/strats.vue";
 import Browser from "@/views/dashboards/acquisitions/browser.vue";
 import System from "@/views/dashboards/acquisitions/system.vue";
 import Channel from "@/views/dashboards/acquisitions/channel.vue";
@@ -185,7 +185,7 @@ export default {
     Channel,
     System,
     Browser,
-    Views,
+    Strats,
     Overview,
     Widgets,
     // Register AG Grid data grid component
