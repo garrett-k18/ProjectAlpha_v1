@@ -11,7 +11,7 @@ References:
 from __future__ import annotations
 
 # Standard library imports
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 import random
 
@@ -22,6 +22,28 @@ from django.utils import timezone
 
 # Local app model imports
 from acq_module.models.seller import Seller, Trade, SellerRawData
+
+# List of US state abbreviations (lower 48 states plus Alaska and Hawaii)
+US_STATES = [
+    # New England
+    'ME', 'NH', 'VT', 'MA', 'RI', 'CT',
+    # Mid-Atlantic
+    'NY', 'NJ', 'PA', 
+    # South Atlantic
+    'DE', 'MD', 'DC', 'VA', 'WV', 'NC', 'SC', 'GA', 'FL',
+    # East North Central
+    'OH', 'IN', 'IL', 'MI', 'WI',
+    # East South Central
+    'KY', 'TN', 'AL', 'MS',
+    # West North Central
+    'MN', 'IA', 'MO', 'ND', 'SD', 'NE', 'KS',
+    # West South Central
+    'OK', 'TX', 'AR', 'LA',
+    # Mountain
+    'MT', 'ID', 'WY', 'CO', 'NM', 'AZ', 'UT', 'NV',
+    # Pacific
+    'WA', 'OR', 'CA', 'AK', 'HI'
+]
 
 try:
     # Faker is an optional dependency for this command; ensure it's installed
@@ -57,13 +79,13 @@ class Command(BaseCommand):
         parser.add_argument(
             "--sellers",
             type=int,
-            default=10,
+            default=8,
             help="Number of Seller records to create (default: 10)",
         )
         parser.add_argument(
             "--trades-per-seller",
             type=int,
-            default=4,
+            default=3,
             help="Number of Trade records per Seller (default: 4)",
         )
         parser.add_argument(
@@ -241,6 +263,33 @@ class Command(BaseCommand):
                         current_balance + Decimal(random.randrange(-5_000, 10_000)) if mod_flag else None
                     )
 
+                    # Generate property type using the exact codes from the frontend badge system
+                    # Map between model choices and frontend badge codes
+                    property_type_map = {
+                        'SFR': 'SFR',           # Single Family Residence
+                        'MFD': 'Manufactured',  # Manufactured Home
+                        'CND': 'Condo',         # Condominium
+                        'MF2': '2-4 Family',    # 2-4 Family Property
+                        'LND': 'Land',          # Vacant Land
+                        'MF5': 'Multifamily 5+' # Multifamily 5+ Units
+                    }
+                    
+                    # Generate occupancy status using the exact codes from the frontend badge system
+                    # Map between model choices and frontend badge codes
+                    occupancy_map = {
+                        'VAC': 'Vacant',    # Vacant
+                        'OCC': 'Occupied',  # Occupied
+                        'UNK': 'Unknown'    # Unknown
+                    }
+                    
+                    # Randomly select property type and occupancy
+                    property_type_code = random.choice(['SFR', 'MFD', 'CND', 'MF2', 'LND', 'MF5'])
+                    occupancy_code = random.choice(['VAC', 'OCC', 'UNK'])
+                    
+                    # Get corresponding model values
+                    property_type_value = property_type_map[property_type_code]
+                    occupancy_value = occupancy_map[occupancy_code]
+                    
                     # Assemble SellerRawData
                     raw = SellerRawData(
                         seller=seller,
@@ -250,8 +299,10 @@ class Command(BaseCommand):
                         as_of_date=today,
                         street_address=faker.street_address(),
                         city=faker.city(),
-                        state=faker.state_abbr(),
+                        state=random.choice(US_STATES),
                         zip=faker.postcode(),
+                        property_type=property_type_value,  # Use mapped model value
+                        occupancy=occupancy_value,         # Use mapped model value
                         current_balance=current_balance.quantize(Decimal("0.01")),
                         deferred_balance=deferred_balance.quantize(Decimal("0.01")),
                         interest_rate=interest_rate.quantize(Decimal("0.0001")),

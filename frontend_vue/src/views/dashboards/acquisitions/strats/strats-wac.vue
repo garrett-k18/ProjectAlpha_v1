@@ -31,19 +31,19 @@
             <thead class="text-uppercase text-muted small">
               <tr>
                 <th style="width: 40%">Band</th>
-                <th class="text-end" style="width: 15%">Count</th>
-                <th class="text-end" style="width: 15%">Current Balance</th>
-                <th class="text-end" style="width: 15%">Total Debt</th>
-                <th class="text-end" style="width: 15%">As-Is Value</th>
+                <th class="text-center" style="width: 15%">Count</th>
+                <th class="text-center" style="width: 15%">Current Balance</th>
+                <th class="text-center" style="width: 15%">Total Debt</th>
+                <th class="text-center" style="width: 15%">As-Is Value</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="band in bands" :key="band.key">
                 <td class="py-2">{{ band.label }}</td>
-                <td class="py-2 text-end fw-semibold">{{ formatInt(band.count) }}</td>
-                <td class="py-2 text-end">{{ formatCurrencyNoDecimals(toNumber(band.sum_current_balance)) }}</td>
-                <td class="py-2 text-end">{{ formatCurrencyNoDecimals(toNumber(band.sum_total_debt)) }}</td>
-                <td class="py-2 text-end">{{ formatCurrencyNoDecimals(toNumber(band.sum_seller_asis_value)) }}</td>
+                <td class="py-2 text-center fw-semibold">{{ formatInt(band.count) }}</td>
+                <td class="py-2 text-center">{{ formatCurrencyNoDecimals(toNumber(band.sum_current_balance)) }}</td>
+                <td class="py-2 text-center">{{ formatCurrencyNoDecimals(toNumber(band.sum_total_debt)) }}</td>
+                <td class="py-2 text-center">{{ formatCurrencyNoDecimals(toNumber(band.sum_seller_asis_value)) }}</td>
               </tr>
             </tbody>
           </table>
@@ -105,8 +105,7 @@ function formatInt(n: number): string {
 
 function formatCurrencyNoDecimals(n: number): string {
   return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
+    style: 'decimal',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(n)

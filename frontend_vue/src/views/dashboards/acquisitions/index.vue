@@ -43,6 +43,12 @@
                     <option v-for="t in trades" :key="t.id" :value="t.id">{{ t.trade_name }}</option>
                   </select>
                 </div>
+                <!-- Reset button to the right of trade dropdown -->
+                <div class="col-auto d-flex align-items-end" v-if="selectedSellerId || selectedTradeId">
+                  <button class="btn btn-sm btn-secondary mb-1" @click="resetSelections">
+                    <i class="mdi mdi-refresh me-1"></i> Reset
+                  </button>
+                </div>
               </div>
               <div class="form-text text-center mt-2">
                 <span v-if="sellersLoading">Loading sellers…</span>
@@ -252,6 +258,12 @@ export default {
       }
     })
 
+    // Function to reset all selections
+    function resetSelections(): void {
+      selectedSellerId.value = null;
+      selectedTradeId.value = null;
+    }
+    
     return {
       sellers,
       trades,
@@ -259,6 +271,7 @@ export default {
       tradesLoading,
       selectedSellerId,
       selectedTradeId,
+      resetSelections,
     }
   },
   data() {

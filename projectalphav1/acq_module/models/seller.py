@@ -83,6 +83,33 @@ class Trade(models.Model):
 
 
 class SellerRawData(models.Model):
+    # Property Type choices
+    PROPERTY_TYPE_SFR = 'SFR'
+    PROPERTY_TYPE_MANUFACTURED = 'Manufactured'
+    PROPERTY_TYPE_CONDO = 'Condo'
+    PROPERTY_TYPE_2_4_FAMILY = '2-4 Family'
+    PROPERTY_TYPE_LAND = 'Land'
+    PROPERTY_TYPE_MULTIFAMILY = 'Multifamily 5+'
+    
+    PROPERTY_TYPE_CHOICES = [
+        (PROPERTY_TYPE_SFR, 'SFR'),
+        (PROPERTY_TYPE_MANUFACTURED, 'Manufactured'),
+        (PROPERTY_TYPE_CONDO, 'Condo'),
+        (PROPERTY_TYPE_2_4_FAMILY, '2-4 Family'),
+        (PROPERTY_TYPE_LAND, 'Land'),
+        (PROPERTY_TYPE_MULTIFAMILY, 'Multifamily 5+'),
+    ]
+    
+    # Occupancy choices
+    OCCUPANCY_VACANT = 'Vacant'
+    OCCUPANCY_OCCUPIED = 'Occupied'
+    OCCUPANCY_UNKNOWN = 'Unknown'
+    
+    OCCUPANCY_CHOICES = [
+        (OCCUPANCY_VACANT, 'Vacant'),
+        (OCCUPANCY_OCCUPIED, 'Occupied'),
+        (OCCUPANCY_UNKNOWN, 'Unknown'),
+    ]
     seller = models.ForeignKey(Seller, on_delete=models.CASCADE, related_name='seller_raw_data')
     trade = models.ForeignKey(Trade, on_delete=models.CASCADE, related_name='seller_raw_data')
     sellertape_id = models.IntegerField()
@@ -93,6 +120,8 @@ class SellerRawData(models.Model):
     city = models.CharField(max_length=100)
     state = models.CharField(max_length=100)
     zip = models.CharField(max_length=100)
+    property_type = models.CharField(max_length=100, choices=PROPERTY_TYPE_CHOICES, default=PROPERTY_TYPE_SFR)
+    occupancy = models.CharField(max_length=100, choices=OCCUPANCY_CHOICES, default=OCCUPANCY_UNKNOWN)
     current_balance = models.DecimalField(max_digits=15, decimal_places=2)
     deferred_balance = models.DecimalField(max_digits=15, decimal_places=2)
     interest_rate = models.DecimalField(max_digits=6, decimal_places=4)

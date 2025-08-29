@@ -140,65 +140,6 @@
           </div>
         </li>
 
-        <b-nav-item-dropdown
-            toggle-class="arrow-none"
-            class="notification-list topbar-dropdown"
-            menu-class="dropdown-menu-animated topbar-dropdown-menu"
-        >
-          <template #button-content class="nav-link dropdown-toggle me-0">
-            <img
-                src="@/assets/images/flags/us.jpg"
-                alt="user-image"
-                class="me-0 me-sm-1"
-                height="12"
-            />
-            <span class="align-middle d-none d-lg-inline-block">English</span>
-            <i
-                class="ri-arrow-down-s-line d-none d-sm-inline-block align-middle"
-            ></i>
-          </template>
-
-          <b-dropdown-item>
-            <img
-                src="@/assets/images/flags/germany.jpg"
-                alt="user-image"
-                class="me-1"
-                height="12"
-            />
-            <span class="align-middle">German</span>
-          </b-dropdown-item>
-
-          <b-dropdown-item>
-            <img
-                src="@/assets/images/flags/italy.jpg"
-                alt="user-image"
-                class="me-1"
-                height="12"
-            />
-            <span class="align-middle">Italian</span>
-          </b-dropdown-item>
-
-          <b-dropdown-item>
-            <img
-                src="@/assets/images/flags/spain.jpg"
-                alt="user-image"
-                class="me-1"
-                height="12"
-            />
-            <span class="align-middle">Spanish</span>
-          </b-dropdown-item>
-
-          <b-dropdown-item>
-            <img
-                src="@/assets/images/flags/russia.jpg"
-                alt="user-image"
-                class="me-1"
-                height="12"
-            />
-            <span class="align-middle">Russian</span>
-          </b-dropdown-item>
-        </b-nav-item-dropdown>
-
 
         <b-nav-item-dropdown
             class="notification-list"

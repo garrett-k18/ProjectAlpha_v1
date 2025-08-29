@@ -452,6 +452,21 @@ const enumBadgeFields: Record<string, Record<string, { label: string; color: str
     '11': { label: 'Chapter 11', color: 'bg-info' },
     '13': { label: 'Chapter 13', color: 'bg-primary' },
   },
+  // Property type badges with distinct colors for each type
+  property_type: {
+    'SFR': { label: 'SFR', color: 'bg-success', title: 'Single Family Residence' },
+    'Manufactured': { label: 'Manufactured', color: 'bg-info', title: 'Manufactured Home' },
+    'Condo': { label: 'Condo', color: 'bg-primary', title: 'Condominium' },
+    '2-4 Family': { label: '2-4 Family', color: 'bg-warning', title: '2-4 Family Property' },
+    'Land': { label: 'Land', color: 'bg-danger', title: 'Vacant Land' },
+    'Multifamily 5+': { label: 'Multifamily 5+', color: 'bg-secondary', title: 'Multifamily 5+ Units' },
+  },
+  // Occupancy status badges with distinct colors
+  occupancy: {
+    'Vacant': { label: 'Vacant', color: 'bg-danger', title: 'Property is Vacant' },
+    'Occupied': { label: 'Occupied', color: 'bg-success', title: 'Property is Occupied' },
+    'Unknown': { label: 'Unknown', color: 'bg-warning', title: 'Occupancy Status Unknown' },
+  },
 }
 
 // Heuristic: treat any field ending with '_flag' or starting with 'is_' as boolean flags
@@ -1001,6 +1016,11 @@ onMounted(async () => {
     })
     if (!resp.ok) throw new Error(`Failed to fetch fields: ${resp.status}`)
     const json = (await resp.json()) as { fields: string[] }
+    
+    // Debug: Log received fields to check if property_type and occupancy are included
+    console.log('Fields received from API:', json.fields)
+    console.log('Fields include property_type:', json.fields.includes('property_type'))
+    console.log('Fields include occupancy:', json.fields.includes('occupancy'))
 
     // Build minimal columnDefs from field names only
     const generated = json.fields.map((field: string) => {
@@ -1057,6 +1077,16 @@ onMounted(async () => {
     }
 
     columnDefs.value = [actionsCol, ...generated]
+    
+    // Ensure property_type and occupancy are visible and not hidden
+    columnDefs.value = columnDefs.value.map(col => {
+      if (col.field === 'property_type' || col.field === 'occupancy') {
+        console.log(`Making ${col.field} explicitly visible`)
+        return { ...col, hide: false, suppressColumnsToolPanel: false }
+      }
+      return col
+    })
+    
     // Preserve as the default view's columns
     sellerDataTapeColumns.value = columnDefs.value
     

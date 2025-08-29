@@ -109,6 +109,10 @@ def get_seller_rawdata_field_names(request):
       (e.g., `seller` -> `seller_id`, `trade` -> `trade_id`) so they align
       with ORM `.values()` keys and remain unambiguous in the grid.
     """
+    # Add debug log
+    import logging
+    logger = logging.getLogger(__name__)
+    
     # Hardcoded field names based on the SellerRawData model
     # These are the most common fields that would be returned by the model introspection
     field_names = [
@@ -118,6 +122,8 @@ def get_seller_rawdata_field_names(request):
         'city',
         'state',
         'zip',
+        'property_type',
+        'occupancy',
         'current_balance',
         'deferred_balance',
         'total_debt',
@@ -156,6 +162,12 @@ def get_seller_rawdata_field_names(request):
         'mod_initial_balance',
     ]
     # Fields to exclude: "id", "created_at", "updated_at", "data", "is_active", "is_verified"
+    
+    # Debug log to check if property_type and occupancy are included
+    logger.info(f"Fields sent to frontend: {field_names}")
+    logger.info(f"property_type in fields: {'property_type' in field_names}")
+    logger.info(f"occupancy in fields: {'occupancy' in field_names}")
+    
     return JsonResponse({"fields": field_names})
 
 
@@ -436,13 +448,12 @@ def get_seller_asis_value_stratification(request, seller_id: int, trade_id: int)
         }, status=500)
 
 
+@api_view(['GET'])
 def get_wac_stratification(request, seller_id, trade_id):
     """Return WAC stratification (interest rate bands) for the seller/trade."""
     try:
         results = wac_stratification_static(seller_id, trade_id)
-        return JsonResponse({
-            'bands': results
-        })
+        return JsonResponse(results, safe=False)
     except Exception as e:
         logger.exception(f"Error in WAC stratification for seller {seller_id}, trade {trade_id}: {e}")
         return JsonResponse({'error': 'Failed to retrieve WAC stratification'}, status=500)

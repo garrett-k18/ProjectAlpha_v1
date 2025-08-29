@@ -28,29 +28,29 @@
           <table class="table table-borderless table-striped align-middle mb-0 bands-table">
             <thead class="text-uppercase text-muted small">
               <tr>
-                <th style="width: 40%;">Category</th>
-                <th class="text-end" style="width: 15%;">Count</th>
-                <th class="text-end" style="width: 15%;">Current Balance</th>
-                <th class="text-end" style="width: 15%;">Total Debt</th>
-                <th class="text-end" style="width: 15%;">As-Is Value</th>
+                <th style="width: 40%;">Band</th>
+                <th class="text-center" style="width: 15%;">Count</th>
+                <th class="text-center" style="width: 15%;">Current Balance</th>
+                <th class="text-center" style="width: 15%;">Total Debt</th>
+                <th class="text-center" style="width: 15%;">As-Is Value</th>
               </tr>
             </thead>
             <tbody>
               <!-- Judicial row -->
               <tr>
                 <td class="py-2">Judicial</td>
-                <td class="py-2 text-end fw-semibold">{{ formatInt(judicialData.count) }}</td>
-                <td class="py-2 text-end">${{ formatCurrency(judicialData.sum_current_balance) }}</td>
-                <td class="py-2 text-end">${{ formatCurrency(judicialData.sum_total_debt) }}</td>
-                <td class="py-2 text-end">${{ formatCurrency(judicialData.sum_seller_asis_value) }}</td>
+                <td class="py-2 text-center fw-semibold">{{ formatInt(judicialData.count) }}</td>
+                <td class="py-2 text-center">{{ formatCurrency(judicialData.sum_current_balance) }}</td>
+                <td class="py-2 text-center">{{ formatCurrency(judicialData.sum_total_debt) }}</td>
+                <td class="py-2 text-center">{{ formatCurrency(judicialData.sum_seller_asis_value) }}</td>
               </tr>
               <!-- Non-Judicial row -->
               <tr>
                 <td class="py-2">Non-Judicial</td>
-                <td class="py-2 text-end fw-semibold">{{ formatInt(nonJudicialData.count) }}</td>
-                <td class="py-2 text-end">${{ formatCurrency(nonJudicialData.sum_current_balance) }}</td>
-                <td class="py-2 text-end">${{ formatCurrency(nonJudicialData.sum_total_debt) }}</td>
-                <td class="py-2 text-end">${{ formatCurrency(nonJudicialData.sum_seller_asis_value) }}</td>
+                <td class="py-2 text-center fw-semibold">{{ formatInt(nonJudicialData.count) }}</td>
+                <td class="py-2 text-center">{{ formatCurrency(nonJudicialData.sum_current_balance) }}</td>
+                <td class="py-2 text-center">{{ formatCurrency(nonJudicialData.sum_total_debt) }}</td>
+                <td class="py-2 text-center">{{ formatCurrency(nonJudicialData.sum_seller_asis_value) }}</td>
               </tr>
             </tbody>
           </table>
@@ -58,13 +58,6 @@
       </div>
       
     </div>
-  </div>
-  
-  <!-- Export button (outside card) -->
-  <div v-if="hasData" class="mt-3">
-    <a href="javascript:void(0);" class="btn btn-sm btn-light">
-      Export <i class="mdi mdi-download ms-1"></i>
-    </a>
   </div>
 </template>
 
@@ -203,16 +196,11 @@ function formatInt(n: number): string {
 }
 
 function formatCurrency(n: number): string {
-  // Format currency with abbreviated millions/billions
-  if (Math.abs(n) >= 1_000_000_000) {
-    return (n / 1_000_000_000).toFixed(1) + 'B'
-  } else if (Math.abs(n) >= 1_000_000) {
-    return (n / 1_000_000).toFixed(1) + 'M'
-  } else if (Math.abs(n) >= 1_000) {
-    return (n / 1_000).toFixed(1) + 'K'
-  } else {
-    return n.toFixed(0)
-  }
+  // Format currency with full numbers and commas without $ sign
+  return new Intl.NumberFormat(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  }).format(n)
 }
 </script>
 
