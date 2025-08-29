@@ -71,7 +71,7 @@ class StateReference(models.Model):
     dil_cost_avg = models.DecimalField(max_digits=10, decimal_places=2, help_text="Average dilution cost")
     cfk_cost_avg = models.DecimalField(max_digits=10, decimal_places=2, help_text="Average CFK cost")
     
-    value_adjustment_annual = models.DecimalField(max_digits=10, decimal_places=2, help_text="Average value adjustment")
+    value_adjustment_annual = models.DecimalField(max_digits=10, decimal_places=4, help_text="Average value adjustment")
     
 
 

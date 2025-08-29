@@ -1,63 +1,70 @@
 <template>
   <!--
     Card: Judicial vs Non-Judicial States
-    - Counts how many UNIQUE states in the current dataset are judicial vs non-judicial
-    - Uses cached AG Grid rows from Pinia store so we don't refetch
+    - Uses backend judicial stratification API for consistent metrics
+    - Displays counts and financial metrics (UPB, Total Debt, Seller As-Is)
     - Minimal UI with progress bars, consistent with Hyper/Bootstrap card styles
   -->
   <div class="card">
     <!-- Card header: title + optional action -->
     <div class="d-flex card-header justify-content-between align-items-center">
       <h4 class="header-title">Judicial vs Non-Judicial</h4>
-      <!-- Simple export stub (wire up later if needed) -->
-      <a href="javascript:void(0);" class="btn btn-sm btn-light">Export <i class="mdi mdi-download ms-1"></i></a>
     </div>
 
     <!-- Card body: table with two rows -->
     <div class="card-body pt-0">
+      <!-- Loading state -->
+      <div v-if="isLoading" class="text-muted small py-3 d-flex align-items-center justify-content-center text-center">
+        <i class="mdi mdi-loading mdi-spin me-1"></i> Loading...
+      </div>
+      
       <!-- Empty-state helper when no seller/trade or no rows loaded -->
-      <div v-if="!hasRows" class="text-muted small py-3 d-flex align-items-center justify-content-center text-center">
+      <div v-else-if="!hasData" class="text-muted small py-3 d-flex align-items-center justify-content-center text-center">
         Select a seller and trade to see state counts.
       </div>
 
-      <b-table-simple v-else responsive centered class="table-sm mb-0 font-14">
-        <b-thead head-variant="light">
-          <b-tr>
-            <b-th>Category</b-th>
-            <b-th class="text-end">States</b-th>
-            <b-th style="width: 45%;"></b-th>
-          </b-tr>
-        </b-thead>
-        <b-tbody>
-          <!-- Judicial row -->
-          <b-tr>
-            <b-td>Judicial</b-td>
-            <b-td class="text-end">{{ formatInt(judicialStatesCount) }}</b-td>
-            <b-td>
-              <div class="progress mt-2" style="height: 3px;">
-                <div class="progress-bar bg-danger" role="progressbar"
-                     :aria-valuenow="pctStatesJudicial"
-                     aria-valuemin="0" aria-valuemax="100"
-                     :style="{ width: pctStatesJudicial + '%' }"></div>
-              </div>
-            </b-td>
-          </b-tr>
-          <!-- Non-Judicial row -->
-          <b-tr>
-            <b-td>Non-Judicial</b-td>
-            <b-td class="text-end">{{ formatInt(nonJudicialStatesCount) }}</b-td>
-            <b-td>
-              <div class="progress mt-2" style="height: 3px;">
-                <div class="progress-bar bg-success" role="progressbar"
-                     :aria-valuenow="pctStatesNonJudicial"
-                     aria-valuemin="0" aria-valuemax="100"
-                     :style="{ width: pctStatesNonJudicial + '%' }"></div>
-              </div>
-            </b-td>
-          </b-tr>
-        </b-tbody>
-      </b-table-simple>
+      <div v-else class="mt-2">
+        <div class="table-responsive">
+          <table class="table table-borderless table-striped align-middle mb-0 bands-table">
+            <thead class="text-uppercase text-muted small">
+              <tr>
+                <th style="width: 40%;">Category</th>
+                <th class="text-end" style="width: 15%;">Count</th>
+                <th class="text-end" style="width: 15%;">Current Balance</th>
+                <th class="text-end" style="width: 15%;">Total Debt</th>
+                <th class="text-end" style="width: 15%;">As-Is Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Judicial row -->
+              <tr>
+                <td class="py-2">Judicial</td>
+                <td class="py-2 text-end fw-semibold">{{ formatInt(judicialData.count) }}</td>
+                <td class="py-2 text-end">${{ formatCurrency(judicialData.sum_current_balance) }}</td>
+                <td class="py-2 text-end">${{ formatCurrency(judicialData.sum_total_debt) }}</td>
+                <td class="py-2 text-end">${{ formatCurrency(judicialData.sum_seller_asis_value) }}</td>
+              </tr>
+              <!-- Non-Judicial row -->
+              <tr>
+                <td class="py-2">Non-Judicial</td>
+                <td class="py-2 text-end fw-semibold">{{ formatInt(nonJudicialData.count) }}</td>
+                <td class="py-2 text-end">${{ formatCurrency(nonJudicialData.sum_current_balance) }}</td>
+                <td class="py-2 text-end">${{ formatCurrency(nonJudicialData.sum_total_debt) }}</td>
+                <td class="py-2 text-end">${{ formatCurrency(nonJudicialData.sum_seller_asis_value) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
     </div>
+  </div>
+  
+  <!-- Export button (outside card) -->
+  <div v-if="hasData" class="mt-3">
+    <a href="javascript:void(0);" class="btn btn-sm btn-light">
+      Export <i class="mdi mdi-download ms-1"></i>
+    </a>
   </div>
 </template>
 
@@ -66,88 +73,146 @@
 // - Vue 3 <script setup>: https://vuejs.org/api/sfc-script-setup.html
 // - Pinia stores: https://pinia.vuejs.org/core-concepts/
 // - Array/Set helpers (MDN): https://developer.mozilla.org/
+// - Axios: https://axios-http.com/docs/api_intro
 
-import { computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useAcqSelectionsStore } from '@/stores/acqSelections'
-import { useAgGridRowsStore } from '@/stores/agGridRows'
+import axios from '@/lib/http'
+
+// Type definitions for the judicial stratification API response
+interface JudicialDataItem {
+  key: string;
+  index: number;
+  label: string;
+  count: number;
+  sum_current_balance: number;
+  sum_total_debt: number;
+  sum_seller_asis_value: number;
+}
+
+interface JudicialStratificationResponse {
+  bands: JudicialDataItem[];
+}
 
 // Access global selections (seller and trade)
 const sel = useAcqSelectionsStore() // Pinia store instance for selections
 const { selectedSellerId, selectedTradeId } = storeToRefs(sel) // reactive refs
 
-// Access cached grid rows (shared with the AG Grid card)
-const gridStore = useAgGridRowsStore() // Pinia store for grid rows
-const { rows } = storeToRefs(gridStore) // reactive rows array
+// Define reactive state for judicial data
+const isLoading = ref(false)
+const hasData = ref(false)
+const error = ref('')
 
-// Whether we have any rows for the active seller/trade
-const hasRows = computed<boolean>(() => Array.isArray(rows.value) && rows.value.length > 0)
+// Data containers for judicial/non-judicial stats
+const judicialData = ref<JudicialDataItem>({
+  key: 'judicial',
+  index: 1,
+  label: 'Judicial',
+  count: 0,
+  sum_current_balance: 0,
+  sum_total_debt: 0,
+  sum_seller_asis_value: 0
+})
 
-// Ensure rows are loaded when both IDs are selected (idempotent thanks to store cache)
-async function ensureRows() {
+const nonJudicialData = ref<JudicialDataItem>({
+  key: 'non_judicial',
+  index: 2,
+  label: 'Non-Judicial',
+  count: 0,
+  sum_current_balance: 0,
+  sum_total_debt: 0,
+  sum_seller_asis_value: 0
+})
+
+// Function to fetch data from the judicial stratification API
+async function fetchJudicialStratification() {
   // Guard: need both IDs to fetch
-  if (!selectedSellerId.value || !selectedTradeId.value) return
-  // Fetch using store (uses cache to avoid duplicate network calls)
-  await gridStore.fetchRows(selectedSellerId.value as number, selectedTradeId.value as number)
+  if (!selectedSellerId.value || !selectedTradeId.value) {
+    hasData.value = false
+    return
+  }
+  
+  isLoading.value = true
+  error.value = ''
+  
+  try {
+    // Call the backend API endpoint
+    const response = await axios.get<JudicialStratificationResponse>(
+      `/acq/summary/strat/judicial/${selectedSellerId.value}/${selectedTradeId.value}/`
+    )
+    
+    // Extract data from response
+    const bands = response.data.bands || []
+    
+    // Process the data - find judicial and non-judicial items
+    if (bands.length > 0) {
+      // Find and assign judicial data
+      const judicial = bands.find(band => band.key === 'judicial')
+      if (judicial) {
+        judicialData.value = judicial
+      }
+      
+      // Find and assign non-judicial data
+      const nonJudicial = bands.find(band => band.key === 'non_judicial')
+      if (nonJudicial) {
+        nonJudicialData.value = nonJudicial
+      }
+      
+      hasData.value = true
+    } else {
+      hasData.value = false
+    }
+  } catch (err: any) {
+    console.error('Error fetching judicial stratification:', err)
+    error.value = err.message || 'Failed to load judicial stratification'
+    hasData.value = false
+  } finally {
+    isLoading.value = false
+  }
 }
 
-onMounted(ensureRows)
-watch([selectedSellerId, selectedTradeId], ensureRows)
-
-// ---------------------------------------------------------------------------
-// Judicial states configuration (TO BE PROVIDED by you)
-// ---------------------------------------------------------------------------
-// IMPORTANT: Please provide the authoritative list of judicial foreclosure
-// states. For now this is an empty placeholder to avoid incorrect counts.
-// Example expected values: ['FL', 'NY', 'NJ', ...] (2-letter USPS abbreviations)
-const judicialStatesSource: string[] = [
-  // TODO: Replace with your canonical list of judicial states
-]
-
-// Normalize the provided list into a Set for O(1) lookups, uppercase to match data
-const judicialStateSet = computed<Set<string>>(() => {
-  return new Set(judicialStatesSource.map(s => String(s).trim().toUpperCase()).filter(Boolean))
-})
-
-// Build a Set of unique states present in the current dataset
-const uniqueStatesInData = computed<Set<string>>(() => {
-  const s = new Set<string>() // accumulator for unique states
-  for (const r of rows.value || []) {
-    // Extract state from common field name 'state'; skip blanks
-    const st = String((r as any)?.state ?? '').trim().toUpperCase()
-    if (st) s.add(st)
+// Fetch data on mount and when selections change
+onMounted(() => {
+  if (selectedSellerId.value && selectedTradeId.value) {
+    fetchJudicialStratification()
   }
-  return s
 })
 
-// Total unique states count represented in data
-const totalStatesCount = computed<number>(() => uniqueStatesInData.value.size)
-
-// Count how many of those unique states are judicial vs non-judicial
-const judicialStatesCount = computed<number>(() => {
-  if (uniqueStatesInData.value.size === 0) return 0
-  let n = 0
-  for (const st of uniqueStatesInData.value) if (judicialStateSet.value.has(st)) n++
-  return n
+watch([selectedSellerId, selectedTradeId], () => {
+  fetchJudicialStratification()
 })
 
-const nonJudicialStatesCount = computed<number>(() => {
-  const total = totalStatesCount.value
-  const j = judicialStatesCount.value
-  return total >= j ? total - j : 0
-})
+// Total loans count
+const totalCount = computed<number>(() => judicialData.value.count + nonJudicialData.value.count || 0)
 
 // Percent helpers for progress bars (0-100)
 const pctStatesJudicial = computed<number>(() => {
-  const total = totalStatesCount.value || 1 // avoid divide-by-zero
-  return Math.round((judicialStatesCount.value / total) * 100)
+  const total = totalCount.value || 1 // avoid divide-by-zero
+  return Math.round((judicialData.value.count / total) * 100)
 })
 
 const pctStatesNonJudicial = computed<number>(() => 100 - pctStatesJudicial.value)
 
-// Integer formatter (no decimals)
+// Number formatters
 function formatInt(n: number): string {
-  return new Intl.NumberFormat(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n)
+  return new Intl.NumberFormat(undefined, { 
+    minimumFractionDigits: 0, 
+    maximumFractionDigits: 0 
+  }).format(n)
+}
+
+function formatCurrency(n: number): string {
+  // Format currency with abbreviated millions/billions
+  if (Math.abs(n) >= 1_000_000_000) {
+    return (n / 1_000_000_000).toFixed(1) + 'B'
+  } else if (Math.abs(n) >= 1_000_000) {
+    return (n / 1_000_000).toFixed(1) + 'M'
+  } else if (Math.abs(n) >= 1_000) {
+    return (n / 1_000).toFixed(1) + 'K'
+  } else {
+    return n.toFixed(0)
+  }
 }
 </script>
 

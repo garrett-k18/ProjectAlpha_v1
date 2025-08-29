@@ -25,6 +25,7 @@ including:
 
 
 from django.http import JsonResponse
+from rest_framework.decorators import api_view
 import logging
 from ..models.seller import Seller, Trade, SellerRawData
 from ..logic.common import sellertrade_qs
@@ -42,6 +43,7 @@ from ..logic.strats import (
     current_balance_stratification_dynamic,
     total_debt_stratification_dynamic,
     seller_asis_value_stratification_dynamic,
+    judicial_stratification_dynamic,
     wac_stratification_static,
 )
 
@@ -434,28 +436,26 @@ def get_seller_asis_value_stratification(request, seller_id: int, trade_id: int)
         }, status=500)
 
 
-def get_wac_stratification(request, seller_id: int, trade_id: int):
-    """Return static stratification bands for interest_rate (WAC) per selection.
-
-    Uses: logic.strats.wac_stratification_static()
-
-    Response (list[object]): same shape as other stratifications, with bounds
-    expressed in fractional form (e.g., 0.03 for 3%), and labels like "< 3%",
-    "3% – 6%", etc.
-
-    Guards:
-    - When either id is missing, return [].
-    - Null interest_rate rows are excluded by the helper.
-    """
-    if not seller_id or not trade_id:
-        return JsonResponse([], safe=False)
-
+def get_wac_stratification(request, seller_id, trade_id):
+    """Return WAC stratification (interest rate bands) for the seller/trade."""
     try:
-        bands = wac_stratification_static(seller_id, trade_id)
-        return JsonResponse(bands, safe=False)
-    except Exception as e:
-        logger.exception("WAC stratification failed for seller_id=%s trade_id=%s", seller_id, trade_id)
+        results = wac_stratification_static(seller_id, trade_id)
         return JsonResponse({
-            "error": "Failed to compute WAC stratification. Please try again later.",
-            "details": str(e),
-        }, status=500)
+            'bands': results
+        })
+    except Exception as e:
+        logger.exception(f"Error in WAC stratification for seller {seller_id}, trade {trade_id}: {e}")
+        return JsonResponse({'error': 'Failed to retrieve WAC stratification'}, status=500)
+
+
+@api_view(['GET'])
+def get_judicial_stratification(request, seller_id, trade_id):
+    """Return Judicial vs Non-Judicial stratification for the seller/trade."""
+    try:
+        results = judicial_stratification_dynamic(seller_id, trade_id)
+        return JsonResponse({
+            'bands': results
+        })
+    except Exception as e:
+        logger.exception(f"Error in judicial stratification for seller {seller_id}, trade {trade_id}: {e}")
+        return JsonResponse({'error': 'Failed to retrieve judicial stratification'}, status=500)

@@ -76,8 +76,17 @@ class InternalValuationSerializer(serializers.Serializer):
             }
         return {
             "seller_raw_data": instance.seller_raw_data_id,
-            "internal_uw_asis_value": str(instance.internal_uw_asis_value) if instance.internal_uw_asis_value is not None else None,
-            "internal_uw_arv_value": str(instance.internal_uw_arv_value) if instance.internal_uw_arv_value is not None else None,
+            # Treat stored zero as missing for display purposes so the UI shows blanks
+            "internal_uw_asis_value": (
+                str(instance.internal_uw_asis_value)
+                if (instance.internal_uw_asis_value is not None and instance.internal_uw_asis_value != Decimal("0"))
+                else None
+            ),
+            "internal_uw_arv_value": (
+                str(instance.internal_uw_arv_value)
+                if (instance.internal_uw_arv_value is not None and instance.internal_uw_arv_value != Decimal("0"))
+                else None
+            ),
             "internal_rehab_est_total": str(instance.internal_rehab_est_total) if instance.internal_rehab_est_total is not None else None,
             "internal_uw_value_date": instance.internal_uw_value_date.isoformat() if instance.internal_uw_value_date else None,
             # Third-party values surfaced for read in the valuation matrix (non-editable here)
@@ -175,9 +184,24 @@ def internal_valuation_detail(request, seller_id: int):
 
     # Create if missing
     if iv is None:
-        # Both as-is and arv are required to create a new row, and date defaults to today
-        if asis_val is None or arv_val is None:
-            return Response({"detail": "internal_uw_asis_value and internal_uw_arv_value are required to create."}, status=status.HTTP_400_BAD_REQUEST)
+        # Allow partial create: require at least one provided field; default date to today
+        if (
+            asis_val is None
+            and arv_val is None
+            and rehab_val is None
+            and date_val is None
+        ):
+            return Response(
+                {
+                    "detail": "Provide at least one of internal_uw_asis_value, internal_uw_arv_value, internal_rehab_est_total, or internal_uw_value_date.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        # Satisfy non-null model constraints for internal As-Is/ARV by defaulting to 0.00 when omitted
+        if asis_val is None:
+            asis_val = Decimal("0.00")
+        if arv_val is None:
+            arv_val = Decimal("0.00")
         iv = InternalValuation.objects.create(
             seller_raw_data=raw,
             internal_uw_asis_value=asis_val,

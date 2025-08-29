@@ -464,6 +464,104 @@ def total_debt_stratification_dynamic(
 # following the same rule-based only pattern (no fallbacks).
 
 
+def judicial_stratification_dynamic(
+    seller_id: int,
+    trade_id: int,
+) -> List[Dict[str, object]]:
+    """
+    Return stratification data for Judicial vs Non-Judicial foreclosure states.
+    
+    Uses the StateReference model to determine if each state is judicial or non-judicial,
+    then aggregates metrics by these two categories.
+    
+    Returns a list with two items:
+    - One for Judicial states
+    - One for Non-Judicial states
+    
+    Each item includes counts and sums of relevant financial metrics.
+    """
+    from ..models.assumptions import StateReference
+    
+    # Get the base queryset for this seller+trade combination
+    qs = sellertrade_qs(seller_id, trade_id)
+    
+    # Early exit if empty
+    if not qs.exists():
+        return []
+        
+    # Get all state references for lookups
+    state_refs = {sr.state_code: sr.judicialvsnonjudicial 
+                  for sr in StateReference.objects.all()}
+    
+    # Initialize result counters for both categories
+    result = {
+        "judicial": {
+            "count": 0,
+            "sum_current_balance": Decimal("0.00"),
+            "sum_total_debt": Decimal("0.00"),
+            "sum_seller_asis_value": Decimal("0.00"),
+        },
+        "non_judicial": {
+            "count": 0,
+            "sum_current_balance": Decimal("0.00"),
+            "sum_total_debt": Decimal("0.00"),
+            "sum_seller_asis_value": Decimal("0.00"),
+        },
+    }
+    
+    # Aggregate by state first
+    states_data = qs.values('state').annotate(
+        count=Count('id'),
+        sum_current_balance=Coalesce(Sum('current_balance'), Value(Decimal("0.00")), output_field=DecimalField()),
+        sum_total_debt=Coalesce(Sum('total_debt'), Value(Decimal("0.00")), output_field=DecimalField()),
+        sum_seller_asis_value=Coalesce(Sum('seller_asis_value'), Value(Decimal("0.00")), output_field=DecimalField()),
+    )
+    
+    # Sort states into judicial/non-judicial and sum their metrics
+    for state_data in states_data:
+        state_code = state_data['state']
+        if not state_code:  # Skip empty states
+            continue
+            
+        # Normalize state code to match the reference
+        state_code = state_code.strip().upper()
+        
+        # Determine if this is a judicial state
+        is_judicial = state_refs.get(state_code, False)  # Default to non-judicial if not found
+        
+        # Update the appropriate category
+        category = "judicial" if is_judicial else "non_judicial"
+        
+        result[category]["count"] += state_data["count"]
+        result[category]["sum_current_balance"] += state_data["sum_current_balance"]
+        result[category]["sum_total_debt"] += state_data["sum_total_debt"]
+        result[category]["sum_seller_asis_value"] += state_data["sum_seller_asis_value"]
+    
+    # Format output to match other stratifications
+    formatted_result = [
+        {
+            "key": "judicial",
+            "index": 1,
+            "label": "Judicial",
+            "count": result["judicial"]["count"],
+            "sum_current_balance": result["judicial"]["sum_current_balance"],
+            "sum_total_debt": result["judicial"]["sum_total_debt"],
+            "sum_seller_asis_value": result["judicial"]["sum_seller_asis_value"],
+        },
+        {
+            "key": "non_judicial",
+            "index": 2,
+            "label": "Non-Judicial",
+            "count": result["non_judicial"]["count"],
+            "sum_current_balance": result["non_judicial"]["sum_current_balance"],
+            "sum_total_debt": result["non_judicial"]["sum_total_debt"],
+            "sum_seller_asis_value": result["non_judicial"]["sum_seller_asis_value"],
+        },
+    ]
+    
+    return formatted_result
+
+
 def seller_asis_value_stratification_dynamic(
     seller_id: int,
     trade_id: int,

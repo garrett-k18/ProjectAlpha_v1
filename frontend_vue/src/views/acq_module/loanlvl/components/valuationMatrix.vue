@@ -12,23 +12,29 @@
         <tr>
           <th>Valuation Matrix</th>
           <th>As-Is Value</th>
-          <th>After Rehab Value</th>
+          <th>After Repair Value</th>
           <th>Rehab Est.</th>
         </tr>
       </thead>
-      <tbody>
+      <!-- Body rows tightened: lh-sm line-height; td.py-0 further reduces vertical padding (~additional 15%). -->
+      <tbody class="lh-sm">
         <!-- Top editable Internal Reconciled row (uses Hyper UI/BootstrapVue Next inputs)
              Use text+inputmode to avoid native number spinners; whole-number validation handled in-component.
              Width reduced via Bootstrap grid (~1/3 width). Comma formatting applied on blur and load. -->
         <tr>
-          <td>Internal Reconciled</td>
-          <td>
+          <td class="py-1">
+            <div class="form-control-plaintext form-control-sm ps-2 pe-0">Internal Reconciled</div>
+          </td>
+          <td class="py-0">
             <div class="row gx-0">
               <div class="col-7 col-lg-8">
                 <b-form-input
                   v-model="internalAsIs"
+                  v-currency
+                  @update:modelValue="onCurrencyModel('asIs', $event)"
                   type="text"
                   inputmode="numeric"
+                  pattern="[0-9,]*"
                   size="sm"
                   class="text-start"
                   :disabled="!sellerId || saving"
@@ -40,13 +46,16 @@
             </div>
             <small v-if="asIsTouched && internalAsIs !== '' && !isWholeNumberDisplay(internalAsIs)" class="text-danger">Enter a whole number (e.g., 123,456).</small>
           </td>
-          <td>
+          <td class="py-0">
             <div class="row gx-0">
               <div class="col-7 col-lg-8">
                 <b-form-input
                   v-model="internalArv"
+                  v-currency
+                  @update:modelValue="onCurrencyModel('arv', $event)"
                   type="text"
                   inputmode="numeric"
+                  pattern="[0-9,]*"
                   size="sm"
                   class="text-start"
                   :disabled="!sellerId || saving"
@@ -59,13 +68,16 @@
             <small v-if="arvTouched && internalArv !== '' && !isWholeNumberDisplay(internalArv)" class="text-danger">Enter a whole number (e.g., 789,000).</small>
           </td>
           <!-- Internal Rehab Estimate: same numeric flow as As-Is/ARV -->
-          <td>
+          <td class="py-0">
             <div class="row gx-0">
               <div class="col-7 col-lg-8">
                 <b-form-input
                   v-model="internalRehab"
+                  v-currency
+                  @update:modelValue="onCurrencyModel('rehab', $event)"
                   type="text"
                   inputmode="numeric"
+                  pattern="[0-9,]*"
                   size="sm"
                   class="text-start"
                   :disabled="!sellerId || saving"
@@ -80,25 +92,27 @@
         </tr>
         <!-- Render remaining live valuation rows (Seller, Agent, BPO, and any props.rows) -->
         <tr v-for="(r, idx) in otherRows" :key="idx">
-          <td>{{ r.source }}</td>
-          <td>
+          <td class="py-0">
+            <div class="form-control-plaintext form-control-sm ps-2 pe-0">{{ r.source }}</div>
+          </td>
+          <td class="py-1">
             <div class="row gx-0">
               <div class="col-7 col-lg-8">
-                <div class="form-control-plaintext text-start ps-2 pe-0">{{ r.asIs }}</div>
+                <div class="form-control-plaintext form-control-sm text-start ps-2 pe-0">{{ r.asIs }}</div>
               </div>
             </div>
           </td>
-          <td>
+          <td class="py-1">
             <div class="row gx-0">
               <div class="col-7 col-lg-8">
-                <div class="form-control-plaintext text-start ps-2 pe-0">{{ r.arv }}</div>
+                <div class="form-control-plaintext form-control-sm text-start ps-2 pe-0">{{ r.arv }}</div>
               </div>
             </div>
           </td>
-          <td>
+          <td class="py-1">
             <div class="row gx-0">
               <div class="col-7 col-lg-8">
-                <div class="form-control-plaintext text-start ps-2 pe-0">{{ r.rehab }}</div>
+                <div class="form-control-plaintext form-control-sm text-start ps-2 pe-0">{{ r.rehab }}</div>
               </div>
             </div>
           </td>
@@ -234,6 +248,10 @@ const internalAsIs = ref<string>('')
 const internalArv = ref<string>('')
 /** Internal Rehab estimate numeric input value as a string. */
 const internalRehab = ref<string>('')
+/** Digits-only mirrors for internal inputs (kept in sync while typing and on blur). */
+const internalAsIsDigits = ref<string>('')
+const internalArvDigits = ref<string>('')
+const internalRehabDigits = ref<string>('')
 /** Server-side values as last loaded from API, used to detect changes. */
 const serverAsIs = ref<string | null>(null)
 const serverArv = ref<string | null>(null)
@@ -247,6 +265,7 @@ const brokerArvDigits = ref<string>('')
 const brokerRehabDigits = ref<string>('')
 /** Flag to disable inputs during save. */
 const saving = ref<boolean>(false)
+// Creation can happen with any provided field; no special creation gate needed.
 /** UI flags to show errors only after user interaction. */
 const asIsTouched = ref<boolean>(false)
 const arvTouched = ref<boolean>(false)
@@ -285,6 +304,30 @@ function toDigitsFromValue(value: any): string {
 
 // No BootstrapVue :state to avoid checkmark/X icons; we show our own small error text on blur.
 
+/**
+ * Live currency formatter used with the global `v-currency` directive.
+ * - Called on each `@update:modelValue` from `<b-form-input>` while typing.
+ * - Keeps only digits for computation and sets the display string with commas.
+ * - Does NOT save; persistence remains on blur via on*Blur handlers.
+ */
+function onCurrencyModel(field: 'asIs' | 'arv' | 'rehab', val: string) {
+  const d = digitsOnly(val || '')
+  const formatted = formatWithCommasFromDigits(d)
+  if (field === 'asIs') {
+    // Update display and digits-only refs for As-Is
+    internalAsIs.value = formatted
+    internalAsIsDigits.value = d
+  } else if (field === 'arv') {
+    // Update display and digits-only refs for ARV
+    internalArv.value = formatted
+    internalArvDigits.value = d
+  } else {
+    // Update display and digits-only refs for Rehab
+    internalRehab.value = formatted
+    internalRehabDigits.value = d
+  }
+}
+
 /** Load internal underwriting values from backend for the given seller id. */
 async function loadInternalValuation(id: number) {
   try {
@@ -307,6 +350,10 @@ async function loadInternalValuation(id: number) {
     internalAsIs.value = formatWithCommasFromDigits(asIsDigits)
     internalArv.value = formatWithCommasFromDigits(arvDigits)
     internalRehab.value = formatWithCommasFromDigits(rehabDigits)
+    // Keep internal digits-only refs synchronized
+    internalAsIsDigits.value = asIsDigits
+    internalArvDigits.value = arvDigits
+    internalRehabDigits.value = rehabDigits
     // Store raw digits for formatting in computed rows
     thirdPartyAsIsDigits.value = tpAsIsDigits
     thirdPartyArvDigits.value = tpArvDigits
@@ -325,6 +372,9 @@ async function loadInternalValuation(id: number) {
     internalAsIs.value = ''
     internalArv.value = ''
     internalRehab.value = ''
+    internalAsIsDigits.value = ''
+    internalArvDigits.value = ''
+    internalRehabDigits.value = ''
     thirdPartyAsIsDigits.value = ''
     thirdPartyArvDigits.value = ''
     brokerAsIsDigits.value = ''
@@ -336,27 +386,24 @@ async function loadInternalValuation(id: number) {
   }
 }
 
-/** Persist changes to backend. Creates the row if it does not exist (requires both fields). */
+/** Persist changes to backend. Creates the row if it does not exist (partial create allowed). */
 async function saveInternalValuation() {
   if (!sellerId.value) return
   // Prepare clean digits for validation and payload
-  const asIsDigits = digitsOnly(internalAsIs.value)
-  const arvDigits = digitsOnly(internalArv.value)
-  const rehabDigits = digitsOnly(internalRehab.value)
+  // Use the digits-only refs maintained during typing
+  const asIsDigits = digitsOnly(internalAsIsDigits.value)
+  const arvDigits = digitsOnly(internalArvDigits.value)
+  const rehabDigits = digitsOnly(internalRehabDigits.value)
 
   const creating = serverAsIs.value === null && serverArv.value === null
   const payload: Record<string, any> = {}
 
-  // For creation, send both; for updates, only send changed fields to minimize churn
+  // For creation, send whichever fields are present (partial create).
   if (creating) {
-    if (asIsDigits === '' || arvDigits === '') {
-      // Require both values to create per backend contract
-      return
-    }
-    payload.internal_uw_asis_value = asIsDigits
-    payload.internal_uw_arv_value = arvDigits
-    // Rehab is optional (nullable); include when provided
+    if (asIsDigits !== '') payload.internal_uw_asis_value = asIsDigits
+    if (arvDigits !== '') payload.internal_uw_arv_value = arvDigits
     if (rehabDigits !== '') payload.internal_rehab_est_total = rehabDigits
+    if (Object.keys(payload).length === 0) return
   } else {
     if (asIsDigits !== '' && asIsDigits !== (serverAsIs.value ?? '')) {
       payload.internal_uw_asis_value = asIsDigits
@@ -383,6 +430,10 @@ async function saveInternalValuation() {
     internalAsIs.value = formatWithCommasFromDigits(asIsDigitsNew)
     internalArv.value = formatWithCommasFromDigits(arvDigitsNew)
     internalRehab.value = formatWithCommasFromDigits(rehabDigitsNew)
+    // Sync digits-only refs from server echo
+    internalAsIsDigits.value = asIsDigitsNew
+    internalArvDigits.value = arvDigitsNew
+    internalRehabDigits.value = rehabDigitsNew
   } catch (err) {
     console.warn('[ValuationMatrix] failed to save internal valuation for', sellerId.value, err)
   } finally {
@@ -398,6 +449,7 @@ function onAsIsBlur() {
   // Normalize to digits and format with commas for display
   const d = digitsOnly(internalAsIs.value)
   internalAsIs.value = formatWithCommasFromDigits(d)
+  internalAsIsDigits.value = d
   saveInternalValuation()
 }
 
@@ -406,6 +458,7 @@ function onArvBlur() {
   if (internalArv.value === '' || !isWholeNumberDisplay(internalArv.value)) return
   const d = digitsOnly(internalArv.value)
   internalArv.value = formatWithCommasFromDigits(d)
+  internalArvDigits.value = d
   saveInternalValuation()
 }
 
@@ -414,8 +467,11 @@ function onRehabBlur() {
   if (internalRehab.value === '' || !isWholeNumberDisplay(internalRehab.value)) return
   const d = digitsOnly(internalRehab.value)
   internalRehab.value = formatWithCommasFromDigits(d)
+  internalRehabDigits.value = d
   saveInternalValuation()
 }
+
+// No auto-create watcher; saves happen on blur/Enter for each field.
 
 // Load values whenever the target id changes
 watch(sellerId, (id) => {
@@ -428,6 +484,9 @@ watch(sellerId, (id) => {
     internalAsIs.value = ''
     internalArv.value = ''
     internalRehab.value = ''
+    internalAsIsDigits.value = ''
+    internalArvDigits.value = ''
+    internalRehabDigits.value = ''
     thirdPartyAsIsDigits.value = ''
     thirdPartyArvDigits.value = ''
     brokerAsIsDigits.value = ''

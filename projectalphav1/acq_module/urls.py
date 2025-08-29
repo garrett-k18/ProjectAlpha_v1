@@ -17,7 +17,9 @@ from .views.view_seller_data import (
     get_total_debt_stratification,
     get_seller_asis_value_stratification,
     get_wac_stratification,
+    get_judicial_stratification,
 )
+from .views.state_reference_api import get_judicial_states
 from .views.photos_api import (
     list_photos_by_raw_id,
 )
@@ -95,4 +97,8 @@ urlpatterns = [
     path('summary/strat/interest-rate/<int:seller_id>/<int:trade_id>/', get_wac_stratification, name='api_interest_rate_stratification'),
     # Alias path for convenience
     path('summary/strat/wac/<int:seller_id>/<int:trade_id>/', get_wac_stratification, name='api_wac_stratification'),
+    # Judicial vs Non-Judicial stratification
+    path('summary/strat/judicial/<int:seller_id>/<int:trade_id>/', get_judicial_stratification, name='api_judicial_stratification'),
+    # State reference endpoints
+    path('state-references/judicial/', get_judicial_states, name='api_judicial_states'),
 ]
