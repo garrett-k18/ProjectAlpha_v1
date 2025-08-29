@@ -173,11 +173,12 @@ import { storeToRefs } from 'pinia'
 import http from '@/lib/http'
 // Actions cell renderer for the first column
 import ActionsCell from './components/ActionsCell.vue'
-// ID link cell renderer for the internal ID link (no modal logic here)
-import IdLinkCell from './components/IdLinkCell.vue'
 // Per-row invite checkbox cell renderer
 import AssignInviteCell from './components/AssignInviteCell.vue'
+// Pill badge renderer for boolean/enumerated categorical fields
+import BadgeCell from './components/BadgeCell.vue'
 // Grid-only: remove modal, tabs, and product image imports
+// ID column will render as plain text; modal opens via ActionsCell "View" button only
 
 // Grid-only: removed modal sizing and resize listeners
 
@@ -430,6 +431,35 @@ function isClickableIdField(field: string): boolean {
   return clickableIdFields.has(field)
 }
 
+// ---------------------------------------------------------------------------
+// Badge Cell Renderer Configuration
+// - booleanBadgeFields: fields rendered as Yes/No rounded pills
+// - enumBadgeFields: map of field -> value -> { label, color, title }
+// Colors use Bootstrap/Hyper UI classes (bg-success, bg-danger, etc.)
+// Docs reviewed:
+// - AG Grid Vue cell renderers: https://www.ag-grid.com/vue-data-grid/component-cell-renderer/
+// - Bootstrap badges: https://getbootstrap.com/docs/5.3/components/badge/
+// ---------------------------------------------------------------------------
+const booleanBadgeFields = new Set<string>([
+  'fc_flag',
+  'bk_flag',
+  'mod_flag',
+])
+
+const enumBadgeFields: Record<string, Record<string, { label: string; color: string; title?: string }>> = {
+  bk_chapter: {
+    '7': { label: 'Chapter 7', color: 'bg-warning' },
+    '11': { label: 'Chapter 11', color: 'bg-info' },
+    '13': { label: 'Chapter 13', color: 'bg-primary' },
+  },
+}
+
+// Heuristic: treat any field ending with '_flag' or starting with 'is_' as boolean flags
+function isLikelyBooleanFlagField(field: string): boolean {
+  const f = field.toLowerCase()
+  return f.endsWith('_flag') || f.startsWith('is_') || f.includes('flag')
+}
+
 // Helper to pick a stable row key (prefer 'id', else 'sellertape_id')
 function getRowKey(row: any): string | number | undefined {
   if (!row) return undefined
@@ -612,7 +642,28 @@ function onFsChange(): void {
 //   (falls back gracefully if some parts are missing)
 // ---------------------------------------------------------------------------
 
-// Grid-only: removed address helpers used for modal title
+// ---------------------------------------------------------------------------
+// Title helpers for the Product Details Modal
+// - Build a one-line address from common field names present on the row
+// ---------------------------------------------------------------------------
+
+/**
+ * getOneLineAddress
+ * Creates a compact, one-line address string from a row data object.
+ * Filters out null/empty parts and joins them with commas.
+ */
+function getOneLineAddress(d: any): string {
+  if (!d) return ''
+  // Support both 'zip' and 'zip_code' to match varying backend schemas
+  const zip = d.zip ?? d.zip_code
+  const parts: string[] = [
+    d.street_address,
+    d.city,
+    d.state,
+    zip,
+  ].filter(p => p && String(p).trim())
+  return parts.join(', ')
+}
 
 /**
  * productModalTitle
@@ -802,11 +853,6 @@ function buildLocalAgentsColumns(): ColDef[] {
     field: idField,
     sortable: true,
     filter: true,
-    cellRenderer: IdLinkCell as any,
-    cellRendererParams: {
-      openMode: props.openMode,
-      onOpen: props.openLoan,
-    },
     width: 120,
     maxWidth: 140,
   }
@@ -934,9 +980,13 @@ function toggleAllColumns(visible: boolean): void {
  * console logs with modal open logic as needed.
  */
 function onRowAction(action: string, row: any): void {
-  // TODO: Integrate your modal system here
-  // eslint-disable-next-line no-console
-  console.log(`[Grid] action=\\"${action}\\"`, row)
+  console.log(`Action '${action}' requested on row:`, row)
+  if (action === 'view' && props.openLoan) {
+    // 'row' here is already the row data object passed from ActionsCell
+    const id = String(getRowKey(row) ?? '')
+    const addr = getOneLineAddress(row)
+    props.openLoan({ id, row, addr })
+  }
 }
 
 onMounted(async () => {
@@ -972,24 +1022,20 @@ onMounted(async () => {
       if (!base.valueFormatter && (percentFields.has(field) || isLikelyPercentField(field))) {
         base.valueFormatter = percentTwoDecimalFormatter
       }
-      // Render the primary ID as a clickable link using a dedicated cell renderer
+      // Keep ID narrow by default
       if (isClickableIdField(field)) {
-        base.cellRenderer = IdLinkCell as any
-        // Pass behavior controls to the cell renderer
-        base.cellRendererParams = {
-          openMode: props.openMode,
-          onOpen: props.openLoan,
-        }
-        // Debug which field is wired as the ID link
-        console.debug('[Grid] Configured ID link cell renderer for field', field)
-        // Keep ID narrow by default
         base.width = 120
         base.maxWidth = 140
       }
-      // Encourage header wrapping on specific columns by setting a smaller width
-      if (field === 'current_balance') {
-        base.width = 140
-        base.maxWidth = 160
+      // Apply badge cell renderer for flags and known enums
+      if (booleanBadgeFields.has(field) || isLikelyBooleanFlagField(field)) {
+        // Render Yes/No rounded pills for boolean-like data
+        base.cellRenderer = BadgeCell as any
+        base.cellRendererParams = { mode: 'boolean' } as any
+      } else if (enumBadgeFields[field]) {
+        // Render colored pills for specific enumerations
+        base.cellRenderer = BadgeCell as any
+        base.cellRendererParams = { mode: 'enum', enumMap: enumBadgeFields[field] } as any
       }
       return base
     })

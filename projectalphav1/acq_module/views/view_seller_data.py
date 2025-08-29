@@ -42,6 +42,7 @@ from ..logic.strats import (
     current_balance_stratification_dynamic,
     total_debt_stratification_dynamic,
     seller_asis_value_stratification_dynamic,
+    wac_stratification_static,
 )
 
 # Module-level logger
@@ -429,5 +430,32 @@ def get_seller_asis_value_stratification(request, seller_id: int, trade_id: int)
         logger.exception("Seller As-Is stratification failed for seller_id=%s trade_id=%s", seller_id, trade_id)
         return JsonResponse({
             "error": "Failed to compute seller as-is stratification. Please try again later.",
+            "details": str(e),
+        }, status=500)
+
+
+def get_wac_stratification(request, seller_id: int, trade_id: int):
+    """Return static stratification bands for interest_rate (WAC) per selection.
+
+    Uses: logic.strats.wac_stratification_static()
+
+    Response (list[object]): same shape as other stratifications, with bounds
+    expressed in fractional form (e.g., 0.03 for 3%), and labels like "< 3%",
+    "3% – 6%", etc.
+
+    Guards:
+    - When either id is missing, return [].
+    - Null interest_rate rows are excluded by the helper.
+    """
+    if not seller_id or not trade_id:
+        return JsonResponse([], safe=False)
+
+    try:
+        bands = wac_stratification_static(seller_id, trade_id)
+        return JsonResponse(bands, safe=False)
+    except Exception as e:
+        logger.exception("WAC stratification failed for seller_id=%s trade_id=%s", seller_id, trade_id)
+        return JsonResponse({
+            "error": "Failed to compute WAC stratification. Please try again later.",
             "details": str(e),
         }, status=500)

@@ -16,6 +16,7 @@ from .views.view_seller_data import (
     get_current_balance_stratification,
     get_total_debt_stratification,
     get_seller_asis_value_stratification,
+    get_wac_stratification,
 )
 from .views.photos_api import (
     list_photos_by_raw_id,
@@ -90,4 +91,8 @@ urlpatterns = [
     path('summary/strat/total-debt/<int:seller_id>/<int:trade_id>/', get_total_debt_stratification, name='api_total_debt_stratification'),
     # Dynamic seller as-is value stratification
     path('summary/strat/seller-asis-value/<int:seller_id>/<int:trade_id>/', get_seller_asis_value_stratification, name='api_seller_asis_value_stratification'),
+    # Static interest rate (WAC) stratification
+    path('summary/strat/interest-rate/<int:seller_id>/<int:trade_id>/', get_wac_stratification, name='api_interest_rate_stratification'),
+    # Alias path for convenience
+    path('summary/strat/wac/<int:seller_id>/<int:trade_id>/', get_wac_stratification, name='api_wac_stratification'),
 ]

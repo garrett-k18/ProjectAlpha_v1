@@ -1,3 +1,8 @@
+<!-- This Vue component displays a map with markers for each state in the pool
+     and a chart showing the states by count -->
+
+
+
 <template>
   <div class="card">
     <div class="d-flex card-header justify-content-between align-items-center">

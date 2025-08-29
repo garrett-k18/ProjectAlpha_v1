@@ -1,20 +1,20 @@
 <template>
   <div class="card">
     <div class="d-flex card-header justify-content-between align-items-center">
-      <h4 class="header-title">Total Debt</h4>
+      <h4 class="header-title">Current Balance</h4>
     </div>
 
     <div class="card-body pt-0">
       <!-- Error state -->
-      <div v-if="errorTD" class="alert alert-danger d-flex align-items-center my-3" role="alert">
+      <div v-if="error" class="alert alert-danger d-flex align-items-center my-3" role="alert">
         <i class="mdi mdi-alert-circle-outline me-2"></i>
         <div>
-          {{ errorTD }}
+          {{ error }}
         </div>
       </div>
 
       <!-- Loading state (reserve space) -->
-      <div v-else-if="loadingTD" class="d-flex align-items-center text-muted small py-3">
+      <div v-else-if="loading" class="d-flex align-items-center text-muted small py-3">
         <div class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></div>
         Loading stratification…
       </div>
@@ -27,7 +27,7 @@
       <!-- Borderless grid-table: rows are bands, columns are Count and Sum (no lines). Reserve space to match charts. -->
       <div v-else class="mt-2">
         <div class="table-responsive">
-          <table class="table table-borderless align-middle mb-0">
+          <table class="table table-borderless table-striped align-middle mb-0 bands-table">
             <thead class="text-uppercase text-muted small">
               <tr>
                 <th style="width: 40%">Band</th>
@@ -73,7 +73,7 @@ const { selectedSellerId, selectedTradeId, hasBothSelections } = storeToRefs(sel
 
 // Stratification store (server-provided)
 const strats = useStratsStore()
-const { loadingTD, errorTD } = storeToRefs(strats)
+const { loading, error } = storeToRefs(strats)
 
 // Number parser usable for strings returned by backend
 function toNumber(val: unknown): number {
@@ -85,13 +85,13 @@ function toNumber(val: unknown): number {
 // Reactive bands fetched from backend cache
 const bands = computed<StratBand[]>(() => {
   if (!hasBothSelections.value) return []
-  return strats.getBandsTotalDebt(selectedSellerId.value as number, selectedTradeId.value as number)
+  return strats.getBands(selectedSellerId.value as number, selectedTradeId.value as number)
 })
 
 // Fetch on mount and whenever selection changes
 async function ensureBands() {
   if (!hasBothSelections.value) return
-  await strats.fetchBandsTotalDebt(selectedSellerId.value as number, selectedTradeId.value as number)
+  await strats.fetchBands(selectedSellerId.value as number, selectedTradeId.value as number)
 }
 
 onMounted(ensureBands)
@@ -117,4 +117,9 @@ function formatCurrencyNoDecimals(n: number): string {
 
 <style scoped>
 /* Removed fixed min-height to avoid extra whitespace at the bottom of cards. */
+/* Use Bootstrap table-striped with a subtle light blue accent (uses BS5 CSS vars). */
+.bands-table.table-striped {
+  --bs-table-striped-bg: rgba(13, 110, 253, 0.06); /* light primary */
+  --bs-table-striped-color: inherit; /* keep text color normal */
+}
 </style>

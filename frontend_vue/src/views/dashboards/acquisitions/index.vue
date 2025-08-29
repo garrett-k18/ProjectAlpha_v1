@@ -67,12 +67,7 @@
       </b-col>
     </b-row>
 
-    <!-- Overview moved to its own row -->
-    <b-row class="mt-2">
-      <b-col class="col-12">
-        <Overview />
-      </b-col>
-    </b-row>
+    <!-- Overview removed -->
 
     <b-row>
       <b-col class="col-12">
@@ -80,32 +75,27 @@
       </b-col>
     </b-row>
 
-    <!-- Stratification cards row: render all three in one row on xl screens -->
+    <!-- Stratification cards row: render all four in one row on xl screens -->
     <b-row>
-      <b-col xl="4" lg="4" md="12">
+      <b-col xl="3" lg="6" md="12">
         <StratsCurrentBal />
       </b-col>
-      <b-col xl="4" lg="4" md="12">
+      <b-col xl="3" lg="6" md="12">
         <StratsTotalDebt />
       </b-col>
-      <b-col xl="4" lg="4" md="12">
+      <b-col xl="3" lg="6" md="12">
         <StratsSellerAsIs />
+      </b-col>
+      <b-col xl="3" lg="6" md="12">
+        <StratsWac />
       </b-col>
     </b-row>
 
-    <!-- Other analytics cards -->
-    <b-row>
-      <b-col xl="6" lg="6">
-        <Browser />
-      </b-col>
-      <b-col xl="6" lg="6">
-        <System />
-      </b-col>
-    </b-row>
+    <!-- Other analytics cards (System removed) -->
 
     <b-row>
       <b-col xl="4" lg="6">
-        <Channel />
+        <StratsJudVsNon />
       </b-col>
 
       <b-col xl="4" lg="6">
@@ -123,9 +113,9 @@
     <BModal
       v-model="showLoanModal"
       size="xl"
-      body-class="p-0"
+      body-class="p-0 bg-body text-body"
       dialog-class="product-details-dialog"
-      content-class="product-details-content"
+      content-class="product-details-content bg-body text-body"
       hide-footer
       @shown="onModalShown"
       @hidden="onModalHidden"
@@ -160,13 +150,11 @@
 
 <script lang="ts">
 import Layout from "@/components/layouts/layout.vue";
-import Overview from "@/views/dashboards/acquisitions/overview.vue";
-import StratsCurrentBal from "@/views/dashboards/acquisitions/strats-current-bal.vue";
-import StratsTotalDebt from "@/views/dashboards/acquisitions/strats-total-debt.vue";
-import StratsSellerAsIs from "@/views/dashboards/acquisitions/strats-seller-asis.vue";
-import Browser from "@/views/dashboards/acquisitions/browser.vue";
-import System from "@/views/dashboards/acquisitions/system.vue";
-import Channel from "@/views/dashboards/acquisitions/channel.vue";
+import StratsCurrentBal from "@/views/dashboards/acquisitions/strats/strats-current-bal.vue";
+import StratsTotalDebt from "@/views/dashboards/acquisitions/strats/strats-total-debt.vue";
+import StratsSellerAsIs from "@/views/dashboards/acquisitions/strats/strats-seller-asis.vue";
+import StratsWac from "@/views/dashboards/acquisitions/strats/strats-wac.vue";
+import StratsJudVsNon from "@/views/dashboards/acquisitions/strats/strats-judvsnon.vue";
 import Media from "@/views/dashboards/acquisitions/media.vue";
 import EngagementOverview from "@/views/dashboards/acquisitions/engagement-overview.vue";
 import VectorMap from "@/views/dashboards/acquisitions/vectorMap.vue";
@@ -193,13 +181,11 @@ export default {
     VectorMap,
     EngagementOverview,
     Media,
-    Channel,
-    System,
-    Browser,
+    StratsJudVsNon,
     StratsCurrentBal,
     StratsTotalDebt,
     StratsSellerAsIs,
-    Overview,
+    StratsWac,
     Widgets,
     // Register AG Grid data grid component
     DataGrid,
@@ -306,8 +292,8 @@ export default {
     },
     /**
      * onOpenLoan
-     * Called by IdLinkCell via data-grid when user clicks the ID and
-     * openMode==='modal'. Opens the BootstrapVue Next modal and stores payload.
+     * Called by the grid's ActionsCell "View" button. Opens the BootstrapVue
+     * Next modal and stores the provided payload (id, row, addr).
      */
     onOpenLoan(payload: { id: string; row: any; addr?: string }): void {
       this.selectedId = payload?.id ?? null

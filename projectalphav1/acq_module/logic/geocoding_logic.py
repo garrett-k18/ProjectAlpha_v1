@@ -88,9 +88,23 @@ def _normalize_address(parts: List[str]) -> str:
 
 
 def _build_full_address(row: Dict[str, Optional[str]]) -> str:
-    """Compose a single-line address from a SellerRawData-like dict.
+    """Compose a single-line address from a SellerRawData-like dict using
+    ONLY city, state, zip (street address intentionally ignored).
 
-    Expected keys in row: street_address, city, state, zip (all optional)
+    Expected keys in row: city, state, zip (all optional)
+    """
+    return ", ".join([
+        str(row.get("city", "") or "").strip(),
+        str(row.get("state", "") or "").strip(),
+        str(row.get("zip", "") or "").strip(),
+    ]).strip(", ")
+
+
+def _build_display_address(row: Dict[str, Optional[str]]) -> str:
+    """Compose a human-friendly full address string for marker labels.
+
+    Prefers street, city, state, zip when available; gracefully collapses
+    missing parts.
     """
     return ", ".join([
         str(row.get("street_address", "") or "").strip(),
@@ -98,6 +112,41 @@ def _build_full_address(row: Dict[str, Optional[str]]) -> str:
         str(row.get("state", "") or "").strip(),
         str(row.get("zip", "") or "").strip(),
     ]).strip(", ")
+
+
+def _build_address_candidates(row: Dict[str, Optional[str]]) -> List[str]:
+    """Build fallback address candidates in descending specificity.
+
+    Order tried:
+    1) city, state, zip
+    2) state, zip
+    3) state
+
+    Returns a list of non-empty, de-duplicated candidate strings.
+    """
+    city = str(row.get("city", "") or "").strip()
+    state = str(row.get("state", "") or "").strip()
+    zip_code = str(row.get("zip", "") or "").strip()
+
+    candidates: List[str] = []
+
+    # city, state, zip
+    parts1 = [p for p in [city, state, zip_code] if p]
+    cand1 = ", ".join(parts1).strip(", ")
+    if cand1:
+        candidates.append(cand1)
+
+    # state, zip
+    parts2 = [p for p in [state, zip_code] if p]
+    cand2 = ", ".join(parts2).strip(", ")
+    if cand2 and cand2 not in candidates:
+        candidates.append(cand2)
+
+    # state
+    if state and state not in candidates:
+        candidates.append(state)
+
+    return candidates
 
 
 _CLIENTS: Dict[str, Any] = {}
@@ -202,6 +251,26 @@ def _geocode_with_cache(full_address: str, api_key: str) -> Tuple[Optional[Tuple
     return None, "none"
 
 
+def _geocode_with_cache_any(address_candidates: List[str], api_key: str) -> Tuple[Optional[Tuple[float, float]], str, Optional[str]]:
+    """Try multiple address candidates with cache+live fallback.
+
+    Args:
+        address_candidates: list produced by `_build_address_candidates()`
+        api_key: Geocod.io API key
+
+    Returns:
+        (coords, source, used_address)
+            - coords: (lat, lng) or None
+            - source: "cache" | "live" | "none" (for the attempt that succeeded)
+            - used_address: the address string that produced coords, or None
+    """
+    for addr in address_candidates:
+        coords, source = _geocode_with_cache(addr, api_key)
+        if coords is not None:
+            return coords, source, addr
+    return None, "none", None
+
+
 def geocode_markers_for_seller_trade(seller_id: int, trade_id: int) -> Dict[str, Any]:
     """Business logic: build geocoded markers for all addresses under seller+trade.
 
@@ -232,14 +301,22 @@ def geocode_markers_for_seller_trade(seller_id: int, trade_id: int) -> Dict[str,
         .values("id", "street_address", "city", "state", "zip")
     )
 
-    # Deduplicate addresses to minimize geocoding calls (and protect quotas)
+    # Deduplicate by the most specific candidate to minimize geocoding calls
+    # (and protect quotas)
     addr_to_rows: Dict[str, List[Dict[str, Any]]] = {}
     for r in rows:
-        full_addr = _build_full_address(r)
-        norm = _normalize_address([full_addr])
+        candidates = _build_address_candidates(r)
+        if not candidates:
+            continue
+        primary = candidates[0]
+        norm = _normalize_address([primary])
         if not norm:
             continue
-        addr_to_rows.setdefault(norm, []).append({"id": r["id"], "full": full_addr})
+        addr_to_rows.setdefault(norm, []).append({
+            "id": r["id"],
+            "candidates": candidates,
+            "display_name": _build_display_address(r),
+        })
 
     unique_addrs = list(addr_to_rows.keys())[:MAX_UNIQUE_ADDRESSES]
 
@@ -250,8 +327,8 @@ def geocode_markers_for_seller_trade(seller_id: int, trade_id: int) -> Dict[str,
     for norm in unique_addrs:
         # Use the first representative row for label/name; multiple ids may share address
         representative = addr_to_rows[norm][0]
-        full_addr = representative["full"]
-        coords, source = _geocode_with_cache(full_addr, api_key)
+        candidates = representative["candidates"]
+        coords, source, used_addr = _geocode_with_cache_any(candidates, api_key)
         if source == "live":
             any_live = True
         elif source == "cache":
@@ -262,7 +339,7 @@ def geocode_markers_for_seller_trade(seller_id: int, trade_id: int) -> Dict[str,
         markers.append({
             "lat": float(lat),
             "lng": float(lng),
-            "name": full_addr,
+            "name": representative.get("display_name") or used_addr or candidates[0],
             "id": representative["id"],
         })
 

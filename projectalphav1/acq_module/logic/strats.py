@@ -195,9 +195,6 @@ def _rule_edges_for_max(max_v: Decimal) -> Optional[List[Decimal]]:
         return [Decimal('500000'), Decimal('1000000'), Decimal('1500000'), Decimal('2000000')]
     return None
 
-# ---------------------------------------------------------------------------
-# Core APIs
-# ---------------------------------------------------------------------------
 
 
 def current_balance_stratification_dynamic(
@@ -279,6 +276,115 @@ def current_balance_stratification_dynamic(
 
     # Per product decision: no equal-frequency fallback; return empty if no rule match.
     return []
+
+
+def wac_stratification_static(
+    seller_id: int,
+    trade_id: int,
+) -> List[Dict[str, object]]:
+    """Return static bands for `interest_rate` (fractional) with counts and sums.
+
+    Business-defined static WAC (Weighted Average Coupon) bands using fractional
+    interest rates stored on `SellerRawData.interest_rate`:
+      - < 0.03   (< 3%)
+      - 0.03–0.06 (3% – 6%)
+      - 0.06–0.09 (6% – 9%)
+      - 0.09–0.12 (9% – 12%)
+      - > 0.12   (> 12%)
+
+    Output list item shape mirrors other stratification APIs:
+      {
+        key: str, index: int,
+        lower: Decimal|None, upper: Decimal|None,  # fractional bounds (e.g., 0.03)
+        count: int,
+        sum_current_balance: Decimal,
+        sum_total_debt: Decimal,
+        sum_seller_asis_value: Decimal,
+        label: str  # e.g., "< 3%", "3% – 6%"
+      }
+
+    Docs reviewed:
+    - Django ORM filters and aggregation: https://docs.djangoproject.com/en/stable/topics/db/aggregation/
+    """
+    # Base queryset: exclude null interest rates to avoid skewed bands
+    qs = sellertrade_qs(seller_id, trade_id).exclude(interest_rate__isnull=True)
+
+    # If empty, return no bands
+    if not qs.exists():
+        return []
+
+    # Typed zero for Decimal sums
+    zero_dec = Value(Decimal("0.00"), output_field=DecimalField(max_digits=15, decimal_places=2))
+
+    # Static fractional edges (upper bounds for inner bands)
+    # Bands are defined as: [< e0], [e0 – e1], [e1 – e2], [e2 – e3], [> e3]
+    edges = [Decimal("0.03"), Decimal("0.06"), Decimal("0.09"), Decimal("0.12")]
+    total_bands = len(edges) + 1
+
+    def pct_label(lo: Optional[Decimal], hi: Optional[Decimal], idx: int, total: int) -> str:
+        """Friendly percentage labels from fractional bounds.
+
+        - First band: "< X%" using upper bound
+        - Last band:  "> Y%" using lower bound
+        - Middle:     "Y% – X%"
+        """
+        def fmt(x: Optional[Decimal]) -> str:
+            if x is None:
+                return ""
+            # Convert fractional (e.g., 0.03) to integer percent without decimals
+            return f"{int((x * 100).quantize(Decimal('1'), rounding=ROUND_HALF_UP))}%"
+
+        if idx == 1 and hi is not None:
+            return f"< {fmt(hi)}"
+        if idx == total and lo is not None:
+            return f"> {fmt(lo)}"
+        if lo is not None and hi is not None:
+            return f"{fmt(lo)} – {fmt(hi)}"
+        # Fallbacks (should not occur with static edges)
+        if lo is not None:
+            return f"> {fmt(lo)}"
+        if hi is not None:
+            return f"< {fmt(hi)}"
+        return "N/A"
+
+    results: List[Dict[str, object]] = []
+    for i in range(total_bands):
+        if i == 0:
+            # First band: interest_rate < edges[0]
+            lo: Optional[Decimal] = None
+            hi: Optional[Decimal] = edges[0]
+            bin_qs = qs.filter(interest_rate__lt=hi)
+        elif i == total_bands - 1:
+            # Last band: interest_rate >= edges[-1]
+            lo = edges[-1]
+            hi = None
+            bin_qs = qs.filter(interest_rate__gte=lo)
+        else:
+            # Middle bands: [edges[i-1], edges[i])
+            lo = edges[i - 1]
+            hi = edges[i]
+            bin_qs = qs.filter(interest_rate__gte=lo, interest_rate__lt=hi)
+
+        cnt = bin_qs.count()
+        aggs = bin_qs.aggregate(
+            upb=Coalesce(Sum("current_balance"), zero_dec),
+            td=Coalesce(Sum("total_debt"), zero_dec),
+            asis=Coalesce(Sum("seller_asis_value"), zero_dec),
+        )
+        label = pct_label(lo, hi, i + 1, total_bands)
+        results.append({
+            "key": str(i + 1),
+            "index": i + 1,
+            "lower": lo,
+            "upper": hi,
+            "count": int(cnt),
+            "sum_current_balance": aggs.get("upb") or Decimal("0.00"),
+            "sum_total_debt": aggs.get("td") or Decimal("0.00"),
+            "sum_seller_asis_value": aggs.get("asis") or Decimal("0.00"),
+            "label": label,
+        })
+
+    return results
 
  
 

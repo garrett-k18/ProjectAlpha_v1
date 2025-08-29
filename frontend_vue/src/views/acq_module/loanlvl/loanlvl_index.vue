@@ -13,7 +13,12 @@
       Delegated tab structure to `LoanTabs.vue` for modularity and reuse.
       Docs (BootstrapVue Next tabs used inside LoanTabs): https://bootstrap-vue-next.github.io/bootstrap-vue-next/docs/components/tabs
     -->
-    <LoanTabs :row="effectiveRow" :productId="productId" />
+    <div v-if="!standalone" class="content">
+      <b-container fluid>
+        <LoanTabs :row="effectiveRow" :productId="productId" />
+      </b-container>
+    </div>
+    <LoanTabs v-else :row="effectiveRow" :productId="productId" />
   </component>
 </template>
 
@@ -152,10 +157,14 @@ html[data-sidenav-size='fullscreen'] .product-details-dialog {
   height: 89.3vh; /* 5% smaller than 94vh; body still scrolls */
   display: flex;
   flex-direction: column;
+  /* Match dashboard page background (Bootstrap body bg) */
+  /* Colors inherit from Bootstrap utilities */
 }
 .product-details-content .modal-body {
   flex: 1 1 auto;
   overflow-y: auto;   /* keep vertical scroll */
   overflow-x: hidden; /* disable horizontal scroll */
+  /* Fallback in case utilities are overridden: ensure body bg */
+  /* Background inherits from body-class="bg-body" */
 }
 </style>

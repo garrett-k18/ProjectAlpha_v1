@@ -27,6 +27,7 @@ export const useStratsStore = defineStore('strats', () => {
   const bandsByKey = ref<Record<string, StratBand[]>>({}) // current_balance bands cache
   const debtBandsByKey = ref<Record<string, StratBand[]>>({}) // total_debt bands cache
   const asisBandsByKey = ref<Record<string, StratBand[]>>({}) // seller_asis_value bands cache
+  const wacBandsByKey = ref<Record<string, StratBand[]>>({}) // interest_rate (WAC) bands cache
   const loading = ref<boolean>(false)          // current_balance loading
   const error = ref<string | null>(null)       // current_balance error
   const lastKey = ref<string | null>(null)     // last current_balance key
@@ -36,6 +37,9 @@ export const useStratsStore = defineStore('strats', () => {
   const loadingAsis = ref<boolean>(false)      // seller_asis_value loading
   const errorAsis = ref<string | null>(null)   // seller_asis_value error
   const lastAsisKey = ref<string | null>(null) // last seller_asis_value key
+  const loadingWac = ref<boolean>(false)       // WAC loading
+  const errorWac = ref<string | null>(null)    // WAC error
+  const lastWacKey = ref<string | null>(null)  // last WAC key
 
   function reset(): void {
     loading.value = false
@@ -47,6 +51,9 @@ export const useStratsStore = defineStore('strats', () => {
     loadingAsis.value = false
     errorAsis.value = null
     lastAsisKey.value = null
+    loadingWac.value = false
+    errorWac.value = null
+    lastWacKey.value = null
   }
 
   async function fetchBands(sellerId: number, tradeId: number): Promise<StratBand[]> {
@@ -119,6 +126,32 @@ export const useStratsStore = defineStore('strats', () => {
     }
   }
 
+  // Fetch Interest Rate (WAC) stratification bands for a selection
+  async function fetchBandsWac(sellerId: number, tradeId: number): Promise<StratBand[]> {
+    const key = `${sellerId}:${tradeId}`
+    // Use cached payload if already fetched for this selection
+    if (wacBandsByKey.value[key]) return wacBandsByKey.value[key]
+
+    loadingWac.value = true
+    errorWac.value = null
+    try {
+      // Backend endpoint alias: /acq/summary/strat/interest-rate/{sellerId}/{tradeId}/
+      const resp = await http.get(`/acq/summary/strat/interest-rate/${sellerId}/${tradeId}/`)
+      const data = Array.isArray(resp.data) ? (resp.data as StratBand[]) : []
+      wacBandsByKey.value[key] = data
+      lastWacKey.value = key
+      return data
+    } catch (e: any) {
+      // Prefer server-provided error message if present
+      errorWac.value = e?.response?.data?.error || e?.message || 'Failed to fetch WAC stratification'
+      lastWacKey.value = null
+      wacBandsByKey.value[key] = []
+      return []
+    } finally {
+      loadingWac.value = false
+    }
+  }
+
   function getBands(sellerId: number | null, tradeId: number | null): StratBand[] {
     if (!sellerId || !tradeId) return []
     const key = `${sellerId}:${tradeId}`
@@ -139,10 +172,18 @@ export const useStratsStore = defineStore('strats', () => {
     return asisBandsByKey.value[key] || []
   }
 
+  // Getter for WAC bands
+  function getBandsWac(sellerId: number | null, tradeId: number | null): StratBand[] {
+    if (!sellerId || !tradeId) return []
+    const key = `${sellerId}:${tradeId}`
+    return wacBandsByKey.value[key] || []
+  }
+
   function clearCache(): void {
     bandsByKey.value = {}
     debtBandsByKey.value = {}
     asisBandsByKey.value = {}
+    wacBandsByKey.value = {}
     reset()
   }
 
@@ -151,6 +192,7 @@ export const useStratsStore = defineStore('strats', () => {
     bandsByKey,
     debtBandsByKey,
     asisBandsByKey,
+    wacBandsByKey,
     loading,
     error,
     lastKey,
@@ -160,15 +202,20 @@ export const useStratsStore = defineStore('strats', () => {
     loadingAsis,
     errorAsis,
     lastAsisKey,
+    loadingWac,
+    errorWac,
+    lastWacKey,
     // actions
     fetchBands,
     fetchBandsTotalDebt,
     fetchBandsSellerAsIs,
+    fetchBandsWac,
     clearCache,
     reset,
     // getters/helpers
     getBands,
     getBandsTotalDebt,
     getBandsSellerAsIs,
+    getBandsWac,
   }
 })
