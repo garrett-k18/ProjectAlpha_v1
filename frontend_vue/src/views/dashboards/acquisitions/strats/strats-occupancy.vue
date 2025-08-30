@@ -38,7 +38,8 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="band in bands" :key="band.key">
+              <!-- Only render non-zero rows; mirrors Property Type strat behavior -->
+              <tr v-for="band in filteredBands" :key="band.key">
                 <td class="py-2">{{ band.label }}</td>
                 <td class="py-2 text-center fw-semibold">{{ formatInt(band.count) }}</td>
                 <td class="py-2 text-center">{{ formatCurrencyNoDecimals(toNumber(band.sum_current_balance)) }}</td>
@@ -86,6 +87,18 @@ const bands = computed<StratBand[]>(() => {
   return strats.getBandsOccupancy(selectedSellerId.value as number, selectedTradeId.value as number)
 })
 
+// Filter out rows where everything is zero (count and sums)
+const filteredBands = computed<StratBand[]>(() => {
+  const list = bands.value || []
+  return list.filter(b => {
+    const cnt = toNumber(b.count)
+    const upb = toNumber(b.sum_current_balance)
+    const td = toNumber(b.sum_total_debt)
+    const asis = toNumber(b.sum_seller_asis_value)
+    return cnt > 0 || upb > 0 || td > 0 || asis > 0
+  })
+})
+
 // Fetch on mount and whenever selection changes
 async function ensureBands() {
   if (!hasBothSelections.value) return
@@ -95,8 +108,8 @@ async function ensureBands() {
 onMounted(ensureBands)
 watch([selectedSellerId, selectedTradeId], ensureBands)
 
-// Whether we have any bands available
-const hasRows = computed<boolean>(() => Array.isArray(bands.value) && bands.value.length > 0)
+// Whether we have any bands to display after filtering zeros
+const hasRows = computed<boolean>(() => Array.isArray(filteredBands.value) && filteredBands.value.length > 0)
 
 // Format helpers (display only)
 function formatInt(n: number): string {
