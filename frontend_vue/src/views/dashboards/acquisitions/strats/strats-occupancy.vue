@@ -30,7 +30,7 @@
           <table class="table table-borderless table-striped align-middle mb-0 bands-table">
             <thead class="text-uppercase text-muted small">
               <tr>
-                <th style="width: 40%">Occupancy</th>
+                <th style="width: 40%">Band</th>
                 <th class="text-center" style="width: 15%">Count</th>
                 <th class="text-center" style="width: 15%">Current Balance</th>
                 <th class="text-center" style="width: 15%">Total Debt</th>

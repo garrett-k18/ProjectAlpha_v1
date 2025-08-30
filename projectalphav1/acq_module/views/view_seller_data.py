@@ -47,6 +47,7 @@ from ..logic.strats import (
     wac_stratification_static,
     property_type_stratification_categorical,
     occupancy_stratification_categorical,
+    delinquency_stratification_categorical,
 )
 from ..logic.ll_metrics import get_ltv_scatter_data
 
@@ -516,6 +517,33 @@ def get_occupancy_stratification(request, seller_id, trade_id):
         )
         return JsonResponse({
             'error': 'Failed to retrieve Occupancy stratification',
+            'details': str(e),
+        }, status=500)
+
+
+@api_view(['GET'])
+def get_delinquency_stratification(request, seller_id, trade_id):
+    """Return Delinquency (days past due) stratification for the seller/trade.
+
+    Uses: logic.strats.delinquency_stratification_categorical()
+
+    Response (list[object]): same shape as other stratifications with keys:
+    key, index, lower=null, upper=null, count, sum_current_balance, sum_total_debt,
+    sum_seller_asis_value, label (e.g., "Current", "30 Days", ...).
+    """
+    # Enforce data siloing: require BOTH seller_id and trade_id
+    if not seller_id or not trade_id:
+        return JsonResponse([], safe=False)
+
+    try:
+        bands = delinquency_stratification_categorical(seller_id, trade_id)
+        return JsonResponse(bands, safe=False)
+    except Exception as e:
+        logger.exception(
+            "Delinquency stratification failed for seller_id=%s trade_id=%s", seller_id, trade_id
+        )
+        return JsonResponse({
+            'error': 'Failed to retrieve Delinquency stratification',
             'details': str(e),
         }, status=500)
 

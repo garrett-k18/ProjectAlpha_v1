@@ -58,10 +58,10 @@ const badge = computed(() => {
   if (mode === 'boolean') {
     const b = toBoolLike(value)
     if (b === null) return null
-    // Per request: blue for Yes (primary), grey for No (secondary)
+    // Per request: blue for Yes (primary), brighter neutral for No (warning)
     return b
       ? { label: 'Yes', color: 'bg-primary', title: 'True' }
-      : { label: 'No', color: 'bg-secondary', title: 'False' }
+      : { label: 'No', color: 'bg-warning text-dark', title: 'False' }
   }
 
   // Enum mode: look up by string key (case-insensitive); fallback to secondary
@@ -71,9 +71,11 @@ const badge = computed(() => {
     // try exact, then case-insensitive
     const found = enumMap[key] || enumMap[key.toLowerCase?.()] || enumMap[String(value).toLowerCase?.()]
     if (found) {
-      return { label: found.label ?? key, color: found.color ?? 'bg-secondary', title: found.title ?? key }
+      // If map doesn't specify a color, default to a brighter neutral
+      return { label: found.label ?? key, color: found.color ?? 'bg-warning text-dark', title: found.title ?? key }
     }
-    return { label: key, color: 'bg-secondary', title: key }
+    // Unknown enum -> brighter neutral
+    return { label: key, color: 'bg-warning text-dark', title: key }
   }
 
   // If mode is unspecified, try boolean detection first, else show simple secondary badge for strings
@@ -81,10 +83,11 @@ const badge = computed(() => {
   if (b !== null) {
     return b
       ? { label: 'Yes', color: 'bg-primary', title: 'True' }
-      : { label: 'No', color: 'bg-secondary', title: 'False' }
+      : { label: 'No', color: 'bg-warning text-dark', title: 'False' }
   }
   if (value === null || value === undefined || value === '') return null
   const label = String(value)
-  return { label, color: 'bg-secondary', title: label }
+  // Generic string fallback -> brighter neutral
+  return { label, color: 'bg-warning text-dark', title: label }
 })
 </script>

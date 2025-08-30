@@ -30,6 +30,7 @@ export const useStratsStore = defineStore('strats', () => {
   const wacBandsByKey = ref<Record<string, StratBand[]>>({}) // interest_rate (WAC) bands cache
   const propertyTypeBandsByKey = ref<Record<string, StratBand[]>>({}) // property_type bands cache
   const occupancyBandsByKey = ref<Record<string, StratBand[]>>({}) // occupancy bands cache
+  const delinquencyBandsByKey = ref<Record<string, StratBand[]>>({}) // delinquency bands cache
   const loading = ref<boolean>(false)          // current_balance loading
   const error = ref<string | null>(null)       // current_balance error
   const lastKey = ref<string | null>(null)     // last current_balance key
@@ -48,6 +49,9 @@ export const useStratsStore = defineStore('strats', () => {
   const loadingOccupancy = ref<boolean>(false) // occupancy loading
   const errorOccupancy = ref<string | null>(null) // occupancy error
   const lastOccupancyKey = ref<string | null>(null) // last occupancy key
+  const loadingDelinquency = ref<boolean>(false) // delinquency loading
+  const errorDelinquency = ref<string | null>(null) // delinquency error
+  const lastDelinquencyKey = ref<string | null>(null) // last delinquency key
 
   function reset(): void {
     loading.value = false
@@ -68,6 +72,36 @@ export const useStratsStore = defineStore('strats', () => {
     loadingOccupancy.value = false
     errorOccupancy.value = null
     lastOccupancyKey.value = null
+    loadingDelinquency.value = false
+    errorDelinquency.value = null
+    lastDelinquencyKey.value = null
+  }
+
+  // Fetch Delinquency stratification bands for a selection (categorical by days past due)
+  // Docs reviewed:
+  // - Pinia actions/getters: https://pinia.vuejs.org/core-concepts/
+  // - Axios: https://axios-http.com/docs/api_intro
+  async function fetchBandsDelinquency(sellerId: number, tradeId: number): Promise<StratBand[]> {
+    const key = `${sellerId}:${tradeId}`
+    // Serve from cache when available
+    if (delinquencyBandsByKey.value[key]) return delinquencyBandsByKey.value[key]
+
+    loadingDelinquency.value = true
+    errorDelinquency.value = null
+    try {
+      const resp = await http.get(`/acq/summary/strat/delinquency/${sellerId}/${tradeId}/`)
+      const data = Array.isArray(resp.data) ? (resp.data as StratBand[]) : []
+      delinquencyBandsByKey.value[key] = data
+      lastDelinquencyKey.value = key
+      return data
+    } catch (e: any) {
+      errorDelinquency.value = e?.response?.data?.error || e?.message || 'Failed to fetch Delinquency stratification'
+      lastDelinquencyKey.value = null
+      delinquencyBandsByKey.value[key] = []
+      return []
+    } finally {
+      loadingDelinquency.value = false
+    }
   }
 
   async function fetchBands(sellerId: number, tradeId: number): Promise<StratBand[]> {
@@ -261,6 +295,13 @@ export const useStratsStore = defineStore('strats', () => {
     return occupancyBandsByKey.value[key] || []
   }
 
+  // Getter for Delinquency bands
+  function getBandsDelinquency(sellerId: number | null, tradeId: number | null): StratBand[] {
+    if (!sellerId || !tradeId) return []
+    const key = `${sellerId}:${tradeId}`
+    return delinquencyBandsByKey.value[key] || []
+  }
+
   function clearCache(): void {
     bandsByKey.value = {}
     debtBandsByKey.value = {}
@@ -279,6 +320,7 @@ export const useStratsStore = defineStore('strats', () => {
     wacBandsByKey,
     propertyTypeBandsByKey,
     occupancyBandsByKey,
+    delinquencyBandsByKey,
     loading,
     error,
     lastKey,
@@ -297,6 +339,9 @@ export const useStratsStore = defineStore('strats', () => {
     loadingOccupancy,
     errorOccupancy,
     lastOccupancyKey,
+    loadingDelinquency,
+    errorDelinquency,
+    lastDelinquencyKey,
     // actions
     fetchBands,
     fetchBandsTotalDebt,
@@ -304,6 +349,7 @@ export const useStratsStore = defineStore('strats', () => {
     fetchBandsWac,
     fetchBandsPropertyType,
     fetchBandsOccupancy,
+    fetchBandsDelinquency,
     clearCache,
     reset,
     // getters/helpers
@@ -313,5 +359,6 @@ export const useStratsStore = defineStore('strats', () => {
     getBandsWac,
     getBandsPropertyType,
     getBandsOccupancy,
+    getBandsDelinquency,
   }
 })

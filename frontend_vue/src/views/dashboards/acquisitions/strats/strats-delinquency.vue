@@ -1,20 +1,20 @@
 <template>
   <div class="card">
     <div class="d-flex card-header justify-content-between align-items-center">
-      <h4 class="header-title">Property Type</h4>
+      <h4 class="header-title">Delinquency</h4>
     </div>
 
     <div class="card-body pt-0">
       <!-- Error state -->
-      <div v-if="errorPropertyType" class="alert alert-danger d-flex align-items-center my-3" role="alert">
+      <div v-if="errorDelinquency" class="alert alert-danger d-flex align-items-center my-3" role="alert">
         <i class="mdi mdi-alert-circle-outline me-2"></i>
         <div>
-          {{ errorPropertyType }}
+          {{ errorDelinquency }}
         </div>
       </div>
 
       <!-- Loading state (reserve space) -->
-      <div v-else-if="loadingPropertyType" class="d-flex align-items-center text-muted small py-3">
+      <div v-else-if="loadingDelinquency" class="d-flex align-items-center text-muted small py-3">
         <div class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></div>
         Loading stratification…
       </div>
@@ -24,7 +24,7 @@
         Select a seller and trade to see stratification.
       </div>
 
-      <!-- Borderless grid-table: rows are property types -->
+      <!-- Borderless grid-table: rows are delinquency categories -->
       <div v-else class="mt-2">
         <div class="table-responsive">
           <table class="table table-borderless table-striped align-middle mb-0 bands-table">
@@ -38,7 +38,7 @@
               </tr>
             </thead>
             <tbody>
-              <!-- Only render non-zero rows for a cleaner, more dynamic view -->
+              <!-- Only render non-zero rows; mirrors Property Type/Occupancy strat behavior -->
               <tr v-for="band in filteredBands" :key="band.key">
                 <td class="py-2">{{ band.label }}</td>
                 <td class="py-2 text-center fw-semibold">{{ formatInt(band.count) }}</td>
@@ -58,7 +58,7 @@
 // Documentation reviewed:
 // - Vue 3 <script setup>: https://vuejs.org/api/sfc-script-setup.html
 // - Pinia stores: https://pinia.vuejs.org/core-concepts/
-// - Intl.NumberFormat for number/currency formatting: MDN docs
+// - Intl.NumberFormat: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Intl/NumberFormat
 // - Axios instance usage: https://axios-http.com/docs/instance
 
 import { computed, onMounted, watch } from 'vue'
@@ -72,7 +72,7 @@ const { selectedSellerId, selectedTradeId, hasBothSelections } = storeToRefs(sel
 
 // Stratification store
 const strats = useStratsStore()
-const { loadingPropertyType, errorPropertyType } = storeToRefs(strats)
+const { loadingDelinquency, errorDelinquency } = storeToRefs(strats)
 
 // Number parser usable for strings returned by backend
 function toNumber(val: unknown): number {
@@ -84,11 +84,10 @@ function toNumber(val: unknown): number {
 // Reactive bands fetched from backend cache
 const bands = computed<StratBand[]>(() => {
   if (!hasBothSelections.value) return []
-  return strats.getBandsPropertyType(selectedSellerId.value as number, selectedTradeId.value as number)
+  return strats.getBandsDelinquency(selectedSellerId.value as number, selectedTradeId.value as number)
 })
 
-// Filter out rows where everything is zero (count and all sums).
-// This makes the table dynamic and hides irrelevant property types.
+// Filter out rows where everything is zero (count and sums)
 const filteredBands = computed<StratBand[]>(() => {
   const list = bands.value || []
   return list.filter(b => {
@@ -103,7 +102,7 @@ const filteredBands = computed<StratBand[]>(() => {
 // Fetch on mount and whenever selection changes
 async function ensureBands() {
   if (!hasBothSelections.value) return
-  await strats.fetchBandsPropertyType(selectedSellerId.value as number, selectedTradeId.value as number)
+  await strats.fetchBandsDelinquency(selectedSellerId.value as number, selectedTradeId.value as number)
 }
 
 onMounted(ensureBands)

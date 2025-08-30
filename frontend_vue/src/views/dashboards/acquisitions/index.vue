@@ -99,7 +99,7 @@
 
     <!-- Other analytics cards (System removed) -->
 
-    <!-- Property Type and Occupancy stratifications (categorical) -->
+    <!-- Property Type, Occupancy, Judicial, and Delinquency stratifications (categorical) -->
     <b-row>
       <b-col xl="3" lg="6" md="12">
         <StratsPropertyType />
@@ -107,13 +107,16 @@
       <b-col xl="3" lg="6" md="12">
         <StratsOccupancy />
       </b-col>
+      <!-- Moved Judicial vs Non-Judicial here to sit next to Occupancy -->
+      <b-col xl="3" lg="6" md="12">
+        <StratsJudVsNon />
+      </b-col>
+      <b-col xl="3" lg="6" md="12">
+        <StratsDelinquency />
+      </b-col>
     </b-row>
 
     <b-row>
-      <b-col xl="4" lg="6">
-        <StratsJudVsNon />
-      </b-col>
-
       <b-col xl="4" lg="6">
         <LtvScatterChart />
       </b-col>
@@ -173,6 +176,7 @@ import StratsWac from "@/views/dashboards/acquisitions/strats/strats-wac.vue";
 import StratsPropertyType from "@/views/dashboards/acquisitions/strats/strats-property-type.vue";
 import StratsOccupancy from "@/views/dashboards/acquisitions/strats/strats-occupancy.vue";
 import StratsJudVsNon from "@/views/dashboards/acquisitions/strats/strats-judvsnon.vue";
+import StratsDelinquency from "@/views/dashboards/acquisitions/strats/strats-delinquency.vue";
 import LtvScatterChart from "@/views/dashboards/acquisitions/components/ltvscatter.vue";
 import EngagementOverview from "@/views/dashboards/acquisitions/overview.vue";
 import VectorMap from "@/views/dashboards/acquisitions/vectorMap.vue";
@@ -206,6 +210,7 @@ export default {
     StratsWac,
     StratsPropertyType,
     StratsOccupancy,
+    StratsDelinquency,
     Widgets,
     // Register AG Grid data grid component
     DataGrid,

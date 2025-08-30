@@ -33,8 +33,13 @@ from django.db.models import (
     Max,
     Sum,
     Value,
+    F,
+    ExpressionWrapper,
+    DurationField,
+    IntegerField,
+    FloatField,
 )
-from django.db.models.functions import Coalesce
+from django.db.models.functions import Coalesce, Cast, Extract
 # NTILE-based equal-frequency fallback removed per product decision.
 
 # Local selector helper (centralized seller+trade filtering)
@@ -225,6 +230,93 @@ def current_balance_stratification_dynamic(
     # If empty, return no bands
     if not qs.exists():
         return []
+
+
+# ---------------------------------------------------------------------------
+# Delinquency (Days DLQ) stratification (categorical ranges)
+# ---------------------------------------------------------------------------
+def delinquency_stratification_categorical(
+    seller_id: int,
+    trade_id: int,
+) -> List[Dict[str, object]]:
+    """Return categorical stratification by days delinquent (days_dlq).
+
+    Business bands (inclusive of lower bound, exclusive of upper, except last):
+      - Current:       days_dlq < 30
+      - 30 Days:      30 <= days_dlq < 60
+      - 60 Days:      60 <= days_dlq < 90
+      - 90 Days:      90 <= days_dlq < 120
+      - 120 Days:     120 <= days_dlq < 150
+      - 120+ Days:    days_dlq >= 150
+
+    Notes:
+    - We compute days_dlq in the database as (as_of_date - next_due_date), then
+      convert the interval to total seconds via EXTRACT(EPOCH) and into whole days.
+    - Rows with null dates are excluded from banding to avoid misleading results.
+    - Output shape mirrors other stratifications for frontend consistency.
+
+    Docs reviewed:
+    - Django duration arithmetic: https://docs.djangoproject.com/en/stable/ref/models/expressions/#arithmetic-with-date-and-datetime
+    - Extract (epoch) semantics on PostgreSQL: https://www.postgresql.org/docs/current/functions-datetime.html
+    """
+    # Base queryset with required date fields present only
+    qs = (
+        sellertrade_qs(seller_id, trade_id)
+        .exclude(as_of_date__isnull=True)
+        .exclude(next_due_date__isnull=True)
+    )
+
+    if not qs.exists():
+        return []
+
+    # Typed zero for Decimal sums
+    zero_dec = Value(Decimal("0.00"), output_field=DecimalField(max_digits=15, decimal_places=2))
+
+    # Annotate interval and whole-day delinquency using DB computation
+    qs = qs.annotate(
+        dlq_interval=ExpressionWrapper(
+            F('as_of_date') - F('next_due_date'),
+            output_field=DurationField(),
+        )
+    ).annotate(
+        days_dlq=Cast(
+            ExpressionWrapper(Extract(F('dlq_interval'), 'epoch') / 86400.0, output_field=FloatField()),
+            output_field=IntegerField(),
+        )
+    )
+
+    # Define ordered bands with label and a lambda that filters qs by day range
+    bands_def = [
+        ("Current",       lambda q: q.filter(days_dlq__lt=30)),
+        ("30 Days",       lambda q: q.filter(days_dlq__gte=30, days_dlq__lt=60)),
+        ("60 Days",       lambda q: q.filter(days_dlq__gte=60, days_dlq__lt=90)),
+        ("90 Days",       lambda q: q.filter(days_dlq__gte=90, days_dlq__lt=120)),
+        ("120 Days",      lambda q: q.filter(days_dlq__gte=120, days_dlq__lt=150)),
+        ("120+ Days",     lambda q: q.filter(days_dlq__gte=150)),
+    ]
+
+    results: List[Dict[str, object]] = []
+    for i, (label, filtr) in enumerate(bands_def, start=1):
+        bin_qs = filtr(qs)
+        cnt = bin_qs.count()
+        aggs = bin_qs.aggregate(
+            upb=Coalesce(Sum("current_balance"), zero_dec),
+            td=Coalesce(Sum("total_debt"), zero_dec),
+            asis=Coalesce(Sum("seller_asis_value"), zero_dec),
+        )
+        results.append({
+            "key": str(i),
+            "index": i,
+            "lower": None,   # categorical label-driven, not numeric bounds
+            "upper": None,
+            "count": int(cnt),
+            "sum_current_balance": aggs.get("upb") or Decimal("0.00"),
+            "sum_total_debt": aggs.get("td") or Decimal("0.00"),
+            "sum_seller_asis_value": aggs.get("asis") or Decimal("0.00"),
+            "label": label,
+        })
+
+    return results
 
     # Typed zero for Decimal
     zero_dec = Value(Decimal("0.00"), output_field=DecimalField(max_digits=15, decimal_places=2))
