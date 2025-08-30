@@ -99,13 +99,23 @@
 
     <!-- Other analytics cards (System removed) -->
 
+    <!-- Property Type and Occupancy stratifications (categorical) -->
+    <b-row>
+      <b-col xl="3" lg="6" md="12">
+        <StratsPropertyType />
+      </b-col>
+      <b-col xl="3" lg="6" md="12">
+        <StratsOccupancy />
+      </b-col>
+    </b-row>
+
     <b-row>
       <b-col xl="4" lg="6">
         <StratsJudVsNon />
       </b-col>
 
       <b-col xl="4" lg="6">
-        <Media />
+        <LtvScatterChart />
       </b-col>
 
       <b-col xl="4" lg="12">
@@ -160,9 +170,11 @@ import StratsCurrentBal from "@/views/dashboards/acquisitions/strats/strats-curr
 import StratsTotalDebt from "@/views/dashboards/acquisitions/strats/strats-total-debt.vue";
 import StratsSellerAsIs from "@/views/dashboards/acquisitions/strats/strats-seller-asis.vue";
 import StratsWac from "@/views/dashboards/acquisitions/strats/strats-wac.vue";
+import StratsPropertyType from "@/views/dashboards/acquisitions/strats/strats-property-type.vue";
+import StratsOccupancy from "@/views/dashboards/acquisitions/strats/strats-occupancy.vue";
 import StratsJudVsNon from "@/views/dashboards/acquisitions/strats/strats-judvsnon.vue";
-import Media from "@/views/dashboards/acquisitions/media.vue";
-import EngagementOverview from "@/views/dashboards/acquisitions/engagement-overview.vue";
+import LtvScatterChart from "@/views/dashboards/acquisitions/components/ltvscatter.vue";
+import EngagementOverview from "@/views/dashboards/acquisitions/overview.vue";
 import VectorMap from "@/views/dashboards/acquisitions/vectorMap.vue";
 import Widgets from "@/views/dashboards/acquisitions/widgets.vue";
 // AG Grid: modular data grid component for acquisitions dashboard
@@ -186,12 +198,14 @@ export default {
   components: {
     VectorMap,
     EngagementOverview,
-    Media,
+    LtvScatterChart,
     StratsJudVsNon,
     StratsCurrentBal,
     StratsTotalDebt,
     StratsSellerAsIs,
     StratsWac,
+    StratsPropertyType,
+    StratsOccupancy,
     Widgets,
     // Register AG Grid data grid component
     DataGrid,

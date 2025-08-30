@@ -27,7 +27,7 @@
     "@vueup/vue-quill": "^1.2.0",
     "admin-resources": "git+https://github.com/coderthemes/admin-resources.git#master",
     "ag-grid-vue3": "^34.1.1",
-    "apexcharts": "^3.41.0",
+    "apexcharts": "^3.54.1",
     "axios": "^1.4.0",
     "bootstrap": "^5.3.3",
     "bootstrap-datepicker": "^1.10.0",

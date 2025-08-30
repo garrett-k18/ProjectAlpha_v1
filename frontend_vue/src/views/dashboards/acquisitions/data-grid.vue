@@ -226,9 +226,10 @@ const defaultColDef: ColDef = {
   // Docs: https://www.ag-grid.com/javascript-data-grid/column-headers/#text-wrapping
   wrapHeaderText: true,
   autoHeaderHeight: true,
-  // Enable floating filters for all columns per AG Grid docs
-  // https://www.ag-grid.com/vue-data-grid/filter-floating/
-  floatingFilter: true,
+  // Disable floating filters - only show filter options in headers
+  floatingFilter: false,
+  // Configure filter menu to be shown in headers only
+  menuTabs: ['filterMenuTab'],
   // Guardrail so columns never collapse to unreadable widths
   // This works together with autosize and fit behaviors
   minWidth: 120,
@@ -571,6 +572,7 @@ const gridStyle = computed(() => (
     : { width: '100%', height: '420px' }
 ))
 
+
 function updateGridSize(): void {
   // Wait for DOM/layout changes, then notify grid to fit columns
   nextTick(() => {
@@ -897,7 +899,7 @@ function buildLocalAgentsColumns(): ColDef[] {
     idCol,
     { headerName: 'Address', field: 'street_address', sortable: true, filter: true },
     { headerName: 'City', field: 'city', sortable: true, filter: true },
-    { headerName: 'State', field: 'state', sortable: true, filter: true, width: 110, maxWidth: 120 },
+    { headerName: 'State', field: 'state', sortable: true, filter: true, width: 100, minWidth: 100, maxWidth: 90 },
     { headerName: 'Current Balance', field: 'current_balance', sortable: true, filter: true, valueFormatter: numberNoDecimalFormatter, width: 160 },
     { headerName: 'Total Debt', field: 'total_debt', sortable: true, filter: true, valueFormatter: numberNoDecimalFormatter, width: 140 },
     { headerName: 'Seller As Is', field: 'seller_asis_value', sortable: true, filter: true, valueFormatter: numberNoDecimalFormatter, width: 140 },
@@ -1076,7 +1078,13 @@ onMounted(async () => {
       cellRendererParams: { onAction: onRowAction },
     }
 
-    columnDefs.value = [actionsCol, ...generated]
+    // Use default column sizing from AG Grid auto-resize
+    const optimizedColumns = generated.map(col => {
+      // Return columns without custom sizing
+      return col;
+    })
+
+    columnDefs.value = [actionsCol, ...optimizedColumns]
     
     // Ensure property_type and occupancy are visible and not hidden
     columnDefs.value = columnDefs.value.map(col => {
