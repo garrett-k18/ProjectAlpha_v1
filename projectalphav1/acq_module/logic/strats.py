@@ -231,6 +231,57 @@ def current_balance_stratification_dynamic(
     if not qs.exists():
         return []
 
+    # Typed zero for Decimal (used by Coalesce to avoid NULL in sums)
+    zero_dec = Value(Decimal("0.00"), output_field=DecimalField(max_digits=15, decimal_places=2))
+
+    # Rule-based path, keyed off max(current_balance)
+    # Docs: Django aggregation and annotate APIs
+    max_only = qs.aggregate(mx=Max("current_balance"))
+    max_v: Decimal = max_only.get("mx") or Decimal("0.00")
+    rule_edges = _rule_edges_for_max(max_v)
+    if rule_edges:
+        total_bands = len(rule_edges) + 1
+        results: List[Dict[str, object]] = []
+        for i in range(total_bands):
+            if i == 0:
+                # First band: current_balance < edge0
+                lo: Optional[Decimal] = None
+                hi: Optional[Decimal] = rule_edges[0]
+                bin_qs = qs.filter(current_balance__lt=hi)
+            elif i == total_bands - 1:
+                # Last band: current_balance >= last edge
+                lo = rule_edges[-1]
+                hi = None
+                bin_qs = qs.filter(current_balance__gte=lo)
+            else:
+                # Middle bands: [edge_{i-1}, edge_i)
+                lo = rule_edges[i - 1]
+                hi = rule_edges[i]
+                bin_qs = qs.filter(current_balance__gte=lo, current_balance__lt=hi)
+
+            cnt = bin_qs.count()
+            aggs = bin_qs.aggregate(
+                upb=Coalesce(Sum("current_balance"), zero_dec),
+                td=Coalesce(Sum("total_debt"), zero_dec),
+                asis=Coalesce(Sum("seller_asis_value"), zero_dec),
+            )
+            label = _band_label(lo, hi, i + 1, total_bands)
+            results.append({
+                "key": str(i + 1),
+                "index": i + 1,
+                "lower": lo,
+                "upper": hi,
+                "count": int(cnt),
+                "sum_current_balance": aggs.get("upb") or Decimal("0.00"),
+                "sum_total_debt": aggs.get("td") or Decimal("0.00"),
+                "sum_seller_asis_value": aggs.get("asis") or Decimal("0.00"),
+                "label": label,
+            })
+        # Keep zero-count bands visible to maintain consistent 5-band layout
+        return results
+
+    # Per product decision: no equal-frequency fallback; return empty if no rule match.
+    return []
 
 # ---------------------------------------------------------------------------
 # Delinquency (Days DLQ) stratification (categorical ranges)
@@ -317,57 +368,6 @@ def delinquency_stratification_categorical(
         })
 
     return results
-
-    # Typed zero for Decimal
-    zero_dec = Value(Decimal("0.00"), output_field=DecimalField(max_digits=15, decimal_places=2))
-
-    # Rule-based path, keyed off max(current_balance)
-    max_only = qs.aggregate(mx=Max("current_balance"))
-    max_v: Decimal = max_only.get("mx") or Decimal("0.00")
-    rule_edges = _rule_edges_for_max(max_v)
-    if rule_edges:
-        total_bands = len(rule_edges) + 1
-        results: List[Dict[str, object]] = []
-        for i in range(total_bands):
-            if i == 0:
-                # First band: < edge0
-                lo = None
-                hi = rule_edges[0]
-                bin_qs = qs.filter(current_balance__lt=hi)
-            elif i == total_bands - 1:
-                # Last band: >= last edge
-                lo = rule_edges[-1]
-                hi = None
-                bin_qs = qs.filter(current_balance__gte=lo)
-            else:
-                # Middle bands: [edge_{i-1}, edge_i)
-                lo = rule_edges[i - 1]
-                hi = rule_edges[i]
-                bin_qs = qs.filter(current_balance__gte=lo, current_balance__lt=hi)
-
-            cnt = bin_qs.count()
-            aggs = bin_qs.aggregate(
-                upb=Coalesce(Sum("current_balance"), zero_dec),
-                td=Coalesce(Sum("total_debt"), zero_dec),
-                asis=Coalesce(Sum("seller_asis_value"), zero_dec),
-            )
-            label = _band_label(lo, hi, i + 1, total_bands)
-            results.append({
-                "key": str(i + 1),
-                "index": i + 1,
-                "lower": lo,
-                "upper": hi,
-                "count": int(cnt),
-                "sum_current_balance": aggs.get("upb") or Decimal("0.00"),
-                "sum_total_debt": aggs.get("td") or Decimal("0.00"),
-                "sum_seller_asis_value": aggs.get("asis") or Decimal("0.00"),
-                "label": label,
-            })
-        # Keep zero-count bands visible to maintain consistent 5-band layout
-        return results
-
-    # Per product decision: no equal-frequency fallback; return empty if no rule match.
-    return []
 
 
 def property_type_stratification_categorical(

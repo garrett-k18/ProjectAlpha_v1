@@ -124,6 +124,14 @@
       <b-col xl="4" lg="12">
         <EngagementOverview />
       </b-col>
+      <b-col xl="4" lg="12">
+        <DocumentsQuickView
+          title="Document Quick View"
+          :docs="docItems"
+          :maxItems="5"
+          :showViewAll="false"
+        />
+      </b-col>
     </b-row>
 
     
@@ -181,6 +189,8 @@ import LtvScatterChart from "@/views/dashboards/acquisitions/components/ltvscatt
 import EngagementOverview from "@/views/dashboards/acquisitions/overview.vue";
 import VectorMap from "@/views/dashboards/acquisitions/vectorMap.vue";
 import Widgets from "@/views/dashboards/acquisitions/widgets.vue";
+import DocumentsQuickView from "@/1_global/components/DocumentsQuickView.vue";
+import type { DocumentItem } from "@/1_global/components/DocumentsQuickView.vue";
 // AG Grid: modular data grid component for acquisitions dashboard
 import DataGrid from "@/views/dashboards/acquisitions/data-grid.vue";
 // BootstrapVue Next modal component (Vue 3 compatible)
@@ -190,7 +200,7 @@ import LoanLevelIndex from '@/views/acq_module/loanlvl/loanlvl_index.vue'
 // Selections store + helpers
 import { useAcqSelectionsStore } from '@/stores/acqSelections'
 import { storeToRefs } from 'pinia'
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch, onMounted, computed } from 'vue'
 // Centralized Axios instance (baseURL='/api')
 import http from '@/lib/http'
 
@@ -218,6 +228,7 @@ export default {
     // Register modal + loan-level wrapper
     BModal,
     LoanLevelIndex,
+    DocumentsQuickView,
   },
   setup() {
     // Local lists for options
@@ -277,6 +288,36 @@ export default {
       }
     })
 
+    // Documents Quick View placeholder items (to be wired to real data)
+    const docItems = computed<DocumentItem[]>(() => {
+      return [
+        {
+          id: 'pdf-bpo',
+          name: 'BPO.pdf',
+          type: 'application/pdf',
+          sizeBytes: Math.round(2.3 * 1024 * 1024),
+          previewUrl: '#',
+          downloadUrl: '#',
+        },
+        {
+          id: 'pdf-appraisal',
+          name: 'Appraisal.pdf',
+          type: 'application/pdf',
+          sizeBytes: Math.round(3.25 * 1024 * 1024),
+          previewUrl: '#',
+          downloadUrl: '#',
+        },
+        {
+          id: 'doc-memo',
+          name: 'Memo.docx',
+          type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          sizeBytes: Math.round(7.05 * 1024 * 1024),
+          previewUrl: '#',
+          downloadUrl: '#',
+        },
+      ]
+    })
+
     // Function to reset all selections
     function resetSelections(): void {
       selectedSellerId.value = null;
@@ -291,6 +332,7 @@ export default {
       selectedSellerId,
       selectedTradeId,
       resetSelections,
+      docItems,
     }
   },
   data() {

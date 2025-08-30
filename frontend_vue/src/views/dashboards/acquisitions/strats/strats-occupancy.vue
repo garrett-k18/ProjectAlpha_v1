@@ -4,7 +4,7 @@
       <h4 class="header-title">Occupancy</h4>
     </div>
 
-    <div class="card-body pt-0">
+    <div :class="['card-body', 'pt-0', hasRows ? 'strat-card-body' : '']">
       <!-- Error state -->
       <div v-if="errorOccupancy" class="alert alert-danger d-flex align-items-center my-3" role="alert">
         <i class="mdi mdi-alert-circle-outline me-2"></i>
@@ -130,5 +130,13 @@ function formatCurrencyNoDecimals(n: number): string {
 .bands-table.table-striped {
   --bs-table-striped-bg: rgba(13, 110, 253, 0.06); /* light primary */
   --bs-table-striped-color: inherit; /* keep text color normal */
+}
+
+/* Ensure consistent vertical size across strat cards by reserving space.
+   Uses minimal custom CSS per project rules; prefers utilities otherwise. */
+.strat-card-body {
+  min-height: 280px; /* adjust if needed to align with tallest card */
+  display: flex;
+  flex-direction: column;
 }
 </style>

@@ -128,6 +128,7 @@ def get_seller_rawdata_field_names(request):
         'zip',
         'property_type',
         'occupancy',
+        'as_of_date',
         'current_balance',
         'deferred_balance',
         'total_debt',
