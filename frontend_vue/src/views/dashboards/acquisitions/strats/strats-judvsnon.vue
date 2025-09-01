@@ -12,7 +12,7 @@
     </div>
 
     <!-- Card body: table with two rows -->
-    <div class="card-body pt-0">
+    <div :class="['card-body', 'pt-0', hasData ? 'strat-card-body' : '']">
       <!-- Loading state -->
       <div v-if="isLoading" class="text-muted small py-3 d-flex align-items-center justify-content-center text-center">
         <i class="mdi mdi-loading mdi-spin me-1"></i> Loading...
@@ -207,4 +207,12 @@ function formatCurrency(n: number): string {
 <style scoped>
 /* Keep visuals subtle and aligned with other cards */
 .font-14 { font-size: 14px; }
+
+/* Ensure consistent vertical size across strat cards by reserving space.
+   Uses minimal custom CSS per project rules; prefers utilities otherwise. */
+.strat-card-body {
+  min-height: 280px; /* adjust if needed to align with tallest card */
+  display: flex;
+  flex-direction: column;
+}
 </style>

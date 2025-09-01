@@ -33,8 +33,13 @@ from django.db.models import (
     Max,
     Sum,
     Value,
+    F,
+    ExpressionWrapper,
+    DurationField,
+    IntegerField,
+    FloatField,
 )
-from django.db.models.functions import Coalesce
+from django.db.models.functions import Coalesce, Cast, Extract
 # NTILE-based equal-frequency fallback removed per product decision.
 
 # Local selector helper (centralized seller+trade filtering)
@@ -194,7 +199,7 @@ def _rule_edges_for_max(max_v: Decimal) -> Optional[List[Decimal]]:
     if mv < Decimal('2000000'):
         return [Decimal('500000'), Decimal('1000000'), Decimal('1500000'), Decimal('2000000')]
     return None
-
+    
 
 
 def current_balance_stratification_dynamic(
@@ -226,10 +231,11 @@ def current_balance_stratification_dynamic(
     if not qs.exists():
         return []
 
-    # Typed zero for Decimal
+    # Typed zero for Decimal (used by Coalesce to avoid NULL in sums)
     zero_dec = Value(Decimal("0.00"), output_field=DecimalField(max_digits=15, decimal_places=2))
 
     # Rule-based path, keyed off max(current_balance)
+    # Docs: Django aggregation and annotate APIs
     max_only = qs.aggregate(mx=Max("current_balance"))
     max_v: Decimal = max_only.get("mx") or Decimal("0.00")
     rule_edges = _rule_edges_for_max(max_v)
@@ -238,12 +244,12 @@ def current_balance_stratification_dynamic(
         results: List[Dict[str, object]] = []
         for i in range(total_bands):
             if i == 0:
-                # First band: < edge0
-                lo = None
-                hi = rule_edges[0]
+                # First band: current_balance < edge0
+                lo: Optional[Decimal] = None
+                hi: Optional[Decimal] = rule_edges[0]
                 bin_qs = qs.filter(current_balance__lt=hi)
             elif i == total_bands - 1:
-                # Last band: >= last edge
+                # Last band: current_balance >= last edge
                 lo = rule_edges[-1]
                 hi = None
                 bin_qs = qs.filter(current_balance__gte=lo)
@@ -277,6 +283,309 @@ def current_balance_stratification_dynamic(
     # Per product decision: no equal-frequency fallback; return empty if no rule match.
     return []
 
+# ---------------------------------------------------------------------------
+# Delinquency (Days DLQ) stratification (categorical ranges)
+# ---------------------------------------------------------------------------
+def delinquency_stratification_categorical(
+    seller_id: int,
+    trade_id: int,
+) -> List[Dict[str, object]]:
+    """Return categorical stratification by days delinquent (days_dlq).
+
+    Business bands (inclusive of lower bound, exclusive of upper, except last):
+      - Current:       days_dlq < 30
+      - 30 Days:      30 <= days_dlq < 60
+      - 60 Days:      60 <= days_dlq < 90
+      - 90 Days:      90 <= days_dlq < 120
+      - 120 Days:     120 <= days_dlq < 150
+      - 120+ Days:    days_dlq >= 150
+
+    Notes:
+    - We compute days_dlq in the database as (as_of_date - next_due_date), then
+      convert the interval to total seconds via EXTRACT(EPOCH) and into whole days.
+    - Rows with null dates are excluded from banding to avoid misleading results.
+    - Output shape mirrors other stratifications for frontend consistency.
+
+    Docs reviewed:
+    - Django duration arithmetic: https://docs.djangoproject.com/en/stable/ref/models/expressions/#arithmetic-with-date-and-datetime
+    - Extract (epoch) semantics on PostgreSQL: https://www.postgresql.org/docs/current/functions-datetime.html
+    """
+    # Base queryset with required date fields present only
+    qs = (
+        sellertrade_qs(seller_id, trade_id)
+        .exclude(as_of_date__isnull=True)
+        .exclude(next_due_date__isnull=True)
+    )
+
+    if not qs.exists():
+        return []
+
+    # Typed zero for Decimal sums
+    zero_dec = Value(Decimal("0.00"), output_field=DecimalField(max_digits=15, decimal_places=2))
+
+    # Annotate interval and whole-day delinquency using DB computation
+    qs = qs.annotate(
+        dlq_interval=ExpressionWrapper(
+            F('as_of_date') - F('next_due_date'),
+            output_field=DurationField(),
+        )
+    ).annotate(
+        days_dlq=Cast(
+            ExpressionWrapper(Extract(F('dlq_interval'), 'epoch') / 86400.0, output_field=FloatField()),
+            output_field=IntegerField(),
+        )
+    )
+
+    # Define ordered bands with label and a lambda that filters qs by day range
+    bands_def = [
+        ("Current",       lambda q: q.filter(days_dlq__lt=30)),
+        ("30 Days",       lambda q: q.filter(days_dlq__gte=30, days_dlq__lt=60)),
+        ("60 Days",       lambda q: q.filter(days_dlq__gte=60, days_dlq__lt=90)),
+        ("90 Days",       lambda q: q.filter(days_dlq__gte=90, days_dlq__lt=120)),
+        ("120 Days",      lambda q: q.filter(days_dlq__gte=120, days_dlq__lt=150)),
+        ("120+ Days",     lambda q: q.filter(days_dlq__gte=150)),
+    ]
+
+    results: List[Dict[str, object]] = []
+    for i, (label, filtr) in enumerate(bands_def, start=1):
+        bin_qs = filtr(qs)
+        cnt = bin_qs.count()
+        aggs = bin_qs.aggregate(
+            upb=Coalesce(Sum("current_balance"), zero_dec),
+            td=Coalesce(Sum("total_debt"), zero_dec),
+            asis=Coalesce(Sum("seller_asis_value"), zero_dec),
+        )
+        results.append({
+            "key": str(i),
+            "index": i,
+            "lower": None,   # categorical label-driven, not numeric bounds
+            "upper": None,
+            "count": int(cnt),
+            "sum_current_balance": aggs.get("upb") or Decimal("0.00"),
+            "sum_total_debt": aggs.get("td") or Decimal("0.00"),
+            "sum_seller_asis_value": aggs.get("asis") or Decimal("0.00"),
+            "label": label,
+        })
+
+    return results
+
+
+def property_type_stratification_categorical(
+    seller_id: int,
+    trade_id: int,
+) -> List[Dict[str, object]]:
+    """Return categorical stratification aggregated by `property_type`.
+
+    Behavior:
+    - Groups `SellerRawData` records by the categorical field `property_type`.
+    - Aggregates counts and sums of `current_balance`, `total_debt`, and `seller_asis_value`.
+    - Returns a list of dicts in a consistent order based on model-defined choices.
+
+    Output item shape matches other stratification endpoints:
+      {
+        key: str,              # property_type code
+        index: int,            # 1-based order
+        lower: None,           # not applicable for categorical
+        upper: None,           # not applicable for categorical
+        count: int,
+        sum_current_balance: Decimal,
+        sum_total_debt: Decimal,
+        sum_seller_asis_value: Decimal,
+        label: str             # human-friendly label
+      }
+    """
+    # Local import to avoid any potential circular import issues on app load
+    from ..models.seller import SellerRawData
+
+    # Base queryset filtered by selection; exclude null/blank property types to be safe
+    qs = (
+        sellertrade_qs(seller_id, trade_id)
+        .exclude(property_type__isnull=True)
+        .exclude(property_type__exact="")
+    )
+
+    # If empty selection, return no bands
+    if not qs.exists():
+        return []
+
+    # Typed zero for Decimal sums used by Coalesce so JSON always sees strings
+    zero_dec = Value(Decimal("0.00"), output_field=DecimalField(max_digits=15, decimal_places=2))
+
+    # Single query to aggregate by property_type
+    rows = (
+        qs.values("property_type")
+        .annotate(
+            count=Count("id"),
+            sum_current_balance=Coalesce(Sum("current_balance"), zero_dec),
+            sum_total_debt=Coalesce(Sum("total_debt"), zero_dec),
+            sum_seller_asis_value=Coalesce(Sum("seller_asis_value"), zero_dec),
+        )
+    )
+
+    # Index aggregated results by code for fast lookup
+    by_code: Dict[str, Dict[str, object]] = {r["property_type"]: r for r in rows}
+
+    # Preserve choice order from the model. Include zero-count placeholders for missing categories.
+    results: List[Dict[str, object]] = []
+    idx = 1
+    for code, label in getattr(SellerRawData, "PROPERTY_TYPE_CHOICES", []) or []:
+        r = by_code.get(code)
+        if r is None:
+            # Build a zeroed row to keep UI consistent even if category absent
+            results.append({
+                "key": str(code),
+                "index": idx,
+                "lower": None,
+                "upper": None,
+                "count": 0,
+                "sum_current_balance": Decimal("0.00"),
+                "sum_total_debt": Decimal("0.00"),
+                "sum_seller_asis_value": Decimal("0.00"),
+                "label": str(label),
+            })
+        else:
+            results.append({
+                "key": str(code),
+                "index": idx,
+                "lower": None,
+                "upper": None,
+                "count": int(r.get("count", 0)),
+                "sum_current_balance": r.get("sum_current_balance") or Decimal("0.00"),
+                "sum_total_debt": r.get("sum_total_debt") or Decimal("0.00"),
+                "sum_seller_asis_value": r.get("sum_seller_asis_value") or Decimal("0.00"),
+                "label": str(label),
+            })
+        idx += 1
+
+    # There could be unexpected codes not present in choices (legacy data). Append them at the end.
+    known_codes = {code for code, _ in getattr(SellerRawData, "PROPERTY_TYPE_CHOICES", []) or []}
+    for code, r in by_code.items():
+        if code in known_codes:
+            continue
+        results.append({
+            "key": str(code),
+            "index": idx,
+            "lower": None,
+            "upper": None,
+            "count": int(r.get("count", 0)),
+            "sum_current_balance": r.get("sum_current_balance") or Decimal("0.00"),
+            "sum_total_debt": r.get("sum_total_debt") or Decimal("0.00"),
+            "sum_seller_asis_value": r.get("sum_seller_asis_value") or Decimal("0.00"),
+            "label": str(code or "Unknown"),
+        })
+        idx += 1
+
+    return results
+
+
+def occupancy_stratification_categorical(
+    seller_id: int,
+    trade_id: int,
+) -> List[Dict[str, object]]:
+    """Return categorical stratification aggregated by `occupancy`.
+
+    Behavior mirrors `property_type_stratification_categorical()` but groups by
+    the `SellerRawData.occupancy` field using model-defined `OCCUPANCY_CHOICES`.
+
+    Output item shape matches other stratification endpoints:
+      {
+        key: str,              # occupancy code (e.g., 'Vacant')
+        index: int,            # 1-based order based on choices
+        lower: None,           # not applicable for categorical
+        upper: None,           # not applicable for categorical
+        count: int,            # asset count
+        sum_current_balance: Decimal,
+        sum_total_debt: Decimal,
+        sum_seller_asis_value: Decimal,
+        label: str             # human-friendly label from choices
+      }
+
+    Docs reviewed:
+    - Django aggregation and values/annotate: https://docs.djangoproject.com/en/stable/topics/db/aggregation/
+    - Coalesce to avoid NULL in sums: https://docs.djangoproject.com/en/stable/ref/models/database-functions/#coalesce
+    """
+    # Local import to avoid circulars at app load time
+    from ..models.seller import SellerRawData
+
+    # Base queryset filtered by selection; exclude null/blank occupancy
+    qs = (
+        sellertrade_qs(seller_id, trade_id)
+        .exclude(occupancy__isnull=True)
+        .exclude(occupancy__exact="")
+    )
+
+    # If no matching rows for selection, return empty list for predictable UI
+    if not qs.exists():
+        return []
+
+    # Typed zero for Decimal sums so JSON serializer yields strings consistently
+    zero_dec = Value(Decimal("0.00"), output_field=DecimalField(max_digits=15, decimal_places=2))
+
+    # Aggregate in a single query by occupancy
+    rows = (
+        qs.values("occupancy")
+        .annotate(
+            count=Count("id"),
+            sum_current_balance=Coalesce(Sum("current_balance"), zero_dec),
+            sum_total_debt=Coalesce(Sum("total_debt"), zero_dec),
+            sum_seller_asis_value=Coalesce(Sum("seller_asis_value"), zero_dec),
+        )
+    )
+
+    # Index rows by occupancy code for fast lookup during ordered assembly
+    by_code: Dict[str, Dict[str, object]] = {r["occupancy"]: r for r in rows}
+
+    # Walk model choices in order to build the results, inserting zero rows for
+    # categories missing from the dataset so the UI always shows a stable table.
+    results: List[Dict[str, object]] = []
+    idx = 1
+    for code, label in getattr(SellerRawData, "OCCUPANCY_CHOICES", []) or []:
+        r = by_code.get(code)
+        if r is None:
+            results.append({
+                "key": str(code),
+                "index": idx,
+                "lower": None,
+                "upper": None,
+                "count": 0,
+                "sum_current_balance": Decimal("0.00"),
+                "sum_total_debt": Decimal("0.00"),
+                "sum_seller_asis_value": Decimal("0.00"),
+                "label": str(label),
+            })
+        else:
+            results.append({
+                "key": str(code),
+                "index": idx,
+                "lower": None,
+                "upper": None,
+                "count": int(r.get("count", 0)),
+                "sum_current_balance": r.get("sum_current_balance") or Decimal("0.00"),
+                "sum_total_debt": r.get("sum_total_debt") or Decimal("0.00"),
+                "sum_seller_asis_value": r.get("sum_seller_asis_value") or Decimal("0.00"),
+                "label": str(label),
+            })
+        idx += 1
+
+    # Append any unexpected codes not listed in choices (legacy data) at the end
+    known_codes = {code for code, _ in getattr(SellerRawData, "OCCUPANCY_CHOICES", []) or []}
+    for code, r in by_code.items():
+        if code in known_codes:
+            continue
+        results.append({
+            "key": str(code),
+            "index": idx,
+            "lower": None,
+            "upper": None,
+            "count": int(r.get("count", 0)),
+            "sum_current_balance": r.get("sum_current_balance") or Decimal("0.00"),
+            "sum_total_debt": r.get("sum_total_debt") or Decimal("0.00"),
+            "sum_seller_asis_value": r.get("sum_seller_asis_value") or Decimal("0.00"),
+            "label": str(code or "Unknown"),
+        })
+        idx += 1
+
+    return results
 
 def wac_stratification_static(
     seller_id: int,

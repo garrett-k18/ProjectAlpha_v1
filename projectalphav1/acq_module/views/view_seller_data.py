@@ -45,7 +45,11 @@ from ..logic.strats import (
     seller_asis_value_stratification_dynamic,
     judicial_stratification_dynamic,
     wac_stratification_static,
+    property_type_stratification_categorical,
+    occupancy_stratification_categorical,
+    delinquency_stratification_categorical,
 )
+from ..logic.ll_metrics import get_ltv_scatter_data
 
 # Module-level logger
 logger = logging.getLogger(__name__)
@@ -124,6 +128,7 @@ def get_seller_rawdata_field_names(request):
         'zip',
         'property_type',
         'occupancy',
+        'as_of_date',
         'current_balance',
         'deferred_balance',
         'total_debt',
@@ -460,6 +465,91 @@ def get_wac_stratification(request, seller_id, trade_id):
 
 
 @api_view(['GET'])
+def get_property_type_stratification(request, seller_id, trade_id):
+    """Return categorical Property Type stratification for the seller/trade.
+
+    Uses: logic.strats.property_type_stratification_categorical()
+
+    Response (list[object]): same shape as other stratifications with keys:
+    key, index, lower=null, upper=null, count, sum_current_balance, sum_total_debt,
+    sum_seller_asis_value, label.
+    """
+    # Enforce data siloing: require BOTH seller_id and trade_id
+    if not seller_id or not trade_id:
+        return JsonResponse([], safe=False)
+
+    try:
+        bands = property_type_stratification_categorical(seller_id, trade_id)
+        return JsonResponse(bands, safe=False)
+    except Exception as e:
+        logger.exception(
+            "Property Type stratification failed for seller_id=%s trade_id=%s", seller_id, trade_id
+        )
+        return JsonResponse({
+            'error': 'Failed to retrieve Property Type stratification',
+            'details': str(e),
+        }, status=500)
+
+
+@api_view(['GET'])
+def get_occupancy_stratification(request, seller_id, trade_id):
+    """Return categorical Occupancy stratification for the seller/trade.
+
+    Uses: logic.strats.occupancy_stratification_categorical()
+
+    Response (list[object]): same shape as other stratifications with keys:
+    key, index, lower=null, upper=null, count, sum_current_balance, sum_total_debt,
+    sum_seller_asis_value, label.
+
+    Docs reviewed:
+    - DRF function-based views: https://www.django-rest-framework.org/api-guide/views/#function-based-views
+    - Django JsonResponse behavior with Decimals: https://docs.djangoproject.com/en/stable/ref/request-response/#jsonresponse-objects
+    """
+    # Enforce data siloing: require BOTH seller_id and trade_id
+    if not seller_id or not trade_id:
+        return JsonResponse([], safe=False)
+
+    try:
+        bands = occupancy_stratification_categorical(seller_id, trade_id)
+        return JsonResponse(bands, safe=False)
+    except Exception as e:
+        logger.exception(
+            "Occupancy stratification failed for seller_id=%s trade_id=%s", seller_id, trade_id
+        )
+        return JsonResponse({
+            'error': 'Failed to retrieve Occupancy stratification',
+            'details': str(e),
+        }, status=500)
+
+
+@api_view(['GET'])
+def get_delinquency_stratification(request, seller_id, trade_id):
+    """Return Delinquency (days past due) stratification for the seller/trade.
+
+    Uses: logic.strats.delinquency_stratification_categorical()
+
+    Response (list[object]): same shape as other stratifications with keys:
+    key, index, lower=null, upper=null, count, sum_current_balance, sum_total_debt,
+    sum_seller_asis_value, label (e.g., "Current", "30 Days", ...).
+    """
+    # Enforce data siloing: require BOTH seller_id and trade_id
+    if not seller_id or not trade_id:
+        return JsonResponse([], safe=False)
+
+    try:
+        bands = delinquency_stratification_categorical(seller_id, trade_id)
+        return JsonResponse(bands, safe=False)
+    except Exception as e:
+        logger.exception(
+            "Delinquency stratification failed for seller_id=%s trade_id=%s", seller_id, trade_id
+        )
+        return JsonResponse({
+            'error': 'Failed to retrieve Delinquency stratification',
+            'details': str(e),
+        }, status=500)
+
+
+@api_view(['GET'])
 def get_judicial_stratification(request, seller_id, trade_id):
     """Return Judicial vs Non-Judicial stratification for the seller/trade."""
     try:
@@ -470,3 +560,39 @@ def get_judicial_stratification(request, seller_id, trade_id):
     except Exception as e:
         logger.exception(f"Error in judicial stratification for seller {seller_id}, trade {trade_id}: {e}")
         return JsonResponse({'error': 'Failed to retrieve judicial stratification'}, status=500)
+
+
+@api_view(['GET'])
+def get_ltv_scatter_data_view(request, seller_id, trade_id):
+    """Return LTV scatter data for the selected seller/trade.
+    
+    Uses: logic.ll_metrics.get_ltv_scatter_data()
+    
+    Response (list[object]):
+    [
+        {
+            "id": str,                       # SellerRawData primary key
+            "current_balance": Decimal,     # Y-axis value (JSON-serialized as string)
+            "seller_asis_value": Decimal,   # X-axis value (JSON-serialized as string)
+            "ltv": Decimal                  # LTV percentage (JSON-serialized as string)
+        },
+        ...
+    ]
+    
+    Guards:
+    - When either id is missing, return [].
+    - Records with null LTV (due to zero/null seller_asis_value) are excluded.
+    """
+    if not seller_id or not trade_id:
+        return JsonResponse([], safe=False)
+    
+    try:
+        # Get LTV data from our helper function
+        data = get_ltv_scatter_data(seller_id, trade_id)
+        return JsonResponse(data, safe=False)
+    except Exception as e:
+        logger.exception(f"LTV scatter data failed for seller_id={seller_id} trade_id={trade_id}: {e}")
+        return JsonResponse({
+            "error": "Failed to compute LTV scatter data. Please try again later.",
+            "details": str(e),
+        }, status=500)

@@ -18,6 +18,11 @@ from .views.view_seller_data import (
     get_seller_asis_value_stratification,
     get_wac_stratification,
     get_judicial_stratification,
+    get_property_type_stratification,
+    get_occupancy_stratification,
+    get_delinquency_stratification,
+    # LTV scatter chart data
+    get_ltv_scatter_data_view,
 )
 from .views.state_reference_api import get_judicial_states
 from .views.photos_api import (
@@ -99,6 +104,14 @@ urlpatterns = [
     path('summary/strat/wac/<int:seller_id>/<int:trade_id>/', get_wac_stratification, name='api_wac_stratification'),
     # Judicial vs Non-Judicial stratification
     path('summary/strat/judicial/<int:seller_id>/<int:trade_id>/', get_judicial_stratification, name='api_judicial_stratification'),
+    # Property Type stratification (categorical)
+    path('summary/strat/property-type/<int:seller_id>/<int:trade_id>/', get_property_type_stratification, name='api_property_type_stratification'),
+    # Occupancy stratification (categorical)
+    path('summary/strat/occupancy/<int:seller_id>/<int:trade_id>/', get_occupancy_stratification, name='api_occupancy_stratification'),
+    # Delinquency (days past due) stratification (categorical ranges)
+    path('summary/strat/delinquency/<int:seller_id>/<int:trade_id>/', get_delinquency_stratification, name='api_delinquency_stratification'),
+    # LTV scatter chart data
+    path('summary/ltv-scatter/<int:seller_id>/<int:trade_id>/', get_ltv_scatter_data_view, name='api_ltv_scatter_data'),
     # State reference endpoints
     path('state-references/judicial/', get_judicial_states, name='api_judicial_states'),
 ]

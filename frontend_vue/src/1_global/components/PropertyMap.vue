@@ -6,15 +6,14 @@
     (full-page context, where this component will fetch the row itself).
     Uses vue3-google-map with an external async loader and a Vite env API key.
   -->
-  <div class="card">
-    <div class="card-body d-flex flex-column p-0">
+  <div :class="bare ? '' : 'card'">
+    <div :class="['d-flex', 'flex-column', 'p-0', 'h-100', 'position-relative', bare ? '' : 'card-body']">
       <!-- Map fills entire card body (no header) -->
-      <div class="flex-grow-1">
+      <div :class="['position-absolute', 'top-0', 'bottom-0', 'start-0', 'end-0']" :style="containerStyle">
         <GoogleMap
-          v-if="mapCenter"
           :api-promise="googleApiPromise"
           :zoom="zoom"
-          :center="mapCenter"
+          :center="effectiveCenter"
           :street-view-control="true"
           :map-type-control="true"
           :map-type-id="defaultMapType"
@@ -23,14 +22,12 @@
           :clickable-icons="false"
           :disable-default-ui="false"
           :map-id="mapId"
-          :style="{ height: typeof height === 'number' ? `${height}px` : (height || '100%'), width: '100%' }"
+          :style="{ height: '100%', width: '100%' }"
         >
           <!-- Use AdvancedMarker when a vector Map ID is configured; otherwise fall back to legacy Marker -->
           <AdvancedMarker v-if="showMarker && markerPosition && useAdvanced" :options="{ position: markerPosition }" />
           <Marker v-else-if="showMarker && markerPosition" :options="{ position: markerPosition }" />
         </GoogleMap>
-        <div v-else class="text-muted small d-flex align-items-center justify-content-center h-100">Loading map…</div>
-
         <div v-if="geocodeError" class="text-danger small m-2">{{ geocodeError }}</div>
       </div>
     </div>
@@ -64,6 +61,8 @@ const props = withDefaults(defineProps<{
   showMarker?: boolean
   /** Default base map type; allows built-in toggle to Satellite/Map without custom JS */
   defaultMapType?: MapType
+  /** When true, render without the outer card wrapper for embedding inside existing cards */
+  bare?: boolean
 }>(), {
   row: null,
   productId: null,
@@ -75,6 +74,7 @@ const props = withDefaults(defineProps<{
   height: 300,
   showMarker: true,
   defaultMapType: 'roadmap',
+  bare: false,
 })
 
 // Read API key from Vite env (kept for potential future usage)
@@ -108,6 +108,17 @@ const fullAddress = computed<string | null>(() => {
 const mapCenter = ref<{ lat: number; lng: number } | null>(null)
 const markerPosition = ref<{ lat: number; lng: number } | null>(null)
 const geocodeError = ref<string>('')
+
+// Resolve a concrete CSS height for the container so loading/fallback also have space
+const containerStyle = computed(() => {
+  const h = props.height
+  const heightCss = typeof h === 'number' ? `${h}px` : (h || '300px')
+  return { height: heightCss, width: '100%' }
+})
+
+// Provide a sane default center so the map can render immediately
+const defaultCenter = { lat: 39.5, lng: -98.35 } // Approximate center of the contiguous US
+const effectiveCenter = computed(() => mapCenter.value ?? defaultCenter)
 
 // Fetch the row by id when needed
 async function loadRowById(id: number) {
