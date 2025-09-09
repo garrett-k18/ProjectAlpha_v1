@@ -2,17 +2,15 @@
   <!-- Snapshot tab content used inside the product details modal.
        This component intentionally excludes page-level wrappers (Layout, Breadcrumb)
        so it can be embedded within a modal body. -->
-  <div class="overflow-hidden">
+  <div class="px-3 px-lg-4">
     <!-- Top summary row with photos and quick facts -->
-    <!-- Keep gutters on row; apply horizontal padding on a wrapper to avoid row negative-margin overflow in modal -->
-    <div class="px-3 px-lg-4">
-      <b-row class="g-3 g-lg-4 align-items-stretch justify-content-center">
+    <b-row class="g-3 align-items-stretch">
       <!-- First column: Photo carousel area, displays images and thumbnails -->
       <b-col lg="4" class="d-flex">
         <!-- Match Hyper UI card look used by Details/Map: white background + subtle shadow -->
         <div class="w-100 h-100">
           <div class="card h-100 d-flex flex-column">
-            <div class="card-body d-flex flex-column h-100 overflow-hidden">
+            <div class="card-body pt-0 d-flex flex-column h-100 overflow-hidden">
               <!-- Reusable global PhotoCarousel component displays product/asset images -->
               <!-- Show carousel only when we have images; otherwise show a small placeholder -->
               <PhotoCarousel
@@ -41,7 +39,7 @@
       <!-- Second column: Property details area, shows dynamic details from SellerRawData -->
       <b-col lg="4" class="d-flex">
         <!-- Use the SnapshotDetails component to display property information from the row data -->
-        <div class="ps-lg-4 w-100 h-100">
+        <div class="w-100 h-100">
           <!-- Apply h-100 via root-attribute inheritance so the card fills the column height -->
           <SnapshotDetails class="h-100 d-flex flex-column" :row="row" :productId="productId" />
         </div>
@@ -49,26 +47,18 @@
       
       <!-- Third column: Property map to the right of Property details -->
       <b-col lg="4" class="d-flex">
-        <div class="ps-lg-4 w-100 h-100">
+        <div class="w-100 h-100">
           <PropertyMap class="h-100 d-flex flex-column" :row="row" :productId="productId" height="100%" />
         </div>
       </b-col>
       </b-row>
-    </div>
-
-    <!-- Documents + Valuation + Summary row (condensed grid). Place Valuation left of Documents. -->
-    <div class="px-3 px-lg-4">
-      <!-- Slightly tighter gutters so three cards fit comfortably in the modal width -->
-      <b-row class="g-2 g-lg-3 mt-1 align-items-stretch">
-        <!-- Valuation Matrix card (left, reduced) -->
+    <!-- Documents + Valuation + Summary row (match standard gutters). Place Valuation left of Documents. -->
+    <!-- Standard gutters to match other tabs -->
+    <b-row class="g-3 mt-1 align-items-stretch">
+        <!-- Valuation Matrix (component renders its own card now) -->
         <b-col lg="6" class="d-flex">
           <div class="w-100 h-100">
-            <div class="card h-100 d-flex flex-column">
-              <div class="card-body p-2">
-                <!-- Child renders only the table; parent provides the card wrapper and spacing -->
-                <ValuationMatrix :row="row" :productId="productId" />
-              </div>
-            </div>
+            <ValuationMatrix class="h-100 d-flex flex-column" :row="row" :productId="productId" />
           </div>
         </b-col>
 
@@ -98,9 +88,6 @@
         </b-col>
       </b-row>
     </div>
-
-    <!-- Valuation matrix moved into the row above, wrapped in a card for visual consistency. -->
-  </div>
 </template>
 
 <script setup lang="ts">

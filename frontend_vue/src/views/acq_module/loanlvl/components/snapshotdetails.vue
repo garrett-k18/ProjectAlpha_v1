@@ -1,7 +1,7 @@
 <template>
   <!-- Display property details horizontally using Bootstrap grid system from Hyper UI -->
   <div class="card">
-    <div class="card-body d-flex flex-column">
+    <div class="card-body pt-0 d-flex flex-column">
       <!-- Header removed as requested -->
       
       <!-- Horizontal layout using Bootstrap rows and columns -->

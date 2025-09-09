@@ -1,5 +1,5 @@
 <template>
-  <!-- Valuation matrix table only; parent provides the card wrapper and spacing -->
+  <!-- Valuation matrix table only; parent controls layout; no card wrapper -->
   <div class="table-responsive mb-0">
     <table class="table table-bordered table-centered align-middle mb-0">
       <colgroup>
@@ -124,8 +124,7 @@
 
 <script setup lang="ts">
 // valuationMatrix.vue
-// Purpose: Reusable Hyper UI/Bootstrap valuation table WITHOUT an outer card.
-// The parent component should wrap this with a single card container and control spacing.
+// Purpose: Reusable Hyper UI/Bootstrap valuation table WITHOUT an outer card wrapper.
 // Notes: Live-data only; no demo/fallback rows. When a field is missing, the cell is left blank.
 
 import { withDefaults, defineProps, computed, unref, ref, watch } from 'vue'

@@ -12,50 +12,59 @@
     </b-row>
 
     <!-- Prominent, centered selectors: MUST choose before page functions -->
-    <b-row class="mb-3">
+    <b-row class="mb-0">
       <b-col class="col-12">
         <div class="card">
-          <div class="card-body py-3">
-            <div class="d-flex flex-column align-items-center">
-              <div class="fw-bold text-center mb-2 fs-5">Select Seller and Trade</div>
-              <div class="row g-2 justify-content-center w-100">
-                <div class="col-12 col-md-4 col-lg-3">
-                  <label class="form-label fw-bold text-center w-100" for="topSellerSelect">Seller</label>
-                  <select
-                    id="topSellerSelect"
-                    class="form-select text-center"
-                    v-model="selectedSellerId"
-                    :disabled="sellersLoading"
-                  >
-                    <option :value="null">Select a seller</option>
-                    <option v-for="s in sellers" :key="s.id" :value="s.id">{{ s.name }}</option>
-                  </select>
-                </div>
-                <div class="col-12 col-md-4 col-lg-3">
-                  <label class="form-label fw-bold text-center w-100" for="topTradeSelect">Trade</label>
-                  <select
-                    id="topTradeSelect"
-                    class="form-select text-center"
-                    v-model="selectedTradeId"
-                    :disabled="!selectedSellerId || tradesLoading"
-                  >
-                    <option :value="null">Select a trade</option>
-                    <option v-for="t in trades" :key="t.id" :value="t.id">{{ t.trade_name }}</option>
-                  </select>
-                </div>
-                <!-- Reset button to the right of trade dropdown -->
-                <div class="col-auto d-flex align-items-end" v-if="selectedSellerId || selectedTradeId">
-                  <button class="btn btn-sm btn-secondary mb-1" @click="resetSelections">
-                    <i class="mdi mdi-refresh me-1"></i> Reset
-                  </button>
-                </div>
+          <div class="card-body py-1 px-2">
+            <!-- Inline toolbar layout: title on the left, then Seller/Trade selects, then Reset -->
+            <div class="d-flex flex-wrap align-items-end justify-content-center gap-2">
+              <!-- Title inline on the left of the dropdowns -->
+              <div class="fw-bold fs-6 me-2 fst-italic">Select Seller and Trade</div>
+
+              <!-- Seller select -->
+              <div class="d-flex flex-column align-items-center">
+                <label class="form-label fw-bold text-center w-100 fs-5 mb-1" for="topSellerSelect">Seller</label>
+                <select
+                  id="topSellerSelect"
+                  class="form-select form-select-sm text-center"
+                  style="width: 260px; min-width: 260px; max-width: 260px;"
+                  v-model="selectedSellerId"
+                  :disabled="sellersLoading"
+                >
+                  <option :value="null">Select a seller</option>
+                  <option v-for="s in sellers" :key="s.id" :value="s.id">{{ s.name }}</option>
+                </select>
               </div>
-              <div class="form-text text-center mt-2">
-                <span v-if="sellersLoading">Loading sellers…</span>
-                <span v-else-if="selectedSellerId && tradesLoading">Loading trades…</span>
-                <span v-else-if="selectedSellerId && !selectedTradeId">Select a trade to view data.</span>
-                <span v-else-if="!selectedSellerId">Select a seller to begin.</span>
+
+              <!-- Trade select -->
+              <div class="d-flex flex-column align-items-center">
+                <label class="form-label fw-bold text-center w-100 fs-5 mb-1" for="topTradeSelect">Trade</label>
+                <select
+                  id="topTradeSelect"
+                  class="form-select form-select-sm text-center"
+                  style="width: 260px; min-width: 260px; max-width: 260px;"
+                  v-model="selectedTradeId"
+                  :disabled="!selectedSellerId || tradesLoading"
+                >
+                  <option :value="null">Select a trade</option>
+                  <option v-for="t in trades" :key="t.id" :value="t.id">{{ t.trade_name }}</option>
+                </select>
               </div>
+
+              <!-- Reset button to the right of trade dropdown -->
+              <div class="d-flex align-items-end" v-if="selectedSellerId || selectedTradeId">
+                <button class="btn btn-sm btn-secondary mb-0" @click="resetSelections">
+                  <i class="mdi mdi-refresh me-1"></i> Reset
+                </button>
+              </div>
+            </div>
+
+            <!-- Helper text below toolbar -->
+            <div class="form-text text-center mt-0">
+              <span v-if="sellersLoading">Loading sellers…</span>
+              <span v-else-if="selectedSellerId && tradesLoading">Loading trades…</span>
+              <span v-else-if="selectedSellerId && !selectedTradeId">Select a trade to view data.</span>
+              <span v-else-if="!selectedSellerId">Select a seller to begin.</span>
             </div>
           </div>
         </div>
@@ -66,7 +75,7 @@
     <Widgets />
 
     <!-- Seller Data Tape card (AG Grid) moved directly under top metrics -->
-    <b-row class="mt-2">
+    <b-row class="mt-1">
       <b-col class="col-12">
         <!-- Pass behavior control to the grid: modal-first with onOpenLoan callback -->
         <DataGrid :open-mode="'modal'" :open-loan="onOpenLoan" :show-filters="false" />
@@ -75,14 +84,14 @@
 
     <!-- Overview removed -->
 
-    <b-row>
+    <b-row class="g-2 mt-2">
       <b-col class="col-12">
         <VectorMap />
       </b-col>
     </b-row>
 
     <!-- Stratification cards row: render all four in one row on xl screens -->
-    <b-row>
+    <b-row class="g-2 mt-2">
       <b-col xl="3" lg="6" md="12">
         <StratsCurrentBal />
       </b-col>
@@ -100,7 +109,7 @@
     <!-- Other analytics cards (System removed) -->
 
     <!-- Property Type, Occupancy, Judicial, and Delinquency stratifications (categorical) -->
-    <b-row>
+    <b-row class="g-2 mt-2">
       <b-col xl="3" lg="6" md="12">
         <StratsPropertyType />
       </b-col>
@@ -116,7 +125,7 @@
       </b-col>
     </b-row>
 
-    <b-row>
+    <b-row class="g-2 mt-2">
       <b-col xl="4" lg="6">
         <LtvScatterChart />
       </b-col>

@@ -7,7 +7,7 @@
     Uses vue3-google-map with an external async loader and a Vite env API key.
   -->
   <div :class="bare ? '' : 'card'">
-    <div :class="['d-flex', 'flex-column', 'p-0', 'h-100', 'position-relative', bare ? '' : 'card-body']">
+    <div :class="['d-flex', 'flex-column', 'p-0', 'h-100', 'position-relative', bare ? '' : 'card-body pt-0']">
       <!-- Map fills entire card body (no header) -->
       <div :class="['position-absolute', 'top-0', 'bottom-0', 'start-0', 'end-0']" :style="containerStyle">
         <GoogleMap

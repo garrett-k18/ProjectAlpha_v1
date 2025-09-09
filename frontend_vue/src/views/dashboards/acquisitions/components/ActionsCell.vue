@@ -5,7 +5,7 @@
     through cellRendererParams. Styling uses Bootstrap 5 utility classes for
     consistency with the template. Replace classes with Hyper UI classes if desired.
   -->
-  <div class="d-flex align-items-center gap-2">
+  <div class="actions-cell d-flex align-items-center gap-2 h-100">
     <!-- Row selection checkbox tied to AG Grid selection state -->
     <input
       class="form-check-input m-0"
@@ -81,5 +81,9 @@ function emitAction(action: string) {
 /* Keep the cell contents compact and horizontally aligned */
 .btn-group .btn {
   padding: 0.15rem 0.35rem; /* smaller hit area for dense grids */
+}
+/* Make the root fill the full cell height so align-items-center truly centers vertically */
+.actions-cell {
+  height: 100%;
 }
 </style>
