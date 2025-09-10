@@ -1,11 +1,11 @@
 <template>
   <!-- Full card variant (default) -->
-  <div v-if="!embedded" class="card">
+  <div v-if="!embedded" class="card h-100">
     <div class="d-flex card-header justify-content-between align-items-center">
       <h4 class="header-title">States</h4>
     </div>
 
-    <div class="card-body pt-0">
+    <div class="card-body pt-0" :class="emptyBodyClasses">
       <!-- Error state -->
       <div v-if="error" class="alert alert-danger d-flex align-items-center my-3" role="alert">
         <i class="mdi mdi-alert-circle-outline me-2"></i>
@@ -21,8 +21,8 @@
       </div>
 
       <!-- Empty state when no data -->
-      <div v-else-if="rows.length === 0" class="text-muted small py-3 d-flex align-items-center justify-content-center text-center">
-        No state data for this selection.
+      <div v-else-if="rows.length === 0" class="empty-center text-muted small text-center">
+        Select a seller and trade to see state counts.
       </div>
 
       <!-- Scrollable table; matches spacing of other strat tables -->
@@ -54,7 +54,7 @@
   </div>
 
   <!-- Embedded variant (no header/card wrapper) for use inside other cards -->
-  <div v-else>
+  <div v-else class="h-100">
     <!-- Error state -->
     <div v-if="error" class="alert alert-danger d-flex align-items-center my-2" role="alert">
       <i class="mdi mdi-alert-circle-outline me-2"></i>
@@ -70,8 +70,8 @@
     </div>
 
     <!-- Empty -->
-    <div v-else-if="rows.length === 0" class="text-muted small py-2">
-      No state data for this selection.
+    <div v-else-if="rows.length === 0" class="empty-center text-muted small text-center">
+      Select a seller and trade to see stratification.
     </div>
 
     <!-- Scrollable table sized to column height -->
@@ -141,26 +141,37 @@ async function ensureSummaries() {
 onMounted(ensureSummaries)
 watch([selectedSellerId, selectedTradeId], ensureSummaries)
 
+// Define row type for better type safety
+interface StateRow {
+  state: string;
+  count: number;
+  currentBalance: number;
+  totalDebt: number;
+  sellerAsIs: number;
+}
+
 // Build table rows from countsByState + sumsFor()
-const rows = computed(() => {
-  if (!hasBothSelections.value) return [] as Array<{
-    state: string; count: number; currentBalance: number; totalDebt: number; sellerAsIs: number
-  }>
-  const src = Array.isArray(summaries.countsByState) ? (summaries.countsByState as any) : (summaries.countsByState as any).value
-  const counts = Array.isArray(src) ? src : []
-  const sorted = [...counts].sort((a: any, b: any) => (b?.count || 0) - (a?.count || 0))
-  return sorted.map((r: any) => {
-    const st = (r?.state || '').toString().trim().toUpperCase()
-    const s = summaries.sumsFor(st)
+const rows = computed<StateRow[]>(() => {
+  if (!hasBothSelections.value) return [];
+  const src = Array.isArray(summaries.countsByState) ? summaries.countsByState : [];
+  const counts = Array.isArray(src) ? src : [];
+  const sorted = [...counts].sort((a, b) => (b?.count || 0) - (a?.count || 0));
+  return sorted.map((r) => {
+    const st = (r?.state || '').toString().trim().toUpperCase();
+    const s = summaries.sumsFor(st);
     return {
       state: st,
       count: Number(r?.count) || 0,
       currentBalance: Number(s.currentBalance) || 0,
       totalDebt: Number(s.totalDebt) || 0,
       sellerAsIs: Number(s.sellerAsIs) || 0,
-    }
-  })
-})
+    };
+  });
+});
+
+// When there is no data and no error/loading, center the helper inside the full card body
+const isEmpty = computed<boolean>(() => !embedded.value && !summaries.loading && !summaries.error && (rows.value.length === 0));
+const emptyBodyClasses = computed<string>(() => (isEmpty.value ? 'd-flex align-items-center justify-content-center' : ''));
 
 // Display helpers
 function formatInt(n: number): string {
@@ -181,5 +192,16 @@ function formatCurrencyNoDecimals(n: number): string {
 .bands-table.table-striped {
   --bs-table-striped-bg: rgba(13, 110, 253, 0.06); /* light primary */
   --bs-table-striped-color: inherit;
+}
+
+/* Center helper text nicely in the card area */
+.empty-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 0.75rem; /* ~py-3 visual parity */
+  padding-bottom: 0.75rem;
+  min-height: 360px; /* slightly taller to align with other cards' visual middle */
+  width: 100%;
 }
 </style>

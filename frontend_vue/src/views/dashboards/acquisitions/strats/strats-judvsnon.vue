@@ -5,14 +5,14 @@
     - Displays counts and financial metrics (UPB, Total Debt, Seller As-Is)
     - Minimal UI with progress bars, consistent with Hyper/Bootstrap card styles
   -->
-  <div class="card">
+  <div class="card h-100">
     <!-- Card header: title + optional action -->
     <div class="d-flex card-header justify-content-between align-items-center">
       <h4 class="header-title">Judicial vs Non-Judicial</h4>
     </div>
 
     <!-- Card body: table with two rows -->
-    <div :class="['card-body', 'pt-0', hasData ? 'strat-card-body' : '']">
+    <div :class='["card-body", "pt-0", "pb-3", hasData ? "strat-card-body" : ""]'>
       <!-- Loading state -->
       <div v-if="isLoading" class="text-muted small py-3 d-flex align-items-center justify-content-center text-center">
         <i class="mdi mdi-loading mdi-spin me-1"></i> Loading...

@@ -21,7 +21,7 @@
 
       <!-- Empty state (no selection or no bands) -->
       <div v-else-if="!hasRows" class="text-muted small py-3 d-flex align-items-center justify-content-center text-center">
-        Select a seller and trade to see WAC stratification.
+        Select a seller and trade to see stratification.
       </div>
 
       <!-- Table of WAC bands: label, count, and sums -->

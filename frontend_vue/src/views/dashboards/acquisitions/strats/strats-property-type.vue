@@ -1,10 +1,10 @@
 <template>
-  <div class="card">
+  <div class="card h-100">
     <div class="d-flex card-header justify-content-between align-items-center">
       <h4 class="header-title">Property Type</h4>
     </div>
 
-    <div class="card-body pt-0 strat-card-body">
+    <div :class="['card-body', 'pt-0', 'pb-3', hasRows ? 'strat-card-body' : '']">
       <!-- Error state -->
       <div v-if="errorPropertyType" class="alert alert-danger d-flex align-items-center my-3" role="alert">
         <i class="mdi mdi-alert-circle-outline me-2"></i>
@@ -136,7 +136,7 @@ function formatCurrencyNoDecimals(n: number): string {
 /* Ensure consistent vertical size across strat cards by reserving space.
    Uses minimal custom CSS per project rules; prefers utilities otherwise. */
 .strat-card-body {
-  min-height: 280px; /* adjust if needed to align with tallest card */
+  min-height: 280px; /* base height when content exists */
   display: flex;
   flex-direction: column;
 }

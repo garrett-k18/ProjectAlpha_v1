@@ -1,10 +1,10 @@
 <template>
-  <div class="card">
+  <div class="card h-100">
     <div class="d-flex card-header justify-content-between align-items-center">
       <h4 class="header-title">Delinquency</h4>
     </div>
 
-    <div :class="['card-body', 'pt-0', hasRows ? 'strat-card-body' : '']">
+    <div :class="['card-body', 'pt-0', 'pb-3', hasRows ? 'strat-card-body' : '']">
       <!-- Error state -->
       <div v-if="errorDelinquency" class="alert alert-danger d-flex align-items-center my-3" role="alert">
         <i class="mdi mdi-alert-circle-outline me-2"></i>
