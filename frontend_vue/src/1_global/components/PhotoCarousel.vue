@@ -6,9 +6,9 @@
     - Exposes v-model (modelValue) to control the active slide from parent components.
     - Avoids custom JS/CSS and relies on framework utilities, per project guidelines.
   -->
-  <div class="d-flex flex-column h-100">
+  <div class="d-flex flex-column justify-content-between h-100">
     <!-- Main carousel region -->
-    <div class="text-center d-block flex-fill mb-2 mx-auto" :style="containerStyleObject">
+    <div class="text-center d-block flex-fill mx-auto" :style="containerStyleObject">
       <!--
         b-carousel props:
         - v-model binds the active slide index (number)
@@ -19,8 +19,8 @@
       <b-carousel
         v-model="current"
         :interval="interval"
-        :controls="controls"
-        :indicators="indicators"
+        :controls="controlsComputed"
+        :indicators="indicatorsComputed"
         :wrap="loop"
         :class="['h-100', bgTransparent ? 'bg-transparent' : '']"
         @sliding-start="$emit('slide', current)"
@@ -41,18 +41,18 @@
       </b-carousel>
     </div>
 
-    <!-- Optional thumbnail strip below the main carousel (hidden on < lg by design) -->
-    <div v-if="showThumbnails && images.length > 1" class="d-flex justify-content-center flex-nowrap overflow-auto">
+    <!-- Optional thumbnail strip below the main carousel (tight spacing) -->
+    <div v-if="thumbsVisibleComputed" class="d-flex justify-content-center flex-nowrap overflow-auto mt-auto w-100 pb-0">
       <a
         v-for="(img, idx) in images"
         :key="`thumb-${idx}`"
         href="javascript:void(0);"
-        :class="idx > 0 ? 'ms-2' : ''"
+        :class="idx > 0 ? 'ms-1' : ''"
         @click.prevent="setCurrent(idx)"
       >
         <img
           :src="img.thumb || img.src"
-          class="img-fluid img-thumbnail p-2"
+          class="img-fluid img-thumbnail p-1"
           :style="thumbStyleObject"
           :alt="img.alt || `Thumbnail ${idx + 1}`"
         />
@@ -62,7 +62,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, watch, computed } from 'vue'
+import { defineComponent, ref, watch, computed, toRefs } from 'vue'
 import type { PropType } from 'vue'
 
 // Type for a single image item accepted by this component
@@ -98,6 +98,11 @@ export default defineComponent({
       type: Boolean,
       default: true, // show prev/next by default
     },
+    // Force show controls/indicators regardless of image count (debug/UX tuning)
+    forceShowControls: {
+      type: Boolean,
+      default: false,
+    },
     // Loop when reaching first/last slide
     loop: {
       type: Boolean,
@@ -119,6 +124,11 @@ export default defineComponent({
       type: [String, Number] as PropType<string | number>,
       default: undefined,
     },
+    // When true, render the main image as a centered square (width = height)
+    square: {
+      type: Boolean,
+      default: false,
+    },
     // Thumbnail sizing (applied as max-width/height inline style)
     thumbWidth: {
       type: [String, Number] as PropType<string | number>,
@@ -132,6 +142,11 @@ export default defineComponent({
     showThumbnails: {
       type: Boolean,
       default: true,
+    },
+    // Force show thumbnails even when there is only one image (debug/UX tuning)
+    forceShowThumbnails: {
+      type: Boolean,
+      default: false,
     },
     // Make carousel container background transparent (helps with large images)
     bgTransparent: {
@@ -205,7 +220,19 @@ export default defineComponent({
       
       // Use fixed width and height instead of max-width/max-height for consistent dimensions
       const style: Record<string, string> = {
-        objectFit: 'cover', // Changed from 'contain' to 'cover' for consistent sizing
+        objectFit: 'cover',       // fill available area and crop as needed
+        objectPosition: '50% 50%', // center the image crop
+      }
+      // If square mode is enabled, prefer a square frame that uses the full height
+      // of the carousel viewport and lets width follow via the aspect ratio.
+      if (props.square) {
+        style.height = mh || '100%'
+        style.width = 'auto'
+        // aspect-ratio is well supported in modern browsers; keeps the image square
+        // while object-fit: cover ensures good cropping.
+        // @ts-ignore - TS typings for inline CSS may not include aspectRatio string
+        ;(style as any).aspectRatio = '1 / 1'
+        return style
       }
       
       // Set fixed dimensions if both width and height are provided
@@ -245,12 +272,25 @@ export default defineComponent({
       current.value = idx
     }
 
+    // Controls/indicators/thumbs visibility (derived from props)
+    const controlsComputed = computed(() => !!(props.forceShowControls || props.controls))
+    const indicatorsComputed = computed(() => !!(props.forceShowControls || props.indicators))
+    const thumbsVisibleComputed = computed(() => {
+      const hasMultiple = (props.images?.length || 0) > 1
+      return !!((props.showThumbnails && hasMultiple) || props.forceShowThumbnails)
+    })
+
     return {
       current,
       thumbStyleObject,
       imgStyleObject,
       containerStyleObject,
       setCurrent,
+      // Expose props explicitly for robust TypeScript template inference
+      ...toRefs(props),
+      controlsComputed,
+      indicatorsComputed,
+      thumbsVisibleComputed,
     }
   },
 })

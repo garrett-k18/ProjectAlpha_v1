@@ -26,7 +26,7 @@
           </div>
           <h5 class="text-muted fw-normal mt-0 small" title="Current Balance">Current Balance</h5>
           <div class="value-row d-flex align-items-baseline">
-            <span class="fs-4 fw-semibold">{{ currentBalanceStr }}</span>
+            <h3 class="mt-1 mb-1 fs-4">{{ currentBalanceStr }}</h3>
             <span class="text-muted d-inline-flex align-items-baseline ms-2 fs-5 fst-italic">
               <span :class="['me-1', ltvColorClass]">{{ ltvIntStr }}</span>
               <span class="text-nowrap">LTV</span>
@@ -44,7 +44,7 @@
           </div>
           <h5 class="text-muted fw-normal mt-0 small" title="Total Debt">Total Debt</h5>
           <div class="value-row d-flex align-items-baseline">
-            <span class="fs-4 fw-semibold">{{ totalDebtStr }}</span>
+            <h3 class="mt-1 mb-1 fs-4">{{ totalDebtStr }}</h3>
             <span class="text-muted d-inline-flex align-items-baseline ms-2 fs-5 fst-italic">
               <span :class="['me-1', tdtvColorClass]">{{ tdtvIntStr }}</span>
               <span class="text-nowrap">TDTV</span>
@@ -52,6 +52,22 @@
           </div>
         </div>
       </div>
+    </b-col>
+    <b-col lg="2" md="4" sm="6">
+      <!-- Seller As-Is / Seller ARV combined widget -->
+      <WidgetStatIcon
+        icon="mdi-home-city"
+        title="Seller As-Is / Seller ARV"
+        :number="sellerAsIsAndArvStr"
+        color="secondary"
+        subtext=""
+        :showFooter="false"
+        :dense="true"
+        titleClass="small"
+        numberClass="fs-4"
+        :iconSizePx="14"
+        :iconBoxPx="24"
+      />
     </b-col>
     <b-col lg="2" md="4" sm="6">
       <WidgetStatIcon
@@ -70,24 +86,9 @@
     </b-col>
     <b-col lg="2" md="4" sm="6">
       <WidgetStatIcon
-        icon="mdi-calendar-clock"
-        title="Months DLQ"
-        :number="monthsDlqStr"
-        color="warning"
-        subtext=""
-        :showFooter="false"
-        :dense="true"
-        titleClass="small"
-        numberClass="fs-4"
-        :iconSizePx="14"
-        :iconBoxPx="24"
-      />
-    </b-col>
-    <b-col lg="2" md="4" sm="6">
-      <WidgetStatIcon
         icon="mdi-calendar"
-        title="Next Due"
-        :number="nextDueStr"
+        title="Next Due / Months DLQ"
+        :number="nextDueAndDlqStr"
         color="secondary"
         subtext=""
         :showFooter="false"
@@ -132,11 +133,15 @@ const currentBalanceStr = computed<string>(() => fmtInt(props.row?.current_balan
 const totalDebtStr = computed<string>(() => fmtInt(props.row?.total_debt))
 const monthsDlqStr = computed<string>(() => fmtInt(props.row?.months_dlq))
 const interestRateStr = computed<string>(() => fmtPercent(props.row?.interest_rate))
+// Combined "Next Due / Months DLQ" display (e.g., "9/29/2025 / 0")
+const nextDueAndDlqStr = computed<string>(() => `${nextDueStr.value} / ${monthsDlqStr.value}`)
 
 // Additional fields for more widgets
 const sellerAsIsStr = computed<string>(() => fmtInt(props.row?.seller_asis_value ?? props.row?.seller_as_is))
 const sellerArvStr = computed<string>(() => fmtInt(props.row?.seller_arv_value ?? props.row?.seller_arv))
 const assetStatusStr = computed<string>(() => (props.row?.asset_status ? String(props.row.asset_status) : '—'))
+// Combined "Seller As-Is / Seller ARV" display (e.g., "541,408 / 612,000")
+const sellerAsIsAndArvStr = computed<string>(() => `${sellerAsIsStr.value} / ${sellerArvStr.value}`)
 
 // Map asset_status to badge label/color consistent with AG Grid enum mapping
 const assetStatusBadge = computed<{ label: string; color: string } | null>(() => {

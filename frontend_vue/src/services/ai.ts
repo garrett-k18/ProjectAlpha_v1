@@ -10,6 +10,8 @@ import http from '@/lib/http'
 
 export interface QuickSummaryResponse {
   bullets: string[]
+  /** Optional 2–3 sentence executive summary paragraph */
+  summary?: string
   error?: string
 }
 
@@ -58,15 +60,20 @@ function cacheSet(key: string, value: QuickSummaryResponse) {
 
 // Mock generator for dev to avoid token usage
 function mockSummary(context: string, maxBullets: number): QuickSummaryResponse {
-  const preview = normalizeContext(context).slice(0, 80)
+  const preview = normalizeContext(context).slice(0, 120)
   const base = [
-    `Summary preview: ${preview}${preview.length === 80 ? '…' : ''}`,
+    `Summary preview: ${preview}${preview.length === 120 ? '…' : ''}`,
     'Current balance and debt noted.',
     'Status and flags reviewed.',
     'No critical risks detected in mock.',
     'Use production to fetch real AI summary.',
   ]
-  return { bullets: base.slice(0, Math.min(Math.max(maxBullets, 1), 6)) }
+  const bullets = base.slice(0, Math.min(Math.max(maxBullets, 1), 6))
+  // Dev placeholder paragraph for the executive summary section.
+  // NOTE: This is intentionally static in mock mode so the UI reliably shows
+  // a paragraph even before the real backend AI summary is wired.
+  const summary = 'This is an AI-generated executive summary of the asset. This paragraph will contain a high-level overview and any pertinent data points.'
+  return { bullets, summary }
 }
 
 export async function getQuickSummary(context: string, maxBullets: number = 5): Promise<QuickSummaryResponse> {

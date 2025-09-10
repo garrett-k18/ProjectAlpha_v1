@@ -21,7 +21,7 @@
               height="42"
               class="rounded-circle shadow-sm"
           />
-          <span class="leftbar-user-name">Dominic Keller</span>
+          <span class="leftbar-user-name">Garrett</span>
         </a>
       </div>
       <a
@@ -82,7 +82,7 @@
               height="42"
               class="rounded-circle shadow-sm"
           />
-          <span class="leftbar-user-name">Dominic Keller</span>
+          <span class="leftbar-user-name">Garrett</span>
         </a>
       </div>
 

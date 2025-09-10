@@ -318,8 +318,8 @@
                 />
               </span>
               <span class="d-lg-flex flex-column gap-1 d-none">
-                <h5 class="my-0">Dominic Keller</h5>
-                <h6 class="my-0 fw-normal text-start">Founder</h6>
+                <h5 class="my-0">Garrett Knobf</h5>
+                <h6 class="my-0 fw-normal text-start">Admin</h6>
               </span>
             </div>
           </template>

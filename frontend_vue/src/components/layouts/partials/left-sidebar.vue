@@ -37,7 +37,7 @@
       <div class="leftbar-user">
         <router-link to="/pages/profile">
           <img src="@/assets/images/users/avatar-1.jpg" alt="user-image" height="42" class="rounded-circle shadow-sm">
-          <span class="leftbar-user-name mt-2">Dominic Keller</span>
+          <span class="leftbar-user-name">Garrett</span>
         </router-link>
       </div>
 

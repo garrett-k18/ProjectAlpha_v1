@@ -31,8 +31,13 @@
         <small class="mb-0">{{ errorMessage }}</small>
       </div>
 
-      <!-- Bullets -->
+      <!-- Executive summary + bullets -->
       <div v-else>
+        <!-- Optional 2–3 sentence executive summary paragraph -->
+        <p v-if="summaryText" class="mb-2">
+          {{ summaryText }}
+        </p>
+        <!-- Bulleted highlights -->
         <ul class="mb-0 ps-3">
           <li v-for="(b, idx) in bullets" :key="idx" class="mb-1">
             {{ b }}
@@ -76,9 +81,10 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 // Reactive state for the async request
-const loading = ref(false)       // whether a request is in flight
+const loading = ref(false)             // whether a request is in flight
 const error = ref<string | null>(null) // error code or message from server
 const bullets = ref<string[]>([])      // array of bullet strings to render
+const summary = ref<string>('')        // optional 2–3 sentence executive summary
 
 // Lazy-loading visibility and lifecycle state
 const rootEl = ref<HTMLElement | null>(null) // root element to observe visibility
@@ -105,23 +111,27 @@ async function fetchSummary() {
   if (!props.context || props.context.trim().length < 10) {
     bullets.value = []
     error.value = 'insufficient_context'
+    summary.value = ''
     return
   }
 
   loading.value = true
   error.value = null
   try {
-    const { bullets: arr, error: err } = await getQuickSummary(props.context, props.maxBullets)
+    const { bullets: arr, summary: sum, error: err } = await getQuickSummary(props.context, props.maxBullets)
     if (err) {
       error.value = err
       bullets.value = []
+      summary.value = ''
     } else {
       bullets.value = arr || []
+      summary.value = (sum || '').trim()
     }
   } catch (e: any) {
     // Network or unexpected error
     error.value = 'provider_error'
     bullets.value = []
+    summary.value = ''
   } finally {
     loading.value = false
   }
@@ -191,6 +201,24 @@ watch(
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 defineExpose({ fetch: fetchSummary })
+
+// ----------------------------------------------------------------------------------
+// Derived UI text for the executive summary paragraph
+// - Prefer the server-provided summary when available.
+// - Fallback: synthesize 2–3 short sentences from the first few bullets.
+// ----------------------------------------------------------------------------------
+const summaryText = computed<string>(() => {
+  const s = (summary.value || '').trim()
+  if (s) return s
+  // Build a concise paragraph from first 2–3 bullets
+  const parts = (bullets.value || []).slice(0, 3).map((b) => {
+    const t = String(b || '').trim()
+    // Ensure terminal punctuation for sentence feel
+    if (!t) return ''
+    return /[.!?]$/.test(t) ? t : `${t}.`
+  }).filter(Boolean)
+  return parts.join(' ')
+})
 </script>
 
 <style scoped>

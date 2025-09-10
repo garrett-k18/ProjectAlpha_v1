@@ -6,40 +6,7 @@
     <LoanlvlWidgets :row="row" class="mb-2" />
     <!-- Top summary row with photos and quick facts -->
     <b-row class="g-3 align-items-stretch">
-      <!-- First column: Photo carousel area, displays images and thumbnails -->
-      <b-col lg="4" class="d-flex">
-        <!-- Match Hyper UI card look used by Details/Map: white background + subtle shadow -->
-        <div class="w-100" style="height: 380px;">
-          <div class="card w-100 h-100 d-flex flex-column">
-            <div class="card-body pt-0 d-flex flex-column h-100">
-              <!-- Reusable global PhotoCarousel component displays product/asset images -->
-              <!-- Show carousel only when we have images; otherwise show a small placeholder -->
-              <PhotoCarousel
-                v-if="imagesToShow.length > 0"
-                class="flex-fill h-100"
-                :images="imagesToShow"
-                :controls="imagesToShow.length > 1"        
-                :indicators="imagesToShow.length > 1"      
-                :loop="true"
-                :show-thumbnails="true"                     
-                :interval="0"
-                img-class="d-block w-100 h-100"
-                :img-max-width="'100%'"
-                :img-max-height="'100%'"
-                :container-height="carouselContainerHeight"
-                :container-max-width="'100%'"
-                :thumb-width="thumbWidth"
-                :thumb-height="thumbHeight"
-              />
-              <div v-else class="flex-fill d-flex align-items-center justify-content-center text-muted small">No Photos</div>
-            </div>
-          </div>
-        </div>
-      </b-col>
-
-      
-      
-      <!-- Third column: Asset Highlights (QuickSummary) placed between Details and Map -->
+      <!-- Left column: Asset Highlights (QuickSummary) -->
       <b-col lg="4" class="d-flex">
         <div class="w-100" style="height: 380px;">
           <QuickSummary
@@ -47,12 +14,44 @@
             :context="quickSummaryContext"
             :max-bullets="4"
             :lazy="true"
-            title="Asset Highlights"
+            title="Asset Summary"
           />
         </div>
       </b-col>
 
-      <!-- Fourth column: Property map on the right -->
+      <!-- Middle column: Photo carousel area, displays images and thumbnails -->
+      <b-col lg="4" class="d-flex">
+        <!-- Match Hyper UI card look used by Details/Map: white background + subtle shadow -->
+        <div class="w-100" style="height: 380px;">
+          <div class="card w-100 h-100 d-flex flex-column">
+            <div class="card-body pt-0 pb-0 d-flex flex-column h-100">
+              <!-- Reusable global PhotoCarousel component displays product/asset images -->
+              <!-- Show carousel only when we have images; otherwise show a small placeholder -->
+              <PhotoCarousel
+                v-if="imagesToShow.length > 0"
+                class="flex-fill h-100"
+                :images="imagesToShow"
+                :force-show-controls="true"
+                :force-show-thumbnails="true"
+                :loop="true"
+                :show-thumbnails="true"
+                :interval="0"
+                img-class="d-block w-100 h-100"
+                :img-max-width="'85%'"
+                :img-max-height="'100%'"
+                :container-height="carouselContainerHeight"
+                :container-max-width="'100%'"
+                :thumb-width="90"
+                :thumb-height="54"
+                :square="true"
+              />
+              <div v-else class="flex-fill d-flex align-items-center justify-content-center text-muted small">No Photos</div>
+            </div>
+          </div>
+        </div>
+      </b-col>
+
+      <!-- Right column: Property map -->
       <b-col lg="4" class="d-flex">
         <div class="w-100" style="height: 380px;">
           <PropertyMap class="w-100 h-100 d-flex flex-column" :row="row" :productId="productId" height="100%" />
@@ -146,7 +145,8 @@ const imagesToShow = computed<PhotoItem[]>(() => fetchedImages.value || [])
 // thumbs are not clipped by the parent overflow. Use a calc() string so it
 // adapts to the parent container height.
 const carouselContainerHeight = computed<string>(() => {
-  const hasThumbs = imagesToShow.value.length > 1
+  // Reserve space for thumbnails even when only one image is available
+  const hasThumbs = imagesToShow.value.length >= 1
   // Parse numeric thumb height if provided as a number or string with px
   const parsePx = (v: number | string | undefined, fallback: number): number => {
     if (typeof v === 'number' && Number.isFinite(v)) return v
@@ -156,8 +156,8 @@ const carouselContainerHeight = computed<string>(() => {
     }
     return fallback
   }
-  const thumbH = parsePx((props as any).thumbHeight, 90)
-  const gutter = 16
+  const thumbH = parsePx((props as any).thumbHeight, 60)
+  const gutter = 8
   return hasThumbs ? `calc(100% - ${thumbH + gutter}px)` : '100%'
 })
 
