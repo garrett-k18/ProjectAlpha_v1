@@ -42,7 +42,7 @@
     </div>
 
     <!-- Optional thumbnail strip below the main carousel (hidden on < lg by design) -->
-    <div v-if="showThumbnails && images.length > 1" class="d-lg-flex d-none justify-content-center flex-nowrap">
+    <div v-if="showThumbnails && images.length > 1" class="d-flex justify-content-center flex-nowrap overflow-auto">
       <a
         v-for="(img, idx) in images"
         :key="`thumb-${idx}`"
@@ -91,12 +91,12 @@ export default defineComponent({
     // Show dot indicators below the carousel
     indicators: {
       type: Boolean,
-      default: false,
+      default: true, // show dots by default for easier navigation
     },
     // Show previous/next controls
     controls: {
       type: Boolean,
-      default: false,
+      default: true, // show prev/next by default
     },
     // Loop when reaching first/last slide
     loop: {
@@ -263,5 +263,14 @@ export default defineComponent({
 }
 :deep(.carousel-item) {
   height: 100%;
+}
+/* Ensure controls/indicators are not clipped and are visible above images */
+:deep(.carousel) {
+  overflow: visible;
+}
+:deep(.carousel-control-prev),
+:deep(.carousel-control-next),
+:deep(.carousel-indicators) {
+  z-index: 3;
 }
 </style>

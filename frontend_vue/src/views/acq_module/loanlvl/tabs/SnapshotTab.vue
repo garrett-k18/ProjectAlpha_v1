@@ -11,22 +11,22 @@
         <!-- Match Hyper UI card look used by Details/Map: white background + subtle shadow -->
         <div class="w-100" style="height: 380px;">
           <div class="card w-100 h-100 d-flex flex-column">
-            <div class="card-body pt-0 d-flex flex-column h-100 overflow-hidden">
+            <div class="card-body pt-0 d-flex flex-column h-100">
               <!-- Reusable global PhotoCarousel component displays product/asset images -->
               <!-- Show carousel only when we have images; otherwise show a small placeholder -->
               <PhotoCarousel
                 v-if="imagesToShow.length > 0"
                 class="flex-fill h-100"
                 :images="imagesToShow"
-                :controls="false"
-                :indicators="false"
+                :controls="imagesToShow.length > 1"        
+                :indicators="imagesToShow.length > 1"      
                 :loop="true"
-                :show-thumbnails="true"
+                :show-thumbnails="true"                     
                 :interval="0"
                 img-class="d-block w-100 h-100"
                 :img-max-width="'100%'"
                 :img-max-height="'100%'"
-                :container-height="'100%'"
+                :container-height="carouselContainerHeight"
                 :container-max-width="'100%'"
                 :thumb-width="thumbWidth"
                 :thumb-height="thumbHeight"
@@ -141,6 +141,25 @@ const fetchedImages = ref<PhotoItem[]>([])
 
 // Compute the effective images to display: only fetched photos
 const imagesToShow = computed<PhotoItem[]>(() => fetchedImages.value || [])
+
+// Reserve space for thumbnails when there are multiple images so arrows and
+// thumbs are not clipped by the parent overflow. Use a calc() string so it
+// adapts to the parent container height.
+const carouselContainerHeight = computed<string>(() => {
+  const hasThumbs = imagesToShow.value.length > 1
+  // Parse numeric thumb height if provided as a number or string with px
+  const parsePx = (v: number | string | undefined, fallback: number): number => {
+    if (typeof v === 'number' && Number.isFinite(v)) return v
+    if (typeof v === 'string') {
+      const m = v.match(/(\d+)(?=px)?/)
+      if (m) return Number(m[1])
+    }
+    return fallback
+  }
+  const thumbH = parsePx((props as any).thumbHeight, 90)
+  const gutter = 16
+  return hasThumbs ? `calc(100% - ${thumbH + gutter}px)` : '100%'
+})
 
 // Determine which SellerRawData id to load photos for
 // Order: productId prop -> row.id -> null

@@ -203,3 +203,53 @@ const maturityStr = computed<string>(() => {
   try { return new Date(v).toLocaleDateString('en-US') } catch { return '—' }
 })
 </script>
+
+<style scoped>
+/* Loan-level KPI widgets — manual height tuning only for this component.
+   We use :deep to reach the child WidgetStatIcon markup (.widget-flat), while
+   keeping changes scoped so dashboard tiles remain unaffected. */
+
+/* Outer card height envelope (soft constraint) */
+:deep(.widget-flat) {
+  min-height: 128px; /* adjust to taste: 120–136px range works well */
+}
+
+/* Inner white area height and layout */
+:deep(.widget-flat .card-body) {
+  min-height: 72px;          /* allow inner to condense */
+  display: flex;
+  flex-direction: column;    /* stack title then value line */
+  justify-content: flex-start; /* avoid big gaps between title/value */
+  padding-top: 0.25rem;      /* tighter vertical padding */
+  padding-bottom: 0.25rem;
+  position: relative;        /* allow absolute-positioning of the icon */
+}
+
+/* Title spacing (h5) */
+:deep(.widget-flat .card-body h5.text-muted.fw-normal.mt-0) {
+  margin-bottom: 0.125rem;   /* tighter gap before value line */
+}
+
+/* Value line (h3) sizing so numbers/pills align without affecting height */
+:deep(.widget-flat .card-body h3.mt-3) {
+  line-height: 1;            /* avoid extra whitespace */
+  margin-top: 0.25rem;       /* tighter spacing from title */
+  margin-bottom: 0rem;       /* remove extra bottom gap */
+  white-space: nowrap;       /* prevent wrapping that changes height */
+}
+
+/* Pin the widget icon to the top-right consistently (float ignored in flex) */
+:deep(.widget-flat .card-body > .float-end) {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  margin: 0 !important;
+}
+/* Also pin the icon itself in case the wrapper gets affected by floats/utilities */
+:deep(.widget-flat .card-body .float-end .widget-icon) {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  left: auto !important;
+}
+</style>

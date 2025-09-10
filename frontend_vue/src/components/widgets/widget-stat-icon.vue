@@ -1,7 +1,7 @@
 <template>
   <div class="card widget-flat">
-    <div :class="['card-body', dense ? 'py-2 px-3' : '']">
-      <div class="float-end">
+    <div :class="['card-body', dense ? 'py-2 px-3' : '', 'position-relative']">
+      <div class="position-absolute top-0 end-0 me-2 mt-2">
         <i
           :class="`mdi ${icon} widget-icon `"
           :style="{
@@ -12,8 +12,8 @@
           }"
         ></i>
       </div>
-      <h5 :class="['text-muted fw-normal mt-0', titleClass]" :title="`${title}`">{{ title }}</h5>
-      <h3 :class="['mt-3', dense ? 'mb-1' : 'mb-3', numberClass]">{{ number }}</h3>
+      <h5 :class="['text-muted fw-normal mt-0', dense ? 'mb-1' : '', titleClass]" :title="`${title}`">{{ title }}</h5>
+      <h3 :class="[dense ? 'mt-1' : 'mt-3', dense ? 'mb-1' : 'mb-3', numberClass]">{{ number }}</h3>
       <p v-if="showFooter" class="mb-0 text-muted">
         <span class="me-2" :class="`text-${color}`">
           <i
@@ -96,3 +96,11 @@ export default {
   },
 }
 </script>
+
+<style scoped>
+/* Ensure the top-right icon sits above content and never captures pointer events */
+.card.widget-flat .card-body .position-absolute.top-0.end-0 {
+  z-index: 2;
+  pointer-events: none;
+}
+</style>
