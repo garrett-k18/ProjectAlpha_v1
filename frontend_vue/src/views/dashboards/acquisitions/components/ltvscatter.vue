@@ -30,7 +30,9 @@
 import { defineComponent, computed, ref, watch } from 'vue'
 import { useAcqSelectionsStore } from '@/stores/acqSelections'
 import { storeToRefs } from 'pinia'
-import axios from 'axios'
+// Use the centralized Axios instance which already has baseURL and interceptors
+// Docs: https://axios-http.com/docs/instance
+import http from '@/lib/http'
 
 export default defineComponent({
   name: 'LtvScatterChart',
@@ -89,10 +91,9 @@ export default defineComponent({
           enabled: true,
           type: 'xy'
         },
+        // Disable animations to avoid jank with large point counts
         animations: {
-          enabled: true,
-          easing: 'easeinout',
-          speed: 800
+          enabled: false
         },
         // Set aspect ratio to make X and Y scales look the same
         aspectRatio: 1
@@ -161,10 +162,11 @@ export default defineComponent({
         }
       },
       markers: {
-        size: 7,
+        // Smaller markers render significantly faster with thousands of points
+        size: 4,
         shape: "circle",
         hover: {
-          size: 9
+          size: 6
         }
       },
       // Colors are now set per series
@@ -190,21 +192,64 @@ export default defineComponent({
       }
     })
 
-    // Function to fetch LTV scatter data from API
+    // Track last selection (optional – used for logging/stability)
+    let lastKey: string | null = null
+    // Keep a controller to cancel in-flight requests when selection changes
+    let currentController: AbortController | null = null
+
+    // Maximum number of points to render; prevents UI stalls on very large pools
+    const MAX_POINTS = 3000
+
+    // Evenly sample an array down to at most `max` elements.
+    // This preserves distribution without the cost of full reservoir sampling.
+    function sampleEvenly<T>(arr: T[], max: number): T[] {
+      const n = arr.length
+      if (n <= max) return arr
+      const step = n / max
+      const out: T[] = []
+      for (let i = 0; i < max; i++) {
+        out.push(arr[Math.floor(i * step)])
+      }
+      return out
+    }
+
+    // Function to fetch LTV scatter data from API with cancellation and timeout
     const fetchLtvScatterData = async (sellerId: number | null, tradeId: number | null): Promise<LoanItem[]> => {
       if (!sellerId || !tradeId) return []
-      
-      const url = `/api/acq/summary/ltv-scatter/${sellerId}/${tradeId}/`
-      const response = await axios.get(url)
-      
+
+      const key = `${sellerId}:${tradeId}`
+
+      // Cancel any previous in-flight request to keep UI responsive
+      if (currentController) {
+        try { currentController.abort() } catch {}
+      }
+      currentController = new AbortController()
+
+      // Leading slash ensures correct join with baseURL '/api' -> '/api/acq/...'
+      const url = `/acq/summary/ltv-scatter/${sellerId}/${tradeId}/`
+      const resp = await http.get<ApiLoanItem[]>(url, {
+        signal: currentController.signal as any,
+        timeout: 15000, // fail fast if backend is slow
+      })
+
+      lastKey = key
+
       // Convert API response to our internal format
       // API returns strings for decimal values, convert to numbers
-      return response.data.map((item: ApiLoanItem) => ({
+      const items = (resp.data || []).map((item: ApiLoanItem) => ({
         id: item.id,
         seller_asis_value: parseFloat(item.seller_asis_value),
         current_balance: parseFloat(item.current_balance),
         ltv: parseFloat(item.ltv)
-      }))
+      })) as LoanItem[]
+
+      // Guardrail: sample to MAX_POINTS to avoid rendering too many points at once
+      const sampled = sampleEvenly(items, MAX_POINTS)
+      if (items.length > sampled.length) {
+        // Optional: log for visibility during dev
+        console.debug('[LtvScatter] sampled', { original: items.length, shown: sampled.length })
+      }
+      return sampled
     }
 
 
@@ -317,6 +362,10 @@ export default defineComponent({
         }
       } else {
         // Reset data when no selection for all series
+        // Also clear lastKey so next valid selection triggers a real fetch
+        lastKey = null
+        // Cancel any in-flight request when selection becomes incomplete
+        if (currentController) { try { currentController.abort() } catch {} finally { currentController = null } }
         series.value[0].data = []
         series.value[1].data = []
         series.value[2].data = []

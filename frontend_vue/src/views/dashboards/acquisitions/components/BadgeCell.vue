@@ -71,8 +71,11 @@ const badge = computed(() => {
     // try exact, then case-insensitive
     const found = enumMap[key] || enumMap[key.toLowerCase?.()] || enumMap[String(value).toLowerCase?.()]
     if (found) {
-      // If map doesn't specify a color, default to a brighter neutral
-      return { label: found.label ?? key, color: found.color ?? 'bg-warning text-dark', title: found.title ?? key }
+      // Normalize label/color and force 'Default' to yellow for clarity
+      const label = found.label ?? key
+      const color = found.color ?? 'bg-warning text-dark'
+      const adjustedColor = String(label).trim().toLowerCase() === 'default' ? 'bg-warning text-dark' : color
+      return { label, color: adjustedColor, title: found.title ?? key }
     }
     // Unknown enum -> brighter neutral
     return { label: key, color: 'bg-warning text-dark', title: key }

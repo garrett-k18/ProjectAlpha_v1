@@ -67,6 +67,10 @@ export const useStateSummariesStore = defineStore('stateSummaries', () => {
   const error = ref<string | null>(null)
   const lastKey = ref<string | null>(null)
   const cache = ref<Map<string, SummaryPayload>>(new Map())
+  // Abort controller to cancel in-flight requests when selection changes rapidly
+  let currentController: AbortController | null = null
+  // Track which selection key is currently in-flight to prevent cancelling same-key requests
+  let inFlightKey: string | null = null
 
   // --------------------------------------------------------------------------
   // Derived getters
@@ -132,13 +136,21 @@ export const useStateSummariesStore = defineStore('stateSummaries', () => {
     loading.value = true
     error.value = null
     try {
+      // Cancel any prior in-flight request if it's for a DIFFERENT key to keep UI responsive
+      if (currentController && inFlightKey && inFlightKey !== key) {
+        try { currentController.abort() } catch {}
+      }
+      currentController = new AbortController()
+      inFlightKey = key
+
       console.debug('[stateSummaries] fetchAll start', { sellerId, tradeId })
       // Use leading slash so Axios correctly joins with baseURL.
+      const axiosOpts = { signal: currentController.signal as any, timeout: 15000 }
       const [countResp, scbResp, stdResp, savResp] = await Promise.all([
-        http.get<StateCountRow[]>(`/acq/summary/state/count-by/${sellerId}/${tradeId}/`),
-        http.get<SumCurrentBalanceRow[]>(`/acq/summary/state/sum-current-balance/${sellerId}/${tradeId}/`),
-        http.get<SumTotalDebtRow[]>(`/acq/summary/state/sum-total-debt/${sellerId}/${tradeId}/`),
-        http.get<SumSellerAsIsValueRow[]>(`/acq/summary/state/sum-seller-asis-value/${sellerId}/${tradeId}/`),
+        http.get<StateCountRow[]>(`/acq/summary/state/count-by/${sellerId}/${tradeId}/`, axiosOpts),
+        http.get<SumCurrentBalanceRow[]>(`/acq/summary/state/sum-current-balance/${sellerId}/${tradeId}/`, axiosOpts),
+        http.get<SumTotalDebtRow[]>(`/acq/summary/state/sum-total-debt/${sellerId}/${tradeId}/`, axiosOpts),
+        http.get<SumSellerAsIsValueRow[]>(`/acq/summary/state/sum-seller-asis-value/${sellerId}/${tradeId}/`, axiosOpts),
       ])
 
       const counts = Array.isArray(countResp.data) ? countResp.data.map(r => ({
@@ -176,18 +188,30 @@ export const useStateSummariesStore = defineStore('stateSummaries', () => {
       lastKey.value = key
       cache.value.set(key, { counts, sums })
     } catch (e: any) {
-      error.value = e?.message || 'Failed to fetch state summaries'
-      console.error('[stateSummaries] fetchAll error', e)
-      countsByState.value = []
-      sumsByState.value = {
-        currentBalance: new Map<string, number>(),
-        totalDebt: new Map<string, number>(),
-        sellerAsIs: new Map<string, number>(),
+      // Suppress cancellation errors from AbortController/Axios
+      const isCanceled = e?.code === 'ERR_CANCELED' || e?.name === 'CanceledError' || e?.message === 'canceled'
+      if (isCanceled) {
+        console.debug('[stateSummaries] fetchAll canceled', { sellerId, tradeId })
+      } else {
+        error.value = e?.response?.data?.error || e?.message || 'Failed to fetch state summaries'
+        console.error('[stateSummaries] fetchAll error', e)
+        countsByState.value = []
+        sumsByState.value = {
+          currentBalance: new Map<string, number>(),
+          totalDebt: new Map<string, number>(),
+          sellerAsIs: new Map<string, number>(),
+        }
+        lastKey.value = null
       }
-      lastKey.value = null
     } finally {
-      loading.value = false
-      console.debug('[stateSummaries] fetchAll end', { sellerId, tradeId, loaded: countsByState.value.length })
+      // Only clear loading/in-flight state if this request corresponds to the same key
+      if (inFlightKey === key) {
+        loading.value = false
+        console.debug('[stateSummaries] fetchAll end', { sellerId, tradeId, loaded: countsByState.value.length })
+        // Clear controller after completion
+        currentController = null
+        inFlightKey = null
+      }
     }
   }
 

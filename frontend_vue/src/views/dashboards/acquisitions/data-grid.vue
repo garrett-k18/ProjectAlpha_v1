@@ -131,7 +131,7 @@
         overlayNoRowsTemplate="Choose Seller and Trade"
         :columnDefs="columnDefs"
         :defaultColDef="defaultColDef"
-        rowSelection="multiple"
+        :rowSelection="{ mode: 'multiRow' }"
         :animateRows="true"
         @grid-ready="onGridReady"
         @selection-changed="onSelectionChanged"
@@ -483,7 +483,9 @@ const enumBadgeFields: Record<string, Record<string, { label: string; color: str
     'NPL': { label: 'NPL', color: 'bg-danger', title: 'Non-Performing Loan' },
     'Non-Performing': { label: 'Non-Performing', color: 'bg-danger' },
     'Delinquent': { label: 'Delinquent', color: 'bg-danger' },
-    'Default': { label: 'Default', color: 'bg-danger' },
+    'Default': { label: 'Default', color: 'bg-warning text-dark' },
+    'DEFAULT': { label: 'Default', color: 'bg-warning text-dark' },
+    'default': { label: 'Default', color: 'bg-warning text-dark' },
     'Foreclosure': { label: 'Foreclosure', color: 'bg-danger' },
 
     // REO
@@ -600,6 +602,22 @@ function updateGridSize(): void {
     try {
       const api = gridApi.value as any
       if (!api) return
+      // Determine current row count safely (displayed or backing data)
+      const displayedCount = typeof api.getDisplayedRowCount === 'function' ? api.getDisplayedRowCount() : 0
+      const backingCount = Array.isArray(rowData.value) ? (rowData.value as any[]).length : 0
+      const rowCount = Math.max(displayedCount || 0, backingCount || 0)
+
+      // On very large datasets, skip expensive auto-sizing operations
+      // to keep the UI responsive. Users can manually resize columns if needed.
+      const LARGE_DATASET_THRESHOLD = 2000
+      const isLarge = rowCount > LARGE_DATASET_THRESHOLD
+
+      if (isLarge) {
+        // Minimal work: let grid render without forcing auto/fit sizing
+        // This avoids scanning thousands of cells synchronously.
+        return
+      }
+
       // In fullscreen, avoid squeezing every column to fit the viewport width.
       // Instead, autosize based on header/contents and allow horizontal scroll.
       if (isFullscreen.value || document.fullscreenElement) {
@@ -1151,6 +1169,12 @@ onMounted(async () => {
   loadInvitedFromStorage()
 })
 
+onBeforeUnmount(() => {
+  try {
+    document.removeEventListener('fullscreenchange', onFsChange)
+  } catch {}
+})
+
 // ---------------------------------------------------------------------------
 // Networking helpers: fetch sellers, trades (by seller), and grid row data
 // All functions include defensive checks and extensive comments for clarity.
@@ -1208,7 +1232,13 @@ async function fetchTrades(sellerId: number): Promise<void> {
 // - When either selection changes: if both selected, load grid data
 // ---------------------------------------------------------------------------
 watch(selectedSellerId, async (newSellerId) => {
-  // Clear previous dependent state
+  // When this grid is embedded with external filters (showFilters=false),
+  // do NOT manipulate the shared selections. Let the parent own the UX.
+  if (!props.showFilters) {
+    return
+  }
+
+  // Clear previous dependent state only when this component owns the filters
   selectedTradeId.value = null
   trades.value = []
   // Clear grid rows via store when seller changes
@@ -1217,7 +1247,7 @@ watch(selectedSellerId, async (newSellerId) => {
   acqStore.resetMarkers()
 
   // If a seller is chosen, load trades for that seller
-  if (newSellerId && props.showFilters) {
+  if (newSellerId) {
     await fetchTrades(newSellerId)
   }
 })
@@ -1243,11 +1273,17 @@ watch(rowData, async (rows) => {
     brokerOptionsByState.value = {}
     return
   }
-  // Only fetch broker options when Local Agents view is relevant or prefetch anyway
-  const states = Array.from(new Set((rows as any[])
-    .map(r => (r && r.state ? String(r.state).trim().toUpperCase() : ''))
-    .filter(Boolean)
-  ))
+  // Extract unique states efficiently without scanning the entire dataset.
+  // There are at most ~60 distinct state codes; stop early once collected.
+  const MAX_SCAN = 5000 // cap iterations to avoid long blocks on very large pools
+  const set = new Set<string>()
+  const n = rows.length
+  for (let i = 0; i < n && i < MAX_SCAN && set.size < 60; i++) {
+    const r: any = rows[i]
+    const st = r && r.state ? String(r.state).trim().toUpperCase() : ''
+    if (st) set.add(st)
+  }
+  const states = Array.from(set)
   if (states.length === 0) return
   await fetchBrokerOptionsByStates(states)
 })
@@ -1278,7 +1314,7 @@ async function fetchBrokerOptionsByStates(states: string[]): Promise<void> {
   try {
     const qp = encodeURIComponent(states.join(','))
     // Use Axios instance (baseURL='/api') -> GET /api/acq/broker-invites/by-state-batch/
-    const { data: json } = await http.get<any>(`acq/broker-invites/by-state-batch/`, {
+    const { data: json } = await http.get<any>('/acq/broker-invites/by-state-batch/', {
       params: { states: states.join(',') },
     })
     const results = (json && json.results) || {}
@@ -1358,7 +1394,7 @@ async function assignSelected(): Promise<void> {
   const results: Array<{ broker_id: number; url: string; token: string; count: number }> = []
   for (const [broker_id, seller_raw_data_ids] of groups.entries()) {
     try {
-      const { data } = await http.post<any>('acq/broker-portal/assign/', {
+      const { data } = await http.post<any>('/acq/broker-portal/assign/', {
         broker_id,
         seller_raw_data_ids,
       })

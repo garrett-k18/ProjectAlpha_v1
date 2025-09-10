@@ -213,6 +213,7 @@ import { BModal } from 'bootstrap-vue-next';
 import LoanLevelIndex from '@/views/acq_module/loanlvl/loanlvl_index.vue'
 // Selections store + helpers
 import { useAcqSelectionsStore } from '@/stores/acqSelections'
+import { useAgGridRowsStore } from '@/stores/agGridRows'
 import { storeToRefs } from 'pinia'
 import { ref, watch, onMounted, computed } from 'vue'
 // Centralized Axios instance (baseURL='/api')
@@ -254,6 +255,10 @@ export default {
     // Shared selection state via Pinia store
     const acqStore = useAcqSelectionsStore()
     const { selectedSellerId, selectedTradeId } = storeToRefs(acqStore)
+
+    // Grid rows store; used to know when primary dataset has loaded to gate heavy widgets
+    const gridRowsStore = useAgGridRowsStore()
+    const { rows: gridRows, loadingRows: gridLoadingRows, lastKey: gridLastKey } = storeToRefs(gridRowsStore)
 
     // Fetch sellers using centralized Axios instance
     async function fetchSellers(): Promise<void> {
@@ -338,6 +343,11 @@ export default {
       selectedTradeId.value = null;
     }
     
+    // Consider grid rows "loaded" when we have both IDs, not currently fetching, and have >0 rows
+    const gridRowsLoaded = computed<boolean>(() => {
+      return !!(selectedSellerId.value && selectedTradeId.value) && !gridLoadingRows.value && Array.isArray(gridRows.value) && gridRows.value.length > 0
+    })
+
     return {
       sellers,
       trades,
@@ -347,6 +357,7 @@ export default {
       selectedTradeId,
       resetSelections,
       docItems,
+      gridRowsLoaded,
     }
   },
   data() {

@@ -54,50 +54,61 @@
       </div>
     </b-col>
     <b-col lg="2" md="4" sm="6">
-      <!-- Seller As-Is / Seller ARV combined widget -->
-      <WidgetStatIcon
-        icon="mdi-home-city"
-        title="Seller As-Is / Seller ARV"
-        :number="sellerAsIsAndArvStr"
-        color="secondary"
-        subtext=""
-        :showFooter="false"
-        :dense="true"
-        titleClass="small"
-        numberClass="fs-4"
-        :iconSizePx="14"
-        :iconBoxPx="24"
-      />
+      <!-- Custom Seller As-Is / Seller ARV card to mirror spacing of Current Balance/Total Debt -->
+      <div class="card widget-flat">
+        <div class="card-body py-2 px-3 position-relative">
+          <div class="position-absolute top-0 end-0 me-2 mt-2">
+            <i class="mdi mdi-home-city widget-icon" :style="{ fontSize: '14px', height: '24px', width: '24px', lineHeight: '24px' }"></i>
+          </div>
+          <h5 class="text-muted fw-normal mt-0 small" title="Seller As-Is / Seller ARV">Seller As-Is / Seller ARV</h5>
+          <div class="value-row d-flex align-items-baseline">
+            <h3 class="mt-1 mb-1 fs-4">{{ sellerAsIsAndArvStr }}</h3>
+            <!-- Invisible suffix placeholder to maintain identical spacing structure -->
+            <span class="text-muted d-inline-flex align-items-baseline ms-2 fs-5 fst-italic">
+              <span class="me-1 invisible">00%</span>
+              <span class="text-nowrap invisible">SUFFIX</span>
+            </span>
+          </div>
+        </div>
+      </div>
     </b-col>
     <b-col lg="2" md="4" sm="6">
-      <WidgetStatIcon
-        icon="mdi-percent"
-        title="Interest Rate"
-        :number="interestRateStr"
-        color="info"
-        subtext=""
-        :showFooter="false"
-        :dense="true"
-        titleClass="small"
-        numberClass="fs-4"
-        :iconSizePx="14"
-        :iconBoxPx="24"
-      />
+      <!-- Custom Interest Rate card to mirror spacing of Current Balance/Total Debt -->
+      <div class="card widget-flat">
+        <div class="card-body py-2 px-3 position-relative">
+          <div class="position-absolute top-0 end-0 me-2 mt-2">
+            <i class="mdi mdi-percent widget-icon" :style="{ fontSize: '14px', height: '24px', width: '24px', lineHeight: '24px' }"></i>
+          </div>
+          <h5 class="text-muted fw-normal mt-0 small" title="Interest Rate">Interest Rate</h5>
+          <div class="value-row d-flex align-items-baseline">
+            <h3 class="mt-1 mb-1 fs-4">{{ interestRateStr }}</h3>
+            <!-- Invisible suffix placeholder to maintain identical spacing structure -->
+            <span class="text-muted d-inline-flex align-items-baseline ms-2 fs-5 fst-italic">
+              <span class="me-1 invisible">00%</span>
+              <span class="text-nowrap invisible">SUFFIX</span>
+            </span>
+          </div>
+        </div>
+      </div>
     </b-col>
     <b-col lg="2" md="4" sm="6">
-      <WidgetStatIcon
-        icon="mdi-calendar"
-        title="Next Due / Months DLQ"
-        :number="nextDueAndDlqStr"
-        color="secondary"
-        subtext=""
-        :showFooter="false"
-        :dense="true"
-        titleClass="small"
-        numberClass="fs-4"
-        :iconSizePx="14"
-        :iconBoxPx="24"
-      />
+      <!-- Custom Next Due / Months DLQ card to mirror spacing -->
+      <div class="card widget-flat">
+        <div class="card-body py-2 px-3 position-relative">
+          <div class="position-absolute top-0 end-0 me-2 mt-2">
+            <i class="mdi mdi-calendar widget-icon" :style="{ fontSize: '14px', height: '24px', width: '24px', lineHeight: '24px' }"></i>
+          </div>
+          <h5 class="text-muted fw-normal mt-0 small" title="Next Due / Months DLQ">Next Due / Months DLQ</h5>
+          <div class="value-row d-flex align-items-baseline">
+            <h3 class="mt-1 mb-1 fs-4">{{ nextDueAndDlqStr }}</h3>
+            <!-- Invisible suffix placeholder to maintain identical spacing structure -->
+            <span class="text-muted d-inline-flex align-items-baseline ms-2 fs-5 fst-italic">
+              <span class="me-1 invisible">00%</span>
+              <span class="text-nowrap invisible">SUFFIX</span>
+            </span>
+          </div>
+        </div>
+      </div>
     </b-col>
   </b-row>
 </template>
@@ -108,7 +119,6 @@
 // Props: row (partial SellerRawData)
 
 import { computed, withDefaults, defineProps } from 'vue'
-import WidgetStatIcon from '@/components/widgets/widget-stat-icon.vue'
 
 const props = withDefaults(defineProps<{ row?: Record<string, any> | null }>(), {
   row: null,
@@ -159,7 +169,7 @@ const assetStatusBadge = computed<{ label: string; color: string } | null>(() =>
     'NPL': { label: 'NPL', color: 'bg-danger' },
     'Non-Performing': { label: 'Non-Performing', color: 'bg-danger' },
     'Delinquent': { label: 'Delinquent', color: 'bg-danger' },
-    'Default': { label: 'Default', color: 'bg-danger' },
+    'Default': { label: 'Default', color: 'bg-warning text-dark' },
     'Foreclosure': { label: 'Foreclosure', color: 'bg-danger' },
     // REO
     'REO': { label: 'REO', color: 'bg-warning' },
