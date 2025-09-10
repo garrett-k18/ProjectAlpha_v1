@@ -1,9 +1,13 @@
 <template>
   <div class="card card-h-100">
-    <div class="card-body">
+    <div class="d-flex card-header justify-content-between align-items-center">
+      <h4 class="header-title">Sessions Overview</h4>
+      <div class="d-flex align-items-center"><!-- reserved for future header actions --></div>
+    </div>
+    <div class="card-body pt-0">
       <b-alert
-          letiant="warning"
-          class="mb-3"
+          variant="warning"
+          class="mb-2"
           show
           dismissible
           v-model="show"
@@ -11,14 +15,10 @@
         correctly.
       </b-alert>
 
-      
-      <!-- Removed quick links time filters -->
-      <h4 class="header-title mb-3">Sessions Overview</h4>
-
       <apexchart
-          height="309"
+          height="350"
           type="area"
-          class="apex-charts mt-3"
+          class="apex-charts"
           :series="series"
           :options="chartOptions"
       ></apexchart>

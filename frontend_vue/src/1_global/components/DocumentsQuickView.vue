@@ -6,23 +6,23 @@
     - Accepts pre-fetched `docs` via props so it does not depend on any API shape.
   -->
   <div class="card h-100 d-flex flex-column">
-    <!-- Body: per-item cards matching Hyper UI Files pattern -->
-    <div class="card-body">
-      <!-- Title + optional actions inline (matches example that keeps title inside body) -->
-      <div class="d-flex align-items-center mb-3">
-        <h5 class="card-title mb-0">{{ title }}</h5>
-        <div class="ms-auto d-flex align-items-center gap-2">
-          <slot name="actions">
-            <router-link
-              v-if="showViewAll && viewAllTo"
-              :to="viewAllTo"
-              class="btn btn-sm btn-outline-primary"
-            >
-              View All
-            </router-link>
-          </slot>
-        </div>
+    <!-- Header aligned with other dashboard cards -->
+    <div class="d-flex card-header justify-content-between align-items-center">
+      <h4 class="header-title">{{ title }}</h4>
+      <div class="d-flex align-items-center gap-2">
+        <slot name="actions">
+          <router-link
+            v-if="showViewAll && viewAllTo"
+            :to="viewAllTo"
+            class="btn btn-sm btn-outline-primary"
+          >
+            View All
+          </router-link>
+        </slot>
       </div>
+    </div>
+    <!-- Body: per-item cards matching Hyper UI Files pattern -->
+    <div class="card-body pt-0">
       <!-- Loading skeletons -->
       <div v-if="loading" class="">
         <div v-for="n in 3" :key="n" class="card mb-1 shadow-none border">
@@ -145,7 +145,7 @@ export interface DocumentItem {
   thumbnailUrl?: string | null
 }
 
-interface Props {
+export interface DocumentsQuickViewProps {
   /** Card title text */
   title?: string
   /** Array of documents to render (already normalized) */
@@ -160,7 +160,7 @@ interface Props {
   loading?: boolean
 }
 
-const props = withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<DocumentsQuickViewProps>(), {
   title: 'Documents',
   docs: () => [],
   maxItems: 5,

@@ -21,7 +21,7 @@
           <h6 class="text-uppercase mt-0">Assets</h6>
           <h2 class="my-2" id="assets-count">
             <span v-if="loading">...</span>
-            <span v-else>{{ assetsFormatted }}</span>
+            <span v-else class="fs-3 fs-lg-1">{{ assetsFormatted }}</span>
           </h2>
         </div>
       </div>
@@ -35,7 +35,7 @@
           <h6 class="text-uppercase mt-0">Current Balance</h6>
           <h2 class="my-2 d-flex align-items-baseline" id="current-balance">
             <span v-if="loading">...</span>
-            <span v-else>{{ currencyCompact(currentBalanceNum) }}</span>
+            <span v-else class="fs-3 fs-lg-1">{{ currencyCompact(currentBalanceNum) }}</span>
             <span class="text-muted d-inline-flex align-items-baseline ms-2 fs-4 fst-italic">
               <span :class="['me-1', ltvClass(upbLtvPct)]">{{ loading ? '...' : percentInt(upbLtvPct) }}</span>
               <span class="text-nowrap">LTV</span>
@@ -53,7 +53,7 @@
           <h6 class="text-uppercase mt-0">Total Debt</h6>
           <h2 class="my-2 d-flex align-items-baseline" id="total-debt">
             <span v-if="loading">...</span>
-            <span v-else>{{ currencyCompact(totalDebtNum) }}</span>
+            <span v-else class="fs-3 fs-lg-1">{{ currencyCompact(totalDebtNum) }}</span>
             <span class="text-muted d-inline-flex align-items-baseline ms-2 fs-4 fst-italic">
               <span :class="['me-1', ltvClass(tdLtvPct)]">{{ loading ? '...' : percentInt(tdLtvPct) }}</span>
               <span class="text-nowrap">TDTV</span>
@@ -71,7 +71,7 @@
           <h6 class="text-uppercase mt-0">Seller As-is Value</h6>
           <h2 class="my-2" id="seller-asis-value">
             <span v-if="loading">...</span>
-            <span v-else>{{ currencyCompact(sellerAsIsValueNum) }}</span>
+            <span v-else class="fs-3 fs-lg-1">{{ currencyCompact(sellerAsIsValueNum) }}</span>
           </h2>
         </div>
       </div>
@@ -262,5 +262,16 @@ export default defineComponent({
 </script>
 
 <style scoped>
-/* Minimal styles; rely on theme and utility classes from Hyper UI */
+/* Minimal: keep theme defaults, but normalize the inner row spacing so
+   all tiles visually align regardless of suffix (LTV/TDTV) presence. */
+.tilebox-one .card-body h6.text-uppercase.mt-0 { margin-bottom: 0.25rem; }
+.tilebox-one .card-body h2.my-2 {
+  display: flex;
+  align-items: baseline;
+  min-height: 2.25rem;   /* ensure equal value-row height */
+  margin-top: 0.5rem;    /* consistent spacing from title */
+  margin-bottom: 0.25rem;
+  white-space: nowrap;   /* prevent wrapping that creates uneven height */
+}
+.tilebox-one .card-body h2.my-2 span { white-space: nowrap; }
 </style>

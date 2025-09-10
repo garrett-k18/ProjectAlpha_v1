@@ -1,7 +1,7 @@
 <template>
   <!-- Display property details horizontally using Bootstrap grid system from Hyper UI -->
   <div class="card">
-    <div class="card-body pt-0 d-flex flex-column">
+    <div class="card-body pt-3 d-flex flex-column">
       <!-- Header removed as requested -->
       
       <!-- Horizontal layout using Bootstrap rows and columns -->
@@ -28,18 +28,6 @@
             <div v-if="row?.total_debt" class="d-flex flex-column align-items-center text-center">
               <small class="text-muted fw-normal">Total Debt</small>
               <span class="text-dark fw-semibold">{{ formattedTotalDebt }}</span>
-            </div>
-
-            <!-- Stacked under Address: Seller As-Is -->
-            <div v-if="row?.seller_asis_value" class="d-flex flex-column align-items-center text-center">
-              <small class="text-muted fw-normal">Seller As-Is</small>
-              <span class="text-dark fw-semibold">{{ formattedAsIsValue }}</span>
-            </div>
-
-            <!-- Stacked under Address: Seller ARV -->
-            <div v-if="row?.seller_arv_value" class="d-flex flex-column align-items-center text-center">
-              <small class="text-muted fw-normal">Seller ARV</small>
-              <span class="text-dark fw-semibold">{{ formattedArvValue }}</span>
             </div>
           </div>
         </div>
@@ -269,8 +257,6 @@ export default defineComponent({
     // Computed properties for formatting various fields
     const formattedBalance = computed(() => formatCurrency(row.value?.current_balance))
     const formattedTotalDebt = computed(() => formatCurrency(row.value?.total_debt))
-    const formattedArvValue = computed(() => formatCurrency(row.value?.seller_arv_value))
-    const formattedAsIsValue = computed(() => formatCurrency(row.value?.seller_asis_value))
     const formattedInterestRate = computed(() => formatPercentage(row.value?.interest_rate))
     const formattedDueDate = computed(() => formatDate(row.value?.next_due_date))
     // Prefer modified maturity date, then current, then original (whichever is available)
@@ -317,8 +303,7 @@ export default defineComponent({
       const r = row.value
       return !!(r && (
         r.street_address || r.city || r.state || r.zip ||
-        r.current_balance || r.total_debt ||
-        r.seller_asis_value || r.seller_arv_value
+        r.current_balance || r.total_debt
       ))
     })
 
@@ -419,8 +404,6 @@ export default defineComponent({
       row,
       formattedBalance,
       formattedTotalDebt,
-      formattedArvValue,
-      formattedAsIsValue,
       formattedInterestRate,
       formattedDueDate,
       formattedMaturityDate,

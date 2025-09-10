@@ -122,6 +122,7 @@ def get_seller_rawdata_field_names(request):
     field_names = [
         # Primary key and foreign keys
         'id',
+        'asset_status',
         'street_address',
         'city',
         'state',

@@ -110,10 +110,23 @@ class SellerRawData(models.Model):
         (OCCUPANCY_OCCUPIED, 'Occupied'),
         (OCCUPANCY_UNKNOWN, 'Unknown'),
     ]
+
+    # Asset status choices (dropdown)
+    ASSET_STATUS_NPL = 'NPL'   # Non-Performing Loan
+    ASSET_STATUS_REO = 'REO'   # Real Estate Owned
+    ASSET_STATUS_PERF = 'PERF' # Performing
+    ASSET_STATUS_RPL = 'RPL'   # Re-Performing Loan
+
+    ASSET_STATUS_CHOICES = [
+        (ASSET_STATUS_NPL, 'NPL'),
+        (ASSET_STATUS_REO, 'REO'),
+        (ASSET_STATUS_PERF, 'PERF'),
+        (ASSET_STATUS_RPL, 'RPL'),
+    ]
     seller = models.ForeignKey(Seller, on_delete=models.CASCADE, related_name='seller_raw_data')
     trade = models.ForeignKey(Trade, on_delete=models.CASCADE, related_name='seller_raw_data')
     sellertape_id = models.IntegerField()
-    asset_status = models.CharField(max_length=100)
+    asset_status = models.CharField(max_length=100, choices=ASSET_STATUS_CHOICES)
     as_of_date = models.DateField()
     
     street_address = models.CharField(max_length=100)

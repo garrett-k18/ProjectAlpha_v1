@@ -1,7 +1,7 @@
 <template>
   <!-- Valuation matrix table only; parent controls layout; no card wrapper -->
   <div class="table-responsive mb-0">
-    <table class="table table-bordered table-centered align-middle mb-0">
+    <table class="table table-bordered table-centered align-middle mb-0 bg-white">
       <colgroup>
         <col />
         <col style="width: 28%" />
@@ -16,8 +16,8 @@
           <th>Rehab Est.</th>
         </tr>
       </thead>
-      <!-- Body rows tightened: lh-sm line-height; td.py-0 further reduces vertical padding (~additional 15%). -->
-      <tbody class="lh-sm">
+      <!-- Body rows tightened: lh-sm line-height; force white background for cells -->
+      <tbody class="lh-sm bg-white">
         <!-- Top editable Internal Reconciled row (uses Hyper UI/BootstrapVue Next inputs)
              Use text+inputmode to avoid native number spinners; whole-number validation handled in-component.
              Width reduced via Bootstrap grid (~1/3 width). Comma formatting applied on blur and load. -->

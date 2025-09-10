@@ -233,7 +233,7 @@ const defaultColDef: ColDef = {
   // Guardrail so columns never collapse to unreadable widths
   // This works together with autosize and fit behaviors
   minWidth: 120,
-}
+ }
 
 // ---------------------------------------------------------------------------
 // Row Data: provided by centralized Pinia store (agGridRows)
@@ -467,6 +467,27 @@ const enumBadgeFields: Record<string, Record<string, { label: string; color: str
     'Vacant': { label: 'Vacant', color: 'bg-danger', title: 'Property is Vacant' },
     'Occupied': { label: 'Occupied', color: 'bg-success', title: 'Property is Occupied' },
     'Unknown': { label: 'Unknown', color: 'bg-warning', title: 'Occupancy Status Unknown' },
+  },
+  // Asset status badges (supports both new codes and legacy strings)
+  asset_status: {
+    // Performing / Current
+    'PERF': { label: 'PERF', color: 'bg-success', title: 'Performing' },
+    'Performing': { label: 'Performing', color: 'bg-success' },
+    'Current': { label: 'Current', color: 'bg-success' },
+
+    // Re-Performing
+    'RPL': { label: 'RPL', color: 'bg-info', title: 'Re-Performing' },
+    'Re-Performing': { label: 'Re-Performing', color: 'bg-info' },
+
+    // Non-Performing / Delinquent / Default / Foreclosure
+    'NPL': { label: 'NPL', color: 'bg-danger', title: 'Non-Performing Loan' },
+    'Non-Performing': { label: 'Non-Performing', color: 'bg-danger' },
+    'Delinquent': { label: 'Delinquent', color: 'bg-danger' },
+    'Default': { label: 'Default', color: 'bg-danger' },
+    'Foreclosure': { label: 'Foreclosure', color: 'bg-danger' },
+
+    // REO
+    'REO': { label: 'REO', color: 'bg-warning', title: 'Real Estate Owned' },
   },
 }
 

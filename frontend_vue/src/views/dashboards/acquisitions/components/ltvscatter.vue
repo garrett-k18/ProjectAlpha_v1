@@ -1,5 +1,5 @@
 <template>
-  <div class="card">
+  <div class="card h-100">
     <div class="d-flex card-header justify-content-between align-items-center">
       <h4 class="header-title">LTV Scatter Chart</h4>
       <div class="d-flex align-items-center">

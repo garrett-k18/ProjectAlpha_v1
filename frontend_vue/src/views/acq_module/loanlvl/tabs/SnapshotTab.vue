@@ -2,14 +2,15 @@
   <!-- Snapshot tab content used inside the product details modal.
        This component intentionally excludes page-level wrappers (Layout, Breadcrumb)
        so it can be embedded within a modal body. -->
-  <div class="px-3 px-lg-4">
+  <div class="px-3 px-lg-3">
+    <LoanlvlWidgets :row="row" class="mb-2" />
     <!-- Top summary row with photos and quick facts -->
     <b-row class="g-3 align-items-stretch">
       <!-- First column: Photo carousel area, displays images and thumbnails -->
       <b-col lg="4" class="d-flex">
         <!-- Match Hyper UI card look used by Details/Map: white background + subtle shadow -->
-        <div class="w-100 h-100">
-          <div class="card h-100 d-flex flex-column">
+        <div class="w-100" style="height: 380px;">
+          <div class="card w-100 h-100 d-flex flex-column">
             <div class="card-body pt-0 d-flex flex-column h-100 overflow-hidden">
               <!-- Reusable global PhotoCarousel component displays product/asset images -->
               <!-- Show carousel only when we have images; otherwise show a small placeholder -->
@@ -25,30 +26,36 @@
                 img-class="d-block w-100 h-100"
                 :img-max-width="'100%'"
                 :img-max-height="'100%'"
-                :container-height="carouselHeight"
+                :container-height="'100%'"
                 :container-max-width="'100%'"
                 :thumb-width="thumbWidth"
                 :thumb-height="thumbHeight"
               />
-              <div v-else class="text-muted text-center py-4 small">Loading photos…</div>
+              <div v-else class="flex-fill d-flex align-items-center justify-content-center text-muted small">No Photos</div>
             </div>
           </div>
         </div>
       </b-col>
 
-      <!-- Second column: Property details area, shows dynamic details from SellerRawData -->
+      
+      
+      <!-- Third column: Asset Highlights (QuickSummary) placed between Details and Map -->
       <b-col lg="4" class="d-flex">
-        <!-- Use the SnapshotDetails component to display property information from the row data -->
-        <div class="w-100 h-100">
-          <!-- Apply h-100 via root-attribute inheritance so the card fills the column height -->
-          <SnapshotDetails class="h-100 d-flex flex-column" :row="row" :productId="productId" />
+        <div class="w-100" style="height: 380px;">
+          <QuickSummary
+            class="w-100 h-100 d-flex flex-column"
+            :context="quickSummaryContext"
+            :max-bullets="4"
+            :lazy="true"
+            title="Asset Highlights"
+          />
         </div>
       </b-col>
-      
-      <!-- Third column: Property map to the right of Property details -->
+
+      <!-- Fourth column: Property map on the right -->
       <b-col lg="4" class="d-flex">
-        <div class="w-100 h-100">
-          <PropertyMap class="h-100 d-flex flex-column" :row="row" :productId="productId" height="100%" />
+        <div class="w-100" style="height: 380px;">
+          <PropertyMap class="w-100 h-100 d-flex flex-column" :row="row" :productId="productId" height="100%" />
         </div>
       </b-col>
       </b-row>
@@ -56,28 +63,15 @@
     <!-- Standard gutters to match other tabs -->
     <b-row class="g-3 mt-1 align-items-stretch">
         <!-- Valuation Matrix (component renders its own card now) -->
-        <b-col lg="6" class="d-flex">
+        <b-col lg="9" class="d-flex">
           <div class="w-100 h-100">
             <ValuationMatrix class="h-100 d-flex flex-column" :row="row" :productId="productId" />
           </div>
         </b-col>
 
-        <!-- Quick AI Summary (middle, same width as Documents) -->
+        <!-- Documents quick view card (right) -->
         <b-col lg="3" class="d-flex">
-          <div class="ps-lg-3 w-100 h-100">
-            <QuickSummary
-              class="h-100 d-flex flex-column"
-              :context="quickSummaryContext"
-              :max-bullets="4"
-              :lazy="true"
-              title="Asset Highlights"
-            />
-          </div>
-        </b-col>
-
-        <!-- Documents quick view card (right, original width) -->
-        <b-col lg="3" class="d-flex">
-          <div class="ps-lg-3 w-100 h-100">
+          <div class="w-100 h-100">
             <DocumentsQuickView
               title="Document Quick View"
               :docs="docItems"
@@ -99,7 +93,6 @@
 import PhotoCarousel from '@/1_global/components/PhotoCarousel.vue'
 import type { PhotoItem } from '@/1_global/components/PhotoCarousel.vue'
 // Import the SnapshotDetails component to display property information
-import SnapshotDetails from '@/views/acq_module/loanlvl/components/snapshotdetails.vue'
 // Reusable map component to show geocoded address
 import PropertyMap from '@/1_global/components/PropertyMap.vue'
 // Reusable documents quick view card (data-agnostic)
@@ -109,6 +102,8 @@ import type { DocumentItem } from '@/1_global/components/DocumentsQuickView.vue'
 import QuickSummary from '@/1_global/components/QuickSummary.vue'
 // Modular pricing/stock grid card extracted from inline markup
 import ValuationMatrix from '@/views/acq_module/loanlvl/components/valuationMatrix.vue'
+// Hyper UI widget: simple stat with icon
+import LoanlvlWidgets from '@/components/widgets/loanlvl-widgets.vue'
 
 // Vue composition API helpers
 import { withDefaults, defineProps, ref, computed, watch } from 'vue'
@@ -252,5 +247,6 @@ const quickSummaryContext = computed<string>(() => {
   // Join into a short paragraph for summarization
   return parts.join(' | ')
 })
+
 
 </script>

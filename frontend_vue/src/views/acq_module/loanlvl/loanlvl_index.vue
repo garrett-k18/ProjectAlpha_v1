@@ -73,8 +73,8 @@ const displayTitle = computed<string>(() => {
   const state = String((r as any)['state'] ?? '').trim()
   const zip = String((r as any)['zip'] ?? '').trim()
   const locality = [city, state].filter(Boolean).join(', ')
-  const tail = [locality, zip].filter(Boolean).join(' ')
-  const built = [street, tail].filter(Boolean).join(', ')
+  // Exclude ZIP from display title per request
+  const built = [street, locality].filter(Boolean).join(', ')
   const propAddr = String(addressProp?.value ?? '').trim()
   const address = built || propAddr
 

@@ -15,7 +15,8 @@
     <b-row class="mb-0">
       <b-col class="col-12">
         <div class="card">
-          <div class="card-body py-1 px-2">
+          <!-- Slightly increased bottom whitespace for breathing room (pb-2) -->
+          <div class="card-body pt-1 pb-2 px-2">
             <!-- Inline toolbar layout: title on the left, then Seller/Trade selects, then Reset -->
             <div class="d-flex flex-wrap align-items-end justify-content-center gap-2">
               <!-- Title inline on the left of the dropdowns -->
@@ -27,7 +28,7 @@
                 <select
                   id="topSellerSelect"
                   class="form-select form-select-sm text-center"
-                  style="width: 260px; min-width: 260px; max-width: 260px;"
+                  style="width: 312px; min-width: 312px; max-width: 312px;"
                   v-model="selectedSellerId"
                   :disabled="sellersLoading"
                 >
@@ -42,7 +43,7 @@
                 <select
                   id="topTradeSelect"
                   class="form-select form-select-sm text-center"
-                  style="width: 260px; min-width: 260px; max-width: 260px;"
+                  style="width: 312px; min-width: 312px; max-width: 312px;"
                   v-model="selectedTradeId"
                   :disabled="!selectedSellerId || tradesLoading"
                 >
@@ -126,19 +127,20 @@
     </b-row>
 
     <b-row class="g-2 mt-2">
-      <b-col xl="4" lg="6">
-        <LtvScatterChart />
+      <b-col xl="4" lg="6" class="d-flex">
+        <LtvScatterChart class="h-100 d-flex flex-column" />
       </b-col>
 
-      <b-col xl="4" lg="12">
-        <EngagementOverview />
+      <b-col xl="4" lg="12" class="d-flex">
+        <EngagementOverview class="h-100 d-flex flex-column" />
       </b-col>
-      <b-col xl="4" lg="12">
+      <b-col xl="4" lg="12" class="d-flex">
         <DocumentsQuickView
           title="Document Quick View"
           :docs="docItems"
           :maxItems="5"
           :showViewAll="false"
+          class="h-100 d-flex flex-column"
         />
       </b-col>
     </b-row>
@@ -159,7 +161,10 @@
       <!-- Custom header with action button (far right) -->
       <template #header>
         <div class="d-flex align-items-center w-100">
-          <h5 class="modal-title mb-0">{{ modalTitle }}</h5>
+          <h5 class="modal-title mb-0">
+            <div class="fw-semibold lh-sm">ID - {{ modalIdText }}</div>
+            <div class="text-muted lh-sm">Address - {{ modalAddrText }}</div>
+          </h5>
           <div class="ms-auto">
             <button
               type="button"
@@ -363,6 +368,23 @@ export default {
       if (id) return id
       if (addr) return addr
       return 'Asset Details'
+    },
+    // First line: just the ID (if available)
+    modalIdText(): string {
+      return this.selectedId ? String(this.selectedId) : 'Asset'
+    },
+    // Second line: Address without ZIP. Prefer selectedRow fields; fallback to selectedAddr string
+    modalAddrText(): string {
+      const r: any = this.selectedRow || {}
+      const street = String(r.street_address ?? '').trim()
+      const city = String(r.city ?? '').trim()
+      const state = String(r.state ?? '').trim()
+      const locality = [city, state].filter(Boolean).join(', ')
+      const built = [street, locality].filter(Boolean).join(', ')
+      if (built) return built
+      const rawAddr = this.selectedAddr ? String(this.selectedAddr) : ''
+      // Strip trailing ZIP if present
+      return rawAddr.replace(/,?\s*\d{5}(?:-\d{4})?$/, '')
     },
   },
   methods: {
