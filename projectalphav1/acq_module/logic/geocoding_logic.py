@@ -15,10 +15,12 @@ from __future__ import annotations
 # Standard library imports for environment and typing
 import os  # used to read env vars (GEOCODIO_API_KEY, TTLs, etc.)
 from typing import Dict, List, Optional, Tuple, Any  # precise typing for clarity
+import re
 
 # Django imports for caching and query construction
 from django.core.cache import cache  # centralized cache per Django settings
 from django.db.models import Q  # used to filter SellerRawData by seller_id/trade_id
+from django.utils import timezone
 
 # Third-party client for Geocod.io (handle API differences across versions)
 try:
@@ -34,6 +36,7 @@ except Exception:
 
 # App model import: `SellerRawData` contains the address fields we need
 from ..models.seller import SellerRawData
+from ..models.analysis import LlDataEnrichment
 
 # ---------------------------------------------------------------------------
 # Configuration constants (read from environment with safe defaults)
@@ -74,17 +77,21 @@ def _env_api_key() -> Optional[str]:
 
 
 def _normalize_address(parts: List[str]) -> str:
-    """Normalize address components for use as a stable cache key.
+    """Normalize address into a cache-key-safe token.
 
     Steps:
-    - Trim whitespace on each part
-    - Drop empty parts
-    - Join with ", "
-    - Collapse internal multiple spaces
-    - Lowercase for case-insensitive equality
+    - Trim and drop empty parts
+    - Join with comma/space, collapse whitespace, lowercase
+    - Sanitize for memcached safety: replace any char not in [a-z0-9:_-]
+      with underscore, and strip leading/trailing underscores. This avoids
+      Django's CacheKeyWarning when using backends like Memcached.
     """
     joined = ", ".join(p.strip() for p in parts if p and str(p).strip())
-    return " ".join(joined.split()).lower()
+    normalized = " ".join(joined.split()).lower()
+    # Replace anything not alnum, colon, underscore, or hyphen with underscore
+    safe = re.sub(r"[^a-z0-9:_-]", "_", normalized)
+    safe = safe.strip("_")
+    return safe
 
 
 def _build_full_address(row: Dict[str, Optional[str]]) -> str:
@@ -316,7 +323,67 @@ def geocode_markers_for_seller_trade(seller_id: int, trade_id: int) -> Dict[str,
         # Use the first representative row for label/name; multiple ids may share address
         representative = addr_to_rows[norm][0]
         candidates = representative["candidates"]
-        coords, source, used_addr = _geocode_with_cache_any(candidates, api_key)
+        # 1) Prefer DB-persisted geocode if present on any row for this address
+        persisted = None
+        used_addr = None
+        for r in addr_to_rows[norm]:
+            enr = LlDataEnrichment.objects.filter(seller_raw_data_id=r["id"]).only(
+                "geocode_lat", "geocode_lng", "geocode_used_address"
+            ).first()
+            if enr and enr.geocode_lat is not None and enr.geocode_lng is not None:
+                try:
+                    persisted = (float(enr.geocode_lat), float(enr.geocode_lng))
+                    used_addr = enr.geocode_used_address or None
+                    break
+                except Exception:
+                    persisted = None
+
+        if persisted is not None:
+            coords, source = persisted, "db"
+        else:
+            # 2) Otherwise try cache/API
+            coords, source, used_addr = _geocode_with_cache_any(candidates, api_key)
+
+            # If we obtained coordinates, upsert for all rows sharing this address
+            if coords is not None:
+                lat, lng = coords
+                when = timezone.now()
+                for r in addr_to_rows[norm]:
+                    # safe upsert pattern
+                    enr_obj, _created = LlDataEnrichment.objects.get_or_create(
+                        seller_raw_data_id=r["id"],
+                        defaults={
+                            "geocode_lat": lat,
+                            "geocode_lng": lng,
+                            "geocode_used_address": used_addr or candidates[0],
+                            "geocode_full_address": used_addr or candidates[0],
+                            "geocode_display_address": representative.get("display_name") or "",
+                            "geocoded_at": when,
+                        },
+                    )
+                    # Update existing if empty or different
+                    if not _created:
+                        changed = False
+                        if not enr_obj.geocode_lat or not enr_obj.geocode_lng:
+                            enr_obj.geocode_lat = lat
+                            enr_obj.geocode_lng = lng
+                            changed = True
+                        if not enr_obj.geocode_used_address:
+                            enr_obj.geocode_used_address = used_addr or candidates[0]
+                            changed = True
+                        if not enr_obj.geocode_full_address:
+                            enr_obj.geocode_full_address = used_addr or candidates[0]
+                            changed = True
+                        if not enr_obj.geocode_display_address:
+                            enr_obj.geocode_display_address = representative.get("display_name") or ""
+                            changed = True
+                        if changed:
+                            enr_obj.geocoded_at = when
+                            enr_obj.save(update_fields=[
+                                "geocode_lat", "geocode_lng", "geocode_used_address",
+                                "geocode_full_address", "geocode_display_address",
+                                "geocoded_at",
+                            ])
         if source == "live":
             any_live = True
         elif source == "cache":
@@ -344,3 +411,77 @@ def geocode_markers_for_seller_trade(seller_id: int, trade_id: int) -> Dict[str,
         "count": len(markers),
         "source": source,
     }
+
+
+def geocode_row(row_id: int) -> Optional[Tuple[float, float]]:
+    """Geocode a single SellerRawData row and persist to LlDataEnrichment.
+
+    This is used by post-save signals to populate coordinates automatically
+    on creation without requiring a batch call. It follows the same order:
+    DB -> cache -> live. Returns (lat, lng) when available.
+    """
+    try:
+        api_key = _env_api_key()
+        if not api_key:
+            return None
+
+        r = (SellerRawData.objects
+             .filter(pk=row_id)
+             .values("id", "city", "state", "zip")
+             .first())
+        if not r:
+            return None
+
+        # Check persisted first
+        enr = LlDataEnrichment.objects.filter(seller_raw_data_id=row_id).only(
+            "geocode_lat", "geocode_lng"
+        ).first()
+        if enr and enr.geocode_lat is not None and enr.geocode_lng is not None:
+            return float(enr.geocode_lat), float(enr.geocode_lng)
+
+        candidates = _build_address_candidates(r)
+        if not candidates:
+            return None
+
+        coords, source, used_addr = _geocode_with_cache_any(candidates, api_key)
+        if coords is None:
+            return None
+
+        lat, lng = coords
+        when = timezone.now()
+        enr_obj, created = LlDataEnrichment.objects.get_or_create(
+            seller_raw_data_id=row_id,
+            defaults={
+                "geocode_lat": lat,
+                "geocode_lng": lng,
+                "geocode_used_address": used_addr or candidates[0],
+                "geocode_full_address": used_addr or candidates[0],
+                "geocode_display_address": _build_display_address(r),
+                "geocoded_at": when,
+            },
+        )
+        if not created:
+            changed = False
+            if not enr_obj.geocode_lat or not enr_obj.geocode_lng:
+                enr_obj.geocode_lat = lat
+                enr_obj.geocode_lng = lng
+                changed = True
+            if not enr_obj.geocode_used_address:
+                enr_obj.geocode_used_address = used_addr or candidates[0]
+                changed = True
+            if not enr_obj.geocode_full_address:
+                enr_obj.geocode_full_address = used_addr or candidates[0]
+                changed = True
+            if not enr_obj.geocode_display_address:
+                enr_obj.geocode_display_address = _build_display_address(r)
+                changed = True
+            if changed:
+                enr_obj.geocoded_at = when
+                enr_obj.save(update_fields=[
+                    "geocode_lat", "geocode_lng", "geocode_used_address",
+                    "geocode_full_address", "geocode_display_address",
+                    "geocoded_at",
+                ])
+        return lat, lng
+    except Exception:
+        return None

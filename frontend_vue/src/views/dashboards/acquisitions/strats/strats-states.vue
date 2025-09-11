@@ -3,6 +3,16 @@
   <div v-if="!embedded" class="card h-100">
     <div class="d-flex card-header justify-content-between align-items-center">
       <h4 class="header-title">States</h4>
+      <button
+        class="btn btn-sm btn-light"
+        type="button"
+        :disabled="rows.length === 0"
+        data-bs-toggle="modal"
+        :data-bs-target="'#' + modalId"
+      >
+        <i class="mdi mdi-arrow-expand"></i>
+        View All
+      </button>
     </div>
 
     <div class="card-body pt-0" :class="emptyBodyClasses">
@@ -25,30 +35,28 @@
         Select a seller and trade to see state counts.
       </div>
 
-      <!-- Scrollable table; matches spacing of other strat tables -->
+      <!-- Compact top-4 + Other table (no in-card scroll) -->
       <div v-else class="mt-2">
-        <div class="table-responsive" style="max-height: 320px; overflow: auto;">
-          <table class="table table-borderless table-striped align-middle mb-0 bands-table">
-            <thead class="text-uppercase text-muted small">
-              <tr>
-                <th style="width: 25%">State</th>
-                <th class="text-center" style="width: 15%">Count</th>
-                <th class="text-center" style="width: 20%">Current Balance</th>
-                <th class="text-center" style="width: 20%">Total Debt</th>
-                <th class="text-center" style="width: 20%">As-Is Value</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="r in rows" :key="r.state">
-                <td class="py-2">{{ r.state }}</td>
-                <td class="py-2 text-center fw-semibold">{{ formatInt(r.count) }}</td>
-                <td class="py-2 text-center">{{ formatCurrencyNoDecimals(r.currentBalance) }}</td>
-                <td class="py-2 text-center">{{ formatCurrencyNoDecimals(r.totalDebt) }}</td>
-                <td class="py-2 text-center">{{ formatCurrencyNoDecimals(r.sellerAsIs) }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <table class="table table-borderless table-striped align-middle mb-0 bands-table">
+          <thead class="text-uppercase text-muted small">
+            <tr>
+              <th style="width: 25%">State</th>
+              <th class="text-center" style="width: 15%">Count</th>
+              <th class="text-center" style="width: 20%">Current Balance</th>
+              <th class="text-center" style="width: 20%">Total Debt</th>
+              <th class="text-center" style="width: 20%">As-Is Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="r in visibleRows" :key="r.state">
+              <td class="py-2">{{ r.state }}</td>
+              <td class="py-2 text-center fw-semibold">{{ formatInt(r.count) }}</td>
+              <td class="py-2 text-center">{{ formatCurrencyNoDecimals(r.currentBalance) }}</td>
+              <td class="py-2 text-center">{{ formatCurrencyNoDecimals(r.totalDebt) }}</td>
+              <td class="py-2 text-center">{{ formatCurrencyNoDecimals(r.sellerAsIs) }}</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   </div>
@@ -74,29 +82,61 @@
       Select a seller and trade to see stratification.
     </div>
 
-    <!-- Scrollable table sized to column height -->
+    <!-- Embedded: also show compact top-4 + Other -->
     <div v-else>
-      <div class="table-responsive" style="max-height: 320px; overflow: auto;">
-        <table class="table table-borderless table-striped align-middle mb-0 bands-table">
-          <thead class="text-uppercase text-muted small">
-            <tr>
-              <th style="width: 25%">State</th>
-              <th class="text-center" style="width: 15%">Count</th>
-              <th class="text-center" style="width: 20%">Current Balance</th>
-              <th class="text-center" style="width: 20%">Total Debt</th>
-              <th class="text-center" style="width: 20%">As-Is Value</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="r in rows" :key="r.state">
-              <td class="py-2">{{ r.state }}</td>
-              <td class="py-2 text-center fw-semibold">{{ formatInt(r.count) }}</td>
-              <td class="py-2 text-center">{{ formatCurrencyNoDecimals(r.currentBalance) }}</td>
-              <td class="py-2 text-center">{{ formatCurrencyNoDecimals(r.totalDebt) }}</td>
-              <td class="py-2 text-center">{{ formatCurrencyNoDecimals(r.sellerAsIs) }}</td>
-            </tr>
-          </tbody>
-        </table>
+      <table class="table table-borderless table-striped align-middle mb-0 bands-table">
+        <thead class="text-uppercase text-muted small">
+          <tr>
+            <th style="width: 25%">State</th>
+            <th class="text-center" style="width: 15%">Count</th>
+            <th class="text-center" style="width: 20%">Current Balance</th>
+            <th class="text-center" style="width: 20%">Total Debt</th>
+            <th class="text-center" style="width: 20%">As-Is Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="r in visibleRows" :key="'embed-' + r.state">
+            <td class="py-2">{{ r.state }}</td>
+            <td class="py-2 text-center fw-semibold">{{ formatInt(r.count) }}</td>
+            <td class="py-2 text-center">{{ formatCurrencyNoDecimals(r.currentBalance) }}</td>
+            <td class="py-2 text-center">{{ formatCurrencyNoDecimals(r.totalDebt) }}</td>
+            <td class="py-2 text-center">{{ formatCurrencyNoDecimals(r.sellerAsIs) }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Centered modal with full state breakdown -->
+  <div class="modal fade" :id="modalId" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">All States</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <table class="table table-borderless table-striped align-middle mb-0 bands-table">
+            <thead class="text-uppercase text-muted small">
+              <tr>
+                <th style="width: 25%">State</th>
+                <th class="text-center" style="width: 15%">Count</th>
+                <th class="text-center" style="width: 20%">Current Balance</th>
+                <th class="text-center" style="width: 20%">Total Debt</th>
+                <th class="text-center" style="width: 20%">As-Is Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="r in rows" :key="'modal-' + r.state">
+                <td class="py-2">{{ r.state }}</td>
+                <td class="py-2 text-center fw-semibold">{{ formatInt(r.count) }}</td>
+                <td class="py-2 text-center">{{ formatCurrencyNoDecimals(r.currentBalance) }}</td>
+                <td class="py-2 text-center">{{ formatCurrencyNoDecimals(r.totalDebt) }}</td>
+                <td class="py-2 text-center">{{ formatCurrencyNoDecimals(r.sellerAsIs) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
@@ -185,6 +225,29 @@ const rows = computed<StateRow[]>(() => {
     };
   });
 });
+
+// Top 4 + Other aggregator for compact view
+const visibleRows = computed<StateRow[]>(() => {
+  const all = rows.value
+  if (all.length <= 5) return all
+  const top = all.slice(0, 4)
+  const rest = all.slice(4)
+  const other: StateRow = {
+    state: 'Other',
+    count: rest.reduce((acc, x) => acc + (x.count || 0), 0),
+    currentBalance: rest.reduce((acc, x) => acc + (x.currentBalance || 0), 0),
+    totalDebt: rest.reduce((acc, x) => acc + (x.totalDebt || 0), 0),
+    sellerAsIs: rest.reduce((acc, x) => acc + (x.sellerAsIs || 0), 0),
+  }
+  return [...top, other]
+})
+
+// Unique modal id per selection to avoid clashing with other instances
+const modalId = computed<string>(() => {
+  const sid = selectedSellerId.value ?? 'x'
+  const tid = selectedTradeId.value ?? 'x'
+  return `statesModal-${sid}-${tid}`
+})
 
 // When there is no data and no error/loading, center the helper inside the full card body
 const isEmpty = computed<boolean>(() => !embedded.value && !summaries.loading && !summaries.error && (rows.value.length === 0));

@@ -6,7 +6,7 @@ from .models import (
     Seller, Trade, SellerRawData,
     Servicer, StateReference, LoanLevelAssumption, TradeLevelAssumption,
     InternalValuation, BrokerValues, Photo,
-    Brokercrm,
+    Brokercrm, LlDataEnrichment,
 )
 
 # Inline admin classes for related models
@@ -36,6 +36,20 @@ class PhotoInline(admin.TabularInline):
 
     image_preview.short_description = 'Preview'
 
+
+class LlDataEnrichmentInline(admin.StackedInline):
+    """Inline admin to view/edit one-to-one enrichment on SellerRawData."""
+    model = LlDataEnrichment
+    extra = 0
+    can_delete = True
+    fk_name = 'seller_raw_data'
+    fields = (
+        'geocode_lat', 'geocode_lng', 'geocode_used_address',
+        'geocode_full_address', 'geocode_display_address',
+        'geocode_county', 'geocode_msa', 'geocoded_at',
+        'created_at', 'updated_at',
+    )
+    readonly_fields = ('created_at', 'updated_at')
 
 @admin.register(Brokercrm)
 class BrokercrmAdmin(admin.ModelAdmin):
@@ -132,8 +146,8 @@ class SellerRawDataAdmin(admin.ModelAdmin):
             'fields': ('mod_flag', 'mod_date', 'mod_maturity_date', 'mod_term', 'mod_rate', 'mod_initial_balance')
         }),
     )
-    # Show all photos inline (unified)
-    inlines = [PhotoInline]
+    # Show photos and enrichment inline
+    inlines = [PhotoInline, LlDataEnrichmentInline]
 
 @admin.register(Servicer)
 class ServicerAdmin(admin.ModelAdmin):
@@ -174,3 +188,19 @@ class BrokerValuesAdmin(admin.ModelAdmin):
     # Photo is keyed to SellerRawData, so no direct inline here.
     inlines = []
     # Removed old separate photo model admin registrations (BrokerPhoto, PublicPhoto, DocumentPhoto).
+
+
+@admin.register(LlDataEnrichment)
+class LlDataEnrichmentAdmin(admin.ModelAdmin):
+    """Admin for loan-level enrichment records."""
+    list_display = (
+        'seller_raw_data', 'geocode_lat', 'geocode_lng', 'geocoded_at',
+    )
+    search_fields = (
+        'seller_raw_data__seller__name',
+        'seller_raw_data__trade__trade_name',
+        'geocode_full_address', 'geocode_used_address', 'geocode_display_address',
+    )
+    list_filter = (
+        'seller_raw_data__seller', 'seller_raw_data__trade',
+    )

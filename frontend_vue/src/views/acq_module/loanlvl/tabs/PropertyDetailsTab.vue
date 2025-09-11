@@ -1,13 +1,9 @@
 <template>
   <div class="px-3 px-lg-4">
     <div class="row g-3">
-      <!-- Empty Card 1: 1:1 square -->
+      <!-- Property Details Card -->
       <div class="col-12 col-lg-6 col-xl-4">
-        <div class="card h-100 d-flex flex-column">
-          <div class="card-body d-flex align-items-center justify-content-center text-muted small">
-            <!-- Empty card placeholder -->
-          </div>
-        </div>
+        <PropertyDetails :row="row" :productId="productId" />
       </div>
 
       <!-- Empty Card 2: 1:1 square -->
@@ -34,8 +30,9 @@
 
 <script setup lang="ts">
 import { withDefaults, defineProps } from 'vue'
-// Reusable Google Map component; accepts row/productId and derives address
+// Import components
 import PropertyMap from '@/1_global/components/PropertyMap.vue'
+import PropertyDetails from '@/views/acq_module/loanlvl/components/propertydetails.vue'
 
 // Keep props consistent with other tabs so parent can pass row/productId
 withDefaults(defineProps<{

@@ -18,8 +18,8 @@
 
       <!-- Content -->
       <div v-else class="row g-3">
-        <!-- Column 1: Address + Type/Occupancy -->
-        <div class="col-md-6">
+        <!-- Column: Address + Type/Occupancy and core attributes -->
+        <div class="col-12">
           <div v-if="fullAddress" class="mb-2">
             <small class="text-muted d-block">Address</small>
             <span class="fw-semibold text-dark">{{ fullAddress }}</span>
@@ -27,47 +27,58 @@
 
           <div v-if="rowActive?.property_type" class="mb-2">
             <small class="text-muted d-block">Property Type</small>
-            <span class="fw-semibold text-dark">{{ rowActive?.property_type }}</span>
+            <span
+              v-if="propertyBadge"
+              class="badge rounded-pill px-3 py-1 fs-6 fw-semibold"
+              :class="propertyBadge.color"
+              :title="propertyBadge.title || propertyBadge.label"
+            >
+              {{ propertyBadge.label }}
+            </span>
+            <span v-else class="fw-semibold text-dark">{{ rowActive?.property_type }}</span>
+          </div>
+
+          <div v-if="rowActive?.beds !== null || rowActive?.baths !== null" class="mb-2">
+            <small class="text-muted d-block">Bed / Bath</small>
+            <span class="fw-semibold text-dark">
+              {{ rowActive?.beds || 'N/A' }} bd / {{ rowActive?.baths ? rowActive.baths.toFixed(1) : 'N/A' }} ba
+            </span>
+          </div>
+
+          <div v-if="rowActive?.sq_ft" class="mb-2">
+            <small class="text-muted d-block">Square Feet</small>
+            <span class="fw-semibold text-dark">
+              {{ new Intl.NumberFormat().format(rowActive.sq_ft) }} sq ft
+            </span>
+          </div>
+
+          <div v-if="rowActive?.lot_size" class="mb-2">
+            <small class="text-muted d-block">Lot Size</small>
+            <span class="fw-semibold text-dark">
+              {{ new Intl.NumberFormat().format(rowActive.lot_size) }} sq ft
+            </span>
+          </div>
+
+          <div v-if="rowActive?.year_built" class="mb-2">
+            <small class="text-muted d-block">Year Built</small>
+            <span class="fw-semibold text-dark">{{ rowActive.year_built }}</span>
           </div>
 
           <div v-if="rowActive?.occupancy" class="mb-2">
             <small class="text-muted d-block">Occupancy</small>
-            <span class="fw-semibold text-dark">{{ rowActive?.occupancy }}</span>
+            <span
+              v-if="occupancyBadge"
+              class="badge rounded-pill px-3 py-1 fs-6 fw-semibold"
+              :class="occupancyBadge.color"
+              :title="occupancyBadge.title || occupancyBadge.label"
+            >
+              {{ occupancyBadge.label }}
+            </span>
+            <span v-else class="fw-semibold text-dark">{{ rowActive?.occupancy }}</span>
           </div>
         </div>
 
-        <!-- Column 2: Seller/Additional Values -->
-        <div class="col-md-6">
-          <div v-if="rowActive?.seller_value_date" class="mb-2">
-            <small class="text-muted d-block">Seller Value Date</small>
-            <span class="fw-semibold text-dark">{{ formatDate(rowActive?.seller_value_date) }}</span>
-          </div>
-
-          <div v-if="rowActive?.seller_arv_value != null" class="mb-2">
-            <small class="text-muted d-block">Seller ARV Value</small>
-            <span class="fw-semibold text-dark">{{ formatCurrency(rowActive?.seller_arv_value) }}</span>
-          </div>
-
-          <div v-if="rowActive?.seller_asis_value != null" class="mb-2">
-            <small class="text-muted d-block">Seller As-Is Value</small>
-            <span class="fw-semibold text-dark">{{ formatCurrency(rowActive?.seller_asis_value) }}</span>
-          </div>
-
-          <div v-if="rowActive?.additional_asis_value != null" class="mb-2">
-            <small class="text-muted d-block">Additional As-Is Value</small>
-            <span class="fw-semibold text-dark">{{ formatCurrency(rowActive?.additional_asis_value) }}</span>
-          </div>
-
-          <div v-if="rowActive?.additional_arv_value != null" class="mb-2">
-            <small class="text-muted d-block">Additional ARV Value</small>
-            <span class="fw-semibold text-dark">{{ formatCurrency(rowActive?.additional_arv_value) }}</span>
-          </div>
-
-          <div v-if="rowActive?.additional_value_date" class="mb-2">
-            <small class="text-muted d-block">Additional Value Date</small>
-            <span class="fw-semibold text-dark">{{ formatDate(rowActive?.additional_value_date) }}</span>
-          </div>
-        </div>
+        <!-- Removed seller/additional valuation fields per request -->
       </div>
     </div>
   </div>
@@ -104,9 +115,9 @@ export default defineComponent({
     const hasAnyData = computed<boolean>(() => {
       const r = rowActive.value as any
       return !!(r && (
-        r.street_address || r.city || r.state || r.zip || r.property_type || r.occupancy ||
-        r.seller_value_date || r.seller_arv_value != null || r.seller_asis_value != null ||
-        r.additional_asis_value != null || r.additional_arv_value != null || r.additional_value_date
+        r.street_address || r.city || r.state || r.zip ||
+        r.property_type || r.occupancy ||
+        r.beds != null || r.baths != null || r.sq_ft != null || r.lot_size != null || r.year_built != null
       ))
     })
 
@@ -145,7 +156,40 @@ export default defineComponent({
 
     const formatDate = (v: any) => (v ? new Date(v).toLocaleDateString('en-US') : 'N/A')
 
-    return { rowActive, hasAnyData, fullAddress, formatCurrency, formatDate }
+    // Badge color maps copied from AG Grid configuration to keep visual parity
+    // Property Type badge colors
+    const propertyTypeBadgeMap: Record<string, { label: string; color: string; title?: string }> = {
+      'SFR': { label: 'SFR', color: 'bg-success', title: 'Single Family Residence' },
+      'Manufactured': { label: 'Manufactured', color: 'bg-info', title: 'Manufactured Home' },
+      'Condo': { label: 'Condo', color: 'bg-primary', title: 'Condominium' },
+      '2-4 Family': { label: '2-4 Family', color: 'bg-warning', title: '2-4 Family Property' },
+      'Land': { label: 'Land', color: 'bg-danger', title: 'Vacant Land' },
+      'Multifamily 5+': { label: 'Multifamily 5+', color: 'bg-secondary', title: 'Multifamily 5+ Units' },
+    }
+
+    // Occupancy badge colors
+    const occupancyBadgeMap: Record<string, { label: string; color: string; title?: string }> = {
+      'Vacant': { label: 'Vacant', color: 'bg-danger', title: 'Property is Vacant' },
+      'Occupied': { label: 'Occupied', color: 'bg-success', title: 'Property is Occupied' },
+      'Unknown': { label: 'Unknown', color: 'bg-warning', title: 'Occupancy Status Unknown' },
+    }
+
+    // Compute badges from current row
+    const propertyBadge = computed(() => {
+      const r = rowActive.value as any
+      if (!r || !r.property_type) return null
+      const key = String(r.property_type)
+      return propertyTypeBadgeMap[key] || null
+    })
+
+    const occupancyBadge = computed(() => {
+      const r = rowActive.value as any
+      if (!r || !r.occupancy) return null
+      const key = String(r.occupancy)
+      return occupancyBadgeMap[key] || null
+    })
+
+    return { rowActive, hasAnyData, fullAddress, formatCurrency, formatDate, propertyBadge, occupancyBadge }
   },
 })
 </script>

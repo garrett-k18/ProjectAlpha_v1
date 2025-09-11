@@ -22,6 +22,7 @@ from django.utils import timezone
 
 # Local app model imports
 from acq_module.models.seller import Seller, Trade, SellerRawData
+from acq_module.logic.geocoding_logic import geocode_markers_for_seller_trade
 
 # List of US state abbreviations (lower 48 states plus Alaska and Hawaii)
 US_STATES = [
@@ -186,13 +187,29 @@ class Command(BaseCommand):
                 # Randomize number of assets for this trade within [assets_min, assets_max]
                 assets_count = random.randint(assets_min, assets_max)
 
-                for _ in range(assets_count):
+                # Create that many assets and number them 1..N per trade
+                for sequence_number in range(1, assets_count + 1):
+                    # Generate property details
+                    beds = random.randint(1, 6)
+                    baths = round(random.uniform(1, 4.5) * 2) / 2  # 1, 1.5, 2, 2.5, etc.
+                    sq_ft = random.randrange(800, 4000, 100)
+                    lot_size = random.randrange(2000, 15000, 500)
+                    year_built = random.randint(1920, 2023)
+                    
                     # Generate a realistic financial profile
                     original_balance = Decimal(random.randrange(50_000, 800_000))
                     current_balance = original_balance - Decimal(random.randrange(0, 40_000))
                     deferred_balance = Decimal(random.randrange(0, 25_000))
-                    interest_rate = Decimal(f"{random.uniform(2.5, 12.0):.4f}") / Decimal(100)
-                    default_rate = Decimal(f"{float(interest_rate) + random.uniform(2.0, 6.0):.4f}")
+                    
+                    # Interest rate rules
+                    # Normal note rate between 3-8%
+                    interest_rate = Decimal(random.uniform(3.0, 8.0)) / Decimal(100)
+                    
+                    # Default rate (12-22%) only on 5% of records, otherwise use interest_rate
+                    if random.random() <= 0.05:  # 5% chance
+                        default_rate = Decimal(random.uniform(12.0, 22.0)) / Decimal(100)
+                    else:
+                        default_rate = interest_rate  # Use same as interest_rate for non-default cases
 
                     # Set up date timeline
                     origination_date = today - timedelta(days=random.randrange(365, 365 * 10))
@@ -290,32 +307,47 @@ class Command(BaseCommand):
                     property_type_value = property_type_map[property_type_code]
                     occupancy_value = occupancy_map[occupancy_code]
                     
+                    # Generate required fields
+                    sellertape_id = sequence_number  # Use sequence_number as sellertape_id
+                    asset_status = random.choice(['NPL', 'REO', 'PERF', 'RPL'])
+                    as_of_date = today
+                    
+                    # Generate address
+                    street_address = faker.street_address()
+                    city = faker.city()
+                    state = random.choice(US_STATES)
+                    zip_code = faker.zipcode()
+                    
                     # Assemble SellerRawData
-                    raw = SellerRawData(
+                    raw_data = SellerRawData(
                         seller=seller,
                         trade=trade,
-                        sellertape_id=random.randrange(1_000_000, 9_999_999),
-                        asset_status=random.choice(["Current", "Delinquent", "Default", "Foreclosure"]),
-                        as_of_date=today,
-                        street_address=faker.street_address(),
-                        city=faker.city(),
-                        state=random.choice(US_STATES),
-                        zip=faker.postcode(),
-                        property_type=property_type_value,  # Use mapped model value
-                        occupancy=occupancy_value,         # Use mapped model value
-                        current_balance=current_balance.quantize(Decimal("0.01")),
-                        deferred_balance=deferred_balance.quantize(Decimal("0.01")),
-                        interest_rate=interest_rate.quantize(Decimal("0.0001")),
+                        sellertape_id=sellertape_id,
+                        asset_status=asset_status,
+                        as_of_date=as_of_date,
+                        street_address=street_address,
+                        city=city,
+                        state=state,
+                        zip=zip_code,
+                        property_type=property_type_value,
+                        occupancy=occupancy_value,
+                        beds=beds,
+                        baths=baths,
+                        sq_ft=sq_ft,
+                        lot_size=lot_size,
+                        year_built=year_built,
                         next_due_date=next_due_date,
                         last_paid_date=last_paid_date,
                         first_pay_date=first_pay_date,
                         origination_date=origination_date,
                         original_balance=original_balance.quantize(Decimal("0.01")),
+                        current_balance=current_balance.quantize(Decimal("0.01")),
+                        deferred_balance=deferred_balance.quantize(Decimal("0.01")),
+                        interest_rate=interest_rate.quantize(Decimal("0.0000")),
                         original_term=original_term_months,
                         original_rate=Decimal(f"{random.uniform(2.0, 10.0):.4f}"),
                         original_maturity_date=original_maturity_date,
                         default_rate=default_rate.quantize(Decimal("0.0001")),
-                        # months_dlq left None (model save() will calculate)
                         current_maturity_date=current_maturity_date,
                         current_term=current_term,
                         accrued_note_interest=accrued_note_interest.quantize(Decimal("0.01")),
@@ -356,12 +388,21 @@ class Command(BaseCommand):
                     )
                     # IMPORTANT: bulk_create() bypasses Model.save(), so calculated fields
                     # like months_dlq and total_debt would remain None. Compute explicitly.
-                    raw.months_dlq = raw.calculate_months_dlq()
-                    raw.total_debt = raw.calculate_total_debt()
-                    raw_rows.append(raw)
+                    raw_data.months_dlq = raw_data.calculate_months_dlq()
+                    raw_data.total_debt = raw_data.calculate_total_debt()
+                    raw_rows.append(raw_data)
 
-            # Bulk create SellerRawData
+            # Bulk create SellerRawData (signals do NOT fire for bulk_create)
             SellerRawData.objects.bulk_create(raw_rows)
+
+        # After commit, geocode per trade to persist coordinates (best-effort)
+        # This deduplicates by address internally to minimize API calls.
+        for t in trades:
+            try:
+                geocode_markers_for_seller_trade(t.seller_id, t.id)
+            except Exception:
+                # Non-fatal for seed routines
+                pass
 
         # Summary output
         self.stdout.write(self.style.SUCCESS(

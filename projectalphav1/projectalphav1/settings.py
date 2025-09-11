@@ -75,8 +75,7 @@ INSTALLED_APPS = [
 'rest_framework',
 'rest_framework.authtoken',
 'corsheaders',
-# Local apps
-'acq_module',
+'acq_module.apps.AcqModuleConfig',
 'am_module',
 'user_admin',  
 ]
