@@ -1,5 +1,5 @@
 <template>
-  <div class="card h-100">
+  <div class="card d-flex flex-column w-100">
     <div class="d-flex card-header justify-content-between align-items-center">
       <h4 class="header-title">LTV Scatter Chart</h4>
       <div class="d-flex align-items-center">
@@ -10,25 +10,34 @@
       </div>
     </div>
 
-    <div class="card-body pt-0">
-      <div v-if="!hasData && !isLoading" class="text-center py-5">
-        <p class="text-muted">No data available for selected pool</p>
-      </div>
-      <div v-else>
+    <div class="card-body pt-0 position-relative" ref="containerRef">
+      <!-- Always render chart container so ApexCharts mounts even with empty data -->
+      <div class="w-100" style="min-width: 0; min-height: 350px;">
         <apexchart
           type="scatter"
+          :width="containerWidth > 0 ? containerWidth : '100%'"
           height="350"
           :options="chartOptions"
           :series="series"
+          :key="chartKey"
+          v-show="containerReady"
         ></apexchart>
+      </div>
+      <!-- Overlay helper when there is no data and not loading -->
+      <div v-if="!hasData && !isLoading" class="position-absolute top-50 start-50 translate-middle text-muted">
+        No data available for selected pool
       </div>
     </div>
   </div>
 </template>
 
 <script lang="ts">
-import { defineComponent, computed, ref, watch } from 'vue'
+import { defineComponent, computed, ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
+// ApexCharts core API for imperative updates (resize/exec)
+// Docs: https://apexcharts.com/docs/methods/#exec
+import ApexCharts from 'apexcharts'
 import { useAcqSelectionsStore } from '@/stores/acqSelections'
+import { useAgGridRowsStore } from '@/stores/agGridRows'
 import { storeToRefs } from 'pinia'
 // Use the centralized Axios instance which already has baseURL and interceptors
 // Docs: https://axios-http.com/docs/instance
@@ -41,6 +50,9 @@ export default defineComponent({
     // Get global selections from store
     const acqStore = useAcqSelectionsStore()
     const { selectedSellerId, selectedTradeId } = storeToRefs(acqStore)
+    // Access cached grid rows for fallback rendering when API has no data
+    const agRowsStore = useAgGridRowsStore()
+    const { rows: gridRows } = storeToRefs(agRowsStore)
     
     // Loading state
     const isLoading = ref(false)
@@ -75,6 +87,8 @@ export default defineComponent({
     // Chart options configuration with full type definition
     const chartOptions = ref({
       chart: {
+        id: 'ltv-scatter',
+        height: 350,
         toolbar: {
           show: true,
           tools: {
@@ -96,7 +110,19 @@ export default defineComponent({
           enabled: false
         },
         // Set aspect ratio to make X and Y scales look the same
-        aspectRatio: 1
+        aspectRatio: 1,
+        // Show a friendly message when there is no series data
+        // Docs: https://apexcharts.com/docs/options/no-data/
+        // Note: some wrappers support noData at root level; placing under chart works reliably
+        // with vue3-apexcharts via updateOptions
+      },
+      noData: {
+        text: 'No data available',
+        align: 'center',
+        verticalAlign: 'middle',
+        style: {
+          color: '#6c757d',
+        }
       },
       xaxis: {
         title: {
@@ -174,7 +200,7 @@ export default defineComponent({
         borderColor: '#f1f3fa'
       },
       legend: {
-        position: 'left',
+        position: 'top',
         offsetY: 0,
         fontSize: '14px',
         markers: {
@@ -187,6 +213,19 @@ export default defineComponent({
           vertical: 8
         }
       },
+      // Responsive overrides: move legend to top when width is constrained (two-column layout)
+      responsive: [
+        {
+          breakpoint: 1400,
+          options: {
+            legend: {
+              position: 'top',
+              horizontalAlign: 'left',
+              offsetY: 0,
+            },
+          }
+        }
+      ],
       dataLabels: {
         enabled: false
       }
@@ -196,6 +235,77 @@ export default defineComponent({
     let lastKey: string | null = null
     // Keep a controller to cancel in-flight requests when selection changes
     let currentController: AbortController | null = null
+    // Key to force <apexchart> to remount when needed
+    const chartKey = ref(0)
+    // True when the container has a non-zero width so ApexCharts can compute layout
+    const containerReady = ref(false)
+    const containerWidth = ref(0)
+
+    // Ensure container has a non-zero width before mounting/resizing the chart
+    function ensureContainerReady(): void {
+      try {
+        const w = containerRef.value?.clientWidth || 0
+        if (w > 0) {
+          containerWidth.value = w
+          if (!containerReady.value) {
+            containerReady.value = true
+            chartKey.value++
+          }
+          // Hint width/height to ApexCharts to avoid NaN during transitions
+          try {
+            ApexCharts.exec('ltv-scatter', 'updateOptions', { chart: { width: containerWidth.value, height: 350 } }, false, true)
+          } catch {}
+        }
+      } catch {}
+    }
+
+    // Resize handling to ensure the chart expands when its container changes size
+    const containerRef = ref<HTMLElement | null>(null)
+    let ro: ResizeObserver | null = null
+    let rafId: number | null = null
+
+    function kickContainerMeasureLoop(maxTries = 30): void {
+      let tries = 0
+      const tick = () => {
+        tries++
+        ensureContainerReady()
+        if (!containerReady.value && tries < maxTries) {
+          rafId = requestAnimationFrame(tick)
+        }
+      }
+      rafId = requestAnimationFrame(tick)
+    }
+
+    onMounted(() => {
+      // Kick an initial resize so ApexCharts recalculates width after layout
+      nextTick(() => {
+        try { window.dispatchEvent(new Event('resize')) } catch {}
+        // If container has width, allow chart to mount (and only then bump key)
+        ensureContainerReady()
+      })
+      if (typeof window !== 'undefined' && 'ResizeObserver' in window) {
+        ro = new ResizeObserver(() => {
+          // Force chart to recompute dimensions; exec is more reliable than window resize alone
+          ensureContainerReady()
+          if (containerReady.value) {
+            try { ApexCharts.exec('ltv-scatter', 'updateOptions', { chart: { width: containerWidth.value, height: 350 } }, false, true) } catch {}
+            try { ApexCharts.exec('ltv-scatter', 'resize') } catch {}
+            try { window.dispatchEvent(new Event('resize')) } catch {}
+          }
+        })
+        if (containerRef.value) ro.observe(containerRef.value)
+      }
+      // If still not ready after initial mount, poll a few frames until width appears
+      if (!containerReady.value) kickContainerMeasureLoop()
+    })
+
+    onBeforeUnmount(() => {
+      try {
+        if (ro && containerRef.value) ro.unobserve(containerRef.value)
+      } catch {}
+      ro = null
+      if (rafId != null) { try { cancelAnimationFrame(rafId) } catch {} finally { rafId = null } }
+    })
 
     // Maximum number of points to render; prevents UI stalls on very large pools
     const MAX_POINTS = 3000
@@ -250,6 +360,34 @@ export default defineComponent({
         console.debug('[LtvScatter] sampled', { original: items.length, shown: sampled.length })
       }
       return sampled
+    }
+
+    // Build a fallback dataset from AG Grid cached rows if API returns nothing
+    function fallbackFromGridRows(): LoanItem[] {
+      try {
+        const rows: any[] = Array.isArray(gridRows.value) ? gridRows.value : []
+        const mapped: LoanItem[] = []
+        for (const r of rows) {
+          const asisRaw = r?.seller_asis_value ?? r?.sellerAsIsValue ?? r?.asis_value
+          const balRaw = r?.current_balance ?? r?.currentBalance ?? r?.cur_balance
+          const ltvRaw = r?.ltv ?? r?.LTV
+          const asis = typeof asisRaw === 'number' ? asisRaw : parseFloat(String(asisRaw).replace(/[^0-9.\-]/g, ''))
+          const bal = typeof balRaw === 'number' ? balRaw : parseFloat(String(balRaw).replace(/[^0-9.\-]/g, ''))
+          let ltv = typeof ltvRaw === 'number' ? ltvRaw : parseFloat(String(ltvRaw).replace(/[^0-9.\-]/g, ''))
+          if (!Number.isFinite(ltv) && Number.isFinite(asis) && asis > 0 && Number.isFinite(bal)) {
+            ltv = (bal / asis) * 100
+          }
+          if (Number.isFinite(asis) && Number.isFinite(bal) && Number.isFinite(ltv)) {
+            mapped.push({ id: String(r?.id ?? r?.loan_id ?? mapped.length), seller_asis_value: asis, current_balance: bal, ltv })
+          }
+        }
+        const sampled = sampleEvenly(mapped, MAX_POINTS)
+        console.debug('[LtvScatter] fallback from grid rows', { rows: rows.length, used: sampled.length })
+        return sampled
+      } catch (e) {
+        console.warn('[LtvScatter] fallbackFromGridRows failed', e)
+        return []
+      }
     }
 
 
@@ -348,15 +486,35 @@ export default defineComponent({
         isLoading.value = true
         try {
           // Fetch real data from API
-          const data = await fetchLtvScatterData(newSellerId, newTradeId)
+          let data = await fetchLtvScatterData(newSellerId, newTradeId)
+          if (!data.length) {
+            // Try fallback using cached AG Grid rows
+            data = fallbackFromGridRows()
+          }
           // formatDataForChart handles distributing the data into the three series
           formatDataForChart(data)
+          // After series/options updates, nudge a resize so chart fills parent
+          nextTick(() => {
+            if (containerReady.value) {
+              try { ApexCharts.exec('ltv-scatter', 'updateOptions', {}, false, true) } catch {}
+              try { ApexCharts.exec('ltv-scatter', 'resize') } catch {}
+              try { window.dispatchEvent(new Event('resize')) } catch {}
+            } else {
+              // Defer mounting until container is measurable
+              ensureContainerReady()
+            }
+          })
         } catch (error) {
           console.error('Error fetching LTV scatter data:', error)
           // Clear all series on error
-          series.value[0].data = []
-          series.value[1].data = []
-          series.value[2].data = []
+          let fb = fallbackFromGridRows()
+          if (fb.length) {
+            formatDataForChart(fb)
+          } else {
+            series.value[0].data = []
+            series.value[1].data = []
+            series.value[2].data = []
+          }
         } finally {
           isLoading.value = false
         }
@@ -376,7 +534,11 @@ export default defineComponent({
       chartOptions,
       series,
       isLoading,
-      hasData
+      hasData,
+      containerRef,
+      chartKey,
+      containerReady,
+      containerWidth,
     }
   }
 })
@@ -388,6 +550,7 @@ export default defineComponent({
    does NOT provide an automatic vertical-centering option for left/right positions.
    This scoped CSS uses Vue's :deep() selector to target chart-internal DOM safely.
    Keeping this local ensures we don't leak styles across other charts. */
+:host { display: block; }
 :deep(.apexcharts-canvas) {
   position: relative;
 }

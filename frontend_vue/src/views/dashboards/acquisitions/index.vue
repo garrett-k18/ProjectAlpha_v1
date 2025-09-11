@@ -84,8 +84,6 @@
       </b-col>
     </b-row>
 
-    <!-- Overview removed -->
-
     <b-row class="g-2 mt-2" v-if="gridRowsLoaded">
       <b-col class="col-12">
         <VectorMap />
@@ -128,23 +126,18 @@
     </b-row>
 
     <b-row class="g-2 mt-2" v-if="gridRowsLoaded">
-      <b-col xl="4" lg="6" class="d-flex">
-        <LtvScatterChart class="h-100 d-flex flex-column" />
-      </b-col>
-
-      <b-col xl="4" lg="12" class="d-flex">
-        <EngagementOverview class="h-100 d-flex flex-column" />
-      </b-col>
-      <b-col xl="4" lg="12" class="d-flex">
+      <b-col xl="12" lg="12" md="12" class="d-flex">
         <DocumentsQuickView
           title="Document Quick View"
           :docs="docItems"
           :maxItems="5"
           :showViewAll="false"
-          class="h-100 d-flex flex-column"
+          class="h-100 d-flex flex-column w-100"
         />
       </b-col>
     </b-row>
+
+    
 
     
     <!-- Loan-Level Modal wrapper using BootstrapVue Next -->
@@ -200,8 +193,6 @@ import StratsPropertyType from "@/views/dashboards/acquisitions/strats/strats-pr
 import StratsOccupancy from "@/views/dashboards/acquisitions/strats/strats-occupancy.vue";
 import StratsJudVsNon from "@/views/dashboards/acquisitions/strats/strats-judvsnon.vue";
 import StratsDelinquency from "@/views/dashboards/acquisitions/strats/strats-delinquency.vue";
-import LtvScatterChart from "@/views/dashboards/acquisitions/components/ltvscatter.vue";
-import EngagementOverview from "@/views/dashboards/acquisitions/overview.vue";
 import VectorMap from "@/views/dashboards/acquisitions/vectorMap.vue";
 import Widgets from "@/views/dashboards/acquisitions/widgets.vue";
 import DocumentsQuickView from "@/1_global/components/DocumentsQuickView.vue";
@@ -227,8 +218,6 @@ export interface TradeOption { id: number; trade_name: string }
 export default {
   components: {
     VectorMap,
-    EngagementOverview,
-    LtvScatterChart,
     StratsJudVsNon,
     StratsCurrentBal,
     StratsTotalDebt,

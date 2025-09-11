@@ -131,7 +131,8 @@
         overlayNoRowsTemplate="Choose Seller and Trade"
         :columnDefs="columnDefs"
         :defaultColDef="defaultColDef"
-        :rowSelection="{ mode: 'multiRow' }"
+        :rowSelection="{ mode: 'multiRow', checkboxes: false, headerCheckbox: false, enableClickSelection: true }"
+        :suppressRowClickSelection="false"
         :animateRows="true"
         @grid-ready="onGridReady"
         @selection-changed="onSelectionChanged"
@@ -757,6 +758,21 @@ const onGridReady = (params: GridReadyEvent) => {
   console.log('AG Grid initialized successfully')
   // Perform initial sizing; may autosize/fit depending on fullscreen state
   updateGridSize()
+  // Safety: If AG Grid injected a selection column, hide it and collapse width to 0
+  try {
+    const colApi = (params as any).columnApi || (gridRef.value && (gridRef.value as any).columnApi)
+    if (colApi && typeof colApi.getColumn === 'function') {
+      const sel = colApi.getColumn('ag-Grid-SelectionColumn')
+      if (sel) {
+        colApi.setColumnVisible('ag-Grid-SelectionColumn', false)
+        if (typeof colApi.setColumnWidth === 'function') {
+          colApi.setColumnWidth('ag-Grid-SelectionColumn', 0, true)
+        }
+      }
+    }
+  } catch (e) {
+    console.debug('[Grid] selection column collapse skipped (non-fatal)', e)
+  }
 }
 
 /**
@@ -769,6 +785,9 @@ function onSelectionChanged(): void {
   }
   selectedCount.value = gridApi.value.getSelectedRows()?.length || 0
 }
+
+// No-op: selection checkbox column is disabled via rowSelection config
+function onFirstDataRendered(): void { /* intentionally empty */ }
 
 
 // ---------------------------------------------------------------------------
@@ -892,6 +911,9 @@ function buildLocalAgentsColumns(): ColDef[] {
     headerName: 'Actions',
     colId: 'actions',
     pinned: 'left',
+    lockPinned: true,
+    lockPosition: true,
+    suppressMovable: true,
     sortable: false,
     filter: false,
     suppressHeaderMenuButton: true,
@@ -1066,6 +1088,11 @@ onMounted(async () => {
         sortable: true,
         filter: true,
       }
+      // Ensure no selection checkbox on the Internal ID column
+      if (field === 'id') {
+        ;(base as any).checkboxSelection = false
+        ;(base as any).headerCheckboxSelection = false
+      }
       // Attach display formatters (do not change underlying values used by sorting/filtering)
       // Priority: explicit sets > heuristics; first match wins
       if (!base.valueFormatter && commaNoDecimalFields.has(field)) {
@@ -1100,6 +1127,9 @@ onMounted(async () => {
       headerName: 'Actions',
       colId: 'actions',
       pinned: 'left',
+      lockPinned: true,
+      lockPosition: true,
+      suppressMovable: true,
       sortable: false,
       filter: false,
       // AG Grid v34+: disable the header menu button and header context menu
@@ -1441,10 +1471,18 @@ async function assignSelected(): Promise<void> {
   text-align: center;
 }
 
-/* Optional: center floating filter inputs as well (if desired) */
-/* :deep(.seller-grid .ag-floating-filter-body) {
-  justify-content: center;
-} */
+/* Header text styling */
+:deep(.seller-grid .ag-header-cell-text) {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+/* Remove any left gutter from the Internal ID column */
+:deep(.seller-grid .ag-cell[col-id="id"]) { padding-left: 0 !important; }
+:deep(.seller-grid .ag-cell[col-id="id"] .ag-cell-wrapper) { padding-left: 0 !important; }
+:deep(.seller-grid .ag-header-cell[col-id="id"]) { padding-left: 0 !important; }
+:deep(.seller-grid .ag-header-cell[col-id="id"] .ag-header-cell-comp-wrapper) { padding-left: 0 !important; }
+
 
 /* Subtle placeholder appearance for empty Agent cells */
 :deep(.seller-grid .agent-placeholder) {
@@ -1507,5 +1545,12 @@ async function assignSelected(): Promise<void> {
 </style>
 
 <style>
-/* Global styles intentionally left empty; no modal styles in grid component */
+/* Global guard: hide AG Grid's auto selection column for this grid instance */
+.seller-grid [col-id="ag-Grid-SelectionColumn"],
+.seller-grid .ag-header-cell[col-id="ag-Grid-SelectionColumn"] {
+  display: none !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+}
 </style>

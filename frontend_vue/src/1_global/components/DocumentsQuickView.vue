@@ -5,7 +5,7 @@
     - Designed for use in modals (loan-level) and full pages.
     - Accepts pre-fetched `docs` via props so it does not depend on any API shape.
   -->
-  <div class="card h-100 d-flex flex-column">
+  <div class="card d-flex flex-column w-100">
     <!-- Header aligned with other dashboard cards -->
     <div class="d-flex card-header justify-content-between align-items-center">
       <h4 class="header-title">{{ title }}</h4>
@@ -22,7 +22,7 @@
       </div>
     </div>
     <!-- Body: per-item cards matching Hyper UI Files pattern -->
-    <div class="card-body pt-0">
+    <div class="card-body pt-0 flex-grow-1 overflow-auto">
       <!-- Loading skeletons -->
       <div v-if="loading" class="">
         <div v-for="n in 3" :key="n" class="card mb-1 shadow-none border">
@@ -220,4 +220,5 @@ function avatarBgClass(doc: DocumentItem): string {
 
 <style scoped>
 /* Keep styles minimal; rely on Bootstrap/Hyper UI utility classes. */
+/* No fixed min-height here to keep parity with strat cards */
 </style>

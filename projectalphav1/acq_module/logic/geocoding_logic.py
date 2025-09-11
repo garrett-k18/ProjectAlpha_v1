@@ -101,48 +101,36 @@ def _build_full_address(row: Dict[str, Optional[str]]) -> str:
 
 
 def _build_display_address(row: Dict[str, Optional[str]]) -> str:
-    """Compose a human-friendly full address string for marker labels.
+    """Compose a concise label for markers using ONLY City and State.
 
-    Prefers street, city, state, zip when available; gracefully collapses
-    missing parts.
+    Street and ZIP are intentionally ignored to keep the vector map approximate
+    (US-wide view) and to align with geocoding that targets city centroids
+    first, then state centroids as a fallback.
     """
     return ", ".join([
-        str(row.get("street_address", "") or "").strip(),
         str(row.get("city", "") or "").strip(),
         str(row.get("state", "") or "").strip(),
-        str(row.get("zip", "") or "").strip(),
     ]).strip(", ")
 
 
 def _build_address_candidates(row: Dict[str, Optional[str]]) -> List[str]:
-    """Build fallback address candidates in descending specificity.
+    """Build address candidates for geocoding: City+State, then State.
 
-    Order tried:
-    1) city, state, zip
-    2) state, zip
-    3) state
-
-    Returns a list of non-empty, de-duplicated candidate strings.
+    This intentionally ignores street address and ZIP to reduce geocoding
+    precision (acceptable for a US-wide vector map) and improve performance.
+    The goal is to geocode to the city centroid first; if that fails, use the
+    state centroid.
     """
     city = str(row.get("city", "") or "").strip()
     state = str(row.get("state", "") or "").strip()
-    zip_code = str(row.get("zip", "") or "").strip()
 
     candidates: List[str] = []
 
-    # city, state, zip
-    parts1 = [p for p in [city, state, zip_code] if p]
-    cand1 = ", ".join(parts1).strip(", ")
-    if cand1:
-        candidates.append(cand1)
+    # 1) "City, State" (highest preference for our use case)
+    if city and state:
+        candidates.append(f"{city}, {state}")
 
-    # state, zip
-    parts2 = [p for p in [state, zip_code] if p]
-    cand2 = ", ".join(parts2).strip(", ")
-    if cand2 and cand2 not in candidates:
-        candidates.append(cand2)
-
-    # state
+    # 2) "State" (fallback to state centroid)
     if state and state not in candidates:
         candidates.append(state)
 
@@ -298,7 +286,7 @@ def geocode_markers_for_seller_trade(seller_id: int, trade_id: int) -> Dict[str,
     rows = list(
         SellerRawData.objects
         .filter(Q(seller_id=seller_id) & Q(trade_id=trade_id))
-        .values("id", "street_address", "city", "state", "zip")
+        .values("id", "city", "state", "zip")
     )
 
     # Deduplicate by the most specific candidate to minimize geocoding calls
