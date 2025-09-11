@@ -67,16 +67,6 @@
           <!-- Full-width rows -->
           <div class="col-12">
             <div class="row g-3">
-              <div class="col-md-6" v-if="rowActive?.accrued_note_interest">
-                <small class="text-muted d-block">Accrued Note Interest</small>
-                <span class="fw-semibold text-dark">{{ formatCurrency(rowActive?.accrued_note_interest) }}</span>
-              </div>
-  
-              <div class="col-md-6" v-if="rowActive?.accrued_default_interest">
-                <small class="text-muted d-block">Accrued Default Interest</small>
-                <span class="fw-semibold text-dark">{{ formatCurrency(rowActive?.accrued_default_interest) }}</span>
-              </div>
-  
               <div class="col-md-6" v-if="rowActive?.months_dlq != null">
                 <small class="text-muted d-block">Months DLQ</small>
                 <span class="fw-semibold text-dark">{{ rowActive?.months_dlq }}</span>
@@ -159,8 +149,6 @@
           r.last_paid_date ||
           r.current_maturity_date ||
           r.current_term != null ||
-          r.accrued_note_interest ||
-          r.accrued_default_interest ||
           r.months_dlq != null
         ))
       })

@@ -4,7 +4,7 @@
     <!-- Brand Logo Light -->
     <router-link to="/" class="logo logo-light">
         <span class="logo-lg">
-            <img src="@/assets/images/logo.png" alt="logo">
+            <img src="@/assets/images/logo.svg" alt="projectalpha" height="93">
         </span>
       <span class="logo-sm">
             <img src="@/assets/images/logo-sm.png" alt="small logo">
@@ -14,7 +14,7 @@
     <!-- Brand Logo Dark -->
     <router-link to="/" class="logo logo-dark">
         <span class="logo-lg">
-            <img src="@/assets/images/logo-dark.png" alt="dark logo">
+            <img src="@/assets/images/logo.svg" alt="projectalpha" height="93">
         </span>
       <span class="logo-sm">
             <img src="@/assets/images/logo-dark-sm.png" alt="small logo">

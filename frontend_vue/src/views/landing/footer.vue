@@ -4,7 +4,7 @@
     <div class="container">
       <div class="row">
         <div class="col-lg-6">
-          <img src="@/assets/images/logo.png" alt="logo" class="logo-dark" height="22"/>
+          <img src="https://placehold.co/240x70/transparent/000000/png?text=ProjectAlpha&fontSize=34" alt="ProjectAlpha" class="logo-dark" height="50"/>
           <p class="text-light text-opacity-50 mt-4">Hyper makes it easier to build better websites with
             <br> great speed. Save hundreds of hours of design
             <br> and development by using it.</p>

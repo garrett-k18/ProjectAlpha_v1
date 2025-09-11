@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Scalable, transparent logo for ProjectAlpha. White lowercase text as requested. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="140" viewBox="0 0 480 140" role="img" aria-label="projectalpha logo">
+  <defs>
+    <style>
+      /* Use a clean, readable font with fallback */
+      .word { font-family: 'Inter', 'Segoe UI', Roboto, Arial, sans-serif; font-weight: 700; letter-spacing: 1px; }
+    </style>
+  </defs>
+  <!-- Transparent background by default -->
+  <rect x="0" y="0" width="480" height="140" fill="transparent" />
+  <!-- Centered text: white, lowercase -->
+  <text x="50%" y="50%" class="word" fill="#ffffff" dominant-baseline="middle" text-anchor="middle" font-size="68">projectalpha</text>
+</svg>

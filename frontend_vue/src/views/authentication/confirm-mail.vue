@@ -20,7 +20,7 @@
               <!-- Logo -->
               <div class="card-header py-4 text-center bg-primary">
                 <router-link to="/">
-                  <span><img src="@/assets/images/logo.png" alt="logo" height="22"></span>
+                  <span><img src="https://placehold.co/240x70/transparent/000000/png?text=ProjectAlpha&fontSize=34" alt="ProjectAlpha" height="50"></span>
                 </router-link>
               </div>
 

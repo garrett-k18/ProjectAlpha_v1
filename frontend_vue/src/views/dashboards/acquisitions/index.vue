@@ -156,8 +156,8 @@
       <template #header>
         <div class="d-flex align-items-center w-100">
           <h5 class="modal-title mb-0">
-            <div class="fw-semibold lh-sm">ID - {{ modalIdText }}</div>
-            <div class="text-muted lh-sm">Address - {{ modalAddrText }}</div>
+            <div class="lh-sm">ID - <span class="fw-bold">{{ modalIdText }}</span></div>
+            <div class="text-muted lh-sm">Address - <span class="fw-bold text-dark">{{ modalAddrText }}</span></div>
           </h5>
           <div class="ms-auto">
             <button

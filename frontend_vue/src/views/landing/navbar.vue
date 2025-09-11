@@ -5,7 +5,7 @@
 
         <!-- logo -->
         <router-link to="/" class="navbar-brand me-lg-5">
-            <img src="@/assets/images/logo.png" alt="logo" class="logo-dark" height="22" />
+            <img src="https://placehold.co/240x70/transparent/000000/png?text=ProjectAlpha&fontSize=34" alt="ProjectAlpha" class="logo-dark" height="50" />
         </router-link>
 
         <b-button class="navbar-toggler" v-b-toggle.navbarNavDropdown>

@@ -3,6 +3,8 @@
   <div
       v-click-outside="clickOutSideConfig"
       class="leftside-menu"
+      :data-sidebar-size="type"
+      :data-leftbar-theme="theme"
       :class="classes"
   >
     <simplebar
@@ -32,16 +34,16 @@
         <span class="logo-lg">
           <img
               id="side-main-logo"
-              src="@/assets/images/logo.png"
-              alt
-              height="16"
+              src="@/assets/images/logo.svg"
+              alt="projectalpha"
+              height="62"
           />
         </span>
         <span class="logo-sm">
           <img
               id="side-sm-main-logo"
               src="@/assets/images/logo-sm.png"
-              alt
+              alt="Small logo"
               height="16"
           />
         </span>
@@ -94,16 +96,16 @@
         <span class="logo-lg">
           <img
               id="side-main-logo"
-              src="@/assets/images/logo.png"
-              alt
-              height="16"
+              src="@/assets/images/logo.svg"
+              alt="projectalpha"
+              height="42"
           />
         </span>
         <span class="logo-sm">
           <img
               id="side-sm-main-logo"
               src="@/assets/images/logo-sm.png"
-              alt
+              alt="Small logo"
               height="16"
           />
         </span>
@@ -137,26 +139,31 @@
 </template>
 
 <script lang="ts">
-import simplebar from 'simplebar-vue'
+import { defineComponent } from 'vue';
+import simplebar from 'simplebar-vue';
 import AppMenu from "@/components/layouts/partials/app-menu.vue";
 
-export default {
-  components: {AppMenu, simplebar},
+export default defineComponent({
+  name: 'Sidebar',
+  components: {
+    AppMenu, 
+    simplebar
+  },
   props: {
     isCondensed: {
       type: Boolean,
       default: false,
     },
     theme: {
-      type: String,
+      type: String as () => 'default' | 'light' | 'dark',
       required: true,
     },
     type: {
-      type: String,
+      type: String as () => 'fixed' | 'condensed' | 'scrollable',
       required: true,
     },
     user: {
-      type: Object,
+      type: Object as () => Record<string, any>,
       required: false,
       default: () => ({}),
     },
@@ -175,69 +182,75 @@ export default {
         minScrollbarLength: 60,
       },
       clickOutSideConfig: {
-        handler: this.handleMenuClick,
-        middleware: this.middleware,
-        events: ['click'],
+        handler: this.handleMenuClick as (event: Event, el: HTMLElement) => void,
+        middleware: this.middleware as (event: Event, el: HTMLElement) => boolean,
+        events: ['click'] as string[],
       },
-    }
+      // Explicitly typed data properties
+      type: this.$props.type as 'fixed' | 'condensed' | 'scrollable',
+      theme: this.$props.theme as 'default' | 'light' | 'dark',
+    };
   },
   watch: {
-    theme: function (newVal, oldVal) {
+    theme: function (newVal: string, oldVal: string) {
       if (newVal !== oldVal) {
-        this.activateTheme(newVal)
+        this.activateTheme(newVal as any);
       }
     },
-    type: function (newVal, oldVal) {
+    type: function (newVal: string, oldVal: string) {
       if (newVal !== oldVal) {
-        this.activateType(newVal)
+        this.activateType(newVal as any);
       }
     },
   },
   created: function () {
-    this.activateTheme(this.theme)
-    this.activateType(this.type)
+    this.activateTheme(this.theme);
+    this.activateType(this.type);
   },
   methods: {
-    handleMenuClick(e, el) {
-      this.$parent.hideMenu()
-    },
-    middleware(event, el) {
-      return !event.target.classList.contains('toggle-menu')
-    },
-    activateTheme(theme) {
-      switch (theme) {
-        case 'default':
-          document.body.removeAttribute('data-leftbar-theme')
-          break
-        case 'light':
-          document.body.setAttribute('data-leftbar-theme', 'light')
-          break
-        case 'dark':
-          document.body.setAttribute('data-leftbar-theme', 'dark')
-          break
-        default:
-          document.body.removeAttribute('data-leftbar-theme')
-          break
+    handleMenuClick(event: Event, el: HTMLElement): void {
+      const parent = this.$parent as any;
+      if (parent && typeof parent.hideMenu === 'function') {
+        parent.hideMenu();
       }
     },
-    activateType(type) {
+    middleware(event: Event, el: HTMLElement): boolean {
+      return !(event.target as HTMLElement).classList.contains('toggle-menu');
+    },
+    activateTheme(theme: 'default' | 'light' | 'dark'): void {
+      switch (theme) {
+        case 'default':
+          document.body.removeAttribute('data-leftbar-theme');
+          break;
+        case 'light':
+          document.body.setAttribute('data-leftbar-theme', 'light');
+          break;
+        case 'dark':
+          document.body.setAttribute('data-leftbar-theme', 'dark');
+          break;
+        default:
+          document.body.removeAttribute('data-leftbar-theme');
+          break;
+      }
+    },
+    activateType(type: 'fixed' | 'condensed' | 'scrollable'): void {
       switch (type) {
         case 'fixed':
-          document.body.removeAttribute('data-leftbar-compact-mode')
-          break
+          document.body.removeAttribute('data-leftbar-compact-mode');
+          break;
         case 'condensed':
-          document.body.setAttribute('data-leftbar-compact-mode', 'condensed')
-          document.body.classList.remove('left-side-menu-dark')
-          document.body.classList.remove('boxed-layout')
-          break
+          document.body.setAttribute('data-leftbar-compact-mode', 'condensed');
+          document.body.classList.remove('left-side-menu-dark');
+          document.body.classList.remove('boxed-layout');
+          break;
         case 'scrollable':
-          document.body.setAttribute('data-leftbar-compact-mode', 'scrollable')
-          break
+          document.body.setAttribute('data-leftbar-compact-mode', 'scrollable');
+          break;
         default:
-          document.body.removeAttribute('data-leftbar-compact-mode')
-          break
+          document.body.removeAttribute('data-leftbar-compact-mode');
+          break;
       }
     },
   },
-}
+});
 </script>
