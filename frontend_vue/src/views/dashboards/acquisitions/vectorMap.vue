@@ -19,7 +19,6 @@
             :map-height="300"
             :options="mapOptions"
             :markers="markersForMap"
-            :key="mapKey"
           />
         </b-col>
         <b-col lg="4" dir="ltr">
@@ -32,7 +31,7 @@
 </template>
 
 <script lang="ts">
-// Vector map + Top 10 States chart (counts) for the acquisitions dashboard
+// Vector map + embedded State Strat table for the acquisitions dashboard
 // Docs reviewed:
 // - Pinia: https://pinia.vuejs.org/core-concepts/
 // - Vue Options API with setup: https://vuejs.org/api/options-state.html#setup
@@ -42,7 +41,6 @@
 import BaseVectorMap from "@/components/base-vector-map.vue";
 import StratsStates from "./strats/strats-states.vue";
 import { useAcqSelectionsStore } from "@/stores/acqSelections";
-import { useStateSummariesStore } from "@/stores/stateSummaries";
 // no-op
 
 export default {
@@ -50,23 +48,12 @@ export default {
   // Use setup to access Pinia stores while keeping an Options API component
   setup() {
     const acqStore = useAcqSelectionsStore();
-    const summariesStore = useStateSummariesStore();
-
-    // Access getters/state directly to avoid TS lint friction around storeToRefs<any>
-    const topCounts = summariesStore.topCounts // retained for potential future use
-    const summariesLoading = summariesStore.loading // retained; embedded table will fetch/cached
-    const summariesError = summariesStore.error
 
     return {
       // Expose the store instance to use its reactive state/getters directly
       acqStore,
       // Actions
       fetchMarkers: acqStore.fetchMarkers,
-      fetchSummaries: summariesStore.fetchAll,
-      // State summaries
-      topCounts,
-      summariesLoading,
-      summariesError,
     };
   },
   data() {
@@ -107,8 +94,7 @@ export default {
         markersSelectable: true
       }
       ,
-      // Local version to force remount on marker updates
-      mapVersion: 0
+      // No explicit version; rely on BaseVectorMap internal updates
     }
   },
   computed: {
@@ -150,52 +136,38 @@ export default {
       console.debug('[VectorMap] markersForMap', { rawCount: safe.length, count: out.length, first: out[0] })
       return out
     },
-    mapKey(): string {
-      const len = Array.isArray(this.markersForMap) ? this.markersForMap.length : 0
-      return `${this.selectionKey}:${len}:${this.mapVersion}`
-    },
     
   },
   mounted() {
     // Initial fetch once mounted, if both seller and trade are selected
     this.fetchMarkersIfReady();
-    this.fetchSummariesIfReady();
   },
   watch: {
     // When the seller/trade selection pair changes, keep data in sync
     selectionKey() {
-      this.fetchMarkersIfReady();
-      this.fetchSummariesIfReady();
+      const key = this.selectionKey
+      console.count(`[VectorMap] selectionKey changed`)
+      this.fetchMarkersIfReady()
+      // Note: summaries are fetched exclusively by <StratsStates/> embedded component
     },
-    // When the raw markers array in the store changes, bump version to force remount
-    'acqStore.markers': {
-      handler(newVal: any[]) {
-        const len = Array.isArray(newVal) ? newVal.length : (Array.isArray((newVal as any)?.value) ? (newVal as any).value.length : 0)
-        console.debug('[VectorMap] store markers changed', { len })
-        this.mapVersion++
-      },
-      deep: false
-    }
+    // Removed remount-on-markers-change to reduce re-render churn
   },
   methods: {
     // Fetch markers only when both selections are present.
-    fetchMarkersIfReady() {
-      if (this.hasBothSelections) {
-        console.debug('[VectorMap] fetchMarkersIfReady calling fetchMarkers')
-        this.fetchMarkers();
-      }
-    },
-    // Ensure state summaries are available for chart
-    fetchSummariesIfReady() {
+    async fetchMarkersIfReady() {
       if (this.hasBothSelections) {
         const sid = this.selectedSellerId as number
         const tid = this.selectedTradeId as number
-        if (sid && tid) {
-          console.debug('[VectorMap] fetchSummariesIfReady calling fetchSummaries', { sid, tid })
-          this.fetchSummaries(sid, tid)
+        const label = `[VectorMap] markers ${sid}:${tid}`
+        console.time(label)
+        try {
+          console.debug('[VectorMap] fetchMarkersIfReady calling fetchMarkers', { sid, tid })
+          await this.fetchMarkers()
+        } finally {
+          console.timeEnd(label)
         }
       }
-    }
+    },
   }
 }
 </script>

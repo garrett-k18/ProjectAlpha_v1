@@ -53,6 +53,15 @@ export const useStratsStore = defineStore('strats', () => {
   const errorDelinquency = ref<string | null>(null) // delinquency error
   const lastDelinquencyKey = ref<string | null>(null) // last delinquency key
 
+  // Abort controllers per endpoint to cancel in-flight requests when selection changes rapidly
+  const ctrlCB = ref<AbortController | null>(null)
+  const ctrlTD = ref<AbortController | null>(null)
+  const ctrlAsis = ref<AbortController | null>(null)
+  const ctrlWac = ref<AbortController | null>(null)
+  const ctrlProp = ref<AbortController | null>(null)
+  const ctrlOcc = ref<AbortController | null>(null)
+  const ctrlDel = ref<AbortController | null>(null)
+
   function reset(): void {
     loading.value = false
     error.value = null
@@ -75,6 +84,15 @@ export const useStratsStore = defineStore('strats', () => {
     loadingDelinquency.value = false
     errorDelinquency.value = null
     lastDelinquencyKey.value = null
+    // Abort any in-flight requests as part of reset
+    try { ctrlCB.value?.abort() } catch {}
+    try { ctrlTD.value?.abort() } catch {}
+    try { ctrlAsis.value?.abort() } catch {}
+    try { ctrlWac.value?.abort() } catch {}
+    try { ctrlProp.value?.abort() } catch {}
+    try { ctrlOcc.value?.abort() } catch {}
+    try { ctrlDel.value?.abort() } catch {}
+    ctrlCB.value = ctrlTD.value = ctrlAsis.value = ctrlWac.value = ctrlProp.value = ctrlOcc.value = ctrlDel.value = null
   }
 
   // Fetch Delinquency stratification bands for a selection (categorical by days past due)
@@ -85,11 +103,13 @@ export const useStratsStore = defineStore('strats', () => {
     const key = `${sellerId}:${tradeId}`
     // Serve from cache when available
     if (delinquencyBandsByKey.value[key]) return delinquencyBandsByKey.value[key]
-
+    // Cancel any previous request for this endpoint
+    try { ctrlDel.value?.abort() } catch {}
+    ctrlDel.value = new AbortController()
     loadingDelinquency.value = true
     errorDelinquency.value = null
     try {
-      const resp = await http.get(`/acq/summary/strat/delinquency/${sellerId}/${tradeId}/`)
+      const resp = await http.get(`/acq/summary/strat/delinquency/${sellerId}/${tradeId}/`, { signal: ctrlDel.value.signal })
       const data = Array.isArray(resp.data) ? (resp.data as StratBand[]) : []
       delinquencyBandsByKey.value[key] = data
       lastDelinquencyKey.value = key
@@ -101,6 +121,7 @@ export const useStratsStore = defineStore('strats', () => {
       return []
     } finally {
       loadingDelinquency.value = false
+      ctrlDel.value = null
     }
   }
 
@@ -108,11 +129,12 @@ export const useStratsStore = defineStore('strats', () => {
     const key = `${sellerId}:${tradeId}`
     // Return cached if available
     if (bandsByKey.value[key]) return bandsByKey.value[key]
-
+    try { ctrlCB.value?.abort() } catch {}
+    ctrlCB.value = new AbortController()
     loading.value = true
     error.value = null
     try {
-      const resp = await http.get(`/acq/summary/strat/current-balance/${sellerId}/${tradeId}/`)
+      const resp = await http.get(`/acq/summary/strat/current-balance/${sellerId}/${tradeId}/`, { signal: ctrlCB.value.signal })
       const data = Array.isArray(resp.data) ? (resp.data as StratBand[]) : []
       bandsByKey.value[key] = data
       lastKey.value = key
@@ -125,6 +147,7 @@ export const useStratsStore = defineStore('strats', () => {
       return []
     } finally {
       loading.value = false
+      ctrlCB.value = null
     }
   }
 
@@ -132,11 +155,12 @@ export const useStratsStore = defineStore('strats', () => {
   async function fetchBandsTotalDebt(sellerId: number, tradeId: number): Promise<StratBand[]> {
     const key = `${sellerId}:${tradeId}`
     if (debtBandsByKey.value[key]) return debtBandsByKey.value[key]
-
+    try { ctrlTD.value?.abort() } catch {}
+    ctrlTD.value = new AbortController()
     loadingTD.value = true
     errorTD.value = null
     try {
-      const resp = await http.get(`/acq/summary/strat/total-debt/${sellerId}/${tradeId}/`)
+      const resp = await http.get(`/acq/summary/strat/total-debt/${sellerId}/${tradeId}/`, { signal: ctrlTD.value.signal })
       const data = Array.isArray(resp.data) ? (resp.data as StratBand[]) : []
       debtBandsByKey.value[key] = data
       lastDebtKey.value = key
@@ -148,6 +172,7 @@ export const useStratsStore = defineStore('strats', () => {
       return []
     } finally {
       loadingTD.value = false
+      ctrlTD.value = null
     }
   }
 
@@ -155,11 +180,12 @@ export const useStratsStore = defineStore('strats', () => {
   async function fetchBandsSellerAsIs(sellerId: number, tradeId: number): Promise<StratBand[]> {
     const key = `${sellerId}:${tradeId}`
     if (asisBandsByKey.value[key]) return asisBandsByKey.value[key]
-
+    try { ctrlAsis.value?.abort() } catch {}
+    ctrlAsis.value = new AbortController()
     loadingAsis.value = true
     errorAsis.value = null
     try {
-      const resp = await http.get(`/acq/summary/strat/seller-asis-value/${sellerId}/${tradeId}/`)
+      const resp = await http.get(`/acq/summary/strat/seller-asis-value/${sellerId}/${tradeId}/`, { signal: ctrlAsis.value.signal })
       const data = Array.isArray(resp.data) ? (resp.data as StratBand[]) : []
       asisBandsByKey.value[key] = data
       lastAsisKey.value = key
@@ -171,6 +197,7 @@ export const useStratsStore = defineStore('strats', () => {
       return []
     } finally {
       loadingAsis.value = false
+      ctrlAsis.value = null
     }
   }
 
@@ -179,12 +206,13 @@ export const useStratsStore = defineStore('strats', () => {
     const key = `${sellerId}:${tradeId}`
     // Use cached payload if already fetched for this selection
     if (wacBandsByKey.value[key]) return wacBandsByKey.value[key]
-
+    try { ctrlWac.value?.abort() } catch {}
+    ctrlWac.value = new AbortController()
     loadingWac.value = true
     errorWac.value = null
     try {
       // Backend endpoint alias: /acq/summary/strat/interest-rate/{sellerId}/{tradeId}/
-      const resp = await http.get(`/acq/summary/strat/interest-rate/${sellerId}/${tradeId}/`)
+      const resp = await http.get(`/acq/summary/strat/interest-rate/${sellerId}/${tradeId}/`, { signal: ctrlWac.value.signal })
       const data = Array.isArray(resp.data) ? (resp.data as StratBand[]) : []
       wacBandsByKey.value[key] = data
       lastWacKey.value = key
@@ -197,6 +225,7 @@ export const useStratsStore = defineStore('strats', () => {
       return []
     } finally {
       loadingWac.value = false
+      ctrlWac.value = null
     }
   }
 
@@ -208,11 +237,12 @@ export const useStratsStore = defineStore('strats', () => {
     const key = `${sellerId}:${tradeId}`
     // Serve from cache when available
     if (propertyTypeBandsByKey.value[key]) return propertyTypeBandsByKey.value[key]
-
+    try { ctrlProp.value?.abort() } catch {}
+    ctrlProp.value = new AbortController()
     loadingPropertyType.value = true
     errorPropertyType.value = null
     try {
-      const resp = await http.get(`/acq/summary/strat/property-type/${sellerId}/${tradeId}/`)
+      const resp = await http.get(`/acq/summary/strat/property-type/${sellerId}/${tradeId}/`, { signal: ctrlProp.value.signal })
       const data = Array.isArray(resp.data) ? (resp.data as StratBand[]) : []
       propertyTypeBandsByKey.value[key] = data
       lastPropertyTypeKey.value = key
@@ -224,6 +254,7 @@ export const useStratsStore = defineStore('strats', () => {
       return []
     } finally {
       loadingPropertyType.value = false
+      ctrlProp.value = null
     }
   }
 
@@ -235,11 +266,12 @@ export const useStratsStore = defineStore('strats', () => {
     const key = `${sellerId}:${tradeId}`
     // Serve from cache when available
     if (occupancyBandsByKey.value[key]) return occupancyBandsByKey.value[key]
-
+    try { ctrlOcc.value?.abort() } catch {}
+    ctrlOcc.value = new AbortController()
     loadingOccupancy.value = true
     errorOccupancy.value = null
     try {
-      const resp = await http.get(`/acq/summary/strat/occupancy/${sellerId}/${tradeId}/`)
+      const resp = await http.get(`/acq/summary/strat/occupancy/${sellerId}/${tradeId}/`, { signal: ctrlOcc.value.signal })
       const data = Array.isArray(resp.data) ? (resp.data as StratBand[]) : []
       occupancyBandsByKey.value[key] = data
       lastOccupancyKey.value = key
@@ -251,6 +283,7 @@ export const useStratsStore = defineStore('strats', () => {
       return []
     } finally {
       loadingOccupancy.value = false
+      ctrlOcc.value = null
     }
   }
 

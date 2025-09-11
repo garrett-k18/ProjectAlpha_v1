@@ -68,7 +68,7 @@
 // - Array/Set helpers (MDN): https://developer.mozilla.org/
 // - Axios: https://axios-http.com/docs/api_intro
 
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useAcqSelectionsStore } from '@/stores/acqSelections'
 import axios from '@/lib/http'
@@ -96,6 +96,9 @@ const { selectedSellerId, selectedTradeId } = storeToRefs(sel) // reactive refs
 const isLoading = ref(false)
 const hasData = ref(false)
 const error = ref('')
+
+// Abort controller to cancel in-flight API when selection changes quickly
+const abortCtrl = ref<AbortController | null>(null)
 
 // Data containers for judicial/non-judicial stats
 const judicialData = ref<JudicialDataItem>({
@@ -125,14 +128,18 @@ async function fetchJudicialStratification() {
     hasData.value = false
     return
   }
-  
+  // Cancel any in-flight request before starting a new one
+  try { abortCtrl.value?.abort() } catch {}
+  abortCtrl.value = new AbortController()
+
   isLoading.value = true
   error.value = ''
   
   try {
     // Call the backend API endpoint
     const response = await axios.get<JudicialStratificationResponse>(
-      `/acq/summary/strat/judicial/${selectedSellerId.value}/${selectedTradeId.value}/`
+      `/acq/summary/strat/judicial/${selectedSellerId.value}/${selectedTradeId.value}/`,
+      { signal: abortCtrl.value.signal }
     )
     
     // Extract data from response
@@ -157,11 +164,16 @@ async function fetchJudicialStratification() {
       hasData.value = false
     }
   } catch (err: any) {
+    // Ignore abort errors; these are expected during rapid changes
+    if (err?.name === 'CanceledError' || err?.name === 'AbortError') {
+      return
+    }
     console.error('Error fetching judicial stratification:', err)
-    error.value = err.message || 'Failed to load judicial stratification'
+    error.value = err?.message || 'Failed to load judicial stratification'
     hasData.value = false
   } finally {
     isLoading.value = false
+    abortCtrl.value = null
   }
 }
 
@@ -174,6 +186,12 @@ onMounted(() => {
 
 watch([selectedSellerId, selectedTradeId], () => {
   fetchJudicialStratification()
+})
+
+// Clean up on unmount
+onUnmounted(() => {
+  try { abortCtrl.value?.abort() } catch {}
+  abortCtrl.value = null
 })
 
 // Total loans count

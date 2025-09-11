@@ -20,6 +20,8 @@ const http = axios.create({
   },
   // Keep credentials enabled to support session-based endpoints when needed
   withCredentials: true,
+  // Prevent indefinitely pending requests from locking UI during dev
+  timeout: 20000,
 });
 
 // Inject Authorization header from localStorage on each request as a safety net.

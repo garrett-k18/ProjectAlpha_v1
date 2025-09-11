@@ -32,6 +32,10 @@ export const useAgGridRowsStore = defineStore('agGridRows', () => {
   const lastKey = ref<string | null>(null)
   // cache: memoizes datasets per selection key (e.g., "123:456") to avoid refetch
   const cache = ref<Map<string, GridRow[]>>(new Map())
+  // Abort controller to cancel prior in-flight requests when selection changes
+  let currentController: AbortController | null = null
+  // Track which key is currently in flight to avoid clearing loading incorrectly
+  let inFlightKey: string | null = null
 
   // ---------------------------------------------------------------------------
   // Helpers
@@ -82,21 +86,41 @@ export const useAgGridRowsStore = defineStore('agGridRows', () => {
     loadingRows.value = true
     errorRows.value = null
     try {
+      // Cancel previous request if it targets a different key
+      if (currentController && inFlightKey && inFlightKey !== key) {
+        try { currentController.abort() } catch {}
+      }
+      currentController = new AbortController()
+      inFlightKey = key
       // Use a leading slash so Axios baseURL (e.g., '/api') joins correctly.
       // Endpoint implemented by Django: GET /api/acq/raw-data/<sellerId>/<tradeId>/
-      const resp = await http.get<GridRow[]>(`/acq/raw-data/${sellerId}/${tradeId}/`)
+      const resp = await http.get<GridRow[]>(`/acq/raw-data/${sellerId}/${tradeId}/`, {
+        signal: currentController.signal as any,
+        timeout: 20000,
+      })
       const data = Array.isArray(resp.data) ? resp.data : []
 
       // Update current rows and cache
       setRows(data, key)
       cache.value.set(key, data)
     } catch (e: any) {
-      // Capture error message and clear current rows
-      errorRows.value = e?.message || 'Failed to fetch grid rows'
-      rows.value = []
-      lastKey.value = null
+      // Suppress cancellation errors from AbortController/Axios
+      const isCanceled = e?.code === 'ERR_CANCELED' || e?.name === 'CanceledError' || e?.message === 'canceled'
+      if (isCanceled) {
+        // Do not overwrite current rows on cancel
+        // console.debug('[agGridRows] fetchRows canceled', { sellerId, tradeId })
+      } else {
+        // Capture error message and clear current rows
+        errorRows.value = e?.message || 'Failed to fetch grid rows'
+        rows.value = []
+        lastKey.value = null
+      }
     } finally {
-      loadingRows.value = false
+      if (inFlightKey === key) {
+        loadingRows.value = false
+        currentController = null
+        inFlightKey = null
+      }
     }
   }
 

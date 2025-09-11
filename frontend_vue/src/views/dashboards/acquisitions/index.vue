@@ -44,6 +44,7 @@
                   id="topTradeSelect"
                   class="form-select form-select-sm text-center"
                   style="width: 312px; min-width: 312px; max-width: 312px;"
+                  :key="String(selectedSellerId ?? 'null')"
                   v-model="selectedTradeId"
                   :disabled="!selectedSellerId || tradesLoading"
                 >
@@ -85,14 +86,14 @@
 
     <!-- Overview removed -->
 
-    <b-row class="g-2 mt-2">
+    <b-row class="g-2 mt-2" v-if="gridRowsLoaded">
       <b-col class="col-12">
         <VectorMap />
       </b-col>
     </b-row>
 
     <!-- Stratification cards row: render all four in one row on xl screens -->
-    <b-row class="g-2 mt-2">
+    <b-row class="g-2 mt-2" v-if="gridRowsLoaded">
       <b-col xl="3" lg="6" md="12">
         <StratsCurrentBal />
       </b-col>
@@ -110,7 +111,7 @@
     <!-- Other analytics cards (System removed) -->
 
     <!-- Property Type, Occupancy, Judicial, and Delinquency stratifications (categorical) -->
-    <b-row class="g-2 mt-2">
+    <b-row class="g-2 mt-2" v-if="gridRowsLoaded">
       <b-col xl="3" lg="6" md="12">
         <StratsPropertyType />
       </b-col>
@@ -126,7 +127,7 @@
       </b-col>
     </b-row>
 
-    <b-row class="g-2 mt-2">
+    <b-row class="g-2 mt-2" v-if="gridRowsLoaded">
       <b-col xl="4" lg="6" class="d-flex">
         <LtvScatterChart class="h-100 d-flex flex-column" />
       </b-col>
@@ -254,7 +255,23 @@ export default {
 
     // Shared selection state via Pinia store
     const acqStore = useAcqSelectionsStore()
-    const { selectedSellerId, selectedTradeId } = storeToRefs(acqStore)
+    // Use computed accessors that delegate to store actions to avoid
+    // duplicating reset logic across components
+    const selectedSellerId = computed<number | null>({
+      // Unwrap Pinia ref if necessary so v-model gets a primitive value
+      get: () => {
+        const v: any = (acqStore as any).selectedSellerId
+        return typeof v?.value !== 'undefined' ? (v.value as number | null) : (v as number | null)
+      },
+      set: (val) => acqStore.setSeller(val as number | null),
+    })
+    const selectedTradeId = computed<number | null>({
+      get: () => {
+        const v: any = (acqStore as any).selectedTradeId
+        return typeof v?.value !== 'undefined' ? (v.value as number | null) : (v as number | null)
+      },
+      set: (val) => acqStore.setTrade(val as number | null),
+    })
 
     // Grid rows store; used to know when primary dataset has loaded to gate heavy widgets
     const gridRowsStore = useAgGridRowsStore()
@@ -276,26 +293,33 @@ export default {
       }
     }
 
-    // Fetch trades for a specific seller
+    // Fetch trades for a specific seller with cancellation and timeout
+    let tradesController: AbortController | null = null
     async function fetchTrades(sellerId: number): Promise<void> {
       if (!sellerId) { trades.value = []; return }
       tradesLoading.value = true
       try {
-        const resp = await http.get<TradeOption[]>(`/acq/trades/${sellerId}/`)
+        // Abort any previous in-flight request
+        if (tradesController) { try { tradesController.abort() } catch {} }
+        tradesController = new AbortController()
+        const resp = await http.get<TradeOption[]>(`/acq/trades/${sellerId}/`, {
+          signal: tradesController.signal as any,
+          timeout: 10000,
+        })
         trades.value = Array.isArray(resp.data) ? resp.data : []
       } catch (e) {
+        // Non-fatal: log and clear list so the select becomes enabled
         console.error('[Acq Index] Failed to load trades', e)
         trades.value = []
       } finally {
         tradesLoading.value = false
+        tradesController = null
       }
     }
 
-    // Watch seller selection -> clear trade and load trades list
+    // Watch seller selection -> load trades list
     watch(selectedSellerId, async (newSellerId) => {
-      // Clear current trade list and selection
       trades.value = []
-      selectedTradeId.value = null
       if (newSellerId) await fetchTrades(newSellerId)
     })
 
@@ -337,10 +361,10 @@ export default {
       ]
     })
 
-    // Function to reset all selections
+    // Function to reset all selections via store actions
     function resetSelections(): void {
-      selectedSellerId.value = null;
-      selectedTradeId.value = null;
+      acqStore.setSeller(null)
+      acqStore.setTrade(null)
     }
     
     // Consider grid rows "loaded" when we have both IDs, not currently fetching, and have >0 rows

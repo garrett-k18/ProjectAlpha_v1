@@ -135,11 +135,28 @@ async function ensureSummaries() {
   const sid = selectedSellerId.value as number
   const tid = selectedTradeId.value as number
   if (!sid || !tid) return
-  await summaries.fetchAll(sid, tid)
+  const label = `[StratsStates] summaries ${sid}:${tid}`
+  console.time(label)
+  try {
+    console.debug('[StratsStates] ensureSummaries -> fetchAll', { sid, tid })
+    await summaries.fetchAll(sid, tid)
+  } finally {
+    console.timeEnd(label)
+  }
 }
 
-onMounted(ensureSummaries)
-watch([selectedSellerId, selectedTradeId], ensureSummaries)
+onMounted(() => {
+  console.debug('[StratsStates] onMounted')
+  ensureSummaries()
+})
+let debounceTimer: ReturnType<typeof setTimeout> | null = null
+watch([selectedSellerId, selectedTradeId], () => {
+  console.count('[StratsStates] selection change')
+  if (debounceTimer) clearTimeout(debounceTimer)
+  debounceTimer = setTimeout(() => {
+    ensureSummaries()
+  }, 200)
+})
 
 // Define row type for better type safety
 interface StateRow {

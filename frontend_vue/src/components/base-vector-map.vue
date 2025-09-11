@@ -43,6 +43,19 @@ export default {
       this.renderMap()
     }
   },
+  beforeUnmount() {
+    // Clean up any existing jVectorMap instance to avoid memory leaks
+    try {
+      const $el = $("#" + this.id)
+      const existing = ($el as any).data('mapObject')
+      if (existing && typeof existing.remove === 'function') {
+        existing.remove()
+      }
+      $el.empty()
+    } catch (e) {
+      console.debug('[BaseVectorMap] beforeUnmount cleanup failed (non-fatal)', e)
+    }
+  },
   watch: {
     // Re-render the map when options or markers change.
     options: {

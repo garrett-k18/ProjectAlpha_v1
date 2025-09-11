@@ -1049,14 +1049,8 @@ onMounted(async () => {
   // Track Fullscreen API changes so Esc or browser UI updates state
   document.addEventListener('fullscreenchange', onFsChange)
   try {
-    // Fetch column field names for grid definition
-    const resp = await fetch('/api/acq/raw-data/fields/', {
-      method: 'GET',
-      headers: { 'Accept': 'application/json' },
-      credentials: 'same-origin',
-    })
-    if (!resp.ok) throw new Error(`Failed to fetch fields: ${resp.status}`)
-    const json = (await resp.json()) as { fields: string[] }
+    // Fetch column field names for grid definition using centralized Axios instance
+    const { data: json } = await http.get<{ fields: string[] }>(`/acq/raw-data/fields/`, { timeout: 15000 })
     
     // Debug: Log received fields to check if property_type and occupancy are included
     console.log('Fields received from API:', json.fields)
@@ -1064,7 +1058,7 @@ onMounted(async () => {
     console.log('Fields include occupancy:', json.fields.includes('occupancy'))
 
     // Build minimal columnDefs from field names only
-    const generated = json.fields.map((field: string) => {
+    const generated = (json.fields || []).map((field: string) => {
       // Base definition shared by all fields
       const base: ColDef = {
         headerName: headerNameMappings[field] || prettifyHeader(field),
@@ -1229,7 +1223,7 @@ async function fetchTrades(sellerId: number): Promise<void> {
 // ---------------------------------------------------------------------------
 // Watchers: react to selection changes
 // - When seller changes: reset trade selection and fetch trades for that seller
-// - When either selection changes: if both selected, load grid data
+// - When either selection changes: if both selected, load grid data (debounced)
 // ---------------------------------------------------------------------------
 watch(selectedSellerId, async (newSellerId) => {
   // When this grid is embedded with external filters (showFilters=false),
@@ -1252,19 +1246,27 @@ watch(selectedSellerId, async (newSellerId) => {
   }
 })
 
+let selectionDebounceTimer: ReturnType<typeof setTimeout> | null = null
 watch([selectedSellerId, selectedTradeId], async ([sellerId, tradeId]) => {
-  // Only fetch when both selections are truthy
-  if (sellerId && tradeId) {
-    // Load grid rows via centralized store (with caching)
-    await gridRowsStore.fetchRows(sellerId, tradeId)
-    // Fetch geocoded markers for US map when both IDs are set
-    await acqStore.fetchMarkers()
-  } else {
-    // If either selection is missing, clear the grid to enforce data siloing
-    gridRowsStore.resetRows()
-    // Also reset markers when selection incomplete
-    acqStore.resetMarkers()
+  // Clear any pending work from prior changes
+  if (selectionDebounceTimer) {
+    clearTimeout(selectionDebounceTimer)
+    selectionDebounceTimer = null
   }
+  selectionDebounceTimer = setTimeout(async () => {
+    // Only fetch when both selections are truthy
+    if (sellerId && tradeId) {
+      // Load grid rows via centralized store (with caching)
+      await gridRowsStore.fetchRows(sellerId, tradeId)
+      // Fetch geocoded markers for US map when both IDs are set
+      await acqStore.fetchMarkers()
+    } else {
+      // If either selection is missing, clear the grid to enforce data siloing
+      gridRowsStore.resetRows()
+      // Also reset markers when selection incomplete
+      acqStore.resetMarkers()
+    }
+  }, 200)
 })
 
 // When row data changes, gather distinct states and fetch broker options batch

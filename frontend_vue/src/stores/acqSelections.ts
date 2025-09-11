@@ -47,6 +47,9 @@ export const useAcqSelectionsStore = defineStore('acqSelections', () => {
 
   // Cache the last selection pair to avoid duplicate fetches
   const lastKey = ref<string | null>(null)          // e.g., "sellerId:tradeId"
+  // Abort controller to cancel previous marker requests when selection changes
+  let currentController: AbortController | null = null
+  let inFlightKey: string | null = null
 
   // Derived: whether we have both ids selected
   const hasBothSelections = computed<boolean>(() => !!selectedSellerId.value && !!selectedTradeId.value)
@@ -107,11 +110,21 @@ export const useAcqSelectionsStore = defineStore('acqSelections', () => {
     try {
       const sid = selectedSellerId.value as number
       const tid = selectedTradeId.value as number
+      const key = `${sid}:${tid}`
+      // Cancel prior in-flight if for different key
+      if (currentController && inFlightKey && inFlightKey !== key) {
+        try { currentController.abort() } catch {}
+      }
+      currentController = new AbortController()
+      inFlightKey = key
       // IMPORTANT: Use a leading slash so Axios correctly joins with baseURL.
       // If baseURL is '/api', then '/acq/..' becomes '/api/acq/..' (correct).
       // Without the leading slash, it would become '/apiacq/..' (incorrect).
       console.debug('[acqSelections] fetching markers', { sellerId: sid, tradeId: tid })
-      const resp = await http.get(`/acq/geocode/markers/${sid}/${tid}/`)
+      const resp = await http.get(`/acq/geocode/markers/${sid}/${tid}/`, {
+        signal: currentController.signal as any,
+        timeout: 20000,
+      })
       const data = resp.data as { markers: BackendMarker[]; count: number; source: string; error?: string }
       markers.value = Array.isArray(data.markers) ? data.markers : []
       console.debug('[acqSelections] fetched markers', { count: markers.value.length, source: (data as any)?.source })
@@ -121,12 +134,22 @@ export const useAcqSelectionsStore = defineStore('acqSelections', () => {
       }
       lastKey.value = selectionKey.value
     } catch (e: any) {
-      errorMarkers.value = e?.message || 'Failed to fetch markers'
-      markers.value = []
-      console.error('[acqSelections] fetch markers failed', e)
-      lastKey.value = null
+      const isCanceled = e?.code === 'ERR_CANCELED' || e?.name === 'CanceledError' || e?.message === 'canceled'
+      if (isCanceled) {
+        // Do not overwrite current state on cancel
+        console.debug('[acqSelections] fetch markers canceled')
+      } else {
+        errorMarkers.value = e?.message || 'Failed to fetch markers'
+        markers.value = []
+        console.error('[acqSelections] fetch markers failed', e)
+        lastKey.value = null
+      }
     } finally {
-      loadingMarkers.value = false
+      if (inFlightKey === selectionKey.value) {
+        loadingMarkers.value = false
+        currentController = null
+        inFlightKey = null
+      }
     }
   }
 
