@@ -3,16 +3,6 @@
   <div v-if="!embedded" class="card h-100">
     <div class="d-flex card-header justify-content-between align-items-center">
       <h4 class="header-title">States</h4>
-      <button
-        class="btn btn-sm btn-light"
-        type="button"
-        :disabled="rows.length === 0"
-        data-bs-toggle="modal"
-        :data-bs-target="'#' + modalId"
-      >
-        <i class="mdi mdi-arrow-expand"></i>
-        View All
-      </button>
     </div>
 
     <div class="card-body pt-0" :class="emptyBodyClasses">
@@ -57,6 +47,16 @@
             </tr>
           </tbody>
         </table>
+        <div class="d-flex justify-content-end mt-2">
+          <button
+            class="btn btn-sm btn-light"
+            type="button"
+            :disabled="rows.length === 0"
+            @click="openAll()"
+          >
+            All States
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -82,7 +82,7 @@
       Select a seller and trade to see stratification.
     </div>
 
-    <!-- Embedded: also show compact top-4 + Other -->
+    <!-- Embedded: compact top-4 + Other with bottom-right button -->
     <div v-else>
       <table class="table table-borderless table-striped align-middle mb-0 bands-table">
         <thead class="text-uppercase text-muted small">
@@ -104,16 +104,26 @@
           </tr>
         </tbody>
       </table>
+      <div class="d-flex justify-content-end mt-2">
+        <button
+          class="btn btn-xs btn-light btn-sm"
+          type="button"
+          :disabled="rows.length === 0"
+          @click="openAll()"
+        >
+          All States
+        </button>
+      </div>
     </div>
   </div>
 
-  <!-- Centered modal with full state breakdown -->
+  <!-- Centered modal with full state breakdown (plain Bootstrap) -->
   <div class="modal fade" :id="modalId" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title">All States</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          <button type="button" class="btn-close" aria-label="Close" @click="closeAll()"></button>
         </div>
         <div class="modal-body">
           <table class="table table-borderless table-striped align-middle mb-0 bands-table">
@@ -151,7 +161,7 @@
 // - Pinia: https://pinia.vuejs.org/core-concepts/
 // - Intl.NumberFormat: MDN docs for number formatting
 
-import { computed, onMounted, watch } from 'vue'
+import { computed, onMounted, watch, onUnmounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useAcqSelectionsStore } from '@/stores/acqSelections'
 import { useStateSummariesStore } from '@/stores/stateSummaries'
@@ -247,6 +257,63 @@ const modalId = computed<string>(() => {
   const sid = selectedSellerId.value ?? 'x'
   const tid = selectedTradeId.value ?? 'x'
   return `statesModal-${sid}-${tid}`
+})
+
+// Open modal via Bootstrap JS API, fallback to data-bs attributes if unavailable
+function openAll(): void {
+  try {
+    const id = modalId.value
+    const el = document.getElementById(id)
+    if (!el) return
+    // @ts-ignore - bootstrap may be globally available
+    const Bootstrap = (window as any).bootstrap
+    if (Bootstrap && Bootstrap.Modal) {
+      const modal = Bootstrap.Modal.getOrCreateInstance(el)
+      modal.show()
+    } else {
+      // Fallback: toggle classes as a last resort
+      el.classList.add('show')
+      el.style.display = 'block'
+      el.removeAttribute('aria-hidden')
+      el.setAttribute('aria-modal', 'true')
+    }
+    // Bind ESC to close while open
+    document.addEventListener('keydown', onEsc)
+  } catch (e) {
+    // no-op
+  }
+}
+
+function closeAll(): void {
+  try {
+    const id = modalId.value
+    const el = document.getElementById(id)
+    if (!el) return
+    // @ts-ignore
+    const Bootstrap = (window as any).bootstrap
+    if (Bootstrap && Bootstrap.Modal) {
+      const modal = Bootstrap.Modal.getOrCreateInstance(el)
+      modal.hide()
+    } else {
+      el.classList.remove('show')
+      el.style.display = 'none'
+      el.setAttribute('aria-hidden', 'true')
+      el.removeAttribute('aria-modal')
+    }
+  } catch (_) { /* no-op */ }
+  finally {
+    document.removeEventListener('keydown', onEsc)
+  }
+}
+
+function onEsc(e: KeyboardEvent): void {
+  if (e.key === 'Escape') {
+    closeAll()
+  }
+}
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', onEsc)
 })
 
 // When there is no data and no error/loading, center the helper inside the full card body

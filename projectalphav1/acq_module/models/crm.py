@@ -11,6 +11,7 @@ class Brokercrm(models.Model):
     broker_state = models.CharField(max_length=2, blank=True, null=True)
     broker_city = models.CharField(max_length=255, blank=True, null=True)
     broker_email = models.EmailField(blank=True, null=True)
+    broker_phone = models.CharField(max_length=255, blank=True, null=True)
     broker_name = models.CharField(max_length=255, blank=True, null=True)
 
     # Audit

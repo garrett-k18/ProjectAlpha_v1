@@ -46,6 +46,7 @@ from .views.geocode import geocode_markers
 from .views.brokers.internal import (
     broker_detail,
     list_assigned_loans,
+    list_brokers,
 )
 
 # This defines the URL patterns for the acq_module app.
@@ -79,6 +80,7 @@ urlpatterns = [
     path('broker-portal/assign/', assign_broker_batch, name='api_assign_broker_batch'),  # POST (internal)
     path('broker-portal/<str:token>/', broker_portal_detail, name='api_broker_portal_detail'),  # GET (public)
     # Broker detail and assigned loans
+    path('brokers/', list_brokers, name='api_brokers_list'),  # GET (public)
     path('brokers/<int:broker_id>/', broker_detail, name='api_broker_detail'),  # GET
     path('brokers/<int:broker_id>/assigned-loans/', list_assigned_loans, name='api_broker_assigned_loans'),  # GET
     # Geocoded markers for seller+trade
