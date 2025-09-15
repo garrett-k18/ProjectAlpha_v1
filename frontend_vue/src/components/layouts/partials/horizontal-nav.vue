@@ -38,7 +38,7 @@
                   </a>
                   <div class="dropdown-menu" aria-labelledby="topnav-crm">
                     <router-link to="/apps/crm/projects" class="dropdown-item side-nav-link-ref">Project</router-link>
-                    <router-link to="/apps/crm/orders-list" class="dropdown-item side-nav-link-ref">Orders List
+                    <router-link to="/apps/crm/brokers" class="dropdown-item side-nav-link-ref">Brokers
                     </router-link>
                     <router-link to="/apps/crm/clients" class="dropdown-item side-nav-link-ref">Clients</router-link>
                     <router-link to="/apps/crm/management" class="dropdown-item side-nav-link-ref">Management

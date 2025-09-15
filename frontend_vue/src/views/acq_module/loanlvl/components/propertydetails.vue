@@ -18,8 +18,8 @@
 
       <!-- Content -->
       <div v-else class="row g-3">
-        <!-- Column: Address + Type/Occupancy and core attributes -->
-        <div class="col-12">
+        <!-- Column 1: Core property attributes -->
+        <div class="col-md-6">
           <div v-if="fullAddress" class="mb-2">
             <small class="text-muted d-block">Address</small>
             <span class="fw-semibold text-dark">{{ fullAddress }}</span>
@@ -78,6 +78,62 @@
           </div>
         </div>
 
+        <!-- Column 2: Financials (HOA & Tax) -->
+        <div class="col-md-6">
+          <!-- HOA Flag / HOA $ (combined) -->
+          <!-- TODO: Wire to backend fields once available. Suggested fields:
+               - rowActive.hoa_flag: boolean | 'Y' | 'N'
+               - rowActive.hoa_amount: number (monthly dollars) -->
+          <div class="mb-2">
+            <small class="text-muted d-block">HOA</small>
+            <span class="fw-semibold text-dark">
+              <template v-if="rowActive != null">
+                {{ rowActive?.hoa_flag == null ? '—' : (normalizeBool(rowActive?.hoa_flag) ? 'Yes' : 'No') }}
+                <template v-if="normalizeBool(rowActive?.hoa_flag) && rowActive?.hoa_amount != null">
+                  - {{ formatMoney(rowActive.hoa_amount) }}
+                </template>
+              </template>
+              <template v-else>—</template>
+            </span>
+          </div>
+
+          <!-- Property Tax Rate (percentage) -->
+          <!-- TODO: Wire to backend: rowActive.property_tax_rate (e.g., 0.0125 for 1.25%) -->
+          <div class="mb-2">
+            <small class="text-muted d-block">Property Tax Rate</small>
+            <span class="fw-semibold text-dark">
+              <template v-if="rowActive != null && rowActive.property_tax_rate != null">
+                {{ formatPercent(rowActive.property_tax_rate) }}
+              </template>
+              <template v-else>—</template>
+            </span>
+          </div>
+
+          <!-- Assessed Value (currency) -->
+          <!-- TODO: Wire to backend: rowActive.assessed_value (number) -->
+          <div class="mb-2">
+            <small class="text-muted d-block">Assessed Value</small>
+            <span class="fw-semibold text-dark">
+              <template v-if="rowActive != null && rowActive.assessed_value != null">
+                {{ formatMoney(rowActive.assessed_value) }}
+              </template>
+              <template v-else>—</template>
+            </span>
+          </div>
+
+          <!-- Property Taxes (Prev Year) (currency) -->
+          <!-- TODO: Wire to backend: rowActive.property_taxes_prev_year (number) -->
+          <div class="mb-2">
+            <small class="text-muted d-block">Property Taxes (Prev Year)</small>
+            <span class="fw-semibold text-dark">
+              <template v-if="rowActive != null && rowActive.property_taxes_prev_year != null">
+                {{ formatMoney(rowActive.property_taxes_prev_year) }}
+              </template>
+              <template v-else>—</template>
+            </span>
+          </div>
+        </div>
+
         <!-- Removed seller/additional valuation fields per request -->
       </div>
     </div>
@@ -117,7 +173,9 @@ export default defineComponent({
       return !!(r && (
         r.street_address || r.city || r.state || r.zip ||
         r.property_type || r.occupancy ||
-        r.beds != null || r.baths != null || r.sq_ft != null || r.lot_size != null || r.year_built != null
+        r.beds != null || r.baths != null || r.sq_ft != null || r.lot_size != null || r.year_built != null ||
+        r.hoa_flag != null || r.hoa_amount != null || r.property_tax_rate != null ||
+        r.assessed_value != null || r.property_taxes_prev_year != null
       ))
     })
 
@@ -156,6 +214,31 @@ export default defineComponent({
 
     const formatDate = (v: any) => (v ? new Date(v).toLocaleDateString('en-US') : 'N/A')
 
+    // Format currency with USD symbol and no decimals per platform convention for most UI readouts
+    const formatMoney = (v: any) => {
+      if (v != null && !isNaN(v)) {
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(Number(v))
+      }
+      return 'N/A'
+    }
+
+    // Format percent from decimal input (e.g., 0.0125 -> 1.25%)
+    const formatPercent = (v: any) => {
+      if (v != null && !isNaN(v)) {
+        const pct = Number(v) * 100
+        return `${pct.toFixed(2)}%`
+      }
+      return 'N/A'
+    }
+
+    // Normalize boolean-like fields (true/'Y'/'YES' -> true)
+    const normalizeBool = (v: any): boolean => {
+      if (typeof v === 'boolean') return v
+      if (v == null) return false
+      const s = String(v).trim().toLowerCase()
+      return s === 'y' || s === 'yes' || s === 'true' || s === '1'
+    }
+
     // Badge color maps copied from AG Grid configuration to keep visual parity
     // Property Type badge colors
     const propertyTypeBadgeMap: Record<string, { label: string; color: string; title?: string }> = {
@@ -189,7 +272,7 @@ export default defineComponent({
       return occupancyBadgeMap[key] || null
     })
 
-    return { rowActive, hasAnyData, fullAddress, formatCurrency, formatDate, propertyBadge, occupancyBadge }
+    return { rowActive, hasAnyData, fullAddress, formatCurrency, formatDate, formatMoney, formatPercent, normalizeBool, propertyBadge, occupancyBadge }
   },
 })
 </script>

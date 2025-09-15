@@ -6,7 +6,7 @@ from .models import (
     Seller, Trade, SellerRawData,
     Servicer, StateReference, LoanLevelAssumption, TradeLevelAssumption,
     InternalValuation, BrokerValues, Photo,
-    Brokercrm, LlDataEnrichment,
+    Brokercrm, LlDataEnrichment, TradingPartnerCRM,
 )
 
 # Inline admin classes for related models
@@ -62,6 +62,25 @@ class BrokercrmAdmin(admin.ModelAdmin):
     )
     search_fields = (
         'broker_name', 'broker_email', 'broker_firm', 'broker_city'
+    )
+
+
+@admin.register(TradingPartnerCRM)
+class TradingPartnerCRMAdmin(admin.ModelAdmin):
+    """Admin configuration for TradingPartnerCRM (trading partners directory) model.
+
+    Notes:
+    - `firm` is required; all other fields are optional per model definition.
+    - Provides convenient list columns and search to quickly find partners.
+    """
+    list_display = (
+        'firm', 'name', 'email', 'phone', 'altname', 'altemail', 'alt_phone', 'nda_flag', 'nda_signed', 'created_at'
+    )
+    list_filter = (
+        'nda_flag',
+    )
+    search_fields = (
+        'firm', 'name', 'email', 'phone', 'altname', 'altemail', 'alt_phone'
     )
 
 

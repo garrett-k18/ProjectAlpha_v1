@@ -48,6 +48,10 @@ from .views.brokers.internal import (
     list_assigned_loans,
     list_brokers,
 )
+from .views.trading_partners import (
+    list_trading_partners,
+    trading_partner_detail,
+)
 
 # This defines the URL patterns for the acq_module app.
 urlpatterns = [
@@ -83,6 +87,9 @@ urlpatterns = [
     path('brokers/', list_brokers, name='api_brokers_list'),  # GET (public)
     path('brokers/<int:broker_id>/', broker_detail, name='api_broker_detail'),  # GET
     path('brokers/<int:broker_id>/assigned-loans/', list_assigned_loans, name='api_broker_assigned_loans'),  # GET
+    # Trading partners directory endpoints
+    path('trading-partners/', list_trading_partners, name='api_trading_partners_list'),  # GET, POST (public)
+    path('trading-partners/<int:partner_id>/', trading_partner_detail, name='api_trading_partner_detail'),  # GET, PATCH (public)
     # Geocoded markers for seller+trade
     path('geocode/markers/<int:seller_id>/<int:trade_id>/', geocode_markers, name='api_geocode_markers'),
     # State summary endpoints (per-seller, per-trade)
