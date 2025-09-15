@@ -17,8 +17,8 @@
         <div class="card">
           <!-- Slightly increased bottom whitespace for breathing room (pb-2) -->
           <div class="card-body pt-1 pb-2 px-2">
-            <!-- Inline toolbar layout: title on the left, then Seller/Trade selects, then Reset -->
-            <div class="d-flex flex-wrap align-items-end justify-content-center gap-2">
+            <!-- Centered selectors with Trade Settings button -->
+            <div class="d-flex flex-wrap align-items-end justify-content-center gap-2 w-100 mb-2">
               <!-- Title inline on the left of the dropdowns -->
               <div class="fw-bold fs-6 me-2 fst-italic">Select Seller and Trade</div>
 
@@ -28,7 +28,7 @@
                 <select
                   id="topSellerSelect"
                   class="form-select form-select-sm text-center"
-                  style="width: 312px; min-width: 312px; max-width: 312px;"
+                  style="width: 250px; min-width: 250px; max-width: 250px;"
                   v-model="selectedSellerId"
                   :disabled="sellersLoading"
                 >
@@ -43,7 +43,7 @@
                 <select
                   id="topTradeSelect"
                   class="form-select form-select-sm text-center"
-                  style="width: 312px; min-width: 312px; max-width: 312px;"
+                  style="width: 250px; min-width: 250px; max-width: 250px;"
                   :key="String(selectedSellerId ?? 'null')"
                   v-model="selectedTradeId"
                   :disabled="!selectedSellerId || tradesLoading"
@@ -53,10 +53,22 @@
                 </select>
               </div>
 
-              <!-- Reset button to the right of trade dropdown -->
+              <!-- Reset button -->
               <div class="d-flex align-items-end" v-if="selectedSellerId || selectedTradeId">
                 <button class="btn btn-sm btn-secondary mb-0" @click="resetSelections">
                   <i class="mdi mdi-refresh me-1"></i> Reset
+                </button>
+              </div>
+              
+              <!-- Trade action buttons (open modals) -->
+              <div class="d-flex align-items-end gap-2" v-if="selectedTradeId">
+                <!-- Trade Details -->
+                <button class="btn btn-sm btn-primary mb-0" @click="showTradeDetailsModal = true">
+                  <i class="mdi mdi-file-document-outline me-1"></i> Trade Details
+                </button>
+                <!-- Trade Documents -->
+                <button class="btn btn-sm btn-outline-primary mb-0" @click="showTradeDocumentsModal = true">
+                  <i class="mdi mdi-file-document-multiple-outline me-1"></i> Trade Documents
                 </button>
               </div>
             </div>
@@ -72,6 +84,7 @@
         </div>
       </b-col>
     </b-row>
+
 
     <!-- Top metrics widgets rendered by a dedicated component -->
     <Widgets />
@@ -180,6 +193,45 @@
         :standalone="false"
       />
     </BModal>
+    
+    <!-- Trade Details Modal (centered) -->
+    <BModal
+      v-model="showTradeDetailsModal"
+      title="Trade Details"
+      size="md"
+      centered
+      hide-header-close
+    >
+      <div v-if="selectedTradeId">
+        <TradeDetailsModal
+          v-model:bidDate="bidDateModel"
+          v-model:settlementDate="settlementDateModel"
+          :disabled="dateFieldsLoading"
+          @changed="autosaveDateChanges"
+        />
+      </div>
+      <div v-else class="text-center py-4">Please select a trade to configure settings.</div>
+      <template #footer>
+        <div class="d-flex justify-content-end w-100 gap-2">
+          <button class="btn btn-primary" @click="showTradeDetailsModal = false">Close</button>
+        </div>
+      </template>
+    </BModal>
+
+    <!-- Trade Documents Modal (large, with list + viewer) -->
+    <BModal
+      v-model="showTradeDocumentsModal"
+      title="Trade Documents"
+      size="xl"
+      centered
+    >
+      <TradeDocumentsModal :docs="docItems" />
+      <template #footer>
+        <div class="d-flex justify-content-end w-100 gap-2">
+          <button class="btn btn-primary" @click="showTradeDocumentsModal = false">Close</button>
+        </div>
+      </template>
+    </BModal>
   </Layout>
 </template>
 
@@ -203,9 +255,13 @@ import DataGrid from "@/views/dashboards/acquisitions/data-grid.vue";
 import { BModal } from 'bootstrap-vue-next';
 // Centralized loan-level wrapper used for both full-page and modal
 import LoanLevelIndex from '@/views/acq_module/loanlvl/loanlvl_index.vue'
+// Trade modals
+import TradeDetailsModal from '@/views/dashboards/acquisitions/modals/TradeDetailsModal.vue'
+import TradeDocumentsModal from '@/views/dashboards/acquisitions/modals/TradeDocumentsModal.vue'
 // Selections store + helpers
 import { useAcqSelectionsStore } from '@/stores/acqSelections'
 import { useAgGridRowsStore } from '@/stores/agGridRows'
+import { useTradeAssumptionsStore } from '@/stores/tradeAssumptions'
 import { storeToRefs } from 'pinia'
 import { ref, watch, onMounted, computed } from 'vue'
 // Centralized Axios instance (baseURL='/api')
@@ -234,6 +290,8 @@ export default {
     BModal,
     LoanLevelIndex,
     DocumentsQuickView,
+    TradeDetailsModal,
+    TradeDocumentsModal,
   },
   setup() {
     // Local lists for options
@@ -241,9 +299,23 @@ export default {
     const trades = ref<TradeOption[]>([])
     const sellersLoading = ref<boolean>(false)
     const tradesLoading = ref<boolean>(false)
+    
+    // Trade dates form state
+    const bidDateModel = ref<string>('')
+    const settlementDateModel = ref<string>('')
+    const originalBidDate = ref<string>('')
+    const originalSettlementDate = ref<string>('')
+    const dateFieldsLoading = ref<boolean>(false)
+    
+    // Track if there are unsaved date changes
+    const hasDateChanges = computed(() => {
+      return bidDateModel.value !== originalBidDate.value || 
+             settlementDateModel.value !== originalSettlementDate.value
+    })
 
-    // Shared selection state via Pinia store
+    // Shared selection state via Pinia stores
     const acqStore = useAcqSelectionsStore()
+    const tradeAssumptionsStore = useTradeAssumptionsStore()
     // Use computed accessors that delegate to store actions to avoid
     // duplicating reset logic across components
     const selectedSellerId = computed<number | null>({
@@ -265,6 +337,71 @@ export default {
     // Grid rows store; used to know when primary dataset has loaded to gate heavy widgets
     const gridRowsStore = useAgGridRowsStore()
     const { rows: gridRows, loadingRows: gridLoadingRows, lastKey: gridLastKey } = storeToRefs(gridRowsStore)
+    
+    // Modal state
+    const showTradeDetailsModal = ref<boolean>(false)
+    const showTradeDocumentsModal = ref<boolean>(false)
+    
+    // Update local date models from store
+    function updateLocalDateModels() {
+      const assumptions = tradeAssumptionsStore.assumptions
+      if (assumptions) {
+        // Format date strings to YYYY-MM-DD for input[type="date"]
+        bidDateModel.value = assumptions.bid_date ? assumptions.bid_date.substring(0, 10) : ''
+        settlementDateModel.value = assumptions.settlement_date ? assumptions.settlement_date.substring(0, 10) : ''
+        
+        // Store original values to detect changes
+        originalBidDate.value = bidDateModel.value
+        originalSettlementDate.value = settlementDateModel.value
+      } else {
+        resetLocalDateModels()
+      }
+    }
+    
+    // Reset local date models
+    function resetLocalDateModels() {
+      bidDateModel.value = ''
+      settlementDateModel.value = ''
+      originalBidDate.value = ''
+      originalSettlementDate.value = ''
+    }
+    
+    // Handlers for date input changes
+    function handleBidDateChange() {
+      // Optional validation could be added here
+    }
+    
+    function handleSettlementDateChange() {
+      // Optional validation could be added here
+    }
+    
+    // Save date changes to the backend
+    async function saveDateChanges() {
+      if (!selectedTradeId.value) return
+      
+      dateFieldsLoading.value = true
+      
+      const data = {
+        bid_date: bidDateModel.value || null,
+        settlement_date: settlementDateModel.value || null,
+      }
+      
+      const success = await tradeAssumptionsStore.updateAssumptions(selectedTradeId.value, data)
+      
+      if (success) {
+        // Update our original values to match current values
+        originalBidDate.value = bidDateModel.value
+        originalSettlementDate.value = settlementDateModel.value
+      }
+      
+      dateFieldsLoading.value = false
+      return success
+    }
+    
+    // Auto-save function triggered on input change
+    async function autosaveDateChanges() {
+      await saveDateChanges()
+    }
 
     // Fetch sellers using centralized Axios instance
     async function fetchSellers(): Promise<void> {
@@ -309,7 +446,20 @@ export default {
     // Watch seller selection -> load trades list
     watch(selectedSellerId, async (newSellerId) => {
       trades.value = []
+      resetLocalDateModels()
       if (newSellerId) await fetchTrades(newSellerId)
+    })
+
+    watch(selectedTradeId, async (newTradeId) => {
+      if (newTradeId) {
+        // Fetch trade assumptions when trade is selected
+        dateFieldsLoading.value = true
+        await tradeAssumptionsStore.fetchAssumptions(newTradeId)
+        updateLocalDateModels()
+        dateFieldsLoading.value = false
+      } else {
+        resetLocalDateModels()
+      }
     })
 
     onMounted(async () => {
@@ -371,6 +521,17 @@ export default {
       resetSelections,
       docItems,
       gridRowsLoaded,
+      // Date fields
+      bidDateModel,
+      settlementDateModel,
+      dateFieldsLoading,
+      hasDateChanges,
+      // Modal state
+      showTradeDetailsModal,
+      showTradeDocumentsModal,
+      // Date functions
+      saveDateChanges,
+      autosaveDateChanges,
     }
   },
   data() {

@@ -52,6 +52,10 @@ from .views.trading_partners import (
     list_trading_partners,
     trading_partner_detail,
 )
+from .views.trade_assumptions_api import (
+    get_trade_level_assumptions,
+    update_trade_level_assumptions,
+)
 
 # This defines the URL patterns for the acq_module app.
 urlpatterns = [
@@ -92,6 +96,9 @@ urlpatterns = [
     path('trading-partners/<int:partner_id>/', trading_partner_detail, name='api_trading_partner_detail'),  # GET, PATCH (public)
     # Geocoded markers for seller+trade
     path('geocode/markers/<int:seller_id>/<int:trade_id>/', geocode_markers, name='api_geocode_markers'),
+    # Trade level assumptions endpoints
+    path('trade-assumptions/<int:trade_id>/', get_trade_level_assumptions, name='api_get_trade_assumptions'),  # GET
+    path('trade-assumptions/<int:trade_id>/update/', update_trade_level_assumptions, name='api_update_trade_assumptions'),  # POST, PUT
     # State summary endpoints (per-seller, per-trade)
     path('summary/state/list/<int:seller_id>/<int:trade_id>/', get_states_for_selection, name='api_states_for_selection'),
     path('summary/state/count/<int:seller_id>/<int:trade_id>/', get_state_count_for_selection, name='api_state_count_for_selection'),
