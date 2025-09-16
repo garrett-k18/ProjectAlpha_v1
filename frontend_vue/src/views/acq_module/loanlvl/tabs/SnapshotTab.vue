@@ -64,7 +64,7 @@
         <!-- Valuation Matrix (component renders its own card now) -->
         <b-col lg="9" class="d-flex">
           <div class="w-100 h-100">
-            <ValuationMatrix class="h-100 d-flex flex-column" :row="row" :productId="productId" />
+            <ValuationMatrix class="h-100 d-flex flex-column" :row="row" :productId="productId" :module="module" />
           </div>
         </b-col>
 
@@ -117,6 +117,8 @@ const props = withDefaults(defineProps<{
   row?: Record<string, any> | null
   // productId: optional identifier for the asset
   productId?: string | number | null
+  // module: selects API base ('acq' | 'am'); defaults to acquisitions
+  module?: 'acq' | 'am'
   // Optional sizing overrides for the PhotoCarousel
   // Accept number (pixels) or string (e.g., '100%')
   carouselWidth?: number | string
@@ -127,6 +129,7 @@ const props = withDefaults(defineProps<{
 }>(), {
   row: null,
   productId: null,
+  module: 'acq',
   // Use fixed dimensions to ensure consistent photo sizing and prevent card resizing
   carouselWidth: 500,
   carouselHeight: 300,
@@ -174,20 +177,21 @@ const sourceId = computed<number | null>(() => {
 // Fetch photos from backend and normalize into PhotoItem[]
 async function loadPhotos(id: number) {
   try {
-    // GET /api/acq/photos/<id>/ via baseURL '/api' in dev
-    const res = await http.get(`/acq/photos/${id}/`)
+    // Choose endpoint based on module: AM uses boarded asset photos; ACQ uses SellerRawData photos
+    const url = (props as any).module === 'am' ? `/am/assets/${id}/photos/` : `/acq/photos/${id}/`
+    const res = await http.get(url)
     // Response already in { src, alt?, thumb? } format
     const items = (res.data || []) as PhotoItem[]
     fetchedImages.value = items
     // Debug: id and count to help diagnose when demo images still show
-    console.debug('[SnapshotTab] loaded photos for', id, 'count:', items.length)
+    console.debug('[SnapshotTab] loaded photos for', id, 'module=', (props as any).module, 'count:', items.length)
   } catch (err) {
     // Provide actionable logging, but avoid leaking sensitive data
     const status = (err as any)?.response?.status
     if (status === 401) {
       console.warn('[SnapshotTab] 401 Unauthorized fetching photos. Check that an auth token exists and is attached.')
     } else {
-      console.warn('Failed to load photos for id', id, err)
+      console.warn('Failed to load photos for id', id, 'module=', (props as any).module, err)
     }
     fetchedImages.value = []
   }

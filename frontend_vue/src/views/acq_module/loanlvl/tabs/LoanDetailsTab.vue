@@ -52,8 +52,10 @@ import ServicingNotes from '@/views/acq_module/loanlvl/components/servicingnotes
 withDefaults(defineProps<{
   row?: Record<string, any> | null
   productId?: string | number | null
+  module?: 'acq' | 'am'
 }>(), {
   row: null,
   productId: null,
+  module: 'acq',
 })
 </script>

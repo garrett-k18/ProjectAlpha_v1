@@ -7,6 +7,7 @@ class AssetInventoryRowSerializer(serializers.Serializer):
     Flat row shape tailored for AG Grid. We keep this serializer
     detached from a specific model to freely compose from multiple sources.
     """
+    id = serializers.IntegerField(read_only=True)
     asset_id = serializers.SerializerMethodField()
     asset_status = serializers.CharField(allow_null=True)
     street_address = serializers.CharField()
@@ -58,6 +59,45 @@ class AssetInventoryRowSerializer(serializers.Serializer):
             return m.time_held_days if m else None
         except Exception:
             return None
+
+
+class AssetDetailSerializer(serializers.ModelSerializer):
+    """
+    Detailed serializer for a single SellerBoardedData asset record.
+    Exposes fields used by the loan-level modal tabs (Snapshot, Property, Loan, etc.).
+
+    Docs:
+    - DRF ModelSerializer: https://www.django-rest-framework.org/api-guide/serializers/#modelserializer
+    """
+
+    class Meta:
+        model = SellerBoardedData
+        # Explicitly list fields for stability and to avoid over-exposing internals
+        fields = [
+            # Identity
+            'id', 'sellertape_id', 'seller_name', 'trade_name', 'asset_status', 'as_of_date',
+            # Address / property
+            'street_address', 'city', 'state', 'zip', 'property_type', 'occupancy', 'year_built',
+            'sq_ft', 'lot_size', 'beds', 'baths',
+            # Loan core
+            'current_balance', 'deferred_balance', 'interest_rate', 'next_due_date', 'last_paid_date',
+            'first_pay_date', 'origination_date', 'original_balance', 'original_term', 'original_rate',
+            'original_maturity_date', 'default_rate', 'months_dlq', 'current_maturity_date', 'current_term',
+            # Balances / fees
+            'accrued_note_interest', 'accrued_default_interest', 'escrow_balance', 'escrow_advance',
+            'recoverable_corp_advance', 'late_fees', 'other_fees', 'suspense_balance', 'total_debt',
+            # Valuation inputs
+            'origination_value', 'origination_arv', 'origination_value_date', 'seller_value_date',
+            'seller_arv_value', 'seller_asis_value', 'additional_asis_value', 'additional_arv_value',
+            'additional_value_date',
+            # Flags
+            'fc_flag', 'fc_first_legal_date', 'fc_referred_date', 'fc_judgement_date',
+            'fc_scheduled_sale_date', 'fc_sale_date', 'fc_starting',
+            'bk_flag', 'bk_chapter',
+            'mod_flag', 'mod_date', 'mod_maturity_date', 'mod_term', 'mod_rate', 'mod_initial_balance',
+            # Provenance
+            'boarded_at', 'boarded_by', 'created_at', 'updated_at',
+        ]
 
 class AssetInventoryColumnsSerializer(serializers.Serializer):
     """Optional endpoint to drive dynamic columns from the server."""

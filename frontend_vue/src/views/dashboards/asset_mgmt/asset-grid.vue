@@ -73,6 +73,47 @@
         @grid-ready="onGridReady"
         @sort-changed="onSortChanged"
       />
+
+      <!-- Loan-Level Modal (mirrors acquisitions dashboard) -->
+      <!-- Docs: https://bootstrap-vue-next.github.io/bootstrap-vue-next/docs/components/modal -->
+      <BModal
+        v-model="showAssetModal"
+        size="xl"
+        body-class="p-0 bg-body text-body"
+        dialog-class="product-details-dialog"
+        content-class="product-details-content bg-body text-body"
+        hide-footer
+        @shown="onModalShown"
+        @hidden="onModalHidden"
+      >
+        <!-- Custom header with action button (far right) -->
+        <template #header>
+          <div class="d-flex align-items-center w-100">
+            <h5 class="modal-title mb-0">
+              <div class="lh-sm">ID - <span class="fw-bold">{{ modalIdText }}</span></div>
+              <div class="text-muted lh-sm">Address - <span class="fw-bold text-dark">{{ modalAddrText }}</span></div>
+            </h5>
+            <div class="ms-auto">
+              <button
+                type="button"
+                class="btn btn-sm btn-primary"
+                @click="openFullPage"
+                title="Open full page (Ctrl + Enter)"
+                aria-label="Open full page"
+              >
+                Full Page <span class="text-white-50">(Ctrl + Enter)</span>
+              </button>
+            </div>
+          </div>
+        </template>
+        <!-- Centralized loan-level wrapper rendered inside the modal -->
+        <LoanLevelIndex
+          :productId="selectedId"
+          :row="selectedRow"
+          :address="selectedAddr"
+          :standalone="false"
+        />
+      </BModal>
     </div>
   </div>
 </template>
@@ -83,6 +124,10 @@ import { AgGridVue } from 'ag-grid-vue3'
 import { themeQuartz } from 'ag-grid-community'
 import type { GridApi, GridReadyEvent, ColDef, ValueFormatterParams } from 'ag-grid-community'
 import { ref, computed, nextTick, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import { BModal } from 'bootstrap-vue-next'
+import LoanLevelIndex from '@/views/am_module/loanlvl/loanlvl_index.vue'
+import ActionsCell from '@/views/dashboards/acquisitions/components/ActionsCell.vue'
 import http from '@/lib/http'
 
 // Constant columns (always shown, pinned left first)
@@ -91,35 +136,15 @@ const constantColumns: ColDef[] = [
     headerName: 'Actions',
     colId: 'actions',
     pinned: 'left',
-    width: 160,
+    width: 220,
+    minWidth: 160,
     lockPosition: true,
     suppressMovable: true,
     sortable: false,
     filter: false,
-    cellRenderer: (p: any) => {
-      const root = document.createElement('div')
-      root.className = 'd-flex align-items-center gap-1'
-      root.innerHTML = `
-        <input type="checkbox" class="form-check-input" aria-label="Select row" />
-        <button type="button" class="btn btn-xs btn-outline-primary">View</button>
-        <button type="button" class="btn btn-xs btn-outline-secondary">Edit</button>
-      `
-      const [checkbox, viewBtn, editBtn] = [
-        root.querySelector('input.form-check-input'),
-        root.querySelector('button.btn-outline-primary'),
-        root.querySelector('button.btn-outline-secondary'),
-      ] as any
-      viewBtn?.addEventListener('click', (e: Event) => {
-        e.stopPropagation()
-        console.debug('[Actions] View clicked', p.data)
-      })
-      editBtn?.addEventListener('click', (e: Event) => {
-        e.stopPropagation()
-        console.debug('[Actions] Edit clicked', p.data)
-      })
-      checkbox?.addEventListener('click', (e: Event) => e.stopPropagation())
-      return root
-    },
+    suppressHeaderContextMenu: true,
+    cellRenderer: ActionsCell as any,
+    cellRendererParams: { onAction: onRowAction },
   },
   { headerName: 'Asset ID', field: 'asset_id', minWidth: 120, pinned: 'left' },
   { headerName: 'Status', field: 'asset_status', minWidth: 120, pinned: 'left' },
@@ -194,6 +219,92 @@ function applyView() {
   // Re-apply sort because visible columns changed
   nextTick(() => onSortChanged())
 }
+
+// ---------------------------------------------------------------------------
+// Modal + Actions from ActionsCell (view/edit/notes/delete)
+// ---------------------------------------------------------------------------
+// Modal visibility and selected payload
+const showAssetModal = ref<boolean>(false)
+const selectedId = ref<string | number | null>(null)
+const selectedRow = ref<any>(null)
+const selectedAddr = ref<string | null>(null)
+
+// Build friendly header text for modal
+const modalIdText = computed<string>(() => (selectedId.value != null ? String(selectedId.value) : 'Asset'))
+const modalAddrText = computed<string>(() => {
+  const r: any = selectedRow.value || {}
+  const street = String(r.street_address ?? '').trim()
+  const city = String(r.city ?? '').trim()
+  const state = String(r.state ?? '').trim()
+  const locality = [city, state].filter(Boolean).join(', ')
+  const built = [street, locality].filter(Boolean).join(', ')
+  if (built) return built
+  const rawAddr = selectedAddr.value ? String(selectedAddr.value) : ''
+  // Strip trailing ZIP if present
+  return rawAddr.replace(/,?\s*\d{5}(?:-\d{4})?$/, '')
+})
+
+// Helper to compute a product/asset id from the row
+function getProductIdFromRow(row: any): string | number | null {
+  // Prefer domain-specific id if present, fallback to common fields
+  const candidates = [row?.id, row?.asset_id, row?.sellertape_id]
+  for (const c of candidates) {
+    if (c !== undefined && c !== null && c !== '') return c as any
+  }
+  return null
+}
+
+// Build a one-line address string (for header and route query)
+function buildAddress(row: any): string {
+  const zip = row?.zip ?? row?.zip_code
+  const parts = [row?.street_address, row?.city, row?.state, zip]
+    .map((p: any) => (p != null ? String(p).trim() : ''))
+    .filter((p: string) => !!p)
+  return parts.join(', ')
+}
+
+function onRowAction(action: string, row: any): void {
+  // Normalize action; only 'view' opens modal currently
+  if (action === 'view') {
+    selectedId.value = getProductIdFromRow(row)
+    selectedRow.value = row
+    selectedAddr.value = buildAddress(row)
+    showAssetModal.value = true
+  } else {
+    // Placeholders for future actions
+    console.log(`[AssetGrid] action="${action}"`, row)
+  }
+}
+
+// Modal lifecycle + shortcut
+function onModalShown(): void {
+  document.addEventListener('keydown', onKeydown as any)
+}
+function onModalHidden(): void {
+  document.removeEventListener('keydown', onKeydown as any)
+  selectedId.value = null
+  selectedRow.value = null
+  selectedAddr.value = null
+}
+function onKeydown(e: KeyboardEvent): void {
+  if (e.ctrlKey && (e.key === 'Enter' || e.code === 'Enter')) {
+    e.preventDefault()
+    openFullPage()
+  }
+}
+
+function openFullPage(): void {
+  if (!selectedId.value) return
+  const query: any = { id: selectedId.value }
+  if (selectedAddr.value) query.addr = selectedAddr.value
+  query.module = 'am'
+  // Hide modal and navigate to the loan-level details page
+  showAssetModal.value = false
+  router.push({ path: '/loanlvl/products-details', query })
+}
+
+// Router instance for navigation
+const router = useRouter()
 
 // Default column behavior
 const defaultColDef: ColDef = {

@@ -75,6 +75,8 @@ INSTALLED_APPS = [
 'rest_framework',
 'rest_framework.authtoken',
 'corsheaders',
+# Shared domain models/utilities
+'core',
 'acq_module.apps.AcqModuleConfig',
 'am_module',
 'user_admin',  

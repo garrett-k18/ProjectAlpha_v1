@@ -11,28 +11,28 @@
   >
     <!-- Snapshot (default active) -->
     <b-tab title="Snapshot" active>
-      <!-- SnapshotTab now fetches its own photos; no demo images passed -->
-      <SnapshotTab :row="row" :productId="productId" />
+      <!-- SnapshotTab now fetches its own photos; module selects API base (acq|am) -->
+      <SnapshotTab :row="row" :productId="productId" :module="module" />
     </b-tab>
 
     <!-- Loan Details -->
     <b-tab title="Loan Details">
-      <LoanDetailsTab :row="row" :productId="productId" />
+      <LoanDetailsTab :row="row" :productId="productId" :module="module" />
     </b-tab>
 
     <!-- Property Details -->
     <b-tab title="Property Details">
-      <PropertyDetailsTab :row="row" :productId="productId" />
+      <PropertyDetailsTab :row="row" :productId="productId" :module="module" />
     </b-tab>
 
     <!-- Acquisition Analysis -->
     <b-tab title="Acquisition Analysis">
-      <AcquisitionAnalysisTab :row="row" :productId="productId" />
+      <AcquisitionAnalysisTab :row="row" :productId="productId" :module="module" />
     </b-tab>
 
     <!-- Documents -->
     <b-tab title="Documents">
-      <DocumentsTab :row="row" :productId="productId" />
+      <DocumentsTab :row="row" :productId="productId" :module="module" />
     </b-tab>
   </b-tabs>
 </template>
@@ -52,10 +52,12 @@ import { defineAsyncComponent } from 'vue'
 // Define props for strong typing and reusability
 // - row: the active row object (nullable)
 // - productId: id extracted from the row (nullable)
+// - module: selects the API module ('acq' | 'am') for child tabs
 // These props are forwarded to the tab components.
 const props = defineProps<{
   row: Record<string, unknown> | null
   productId: string | number | null
+  module?: 'acq' | 'am'
 }>()
 
 // -----------------------------------------------------------------------------------

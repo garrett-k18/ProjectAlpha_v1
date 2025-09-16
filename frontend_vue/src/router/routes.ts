@@ -463,6 +463,8 @@ const loanlvlRoutes = [
                     productId: route.query.id,
                     // forward best-effort address when available (?addr=...)
                     address: route.query.addr ?? null,
+                    // pass module context (defaults to 'acq' if unspecified)
+                    module: (route.query.module === 'am' ? 'am' : 'acq'),
                 })
             }
         ]

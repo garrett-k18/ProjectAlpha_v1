@@ -15,10 +15,10 @@
     -->
     <div v-if="!standalone" class="content">
       <b-container fluid>
-        <LoanTabs :row="effectiveRow" :productId="productId" />
+        <LoanTabs :row="effectiveRow" :productId="productId" :module="module" />
       </b-container>
     </div>
-    <LoanTabs v-else :row="effectiveRow" :productId="productId" />
+    <LoanTabs v-else :row="effectiveRow" :productId="productId" :module="module" />
   </component>
 </template>
 
@@ -42,17 +42,20 @@ const props = withDefaults(defineProps<{
   productId?: string | number | null
   address?: string | null
   standalone?: boolean
+  module?: 'acq' | 'am'
 }>(), {
   row: null,
   productId: null,
   address: null,
   standalone: true,
+  module: 'acq',
 })
 
 // Breadcrumb items beneath the main layout header
 const items = ref<Array<{ text: string; href?: string; to?: string; active?: boolean }>>([
   { text: 'Hyper', href: '/' },
-  { text: 'Acquisitions Dashboard', to: '/acquisitions' },
+  // Switch breadcrumb context based on module
+  { text: (props.module === 'am' ? 'Asset Management' : 'Acquisitions Dashboard'), to: (props.module === 'am' ? '/asset-mgmt' : '/acquisitions') },
   { text: 'Asset Details', active: true },
 ])
 
@@ -61,6 +64,7 @@ const productId = toRef(props, 'productId')
 const row = toRef(props, 'row')
 const addressProp = toRef(props, 'address')
 const standalone = toRef(props, 'standalone')
+const module = toRef(props, 'module')
 
 // Page title matches the previous modal header format: `{id} — {address}`
 const displayTitle = computed<string>(() => {
@@ -95,12 +99,14 @@ const effectiveRow = computed(() => row.value ?? fetchedRow.value)
 // Fetch SellerRawData by id when navigating to full-page and row is not provided
 async function loadRowById(id: number) {
   try {
-    const res = await http.get(`/acq/raw-data/by-id/${id}/`)
+    // Choose endpoint based on module: AM uses SellerBoardedData, ACQ uses SellerRawData
+    const url = module.value === 'am' ? `/am/assets/${id}/` : `/acq/raw-data/by-id/${id}/`
+    const res = await http.get(url)
     // Return {} when not found; normalize to null to simplify downstream checks
     fetchedRow.value = res.data && Object.keys(res.data).length ? res.data : null
-    console.debug('[LoanLevelIndex] loaded row for', id)
+    console.debug('[LoanLevelIndex] loaded row for', id, 'module=', module.value)
   } catch (err) {
-    console.warn('[LoanLevelIndex] failed to load row for', id, err)
+    console.warn('[LoanLevelIndex] failed to load row for', id, 'module=', module.value, err)
     fetchedRow.value = null
   }
 }
