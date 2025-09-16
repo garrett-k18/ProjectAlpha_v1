@@ -22,6 +22,7 @@ from django.conf.urls.static import static
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/acq/', include('acq_module.urls')),
+    path('api/', include('am_module.urls')),
     # Include user_admin URLs directly (they already have the /api/auth/ prefix)
     path('', include('user_admin.urls')),
 ]

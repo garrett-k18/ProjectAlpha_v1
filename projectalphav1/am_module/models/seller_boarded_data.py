@@ -242,6 +242,14 @@ class BlendedOutcomeModel(models.Model):
         blank=True,
         help_text="Expected IRR stored as percent (0–100)."
     )
+    expected_moic = models.DecimalField(
+        max_digits=6,
+        decimal_places=5,
+        null=True,
+        blank=True,
+        help_text="Expected MOIC stored as decimal (0–100)."
+    )
+    
     expected_npv = models.DecimalField(
         max_digits=15,
         decimal_places=2,

@@ -23,14 +23,14 @@ export default {
         {
           icon: 'mdi-account-multiple',
           number: '36,254',
-          title: 'Customers',
+          title: 'Active Assets',
           color: 'success',
           subtext: '5.27%',
         },
         {
           icon: 'mdi mdi-cart-plus',
           number: '5,543',
-          title: 'Orders',
+          title: 'Liquidated Assets',
           color: 'danger',
           subtext: '1.08%',
         },
