@@ -6,7 +6,7 @@ import http from "@/lib/http";
 import { useStorage } from "@vueuse/core";
 
 // Define user interface for TypeScript type checking
-interface UserProfile {
+export interface UserProfile {
   user_id: number;
   email: string;
   username: string;

@@ -97,12 +97,14 @@
 <!-- end auth-fluid-->
 </template>
 
-<script>
+<script lang="ts">
+import { defineComponent } from 'vue';
 import DefaultLayout from '@/components/layouts/default-layout.vue'
 import { useDjangoAuthStore } from "@/stores/djangoAuth";
+import type { UserProfile } from "@/stores/djangoAuth";
 import router from "@/router";
 
-export default {
+export default defineComponent({
     components: { DefaultLayout },
     data() {
         return {
@@ -133,5 +135,5 @@ export default {
             }
         }
     }
-}
+});
 </script>

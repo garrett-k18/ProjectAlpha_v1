@@ -89,16 +89,16 @@
 // Props are designed to be generic so this component remains reusable.
 
 // Import the reusable global PhotoCarousel and its PhotoItem type for strong typing
-import PhotoCarousel from '@/1_global/components/PhotoCarousel.vue'
-import type { PhotoItem } from '@/1_global/components/PhotoCarousel.vue'
+import PhotoCarousel from '@/components/PhotoCarousel.vue'
+import type { PhotoItem } from '@/components/PhotoCarousel.vue'
 // Import the SnapshotDetails component to display property information
 // Reusable map component to show geocoded address
-import PropertyMap from '@/1_global/components/PropertyMap.vue'
+import PropertyMap from '@/components/PropertyMap.vue'
 // Reusable documents quick view card (data-agnostic)
-import DocumentsQuickView from '@/1_global/components/DocumentsQuickView.vue'
-import type { DocumentItem } from '@/1_global/components/DocumentsQuickView.vue'
+import DocumentsQuickView from '@/components/DocumentsQuickView.vue'
+import type { DocumentItem } from '@/components/DocumentsQuickView.vue'
 // Global AI quick summary card (server-side generated bullets)
-import QuickSummary from '@/1_global/components/QuickSummary.vue'
+import QuickSummary from '@/components/QuickSummary.vue'
 // Modular pricing/stock grid card extracted from inline markup
 import ValuationMatrix from '@/views/acq_module/loanlvl/components/valuationMatrix.vue'
 // Hyper UI widget: simple stat with icon

@@ -8,6 +8,14 @@ const homeRoute = [
     },
 ];
 
+// legacy redirects (keep old URLs working)
+const legacyRedirects: RouteRecordRaw[] = [
+    {
+        path: '/ecommerce',
+        redirect: '/asset-mgmt',
+    },
+];
+
 // auth
 const authRoutes = [
     {
@@ -116,10 +124,11 @@ const dashboardRoutes = [
                 component: () => import('@/views/dashboards/acquisitions/index.vue'),
             },
             {
-                name: 'Ecommerce',
-                path: '',
+                name: 'Asset Mgmt',
+                path: 'asset-mgmt',
+                alias: '/ecommerce',
                 meta: {authRequired: true},
-                component: () => import('@/views/dashboards/ecommerce/index.vue'),
+                component: () => import('@/views/dashboards/asset_mgmt/index.vue'),
             },
             {
                 name: 'Projects',
@@ -999,6 +1008,7 @@ export const authProtectedRoutes: RouteRecordRaw[] = [...dashboardRoutes as any,
 
 export const allRoutes: RouteRecordRaw[] = [
     ...homeRoute,
+    ...legacyRedirects,
     ...landingRoutes,
     ...dashboardRoutes, 
     ...authRoutes, 

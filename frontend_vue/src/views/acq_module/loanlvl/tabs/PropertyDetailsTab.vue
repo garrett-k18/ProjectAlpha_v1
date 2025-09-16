@@ -27,7 +27,7 @@
 <script setup lang="ts">
 import { withDefaults, defineProps } from 'vue'
 // Import components
-import PropertyMap from '@/1_global/components/PropertyMap.vue'
+import PropertyMap from '@/components/PropertyMap.vue'
 import PropertyDetails from '@/views/acq_module/loanlvl/components/propertydetails.vue'
 import DemographicsGrid from '@/views/acq_module/loanlvl/components/DemographicsGrid.vue'
 

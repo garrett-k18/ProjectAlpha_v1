@@ -247,8 +247,8 @@ import StratsJudVsNon from "@/views/dashboards/acquisitions/strats/strats-judvsn
 import StratsDelinquency from "@/views/dashboards/acquisitions/strats/strats-delinquency.vue";
 import VectorMap from "@/views/dashboards/acquisitions/vectorMap.vue";
 import Widgets from "@/views/dashboards/acquisitions/widgets.vue";
-import DocumentsQuickView from "@/1_global/components/DocumentsQuickView.vue";
-import type { DocumentItem } from "@/1_global/components/DocumentsQuickView.vue";
+import DocumentsQuickView from "@/components/DocumentsQuickView.vue";
+import type { DocumentItem } from "@/components/DocumentsQuickView.vue";
 // AG Grid: modular data grid component for acquisitions dashboard
 import DataGrid from "@/views/dashboards/acquisitions/data-grid.vue";
 // BootstrapVue Next modal component (Vue 3 compatible)

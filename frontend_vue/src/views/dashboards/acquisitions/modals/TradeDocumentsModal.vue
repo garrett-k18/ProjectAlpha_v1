@@ -124,7 +124,7 @@
 // types (images, PDFs). For other types, we show Open/Download actions.
 // ----------------------------------------------------------------------------------
 import { ref, watch, computed } from 'vue'
-import type { DocumentItem } from '@/1_global/components/DocumentsQuickView.vue'
+import type { DocumentItem } from '@/components/DocumentsQuickView.vue'
 
 // Props: list and loading flag (parent may control loading state)
 const props = defineProps<{ docs: DocumentItem[]; loading?: boolean }>()

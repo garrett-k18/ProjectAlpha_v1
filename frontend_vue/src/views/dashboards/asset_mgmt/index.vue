@@ -64,22 +64,39 @@
 </template>
 
 <script lang="ts">
+import { defineComponent } from 'vue';
 import Layout from "@/components/layouts/layout.vue";
-import Activity from "@/views/dashboards/ecommerce/activity.vue";
-import Products from "@/views/dashboards/ecommerce/products.vue";
-import Sales from "@/views/dashboards/ecommerce/sales.vue";
-import Revenue from "@/views/dashboards/ecommerce/revenue.vue";
-import Projection from "@/views/dashboards/ecommerce/projection.vue";
-import Stats from "@/views/dashboards/ecommerce/stats.vue";
-import RevenueByLoc from "@/views/dashboards/ecommerce/revenue-by-loc.vue";
+import Activity from "@/views/dashboards/asset_mgmt/activity.vue";
+import Products from "@/views/dashboards/asset_mgmt/products.vue";
+import Sales from "@/views/dashboards/asset_mgmt/sales.vue";
+import Revenue from "@/views/dashboards/asset_mgmt/revenue.vue";
+import Projection from "@/views/dashboards/asset_mgmt/projection.vue";
+import Stats from "@/views/dashboards/asset_mgmt/stats.vue";
+import RevenueByLoc from "@/views/dashboards/asset_mgmt/revenue-by-loc.vue";
 import DateRangePicker from "@/components/custom/date-range-picker.vue";
 
-export default {
-  components: {DateRangePicker, RevenueByLoc, Stats, Projection, Revenue, Sales, Products, Activity, Layout},
+export default defineComponent({
+  name: 'AssetMgmtDashboard',
+  components: {
+    Layout,
+    Activity,
+    Products,
+    Sales,
+    Revenue,
+    Projection,
+    Stats,
+    RevenueByLoc,
+    DateRangePicker
+  },
+  methods: {
+    useMeta(meta: { title: string }): void {
+      document.title = meta.title;
+    }
+  },
   mounted() {
     this.useMeta({
       title: "Dashboard",
     });
   }
-}
+});
 </script>

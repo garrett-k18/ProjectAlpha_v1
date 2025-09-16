@@ -58,7 +58,7 @@
                 <router-link to="/acquisitions" class="side-nav-link-ref">Acquisitions</router-link>
               </li>
               <li>
-                <router-link to="/" class="side-nav-link-ref">Ecommerce</router-link>
+                <router-link to="/asset-mgmt" class="side-nav-link-ref">Asset Management</router-link>
               </li>
               <li>
                 <router-link to="/projects" class="side-nav-link-ref">Projects</router-link>

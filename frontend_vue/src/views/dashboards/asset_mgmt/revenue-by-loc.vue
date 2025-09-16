@@ -18,7 +18,13 @@
 
     <div class="card-body py-0">
       <div class="mb-4 mt-3">
-        <BaseVectorMap id="world-map-markers" :map-height="217" :options="mapOptions"/>
+        <!-- US-focused map with markers for each location -->
+        <VectorMap 
+          id="us-revenue-map" 
+          :map-height="217" 
+          :location-data="locationData"
+          :marker-color="'#727cf5'"
+        />
       </div>
 
       <div v-for="(loc,index) in locationData" :key="index">
@@ -32,18 +38,20 @@
           </div>
         </div>
       </div>
-
     </div>
   </div>
 </template>
 
 <script lang="ts">
-import BaseVectorMap from "@/components/base-vector-map.vue";
+import { defineComponent } from 'vue';
+import VectorMap from "./vectorMap.vue";
 
-export default {
-  components: {BaseVectorMap},
+export default defineComponent({
+  name: 'RevenueByLocation',
+  components: { VectorMap },
   data() {
     return {
+      // Location data with US locations (to display on the US map)
       locationData: [
         {
           location: 'New York',
@@ -54,60 +62,19 @@ export default {
           progress: 39
         },
         {
-          location: 'Sydney',
-          progress: 25
+          location: 'Chicago',
+          progress: 48
         },
         {
-          location: 'Singapore',
+          location: 'Boston',
           progress: 61
         },
+        {
+          location: 'Los Angeles',
+          progress: 54
+        },
       ],
-      mapOptions: {
-        map: 'world_mill_en',
-        normalizeFunction: 'polynomial',
-        hoverOpacity: 0.7,
-        hoverColor: false,
-        regionStyle: {
-          initial: {
-            fill: 'rgba(145, 166, 189, 0.25)'
-          }
-        },
-        markerStyle: {
-          initial: {
-            r: 9,
-            'fill': '#727cf5',
-            'fill-opacity': 0.9,
-            'stroke': '#fff',
-            'stroke-width': 7,
-            'stroke-opacity': 0.4
-          },
-
-          hover: {
-            'stroke': '#fff',
-            'fill-opacity': 1,
-            'stroke-width': 1.5
-          }
-        },
-        backgroundColor: 'transparent',
-        markers: [{
-          latLng: [40.71, -74.00],
-          name: 'New York'
-        }, {
-          latLng: [37.77, -122.41],
-          name: 'San Francisco'
-        }, {
-          latLng: [-33.86, 151.20],
-          name: 'Sydney'
-        }, {
-          latLng: [1.3, 103.8],
-          name: 'Singapore'
-        }],
-        zoomOnScroll: false
-      }
     }
   },
-  mounted() {
-
-  }
-}
+});
 </script>

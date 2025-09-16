@@ -13,7 +13,7 @@
               </template>
               <template #default>
                 <router-link to="/acquisitions" class="dropdown-item side-nav-link-ref">Acquisitions</router-link>
-                <router-link to="/" class="dropdown-item side-nav-link-ref">Ecommerce</router-link>
+                <router-link to="/asset-mgmt" class="dropdown-item side-nav-link-ref">Asset Mgmt</router-link>
                 <router-link to="/projects" class="dropdown-item side-nav-link-ref">Projects</router-link>
                 <router-link to="/crm" class="dropdown-item side-nav-link-ref">CRM</router-link>
                 <router-link to="/e-wallet" class="dropdown-item side-nav-link-ref">E-Wallet</router-link>

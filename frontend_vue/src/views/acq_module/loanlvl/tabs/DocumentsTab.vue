@@ -21,8 +21,8 @@
 // Documents tab: renders the full document list using the reusable widget
 // Uses BootstrapVue Next grid for layout and Hyper UI card styles from the component
 import { withDefaults, defineProps, computed } from 'vue'
-import DocumentsQuickView from '@/1_global/components/DocumentsQuickView.vue'
-import type { DocumentItem } from '@/1_global/components/DocumentsQuickView.vue'
+import DocumentsQuickView from '@/components/DocumentsQuickView.vue'
+import type { DocumentItem } from '@/components/DocumentsQuickView.vue'
 
 withDefaults(defineProps<{
   row?: Record<string, any> | null
