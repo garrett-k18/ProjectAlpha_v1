@@ -53,22 +53,6 @@ import type { DocumentItem } from '@/components/DocumentsQuickView.vue'
 
 export type PhotoItem = { src: string; alt?: string; thumb?: string; type?: string }
 
-withDefaults(defineProps<{
-  row?: Record<string, any> | null
-  productId?: string | number | null
-  carouselWidth?: number | string
-  carouselHeight?: number | string
-  thumbWidth?: number | string
-  thumbHeight?: number | string
-}>(), {
-  row: null,
-  productId: null,
-  carouselWidth: 500,
-  carouselHeight: 300,
-  thumbWidth: 120,
-  thumbHeight: 90,
-})
-
 const fetchedImages = ref<PhotoItem[]>([])
 const images = computed<PhotoItem[]>(() => fetchedImages.value)
 

@@ -4,7 +4,7 @@ from .models.capital import DebtFacility
 @admin.register(DebtFacility)
 class DebtFacilityAdmin(admin.ModelAdmin):
     list_display = (
-        "partner_name",
+        "facility_name",  # renamed from partner_name to facility_name to match model field
         "firm_name",
         "commitment_size",
         "rate_index",
@@ -15,4 +15,4 @@ class DebtFacilityAdmin(admin.ModelAdmin):
         "created_at",
     )
     list_filter = ("rate_index", "start_date", "end_date")
-    search_fields = ("partner_name", "firm_name")
+    search_fields = ("facility_name", "firm_name")
