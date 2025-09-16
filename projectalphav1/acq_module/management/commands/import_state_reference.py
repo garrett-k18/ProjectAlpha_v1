@@ -4,7 +4,7 @@ from decimal import Decimal, InvalidOperation
 import csv
 import os
 
-from acq_module.models.assumptions import StateReference
+from core.models.assumptions import StateReference
 
 
 class Command(BaseCommand):

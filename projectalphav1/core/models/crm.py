@@ -22,8 +22,8 @@ class Brokercrm(models.Model):
             models.Index(fields=['broker_state']),
             models.Index(fields=['broker_email']),
         ]
-        # Keeping existing db_table to avoid disruptive renames; can be renamed later via migration if desired
-        db_table = 'brokercrm'
+        # Note: Using default table naming under 'core' app for clean drop-and-recreate
+        # (no explicit db_table) since there is no data to preserve.
         ordering = ['-created_at']
         verbose_name = 'Broker'
         verbose_name_plural = 'Brokers'
@@ -106,7 +106,8 @@ class TradingPartnerCRM(models.Model):
             models.Index(fields=['email']),
             models.Index(fields=['firm']),
         ]
-        db_table = 'tradingpartnercrm'
+        # Note: Using default table naming under 'core' app for clean drop-and-recreate
+        # (no explicit db_table) since there is no data to preserve.
         ordering = ['-created_at']
         verbose_name = 'Trading Partner'
         verbose_name_plural = 'Trading Partners'

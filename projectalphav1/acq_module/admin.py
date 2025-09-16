@@ -4,9 +4,9 @@ from django.utils.html import format_html
 # Import all models from the models directory
 from .models import (
     Seller, Trade, SellerRawData,
-    Servicer, StateReference, LoanLevelAssumption, TradeLevelAssumption,
+    LoanLevelAssumption, TradeLevelAssumption,
     InternalValuation, BrokerValues, Photo,
-    Brokercrm, LlDataEnrichment, TradingPartnerCRM,
+    LlDataEnrichment,
 )
 
 # Inline admin classes for related models
@@ -50,38 +50,6 @@ class LlDataEnrichmentInline(admin.StackedInline):
         'created_at', 'updated_at',
     )
     readonly_fields = ('created_at', 'updated_at')
-
-@admin.register(Brokercrm)
-class BrokercrmAdmin(admin.ModelAdmin):
-    """Admin configuration for Brokercrm (broker directory) model."""
-    list_display = (
-        'broker_name', 'broker_firm', 'broker_email', 'broker_state', 'broker_city', 'created_at'
-    )
-    list_filter = (
-        'broker_state',
-    )
-    search_fields = (
-        'broker_name', 'broker_email', 'broker_firm', 'broker_city'
-    )
-
-
-@admin.register(TradingPartnerCRM)
-class TradingPartnerCRMAdmin(admin.ModelAdmin):
-    """Admin configuration for TradingPartnerCRM (trading partners directory) model.
-
-    Notes:
-    - `firm` is required; all other fields are optional per model definition.
-    - Provides convenient list columns and search to quickly find partners.
-    """
-    list_display = (
-        'firm', 'name', 'email', 'phone', 'altname', 'altemail', 'alt_phone', 'nda_flag', 'nda_signed', 'created_at'
-    )
-    list_filter = (
-        'nda_flag',
-    )
-    search_fields = (
-        'firm', 'name', 'email', 'phone', 'altname', 'altemail', 'alt_phone'
-    )
 
 
 @admin.register(Photo)
@@ -168,18 +136,7 @@ class SellerRawDataAdmin(admin.ModelAdmin):
     # Show photos and enrichment inline
     inlines = [PhotoInline, LlDataEnrichmentInline]
 
-@admin.register(Servicer)
-class ServicerAdmin(admin.ModelAdmin):
-    """Admin configuration for Servicer model"""
-    list_display = ('servicer_name', 'contact_name', 'contact_email', 'contact_phone')
-    search_fields = ('servicer_name', 'contact_name', 'contact_email')
-
-@admin.register(StateReference)
-class StateReferenceAdmin(admin.ModelAdmin):
-    """Admin configuration for StateReference model"""
-    list_display = ('state_code', 'state_name', 'judicialvsnonjudicial', 'fc_state_months')
-    search_fields = ('state_code', 'state_name')
-    list_filter = ('judicialvsnonjudicial',)
+## Servicer and StateReference have been moved to core.models.assumptions and are registered in core.admin
 
 @admin.register(LoanLevelAssumption)
 class LoanLevelAssumptionAdmin(admin.ModelAdmin):

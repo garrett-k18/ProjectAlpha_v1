@@ -31,7 +31,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 
-from ...models import Brokercrm
+from core.models.crm import Brokercrm
 from ...services.brokers import (
     get_broker_stats_dict,
     list_assigned_loan_entries,

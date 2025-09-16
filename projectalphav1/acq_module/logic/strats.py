@@ -789,7 +789,7 @@ def judicial_stratification_dynamic(
     
     Each item includes counts and sums of relevant financial metrics.
     """
-    from ..models.assumptions import StateReference
+    from core.models.assumptions import StateReference
     
     # Get the base queryset for this seller+trade combination
     qs = sellertrade_qs(seller_id, trade_id)

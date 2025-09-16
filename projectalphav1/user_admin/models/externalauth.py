@@ -23,7 +23,7 @@ class BrokerTokenAuth(models.Model):
 
     # Optional link to canonical broker directory entry
     broker = models.ForeignKey(
-        'acq_module.Brokercrm',
+        'core.Brokercrm',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -102,7 +102,7 @@ class BrokerPortalToken(models.Model):
 
     # Canonical broker directory entry
     broker = models.ForeignKey(
-        'acq_module.Brokercrm',
+        'core.Brokercrm',
         on_delete=models.CASCADE,
         related_name='portal_tokens',
         help_text='Broker this portal token is issued for.'

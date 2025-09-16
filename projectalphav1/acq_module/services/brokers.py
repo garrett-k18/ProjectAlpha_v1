@@ -15,7 +15,8 @@ from typing import List, Dict, Any, Tuple
 
 from django.db.models import QuerySet
 
-from ..models import Brokercrm, SellerRawData, BrokerValues
+from core.models.crm import Brokercrm
+from ..models import SellerRawData, BrokerValues
 from user_admin.models import BrokerTokenAuth
 
 

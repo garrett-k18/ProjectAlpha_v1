@@ -41,7 +41,8 @@ from rest_framework import status, serializers
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.db.models import Q
 
-from ...models import SellerRawData, BrokerValues, Brokercrm, Photo, BrokerDocument
+from ...models import SellerRawData, BrokerValues, Photo, BrokerDocument
+from core.models.crm import Brokercrm
 from user_admin.models import BrokerTokenAuth
 
 
