@@ -50,9 +50,9 @@
         <div class="d-flex align-items-center gap-2">
           <label for="viewSelect" class="small mb-0">View</label>
           <select id="viewSelect" class="form-select form-select-sm" v-model="activeView" @change="applyView">
-            <option value="overview">Overview</option>
-            <option value="financials">Financials</option>
-            <option value="timeline">Timeline</option>
+            <option value="snapshot">Snapshot</option>
+            <option value="performance">Performance</option>
+            <option value="servicing">Servicing</option>
             <option value="all">All</option>
           </select>
         </div>
@@ -187,12 +187,12 @@ const allExtraColumns: ColDef[] = [
 ]
 
 const presets: Record<string, ColDef[]> = {
-  overview: [
+  snapshot: [
     allExtraColumns[0], // Type
     allExtraColumns[1], // Occupancy
     allExtraColumns[2], // Trade
   ],
-  financials: [
+  performance: [
     allExtraColumns[3], // ARV
     allExtraColumns[4], // As-Is
     allExtraColumns[5], // Acq Cost
@@ -203,14 +203,14 @@ const presets: Record<string, ColDef[]> = {
     allExtraColumns[13], // MOIC
     allExtraColumns[14], // NPV
   ],
-  timeline: [
+  servicing: [
     allExtraColumns[7], // Total Hold
     allExtraColumns[8], // Exit Date
   ],
   all: allExtraColumns,
 }
 
-const activeView = ref<'overview' | 'financials' | 'timeline' | 'all'>('overview')
+const activeView = ref<'snapshot' | 'performance' | 'servicing' | 'all'>('snapshot')
 const columnDefs = ref<ColDef[]>([...constantColumns, ...presets[activeView.value]])
 
 function applyView() {

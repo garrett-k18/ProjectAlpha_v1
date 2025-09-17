@@ -11,7 +11,7 @@ from am_module.serializers.asset_inventory import (
     AssetInventoryColumnsSerializer,
     AssetDetailSerializer,
 )
-from am_module.models.seller_boarded_data import SellerBoardedData
+from am_module.models.boarded_data import SellerBoardedData
 
 # Import acquisitions models to surface photos linked to SellerRawData (via sellertape_id)
 from acq_module.models.seller import SellerRawData

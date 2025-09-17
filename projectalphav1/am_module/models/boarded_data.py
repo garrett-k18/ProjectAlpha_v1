@@ -16,23 +16,23 @@ class SellerBoardedData(models.Model):
     # Asset status choices - Inheriting from SellerRawData via import
     
     # Original seller and trade references (using ID values for future-proofing)
-    acq_seller_id = models.IntegerField(help_text="ID reference to the original Seller model in acq_module")
-    acq_trade_id = models.IntegerField(help_text="ID reference to the original Trade model in acq_module")
+    acq_seller_id = models.IntegerField(help_text="ID reference to the original Seller model in acq_module", null=True)
+    acq_trade_id = models.IntegerField(help_text="ID reference to the original Trade model in acq_module", null=True)
     
     # String representations for display and reporting
-    seller_name = models.CharField(max_length=100)
-    trade_name = models.CharField(max_length=100)
+    seller_name = models.CharField(max_length=100, null=True, blank=True)
+    trade_name = models.CharField(max_length=100, null=True, blank=True)
     
     # Asset data fields from SellerRawData
-    sellertape_id = models.IntegerField(null=True, blank=True)
+    sellertape_id = models.CharField(max_length=64, null=True, blank=True)
+    sellertape_altid = models.CharField(max_length=64, null=True, blank=True)
     asset_status = models.CharField(max_length=100, choices=SellerRawData.ASSET_STATUS_CHOICES, null=True, blank=True)
-    as_of_date = models.DateField(null=True, blank=True)
     
     # Property information
-    street_address = models.CharField(max_length=100)
-    city = models.CharField(max_length=100)
-    state = models.CharField(max_length=100)
-    zip = models.CharField(max_length=100)
+    street_address = models.CharField(max_length=100, null=True, blank=True)
+    city = models.CharField(max_length=100, null=True, blank=True)
+    state = models.CharField(max_length=100, null=True, blank=True)
+    zip = models.CharField(max_length=100, null=True, blank=True)
     property_type = models.CharField(max_length=100, choices=SellerRawData.PROPERTY_TYPE_CHOICES, default=SellerRawData.PROPERTY_TYPE_SFR, null=True, blank=True)
     occupancy = models.CharField(max_length=100, choices=SellerRawData.OCCUPANCY_CHOICES, default=SellerRawData.OCCUPANCY_UNKNOWN, null=True, blank=True)
     year_built = models.IntegerField(null=True, blank=True)
@@ -42,7 +42,7 @@ class SellerBoardedData(models.Model):
     baths = models.IntegerField(null=True, blank=True)
     
     # Loan balance information
-    current_balance = models.DecimalField(max_digits=15, decimal_places=2)
+    current_balance = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
     deferred_balance = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
     interest_rate = models.DecimalField(max_digits=6, decimal_places=4, null=True, blank=True)
     next_due_date = models.DateField(null=True, blank=True)
@@ -87,7 +87,7 @@ class SellerBoardedData(models.Model):
     additional_value_date = models.DateField(null=True, blank=True)
 
     # Foreclosure information
-    fc_flag = models.BooleanField(default=False)
+    fc_flag = models.BooleanField(null=True, blank=True, default=None)
     fc_first_legal_date = models.DateField(null=True, blank=True)
     fc_referred_date = models.DateField(null=True, blank=True)
     fc_judgement_date = models.DateField(null=True, blank=True)
@@ -96,11 +96,11 @@ class SellerBoardedData(models.Model):
     fc_starting = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
 
     # Bankruptcy information
-    bk_flag = models.BooleanField(default=False)
+    bk_flag = models.BooleanField(null=True, blank=True, default=None)
     bk_chapter = models.CharField(max_length=10, null=True, blank=True)
     
     # Modification information
-    mod_flag = models.BooleanField(default=False)
+    mod_flag = models.BooleanField(null=True, blank=True, default=None)
     mod_date = models.DateField(null=True, blank=True)
     mod_maturity_date = models.DateField(null=True, blank=True)
     mod_term = models.IntegerField(null=True, blank=True)
@@ -109,7 +109,7 @@ class SellerBoardedData(models.Model):
 
     # Boarding information
     boarded_at = models.DateTimeField(auto_now_add=True, help_text="When this record was boarded into the AM module")
-    boarded_by = models.CharField(max_length=100, help_text="User who initiated the boarding process")
+    boarded_by = models.CharField(max_length=100, null=True, blank=True, help_text="User who initiated the boarding process")
     
     # Standard timestamps
     created_at = models.DateTimeField(auto_now_add=True)
@@ -185,20 +185,20 @@ class BlendedOutcomeModel(models.Model):
         blank=True,
         help_text="Acquisition cost (currency)."
     )
-    total_expenses = models.DecimalField(
+    expected_total_expenses = models.DecimalField(
         max_digits=15,
         decimal_places=2,
         null=True,
         blank=True,
         help_text="Total projected expenses (currency)."
     )
-    total_hold = models.IntegerField(
+    expected_total_hold = models.IntegerField(
         null=True,
         blank=True,
         help_text="Total holding time."
     )
     
-    exit_date = models.DateField(
+    expected_exit_date = models.DateField(
         null=True,
         blank=True,
         help_text="Expected exit date (if known)."

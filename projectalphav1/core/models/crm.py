@@ -116,3 +116,22 @@ class TradingPartnerCRM(models.Model):
         """Human-friendly label for admin/change lists."""
         parts = [p for p in [self.name, self.firm] if p]
         return " - ".join(parts) or (self.email or f"Trading Partner {self.pk}")
+
+class LegalCRM(models.Model):
+    """Legal entity/contact information.""" 
+    firm_name = models.CharField(max_length=255, blank=True, null=True)
+    contact_name = models.CharField(max_length=255, blank=True, null=True)
+    email = models.EmailField(blank=True, null=True)
+    phone = models.CharField(max_length=255, blank=True, null=True)
+
+    # Audit
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['email']),
+            models.Index(fields=['firm_name']),
+        ]
+        ordering = ['-created_at']
+        verbose_name = 'Legal Entity'
+        verbose_name_plural = 'Legal Entities'

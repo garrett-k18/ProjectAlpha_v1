@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Iterable, Optional
 from django.db.models import QuerySet, Q
-from am_module.models.seller_boarded_data import SellerBoardedData
+from am_module.models.boarded_data import SellerBoardedData
 
 # Fields used by quick filter 'q'
 QUICK_FILTER_FIELDS = (
@@ -49,7 +49,9 @@ def build_queryset(
     - Applies ordering when provided (supports -prefix for desc)
     """
     qs = (
-        SellerBoardedData.objects.select_related("metrics")  # OneToOne relation
+        SellerBoardedData.objects
+        .select_related("metrics")  # OneToOne relation to AssetMetrics
+        .select_related("blended_outcome_model")  # OneToOne relation to BlendedOutcomeModel
     )
 
     if q:

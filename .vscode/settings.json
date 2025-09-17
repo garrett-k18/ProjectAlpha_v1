@@ -7,7 +7,22 @@
         },
         {
             "folderPath": "ProjectAlpha_v1\\projectalphav1\\",
-            "color": "foldercolorizer.color_99ff00"
+            "color": "foldercolorizer.color_00cc00"
+        },
+        {
+            "folderPath": "ProjectAlpha_v1\\projectalphav1\\acq_module\\",
+            "color": "foldercolorizer.color_ff33cc",
+            "isFolderOnly": true
+        },
+        {
+            "folderPath": "ProjectAlpha_v1\\projectalphav1\\am_module\\",
+            "color": "foldercolorizer.color_cc9900",
+            "isFolderOnly": true
+        },
+        {
+            "folderPath": "ProjectAlpha_v1\\projectalphav1\\core\\",
+            "color": "foldercolorizer.color_00ffff",
+            "isFolderOnly": true
         }
     ]
 }

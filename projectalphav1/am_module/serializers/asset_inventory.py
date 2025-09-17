@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from am_module.models.seller_boarded_data import SellerBoardedData
+from am_module.models.boarded_data import SellerBoardedData
 from am_module.models.asset_metrics import AssetMetrics
 
 class AssetInventoryRowSerializer(serializers.Serializer):
@@ -20,20 +20,22 @@ class AssetInventoryRowSerializer(serializers.Serializer):
 
     seller_arv_value = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
     seller_asis_value = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
-    acq_cost = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
-    total_expenses = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
 
-    total_hold = serializers.IntegerField(required=False, allow_null=True)
-    exit_date = serializers.DateField(required=False, allow_null=True)
+    # Map frontend names to BlendedOutcomeModel via one-to-one relation `blended_outcome_model`
+    acq_cost = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True, source='blended_outcome_model.acq_cost')
+    total_expenses = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True, source='blended_outcome_model.expected_total_expenses')
 
-    expected_gross_proceeds = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
-    expected_net_proceeds = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
+    total_hold = serializers.IntegerField(required=False, allow_null=True, source='blended_outcome_model.expected_total_hold')
+    exit_date = serializers.DateField(required=False, allow_null=True, source='blended_outcome_model.expected_exit_date')
 
-    expected_pl = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
-    expected_cf = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
-    expected_irr = serializers.DecimalField(max_digits=5, decimal_places=4, required=False, allow_null=True)
-    expected_moic = serializers.DecimalField(max_digits=6, decimal_places=5, required=False, allow_null=True)
-    expected_npv = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
+    expected_gross_proceeds = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True, source='blended_outcome_model.expected_gross_proceeds')
+    expected_net_proceeds = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True, source='blended_outcome_model.expected_net_proceeds')
+
+    expected_pl = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True, source='blended_outcome_model.expected_pl')
+    expected_cf = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True, source='blended_outcome_model.expected_cf')
+    expected_irr = serializers.DecimalField(max_digits=5, decimal_places=4, required=False, allow_null=True, source='blended_outcome_model.expected_irr')
+    expected_moic = serializers.DecimalField(max_digits=6, decimal_places=5, required=False, allow_null=True, source='blended_outcome_model.expected_moic')
+    expected_npv = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True, source='blended_outcome_model.expected_npv')
 
     def get_asset_id(self, obj):
         stid = getattr(obj, "sellertape_id", None)

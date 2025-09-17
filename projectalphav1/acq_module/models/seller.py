@@ -126,6 +126,7 @@ class SellerRawData(models.Model):
     seller = models.ForeignKey(Seller, on_delete=models.CASCADE, related_name='seller_raw_data')
     trade = models.ForeignKey(Trade, on_delete=models.CASCADE, related_name='seller_raw_data')
     sellertape_id = models.IntegerField()
+    sellertape_altid = models.IntegerField(null=True, blank=True)
     asset_status = models.CharField(max_length=100, choices=ASSET_STATUS_CHOICES)
     as_of_date = models.DateField()
     
@@ -140,6 +141,13 @@ class SellerRawData(models.Model):
     lot_size = models.IntegerField(null=True, blank=True)
     beds = models.IntegerField(null=True, blank=True)
     baths = models.IntegerField(null=True, blank=True)
+
+    borrower1_last = models.CharField(max_length=100, null=True, blank=True, help_text="If entity, put entity in borrower1_last.")
+    borrower1_first = models.CharField(max_length=100, null=True, blank=True)
+    borrower2_last = models.CharField(max_length=100, null=True, blank=True)
+    borrower2_first = models.CharField(max_length=100, null=True, blank=True)
+    
+        #Financials
     current_balance = models.DecimalField(max_digits=15, decimal_places=2)
     deferred_balance = models.DecimalField(max_digits=15, decimal_places=2)
     interest_rate = models.DecimalField(max_digits=6, decimal_places=4)

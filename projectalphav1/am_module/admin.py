@@ -1,5 +1,5 @@
 from django.contrib import admin
-from am_module.models.seller_boarded_data import SellerBoardedData, BlendedOutcomeModel
+from am_module.models.boarded_data import SellerBoardedData, BlendedOutcomeModel
 from am_module.models.asset_metrics import AssetMetrics
 
 
