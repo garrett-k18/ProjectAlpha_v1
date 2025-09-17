@@ -22,7 +22,7 @@ from django.utils import timezone
 
 # Local app model imports
 from acq_module.models.seller import Seller, Trade, SellerRawData
-from acq_module.logic.geocoding_logic import geocode_markers_for_seller_trade
+from core.services.geocoding import geocode_markers_for_seller_trade
 
 # List of US state abbreviations (lower 48 states plus Alaska and Hawaii)
 US_STATES = [

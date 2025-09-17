@@ -6,8 +6,8 @@ from .models import (
     Seller, Trade, SellerRawData,
     LoanLevelAssumption, TradeLevelAssumption,
     InternalValuation, BrokerValues, Photo,
-    LlDataEnrichment,
 )
+from core.models import LlDataEnrichment
 
 # Inline admin classes for related models
 class TradeInline(admin.TabularInline):
@@ -152,15 +152,46 @@ class TradeLevelAssumptionAdmin(admin.ModelAdmin):
 
 @admin.register(InternalValuation)
 class InternalValuationAdmin(admin.ModelAdmin):
-    """Admin configuration for InternalValuation model"""
-    list_display = ('seller_raw_data', 'internal_uw_asis_value', 'internal_uw_arv_value', 'internal_uw_value_date')
-    list_filter = ('seller_raw_data__seller', 'seller_raw_data__trade')
+    """Admin configuration for InternalValuation model (hub-only 1:1)."""
+    list_display = ('asset_hub_id', 'get_seller_raw_id', 'get_seller', 'get_trade', 'internal_uw_asis_value', 'internal_uw_arv_value', 'internal_uw_value_date')
+    list_filter = ('asset_hub__acq_raw__seller', 'asset_hub__acq_raw__trade')
+
+    def get_seller_raw_id(self, obj):
+        raw = getattr(obj.asset_hub, 'acq_raw', None)
+        return getattr(raw, 'id', None)
+    get_seller_raw_id.short_description = 'SellerRawData ID'
+
+    def get_seller(self, obj):
+        raw = getattr(obj.asset_hub, 'acq_raw', None)
+        return getattr(getattr(raw, 'seller', None), 'name', None)
+    get_seller.short_description = 'Seller'
+
+    def get_trade(self, obj):
+        raw = getattr(obj.asset_hub, 'acq_raw', None)
+        return getattr(getattr(raw, 'trade', None), 'trade_name', None)
+    get_trade.short_description = 'Trade'
 
 @admin.register(BrokerValues)
 class BrokerValuesAdmin(admin.ModelAdmin):
-    """Admin configuration for BrokerValues model"""
-    list_display = ('seller_raw_data', 'broker_asis_value', 'broker_arv_value', 'broker_value_date')
-    list_filter = ('seller_raw_data__seller', 'seller_raw_data__trade')
+    """Admin configuration for BrokerValues model (hub-only 1:1)."""
+    list_display = ('asset_hub_id', 'get_seller_raw_id', 'get_seller', 'get_trade', 'broker_asis_value', 'broker_arv_value', 'broker_value_date')
+    list_filter = ('asset_hub__acq_raw__seller', 'asset_hub__acq_raw__trade')
+    inlines = []
+
+    def get_seller_raw_id(self, obj):
+        raw = getattr(obj.asset_hub, 'acq_raw', None)
+        return getattr(raw, 'id', None)
+    get_seller_raw_id.short_description = 'SellerRawData ID'
+
+    def get_seller(self, obj):
+        raw = getattr(obj.asset_hub, 'acq_raw', None)
+        return getattr(getattr(raw, 'seller', None), 'name', None)
+    get_seller.short_description = 'Seller'
+
+    def get_trade(self, obj):
+        raw = getattr(obj.asset_hub, 'acq_raw', None)
+        return getattr(getattr(raw, 'trade', None), 'trade_name', None)
+    get_trade.short_description = 'Trade'
     # Photo is keyed to SellerRawData, so no direct inline here.
     inlines = []
     # Removed old separate photo model admin registrations (BrokerPhoto, PublicPhoto, DocumentPhoto).

@@ -158,9 +158,12 @@ def broker_portal_detail(request, token: str):
     # Enrich with any saved BrokerValues so the UI can prefill even if the invite
     # is expired/used. This preserves previously submitted values in the portal.
     srd_ids = [e.get("seller_raw_data") for e in entries if e.get("seller_raw_data") is not None]
-    values_by_srd = {
-        bv.seller_raw_data_id: bv for bv in BrokerValues.objects.filter(seller_raw_data_id__in=srd_ids)
-    }
+    # Map BrokerValues by SellerRawData id via hub: select_related to traverse hub -> acq_raw
+    values_by_srd = {}
+    for bv in BrokerValues.objects.select_related("asset_hub__acq_raw").filter(asset_hub__acq_raw_id__in=srd_ids):
+        raw = getattr(bv.asset_hub, 'acq_raw', None)
+        if raw is not None:
+            values_by_srd[raw.id] = bv
 
     enriched_entries = []
     for e in entries:

@@ -18,6 +18,15 @@ class SellerBoardedData(models.Model):
     # Original seller and trade references (using ID values for future-proofing)
     acq_seller_id = models.IntegerField(help_text="ID reference to the original Seller model in acq_module", null=True)
     acq_trade_id = models.IntegerField(help_text="ID reference to the original Trade model in acq_module", null=True)
+    # Stable hub link (1:1) – the boarded record for this hub/asset
+    asset_hub = models.OneToOneField(
+        'core.AssetIdHub',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='am_boarded',
+        help_text='One boarded record per hub/asset.',
+    )
     
     # String representations for display and reporting
     seller_name = models.CharField(max_length=100, null=True, blank=True)
@@ -384,10 +393,11 @@ class BlendedOutcomeModel(models.Model):
     cf_p29 = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="Cash flow period 29 (currency; can be negative).")
     cf_p30 = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="Cash flow period 30 (currency; can be negative).")
 
+    
     # Audit timestamps
     created_at = models.DateTimeField(
         auto_now_add=True,
-        help_text="When this acquisition model record was created."
+        help_text="When this boarded data record was created."
     )
     updated_at = models.DateTimeField(
         auto_now=True,

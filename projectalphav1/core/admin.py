@@ -2,6 +2,7 @@ from django.contrib import admin
 from .models.capital import DebtFacility
 from .models.crm import Brokercrm, TradingPartnerCRM
 from .models.assumptions import Servicer, StateReference
+from .models import AssetIdHub
 
 @admin.register(DebtFacility)
 class DebtFacilityAdmin(admin.ModelAdmin):
@@ -71,3 +72,15 @@ class StateReferenceAdmin(admin.ModelAdmin):
     )
     search_fields = ('state_code', 'state_name')
     list_filter = ('judicialvsnonjudicial',)
+
+
+@admin.register(AssetIdHub)
+class AssetIdHubAdmin(admin.ModelAdmin):
+    """Admin for the central Asset ID Hub."""
+    list_display = (
+        'id', 'sellertape_id', 'created_at'
+    )
+    search_fields = (
+        'sellertape_id',
+    )
+    list_filter = ()

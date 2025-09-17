@@ -41,9 +41,9 @@ def get_broker_stats_dict(broker: Brokercrm) -> Dict[str, int]:
 
     submissions_count = (
         BrokerValues.objects.filter(
-            seller_raw_data__broker_tokens__broker_id=broker.id
+            asset_hub__acq_raw__broker_tokens__broker_id=broker.id
         )
-        .distinct("seller_raw_data_id")
+        .distinct("asset_hub_id")
         .count()
     )
 
@@ -79,7 +79,8 @@ def list_assigned_loan_entries(broker: Brokercrm) -> List[Dict[str, Any]]:
     # Precompute which SRD ids have a BrokerValues row
     srd_ids = [t.seller_raw_data_id for t in latest_tokens]
     submitted_ids = set(
-        BrokerValues.objects.filter(seller_raw_data_id__in=srd_ids).values_list("seller_raw_data_id", flat=True)
+        BrokerValues.objects.filter(asset_hub__acq_raw_id__in=srd_ids)
+        .values_list("asset_hub__acq_raw_id", flat=True)
     )
 
     results: List[Dict[str, Any]] = []

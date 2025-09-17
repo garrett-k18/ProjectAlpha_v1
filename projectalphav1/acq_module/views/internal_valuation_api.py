@@ -74,8 +74,10 @@ class InternalValuationSerializer(serializers.Serializer):
                 "broker_rehab_est": None,
                 "broker_value_date": None,
             }
+        # Derive seller_raw_data id via hub (1:1): hub -> acq_raw
+        raw = getattr(getattr(instance, 'asset_hub', None), 'acq_raw', None)
         return {
-            "seller_raw_data": instance.seller_raw_data_id,
+            "seller_raw_data": getattr(raw, 'id', None),
             # Treat stored zero as missing for display purposes so the UI shows blanks
             "internal_uw_asis_value": (
                 str(instance.internal_uw_asis_value)
@@ -114,8 +116,9 @@ def internal_valuation_detail(request, seller_id: int):
     """
     raw = get_object_or_404(SellerRawData, pk=seller_id)
 
+    # Resolve InternalValuation via hub 1:1
     try:
-        iv = InternalValuation.objects.get(seller_raw_data=raw)
+        iv = InternalValuation.objects.select_related('asset_hub').get(asset_hub=raw.asset_hub)
     except InternalValuation.DoesNotExist:
         iv = None
 
@@ -123,16 +126,16 @@ def internal_valuation_detail(request, seller_id: int):
         data = InternalValuationSerializer().to_representation(iv)
         # Ensure seller id is present even when iv is None (null payload)
         data["seller_raw_data"] = raw.id
-        # Surface live BrokerValues as 3rd party values when available
+        # Surface live BrokerValues as 3rd party values when available (via hub)
         try:
-            broker = BrokerValues.objects.get(seller_raw_data=raw)
+            broker = BrokerValues.objects.get(asset_hub=raw.asset_hub)
             data["thirdparty_asis_value"] = str(broker.broker_asis_value) if broker.broker_asis_value is not None else None
             data["thirdparty_arv_value"] = str(broker.broker_arv_value) if broker.broker_arv_value is not None else None
             data["thirdparty_value_date"] = broker.broker_value_date.isoformat() if broker.broker_value_date else None
             # Also return explicit broker_* keys for Local Agent/Broker row consumption
             data["broker_asis_value"] = str(broker.broker_asis_value) if broker.broker_asis_value is not None else None
             data["broker_arv_value"] = str(broker.broker_arv_value) if broker.broker_arv_value is not None else None
-            data["broker_rehab_est"] = str(broker.broker_rehab_est) if getattr(broker, 'broker_rehab_est', None) is not None else None
+            data["broker_rehab_est"] = str(getattr(broker, 'broker_rehab_est', None)) if getattr(broker, 'broker_rehab_est', None) is not None else None
             data["broker_value_date"] = broker.broker_value_date.isoformat() if broker.broker_value_date else None
         except BrokerValues.DoesNotExist:
             # Leave whatever came from InternalValuation (possibly None)
@@ -203,7 +206,7 @@ def internal_valuation_detail(request, seller_id: int):
         if arv_val is None:
             arv_val = Decimal("0.00")
         iv = InternalValuation.objects.create(
-            seller_raw_data=raw,
+            asset_hub=raw.asset_hub,
             internal_uw_asis_value=asis_val,
             internal_uw_arv_value=arv_val,
             internal_rehab_est_total=rehab_val,

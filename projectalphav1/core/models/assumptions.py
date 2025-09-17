@@ -1,4 +1,5 @@
 from django.db import models
+
 class Servicer(models.Model):
     """Model to store servicer information for loan servicing"""
     servicer_name = models.CharField(max_length=100, unique=True)

@@ -2,11 +2,9 @@
 from .seller import Seller, Trade, SellerRawData
 from .assumptions import LoanLevelAssumption, TradeLevelAssumption
 from .valuations import InternalValuation, BrokerValues, Photo, BrokerDocument
-from .analysis import LlDataEnrichment
 
 __all__ = [
     'Seller', 'Trade', 'SellerRawData',
     'LoanLevelAssumption', 'TradeLevelAssumption', 
-    'InternalValuation', 'BrokerValues', 'Photo', 'BrokerDocument',
-    'LlDataEnrichment'
+    'InternalValuation', 'BrokerValues', 'Photo', 'BrokerDocument'
 ]

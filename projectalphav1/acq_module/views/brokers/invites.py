@@ -147,7 +147,8 @@ def validate_broker_invite(request, token: str):
         return Response({"valid": False, "reason": "not_found"}, status=status.HTTP_404_NOT_FOUND)
 
     # Load any previously saved BrokerValues for prefill visibility even when invalid
-    bv = BrokerValues.objects.filter(seller_raw_data_id=invite.seller_raw_data_id).first()
+    # Map by hub-only 1:1
+    bv = BrokerValues.objects.filter(asset_hub=invite.seller_raw_data.asset_hub).first()
     values = None
     if bv:
         values = {
@@ -223,9 +224,9 @@ def submit_broker_values_with_token(request, token: str):
 
     # Upsert BrokerValues
     try:
-        bv = BrokerValues.objects.get(seller_raw_data=srd)
+        bv = BrokerValues.objects.get(asset_hub=srd.asset_hub)
     except BrokerValues.DoesNotExist:
-        bv = BrokerValues(seller_raw_data=srd)
+        bv = BrokerValues(asset_hub=srd.asset_hub)
 
     if "broker_asis_value" in data:
         bv.broker_asis_value = data["broker_asis_value"]

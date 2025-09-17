@@ -1,25 +1,22 @@
 """
-Geocoding logic for seller+trade address markers.
+Geocoding services for address enrichment.
 
-This module contains ONLY business logic and helpers. Views should import and call
-`geocode_markers_for_seller_trade()` and return its result as JSON.
+This service handles external API calls to Geocod.io and persists results 
+to the LlDataEnrichment model. No caching layer - coordinates are stored
+permanently in the database after successful API calls.
 
 Docs reviewed:
 - Geocod.io Python client: https://pygeocodio.readthedocs.io/en/latest/geocode.html
 - Geocod.io API reference: https://www.geocod.io/docs/
-- Django cache framework: https://docs.djangoproject.com/en/5.2/topics/cache/
-- jVectorMap markers format: https://jvectormap.com/documentation/javascript-api/
 """
 from __future__ import annotations
 
-# Standard library imports for environment and typing
-import os  # used to read env vars (GEOCODIO_API_KEY, TTLs, etc.)
-from typing import Dict, List, Optional, Tuple, Any  # precise typing for clarity
+import os
 import re
+from typing import Dict, List, Optional, Tuple, Any
+from decimal import Decimal
 
-# Django imports for caching and query construction
-from django.core.cache import cache  # centralized cache per Django settings
-from django.db.models import Q  # used to filter SellerRawData by seller_id/trade_id
+from django.db.models import Q
 from django.utils import timezone
 
 # Third-party client for Geocod.io (handle API differences across versions)
@@ -35,16 +32,13 @@ except Exception:
         _GeocodioCls = None  # type: ignore
 
 # App model import: `SellerRawData` contains the address fields we need
-from ..models.seller import SellerRawData
-from ..models.analysis import LlDataEnrichment
+from acq_module.models.seller import SellerRawData
+from core.models import LlDataEnrichment
 
 # ---------------------------------------------------------------------------
 # Configuration constants (read from environment with safe defaults)
 # ---------------------------------------------------------------------------
-# Cache TTL (seconds). Default 7 days to minimize repeat lookups without persisting.
-CACHE_TTL_SECONDS: int = int(os.getenv("GEOCODE_CACHE_TTL", str(7 * 24 * 60 * 60)))
-
-# Soft cap on number of unique addresses geocoded for a single request
+# Configuration constants
 MAX_UNIQUE_ADDRESSES: int = int(os.getenv("GEOCODE_MAX_ADDRESSES", "500"))
 
 
@@ -76,22 +70,14 @@ def _env_api_key() -> Optional[str]:
     return None
 
 
-def _normalize_address(parts: List[str]) -> str:
-    """Normalize address into a cache-key-safe token.
-
-    Steps:
-    - Trim and drop empty parts
-    - Join with comma/space, collapse whitespace, lowercase
-    - Sanitize for memcached safety: replace any char not in [a-z0-9:_-]
-      with underscore, and strip leading/trailing underscores. This avoids
-      Django's CacheKeyWarning when using backends like Memcached.
+def _normalize_address_for_dedup(parts: List[str]) -> str:
+    """Normalize address for deduplication purposes.
+    
+    Simple normalization to group similar addresses together
+    to minimize API calls for the same location.
     """
     joined = ", ".join(p.strip() for p in parts if p and str(p).strip())
-    normalized = " ".join(joined.split()).lower()
-    # Replace anything not alnum, colon, underscore, or hyphen with underscore
-    safe = re.sub(r"[^a-z0-9:_-]", "_", normalized)
-    safe = safe.strip("_")
-    return safe
+    return " ".join(joined.split()).lower().strip()
 
 
 def _build_full_address(row: Dict[str, Optional[str]]) -> str:
@@ -224,46 +210,31 @@ def _geocode_geocodio(address: str, api_key: str) -> Optional[Tuple[float, float
         return None
 
 
-def _geocode_with_cache(full_address: str, api_key: str) -> Tuple[Optional[Tuple[float, float]], str]:
-    """Resolve an address using cache first, then Geocod.io if needed.
-
-    Returns:
-        (coords, source)
-            - coords: (lat, lng) or None
-            - source: one of {"cache", "live", "none"}
+def _call_geocoding_api(address: str, api_key: str) -> Optional[Tuple[float, float]]:
+    """Call Geocod.io API directly for an address.
+    
+    Returns (lat, lng) tuple on success, None on failure.
     """
-    key = f"geocode:{_normalize_address([full_address])}"
-
-    cached = cache.get(key)
-    if cached:
-        return cached, "cache"
-
-    coords = _geocode_geocodio(full_address, api_key)
-    if coords is not None:
-        cache.set(key, coords, timeout=CACHE_TTL_SECONDS)
-        return coords, "live"
-
-    return None, "none"
+    return _geocode_geocodio(address, api_key)
 
 
-def _geocode_with_cache_any(address_candidates: List[str], api_key: str) -> Tuple[Optional[Tuple[float, float]], str, Optional[str]]:
-    """Try multiple address candidates with cache+live fallback.
+def _try_geocoding_candidates(address_candidates: List[str], api_key: str) -> Tuple[Optional[Tuple[float, float]], Optional[str]]:
+    """Try multiple address candidates with API calls.
 
     Args:
         address_candidates: list produced by `_build_address_candidates()`
         api_key: Geocod.io API key
 
     Returns:
-        (coords, source, used_address)
+        (coords, used_address)
             - coords: (lat, lng) or None
-            - source: "cache" | "live" | "none" (for the attempt that succeeded)
             - used_address: the address string that produced coords, or None
     """
     for addr in address_candidates:
-        coords, source = _geocode_with_cache(addr, api_key)
+        coords = _call_geocoding_api(addr, api_key)
         if coords is not None:
-            return coords, source, addr
-    return None, "none", None
+            return coords, addr
+    return None, None
 
 
 def geocode_markers_for_seller_trade(seller_id: int, trade_id: int) -> Dict[str, Any]:
@@ -304,7 +275,7 @@ def geocode_markers_for_seller_trade(seller_id: int, trade_id: int) -> Dict[str,
         if not candidates:
             continue
         primary = candidates[0]
-        norm = _normalize_address([primary])
+        norm = _normalize_address_for_dedup([primary])
         if not norm:
             continue
         addr_to_rows.setdefault(norm, []).append({
@@ -316,8 +287,7 @@ def geocode_markers_for_seller_trade(seller_id: int, trade_id: int) -> Dict[str,
     unique_addrs = list(addr_to_rows.keys())[:MAX_UNIQUE_ADDRESSES]
 
     markers: List[Dict[str, Any]] = []
-    any_live = False
-    any_cache = False
+    any_api_calls = False
 
     for norm in unique_addrs:
         # Use the first representative row for label/name; multiple ids may share address
@@ -339,10 +309,12 @@ def geocode_markers_for_seller_trade(seller_id: int, trade_id: int) -> Dict[str,
                     persisted = None
 
         if persisted is not None:
-            coords, source = persisted, "db"
+            coords, used_addr = persisted, used_addr
+            source = "db"
         else:
-            # 2) Otherwise try cache/API
-            coords, source, used_addr = _geocode_with_cache_any(candidates, api_key)
+            # 2) Otherwise call API directly
+            coords, used_addr = _try_geocoding_candidates(candidates, api_key)
+            source = "api" if coords else "none"
 
             # If we obtained coordinates, upsert for all rows sharing this address
             if coords is not None:
@@ -361,6 +333,18 @@ def geocode_markers_for_seller_trade(seller_id: int, trade_id: int) -> Dict[str,
                             "geocoded_at": when,
                         },
                     )
+                    # Ensure asset_hub mirrors the raw row's hub
+                    if getattr(enr_obj, 'asset_hub_id', None) is None:
+                        try:
+                            from acq_module.models.seller import SellerRawData as _SRD
+                            _raw = _SRD.objects.only('asset_hub_id').get(pk=r["id"])
+                            if getattr(_raw, 'asset_hub_id', None) is not None:
+                                enr_obj.asset_hub_id = _raw.asset_hub_id
+                                enr_obj.save(update_fields=[
+                                    'asset_hub',
+                                ])
+                        except Exception:
+                            pass
                     # Update existing if empty or different
                     if not _created:
                         changed = False
@@ -384,10 +368,8 @@ def geocode_markers_for_seller_trade(seller_id: int, trade_id: int) -> Dict[str,
                                 "geocode_full_address", "geocode_display_address",
                                 "geocoded_at",
                             ])
-        if source == "live":
-            any_live = True
-        elif source == "cache":
-            any_cache = True
+        if source == "api":
+            any_api_calls = True
         if not coords:
             continue
         lat, lng = coords
@@ -398,13 +380,11 @@ def geocode_markers_for_seller_trade(seller_id: int, trade_id: int) -> Dict[str,
             "id": representative["id"],
         })
 
-    source = "none"
-    if any_live and any_cache:
-        source = "mixed"
-    elif any_live:
-        source = "live"
-    elif any_cache:
-        source = "cache"
+    # Determine overall source for response
+    if any_api_calls:
+        source = "api"
+    else:
+        source = "db"
 
     return {
         "markers": markers,
@@ -443,7 +423,7 @@ def geocode_row(row_id: int) -> Optional[Tuple[float, float]]:
         if not candidates:
             return None
 
-        coords, source, used_addr = _geocode_with_cache_any(candidates, api_key)
+        coords, used_addr = _try_geocoding_candidates(candidates, api_key)
         if coords is None:
             return None
 
@@ -460,6 +440,18 @@ def geocode_row(row_id: int) -> Optional[Tuple[float, float]]:
                 "geocoded_at": when,
             },
         )
+        # Ensure asset_hub mirrors the raw row's hub
+        if getattr(enr_obj, 'asset_hub_id', None) is None:
+            try:
+                from acq_module.models.seller import SellerRawData as _SRD
+                _raw = _SRD.objects.only('asset_hub_id').get(pk=row_id)
+                if getattr(_raw, 'asset_hub_id', None) is not None:
+                    enr_obj.asset_hub_id = _raw.asset_hub_id
+                    enr_obj.save(update_fields=[
+                        'asset_hub',
+                    ])
+            except Exception:
+                pass
         if not created:
             changed = False
             if not enr_obj.geocode_lat or not enr_obj.geocode_lng:

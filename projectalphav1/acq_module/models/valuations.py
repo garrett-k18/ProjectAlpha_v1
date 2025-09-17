@@ -21,12 +21,17 @@ from acq_module.archive.legacy_upload_paths import (
 # Internal and Third-Party Valuations
 # -----------------------------------------------------------------------------------
 class InternalValuation(models.Model):
-    """Model to store internal and third-party valuations linked to a specific SellerRawData instance"""
-    # One-to-one relationship with SellerRawData
-    seller_raw_data = models.OneToOneField(
-        SellerRawData,
-        on_delete=models.CASCADE,
-        related_name='internal_valuation'
+    """Model to store internal and third-party valuations linked 1:1 to the AssetIdHub."""
+    # Hub is the owner key (strict 1:1). Create hub first, then attach the valuation.
+    # Staged migration step 1: temporarily nullable and not primary_key
+    # After migration apply, we'll promote this to primary_key=True and null=False
+    asset_hub = models.OneToOneField(
+        'core.AssetIdHub',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='internal_valuation',
+        help_text='TEMP: nullable during staged migration; will be PK in next migration.',
     )
     
     # Internal underwriting values and Rehab estimates
@@ -58,13 +63,10 @@ class InternalValuation(models.Model):
         verbose_name = "Internal Valuation"
         verbose_name_plural = "Internal Valuations"
         ordering = ['-created_at']
-        indexes = [
-            models.Index(fields=['seller_raw_data']),
-        ]
         db_table = 'acq_internal_valuation'
     
     def __str__(self):
-        return f"Internal Valuation for {self.seller_raw_data.id}"
+        return f"Internal Valuation for hub {self.asset_hub_id}"
 
 
 # -----------------------------------------------------------------------------------
@@ -72,13 +74,19 @@ class InternalValuation(models.Model):
 # -----------------------------------------------------------------------------------
 # Broker Valuations (values captured from brokers)
 class BrokerValues(models.Model):
-    """Model to store broker valuations linked to a specific SellerRawData instance"""
-    # One-to-one relationship with SellerRawData
-    seller_raw_data = models.OneToOneField(
-        SellerRawData,
-        on_delete=models.CASCADE,
-        related_name='broker_valuation'
+    """Model to store broker valuations linked 1:1 to the AssetIdHub."""
+    # Hub is the owner key (strict 1:1). Create hub first, then attach the broker values row.
+    # Staged migration step 1: temporarily nullable and not primary_key
+    # After migration apply, we'll promote this to primary_key=True and null=False
+    asset_hub = models.OneToOneField(
+        'core.AssetIdHub',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='broker_values',
+        help_text='TEMP: nullable during staged migration; will be PK in next migration.',
     )
+    
     
     # Broker values
     broker_asis_value = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
@@ -97,13 +105,10 @@ class BrokerValues(models.Model):
         verbose_name = "Broker Values"
         verbose_name_plural = "Broker Values"
         ordering = ['-created_at']
-        indexes = [
-            models.Index(fields=['seller_raw_data']),
-        ]
         db_table = 'acq_broker_values'
     
     def __str__(self):
-        return f"Broker Valuation for {self.seller_raw_data.id}"
+        return f"Broker Valuation for hub {self.asset_hub_id}"
 
 
 # -----------------------------------------------------------------------------------
@@ -139,6 +144,16 @@ class Photo(models.Model):
         related_name='photos',
         help_text='SellerRawData record this photo belongs to.'
     )
+    # Stable hub link (optional) and snapshot of source raw PK for durability
+    asset_hub = models.ForeignKey(
+        'core.AssetIdHub',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='asset_photos',
+        help_text='Stable hub ID for this photo (from seller_raw_data.asset_hub).',
+    )
+    source_raw_id = models.IntegerField(null=True, blank=True, db_index=True, help_text='Snapshot of SellerRawData.id')
 
     # The actual image file
     image = models.ImageField(
@@ -205,8 +220,10 @@ def get_broker_document_path(instance, filename):
     - FileField: https://docs.djangoproject.com/en/5.0/ref/models/fields/#filefield
     """
     # Identify owning records for stable folder grouping
-    broker_values_id = instance.broker_valuation.id
-    seller_id = instance.broker_valuation.seller_raw_data.id
+    broker_values_id = instance.broker_valuation.pk
+    # Resolve SellerRawData via hub 1:1: hub -> acq_raw
+    raw = getattr(getattr(instance.broker_valuation, 'asset_hub', None), 'acq_raw', None)
+    seller_id = getattr(getattr(raw, 'seller', None), 'id', 'unknown')
 
     # Timestamp filename to reduce collisions
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -234,6 +251,16 @@ class BrokerDocument(models.Model):
         on_delete=models.CASCADE,
         related_name='documents',
     )
+    # Stable hub link (optional) and snapshot of source raw PK for durability
+    asset_hub = models.ForeignKey(
+        'core.AssetIdHub',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='broker_documents',
+        help_text='Stable hub ID (from broker_valuation.seller_raw_data.asset_hub).',
+    )
+    source_raw_id = models.IntegerField(null=True, blank=True, db_index=True, help_text='Snapshot of SellerRawData.id')
 
     # Generic file (allows any file type)
     file = models.FileField(upload_to=get_broker_document_path)
@@ -252,7 +279,8 @@ class BrokerDocument(models.Model):
         db_table = 'acq_broker_document'
 
     def __str__(self):
-        return f"{self.file} document for {self.broker_valuation.seller_raw_data.id}"
+        hub_id = getattr(self.broker_valuation, 'asset_hub_id', None)
+        return f"{self.file} document for hub {hub_id}"
 
 """
 Note: PublicPhoto, DocumentPhoto, and BrokerPhoto have been consolidated into the

@@ -24,5 +24,8 @@
             "color": "foldercolorizer.color_00ffff",
             "isFolderOnly": true
         }
+    ],
+    "favoritesPanel.commandsForWorkspace": [
+        
     ]
 }

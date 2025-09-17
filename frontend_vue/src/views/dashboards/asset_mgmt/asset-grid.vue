@@ -165,49 +165,51 @@ const constantColumns: ColDef[] = [
   },
 ]
 
-// Additional columns (vary by view)
-const allExtraColumns: ColDef[] = [
+// Additional columns (vary by view) as a named map to avoid fragile index references
+// Each key is a stable identifier used by presets below.
+const cols: Record<string, ColDef> = {
   // ZIP intentionally omitted per latest serializer change
-  { headerName: 'Type', field: 'property_type', minWidth: 140 },
-  { headerName: 'Occupancy', field: 'occupancy', minWidth: 130 },
-  { headerName: 'Trade', field: 'trade_name', minWidth: 160, cellClass: 'text-start' },
-  { headerName: 'ARV (Seller)', field: 'seller_arv_value', valueFormatter: currencyFormatter, minWidth: 140 },
-  { headerName: 'As-Is (Seller)', field: 'seller_asis_value', valueFormatter: currencyFormatter, minWidth: 140 },
-  { headerName: 'Acq Cost', field: 'acq_cost', valueFormatter: currencyFormatter, minWidth: 130 },
-  { headerName: 'Total Expenses', field: 'total_expenses', valueFormatter: currencyFormatter, minWidth: 150 },
-  { headerName: 'Total Hold (days)', field: 'total_hold', minWidth: 150 },
-  { headerName: 'Exit Date', field: 'exit_date', valueFormatter: dateFormatter, minWidth: 140 },
-  { headerName: 'Gross Proceeds', field: 'expected_gross_proceeds', valueFormatter: currencyFormatter, minWidth: 150 },
-  { headerName: 'Net Proceeds', field: 'expected_net_proceeds', valueFormatter: currencyFormatter, minWidth: 150 },
-  { headerName: 'Expected P/L', field: 'expected_pl', valueFormatter: currencyFormatter, minWidth: 140 },
-  { headerName: 'Expected CF', field: 'expected_cf', valueFormatter: currencyFormatter, minWidth: 140 },
-  { headerName: 'IRR %', field: 'expected_irr', valueFormatter: percentFormatter, minWidth: 110 },
-  { headerName: 'MOIC', field: 'expected_moic', valueFormatter: moicFormatter, minWidth: 110 },
-  { headerName: 'NPV', field: 'expected_npv', valueFormatter: currencyFormatter, minWidth: 140 },
-]
+  propertyType: { headerName: 'Property Type', field: 'property_type', minWidth: 140 },
+  occupancy: { headerName: 'Occupancy', field: 'occupancy', minWidth: 130 },
+  trade: { headerName: 'Trade', field: 'trade_name', minWidth: 160, cellClass: 'text-start' },
+  arvSeller: { headerName: 'ARV (Seller)', field: 'seller_arv_value', valueFormatter: currencyFormatter, minWidth: 140 },
+  asIsSeller: { headerName: 'As-Is (Seller)', field: 'seller_asis_value', valueFormatter: currencyFormatter, minWidth: 140 },
+  acqCost: { headerName: 'Acq Cost', field: 'acq_cost', valueFormatter: currencyFormatter, minWidth: 130 },
+  totalExpenses: { headerName: 'Total Expenses', field: 'total_expenses', valueFormatter: currencyFormatter, minWidth: 150 },
+  totalHold: { headerName: 'Total Hold (days)', field: 'total_hold', minWidth: 150 },
+  exitDate: { headerName: 'Exit Date', field: 'exit_date', valueFormatter: dateFormatter, minWidth: 140 },
+  expectedGrossProceeds: { headerName: 'Gross Proceeds', field: 'expected_gross_proceeds', valueFormatter: currencyFormatter, minWidth: 150 },
+  expectedNetProceeds: { headerName: 'Net Proceeds', field: 'expected_net_proceeds', valueFormatter: currencyFormatter, minWidth: 150 },
+  expectedPL: { headerName: 'Expected P/L', field: 'expected_pl', valueFormatter: currencyFormatter, minWidth: 140 },
+  expectedCF: { headerName: 'Expected CF', field: 'expected_cf', valueFormatter: currencyFormatter, minWidth: 140 },
+  expectedIRR: { headerName: 'IRR %', field: 'expected_irr', valueFormatter: percentFormatter, minWidth: 110 },
+  expectedMOIC: { headerName: 'MOIC', field: 'expected_moic', valueFormatter: moicFormatter, minWidth: 110 },
+  expectedNPV: { headerName: 'NPV', field: 'expected_npv', valueFormatter: currencyFormatter, minWidth: 140 },
+}
 
+// Presets now reference the named columns for clarity and stability
 const presets: Record<string, ColDef[]> = {
   snapshot: [
-    allExtraColumns[0], // Type
-    allExtraColumns[1], // Occupancy
-    allExtraColumns[2], // Trade
+    cols.propertyType,
+    cols.occupancy,
+    cols.trade,
   ],
   performance: [
-    allExtraColumns[3], // ARV
-    allExtraColumns[4], // As-Is
-    allExtraColumns[5], // Acq Cost
-    allExtraColumns[6], // Total Expenses
-    allExtraColumns[10], // Expected P/L
-    allExtraColumns[11], // Expected CF
-    allExtraColumns[12], // IRR
-    allExtraColumns[13], // MOIC
-    allExtraColumns[14], // NPV
+    cols.arvSeller,
+    cols.asIsSeller,
+    cols.acqCost,
+    cols.totalExpenses,
+    cols.expectedPL,
+    cols.expectedCF,
+    cols.expectedIRR,
+    cols.expectedMOIC,
+    cols.expectedNPV,
   ],
   servicing: [
-    allExtraColumns[7], // Total Hold
-    allExtraColumns[8], // Exit Date
+    cols.totalHold,
+    cols.exitDate,
   ],
-  all: allExtraColumns,
+  all: Object.values(cols),
 }
 
 const activeView = ref<'snapshot' | 'performance' | 'servicing' | 'all'>('snapshot')

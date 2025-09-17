@@ -42,7 +42,7 @@ from .views.brokers.portal import (
     assign_broker_batch,
     broker_portal_detail,
 )
-from .views.geocode import geocode_markers
+from core.views.geocoding import geocode_markers
 from .views.brokers.internal import (
     broker_detail,
     list_assigned_loans,

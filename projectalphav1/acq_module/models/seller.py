@@ -125,6 +125,16 @@ class SellerRawData(models.Model):
     ]
     seller = models.ForeignKey(Seller, on_delete=models.CASCADE, related_name='seller_raw_data')
     trade = models.ForeignKey(Trade, on_delete=models.CASCADE, related_name='seller_raw_data')
+    # Stable hub link (1:1) – create hub first, then attach the single raw row for this asset.
+    # Nullable during backfill, but enforces unique one-to-one once set.
+    asset_hub = models.OneToOneField(
+        'core.AssetIdHub',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='acq_raw',
+        help_text='One hub per asset; one raw row per hub (set during ETL).',
+    )
     sellertape_id = models.IntegerField()
     sellertape_altid = models.IntegerField(null=True, blank=True)
     asset_status = models.CharField(max_length=100, choices=ASSET_STATUS_CHOICES)
