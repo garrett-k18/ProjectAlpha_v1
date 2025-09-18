@@ -51,7 +51,7 @@ def build_queryset(
     qs = (
         SellerBoardedData.objects
         .select_related("metrics")  # OneToOne relation to AssetMetrics
-        .select_related("blended_outcome_model")  # OneToOne relation to BlendedOutcomeModel
+        .select_related("asset_hub__blended_outcome_model")  # hub-keyed BlendedOutcomeModel
     )
 
     if q:

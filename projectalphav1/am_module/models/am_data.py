@@ -39,21 +39,21 @@ class AMMetrics(models.Model):
 
     Fields
     ------
-    - asset: optional relation to `SellerBoardedData`. When NULL, record is global.
+    - asset_hub: optional relation to `AssetIdHub`. When NULL, record is global.
     - scope: short namespace (e.g., "calc", "ui", "import").
     - key: identifier within the scope (e.g., "npv_run", "grid_prefs").
     - payload: arbitrary JSON payload (dict/list/primitive) for flexible data.
     - created_at / updated_at: audit timestamps.
     """
 
-    # Optional link to a boarded asset; string path avoids app loading cycles
-    asset = models.ForeignKey(
-        "am_module.SellerBoardedData",  # Target model in same Django app
-        on_delete=models.CASCADE,         # Delete AMData rows if the asset is deleted
-        related_name="ammetrics",           # Reverse accessor: asset.ammetrics (QuerySet)
-        null=True,                        # Allow global rows (non-asset specific)
+    # Optional link to hub (canonical asset key); string path avoids app loading cycles
+    asset_hub = models.ForeignKey(
+        "core.AssetIdHub",
+        on_delete=models.PROTECT,        # Preserve metrics if hub deletion is prevented
+        related_name="ammetrics",       # Access via: hub.ammetrics.all()
+        null=True,                       # Allow global rows (non-asset specific)
         blank=True,
-        help_text="Optional asset this data belongs to (NULL for global entries).",
+        help_text="Optional hub this data belongs to (NULL for global entries).",
     )
 
    
@@ -82,7 +82,7 @@ class AMMetrics(models.Model):
 
         # Common query accelerators (only on existing fields)
         indexes = [
-            models.Index(fields=["asset"]),
+            models.Index(fields=["asset_hub"]),
         ]
 
         ordering = ["-updated_at"]
@@ -101,8 +101,8 @@ class AMMetrics(models.Model):
 
     def __str__(self) -> str:  # pragma: no cover - trivial
         """Readable string for admin/debugging."""
-        asset_part = f"asset={getattr(self.asset, 'pk', None)}" if self.asset_id else "asset=GLOBAL"
-        return f"AMMetrics({asset_part})"
+        hub_part = f"hub={getattr(self.asset_hub, 'pk', None)}" if self.asset_hub_id else "hub=GLOBAL"
+        return f"AMMetrics({hub_part})"
 
     # ---------------------------------------------------------------
     # Field-level change tracking
@@ -118,7 +118,7 @@ class AMMetrics(models.Model):
 
     # Fields we track at a field-level (extend as needed)
     # Track only existing fields; extend as you add more columns
-    TRACKED_FIELDS = ("asset", )
+    TRACKED_FIELDS = ("asset_hub", )
 
     def set_actor(self, user) -> None:
         """Attach the acting user to the instance for the next save()."""
@@ -169,6 +169,7 @@ class AMMetrics(models.Model):
 
                 AMMetricsChange.objects.create(
                     record=self,
+                    asset_hub=self.asset_hub,
                     field_name=fname,
                     old_value=old_val_ser,
                     new_value=new_val_ser,
@@ -189,6 +190,16 @@ class AMMetricsChange(models.Model):
         on_delete=models.CASCADE,
         related_name="changes",
         help_text="The metrics record this change belongs to.",
+    )
+
+    # Denormalized direct link to hub for easy filtering/reporting
+    asset_hub = models.ForeignKey(
+        "core.AssetIdHub",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="ammetrics_changes",
+        help_text="Denormalized hub reference for direct filtering.",
     )
 
     # Name of the field that changed
@@ -213,6 +224,7 @@ class AMMetricsChange(models.Model):
         indexes = [
             models.Index(fields=["record", "changed_at"]),
             models.Index(fields=["field_name", "changed_at"]),
+            models.Index(fields=["asset_hub", "changed_at"]),
         ]
         ordering = ["-changed_at", "-id"]
 
@@ -222,26 +234,49 @@ class AMMetricsChange(models.Model):
 
 
 class AMNote(models.Model):
-    """User-authored note attached to a SellerBoardedData record (many-to-one).
+    """User-authored note attached to an AssetIdHub (many-to-one).
 
-    This is a simple note model to capture free-form annotations, with optional
-    author and audit timestamps. Multiple notes can be attached to the same asset.
+    Many notes can be attached to a single hub. We key to the hub directly to
+    follow the hub-first architecture and avoid coupling to any particular spoke.
     """
 
-    # Many-to-one to the boarded asset
-    seller_boarded_data = models.ForeignKey(
-        "am_module.SellerBoardedData",
-        on_delete=models.CASCADE,
-        related_name="am_notes",  # Access via: asset.am_notes.all()
-        help_text="The SellerBoardedData this note belongs to.",
+    # Many-to-one to the hub (canonical asset key)
+    asset_hub = models.ForeignKey(
+        "core.AssetIdHub",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="am_notes",  # Access via: hub.am_notes.all()
+        help_text="Many notes per AssetIdHub (hub is the canonical asset key).",
+    )
+
+    # Predefined single-select tag choices (simple dropdown)
+    TAG_URGENT = "urgent"
+    TAG_LEGAL = "legal"
+    TAG_QC = "qc"
+    TAG_OPS = "ops"
+    TAG_INFO = "info"
+
+    TAG_CHOICES = (
+        (TAG_URGENT, "Urgent"),
+        (TAG_LEGAL, "Legal"),
+        (TAG_QC, "Quality Control"),
+        (TAG_OPS, "Operations"),
+        (TAG_INFO, "Info"),
     )
 
     # Note content
     body = models.TextField(
         help_text="Free-form note text for this asset.",
     )
-
-    # Optional pinned flag for UI surfaces
+    tag = models.CharField(
+        max_length=32,
+        choices=TAG_CHOICES,
+        null=True,
+        blank=True,
+        help_text="Optional single tag for categorizing the note.",
+    )
+    
     pinned = models.BooleanField(
         default=False,
         help_text="Pin this note for prominence in UI.",
@@ -269,7 +304,7 @@ class AMNote(models.Model):
 
     class Meta:
         indexes = [
-            models.Index(fields=["seller_boarded_data", "pinned", "updated_at"]),
+            models.Index(fields=["asset_hub", "pinned", "updated_at"]),
         ]
         ordering = ["-pinned", "-updated_at", "-id"]
 
@@ -281,11 +316,12 @@ class AMNote(models.Model):
 class REOData(models.Model):
     """Data about a REO property."""
 
-    asset = models.OneToOneField(
-        "am_module.SellerBoardedData",
-        on_delete=models.CASCADE,
-        related_name="reo_data",
-        help_text="The boarded asset this REO data belongs to.",
+    asset_hub = models.OneToOneField(
+        'core.AssetIdHub',
+        on_delete=models.PROTECT,
+        primary_key=True,
+        related_name='reo_data',
+        help_text='1:1 with hub; REO data keyed by AssetIdHub.',
     )
     
     # Optional one-to-one link to a Broker CRM directory entry
@@ -385,13 +421,14 @@ class REOData(models.Model):
     #     ordering = ["-list_date"]
 
 class FCSale(models.Model):
-    """Data about a foreclosure sale."""
+    """Data about a foreclosure sale (hub-keyed 1:1)."""
 
-    asset = models.OneToOneField(
-        "am_module.SellerBoardedData",
-        on_delete=models.CASCADE,
-        related_name="fc_sale",
-        help_text="The boarded asset this foreclosure sale belongs to.",
+    asset_hub = models.OneToOneField(
+        'core.AssetIdHub',
+        on_delete=models.PROTECT,
+        primary_key=True,
+        related_name='fc_sale',
+        help_text='1:1 with hub; foreclosure sale keyed by AssetIdHub.',
     )
     
     # Optional association to a Legal CRM contact/entity managing the FC

@@ -1,13 +1,11 @@
 from django.contrib import admin
 from django.utils.html import format_html
 
-# Import all models from the models directory
-from .models import (
-    Seller, Trade, SellerRawData,
-    LoanLevelAssumption, TradeLevelAssumption,
-    InternalValuation, BrokerValues, Photo,
-)
-from core.models import LlDataEnrichment
+# All valuation models moved to core
+from .models.seller import Seller, Trade, SellerRawData
+from .models.assumptions import LoanLevelAssumption, TradeLevelAssumption
+from core.models.valuations import InternalValuation, BrokerValues, Photo, BrokerDocument
+from core.models.enrichment import LlDataEnrichment
 
 # Inline admin classes for related models
 class TradeInline(admin.TabularInline):

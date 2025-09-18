@@ -2,7 +2,7 @@ from django.contrib import admin
 from .models.capital import DebtFacility
 from .models.crm import Brokercrm, TradingPartnerCRM
 from .models.assumptions import Servicer, StateReference
-from .models import AssetIdHub
+from .models.asset_id_hub import AssetIdHub
 
 @admin.register(DebtFacility)
 class DebtFacilityAdmin(admin.ModelAdmin):

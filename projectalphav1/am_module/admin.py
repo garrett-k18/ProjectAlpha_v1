@@ -14,10 +14,7 @@ class AssetMetricsInline(admin.StackedInline):
     )
     readonly_fields = ("created_at", "updated_at")
 
-class BlendedOutcomeInline(admin.StackedInline):
-    model = BlendedOutcomeModel
-    can_delete = True
-    extra = 0
+# Inline removed: BlendedOutcomeModel is keyed to AssetIdHub, not directly to SellerBoardedData
 
 
 @admin.register(SellerBoardedData)
@@ -51,7 +48,7 @@ class SellerBoardedDataAdmin(admin.ModelAdmin):
         "zip",
     )
     ordering = ("-id",)
-    inlines = [AssetMetricsInline, BlendedOutcomeInline]
+    inlines = [AssetMetricsInline]
 
 
 @admin.register(AssetMetrics)
@@ -81,11 +78,12 @@ class AssetMetricsAdmin(admin.ModelAdmin):
 @admin.register(BlendedOutcomeModel)
 class BlendedOutcomeModelAdmin(admin.ModelAdmin):
     list_display = (
-        "asset",
+        "asset_hub",
     )
     search_fields = (
-        "asset__sellertape_id",
-        "asset__street_address",
-        "asset__city",
-        "asset__state",
+        # Traverse hub -> boarded record for human fields
+        "asset_hub__am_boarded__sellertape_id",
+        "asset_hub__am_boarded__street_address",
+        "asset_hub__am_boarded__city",
+        "asset_hub__am_boarded__state",
     )

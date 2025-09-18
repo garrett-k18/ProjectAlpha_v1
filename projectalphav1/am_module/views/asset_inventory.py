@@ -15,7 +15,7 @@ from am_module.models.boarded_data import SellerBoardedData
 
 # Import acquisitions models to surface photos linked to SellerRawData (via sellertape_id)
 from acq_module.models.seller import SellerRawData
-from acq_module.models import Photo
+from core.models.valuations import Photo
 from rest_framework import serializers, status
 
 class StandardResultsSetPagination(PageNumberPagination):

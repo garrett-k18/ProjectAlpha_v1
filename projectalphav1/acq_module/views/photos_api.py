@@ -22,7 +22,7 @@ from rest_framework.response import Response
 from rest_framework import status, serializers
 
 from ..models.seller import SellerRawData
-from ..models import Photo
+from core.models.valuations import Photo
 
 
 class OutputPhotoSerializer(serializers.Serializer):

@@ -30,7 +30,8 @@ from rest_framework.permissions import AllowAny  # TODO: tighten to IsAuthentica
 from rest_framework.response import Response
 from rest_framework import status, serializers
 
-from ...models import SellerRawData, BrokerValues
+from ...models.seller import SellerRawData
+from core.models.valuations import BrokerValues
 from core.models.crm import Brokercrm
 from ...services.brokers import list_assigned_loan_entries
 from user_admin.models import BrokerTokenAuth

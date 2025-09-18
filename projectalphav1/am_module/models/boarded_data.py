@@ -174,39 +174,76 @@ class BlendedOutcomeModel(models.Model):
     - OneToOneField: https://docs.djangoproject.com/en/stable/topics/db/models/#one-to-one-relationships
     """
 
-    # One-to-one link to the boarded asset record.
-    # Using string path avoids import ordering issues with app registry.
-    asset = models.OneToOneField(
-        "am_module.SellerBoardedData",   # Target model in same Django app
-        on_delete=models.CASCADE,         # Delete the acq model if the asset is deleted
-        related_name="blended_outcome_model",        # Reverse accessor: asset.blended_outcome_model
-        primary_key=True,                 # Shared PK -> strict one-to-one mapping
-        help_text="The boarded asset this blended outcome model belongs to."
+    # Hub-owned primary key: strict 1:1 with core.AssetIdHub.
+    # This aligns with the hub-first architecture so this model's PK equals the hub ID.
+    asset_hub = models.OneToOneField(
+        'core.AssetIdHub',
+        on_delete=models.PROTECT,
+        primary_key=True,
+        related_name='blended_outcome_model',
+        help_text='1:1 with hub; this model’s PK equals the hub ID.'
     )
 
     # ------------------------------
     # Cost / Proceeds / Timing
     # ------------------------------
-    acq_cost = models.DecimalField(
-        max_digits=15,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        help_text="Acquisition cost (currency)."
-    )
-    expected_total_expenses = models.DecimalField(
-        max_digits=15,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        help_text="Total projected expenses (currency)."
-    )
-    expected_total_hold = models.IntegerField(
-        null=True,
-        blank=True,
-        help_text="Total holding time."
-    )
-    
+
+    # Timeline Details
+    servicing_transfer_duration = models.IntegerField(null=True, blank=True, help_text="The duration in months the loan was transferred to servicing.")
+    performing_duration = models.IntegerField(null=True, blank=True, help_text="The duration in months the loan was performing.")
+    pre_mod_duration = models.IntegerField(null=True, blank=True, help_text="The duration in months the loan was in pre-mod status.")
+    mod_duration = models.IntegerField(null=True, blank=True, help_text="The duration in months the loan was in mod status.")
+    pre_fc_duration = models.IntegerField(null=True, blank=True, help_text="The duration in months the loan was in pre-fc status.")
+    fc_progress_duration = models.IntegerField(null=True, blank=True, help_text="The duration in months the loan was in fc progress status.")
+    fc_left_duration = models.IntegerField(null=True, blank=True, help_text="The duration in months the loan was in fc left status.")
+    fc_duration_state_avg = models.IntegerField(null=True, blank=True, help_text="The duration in months the loan was in fc status.")
+    dil_duration = models.IntegerField(null=True, blank=True, help_text="The duration in months the loan was in dil status.")
+    bk_duration = models.IntegerField(null=True, blank=True, help_text="The duration in months the loan was in bk status.")
+    eviction_duration = models.IntegerField(null=True, blank=True, help_text="The duration in months the loan was in eviction status.")
+    renovation_duration = models.IntegerField(null=True, blank=True, help_text="The duration in months the loan was in renovation status.")
+    reo_marketing_duration = models.IntegerField(null=True, blank=True, help_text="The duration in months the loan was in reo marketing status.")
+    local_market_ext_duration = models.IntegerField(null=True, blank=True, help_text="The duration in months the loan was in local market extension status.")
+    rural_ext_duration = models.IntegerField(null=True, blank=True, help_text="The duration in months the loan was in rural status.")
+
+    #Expense Details
+        #Legal
+    fc_expenses = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total FC expenses.")
+    fc_legal_fees = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total FC legal fees.")
+    other_fc_fees = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total other FC fees.")
+    dil_fees = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total DIL fees.")
+    cfk_fees = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total CFK fees.")
+    bk_legal_fees = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total BK legal fees.")
+    eviction_fees = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total eviction fees.")
+
+        #Property Expenses
+    reconciled_rehab_cost = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The reconciled rehab cost.")
+    property_preservation_cost = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The property preservation cost.")
+    month_insurance = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total yearly insurance cost.")
+    month_property_tax = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total yearly property tax cost.")
+    month_hoa = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total yearly HOA costs.")
+    month_utility = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total yearly utility costs.")
+    month_other = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total yearly other costs.")
+
+        #Fund Expenses
+    acq_costs = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="per asset fees when purchasing such as legal, DD, Title, etc.")
+    am_fees = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="total am fee over life of asset hold COuld be a per month calc or liq calc")
+
+            #Closing Costs
+    tax_title_transfer_cost = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The tax, title, and transfer costs.")
+    broker_fees = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The broker fees at closing of REO.")
+
+        #Servicing Costs
+    servicing_board_fee = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total servicing board fee.")
+    servicing_current = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total current servicing costs.")
+    servicing_30d = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total 30 day servicing costs.")
+    servicing_60d = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total 60 day servicing costs.")
+    servicing_90d = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total 90 day servicing costs.")
+    servicing_120d = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total 180 day servicing costs.")
+    servicing_fc = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total FC servicing costs.")
+    servicing_bk = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total BK servicing costs.")
+    servicing_liq_fee = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total servicing costs.")
+
+
     expected_exit_date = models.DateField(
         null=True,
         blank=True,
@@ -394,6 +431,7 @@ class BlendedOutcomeModel(models.Model):
     cf_p30 = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="Cash flow period 30 (currency; can be negative).")
 
     
+    
     # Audit timestamps
     created_at = models.DateTimeField(
         auto_now_add=True,
@@ -411,4 +449,4 @@ class BlendedOutcomeModel(models.Model):
 
     def __str__(self) -> str:
         """Readable string for admin/debugging."""
-        return f"AcqModel(asset_id={self.pk})"
+        return f"AcqModel(hub_id={self.pk})"

@@ -18,10 +18,13 @@ import random
 # Django imports
 from django.core.management.base import BaseCommand, CommandParser
 from django.db import transaction
+from contextlib import nullcontext as _nullctx
 from django.utils import timezone
 
 # Local app model imports
 from acq_module.models.seller import Seller, Trade, SellerRawData
+from core.models.valuations import BrokerValues, InternalValuation
+from core.models.asset_id_hub import AssetIdHub
 from core.services.geocoding import geocode_markers_for_seller_trade
 
 # List of US state abbreviations (lower 48 states plus Alaska and Hawaii)
@@ -118,6 +121,16 @@ class Command(BaseCommand):
             default=21,
             help="Maximum number of assets (SellerRawData rows) per Trade (inclusive). Default: 21",
         )
+        parser.add_argument(
+            "--with-broker-values",
+            action="store_true",
+            help="Also create a stub BrokerValues row (1:1 via hub) for each generated asset.",
+        )
+        parser.add_argument(
+            "--with-internal-valuations",
+            action="store_true",
+            help="Also create a stub InternalValuation row (1:1 via hub) for each generated asset.",
+        )
 
     def handle(self, *args, **options) -> None:
         """Entrypoint for the command.
@@ -132,6 +145,8 @@ class Command(BaseCommand):
         seed_value: int | None = options["seed"]
         assets_min: int = options["assets_min"]
         assets_max: int = options["assets_max"]
+        with_broker_values: bool = options["with_broker_values"]
+        with_internal_vals: bool = options["with_internal_valuations"]
 
         # Initialize Faker with requested locale
         faker = Faker(locale)
@@ -141,6 +156,17 @@ class Command(BaseCommand):
             random.seed(seed_value)
             Faker.seed(seed_value)
 
+        # IMPORTANT: Ensure writes go to the intended PostgreSQL schemas.
+        # Your ACQ app tables (Seller/SellerRawData/Trade) live in schema 'seller_data',
+        # while hub and some shared tables live in 'core'. Place seller_data first so
+        # acq_module tables resolve there, then core for hub tables.
+        from django.db import connection
+        with connection.cursor() as cursor:
+            cursor.execute("SET search_path TO seller_data, core, public")
+            cursor.execute("SHOW search_path")
+            current_path = cursor.fetchone()[0]
+            self.stdout.write(self.style.NOTICE(f"search_path set to: {current_path}"))
+
         # Optional purge of existing data to avoid unique constraint conflicts
         if purge:
             self.stdout.write(self.style.WARNING("Purging existing data..."))
@@ -148,15 +174,19 @@ class Command(BaseCommand):
             SellerRawData.objects.all().delete()
             Trade.objects.all().delete()
             Seller.objects.all().delete()
+            # Also clear hubs so we reseed cleanly (safe after spokes are deleted)
+            AssetIdHub.objects.all().delete()
 
-        with transaction.atomic():
+        # Important: avoid a single giant transaction across schemas; commit each insert naturally
+        # so FK checks can see parent rows immediately across schemas.
+        with _nullctx():
             self.stdout.write(
                 f"Creating {sellers_count} sellers × {trades_per_seller} trades each..."
             )
 
             sellers: list[Seller] = []
             trades: list[Trade] = []
-            raw_rows: list[SellerRawData] = []
+            assets_created: int = 0
 
             # Create Seller records
             for i in range(sellers_count):
@@ -318,10 +348,54 @@ class Command(BaseCommand):
                     state = random.choice(US_STATES)
                     zip_code = faker.zipcode()
                     
-                    # Assemble SellerRawData
+                    # Create the AssetIdHub FIRST (canonical hub for this asset)
+                    # NOTE: Explicitly insert into core schema to avoid search_path issues
+                    from django.db import connection
+                    with connection.cursor() as c:
+                        c.execute(
+                            "INSERT INTO core.core_assetidhub (sellertape_id, created_at, updated_at) "
+                            "VALUES (%s, NOW(), NOW()) RETURNING id",
+                            [str(sellertape_id)],
+                        )
+                        hub_id = c.fetchone()[0]
+                    hub = AssetIdHub.objects.get(pk=hub_id)
+                    # Sanity check: parent exists before FK insert
+                    assert AssetIdHub.objects.filter(pk=hub.pk).exists(), "Hub row not persisted"
+
+                    # Optionally create stub 1:1 spoke records that hang off the hub.
+                    # This provides convenient entry points to later enrich values in UI/flows.
+                    if with_broker_values:
+                        # Create minimal BrokerValues stub (all fields optional)
+                        BrokerValues.objects.create(asset_hub=hub)
+
+                    if with_internal_vals:
+                        # InternalValuation requires a handful of non-null numeric/date fields,
+                        # so synthesize reasonable placeholders tied to our seller_* values.
+                        InternalValuation.objects.create(
+                            asset_hub=hub,
+                            internal_uw_asis_value=seller_asis_value,
+                            internal_uw_arv_value=seller_arv_value,
+                            internal_uw_value_date=as_of_date,
+                            internal_rehab_est_total=None,
+                            roof_est=None,
+                            kitchen_est=None,
+                            bath_est=None,
+                            flooring_est=None,
+                            windows_est=None,
+                            appliances_est=None,
+                            plumbing_est=None,
+                            electrical_est=None,
+                            landscaping_est=None,
+                            thirdparty_asis_value=seller_asis_value,
+                            thirdparty_arv_value=seller_arv_value,
+                            thirdparty_value_date=as_of_date,
+                        )
+
+                    # Assemble SellerRawData linked to the hub (1:1)
                     raw_data = SellerRawData(
                         seller=seller,
                         trade=trade,
+                        asset_hub=hub,
                         sellertape_id=sellertape_id,
                         asset_status=asset_status,
                         as_of_date=as_of_date,
@@ -386,14 +460,12 @@ class Command(BaseCommand):
                             mod_initial_balance.quantize(Decimal("0.01")) if mod_initial_balance else None
                         ),
                     )
-                    # IMPORTANT: bulk_create() bypasses Model.save(), so calculated fields
-                    # like months_dlq and total_debt would remain None. Compute explicitly.
-                    raw_data.months_dlq = raw_data.calculate_months_dlq()
-                    raw_data.total_debt = raw_data.calculate_total_debt()
-                    raw_rows.append(raw_data)
+                    # Save immediately to ensure FK to hub is persisted and model.save() hooks run.
+                    # Note: Model.save() will auto-calc total_debt/months_dlq if None, but we've set them anyway.
+                    raw_data.save()
+                    assets_created += 1
 
-            # Bulk create SellerRawData (signals do NOT fire for bulk_create)
-            SellerRawData.objects.bulk_create(raw_rows)
+            # No bulk_create: we saved each instance to guarantee FK integrity and run save() logic
 
         # After commit, geocode per trade to persist coordinates (best-effort)
         # This deduplicates by address internally to minimize API calls.
@@ -406,5 +478,5 @@ class Command(BaseCommand):
 
         # Summary output
         self.stdout.write(self.style.SUCCESS(
-            f"Seed complete: {sellers_count} sellers, {len(trades)} trades, {len(raw_rows)} raw rows."
+            f"Seed complete: {sellers_count} sellers, {len(trades)} trades, {assets_created} raw rows."
         ))

@@ -34,7 +34,7 @@ from rest_framework.response import Response
 from rest_framework import status, serializers
 
 from ..models.seller import SellerRawData
-from ..models.valuations import InternalValuation, BrokerValues
+from core.models.valuations import InternalValuation, BrokerValues
 
 
 class InternalValuationSerializer(serializers.Serializer):
