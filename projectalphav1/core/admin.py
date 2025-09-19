@@ -3,6 +3,8 @@ from .models.capital import DebtFacility
 from .models.crm import Brokercrm, TradingPartnerCRM
 from .models.assumptions import Servicer, StateReference
 from .models.asset_id_hub import AssetIdHub
+from .models.valuations import Valuation
+from .models.attachments import Photo, Document
 
 @admin.register(DebtFacility)
 class DebtFacilityAdmin(admin.ModelAdmin):
@@ -62,6 +64,64 @@ class ServicerAdmin(admin.ModelAdmin):
     )
     search_fields = ('servicer_name', 'contact_name', 'contact_email')
     list_filter = ()
+
+
+@admin.register(Valuation)
+class ValuationAdmin(admin.ModelAdmin):
+    """Admin for the unified Valuation model."""
+    list_display = (
+        'id', 'asset_hub', 'source', 'asis_value', 'arv_value', 'value_date', 'created_at'
+    )
+    list_filter = (
+        'source', 'value_date'
+    )
+    search_fields = (
+        'asset_hub__id', 'notes'
+    )
+    fieldsets = (
+        ('Asset Information', {
+            'fields': ('asset_hub', 'source')
+        }),
+        ('Valuation Data', {
+            'fields': ('asis_value', 'arv_value', 'value_date', 'rehab_est_total')
+        }),
+        ('Rehab Estimates', {
+            'fields': ('roof_est', 'kitchen_est', 'bath_est', 'flooring_est', 'windows_est',
+                      'appliances_est', 'plumbing_est', 'electrical_est', 'landscaping_est')
+        }),
+        ('Additional Information', {
+            'fields': ('notes', 'links')
+        }),
+        ('Audit', {
+            'fields': ('created_at', 'updated_at', 'created_by', 'updated_by')
+        }),
+    )
+    readonly_fields = ('created_at', 'updated_at')
+
+
+@admin.register(Photo)
+class PhotoAdmin(admin.ModelAdmin):
+    """Admin for the Photo model."""
+    list_display = (
+        'id', 'asset_hub', 'valuation', 'source_tag', 'caption', 'created_at'
+    )
+    list_filter = (
+        'source_tag',
+    )
+    search_fields = (
+        'asset_hub__id', 'caption'
+    )
+
+
+@admin.register(Document)
+class DocumentAdmin(admin.ModelAdmin):
+    """Admin for the Document model."""
+    list_display = (
+        'id', 'asset_hub', 'valuation', 'original_name', 'uploaded_at'
+    )
+    search_fields = (
+        'asset_hub__id', 'original_name'
+    )
 
 
 @admin.register(StateReference)

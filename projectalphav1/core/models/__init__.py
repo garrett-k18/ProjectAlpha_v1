@@ -4,7 +4,8 @@ from .crm import Brokercrm, TradingPartnerCRM
 from .asset_id_hub import AssetIdHub
 from .assumptions import Servicer, StateReference
 from .enrichment import LlDataEnrichment
-from .valuations import InternalValuation, BrokerValues, Photo, BrokerDocument
+from .valuations import Valuation
+from .attachments import Photo, Document
 
 __all__ = [
     'DebtFacility',
@@ -13,9 +14,8 @@ __all__ = [
     'AssetIdHub',
     'Servicer',
     'StateReference',
-    'LlDataEnrichment',
-    'InternalValuation',
-    'BrokerValues',
+    'LlDataEnrichment', 
+    'Valuation',
     'Photo',
-    'BrokerDocument',
+    'Document',
 ]

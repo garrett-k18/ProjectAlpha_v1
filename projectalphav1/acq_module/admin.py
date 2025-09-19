@@ -4,7 +4,20 @@ from django.utils.html import format_html
 # All valuation models moved to core
 from .models.seller import Seller, Trade, SellerRawData
 from .models.assumptions import LoanLevelAssumption, TradeLevelAssumption
-from core.models.valuations import InternalValuation, BrokerValues, Photo, BrokerDocument
+"""
+NOTE: Valuation models have been unified.
+
+Deprecated:
+- core.models.valuations.InternalValuation
+- core.models.valuations.BrokerValues
+
+Use:
+- core.models.valuations.Valuation
+
+Admin registrations for Valuation, Photo, and Document now live in core.admin to
+avoid duplicate registrations across apps.
+"""
+from core.models.attachments import Document
 from core.models.enrichment import LlDataEnrichment
 
 # Inline admin classes for related models
@@ -20,19 +33,7 @@ class SellerRawDataInline(admin.TabularInline):
     fields = ('asset_status', 'as_of_date', 'state', 'current_balance', 'months_dlq')
     show_change_link = True
     
-class PhotoInline(admin.TabularInline):
-    """Inline admin for unified Photo model to display in SellerRawData admin."""
-    model = Photo
-    extra = 1
-    readonly_fields = ('image_preview',)
-
-    def image_preview(self, obj):
-        """Display a thumbnail preview of the image (if present)."""
-        if getattr(obj, 'image', None):
-            return format_html('<img src="{}" width="150" height="150" />', obj.image.url)
-        return "No Image"
-
-    image_preview.short_description = 'Preview'
+## Removed PhotoInline: Photo is hub-first and no longer has FK to SellerRawData
 
 
 class LlDataEnrichmentInline(admin.StackedInline):
@@ -50,28 +51,7 @@ class LlDataEnrichmentInline(admin.StackedInline):
     readonly_fields = ('created_at', 'updated_at')
 
 
-@admin.register(Photo)
-class PhotoAdmin(admin.ModelAdmin):
-    """Admin configuration for unified Photo model."""
-    list_display = (
-        'seller_raw_data', 'source_tag', 'is_primary', 'image', 'created_at',
-    )
-    list_filter = (
-        'source_tag',
-        'seller_raw_data__seller',
-        'seller_raw_data__trade',
-    )
-    search_fields = (
-        'seller_raw_data__seller__name',
-        'seller_raw_data__trade__trade_name',
-        'caption',
-        'source_url',
-        'source_document_name',
-        'source_tool',
-    )
-
-
-    # No additional inline classes; use PhotoInline in SellerRawData admin instead.
+## Photo admin is registered in core.admin; do not register here to avoid duplicates.
 
 # Main admin classes
 @admin.register(Seller)
@@ -131,8 +111,8 @@ class SellerRawDataAdmin(admin.ModelAdmin):
             'fields': ('mod_flag', 'mod_date', 'mod_maturity_date', 'mod_term', 'mod_rate', 'mod_initial_balance')
         }),
     )
-    # Show photos and enrichment inline
-    inlines = [PhotoInline, LlDataEnrichmentInline]
+    # Show enrichment inline
+    inlines = [LlDataEnrichmentInline]
 
 ## Servicer and StateReference have been moved to core.models.assumptions and are registered in core.admin
 
@@ -148,51 +128,7 @@ class TradeLevelAssumptionAdmin(admin.ModelAdmin):
     list_display = ('trade', 'bid_date', 'settlement_date', 'target_irr')
     list_filter = ('trade__seller',)
 
-@admin.register(InternalValuation)
-class InternalValuationAdmin(admin.ModelAdmin):
-    """Admin configuration for InternalValuation model (hub-only 1:1)."""
-    list_display = ('asset_hub_id', 'get_seller_raw_id', 'get_seller', 'get_trade', 'internal_uw_asis_value', 'internal_uw_arv_value', 'internal_uw_value_date')
-    list_filter = ('asset_hub__acq_raw__seller', 'asset_hub__acq_raw__trade')
-
-    def get_seller_raw_id(self, obj):
-        raw = getattr(obj.asset_hub, 'acq_raw', None)
-        return getattr(raw, 'id', None)
-    get_seller_raw_id.short_description = 'SellerRawData ID'
-
-    def get_seller(self, obj):
-        raw = getattr(obj.asset_hub, 'acq_raw', None)
-        return getattr(getattr(raw, 'seller', None), 'name', None)
-    get_seller.short_description = 'Seller'
-
-    def get_trade(self, obj):
-        raw = getattr(obj.asset_hub, 'acq_raw', None)
-        return getattr(getattr(raw, 'trade', None), 'trade_name', None)
-    get_trade.short_description = 'Trade'
-
-@admin.register(BrokerValues)
-class BrokerValuesAdmin(admin.ModelAdmin):
-    """Admin configuration for BrokerValues model (hub-only 1:1)."""
-    list_display = ('asset_hub_id', 'get_seller_raw_id', 'get_seller', 'get_trade', 'broker_asis_value', 'broker_arv_value', 'broker_value_date')
-    list_filter = ('asset_hub__acq_raw__seller', 'asset_hub__acq_raw__trade')
-    inlines = []
-
-    def get_seller_raw_id(self, obj):
-        raw = getattr(obj.asset_hub, 'acq_raw', None)
-        return getattr(raw, 'id', None)
-    get_seller_raw_id.short_description = 'SellerRawData ID'
-
-    def get_seller(self, obj):
-        raw = getattr(obj.asset_hub, 'acq_raw', None)
-        return getattr(getattr(raw, 'seller', None), 'name', None)
-    get_seller.short_description = 'Seller'
-
-    def get_trade(self, obj):
-        raw = getattr(obj.asset_hub, 'acq_raw', None)
-        return getattr(getattr(raw, 'trade', None), 'trade_name', None)
-    get_trade.short_description = 'Trade'
-    # Photo is keyed to SellerRawData, so no direct inline here.
-    inlines = []
-    # Removed old separate photo model admin registrations (BrokerPhoto, PublicPhoto, DocumentPhoto).
+## InternalValuation and BrokerValues admin removed (deprecated). Use core.admin Valuation.
 
 
 @admin.register(LlDataEnrichment)

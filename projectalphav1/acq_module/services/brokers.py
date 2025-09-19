@@ -17,7 +17,7 @@ from django.db.models import QuerySet
 
 from core.models.crm import Brokercrm
 from ..models.seller import SellerRawData
-from core.models.valuations import BrokerValues
+from core.models.valuations import Valuation
 from user_admin.models import BrokerTokenAuth
 
 
@@ -41,7 +41,8 @@ def get_broker_stats_dict(broker: Brokercrm) -> Dict[str, int]:
     assigned_loan_count = assigned_qs.count()
 
     submissions_count = (
-        BrokerValues.objects.filter(
+        Valuation.objects.filter(
+            source='broker',
             asset_hub__acq_raw__broker_tokens__broker_id=broker.id
         )
         .distinct("asset_hub_id")
@@ -77,10 +78,10 @@ def list_assigned_loan_entries(broker: Brokercrm) -> List[Dict[str, Any]]:
     """
     latest_tokens = list_latest_tokens_for_broker(broker)
 
-    # Precompute which SRD ids have a BrokerValues row
+    # Precompute which SRD ids have a broker Valuation row
     srd_ids = [t.seller_raw_data_id for t in latest_tokens]
     submitted_ids = set(
-        BrokerValues.objects.filter(asset_hub__acq_raw_id__in=srd_ids)
+        Valuation.objects.filter(source='broker', asset_hub__acq_raw_id__in=srd_ids)
         .values_list("asset_hub__acq_raw_id", flat=True)
     )
 

@@ -7,7 +7,9 @@ Docs checked:
 - Django File storage & MEDIA_URL: https://docs.djangoproject.com/en/5.2/topics/files/
 
 This module exposes a single GET endpoint to list all photos (Public, Document, Broker)
-associated with a given SellerRawData id. It normalizes results to a frontend-friendly
+associated with a given SellerRawData id. Under the hub-first model, photos belong to
+AssetIdHub; we resolve the hub from the SellerRawData row and return all photos for that hub.
+It normalizes results to a frontend-friendly
 format: [{ src, alt?, thumb? }].
 
 We build absolute URLs using request.build_absolute_uri(photo.url) so the Vue app can
@@ -22,7 +24,7 @@ from rest_framework.response import Response
 from rest_framework import status, serializers
 
 from ..models.seller import SellerRawData
-from core.models.valuations import Photo
+from core.models.attachments import Photo
 
 
 class OutputPhotoSerializer(serializers.Serializer):
@@ -68,8 +70,13 @@ def list_photos_by_raw_id(request, id: int):
 
     items: List[Dict] = []
 
-    # Unified photos
-    for p in Photo.objects.filter(seller_raw_data=raw).iterator():
+    # Unified photos for the owning hub
+    hub = getattr(raw, 'asset_hub', None)
+    qs = Photo.objects.none()
+    if hub is not None:
+        qs = Photo.objects.filter(asset_hub=hub)
+
+    for p in qs.iterator():
         try:
             src = abs_url(p.image.url)
         except Exception:

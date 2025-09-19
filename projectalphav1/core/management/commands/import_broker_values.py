@@ -1,23 +1,18 @@
 from __future__ import annotations
 """
-Reusable import command for am_module.SellerBoardedData.
+Import command for core.BrokerValues from a CSV file.
+
+Features:
+- Maps FK fields using <field>_id convention (asset_hub, created_by, updated_by)
+- Accepts numeric IDs provided either as '<field>' or '<field>_id' headers
+- Parses dates in YYYY-MM-DD or MM/DD/YYYY
+- Coerces Decimal/Integer/Boolean
+- Unknown columns are ignored
+- --dry-run, --truncate, --allow-partial, --batch-size, --update-on are supported
 
 Usage examples:
-- Basic insert (headers must match model field names):
-    python manage.py import_seller_boarded_data --csv path/to/SellerBoardedData.csv
-
-- Dry run (validate only, no DB writes):
-    python manage.py import_seller_boarded_data --csv path/to/file.csv --dry-run
-
-- Truncate table first, then import:
-    python manage.py import_seller_boarded_data --csv path/to/file.csv --truncate
-
-- Upsert using a natural key (comma-separated fields):
-    python manage.py import_seller_boarded_data --csv path/to/file.csv --update-on sellertape_id,acq_trade_id
-
-Notes:
-- Empty strings in CSV are converted to None for nullable fields; otherwise kept as-is.
-- Unknown columns are ignored; missing columns will default to None/blank if allowed, else error.
+  python manage.py import_broker_values --csv C:/path/to/broker_values_headers.csv --dry-run
+  python manage.py import_broker_values --csv C:/path/to/broker_values_headers.csv --truncate --allow-partial
 """
 
 import csv
@@ -25,32 +20,22 @@ from typing import Dict, List
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
+from django.db import models as djm
+from decimal import Decimal
+import datetime as dt
 
-from am_module.models.boarded_data import SellerBoardedData as SBD
+from core.models.valuations import BrokerValues as BV
 
 
 class Command(BaseCommand):
-    help = "Import SellerBoardedData rows from a CSV file. Headers must match model field names."
+    help = "Import BrokerValues rows from a CSV file. Headers must match model field names (unknowns ignored)."
 
     def add_arguments(self, parser):
         parser.add_argument("--csv", dest="csv_path", required=True, help="Path to CSV file to import")
         parser.add_argument("--dry-run", action="store_true", help="Validate only, do not write to DB")
-        parser.add_argument(
-            "--truncate",
-            action="store_true",
-            help="Delete all existing rows before import (skipped when --dry-run)",
-        )
-        parser.add_argument(
-            "--allow-partial",
-            action="store_true",
-            help="Do not enforce required-field presence; let DB/defaults handle it.",
-        )
-        parser.add_argument(
-            "--batch-size",
-            type=int,
-            default=1000,
-            help="bulk_create batch size (default 1000)",
-        )
+        parser.add_argument("--truncate", action="store_true", help="Delete all existing rows before import (skipped when --dry-run)")
+        parser.add_argument("--allow-partial", action="store_true", help="Allow missing required fields; DB/null defaults may apply")
+        parser.add_argument("--batch-size", type=int, default=1000, help="bulk_create batch size (default 1000)")
         parser.add_argument(
             "--update-on",
             dest="update_on",
@@ -67,7 +52,7 @@ class Command(BaseCommand):
         allow_partial: bool = bool(opts.get("allow_partial"))
 
         # Introspect model fields
-        concrete_fields = [f for f in SBD._meta.concrete_fields]
+        concrete_fields = [f for f in BV._meta.concrete_fields]
         field_by_name: Dict[str, object] = {f.name: f for f in concrete_fields}
         allowed_fields = [f.name for f in concrete_fields if f.name != "id"]
 
@@ -77,8 +62,7 @@ class Command(BaseCommand):
                 reader = csv.DictReader(f)
                 if not reader.fieldnames:
                     raise CommandError("CSV has no header row")
-                # Warn about unknown columns
-                unknown = [h for h in reader.fieldnames if h not in field_by_name]
+                unknown = [h for h in reader.fieldnames if h not in field_by_name and not h.endswith("_id")]
                 if unknown:
                     self.stdout.write(self.style.WARNING(f"Ignoring unknown columns: {', '.join(unknown)}"))
                 rows = list(reader)
@@ -90,54 +74,37 @@ class Command(BaseCommand):
             return
 
         def clean_value(name: str, val: str):
-            """Coerce CSV strings into appropriate Python types per field.
-
-            Rules:
-            - Empty string -> None (even if not nullable; model constraint may error and we report it).
-            - IntegerField: strip commas and whitespace, cast to int.
-            - DecimalField: strip commas, '$', whitespace, cast to Decimal via str.
-            - BooleanField: map case-insensitive 'true'/'false'/'1'/'0'.
-            - DateField: attempt common formats (YYYY-MM-DD, MM/DD/YYYY).
-            - Else: raw string as-is.
-            """
+            """Coerce CSV strings into appropriate Python types per field."""
             fld = field_by_name.get(name)
             if fld is None:
-                return None  # unknown/ignored
+                return None
             s = (val or "")
             if s == "":
                 return None
-
-            from django.db import models as djm
             # Integer
             if isinstance(fld, djm.IntegerField):
-                s2 = s.replace(",", "").strip()
-                return int(s2)
+                return int(s.replace(",", "").strip())
             # Decimal
             if isinstance(fld, djm.DecimalField):
-                from decimal import Decimal
-                s2 = s.replace(",", "").replace("$", "").strip()
-                return Decimal(s2)
+                return Decimal(s.replace(",", "").replace("$", "").strip())
             # Boolean
             if isinstance(fld, djm.BooleanField):
                 sl = s.strip().lower()
-                if sl in ("1", "true", "t", "yes", "y"):  # permissive
+                if sl in ("1", "true", "t", "yes", "y"):
                     return True
                 if sl in ("0", "false", "f", "no", "n"):
                     return False
-                # Fallthrough: return original string to let Django raise if invalid
                 return s
             # Date
             if isinstance(fld, djm.DateField):
-                import datetime as dt
                 s2 = s.strip()
                 for fmt in ("%Y-%m-%d", "%m/%d/%Y"):
                     try:
                         return dt.datetime.strptime(s2, fmt).date()
                     except ValueError:
                         continue
-                # Leave as-is; DB may reject and we'll report the error
                 return s
-            # Default: string
+            # Default to raw string
             return s
 
         created = 0
@@ -148,10 +115,10 @@ class Command(BaseCommand):
         try:
             ctx.__enter__()
             if truncate and not dry_run:
-                SBD.objects.all().delete()
+                BV.objects.all().delete()
 
-            # Upsert path using natural key
             if update_on_fields:
+                # Upsert path
                 missing_key_cols = [k for k in update_on_fields if k not in allowed_fields]
                 if missing_key_cols:
                     raise CommandError(
@@ -161,13 +128,25 @@ class Command(BaseCommand):
                     defaults = {}
                     lookup = {}
                     for name in allowed_fields:
-                        val = clean_value(name, r.get(name, ""))
-                        if name in update_on_fields:
-                            lookup[name] = val
+                        fld = field_by_name[name]
+                        raw_val = r.get(name, "")
+                        # FK/OneToOne by ID support
+                        if isinstance(fld, (djm.ForeignKey, djm.OneToOneField)):
+                            raw_id = r.get(f"{name}_id", raw_val)
+                            sval = (raw_id or "").replace(",", "").strip()
+                            val = int(sval) if sval else None
+                            if name in update_on_fields:
+                                lookup[f"{name}_id"] = val
+                            else:
+                                defaults[f"{name}_id"] = val
                         else:
-                            defaults[name] = val
+                            val = clean_value(name, raw_val)
+                            if name in update_on_fields:
+                                lookup[name] = val
+                            else:
+                                defaults[name] = val
                     try:
-                        obj, was_created = SBD.objects.update_or_create(defaults=defaults, **lookup)
+                        obj, was_created = BV.objects.update_or_create(defaults=defaults, **lookup)
                         created += 1 if was_created else 0
                         updated += 0 if was_created else 1
                     except Exception as e:
@@ -179,33 +158,22 @@ class Command(BaseCommand):
                 for idx, r in enumerate(rows, start=2):  # header is line 1
                     data = {}
                     for name in allowed_fields:
-                        raw_val = r.get(name, "")
                         fld = field_by_name[name]
-                        from django.db import models as djm
-                        # If CSV provides the relation by FK name (e.g., 'asset_hub'), allow numeric IDs
+                        raw_val = r.get(name, "")
                         if isinstance(fld, (djm.ForeignKey, djm.OneToOneField)):
-                            # Accept either '<field>_id' header OR '<field>' with a numeric value
                             raw_id = r.get(f"{name}_id", raw_val)
-                            if raw_id is None:
-                                val = None
-                            else:
-                                sval = (raw_id or "").replace(",", "").strip()
-                                val = int(sval) if sval else None
-                            # Store under '<field>_id' to assign FK by ID
-                            data[f"{name}_id"] = val
+                            sval = (raw_id or "").replace(",", "").strip()
+                            data[f"{name}_id"] = int(sval) if sval else None
                         else:
                             data[name] = clean_value(name, raw_val)
                     try:
-                        # Required field hinting (relaxed): only enforce when field has no default/auto and null=False
                         if not allow_partial:
                             missing_required = []
                             for n in allowed_fields:
                                 fld = field_by_name[n]
                                 val = data.get(n)
-                                # Skip if provided
                                 if val is not None:
                                     continue
-                                # Determine if field supplies its own value
                                 has_default = False
                                 try:
                                     has_default = bool(getattr(fld, "has_default", lambda: False)()) or (
@@ -214,29 +182,22 @@ class Command(BaseCommand):
                                 except Exception:
                                     has_default = False
                                 auto_field = bool(getattr(fld, "auto_now", False) or getattr(fld, "auto_now_add", False))
-                                # Enforce only if truly required by DB-level null=False and no default/auto
                                 if getattr(fld, "null", False) is False and not has_default and not auto_field:
                                     missing_required.append(n)
                             if missing_required:
                                 raise ValueError(f"Missing required fields: {', '.join(missing_required)}")
-
-                        objs.append(SBD(**data))
+                        objs.append(BV(**data))
                     except Exception as e:
                         errors += 1
                         self.stderr.write(self.style.ERROR(f"Row {idx} skipped: {e} | data={data}"))
-                # Bulk create in batches
                 if not dry_run and objs:
                     for i in range(0, len(objs), batch_size):
-                        SBD.objects.bulk_create(objs[i : i + batch_size])
+                        BV.objects.bulk_create(objs[i : i + batch_size])
                     created += len(objs)
 
             if dry_run:
                 self.stdout.write(self.style.WARNING("Dry run complete (no DB writes)."))
-            self.stdout.write(
-                self.style.SUCCESS(
-                    f"Import complete. created={created}, updated={updated}, errors={errors}, dry_run={dry_run}"
-                )
-            )
+            self.stdout.write(self.style.SUCCESS(f"Import complete. created={created}, updated={updated}, errors={errors}, dry_run={dry_run}"))
             ctx.__exit__(None, None, None)
         except Exception as e:
             ctx.__exit__(type(e), e, e.__traceback__)

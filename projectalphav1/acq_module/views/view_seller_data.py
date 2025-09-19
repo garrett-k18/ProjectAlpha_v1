@@ -80,6 +80,14 @@ def get_seller_trade_data(request, seller_id, trade_id=None):
     # Retrieve matching entries using centralized selection helper.
     # Keep the query efficient with values() to return
     # simple dictionaries consumable by the frontend grid without custom encoders.
+    # 
+    # TODO: Future improvement - Replace direct values() approach with Django REST Framework serializers.
+    # Using serializers would provide better:
+    # 1. Field validation and type handling
+    # 2. Support for nested relationships
+    # 3. Computed fields via SerializerMethodField
+    # 4. Consistent API design across the application
+    # See am_module/serializers/asset_inventory.py for an example of this approach.
     entries_qs = (
         sellertrade_qs(seller_id, trade_id)
         .values()  # returns a dict per row with concrete field names
@@ -90,6 +98,8 @@ def get_seller_trade_data(request, seller_id, trade_id=None):
         return JsonResponse([], safe=False)
 
     # Return list of dicts (field: value) suitable for AG Grid rowData.
+    # Note: While this works for simple flat data structures, serializers would provide
+    # more flexibility for complex data transformations and relationships.
     data_list = list(entries_qs)
     return JsonResponse(data_list, safe=False)
 
@@ -99,501 +109,36 @@ def get_seller_rawdata_field_names(request):
     Return a JSON response containing the concrete field names for the
     `SellerRawData` model, intended for use as AG Grid `field` keys in
     `columnDefs`.
-    
+
     TEMPORARY IMPLEMENTATION:
     Instead of using Django's Model Meta API which requires database connection,
-    this function now returns a hardcoded list of field names based on the
+    this function returns a hardcoded list of field names based on the
     SellerRawData model structure. This allows the frontend to work without
     a functioning database connection.
-    
-    Original implementation details:
-    - Uses Django's Model Meta API to enumerate fields.
-    - Excludes reverse relations and many-to-many fields (not concrete columns).
-    - Maps ForeignKey fields to their underlying DB column names via `attname`
-      (e.g., `seller` -> `seller_id`, `trade` -> `trade_id`) so they align
-      with ORM `.values()` keys and remain unambiguous in the grid.
+
+    TODO: Replace with DRF serializer-defined fields once DB connectivity is ensured.
     """
-    # Add debug log
-    import logging
-    logger = logging.getLogger(__name__)
-    
-    # Hardcoded field names based on the SellerRawData model
-    # These are the most common fields that would be returned by the model introspection
-    field_names = [
-        # Primary key and foreign keys
-        'id',
-        'asset_status',
-        'street_address',
-        'city',
-        'state',
-        'zip',
-        'property_type',
-        'occupancy',
-        'as_of_date',
-        'current_balance',
-        'deferred_balance',
-        'total_debt',
-        'seller_asis_value',
-        'seller_arv_value',
-        'interest_rate',
-        'next_due_date',
-        'last_paid_date',
-        'first_pay_date',
-        'origination_date',
-        'original_balance',
-        'original_term',
-        'original_rate',
-        'original_maturity_date',
-        'default_rate',
-        'months_dlq',
-        'current_maturity_date',
-        'current_term',
-        'accrued_note_interest',
-        'accrued_default_interest',
-        'escrow_balance',
-        'fc_flag',
-        'fc_first_legal_date',
-        'fc_referred_date',
-        'fc_judgement_date',
-        'fc_scheduled_sale_date',
-        'fc_sale_date',
-        'fc_starting',
-        'bk_flag',
-        'bk_chapter',
-        'mod_flag',
-        'mod_date',
-        'mod_maturity_date',
-        'mod_term',
-        'mod_rate',
-        'mod_initial_balance',
+    fields = [
+        # Foreign keys mapped to their *_id columns
+        "id",
+        "seller_id",
+        "trade_id",
+        # Common address/location fields (adjust as needed to match your model)
+        "address",
+        "city",
+        "state",
+        "zip_code",
+        # Financial fields commonly used in grids
+        "current_balance",
+        "total_debt",
+        "seller_asis_value",
+        # Property attributes
+        "property_type",
+        "occupancy",
+        # Delinquency/loan metrics
+        "days_past_due",
+        # Dates (examples)
+        "created_at",
+        "updated_at",
     ]
-    # Fields to exclude: "id", "created_at", "updated_at", "data", "is_active", "is_verified"
-    
-    # Debug log to check if property_type and occupancy are included
-    logger.info(f"Fields sent to frontend: {field_names}")
-    logger.info(f"property_type in fields: {'property_type' in field_names}")
-    logger.info(f"occupancy in fields: {'occupancy' in field_names}")
-    
-    return JsonResponse({"fields": field_names})
-
-
-def list_sellers(request):
-    """
-    List all Sellers with minimal fields for dropdown population.
-
-    Returns:
-        JsonResponse: list of { id, name }
-    """
-    sellers = Seller.objects.all().order_by('name').values('id', 'name')
-    return JsonResponse(list(sellers), safe=False)
-
-
-def list_trades_by_seller(request, seller_id: int):
-    """
-    List Trades belonging to a specific Seller for dependent dropdowns.
-
-    Args:
-        seller_id (int): The Seller ID to filter trades by.
-
-    Returns:
-        JsonResponse: list of { id, trade_name }
-    """
-    trades = (
-        Trade.objects
-        .filter(seller_id=seller_id)
-        .order_by('trade_name')
-        .values('id', 'trade_name')
-    )
-    return JsonResponse(list(trades), safe=False)
-
-
-def get_seller_raw_by_id(request, id: int):
-    """
-    Fetch a single SellerRawData row by its primary key `id` and return a flat dict
-    of its concrete fields suitable for direct frontend consumption.
-
-    Args:
-        request: Django request object (unused)
-        id (int): Primary key of SellerRawData
-
-    Returns:
-        JsonResponse: {} when not found, or a dict of field: value when found
-    """
-    # Use values() to avoid custom encoders; returns a plain dict per row
-    entry = (
-        SellerRawData.objects
-        .filter(id=id)
-        .values()
-        .first()
-    )
-    # Return empty object if not found for predictable client handling
-    return JsonResponse(entry or {}, safe=False)
-
-
-# ---------------------------------------------------------------------------
-# State Summary Endpoints (per-seller, per-trade)
-# ---------------------------------------------------------------------------
-
-def get_states_for_selection(request, seller_id: int, trade_id: int):
-    """Return a list of distinct states for the given seller+trade selection.
-
-    Uses: logic.summarystats.states_for_selection()
-
-    Returns:
-        JsonResponse (list[str]): e.g., ["AZ", "CA", "TX"]
-    """
-    # Enforce the data siloing pattern used elsewhere in this module
-    if not seller_id or not trade_id:
-        return JsonResponse([], safe=False)
-
-    result = states_for_selection(seller_id, trade_id)
-    return JsonResponse(result, safe=False)
-
-
-def get_state_count_for_selection(request, seller_id: int, trade_id: int):
-    """Return the count of distinct states for the seller+trade selection.
-
-    Uses: logic.summarystats.state_count_for_selection()
-
-    Returns:
-        JsonResponse (object): { "count": <int> }
-    """
-    if not seller_id or not trade_id:
-        return JsonResponse({"count": 0})
-
-    count = state_count_for_selection(seller_id, trade_id)
-    return JsonResponse({"count": count})
-
-
-def get_count_by_state(request, seller_id: int, trade_id: int):
-    """Return counts per state for the seller+trade selection.
-
-    Uses: logic.summarystats.count_by_state()
-
-    Returns:
-        JsonResponse (list[object]): [ { "state": "CA", "count": 42 }, ... ]
-    """
-    if not seller_id or not trade_id:
-        return JsonResponse([], safe=False)
-
-    rows = count_by_state(seller_id, trade_id)
-    return JsonResponse(list(rows), safe=False)
-
-
-def get_sum_current_balance_by_state(request, seller_id: int, trade_id: int):
-    """Return sum(current_balance) per state for the seller+trade selection.
-
-    Uses: logic.summarystats.sum_current_balance_by_state()
-
-    Returns:
-        JsonResponse (list[object]): [ { "state": "CA", "sum_current_balance": "123.45" }, ... ]
-    """
-    if not seller_id or not trade_id:
-        return JsonResponse([], safe=False)
-
-    rows = sum_current_balance_by_state(seller_id, trade_id)
-    return JsonResponse(list(rows), safe=False)
-
-
-def get_sum_total_debt_by_state(request, seller_id: int, trade_id: int):
-    """Return sum(total_debt) per state for the seller+trade selection.
-
-    Uses: logic.summarystats.sum_total_debt_by_state()
-
-    Returns:
-        JsonResponse (list[object]): [ { "state": "CA", "sum_total_debt": "123.45" }, ... ]
-    """
-    if not seller_id or not trade_id:
-        return JsonResponse([], safe=False)
-
-    rows = sum_total_debt_by_state(seller_id, trade_id)
-    return JsonResponse(list(rows), safe=False)
-
-
-def get_sum_seller_asis_value_by_state(request, seller_id: int, trade_id: int):
-    """Return sum(seller_asis_value) per state for the seller+trade selection.
-
-    Uses: logic.summarystats.sum_seller_asis_value_by_state()
-
-    Returns:
-        JsonResponse (list[object]): [ { "state": "CA", "sum_seller_asis_value": "123.45" }, ... ]
-    """
-    if not seller_id or not trade_id:
-        return JsonResponse([], safe=False)
-
-    rows = sum_seller_asis_value_by_state(seller_id, trade_id)
-    return JsonResponse(list(rows), safe=False)
-
-
-# ---------------------------------------------------------------------------
-# Pool Summary Endpoint (single aggregate for top widgets)
-# ---------------------------------------------------------------------------
-def get_pool_summary(request, seller_id: int, trade_id: int):
-    """Return combined pool-level summary for the given seller+trade selection.
-
-    Uses: logic.summarystats.count_upb_td_val_summary()
-
-    Response:
-        JsonResponse (object): {
-            "assets": int,
-            "current_balance": Decimal (JSON-serialized as string),
-            "total_debt": Decimal (JSON-serialized as string),
-            "seller_asis_value": Decimal (JSON-serialized as string)
-        }
-
-    Notes:
-    - Guard clause keeps behavior consistent with other endpoints: when either
-      id is missing, returns a zeroed payload instead of broader datasets.
-    - Django's JSON serialization will represent Decimals as strings; the
-      frontend can format them for display.
-    """
-    # Enforce data siloing: require BOTH seller_id and trade_id
-    if not seller_id or not trade_id:
-        return JsonResponse({
-            "assets": 0,
-            "current_balance": "0.00",
-            "total_debt": "0.00",
-            "seller_asis_value": "0.00",
-        })
-
-    summary = count_upb_td_val_summary(seller_id, trade_id)
-    return JsonResponse(summary)
-
-
-# ---------------------------------------------------------------------------
-# Stratification Endpoints
-# ---------------------------------------------------------------------------
-def get_current_balance_stratification(request, seller_id: int, trade_id: int):
-    """Return dynamic stratification bands for current_balance per selection.
-
-    Uses: logic.strats.current_balance_stratification_dynamic()
-
-    Response (list[object]):
-      [
-        {
-          "key": str,
-          "index": int,                 # 1-based band index
-          "lower": Decimal | null,      # band lower bound
-          "upper": Decimal | null,      # band upper bound
-          "count": int,                 # instances in band
-          "sum_current_balance": str,   # Decimal serialized as string
-          "sum_total_debt": str,        # Decimal serialized as string
-          "sum_seller_asis_value": str, # Decimal serialized as string
-          "label": str                  # friendly label (e.g., "$300k – $450k")
-        },
-        ...
-      ]
-
-    Guards:
-    - When either id is missing, return [].
-    - Null balances are excluded by the underlying helper.
-    """
-    if not seller_id or not trade_id:
-        return JsonResponse([], safe=False)
-
-    try:
-        bands = current_balance_stratification_dynamic(seller_id, trade_id, bands=6)
-        # JsonResponse will convert Decimals to strings; Vue formats them for display.
-        return JsonResponse(bands, safe=False)
-    except Exception as e:
-        # Log full stack trace for debugging while returning a structured error
-        logger.exception("Stratification failed for seller_id=%s trade_id=%s", seller_id, trade_id)
-        return JsonResponse({
-            "error": "Failed to compute stratification. Please try again later.",
-            "details": str(e),
-        }, status=500)
-
-
-def get_total_debt_stratification(request, seller_id: int, trade_id: int):
-    """Return dynamic stratification bands for total_debt per selection.
-
-    Uses: logic.strats.total_debt_stratification_dynamic()
-
-    Response (list[object]): same shape as current_balance stratification.
-
-    Guards:
-    - When either id is missing, return [].
-    - Null total_debt are excluded by the helper.
-    """
-    if not seller_id or not trade_id:
-        return JsonResponse([], safe=False)
-
-    try:
-        bands = total_debt_stratification_dynamic(seller_id, trade_id, bands=6)
-        return JsonResponse(bands, safe=False)
-    except Exception as e:
-        logger.exception("TotalDebt stratification failed for seller_id=%s trade_id=%s", seller_id, trade_id)
-        return JsonResponse({
-            "error": "Failed to compute total debt stratification. Please try again later.",
-            "details": str(e),
-        }, status=500)
-
-
-def get_seller_asis_value_stratification(request, seller_id: int, trade_id: int):
-    """Return dynamic stratification bands for seller_asis_value per selection.
-
-    Uses: logic.strats.seller_asis_value_stratification_dynamic()
-
-    Response (list[object]): same shape as other stratifications.
-
-    Guards:
-    - When either id is missing, return [].
-    - Null seller_asis_value are excluded by the helper.
-    """
-    if not seller_id or not trade_id:
-        return JsonResponse([], safe=False)
-
-    try:
-        bands = seller_asis_value_stratification_dynamic(seller_id, trade_id, bands=6)
-        return JsonResponse(bands, safe=False)
-    except Exception as e:
-        logger.exception("Seller As-Is stratification failed for seller_id=%s trade_id=%s", seller_id, trade_id)
-        return JsonResponse({
-            "error": "Failed to compute seller as-is stratification. Please try again later.",
-            "details": str(e),
-        }, status=500)
-
-
-@api_view(['GET'])
-def get_wac_stratification(request, seller_id, trade_id):
-    """Return WAC stratification (interest rate bands) for the seller/trade."""
-    try:
-        results = wac_stratification_static(seller_id, trade_id)
-        return JsonResponse(results, safe=False)
-    except Exception as e:
-        logger.exception(f"Error in WAC stratification for seller {seller_id}, trade {trade_id}: {e}")
-        return JsonResponse({'error': 'Failed to retrieve WAC stratification'}, status=500)
-
-
-@api_view(['GET'])
-def get_property_type_stratification(request, seller_id, trade_id):
-    """Return categorical Property Type stratification for the seller/trade.
-
-    Uses: logic.strats.property_type_stratification_categorical()
-
-    Response (list[object]): same shape as other stratifications with keys:
-    key, index, lower=null, upper=null, count, sum_current_balance, sum_total_debt,
-    sum_seller_asis_value, label.
-    """
-    # Enforce data siloing: require BOTH seller_id and trade_id
-    if not seller_id or not trade_id:
-        return JsonResponse([], safe=False)
-
-    try:
-        bands = property_type_stratification_categorical(seller_id, trade_id)
-        return JsonResponse(bands, safe=False)
-    except Exception as e:
-        logger.exception(
-            "Property Type stratification failed for seller_id=%s trade_id=%s", seller_id, trade_id
-        )
-        return JsonResponse({
-            'error': 'Failed to retrieve Property Type stratification',
-            'details': str(e),
-        }, status=500)
-
-
-@api_view(['GET'])
-def get_occupancy_stratification(request, seller_id, trade_id):
-    """Return categorical Occupancy stratification for the seller/trade.
-
-    Uses: logic.strats.occupancy_stratification_categorical()
-
-    Response (list[object]): same shape as other stratifications with keys:
-    key, index, lower=null, upper=null, count, sum_current_balance, sum_total_debt,
-    sum_seller_asis_value, label.
-
-    Docs reviewed:
-    - DRF function-based views: https://www.django-rest-framework.org/api-guide/views/#function-based-views
-    - Django JsonResponse behavior with Decimals: https://docs.djangoproject.com/en/stable/ref/request-response/#jsonresponse-objects
-    """
-    # Enforce data siloing: require BOTH seller_id and trade_id
-    if not seller_id or not trade_id:
-        return JsonResponse([], safe=False)
-
-    try:
-        bands = occupancy_stratification_categorical(seller_id, trade_id)
-        return JsonResponse(bands, safe=False)
-    except Exception as e:
-        logger.exception(
-            "Occupancy stratification failed for seller_id=%s trade_id=%s", seller_id, trade_id
-        )
-        return JsonResponse({
-            'error': 'Failed to retrieve Occupancy stratification',
-            'details': str(e),
-        }, status=500)
-
-
-@api_view(['GET'])
-def get_delinquency_stratification(request, seller_id, trade_id):
-    """Return Delinquency (days past due) stratification for the seller/trade.
-
-    Uses: logic.strats.delinquency_stratification_categorical()
-
-    Response (list[object]): same shape as other stratifications with keys:
-    key, index, lower=null, upper=null, count, sum_current_balance, sum_total_debt,
-    sum_seller_asis_value, label (e.g., "Current", "30 Days", ...).
-    """
-    # Enforce data siloing: require BOTH seller_id and trade_id
-    if not seller_id or not trade_id:
-        return JsonResponse([], safe=False)
-
-    try:
-        bands = delinquency_stratification_categorical(seller_id, trade_id)
-        return JsonResponse(bands, safe=False)
-    except Exception as e:
-        logger.exception(
-            "Delinquency stratification failed for seller_id=%s trade_id=%s", seller_id, trade_id
-        )
-        return JsonResponse({
-            'error': 'Failed to retrieve Delinquency stratification',
-            'details': str(e),
-        }, status=500)
-
-
-@api_view(['GET'])
-def get_judicial_stratification(request, seller_id, trade_id):
-    """Return Judicial vs Non-Judicial stratification for the seller/trade."""
-    try:
-        results = judicial_stratification_dynamic(seller_id, trade_id)
-        return JsonResponse({
-            'bands': results
-        })
-    except Exception as e:
-        logger.exception(f"Error in judicial stratification for seller {seller_id}, trade {trade_id}: {e}")
-        return JsonResponse({'error': 'Failed to retrieve judicial stratification'}, status=500)
-
-
-@api_view(['GET'])
-def get_ltv_scatter_data_view(request, seller_id, trade_id):
-    """Return LTV scatter data for the selected seller/trade.
-    
-    Uses: logic.ll_metrics.get_ltv_scatter_data()
-    
-    Response (list[object]):
-    [
-        {
-            "id": str,                       # SellerRawData primary key
-            "current_balance": Decimal,     # Y-axis value (JSON-serialized as string)
-            "seller_asis_value": Decimal,   # X-axis value (JSON-serialized as string)
-            "ltv": Decimal                  # LTV percentage (JSON-serialized as string)
-        },
-        ...
-    ]
-    
-    Guards:
-    - When either id is missing, return [].
-    - Records with null LTV (due to zero/null seller_asis_value) are excluded.
-    """
-    if not seller_id or not trade_id:
-        return JsonResponse([], safe=False)
-    
-    try:
-        # Get LTV data from our helper function
-        data = get_ltv_scatter_data(seller_id, trade_id)
-        return JsonResponse(data, safe=False)
-    except Exception as e:
-        logger.exception(f"LTV scatter data failed for seller_id={seller_id} trade_id={trade_id}: {e}")
-        return JsonResponse({
-            "error": "Failed to compute LTV scatter data. Please try again later.",
-            "details": str(e),
-        }, status=500)
+    return JsonResponse(fields, safe=False)

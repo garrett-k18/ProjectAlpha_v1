@@ -31,7 +31,7 @@ from rest_framework.response import Response
 from rest_framework import status, serializers
 
 from ...models.seller import SellerRawData
-from core.models.valuations import BrokerValues
+from core.models.valuations import Valuation
 from core.models.crm import Brokercrm
 from ...services.brokers import list_assigned_loan_entries
 from user_admin.models import BrokerTokenAuth
@@ -156,12 +156,17 @@ def broker_portal_detail(request, token: str):
     # Build entries using shared service
     entries = list_assigned_loan_entries(broker)
 
-    # Enrich with any saved BrokerValues so the UI can prefill even if the invite
+    # Enrich with any saved broker Valuation so the UI can prefill even if the invite
     # is expired/used. This preserves previously submitted values in the portal.
     srd_ids = [e.get("seller_raw_data") for e in entries if e.get("seller_raw_data") is not None]
-    # Map BrokerValues by SellerRawData id via hub: select_related to traverse hub -> acq_raw
+    # Map broker Valuation by SellerRawData id via hub: select_related to traverse hub -> acq_raw
     values_by_srd = {}
-    for bv in BrokerValues.objects.select_related("asset_hub__acq_raw").filter(asset_hub__acq_raw_id__in=srd_ids):
+    for bv in (
+        Valuation.objects
+        .select_related("asset_hub__acq_raw")
+        .filter(asset_hub__acq_raw_id__in=srd_ids, source='broker')
+        .order_by('-value_date', '-created_at')
+    ):
         raw = getattr(bv.asset_hub, 'acq_raw', None)
         if raw is not None:
             values_by_srd[raw.id] = bv
@@ -174,11 +179,12 @@ def broker_portal_detail(request, token: str):
             e = {
                 **e,
                 "values": {
-                    "broker_asis_value": str(bv.broker_asis_value) if getattr(bv, "broker_asis_value", None) is not None else None,
-                    "broker_arv_value": str(bv.broker_arv_value) if getattr(bv, "broker_arv_value", None) is not None else None,
-                    "broker_rehab_est": str(getattr(bv, "broker_rehab_est", None)) if getattr(bv, "broker_rehab_est", None) is not None else None,
-                    "broker_value_date": bv.broker_value_date.isoformat() if getattr(bv, "broker_value_date", None) else None,
-                    "broker_notes": getattr(bv, "broker_notes", None),
+                    # Back-compat keys mapped from unified Valuation
+                    "broker_asis_value": str(getattr(bv, 'asis_value', None)) if getattr(bv, 'asis_value', None) is not None else None,
+                    "broker_arv_value": str(getattr(bv, 'arv_value', None)) if getattr(bv, 'arv_value', None) is not None else None,
+                    "broker_rehab_est": str(getattr(bv, 'rehab_est_total', None)) if getattr(bv, 'rehab_est_total', None) is not None else None,
+                    "broker_value_date": getattr(bv, 'value_date', None).isoformat() if getattr(bv, 'value_date', None) else None,
+                    "broker_notes": getattr(bv, "notes", None),
                 },
             }
         enriched_entries.append(e)

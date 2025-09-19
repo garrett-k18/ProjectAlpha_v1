@@ -1,4 +1,8 @@
 """
+[NOTE] Broker values are now stored in unified Valuation (source='broker').
+This module was updated to use `core.models.valuations.Valuation` instead of
+the legacy `BrokerValues` model. Payload shapes remain the same for backward
+compatibility with the frontend.
 Public (token-based) broker invite API endpoints.
 
 Responsibilities:
@@ -42,7 +46,8 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from django.db.models import Q
 
 from ...models.seller import SellerRawData
-from core.models.valuations import BrokerValues, Photo, BrokerDocument
+from core.models.valuations import Valuation
+from core.models.attachments import Photo, Document
 from core.models.crm import Brokercrm
 from user_admin.models import BrokerTokenAuth
 
@@ -147,9 +152,14 @@ def validate_broker_invite(request, token: str):
     except BrokerTokenAuth.DoesNotExist:
         return Response({"valid": False, "reason": "not_found"}, status=status.HTTP_404_NOT_FOUND)
 
-    # Load any previously saved BrokerValues for prefill visibility even when invalid
-    # Map by hub-only 1:1
-    bv = BrokerValues.objects.filter(asset_hub=invite.seller_raw_data.asset_hub).first()
+    # Load any previously saved broker Valuation for prefill visibility even when invalid
+    # Map by hub (latest by value_date then created)
+    bv = (
+        Valuation.objects
+        .filter(asset_hub=invite.seller_raw_data.asset_hub, source='broker')
+        .order_by('-value_date', '-created_at')
+        .first()
+    )
     values = None
     if bv:
         values = {
@@ -223,26 +233,38 @@ def submit_broker_values_with_token(request, token: str):
     serializer.is_valid(raise_exception=True)
     data = serializer.validated_data
 
-    # Upsert BrokerValues
-    try:
-        bv = BrokerValues.objects.get(asset_hub=srd.asset_hub)
-    except BrokerValues.DoesNotExist:
-        bv = BrokerValues(asset_hub=srd.asset_hub)
-
-    if "broker_asis_value" in data:
-        bv.broker_asis_value = data["broker_asis_value"]
-    if "broker_arv_value" in data:
-        bv.broker_arv_value = data["broker_arv_value"]
-    if "broker_rehab_est" in data:
-        bv.broker_rehab_est = data["broker_rehab_est"]
-    if "broker_value_date" in data:
-        bv.broker_value_date = data["broker_value_date"]
-    if "broker_notes" in data:
-        bv.broker_notes = data["broker_notes"]
-    if "broker_links" in data:
-        bv.broker_links = data["broker_links"]
-
-    bv.save()
+    # Upsert Valuation (source='broker'): we keep at most one row per date per hub via unique constraint
+    # If a valuation exists for this date, update it; else create new.
+    lookup = {
+        'asset_hub': srd.asset_hub,
+        'source': 'broker',
+        'value_date': data.get('broker_value_date'),
+    }
+    defaults = {
+        'asis_value': data.get('broker_asis_value'),
+        'arv_value': data.get('broker_arv_value'),
+        'rehab_est_total': data.get('broker_rehab_est'),
+        'notes': data.get('broker_notes'),
+        'links': data.get('broker_links'),
+    }
+    # Null value_date would violate the unique constraint semantics; allow a None-date upsert by using created_at latest
+    if lookup['value_date'] is None:
+        # fallback to latest existing broker valuation for hub
+        bv = (
+            Valuation.objects
+            .filter(asset_hub=srd.asset_hub, source='broker')
+            .order_by('-value_date', '-created_at')
+            .first()
+        )
+        if bv:
+            # update existing latest
+            for k, v in defaults.items():
+                setattr(bv, k, v)
+            bv.save()
+        else:
+            bv = Valuation.objects.create(asset_hub=srd.asset_hub, source='broker', **defaults)
+    else:
+        bv, _created = Valuation.objects.update_or_create(defaults=defaults, **lookup)
 
     # Mark token as used when single_use
     if invite.single_use and not invite.is_used:
@@ -333,11 +355,11 @@ def list_brokers_by_state_batch(request):
 
 
 def _get_invite_and_broker_values_or_400(token: str):
-    """Resolve an invite by token and return (invite, broker_values).
+    """Resolve an invite by token and return (invite, broker valuation instance).
 
     - 404 when token not found
     - 400 when expired
-    - Creates BrokerValues if missing (upsert semantics similar to submit endpoint)
+    - Ensures a Valuation (source='broker') instance exists for convenience
     """
     try:
         invite = BrokerTokenAuth.objects.get(token=token)
@@ -348,10 +370,15 @@ def _get_invite_and_broker_values_or_400(token: str):
         return None, Response({"detail": "token_expired"}, status=status.HTTP_400_BAD_REQUEST)
 
     srd = invite.seller_raw_data
-    try:
-        bv = BrokerValues.objects.get(seller_raw_data=srd)
-    except BrokerValues.DoesNotExist:
-        bv = BrokerValues.objects.create(seller_raw_data=srd)
+    # Ensure a broker valuation exists (latest), create if none
+    bv = (
+        Valuation.objects
+        .filter(asset_hub=srd.asset_hub, source='broker')
+        .order_by('-value_date', '-created_at')
+        .first()
+    )
+    if bv is None:
+        bv = Valuation.objects.create(asset_hub=srd.asset_hub, source='broker')
     return (invite, bv), None
 
 
@@ -389,9 +416,10 @@ def upload_broker_photos_with_token(request, token: str):
 
     created = []
     for f in files:
-        # Create unified Photo; storage backend saves to MEDIA_ROOT
+        # Create unified Photo (hub-first); storage backend saves to MEDIA_ROOT
         p = Photo.objects.create(
-            seller_raw_data=bv.seller_raw_data,
+            asset_hub=bv.asset_hub,
+            source_raw_id=getattr(bv, 'seller_raw_data_id', None),
             image=f,
             source_tag='broker',
         )
@@ -412,7 +440,7 @@ def upload_broker_photos_with_token(request, token: str):
 @permission_classes([AllowAny])
 @parser_classes([MultiPartParser, FormParser])
 def upload_broker_documents_with_token(request, token: str):
-    """Upload one or more files as `BrokerDocument` records bound to the token's asset.
+    """Upload one or more files as `Document` records bound to the token's asset hub.
 
     Expected multipart form fields:
     - files: multiple file parts (preferred)
@@ -440,7 +468,11 @@ def upload_broker_documents_with_token(request, token: str):
 
     created = []
     for f in files:
-        bd = BrokerDocument.objects.create(broker_valuation=bv, file=f, original_name=getattr(f, 'name', None))
+        bd = Document.objects.create(
+            asset_hub=bv.asset_hub,
+            file=f,
+            original_name=getattr(f, 'name', None),
+        )
         try:
             url = request.build_absolute_uri(bd.file.url)
         except Exception:
