@@ -1,10 +1,16 @@
 from django.contrib import admin
+from django.db.models import Exists, OuterRef
 from .models.capital import DebtFacility
 from .models.crm import Brokercrm, TradingPartnerCRM
 from .models.assumptions import Servicer, StateReference
 from .models.asset_id_hub import AssetIdHub
 from .models.valuations import Valuation
 from .models.attachments import Photo, Document
+
+# Cross-app children that reference AssetIdHub
+from acq_module.models.seller import SellerRawData
+from am_module.models.boarded_data import SellerBoardedData, BlendedOutcomeModel
+from am_module.models.servicers import ServicerLoanData
 
 @admin.register(DebtFacility)
 class DebtFacilityAdmin(admin.ModelAdmin):
@@ -134,13 +140,137 @@ class StateReferenceAdmin(admin.ModelAdmin):
     list_filter = ('judicialvsnonjudicial',)
 
 
+# Module-level admin action so it reliably appears in the actions dropdown
+@admin.action(description="Delete hub and all children")
+def delete_hub_and_children(modeladmin, request, queryset):
+    """For each selected hub, delete all child rows then the hub itself.
+
+    Deletion order (to satisfy FK constraints):
+    1) Photo, Document
+    2) Valuation
+    3) SellerRawData (acq)
+    4) BlendedOutcomeModel, ServicerLoanData, SellerBoardedData (AM)
+    5) Hub
+    """
+    deleted_hubs = 0
+    for hub in queryset:
+        # Core attachments first (may reference valuation)
+        Photo.objects.filter(asset_hub=hub).delete()
+        Document.objects.filter(asset_hub=hub).delete()
+
+        # Valuations (core)
+        Valuation.objects.filter(asset_hub=hub).delete()
+
+        # Acquisitions raw
+        SellerRawData.objects.filter(asset_hub=hub).delete()
+
+        # AM side
+        BlendedOutcomeModel.objects.filter(asset_hub=hub).delete()
+        ServicerLoanData.objects.filter(asset_hub=hub).delete()
+        SellerBoardedData.objects.filter(asset_hub=hub).delete()
+
+        # Finally, delete the hub itself
+        AssetIdHub.objects.filter(pk=hub.pk).delete()
+        deleted_hubs += 1
+
+    modeladmin.message_user(request, f"Deleted {deleted_hubs} hub(s) and all children.")
+    
+# Also register globally to ensure the action appears even if ModelAdmin.actions is overridden by theme/config
+admin.site.add_action(delete_hub_and_children, name='delete_hub_and_children')
+
+
 @admin.register(AssetIdHub)
 class AssetIdHubAdmin(admin.ModelAdmin):
     """Admin for the central Asset ID Hub."""
     list_display = (
-        'id', 'sellertape_id', 'created_at'
+        'id', 'sellertape_id',
+        # Boolean columns indicating presence of child records
+        'has_raw', 'has_boarded', 'has_blended', 'has_servicer', 'has_valuation', 'has_photo', 'has_document',
+        'created_at',
     )
+    # Show more rows per page (default is 100). Also allow larger "Show all" limit.
+    list_per_page = 500
+    list_max_show_all = 2000
     search_fields = (
         'sellertape_id',
     )
     list_filter = ()
+    actions_on_top = True
+    actions_on_bottom = True
+    actions = ['delete_selected', delete_hub_and_children]
+
+    def get_queryset(self, request):
+        """Annotate queryset with boolean flags indicating related children exist.
+
+        We keep this read-only and computed at query time using EXISTS subqueries
+        to avoid schema changes and synchronization complexity.
+        """
+        qs = super().get_queryset(request)
+        return qs.annotate(
+            has_raw=Exists(
+                SellerRawData.objects.filter(asset_hub=OuterRef('pk'))
+            ),
+            has_boarded=Exists(
+                SellerBoardedData.objects.filter(asset_hub=OuterRef('pk'))
+            ),
+            has_blended=Exists(
+                BlendedOutcomeModel.objects.filter(asset_hub=OuterRef('pk'))
+            ),
+            has_servicer=Exists(
+                ServicerLoanData.objects.filter(asset_hub=OuterRef('pk'))
+            ),
+            has_valuation=Exists(
+                Valuation.objects.filter(asset_hub=OuterRef('pk'))
+            ),
+            has_photo=Exists(
+                Photo.objects.filter(asset_hub=OuterRef('pk'))
+            ),
+            has_document=Exists(
+                Document.objects.filter(asset_hub=OuterRef('pk'))
+            ),
+        )
+
+    # Override the built-in delete_selected to delete the hub bundle in the correct order
+    @admin.action(description="Delete selected Asset ID Hub (bundle)")
+    def delete_selected(self, request, queryset):
+        return delete_hub_and_children(self, request, queryset)
+
+    
+
+    # The following accessors simply surface the annotated booleans to the admin list.
+    # Django admin uses the attribute name in list_display, so we expose them as methods
+    # and mark them as boolean for visual check/times.
+    def has_raw(self, obj: AssetIdHub) -> bool:
+        return bool(getattr(obj, 'has_raw', False))
+    has_raw.boolean = True
+    has_raw.short_description = 'Raw?'
+
+    def has_boarded(self, obj: AssetIdHub) -> bool:
+        return bool(getattr(obj, 'has_boarded', False))
+    has_boarded.boolean = True
+    has_boarded.short_description = 'Boarded?'
+
+    def has_blended(self, obj: AssetIdHub) -> bool:
+        return bool(getattr(obj, 'has_blended', False))
+    has_blended.boolean = True
+    has_blended.short_description = 'Blended?'
+
+    def has_servicer(self, obj: AssetIdHub) -> bool:
+        return bool(getattr(obj, 'has_servicer', False))
+    has_servicer.boolean = True
+    has_servicer.short_description = 'Servicer?'
+
+    def has_valuation(self, obj: AssetIdHub) -> bool:
+        return bool(getattr(obj, 'has_valuation', False))
+    has_valuation.boolean = True
+    has_valuation.short_description = 'Valuation?'
+
+    def has_photo(self, obj: AssetIdHub) -> bool:
+        return bool(getattr(obj, 'has_photo', False))
+    has_photo.boolean = True
+    has_photo.short_description = 'Photos?'
+
+    def has_document(self, obj: AssetIdHub) -> bool:
+        return bool(getattr(obj, 'has_document', False))
+    has_document.boolean = True
+    has_document.short_description = 'Docs?'

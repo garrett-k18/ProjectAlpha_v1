@@ -154,7 +154,9 @@ const constantColumns: ColDef[] = [
     minWidth: 260,
     wrapHeaderText: true,
     autoHeaderHeight: true,
-    cellClass: 'text-start',
+    headerClass: ['ag-left-aligned-header', 'text-start'],
+    cellClass: ['ag-left-aligned-cell', 'text-start'],
+    cellStyle: { justifyContent: 'flex-start', textAlign: 'left' },
     pinned: 'left',
     valueGetter: (p: any) => {
       const s = (p.data?.street_address || '').toString().trim()
@@ -185,14 +187,27 @@ const cols: Record<string, ColDef> = {
   expectedIRR: { headerName: 'IRR %', field: 'expected_irr', valueFormatter: percentFormatter, minWidth: 110 },
   expectedMOIC: { headerName: 'MOIC', field: 'expected_moic', valueFormatter: moicFormatter, minWidth: 110 },
   expectedNPV: { headerName: 'NPV', field: 'expected_npv', valueFormatter: currencyFormatter, minWidth: 140 },
+  servicer_current_balance: { headerName: 'Current Balance', field: 'servicer_current_balance', valueFormatter: currencyFormatter, minWidth: 140 },
+  servicer_interest_rate: { headerName: 'Interest Rate', field: 'servicer_interest_rate', valueFormatter: (p) => (p.value == null ? '' : `${(Number(p.value) * 100).toFixed(2)}%`), minWidth: 110 },
+  servicer_next_due_date: { headerName: 'Next Due Date', field: 'servicer_next_due_date', valueFormatter: dateFormatter, minWidth: 140 },
+  servicer_total_debt: { headerName: 'Total Debt', field: 'servicer_total_debt', valueFormatter: currencyFormatter, minWidth: 140 },
+  internal_initial_uw_asis_value: { headerName: 'Underwritten AIV', field: 'internal_initial_uw_asis_value', valueFormatter: currencyFormatter, minWidth: 140 },
+  internal_initial_uw_arv_value: { headerName: 'Underwritten ARV', field: 'internal_initial_uw_arv_value', valueFormatter: currencyFormatter, minWidth: 140 },
 }
 
 // Presets now reference the named columns for clarity and stability
 const presets: Record<string, ColDef[]> = {
   snapshot: [
-    cols.propertyType,
-    cols.occupancy,
     cols.trade,
+    cols.propertyType,
+    cols.internal_initial_uw_asis_value,
+    cols.internal_initial_uw_arv_value,
+    
+    cols.servicer_current_balance,
+    cols.servicer_interest_rate,
+    cols.servicer_next_due_date,
+    cols.servicer_total_debt,
+  
   ],
   performance: [
     cols.arvSeller,

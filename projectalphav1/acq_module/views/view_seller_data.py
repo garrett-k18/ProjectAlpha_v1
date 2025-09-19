@@ -141,7 +141,8 @@ def get_seller_rawdata_field_names(request):
         "created_at",
         "updated_at",
     ]
-    return JsonResponse(fields, safe=False)
+    # Contract: Frontend expects { "fields": [...] }
+    return JsonResponse({"fields": fields}, safe=False)
 
 
 # ------------------------------------------------------------
@@ -161,9 +162,14 @@ def list_sellers(request):
 
 @api_view(["GET"])
 def list_trades_by_seller(request, seller_id: int):
-    """Return trades for a given seller or empty list."""
+    """Return trades for a given seller or empty list.
+
+    Important: The Trade model uses the field name 'trade_name'. The frontend
+    expects each trade option to have keys { id, trade_name }.
+    """
     try:
-        data = list(Trade.objects.filter(seller_id=seller_id).values("id", "name"))
+        qs = Trade.objects.filter(seller_id=seller_id).order_by('-created_at')
+        data = list(qs.values("id", "trade_name"))
     except Exception:
         data = []
     return JsonResponse(data, safe=False)

@@ -1,6 +1,8 @@
 from rest_framework import serializers
 from am_module.models.boarded_data import SellerBoardedData
 from am_module.models.asset_metrics import AssetMetrics
+from am_module.models.servicers import ServicerLoanData
+from core.models.valuations import Valuation
 
 class AssetInventoryRowSerializer(serializers.Serializer):
     """
@@ -30,6 +32,75 @@ class AssetInventoryRowSerializer(serializers.Serializer):
 
     expected_gross_proceeds = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True, source='asset_hub.blended_outcome_model.expected_gross_proceeds')
     expected_net_proceeds = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True, source='asset_hub.blended_outcome_model.expected_net_proceeds')
+
+    # --- Latest Servicer Loan Data ---
+    servicer_current_balance = serializers.SerializerMethodField()
+    servicer_interest_rate = serializers.SerializerMethodField()
+    servicer_next_due_date = serializers.SerializerMethodField()
+    servicer_total_debt = serializers.SerializerMethodField()
+
+    # --- Unified Valuation (latest per source) ---
+    # Internal (source='internal')
+    internal_asis_value = serializers.SerializerMethodField()
+    internal_arv_value = serializers.SerializerMethodField()
+    internal_value_date = serializers.SerializerMethodField()
+    internal_rehab_est_total = serializers.SerializerMethodField()
+    internal_roof_est = serializers.SerializerMethodField()
+    internal_kitchen_est = serializers.SerializerMethodField()
+    internal_bath_est = serializers.SerializerMethodField()
+    internal_flooring_est = serializers.SerializerMethodField()
+    internal_windows_est = serializers.SerializerMethodField()
+    internal_appliances_est = serializers.SerializerMethodField()
+    internal_plumbing_est = serializers.SerializerMethodField()
+    internal_electrical_est = serializers.SerializerMethodField()
+    internal_landscaping_est = serializers.SerializerMethodField()
+
+    # Broker (source='broker')
+    broker_asis_value = serializers.SerializerMethodField()
+    broker_arv_value = serializers.SerializerMethodField()
+    broker_value_date = serializers.SerializerMethodField()
+    broker_rehab_est_total = serializers.SerializerMethodField()
+    broker_roof_est = serializers.SerializerMethodField()
+    broker_kitchen_est = serializers.SerializerMethodField()
+    broker_bath_est = serializers.SerializerMethodField()
+    broker_flooring_est = serializers.SerializerMethodField()
+    broker_windows_est = serializers.SerializerMethodField()
+    broker_appliances_est = serializers.SerializerMethodField()
+    broker_plumbing_est = serializers.SerializerMethodField()
+    broker_electrical_est = serializers.SerializerMethodField()
+    broker_landscaping_est = serializers.SerializerMethodField()
+    broker_notes = serializers.SerializerMethodField()
+    broker_links = serializers.SerializerMethodField()
+
+    # Internal Initial UW (source='internalInitialUW')
+    internal_initial_uw_asis_value = serializers.SerializerMethodField()
+    internal_initial_uw_arv_value = serializers.SerializerMethodField()
+    internal_initial_uw_value_date = serializers.SerializerMethodField()
+    internal_initial_uw_rehab_est_total = serializers.SerializerMethodField()
+    internal_initial_uw_roof_est = serializers.SerializerMethodField()
+    internal_initial_uw_kitchen_est = serializers.SerializerMethodField()
+    internal_initial_uw_bath_est = serializers.SerializerMethodField()
+    internal_initial_uw_flooring_est = serializers.SerializerMethodField()
+    internal_initial_uw_windows_est = serializers.SerializerMethodField()
+    internal_initial_uw_appliances_est = serializers.SerializerMethodField()
+    internal_initial_uw_plumbing_est = serializers.SerializerMethodField()
+    internal_initial_uw_electrical_est = serializers.SerializerMethodField()
+    internal_initial_uw_landscaping_est = serializers.SerializerMethodField()
+
+    # Seller (source='seller')
+    seller_asis_value = serializers.SerializerMethodField()
+    seller_arv_value = serializers.SerializerMethodField()
+    seller_value_date = serializers.SerializerMethodField()
+    seller_rehab_est_total = serializers.SerializerMethodField()
+    seller_roof_est = serializers.SerializerMethodField()
+    seller_kitchen_est = serializers.SerializerMethodField()
+    seller_bath_est = serializers.SerializerMethodField()
+    seller_flooring_est = serializers.SerializerMethodField()
+    seller_windows_est = serializers.SerializerMethodField()
+    seller_appliances_est = serializers.SerializerMethodField()
+    seller_plumbing_est = serializers.SerializerMethodField()
+    seller_electrical_est = serializers.SerializerMethodField()
+    seller_landscaping_est = serializers.SerializerMethodField()
 
     expected_pl = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True, source='asset_hub.blended_outcome_model.expected_pl')
     expected_cf = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True, source='asset_hub.blended_outcome_model.expected_cf')
@@ -61,6 +132,272 @@ class AssetInventoryRowSerializer(serializers.Serializer):
             return m.time_held_days if m else None
         except Exception:
             return None
+
+
+    # ----------------- Helpers -----------------
+    def _latest_val_by_source(self, obj, source: str):
+        """Return latest Valuation row for the object's asset_hub and given source.
+
+        We order by value_date then created_at to get the most recent record.
+        """
+        hub = getattr(obj, 'asset_hub', None)
+        if hub is None:
+            return None
+        return (
+            Valuation.objects
+            .filter(asset_hub=hub, source=source)
+            .order_by('-value_date', '-created_at')
+            .first()
+        )
+
+    def _latest_servicer(self, obj):
+        """Return latest ServicerLoanData by as_of_date then reporting period."""
+        hub = getattr(obj, 'asset_hub', None)
+        if hub is None:
+            return None
+        return (
+            ServicerLoanData.objects
+            .filter(asset_hub=hub)
+            .order_by('-as_of_date', '-reporting_year', '-reporting_month', '-created_at')
+            .first()
+        )
+
+    # ----------------- Servicer getters -----------------
+    def get_servicer_current_balance(self, obj):
+        s = self._latest_servicer(obj)
+        return getattr(s, 'current_balance', None) if s else None
+
+    def get_servicer_interest_rate(self, obj):
+        s = self._latest_servicer(obj)
+        return getattr(s, 'interest_rate', None) if s else None
+
+    def get_servicer_next_due_date(self, obj):
+        s = self._latest_servicer(obj)
+        return getattr(s, 'next_due_date', None) if s else None
+
+    def get_servicer_total_debt(self, obj):
+        s = self._latest_servicer(obj)
+        return getattr(s, 'total_debt', None) if s else None
+
+    # ----------------- Internal getters -----------------
+    def get_internal_asis_value(self, obj):
+        v = self._latest_val_by_source(obj, 'internal')
+        return getattr(v, 'asis_value', None) if v else None
+
+    def get_internal_arv_value(self, obj):
+        v = self._latest_val_by_source(obj, 'internal')
+        return getattr(v, 'arv_value', None) if v else None
+
+    def get_internal_value_date(self, obj):
+        v = self._latest_val_by_source(obj, 'internal')
+        return getattr(v, 'value_date', None) if v else None
+
+    def get_internal_rehab_est_total(self, obj):
+        v = self._latest_val_by_source(obj, 'internal')
+        return getattr(v, 'rehab_est_total', None) if v else None
+
+    def get_internal_roof_est(self, obj):
+        v = self._latest_val_by_source(obj, 'internal')
+        return getattr(v, 'roof_est', None) if v else None
+
+    def get_internal_kitchen_est(self, obj):
+        v = self._latest_val_by_source(obj, 'internal')
+        return getattr(v, 'kitchen_est', None) if v else None
+
+    def get_internal_bath_est(self, obj):
+        v = self._latest_val_by_source(obj, 'internal')
+        return getattr(v, 'bath_est', None) if v else None
+
+    def get_internal_flooring_est(self, obj):
+        v = self._latest_val_by_source(obj, 'internal')
+        return getattr(v, 'flooring_est', None) if v else None
+
+    def get_internal_windows_est(self, obj):
+        v = self._latest_val_by_source(obj, 'internal')
+        return getattr(v, 'windows_est', None) if v else None
+
+    def get_internal_appliances_est(self, obj):
+        v = self._latest_val_by_source(obj, 'internal')
+        return getattr(v, 'appliances_est', None) if v else None
+
+    def get_internal_plumbing_est(self, obj):
+        v = self._latest_val_by_source(obj, 'internal')
+        return getattr(v, 'plumbing_est', None) if v else None
+
+    def get_internal_electrical_est(self, obj):
+        v = self._latest_val_by_source(obj, 'internal')
+        return getattr(v, 'electrical_est', None) if v else None
+
+    def get_internal_landscaping_est(self, obj):
+        v = self._latest_val_by_source(obj, 'internal')
+        return getattr(v, 'landscaping_est', None) if v else None
+
+    # ----------------- Broker getters -----------------
+    def get_broker_asis_value(self, obj):
+        v = self._latest_val_by_source(obj, 'broker')
+        return getattr(v, 'asis_value', None) if v else None
+
+    def get_broker_arv_value(self, obj):
+        v = self._latest_val_by_source(obj, 'broker')
+        return getattr(v, 'arv_value', None) if v else None
+
+    def get_broker_value_date(self, obj):
+        v = self._latest_val_by_source(obj, 'broker')
+        return getattr(v, 'value_date', None) if v else None
+
+    def get_broker_rehab_est_total(self, obj):
+        v = self._latest_val_by_source(obj, 'broker')
+        return getattr(v, 'rehab_est_total', None) if v else None
+
+    def get_broker_roof_est(self, obj):
+        v = self._latest_val_by_source(obj, 'broker')
+        return getattr(v, 'roof_est', None) if v else None
+
+    def get_broker_kitchen_est(self, obj):
+        v = self._latest_val_by_source(obj, 'broker')
+        return getattr(v, 'kitchen_est', None) if v else None
+
+    def get_broker_bath_est(self, obj):
+        v = self._latest_val_by_source(obj, 'broker')
+        return getattr(v, 'bath_est', None) if v else None
+
+    def get_broker_flooring_est(self, obj):
+        v = self._latest_val_by_source(obj, 'broker')
+        return getattr(v, 'flooring_est', None) if v else None
+
+    def get_broker_windows_est(self, obj):
+        v = self._latest_val_by_source(obj, 'broker')
+        return getattr(v, 'windows_est', None) if v else None
+
+    def get_broker_appliances_est(self, obj):
+        v = self._latest_val_by_source(obj, 'broker')
+        return getattr(v, 'appliances_est', None) if v else None
+
+    def get_broker_plumbing_est(self, obj):
+        v = self._latest_val_by_source(obj, 'broker')
+        return getattr(v, 'plumbing_est', None) if v else None
+
+    def get_broker_electrical_est(self, obj):
+        v = self._latest_val_by_source(obj, 'broker')
+        return getattr(v, 'electrical_est', None) if v else None
+
+    def get_broker_landscaping_est(self, obj):
+        v = self._latest_val_by_source(obj, 'broker')
+        return getattr(v, 'landscaping_est', None) if v else None
+
+    def get_broker_notes(self, obj):
+        v = self._latest_val_by_source(obj, 'broker')
+        return getattr(v, 'notes', None) if v else None
+
+    def get_broker_links(self, obj):
+        v = self._latest_val_by_source(obj, 'broker')
+        return getattr(v, 'links', None) if v else None
+
+    # ----------------- Internal Initial UW getters -----------------
+    def get_internal_initial_uw_asis_value(self, obj):
+        v = self._latest_val_by_source(obj, 'internalInitialUW')
+        return getattr(v, 'asis_value', None) if v else None
+
+    def get_internal_initial_uw_arv_value(self, obj):
+        v = self._latest_val_by_source(obj, 'internalInitialUW')
+        return getattr(v, 'arv_value', None) if v else None
+
+    def get_internal_initial_uw_value_date(self, obj):
+        v = self._latest_val_by_source(obj, 'internalInitialUW')
+        return getattr(v, 'value_date', None) if v else None
+
+    def get_internal_initial_uw_rehab_est_total(self, obj):
+        v = self._latest_val_by_source(obj, 'internalInitialUW')
+        return getattr(v, 'rehab_est_total', None) if v else None
+
+    def get_internal_initial_uw_roof_est(self, obj):
+        v = self._latest_val_by_source(obj, 'internalInitialUW')
+        return getattr(v, 'roof_est', None) if v else None
+
+    def get_internal_initial_uw_kitchen_est(self, obj):
+        v = self._latest_val_by_source(obj, 'internalInitialUW')
+        return getattr(v, 'kitchen_est', None) if v else None
+
+    def get_internal_initial_uw_bath_est(self, obj):
+        v = self._latest_val_by_source(obj, 'internalInitialUW')
+        return getattr(v, 'bath_est', None) if v else None
+
+    def get_internal_initial_uw_flooring_est(self, obj):
+        v = self._latest_val_by_source(obj, 'internalInitialUW')
+        return getattr(v, 'flooring_est', None) if v else None
+
+    def get_internal_initial_uw_windows_est(self, obj):
+        v = self._latest_val_by_source(obj, 'internalInitialUW')
+        return getattr(v, 'windows_est', None) if v else None
+
+    def get_internal_initial_uw_appliances_est(self, obj):
+        v = self._latest_val_by_source(obj, 'internalInitialUW')
+        return getattr(v, 'appliances_est', None) if v else None
+
+    def get_internal_initial_uw_plumbing_est(self, obj):
+        v = self._latest_val_by_source(obj, 'internalInitialUW')
+        return getattr(v, 'plumbing_est', None) if v else None
+
+    def get_internal_initial_uw_electrical_est(self, obj):
+        v = self._latest_val_by_source(obj, 'internalInitialUW')
+        return getattr(v, 'electrical_est', None) if v else None
+
+    def get_internal_initial_uw_landscaping_est(self, obj):
+        v = self._latest_val_by_source(obj, 'internalInitialUW')
+        return getattr(v, 'landscaping_est', None) if v else None
+
+    # ----------------- Seller getters -----------------
+    def get_seller_asis_value(self, obj):
+        v = self._latest_val_by_source(obj, 'seller')
+        return getattr(v, 'asis_value', None) if v else None
+
+    def get_seller_arv_value(self, obj):
+        v = self._latest_val_by_source(obj, 'seller')
+        return getattr(v, 'arv_value', None) if v else None
+
+    def get_seller_value_date(self, obj):
+        v = self._latest_val_by_source(obj, 'seller')
+        return getattr(v, 'value_date', None) if v else None
+
+    def get_seller_rehab_est_total(self, obj):
+        v = self._latest_val_by_source(obj, 'seller')
+        return getattr(v, 'rehab_est_total', None) if v else None
+
+    def get_seller_roof_est(self, obj):
+        v = self._latest_val_by_source(obj, 'seller')
+        return getattr(v, 'roof_est', None) if v else None
+
+    def get_seller_kitchen_est(self, obj):
+        v = self._latest_val_by_source(obj, 'seller')
+        return getattr(v, 'kitchen_est', None) if v else None
+
+    def get_seller_bath_est(self, obj):
+        v = self._latest_val_by_source(obj, 'seller')
+        return getattr(v, 'bath_est', None) if v else None
+
+    def get_seller_flooring_est(self, obj):
+        v = self._latest_val_by_source(obj, 'seller')
+        return getattr(v, 'flooring_est', None) if v else None
+
+    def get_seller_windows_est(self, obj):
+        v = self._latest_val_by_source(obj, 'seller')
+        return getattr(v, 'windows_est', None) if v else None
+
+    def get_seller_appliances_est(self, obj):
+        v = self._latest_val_by_source(obj, 'seller')
+        return getattr(v, 'appliances_est', None) if v else None
+
+    def get_seller_plumbing_est(self, obj):
+        v = self._latest_val_by_source(obj, 'seller')
+        return getattr(v, 'plumbing_est', None) if v else None
+
+    def get_seller_electrical_est(self, obj):
+        v = self._latest_val_by_source(obj, 'seller')
+        return getattr(v, 'electrical_est', None) if v else None
+
+    def get_seller_landscaping_est(self, obj):
+        v = self._latest_val_by_source(obj, 'seller')
+        return getattr(v, 'landscaping_est', None) if v else None
 
 
 class AssetDetailSerializer(serializers.ModelSerializer):

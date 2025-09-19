@@ -146,9 +146,12 @@ class Valuation(models.Model):
     
     # Source tracking
     SOURCE_CHOICES = [
+        ('internalInitialUW', 'Internal Initial UW Valuation'),
         ('internal', 'Internal Valuation'),
         ('broker', 'Broker Valuation'),
-        ('third_party', 'Third Party Valuation'),
+        ('desktop', 'Desktop Valuation'),
+        ('BPOI', 'BPOI'),
+        ('BPOE', 'BPOE'),
         ('seller', 'Seller Provided'),
         ('appraisal', 'Professional Appraisal'),
     ]

@@ -1073,14 +1073,17 @@ onMounted(async () => {
   try {
     // Fetch column field names for grid definition using centralized Axios instance
     const { data: json } = await http.get<{ fields: string[] }>(`/acq/raw-data/fields/`, { timeout: 15000 })
-    
+
+    // Guard against undefined/null response shapes
+    const fields: string[] = Array.isArray((json as any)?.fields) ? (json as any).fields : []
+
     // Debug: Log received fields to check if property_type and occupancy are included
-    console.log('Fields received from API:', json.fields)
-    console.log('Fields include property_type:', json.fields.includes('property_type'))
-    console.log('Fields include occupancy:', json.fields.includes('occupancy'))
+    console.log('Fields received from API:', fields)
+    console.log('Fields include property_type:', fields.includes('property_type'))
+    console.log('Fields include occupancy:', fields.includes('occupancy'))
 
     // Build minimal columnDefs from field names only
-    const generated = (json.fields || []).map((field: string) => {
+    const generated = fields.map((field: string) => {
       // Base definition shared by all fields
       const base: ColDef = {
         headerName: headerNameMappings[field] || prettifyHeader(field),
@@ -1175,8 +1178,7 @@ onMounted(async () => {
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error('Error loading SellerRawData fields for AG Grid:', err)
-    // Per request: no fallbacks — if dynamic column load fails, exit early.
-    return
+    // Continue without dynamic columns so filters and data loading still work.
   }
 
   // Load sellers only when internal filters are visible

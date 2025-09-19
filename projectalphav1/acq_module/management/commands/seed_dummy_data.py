@@ -23,7 +23,7 @@ from django.utils import timezone
 
 # Local app model imports
 from acq_module.models.seller import Seller, Trade, SellerRawData
-from core.models.valuations import BrokerValues, InternalValuation
+from core.models.valuations import Valuation
 from core.models.asset_id_hub import AssetIdHub
 from core.services.geocoding import geocode_markers_for_seller_trade
 
@@ -65,13 +65,13 @@ class Command(BaseCommand):
     The number of assets per Trade is randomized between --assets-min and
     --assets-max (inclusive).
 
-    Default behavior creates 10 sellers and 4 trades per seller (40 trades),
+    Default behavior creates 8 sellers and 3 trades per seller (24 trades),
     with 1..21 assets per trade.
     """
 
     help = (
         "Seed Sellers, Trades, and multiple SellerRawData (assets) per Trade with Faker. "
-        "Default: 10 sellers, 4 trades/seller, and 1..21 assets/trade."
+        "Default: 8 sellers, 3 trades/seller, and 1..21 assets/trade."
     )
 
     def add_arguments(self, parser: CommandParser) -> None:
@@ -84,13 +84,13 @@ class Command(BaseCommand):
             "--sellers",
             type=int,
             default=8,
-            help="Number of Seller records to create (default: 10)",
+            help="Number of Seller records to create (default: 8)",
         )
         parser.add_argument(
             "--trades-per-seller",
             type=int,
             default=3,
-            help="Number of Trade records per Seller (default: 4)",
+            help="Number of Trade records per Seller (default: 3)",
         )
         parser.add_argument(
             "--purge",
@@ -121,16 +121,6 @@ class Command(BaseCommand):
             default=21,
             help="Maximum number of assets (SellerRawData rows) per Trade (inclusive). Default: 21",
         )
-        parser.add_argument(
-            "--with-broker-values",
-            action="store_true",
-            help="Also create a stub BrokerValues row (1:1 via hub) for each generated asset.",
-        )
-        parser.add_argument(
-            "--with-internal-valuations",
-            action="store_true",
-            help="Also create a stub InternalValuation row (1:1 via hub) for each generated asset.",
-        )
 
     def handle(self, *args, **options) -> None:
         """Entrypoint for the command.
@@ -145,8 +135,6 @@ class Command(BaseCommand):
         seed_value: int | None = options["seed"]
         assets_min: int = options["assets_min"]
         assets_max: int = options["assets_max"]
-        with_broker_values: bool = options["with_broker_values"]
-        with_internal_vals: bool = options["with_internal_valuations"]
 
         # Initialize Faker with requested locale
         faker = Faker(locale)
@@ -174,14 +162,22 @@ class Command(BaseCommand):
             SellerRawData.objects.all().delete()
             Trade.objects.all().delete()
             Seller.objects.all().delete()
-            # Also clear hubs so we reseed cleanly (safe after spokes are deleted)
-            AssetIdHub.objects.all().delete()
+            # IMPORTANT: Do not purge AssetIdHub here to avoid ProtectedError from other modules.
+            # Hub IDs will continue to increment across seeds, which is acceptable for dev data.
+
+        # Enforce constraints requested for this dummy run pattern
+        # - Max 3 sellers
+        # - 1-2 trades per seller (randomized per seller)
+        # - 1-13 assets per trade
+        # - Max 60 total assets/hubs overall
+        sellers_count = min(sellers_count, 3)
+        ASSETS_TOTAL_MAX = 60
 
         # Important: avoid a single giant transaction across schemas; commit each insert naturally
         # so FK checks can see parent rows immediately across schemas.
         with _nullctx():
             self.stdout.write(
-                f"Creating {sellers_count} sellers × {trades_per_seller} trades each..."
+                f"Creating up to {sellers_count} sellers × 1-2 trades each with 1-13 assets/trade (cap {ASSETS_TOTAL_MAX})..."
             )
 
             sellers: list[Seller] = []
@@ -202,20 +198,24 @@ class Command(BaseCommand):
             # Refresh with PKs
             sellers = list(Seller.objects.order_by("id")[:sellers_count])
 
-            # For each seller, create the requested number of trades (use save() so Trade.save() generates trade_name)
+            # For each seller, create 1-2 trades (use save() so Trade.save() generates trade_name)
             for seller in sellers:
-                for t in range(trades_per_seller):
+                num_trades_for_seller = random.randint(1, 2)
+                for _ in range(num_trades_for_seller):
                     trade = Trade(seller=seller)
-                    # Use individual save to trigger model's save() (trade_name generator)
-                    trade.save()
+                    trade.save()  # triggers trade_name generation in model.save()
                     trades.append(trade)
 
-            # For each trade, create ONE SellerRawData row (unique per seller+trade)
+            # For each trade, create multiple SellerRawData rows (controlled by --assets-min/--assets-max)
             today = date.today()
             for trade in trades:
                 seller = trade.seller
                 # Randomize number of assets for this trade within [assets_min, assets_max]
-                assets_count = random.randint(assets_min, assets_max)
+                if assets_created >= ASSETS_TOTAL_MAX:
+                    break
+                # Respect per-trade 1-13 but never exceed global cap
+                remaining = ASSETS_TOTAL_MAX - assets_created
+                assets_count = min(random.randint(1, 13), remaining)
 
                 # Create that many assets and number them 1..N per trade
                 for sequence_number in range(1, assets_count + 1):
@@ -362,34 +362,45 @@ class Command(BaseCommand):
                     # Sanity check: parent exists before FK insert
                     assert AssetIdHub.objects.filter(pk=hub.pk).exists(), "Hub row not persisted"
 
-                    # Optionally create stub 1:1 spoke records that hang off the hub.
-                    # This provides convenient entry points to later enrich values in UI/flows.
-                    if with_broker_values:
-                        # Create minimal BrokerValues stub (all fields optional)
-                        BrokerValues.objects.create(asset_hub=hub)
+                    # Create two unified valuation rows in the core Valuation model per hub:
+                    # - broker (maps to grid broker fields)
+                    # - internalInitialUW (maps to grid underwritten initial fields)
+                    # Values must be random within 75,000..700,000 and distinct across all four numbers
+                    # for this hub (asis/arv for broker and internal).
+                    def _rand_val():
+                        return Decimal(random.randrange(75_000, 700_001)).quantize(Decimal("0.01"))
 
-                    if with_internal_vals:
-                        # InternalValuation requires a handful of non-null numeric/date fields,
-                        # so synthesize reasonable placeholders tied to our seller_* values.
-                        InternalValuation.objects.create(
-                            asset_hub=hub,
-                            internal_uw_asis_value=seller_asis_value,
-                            internal_uw_arv_value=seller_arv_value,
-                            internal_uw_value_date=as_of_date,
-                            internal_rehab_est_total=None,
-                            roof_est=None,
-                            kitchen_est=None,
-                            bath_est=None,
-                            flooring_est=None,
-                            windows_est=None,
-                            appliances_est=None,
-                            plumbing_est=None,
-                            electrical_est=None,
-                            landscaping_est=None,
-                            thirdparty_asis_value=seller_asis_value,
-                            thirdparty_arv_value=seller_arv_value,
-                            thirdparty_value_date=as_of_date,
-                        )
+                    b_asis = _rand_val()
+                    b_arv = _rand_val()
+                    # ensure distinct within broker row
+                    if b_arv == b_asis:
+                        b_arv = _rand_val()
+                    i_asis = _rand_val()
+                    # ensure distinct vs broker
+                    if i_asis in {b_asis, b_arv}:
+                        i_asis = _rand_val()
+                    i_arv = _rand_val()
+                    if i_arv in {b_asis, b_arv, i_asis}:
+                        i_arv = _rand_val()
+
+                    Valuation.objects.get_or_create(
+                        asset_hub=hub,
+                        source='broker',
+                        value_date=seller_value_date,
+                        defaults={
+                            'asis_value': b_asis,
+                            'arv_value': b_arv,
+                        },
+                    )
+                    Valuation.objects.get_or_create(
+                        asset_hub=hub,
+                        source='internalInitialUW',
+                        value_date=seller_value_date,
+                        defaults={
+                            'asis_value': i_asis,
+                            'arv_value': i_arv,
+                        },
+                    )
 
                     # Assemble SellerRawData linked to the hub (1:1)
                     raw_data = SellerRawData(
@@ -464,6 +475,8 @@ class Command(BaseCommand):
                     # Note: Model.save() will auto-calc total_debt/months_dlq if None, but we've set them anyway.
                     raw_data.save()
                     assets_created += 1
+                    if assets_created >= ASSETS_TOTAL_MAX:
+                        break
 
             # No bulk_create: we saved each instance to guarantee FK integrity and run save() logic
 

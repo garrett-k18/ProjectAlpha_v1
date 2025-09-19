@@ -41,6 +41,16 @@ class ValuationCompatSerializer(serializers.Serializer):
     arv_value = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
     value_date = serializers.DateField(required=False, allow_null=True)
     rehab_est_total = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
+    # Detailed rehab estimates
+    roof_est = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
+    kitchen_est = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
+    bath_est = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
+    flooring_est = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
+    windows_est = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
+    appliances_est = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
+    plumbing_est = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
+    electrical_est = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
+    landscaping_est = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
     notes = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     links = serializers.URLField(required=False, allow_blank=True, allow_null=True)
 
@@ -67,6 +77,16 @@ class ValuationCompatSerializer(serializers.Serializer):
             "arv_value": instance.arv_value,
             "value_date": instance.value_date,
             "rehab_est_total": getattr(instance, 'rehab_est_total', None),
+            # Detailed rehab estimates
+            "roof_est": getattr(instance, 'roof_est', None),
+            "kitchen_est": getattr(instance, 'kitchen_est', None),
+            "bath_est": getattr(instance, 'bath_est', None),
+            "flooring_est": getattr(instance, 'flooring_est', None),
+            "windows_est": getattr(instance, 'windows_est', None),
+            "appliances_est": getattr(instance, 'appliances_est', None),
+            "plumbing_est": getattr(instance, 'plumbing_est', None),
+            "electrical_est": getattr(instance, 'electrical_est', None),
+            "landscaping_est": getattr(instance, 'landscaping_est', None),
             "notes": getattr(instance, 'notes', None),
             "links": getattr(instance, 'links', None),
         }
@@ -98,6 +118,16 @@ class ValuationCompatSerializer(serializers.Serializer):
             'arv_value': v.get('arv_value', v.get('internal_uw_arv_value', v.get('broker_arv_value'))),
             'value_date': v.get('value_date', v.get('internal_uw_value_date', v.get('broker_value_date'))),
             'rehab_est_total': v.get('rehab_est_total', v.get('internal_rehab_est_total', v.get('broker_rehab_est'))),
+            # Detailed rehab estimates
+            'roof_est': v.get('roof_est'),
+            'kitchen_est': v.get('kitchen_est'),
+            'bath_est': v.get('bath_est'),
+            'flooring_est': v.get('flooring_est'),
+            'windows_est': v.get('windows_est'),
+            'appliances_est': v.get('appliances_est'),
+            'plumbing_est': v.get('plumbing_est'),
+            'electrical_est': v.get('electrical_est'),
+            'landscaping_est': v.get('landscaping_est'),
             'notes': v.get('notes', v.get('broker_notes')),
             'links': v.get('links', v.get('broker_links')),
         }
@@ -155,6 +185,16 @@ def internal_valuation_view(request, seller_id: int | str):
         'asis_value': asis_value,
         'arv_value': arv_value,
         'rehab_est_total': rehab_total,
+        # Detailed rehab estimates
+        'roof_est': incoming.get('roof_est'),
+        'kitchen_est': incoming.get('kitchen_est'),
+        'bath_est': incoming.get('bath_est'),
+        'flooring_est': incoming.get('flooring_est'),
+        'windows_est': incoming.get('windows_est'),
+        'appliances_est': incoming.get('appliances_est'),
+        'plumbing_est': incoming.get('plumbing_est'),
+        'electrical_est': incoming.get('electrical_est'),
+        'landscaping_est': incoming.get('landscaping_est'),
         'notes': notes,
         'links': links,
     }
