@@ -1077,10 +1077,7 @@ onMounted(async () => {
     // Guard against undefined/null response shapes
     const fields: string[] = Array.isArray((json as any)?.fields) ? (json as any).fields : []
 
-    // Debug: Log received fields to check if property_type and occupancy are included
-    console.log('Fields received from API:', fields)
-    console.log('Fields include property_type:', fields.includes('property_type'))
-    console.log('Fields include occupancy:', fields.includes('occupancy'))
+    // Build columns purely from server-provided field list; no debug logging
 
     // Build minimal columnDefs from field names only
     const generated = fields.map((field: string) => {
@@ -1151,15 +1148,6 @@ onMounted(async () => {
     })
 
     columnDefs.value = [actionsCol, ...optimizedColumns]
-    
-    // Ensure property_type and occupancy are visible and not hidden
-    columnDefs.value = columnDefs.value.map(col => {
-      if (col.field === 'property_type' || col.field === 'occupancy') {
-        console.log(`Making ${col.field} explicitly visible`)
-        return { ...col, hide: false, suppressColumnsToolPanel: false }
-      }
-      return col
-    })
     
     // Preserve as the default view's columns
     sellerDataTapeColumns.value = columnDefs.value

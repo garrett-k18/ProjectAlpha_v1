@@ -1,4 +1,4 @@
-# projectalphav1/acq_module/serializers.py
+# projectalphav1/acq_module/crm_serializers.py
 # Django REST Framework ModelSerializers for CRM models.
 # Docs reviewed:
 # - DRF ModelSerializer: https://www.django-rest-framework.org/api-guide/serializers/#modelserializer

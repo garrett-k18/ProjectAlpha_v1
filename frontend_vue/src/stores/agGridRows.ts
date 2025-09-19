@@ -94,11 +94,13 @@ export const useAgGridRowsStore = defineStore('agGridRows', () => {
       inFlightKey = key
       // Use a leading slash so Axios baseURL (e.g., '/api') joins correctly.
       // Endpoint implemented by Django: GET /api/acq/raw-data/<sellerId>/<tradeId>/
-      const resp = await http.get<GridRow[]>(`/acq/raw-data/${sellerId}/${tradeId}/`, {
+      // Now returns paginated DRF response: { results: [...], count, next, previous }
+      const resp = await http.get<{ results: GridRow[]; count: number; next: string | null; previous: string | null }>(`/acq/raw-data/${sellerId}/${tradeId}/`, {
         signal: currentController.signal as any,
         timeout: 20000,
       })
-      const data = Array.isArray(resp.data) ? resp.data : []
+      // Extract results from paginated response (fallback to empty array)
+      const data = Array.isArray(resp.data?.results) ? resp.data.results : []
 
       // Update current rows and cache
       setRows(data, key)

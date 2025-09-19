@@ -20,7 +20,7 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from core.models.crm import TradingPartnerCRM
-from ..serializers import TradingPartnerCRMSerializer
+from ..crm_serializers import TradingPartnerCRMSerializer
 
 
 @api_view(["GET", "POST"])  # Dev: public list + create endpoint

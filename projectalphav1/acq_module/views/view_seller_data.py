@@ -26,9 +26,19 @@ including:
 
 from django.http import JsonResponse
 from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from rest_framework.pagination import PageNumberPagination
 import logging
 from ..models.seller import Seller, Trade, SellerRawData
 from ..logic.common import sellertrade_qs
+from ..serializers.acq_datatable_serializer import (
+    SellerRawDataRowSerializer,
+    SellerOptionSerializer,
+    TradeOptionSerializer,
+    SellerRawDataDetailSerializer,
+    SellerRawDataFieldsSerializer,
+)
+from ..services.seller_data import build_queryset
 from ..logic.summarystats import (
     states_for_selection,
     state_count_for_selection,
@@ -54,9 +64,18 @@ from ..logic.ll_metrics import get_ltv_scatter_data
 # Module-level logger
 logger = logging.getLogger(__name__)
 
+class StandardResultsSetPagination(PageNumberPagination):
+    """Pagination class matching AM module for consistency."""
+    page_size = 50
+    page_size_query_param = 'page_size'
+    max_page_size = 500
+
+
+@api_view(["GET"])
 def get_seller_trade_data(request, seller_id, trade_id=None):
     """
     Fetch raw data strictly for a specific seller AND a specific trade.
+    Now uses DRF serializers following the AM module pattern.
 
     Data siloing requirement: Only return data when BOTH identifiers are present.
     If either `seller_id` or `trade_id` is missing, return an empty list.
@@ -67,82 +86,77 @@ def get_seller_trade_data(request, seller_id, trade_id=None):
         trade_id: The ID of the Trade (must be provided; otherwise no data is returned)
 
     Returns:
-        JsonResponse containing:
-        - A list of data entries (entry.data) for the exact seller+trade pair when both are provided
-        - An empty list [] if either identifier is missing or no data matches
+        Response containing:
+        - Paginated list of serialized SellerRawData entries for the seller+trade pair
+        - Empty results if either identifier is missing or no data matches
     """
-    # Guard clause: enforce data siloing by requiring BOTH IDs.
-    # If either seller_id is falsy or trade_id is None/falsy, return an empty list immediately.
-    # This prevents accidental exposure of broader datasets.
+    # Guard clause: enforce data siloing by requiring BOTH IDs
     if not seller_id or not trade_id:
-        return JsonResponse([], safe=False)
+        return Response({'results': [], 'count': 0, 'next': None, 'previous': None})
 
-    # Retrieve matching entries using centralized selection helper.
-    # Keep the query efficient with values() to return
-    # simple dictionaries consumable by the frontend grid without custom encoders.
-    # 
-    # TODO: Future improvement - Replace direct values() approach with Django REST Framework serializers.
-    # Using serializers would provide better:
-    # 1. Field validation and type handling
-    # 2. Support for nested relationships
-    # 3. Computed fields via SerializerMethodField
-    # 4. Consistent API design across the application
-    # See am_module/serializers/asset_inventory.py for an example of this approach.
-    entries_qs = (
-        sellertrade_qs(seller_id, trade_id)
-        .values()  # returns a dict per row with concrete field names
-    )
+    try:
+        # Build queryset using service layer with NO server-side filters/sorting.
+        # All filtering will be handled client-side by AG Grid.
+        qs = build_queryset(
+            seller_id=seller_id,
+            trade_id=trade_id,
+            q=None,
+            filters=None,
+            ordering=None,
+        )
 
-    # If there are no matches, return an empty list to avoid 404s or cross-trade leakage.
-    if not entries_qs.exists():
-        return JsonResponse([], safe=False)
+        # Apply pagination
+        paginator = StandardResultsSetPagination()
+        page = paginator.paginate_queryset(qs, request)
+    except Exception as e:
+        logger.error(f"Query build/pagination failed for seller_id={seller_id}, trade_id={trade_id}: {e}")
+        # Attempt a minimal fallback using raw values() without service layer
+        try:
+            raw_qs = SellerRawData.objects.filter(seller_id=seller_id, trade_id=trade_id).values()
+            paginator = StandardResultsSetPagination()
+            page = paginator.paginate_queryset(list(raw_qs), request)
+            return paginator.get_paginated_response(page)
+        except Exception as e2:
+            logger.error(f"Fallback raw values pagination failed: {e2}")
+            return Response({'results': [], 'count': 0, 'next': None, 'previous': None})
+    
+    # Serialize the data safely; on error, fall back to raw .values()
+    try:
+        serializer = SellerRawDataRowSerializer(page, many=True)
+        return paginator.get_paginated_response(serializer.data)
+    except Exception as e:
+        logger.error(f"Serialization failed for seller_id={seller_id}, trade_id={trade_id}: {e}")
+        try:
+            raw = list(qs.values())
+            # Manually paginate fallback data using the same paginator
+            page2 = paginator.paginate_queryset(raw, request)
+            return paginator.get_paginated_response(page2)
+        except Exception as e2:
+            logger.error(f"Fallback serialization (values()) failed: {e2}")
+            return Response({'results': [], 'count': 0, 'next': None, 'previous': None})
 
-    # Return list of dicts (field: value) suitable for AG Grid rowData.
-    # Note: While this works for simple flat data structures, serializers would provide
-    # more flexibility for complex data transformations and relationships.
-    data_list = list(entries_qs)
-    return JsonResponse(data_list, safe=False)
 
-
+@api_view(["GET"])
 def get_seller_rawdata_field_names(request):
     """
-    Return a JSON response containing the concrete field names for the
-    `SellerRawData` model, intended for use as AG Grid `field` keys in
-    `columnDefs`.
-
-    TEMPORARY IMPLEMENTATION:
-    Instead of using Django's Model Meta API which requires database connection,
-    this function returns a hardcoded list of field names based on the
-    SellerRawData model structure. This allows the frontend to work without
-    a functioning database connection.
-
-    TODO: Replace with DRF serializer-defined fields once DB connectivity is ensured.
+    Return field names from SellerRawDataRowSerializer for AG Grid columnDefs.
+    Now uses DRF serializer fields for consistency and accuracy.
     """
-    fields = [
-        # Foreign keys mapped to their *_id columns
-        "id",
-        "seller_id",
-        "trade_id",
-        # Common address/location fields (adjust as needed to match your model)
-        "address",
-        "city",
-        "state",
-        "zip_code",
-        # Financial fields commonly used in grids
-        "current_balance",
-        "total_debt",
-        "seller_asis_value",
-        # Property attributes
-        "property_type",
-        "occupancy",
-        # Delinquency/loan metrics
-        "days_past_due",
-        # Dates (examples)
-        "created_at",
-        "updated_at",
-    ]
-    # Contract: Frontend expects { "fields": [...] }
-    return JsonResponse({"fields": fields}, safe=False)
+    try:
+        fields = SellerRawDataFieldsSerializer.get_fields_list()
+        # Contract: Frontend expects { "fields": [...] }
+        return Response({"fields": fields})
+    except Exception as e:
+        # Log and return a safe minimal default to keep the UI working
+        logger.error(f"Failed to build SellerRawData fields list: {e}")
+        fallback = [
+            "id", "seller_id", "trade_id",
+            "street_address", "city", "state", "zip",
+            "asset_status", "property_type", "occupancy",
+            "current_balance", "total_debt", "seller_asis_value",
+            "created_at", "updated_at",
+        ]
+        return Response({"fields": fallback})
 
 
 # ------------------------------------------------------------
@@ -152,37 +166,47 @@ def get_seller_rawdata_field_names(request):
 
 @api_view(["GET"])
 def list_sellers(request):
-    """Return a minimal list of sellers (id, name) or empty when DB not available."""
+    """Return a minimal list of sellers (id, name) using DRF serializers."""
     try:
-        data = list(Seller.objects.values("id", "name"))
-    except Exception:
-        data = []
-    return JsonResponse(data, safe=False)
+        sellers = Seller.objects.all().order_by('name')
+        serializer = SellerOptionSerializer(sellers, many=True)
+        return Response(serializer.data)
+    except Exception as e:
+        logger.error(f"Failed to fetch sellers: {e}")
+        return Response([])
 
 
 @api_view(["GET"])
 def list_trades_by_seller(request, seller_id: int):
-    """Return trades for a given seller or empty list.
+    """Return trades for a given seller using DRF serializers.
 
     Important: The Trade model uses the field name 'trade_name'. The frontend
     expects each trade option to have keys { id, trade_name }.
     """
     try:
-        qs = Trade.objects.filter(seller_id=seller_id).order_by('-created_at')
-        data = list(qs.values("id", "trade_name"))
-    except Exception:
-        data = []
-    return JsonResponse(data, safe=False)
+        if not seller_id:
+            return Response([])
+        
+        trades = Trade.objects.filter(seller_id=seller_id).order_by('-created_at')
+        serializer = TradeOptionSerializer(trades, many=True)
+        return Response(serializer.data)
+    except Exception as e:
+        logger.error(f"Failed to fetch trades for seller {seller_id}: {e}")
+        return Response([])
 
 
 @api_view(["GET"])
 def get_seller_raw_by_id(request, id: int):
-    """Return a single SellerRawData row as a flat dict; {} if not found."""
+    """Return a single SellerRawData row using DRF serializer; {} if not found."""
     try:
-        row = SellerRawData.objects.filter(id=id).values().first() or {}
-    except Exception:
-        row = {}
-    return JsonResponse(row, safe=False)
+        raw_data = SellerRawData.objects.select_related('seller', 'trade', 'asset_hub').get(id=id)
+        serializer = SellerRawDataDetailSerializer(raw_data)
+        return Response(serializer.data)
+    except SellerRawData.DoesNotExist:
+        return Response({}, status=404)
+    except Exception as e:
+        logger.error(f"Failed to fetch SellerRawData {id}: {e}")
+        return Response({}, status=500)
 
 
 @api_view(["GET"])  # State selection options
