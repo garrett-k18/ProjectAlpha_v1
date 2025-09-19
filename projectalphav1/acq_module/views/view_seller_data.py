@@ -142,3 +142,166 @@ def get_seller_rawdata_field_names(request):
         "updated_at",
     ]
     return JsonResponse(fields, safe=False)
+
+
+# ------------------------------------------------------------
+# Minimal wrappers expected by urls.py
+# These return JSON using existing logic helpers, or safe defaults.
+# ------------------------------------------------------------
+
+@api_view(["GET"])
+def list_sellers(request):
+    """Return a minimal list of sellers (id, name) or empty when DB not available."""
+    try:
+        data = list(Seller.objects.values("id", "name"))
+    except Exception:
+        data = []
+    return JsonResponse(data, safe=False)
+
+
+@api_view(["GET"])
+def list_trades_by_seller(request, seller_id: int):
+    """Return trades for a given seller or empty list."""
+    try:
+        data = list(Trade.objects.filter(seller_id=seller_id).values("id", "name"))
+    except Exception:
+        data = []
+    return JsonResponse(data, safe=False)
+
+
+@api_view(["GET"])
+def get_seller_raw_by_id(request, id: int):
+    """Return a single SellerRawData row as a flat dict; {} if not found."""
+    try:
+        row = SellerRawData.objects.filter(id=id).values().first() or {}
+    except Exception:
+        row = {}
+    return JsonResponse(row, safe=False)
+
+
+@api_view(["GET"])  # State selection options
+def get_states_for_selection(request, seller_id: int, trade_id: int):
+    try:
+        return JsonResponse(states_for_selection(seller_id, trade_id), safe=False)
+    except Exception:
+        return JsonResponse([], safe=False)
+
+
+@api_view(["GET"])  # State counts
+def get_state_count_for_selection(request, seller_id: int, trade_id: int):
+    try:
+        return JsonResponse(state_count_for_selection(seller_id, trade_id), safe=False)
+    except Exception:
+        return JsonResponse({}, safe=False)
+
+
+@api_view(["GET"])  # Count by state
+def get_count_by_state(request, seller_id: int, trade_id: int):
+    try:
+        return JsonResponse(count_by_state(seller_id, trade_id), safe=False)
+    except Exception:
+        return JsonResponse({}, safe=False)
+
+
+@api_view(["GET"])  # Sums by state
+def get_sum_current_balance_by_state(request, seller_id: int, trade_id: int):
+    try:
+        return JsonResponse(sum_current_balance_by_state(seller_id, trade_id), safe=False)
+    except Exception:
+        return JsonResponse({}, safe=False)
+
+
+@api_view(["GET"])  # Sums by state
+def get_sum_total_debt_by_state(request, seller_id: int, trade_id: int):
+    try:
+        return JsonResponse(sum_total_debt_by_state(seller_id, trade_id), safe=False)
+    except Exception:
+        return JsonResponse({}, safe=False)
+
+
+@api_view(["GET"])  # Sums by state
+def get_sum_seller_asis_value_by_state(request, seller_id: int, trade_id: int):
+    try:
+        return JsonResponse(sum_seller_asis_value_by_state(seller_id, trade_id), safe=False)
+    except Exception:
+        return JsonResponse({}, safe=False)
+
+
+@api_view(["GET"])  # Pool summary (UPB/TD/Val)
+def get_pool_summary(request, seller_id: int, trade_id: int):
+    try:
+        return JsonResponse(count_upb_td_val_summary(seller_id, trade_id), safe=False)
+    except Exception:
+        return JsonResponse({}, safe=False)
+
+
+@api_view(["GET"])  # Current balance stratification
+def get_current_balance_stratification(request, seller_id: int, trade_id: int):
+    try:
+        return JsonResponse(current_balance_stratification_dynamic(seller_id, trade_id), safe=False)
+    except Exception:
+        return JsonResponse([], safe=False)
+
+
+@api_view(["GET"])  # Total debt stratification
+def get_total_debt_stratification(request, seller_id: int, trade_id: int):
+    try:
+        return JsonResponse(total_debt_stratification_dynamic(seller_id, trade_id), safe=False)
+    except Exception:
+        return JsonResponse([], safe=False)
+
+
+@api_view(["GET"])  # Seller as-is value strat
+def get_seller_asis_value_stratification(request, seller_id: int, trade_id: int):
+    try:
+        return JsonResponse(seller_asis_value_stratification_dynamic(seller_id, trade_id), safe=False)
+    except Exception:
+        return JsonResponse([], safe=False)
+
+
+@api_view(["GET"])  # WAC strat (static)
+def get_wac_stratification(request, seller_id: int, trade_id: int):
+    try:
+        return JsonResponse(wac_stratification_static(seller_id, trade_id), safe=False)
+    except Exception:
+        return JsonResponse([], safe=False)
+
+
+@api_view(["GET"])  # Judicial strat
+def get_judicial_stratification(request, seller_id: int, trade_id: int):
+    try:
+        return JsonResponse(judicial_stratification_dynamic(seller_id, trade_id), safe=False)
+    except Exception:
+        return JsonResponse([], safe=False)
+
+
+@api_view(["GET"])  # Property type strat
+def get_property_type_stratification(request, seller_id: int, trade_id: int):
+    try:
+        return JsonResponse(property_type_stratification_categorical(seller_id, trade_id), safe=False)
+    except Exception:
+        return JsonResponse([], safe=False)
+
+
+@api_view(["GET"])  # Occupancy strat
+def get_occupancy_stratification(request, seller_id: int, trade_id: int):
+    try:
+        return JsonResponse(occupancy_stratification_categorical(seller_id, trade_id), safe=False)
+    except Exception:
+        return JsonResponse([], safe=False)
+
+
+@api_view(["GET"])  # Delinquency strat
+def get_delinquency_stratification(request, seller_id: int, trade_id: int):
+    try:
+        return JsonResponse(delinquency_stratification_categorical(seller_id, trade_id), safe=False)
+    except Exception:
+        return JsonResponse([], safe=False)
+
+
+@api_view(["GET"])  # LTV scatter
+def get_ltv_scatter_data_view(request, seller_id: int, trade_id: int):
+    try:
+        return JsonResponse(get_ltv_scatter_data(seller_id, trade_id), safe=False)
+    except Exception:
+        return JsonResponse([], safe=False)
