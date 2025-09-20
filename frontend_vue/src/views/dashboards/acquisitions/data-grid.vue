@@ -1,3 +1,4 @@
+
 <template>
   <!--
     Card container to match existing dashboard aesthetics.
@@ -16,8 +17,10 @@
             id="viewSelect"
             class="form-select form-select-sm"
             v-model="activeView"
+            @change="applyViewColumns(activeView)"
           >
-            <option value="sellerDataTape">Seller Data Tape</option>
+            <option value="snapshot">Snapshot</option>
+            <option value="all">All</option>
             <option value="localAgents">Local Agents</option>
           </select>
         </div>
@@ -209,11 +212,18 @@ const columnDefs = ref<ColDef[]>([])
 // switch between views without losing the original definitions.
 const sellerDataTapeColumns = ref<ColDef[] | null>(null)
 
-// View selector state: 'sellerDataTape' (default) | 'localAgents'
-const activeView = ref<'sellerDataTape' | 'localAgents'>('sellerDataTape')
+// View selector state
+const activeView = ref<'snapshot' | 'all' | 'localAgents'>('snapshot')
 
 // Friendly title reflecting the active view
-const viewTitle = computed(() => (activeView.value === 'sellerDataTape' ? 'Seller Data Tape' : 'Local Agents'))
+const viewTitle = computed(() => {
+  switch (activeView.value) {
+    case 'snapshot': return 'Snapshot'
+    case 'all': return 'All Fields'
+    case 'localAgents': return 'Local Agents'
+    default: return 'Snapshot'
+  }
+})
 
 // ---------------------------------------------------------------------------
 // Default Column Definition: applied to all columns unless overridden above.
@@ -235,6 +245,135 @@ const defaultColDef: ColDef = {
   // This works together with autosize and fit behaviors
   minWidth: 120,
  }
+
+// Explicit builder for Seller Tape ID column; ensures presence regardless of backend filtering
+function buildSellerTapeColumn(): ColDef {
+  return {
+    headerName: headerNameMappings['sellertape_id'] || 'Seller Tape ID',
+    field: 'sellertape_id',
+    pinned: 'left' as const,
+    minWidth: 120,
+    sortable: true,
+    filter: true,
+  }
+}
+
+// Available field names from backend and a catalog of ColDefs keyed by field
+let availableFields: string[] = []
+let colsCatalog: Record<string, ColDef> = {}
+// Exclude technical ID fields we do not want to render as columns
+const excludeFields = new Set<string>(['seller_id', 'trade_id'])
+
+// Address parts to exclude in favor of a composite Address column across all views
+const addressPartFields = new Set<string>(['street_address', 'city', 'state', 'zip', 'zip_code'])
+
+// ============================================================
+// PINNED-LEFT COLUMNS (ALWAYS FIRST)
+// - These builders define the columns that are ALWAYS pinned on the left.
+// - Order (left to right): Actions → Seller Tape ID → Address (composite)
+// - If you want to change pinned-left headers order, edit where we compose
+//   columnDefs in onMounted() and applyViewColumns().
+// ============================================================
+// Build Actions column
+function buildActionsColumn(): ColDef {
+  return {
+    headerName: 'Actions',
+    colId: 'actions',
+    pinned: 'left',
+    lockPinned: true,
+    lockPosition: true,
+    suppressMovable: true,
+    sortable: false,
+    filter: false,
+    suppressHeaderMenuButton: true,
+    suppressHeaderContextMenu: true,
+    width: 220,
+    minWidth: 160,
+    cellRenderer: ActionsCell as any,
+    cellRendererParams: { onAction: onRowAction },
+  }
+}
+
+// Build composite Address column from street, city, state, zip
+function buildAddressColumn(): ColDef {
+  return {
+    headerName: 'Property Address',
+    colId: 'address',
+    minWidth: 260,
+    wrapHeaderText: true,
+    autoHeaderHeight: true,
+    headerClass: ['ag-left-aligned-header', 'text-start'],
+    cellClass: ['ag-left-aligned-cell', 'text-start'],
+    pinned: 'left',
+    valueGetter: (p: any) => getOneLineAddress(p.data),
+  }
+}
+
+// ============================================================
+// COLUMN CATALOG
+// - colsCatalog is the master map of all non-pinned fields available from
+//   the backend. Views below pick from this catalog by field name.
+// - To add/remove a field globally, update the backend serializer or
+//   adjust filters here (addressPartFields/excludeFields).
+// ============================================================
+// Build a catalog of ColDefs keyed by backend field names
+function buildColsCatalog(fields: string[]): Record<string, ColDef> {
+  const catalog: Record<string, ColDef> = {}
+  fields
+    .filter((f) => !excludeFields.has(f))
+    .forEach((field) => {
+      const base: ColDef = {
+        headerName: headerNameMappings[field] || prettifyHeader(field),
+        field,
+        sortable: true,
+        filter: true,
+      }
+      // Keep ID narrow by default
+      if (isClickableIdField(field)) {
+        base.width = 120
+        base.maxWidth = 140
+      }
+      // Display formatters
+      if (!base.valueFormatter && commaNoDecimalFields.has(field)) {
+        base.valueFormatter = numberNoDecimalFormatter
+      }
+      if (!base.valueFormatter && (dateFields.has(field) || isLikelyDateField(field))) {
+        base.valueFormatter = dateMMDDYYYYFormatter
+      }
+      if (!base.valueFormatter && (percentFields.has(field) || isLikelyPercentField(field))) {
+        base.valueFormatter = percentTwoDecimalFormatter
+      }
+      // Badges for flags/enums
+      if (booleanBadgeFields.has(field) || isLikelyBooleanFlagField(field)) {
+        base.cellRenderer = BadgeCell as any
+        base.cellRendererParams = { mode: 'boolean' } as any
+      } else if (enumBadgeFields[field]) {
+        base.cellRenderer = BadgeCell as any
+        base.cellRendererParams = { mode: 'enum', enumMap: enumBadgeFields[field] } as any
+      }
+      catalog[field] = base
+    // Display formatters
+    if (!base.valueFormatter && commaNoDecimalFields.has(field)) {
+      base.valueFormatter = numberNoDecimalFormatter
+    }
+    if (!base.valueFormatter && (dateFields.has(field) || isLikelyDateField(field))) {
+      base.valueFormatter = dateMMDDYYYYFormatter
+    }
+    if (!base.valueFormatter && (percentFields.has(field) || isLikelyPercentField(field))) {
+      base.valueFormatter = percentTwoDecimalFormatter
+    }
+    // Badges for flags/enums
+    if (booleanBadgeFields.has(field) || isLikelyBooleanFlagField(field)) {
+      base.cellRenderer = BadgeCell as any
+      base.cellRendererParams = { mode: 'boolean' } as any
+    } else if (enumBadgeFields[field]) {
+      base.cellRenderer = BadgeCell as any
+      base.cellRendererParams = { mode: 'enum', enumMap: enumBadgeFields[field] } as any
+    }
+    catalog[field] = base
+    })
+  return catalog
+}
 
 // ---------------------------------------------------------------------------
 // Row Data: provided by centralized Pinia store (agGridRows)
@@ -371,8 +510,9 @@ const headerNameMappings: { [key: string]: string } = {
   id: 'Internal ID', // Corrected 'Id' to 'id' to match the backend field name
   months_dlq: 'Months Delinquent',
   accrued_note_interest: 'Accrued Interest',
-  seller_asis_value: 'Seller As-Is Value',
-  seller_arv_value: 'Seller After Repair Value',
+  seller_asis_value: 'Seller AIV',
+  seller_arv_value: 'Seller ARV',
+  sellertape_id: 'Seller Tape ID',
   fc_flag: 'FC Flag',
   fc_first_legal_date: 'FC First Legal Date',
   fc_referred_date: 'FC Referred Date',
@@ -958,9 +1098,7 @@ function buildLocalAgentsColumns(): ColDef[] {
   const cols: ColDef[] = [
     actionsCol,
     idCol,
-    { headerName: 'Address', field: 'street_address', sortable: true, filter: true },
-    { headerName: 'City', field: 'city', sortable: true, filter: true },
-    { headerName: 'State', field: 'state', sortable: true, filter: true, width: 100, minWidth: 100, maxWidth: 90 },
+    // Composite Address column will be injected by applyViewColumns; do not include raw address parts here
     { headerName: 'Current Balance', field: 'current_balance', sortable: true, filter: true, valueFormatter: numberNoDecimalFormatter, width: 160 },
     { headerName: 'Total Debt', field: 'total_debt', sortable: true, filter: true, valueFormatter: numberNoDecimalFormatter, width: 140 },
     { headerName: 'Seller As Is', field: 'seller_asis_value', sortable: true, filter: true, valueFormatter: numberNoDecimalFormatter, width: 140 },
@@ -972,17 +1110,70 @@ function buildLocalAgentsColumns(): ColDef[] {
   return cols
 }
 
-function applyViewColumns(view: 'sellerDataTape' | 'localAgents') {
-  if (view === 'sellerDataTape') {
-    // Restore original generated columns
-    if (sellerDataTapeColumns.value) {
-      columnDefs.value = sellerDataTapeColumns.value
-    }
-  } else {
-    // Switch to curated Local Agents set
-    columnDefs.value = buildLocalAgentsColumns()
+function applyViewColumns(view: 'snapshot' | 'all' | 'localAgents') {
+  // Local Agents is a curated set with editor columns
+  if (view === 'localAgents') {
+    const actionsCol = buildActionsColumn()
+    const sellerTapeCol: ColDef = buildSellerTapeColumn()
+    const addrCol = buildAddressColumn()
+    const curated = buildLocalAgentsColumns()
+    // Ensure Actions + composite Address appear first
+    columnDefs.value = [
+      actionsCol,
+      sellerTapeCol,
+      addrCol,
+      ...curated.filter(c => (c as any).colId !== 'actions')
+    ]
+    nextTick(() => updateGridSize())
+    return
   }
-  // After changing the active column set, re-run sizing logic
+
+  // ============================================================
+  // VIEW PRESETS (EDIT HERE TO CONTROL EACH VIEW'S COLUMNS)
+  // - Update the arrays below to decide which fields each view shows.
+  // - Snapshot / Performance / Servicing list fields explicitly (one per line).
+  // - "all" and "sellerDataTape" derive from availableFields, with address
+  //   parts filtered out because we show a composite Address.
+  // ============================================================
+  // Default "all" and sellerDataTape show every available field from backend (excluding address parts)
+  const wantedFieldsByPreset: Record<string, string[]> = {
+    snapshot: [
+      // Profile
+      'property_type',
+      'occupancy',
+      // Seller valuation
+      'seller_asis_value',
+      'seller_arv_value',
+      'seller_value_date',
+      // Balances/rates
+      'current_balance',
+      'interest_rate',
+      'total_debt',
+      // Performance
+      'months_dlq',
+    ],
+    // Keep these as dynamic lists filtered by availableFields elsewhere
+    all: [...availableFields].filter(f => !addressPartFields.has(f)),
+  }
+
+  // ============================================================
+  // FINAL COLUMN ORDER PER VIEW
+  // - Pinned-left first: Actions → Seller Tape ID → Address
+  // - Then the dynamic preset fields.
+  // - To add/remove fields for a view, edit wantedFieldsByPreset above.
+  // ============================================================
+  const fieldsWanted = wantedFieldsByPreset[view] || [...availableFields]
+  const actionsCol = buildActionsColumn()
+  const sellerTapeCol: ColDef = buildSellerTapeColumn()
+  const addrCol = buildAddressColumn()
+  // Filter by available fields and map to catalog entries
+  const dynamicCols: ColDef[] = fieldsWanted
+    .filter((f) => !addressPartFields.has(f))
+    .filter((f) => !excludeFields.has(f))
+    .filter((f) => availableFields.includes(f) && !!colsCatalog[f])
+    .map((f) => colsCatalog[f])
+
+  columnDefs.value = [actionsCol, sellerTapeCol, addrCol, ...dynamicCols]
   nextTick(() => updateGridSize())
 }
 
@@ -1067,6 +1258,11 @@ function onRowAction(action: string, row: any): void {
   }
 }
 
+// ============================================================
+// INITIAL COLUMN BUILD (onMounted)
+// - Default view builds as: Actions → Seller Tape ID → Address → All fields
+// - If something is missing right after load, edit this block.
+// ============================================================
 onMounted(async () => {
   // Track Fullscreen API changes so Esc or browser UI updates state
   document.addEventListener('fullscreenchange', onFsChange)
@@ -1075,94 +1271,43 @@ onMounted(async () => {
     const { data: json } = await http.get<{ fields: string[] }>(`/acq/raw-data/fields/`, { timeout: 15000 })
 
     // Guard against undefined/null response shapes
-    const fields: string[] = Array.isArray((json as any)?.fields) ? (json as any).fields : []
+    availableFields = Array.isArray((json as any)?.fields) ? (json as any).fields : []
 
-    // Build columns purely from server-provided field list; no debug logging
+    // Build catalog from backend fields once
+    colsCatalog = buildColsCatalog(availableFields)
 
-    // Build minimal columnDefs from field names only
-    const generated = fields.map((field: string) => {
-      // Base definition shared by all fields
-      const base: ColDef = {
-        headerName: headerNameMappings[field] || prettifyHeader(field),
-        field: field,
-        sortable: true,
-        filter: true,
-      }
-      // Ensure no selection checkbox on the Internal ID column
-      if (field === 'id') {
-        ;(base as any).checkboxSelection = false
-        ;(base as any).headerCheckboxSelection = false
-      }
-      // Attach display formatters (do not change underlying values used by sorting/filtering)
-      // Priority: explicit sets > heuristics; first match wins
-      if (!base.valueFormatter && commaNoDecimalFields.has(field)) {
-        base.valueFormatter = numberNoDecimalFormatter
-      }
-      if (!base.valueFormatter && (dateFields.has(field) || isLikelyDateField(field))) {
-        base.valueFormatter = dateMMDDYYYYFormatter
-      }
-      if (!base.valueFormatter && (percentFields.has(field) || isLikelyPercentField(field))) {
-        base.valueFormatter = percentTwoDecimalFormatter
-      }
-      // Keep ID narrow by default
-      if (isClickableIdField(field)) {
-        base.width = 120
-        base.maxWidth = 140
-      }
-      // Apply badge cell renderer for flags and known enums
-      if (booleanBadgeFields.has(field) || isLikelyBooleanFlagField(field)) {
-        // Render Yes/No rounded pills for boolean-like data
-        base.cellRenderer = BadgeCell as any
-        base.cellRendererParams = { mode: 'boolean' } as any
-      } else if (enumBadgeFields[field]) {
-        // Render colored pills for specific enumerations
-        base.cellRenderer = BadgeCell as any
-        base.cellRendererParams = { mode: 'enum', enumMap: enumBadgeFields[field] } as any
-      }
-      return base
-    })
+    // Build default Seller Data Tape (All) = Actions + sellertape_id + Address + all available fields
+    const actionsCol = buildActionsColumn()
+    const sellerTapeCol: ColDef = buildSellerTapeColumn()
+    const addrCol = buildAddressColumn()
+    const allCols: ColDef[] = availableFields
+      .filter(f => !addressPartFields.has(f))
+      .filter(f => !excludeFields.has(f))
+      .filter(f => !!colsCatalog[f])
+      .map(f => colsCatalog[f])
+    columnDefs.value = [
+      actionsCol,
+      sellerTapeCol,
+      addrCol,
+      ...allCols,
+    ]
+    columnDefs.value = [actionsCol, sellerTapeCol, addrCol, ...allCols]
 
-    // Prepend an Actions column with a Vue cell renderer
-    const actionsCol: ColDef = {
-      headerName: 'Actions',
-      colId: 'actions',
-      pinned: 'left',
-      lockPinned: true,
-      lockPosition: true,
-      suppressMovable: true,
-      sortable: false,
-      filter: false,
-      // AG Grid v34+: disable the header menu button and header context menu
-      suppressHeaderMenuButton: true,
-      suppressHeaderContextMenu: true,
-      width: 220,
-      minWidth: 160,
-      cellRenderer: ActionsCell as any,
-      cellRendererParams: { onAction: onRowAction },
+    // Preserve default
+    sellerDataTapeColumns.value = columnDefs.value
+
+    // Apply initial view columns after defaults are prepared
+    applyViewColumns(activeView.value)
+
+    // Load sellers only when internal filters are visible
+    if (props.showFilters) {
+      await fetchSellers()
     }
 
-    // Use default column sizing from AG Grid auto-resize
-    const optimizedColumns = generated.map(col => {
-      // Return columns without custom sizing
-      return col;
-    })
-
-    columnDefs.value = [actionsCol, ...optimizedColumns]
-    
-    // Preserve as the default view's columns
-    sellerDataTapeColumns.value = columnDefs.value
-    
-    // Alternative approach: You can also hide columns after grid initialization
-    // using the columnApi. This is useful for dynamic column hiding based on user preferences.
-    // Example:
-    // setTimeout(() => {
-    //   if (gridRef.value?.api) {
-    //     const columnApi = gridRef.value.columnApi
-    //     columnsToHide.forEach(colId => {
-    //       columnApi.setColumnVisible(colId, false)
-    //     })
-    //   }
-    // }, 500) // Small delay to ensure grid is initialized
+    // Load any persisted Agent selections for the current seller/trade
+    loadSelectedAgentsFromStorage()
+    // Load invited state for the current seller/trade
+    loadInvitedFromStorage()
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error('Error loading SellerRawData fields for AG Grid:', err)

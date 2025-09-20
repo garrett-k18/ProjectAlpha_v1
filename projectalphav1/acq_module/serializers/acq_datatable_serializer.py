@@ -28,14 +28,10 @@ class SellerRawDataRowSerializer(serializers.Serializer):
     """
     # Core SellerRawData fields
     id = serializers.IntegerField(read_only=True)
-    seller_id = serializers.IntegerField(read_only=True)
-    trade_id = serializers.IntegerField(read_only=True)
     sellertape_id = serializers.IntegerField(read_only=True)
     asset_status = serializers.CharField(allow_null=True)
     
     # Related model fields accessed via foreign keys
-    seller_name = serializers.CharField(source='seller.name', read_only=True)
-    trade_name = serializers.CharField(source='trade.trade_name', read_only=True)
     as_of_date = serializers.DateField(allow_null=True)
     
     # Property details
@@ -65,11 +61,64 @@ class SellerRawDataRowSerializer(serializers.Serializer):
     # Delinquency metrics
     months_dlq = serializers.IntegerField(allow_null=True)
     
+    # Borrower fields
+    borrower1_last = serializers.CharField(allow_null=True, allow_blank=True)
+    borrower1_first = serializers.CharField(allow_null=True, allow_blank=True)
+    borrower2_last = serializers.CharField(allow_null=True, allow_blank=True)
+    borrower2_first = serializers.CharField(allow_null=True, allow_blank=True)
+
     # Direct seller valuation fields (from SellerRawData model)
     seller_asis_value = serializers.DecimalField(max_digits=15, decimal_places=2, allow_null=True)
     seller_arv_value = serializers.DecimalField(max_digits=15, decimal_places=2, allow_null=True)
     seller_value_date = serializers.DateField(allow_null=True)
     
+    # Additional financial and schedule fields
+    deferred_balance = serializers.DecimalField(max_digits=15, decimal_places=2, allow_null=True)
+    first_pay_date = serializers.DateField(allow_null=True)
+    original_term = serializers.IntegerField(allow_null=True)
+    original_rate = serializers.DecimalField(max_digits=6, decimal_places=4, allow_null=True)
+    original_maturity_date = serializers.DateField(allow_null=True)
+    default_rate = serializers.DecimalField(max_digits=6, decimal_places=4, allow_null=True)
+    current_maturity_date = serializers.DateField(allow_null=True)
+    current_term = serializers.IntegerField(allow_null=True)
+    accrued_note_interest = serializers.DecimalField(max_digits=15, decimal_places=2, allow_null=True)
+    accrued_default_interest = serializers.DecimalField(max_digits=15, decimal_places=2, allow_null=True)
+    escrow_balance = serializers.DecimalField(max_digits=15, decimal_places=2, allow_null=True)
+    escrow_advance = serializers.DecimalField(max_digits=15, decimal_places=2, allow_null=True)
+    recoverable_corp_advance = serializers.DecimalField(max_digits=15, decimal_places=2, allow_null=True)
+    late_fees = serializers.DecimalField(max_digits=15, decimal_places=2, allow_null=True)
+    other_fees = serializers.DecimalField(max_digits=15, decimal_places=2, allow_null=True)
+    suspense_balance = serializers.DecimalField(max_digits=15, decimal_places=2, allow_null=True)
+
+    origination_value = serializers.DecimalField(max_digits=15, decimal_places=2, allow_null=True)
+    origination_arv = serializers.DecimalField(max_digits=15, decimal_places=2, allow_null=True)
+    origination_value_date = serializers.DateField(allow_null=True)
+
+    additional_asis_value = serializers.DecimalField(max_digits=15, decimal_places=2, allow_null=True)
+    additional_arv_value = serializers.DecimalField(max_digits=15, decimal_places=2, allow_null=True)
+    additional_value_date = serializers.DateField(allow_null=True)
+
+    # Foreclosure flags and dates
+    fc_flag = serializers.BooleanField(required=False)
+    fc_first_legal_date = serializers.DateField(allow_null=True)
+    fc_referred_date = serializers.DateField(allow_null=True)
+    fc_judgement_date = serializers.DateField(allow_null=True)
+    fc_scheduled_sale_date = serializers.DateField(allow_null=True)
+    fc_sale_date = serializers.DateField(allow_null=True)
+    fc_starting = serializers.DecimalField(max_digits=15, decimal_places=2, allow_null=True)
+
+    # Bankruptcy
+    bk_flag = serializers.BooleanField(required=False)
+    bk_chapter = serializers.CharField(allow_null=True, allow_blank=True)
+
+    # Modification details
+    mod_flag = serializers.BooleanField(required=False)
+    mod_date = serializers.DateField(allow_null=True)
+    mod_maturity_date = serializers.DateField(allow_null=True)
+    mod_term = serializers.IntegerField(allow_null=True)
+    mod_rate = serializers.DecimalField(max_digits=6, decimal_places=4, allow_null=True)
+    mod_initial_balance = serializers.DecimalField(max_digits=15, decimal_places=2, allow_null=True)
+
     # Unified valuation fields (from core.Valuation model)
     # Broker valuations (source='broker')
     broker_asis_value = serializers.SerializerMethodField()
@@ -81,9 +130,7 @@ class SellerRawDataRowSerializer(serializers.Serializer):
     internal_initial_uw_arv_value = serializers.SerializerMethodField()
     internal_initial_uw_value_date = serializers.SerializerMethodField()
     
-    # Timestamps
-    created_at = serializers.DateTimeField(read_only=True)
-    updated_at = serializers.DateTimeField(read_only=True)
+   
     
     # Helper methods for unified valuations
     def _latest_val_by_source(self, obj, source: str):

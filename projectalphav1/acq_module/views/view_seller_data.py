@@ -149,12 +149,16 @@ def get_seller_rawdata_field_names(request):
     except Exception as e:
         # Log and return a safe minimal default to keep the UI working
         logger.error(f"Failed to build SellerRawData fields list: {e}")
+        # IMPORTANT: Do not include seller_id or trade_id in fallback (not part of grid contract)
         fallback = [
-            "id", "seller_id", "trade_id",
+            "id",
+            # Address parts (the UI will condense these into a single Address column)
             "street_address", "city", "state", "zip",
+            # Core fields commonly used in snapshots
             "asset_status", "property_type", "occupancy",
-            "current_balance", "total_debt", "seller_asis_value",
-            "created_at", "updated_at",
+            "current_balance", "total_debt",
+            # Seller valuation
+            "seller_asis_value", "seller_arv_value", "seller_value_date",
         ]
         return Response({"fields": fallback})
 
