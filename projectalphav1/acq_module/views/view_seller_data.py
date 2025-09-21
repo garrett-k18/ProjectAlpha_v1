@@ -25,6 +25,7 @@ including:
 
 
 from django.http import JsonResponse
+from django.forms.models import model_to_dict
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
@@ -120,20 +121,28 @@ def get_seller_trade_data(request, seller_id, trade_id=None):
             logger.error(f"Fallback raw values pagination failed: {e2}")
             return Response({'results': [], 'count': 0, 'next': None, 'previous': None})
     
-    # Serialize the data safely; on error, fall back to raw .values()
-    try:
-        serializer = SellerRawDataRowSerializer(page, many=True)
-        return paginator.get_paginated_response(serializer.data)
-    except Exception as e:
-        logger.error(f"Serialization failed for seller_id={seller_id}, trade_id={trade_id}: {e}")
+    # Serialize each row individually to avoid losing method fields for all rows
+    # if a single row raises during serialization (e.g., bad data in one record).
+    results = []
+    errors = 0
+    for obj in page:
         try:
-            raw = list(qs.values())
-            # Manually paginate fallback data using the same paginator
-            page2 = paginator.paginate_queryset(raw, request)
-            return paginator.get_paginated_response(page2)
-        except Exception as e2:
-            logger.error(f"Fallback serialization (values()) failed: {e2}")
-            return Response({'results': [], 'count': 0, 'next': None, 'previous': None})
+            data = SellerRawDataRowSerializer(obj).data
+        except Exception as e:
+            errors += 1
+            logger.error(
+                f"Row serialization failed for SellerRawData id={getattr(obj, 'id', None)}: {e}"
+            )
+            # Minimal fallback for this row only; omit method fields but keep core data
+            try:
+                data = model_to_dict(obj)
+            except Exception:
+                data = {}
+        results.append(data)
+
+    # Return the paginated response with our per-row serialized results
+    # This preserves count/next/previous metadata.
+    return paginator.get_paginated_response(results)
 
 
 @api_view(["GET"])

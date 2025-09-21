@@ -58,10 +58,12 @@ const badge = computed(() => {
   if (mode === 'boolean') {
     const b = toBoolLike(value)
     if (b === null) return null
-    // Per request: blue for Yes (primary), brighter neutral for No (warning)
+    // Allow overrides via cellRendererParams for color theming
+    const yesColor = p?.colDef?.cellRendererParams?.booleanYesColor || p?.cellRendererParams?.booleanYesColor || 'bg-danger'
+    const noColor = p?.colDef?.cellRendererParams?.booleanNoColor || p?.cellRendererParams?.booleanNoColor || 'bg-warning text-dark'
     return b
-      ? { label: 'Yes', color: 'bg-primary', title: 'True' }
-      : { label: 'No', color: 'bg-warning text-dark', title: 'False' }
+      ? { label: 'Yes', color: yesColor, title: 'True' }
+      : { label: 'No', color: noColor, title: 'False' }
   }
 
   // Enum mode: look up by string key (case-insensitive); fallback to secondary

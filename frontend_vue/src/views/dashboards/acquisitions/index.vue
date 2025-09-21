@@ -92,8 +92,8 @@
     <!-- Seller Data Tape card (AG Grid) moved directly under top metrics -->
     <b-row class="mt-1">
       <b-col class="col-12">
-        <!-- Pass behavior control to the grid: modal-first with onOpenLoan callback -->
-        <DataGrid :open-mode="'modal'" :open-loan="onOpenLoan" :show-filters="false" />
+        <!-- Temporary: Use simplified AcqGrid for testing -->
+        <AcqGrid />
       </b-col>
     </b-row>
 
@@ -249,8 +249,8 @@ import VectorMap from "@/views/dashboards/acquisitions/vectorMap.vue";
 import Widgets from "@/views/dashboards/acquisitions/widgets.vue";
 import DocumentsQuickView from "@/components/DocumentsQuickView.vue";
 import type { DocumentItem } from "@/components/DocumentsQuickView.vue";
-// AG Grid: modular data grid component for acquisitions dashboard
-import DataGrid from "@/views/dashboards/acquisitions/data-grid.vue";
+// AG Grid: simplified testing grid for acquisitions dashboard
+import AcqGrid from "@/views/dashboards/acquisitions/acq-grid.vue";
 // BootstrapVue Next modal component (Vue 3 compatible)
 import { BModal } from 'bootstrap-vue-next';
 // Centralized loan-level wrapper used for both full-page and modal
@@ -283,8 +283,8 @@ export default {
     StratsOccupancy,
     StratsDelinquency,
     Widgets,
-    // Register AG Grid data grid component
-    DataGrid,
+    // Register simplified AG Grid component for testing
+    AcqGrid,
     Layout,
     // Register modal + loan-level wrapper
     BModal,

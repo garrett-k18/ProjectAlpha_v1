@@ -1151,6 +1151,12 @@ function applyViewColumns(view: 'snapshot' | 'all' | 'localAgents') {
       'total_debt',
       // Performance
       'months_dlq',
+      // Key dates
+      'next_due_date',
+      // Legal/flags
+      'fc_flag',
+      'bk_flag',
+      'mod_flag',
     ],
     // Keep these as dynamic lists filtered by availableFields elsewhere
     all: [...availableFields].filter(f => !addressPartFields.has(f)),
@@ -1173,7 +1179,34 @@ function applyViewColumns(view: 'snapshot' | 'all' | 'localAgents') {
     .filter((f) => availableFields.includes(f) && !!colsCatalog[f])
     .map((f) => colsCatalog[f])
 
-  columnDefs.value = [actionsCol, sellerTapeCol, addrCol, ...dynamicCols]
+  // Fallback: if presets reference fields not in availableFields/colsCatalog yet,
+  // create minimal ColDefs so they still render (cells may be empty if data lacks them)
+  const missingFields = fieldsWanted
+    .filter((f) => !addressPartFields.has(f) && !excludeFields.has(f))
+    .filter((f) => !availableFields.includes(f) || !colsCatalog[f])
+
+  const fallbackDefs: ColDef[] = missingFields.map((field) => {
+    const base: ColDef = {
+      headerName: headerNameMappings[field] || prettifyHeader(field),
+      field,
+      sortable: true,
+      filter: true,
+    }
+    // Apply known formatters
+    if (commaNoDecimalFields.has(field)) base.valueFormatter = numberNoDecimalFormatter
+    if (dateFields.has(field) || isLikelyDateField(field)) base.valueFormatter = dateMMDDYYYYFormatter
+    if (percentFields.has(field) || isLikelyPercentField(field)) base.valueFormatter = percentTwoDecimalFormatter
+    if (booleanBadgeFields.has(field) || isLikelyBooleanFlagField(field)) {
+      base.cellRenderer = BadgeCell as any
+      base.cellRendererParams = { mode: 'boolean' } as any
+    } else if (enumBadgeFields[field]) {
+      base.cellRenderer = BadgeCell as any
+      base.cellRendererParams = { mode: 'enum', enumMap: enumBadgeFields[field] } as any
+    }
+    return base
+  })
+
+  columnDefs.value = [actionsCol, sellerTapeCol, addrCol, ...dynamicCols, ...fallbackDefs]
   nextTick(() => updateGridSize())
 }
 

@@ -14,8 +14,11 @@ Docs reviewed:
 - DRF SerializerMethodField: https://www.django-rest-framework.org/api-guide/fields/#serializermethodfield
 """
 from rest_framework import serializers
+import logging
 from ..models.seller import Seller, Trade, SellerRawData
 from core.models.valuations import Valuation
+
+logger = logging.getLogger(__name__)
 
 
 class SellerRawDataRowSerializer(serializers.Serializer):
@@ -38,7 +41,7 @@ class SellerRawDataRowSerializer(serializers.Serializer):
     street_address = serializers.CharField(allow_null=True)
     city = serializers.CharField(allow_null=True)
     state = serializers.CharField(allow_null=True)
-    zip = serializers.CharField(allow_null=True, source='zip')  # Map zip field from model
+    zip = serializers.CharField(allow_null=True)  # Map zip field from model
     property_type = serializers.CharField(allow_null=True)
     occupancy = serializers.CharField(allow_null=True)
     year_built = serializers.IntegerField(allow_null=True)
@@ -139,19 +142,34 @@ class SellerRawDataRowSerializer(serializers.Serializer):
         We order by value_date then created_at to get the most recent record.
         """
         hub = getattr(obj, 'asset_hub', None)
+        print(f"[Valuation Debug] SellerRawData id={getattr(obj, 'id', None)}, asset_hub={hub}")
         if hub is None:
+            print(f"[Valuation Debug] No asset_hub for SellerRawData id={getattr(obj, 'id', None)}")
             return None
-        return (
+        
+        valuations = (
             Valuation.objects
             .filter(asset_hub=hub, source=source)
             .order_by('-value_date', '-created_at')
-            .first()
         )
+        print(f"[Valuation Debug] Hub {hub.id}, source='{source}', found {valuations.count()} valuations")
+        
+        result = valuations.first()
+        if result:
+            print(f"[Valuation Debug] Selected valuation id={result.id}, asis_value={result.asis_value}, arv_value={result.arv_value}")
+        else:
+            # Log all sources available for this hub to see what we actually have
+            all_sources = list(Valuation.objects.filter(asset_hub=hub).values_list('source', flat=True).distinct())
+            print(f"[Valuation Debug] No valuation found for source='{source}'. Available sources: {all_sources}")
+        
+        return result
     
     # Broker valuation getters
     def get_broker_asis_value(self, obj):
         v = self._latest_val_by_source(obj, 'broker')
-        return getattr(v, 'asis_value', None) if v else None
+        result = getattr(v, 'asis_value', None) if v else None
+        print(f"[Valuation Debug] get_broker_asis_value for SellerRawData id={getattr(obj, 'id', None)}: {result}")
+        return result
     
     def get_broker_arv_value(self, obj):
         v = self._latest_val_by_source(obj, 'broker')
@@ -164,7 +182,9 @@ class SellerRawDataRowSerializer(serializers.Serializer):
     # Internal Initial UW valuation getters
     def get_internal_initial_uw_asis_value(self, obj):
         v = self._latest_val_by_source(obj, 'internalInitialUW')
-        return getattr(v, 'asis_value', None) if v else None
+        result = getattr(v, 'asis_value', None) if v else None
+        print(f"[Valuation Debug] get_internal_initial_uw_asis_value for SellerRawData id={getattr(obj, 'id', None)}: {result}")
+        return result
     
     def get_internal_initial_uw_arv_value(self, obj):
         v = self._latest_val_by_source(obj, 'internalInitialUW')

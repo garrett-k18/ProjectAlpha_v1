@@ -59,6 +59,7 @@ def build_queryset(
         SellerRawData.objects
         .filter(seller_id=seller_id, trade_id=trade_id)
         .select_related('seller', 'trade', 'asset_hub')  # Optimize joins for serializer access
+        .prefetch_related('asset_hub__valuations')  # Bring valuations into memory for serializer
     )
     
     # Apply quick filter across text fields
