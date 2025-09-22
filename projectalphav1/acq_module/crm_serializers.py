@@ -6,11 +6,11 @@
 # - Partial updates: https://www.django-rest-framework.org/api-guide/serializers/#partial-updates
 
 from rest_framework import serializers
-from core.models.crm import Brokercrm, TradingPartnerCRM
+from core.models.crm import MasterCRM
 
 
 class BrokercrmSerializer(serializers.ModelSerializer):
-    """Serializer for the Brokercrm directory entries used by internal UI.
+    """Serializer for MasterCRM (legacy class name kept for API stability).
 
     Notes:
     - Includes simple read/write fields; leaves normalization (e.g., 2-letter state) to views/services as needed.
@@ -18,27 +18,9 @@ class BrokercrmSerializer(serializers.ModelSerializer):
     """
 
     class Meta:
-        model = Brokercrm
+        model = MasterCRM
         fields = [
-            'id', 'broker_name', 'broker_email', 'broker_phone',
-            'broker_firm', 'broker_city', 'broker_state', 'created_at'
-        ]
-        read_only_fields = ['id', 'created_at']
-
-
-class TradingPartnerCRMSerializer(serializers.ModelSerializer):
-    """Serializer for TradingPartnerCRM directory entries.
-
-    Behaviors:
-    - `firm` is required; all other fields are optional as per model definition.
-    - `nda_signed` accepts YYYY-MM-DD format and returns ISO 8601 string.
-    """
-
-    class Meta:
-        model = TradingPartnerCRM
-        fields = [
-            'id', 'firm', 'name', 'email', 'phone',
-            'altname', 'altemail', 'alt_phone',
-            'nda_flag', 'nda_signed', 'created_at'
+            'id', 'firm', 'email', 'phone',
+            'city', 'state', 'created_at'
         ]
         read_only_fields = ['id', 'created_at']

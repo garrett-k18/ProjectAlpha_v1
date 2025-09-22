@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.db.models import Exists, OuterRef
 from .models.capital import DebtFacility
-from .models.crm import Brokercrm, TradingPartnerCRM
+from .models.crm import MasterCRM
 from .models.assumptions import Servicer, StateReference
 from .models.asset_id_hub import AssetIdHub
 from .models.valuations import Valuation
@@ -28,37 +28,41 @@ class DebtFacilityAdmin(admin.ModelAdmin):
     list_filter = ("rate_index", "start_date", "end_date")
     search_fields = ("facility_name", "firm_name")
 
-@admin.register(Brokercrm)
-class BrokercrmAdmin(admin.ModelAdmin):
-    """Admin configuration for Brokercrm (broker directory) model."""
+@admin.register(MasterCRM)
+class MasterCRMAdmin(admin.ModelAdmin):
+    """Admin configuration for unified Master CRM (Brokercrm) model."""
     list_display = (
-        'broker_name', 'broker_firm', 'broker_email', 'broker_state', 'broker_city', 'created_at'
+        'name', 'firm', 'email', 'state', 'city', 'tag',
+        'alt_contact_name', 'nda_flag', 'nda_signed', 'created_at'
     )
     list_filter = (
-        'broker_state',
+        'state', 'tag', 'nda_flag'
     )
     search_fields = (
-        'broker_name', 'broker_email', 'broker_firm', 'broker_city'
+        'name', 'email', 'firm', 'city',
+        'alt_contact_name', 'alt_contact_email'
+    )
+    readonly_fields = ('created_at', 'updated_at')
+    fieldsets = (
+        ('Primary Contact', {
+            'fields': ('name', 'email', 'phone', 'firm', 'state', 'city', 'tag')
+        }),
+        ('Alternate Contact', {
+            'fields': ('alt_contact_name', 'alt_contact_email', 'alt_contact_phone')
+        }),
+        ('NDA', {
+            'fields': ('nda_flag', 'nda_signed')
+        }),
+        ('Relationships', {
+            'fields': ('contact_user', 'contact_profile', 'latest_broker_token', 'latest_portal_token')
+        }),
+        ('Notes & Audit', {
+            'fields': ('notes', 'created_at', 'updated_at')
+        }),
     )
 
 
-@admin.register(TradingPartnerCRM)
-class TradingPartnerCRMAdmin(admin.ModelAdmin):
-    """Admin configuration for TradingPartnerCRM (trading partners directory) model.
 
-    Notes:
-    - `firm` is required; all other fields are optional per model definition.
-    - Provides convenient list columns and search to quickly find partners.
-    """
-    list_display = (
-        'firm', 'name', 'email', 'phone', 'altname', 'altemail', 'alt_phone', 'nda_flag', 'nda_signed', 'created_at'
-    )
-    list_filter = (
-        'nda_flag',
-    )
-    search_fields = (
-        'firm', 'name', 'email', 'phone', 'altname', 'altemail', 'alt_phone'
-    )
 
 
 @admin.register(Servicer)

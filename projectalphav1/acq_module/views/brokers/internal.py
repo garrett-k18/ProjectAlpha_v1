@@ -31,7 +31,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 
-from core.models.crm import Brokercrm
+from core.models.crm import MasterCRM
 from ...services.brokers import (
     get_broker_stats_dict,
     list_assigned_loan_entries,
@@ -41,14 +41,14 @@ from ...services.brokers import (
 @api_view(["GET", "PUT", "PATCH"])  # Dev: public detail + update endpoint
 @permission_classes([AllowAny])
 def broker_detail(request, broker_id: int):
-    """Return broker directory info (from Brokercrm) and quick stats.
+    """Return CRM contact info (from MasterCRM) and quick stats.
 
     What this does:
-    - Looks up the Brokercrm row by id.
+    - Looks up the MasterCRM row by id.
     - Computes counts for: total invites, distinct assigned loans, submissions.
     - Returns a JSON object used by the broker detail page header.
     """
-    broker = get_object_or_404(Brokercrm, pk=broker_id)
+    broker: MasterCRM = get_object_or_404(MasterCRM, pk=broker_id)
 
     if request.method in ["PUT", "PATCH"]:
         payload = request.data or {}
@@ -56,39 +56,39 @@ def broker_detail(request, broker_id: int):
         def norm(v):
             return (v or "").strip() or None
 
-        name = payload.get("broker_name")
-        email = payload.get("broker_email")
-        phone = payload.get("broker_phone")
-        firm = payload.get("broker_firm")
-        city = payload.get("broker_city")
-        state_in = payload.get("broker_state")
+        name = payload.get("name")
+        email = payload.get("email")
+        phone = payload.get("phone")
+        firm = payload.get("firm")
+        city = payload.get("city")
+        state_in = payload.get("state")
 
         if name is not None:
-            broker.broker_name = norm(name)
+            broker.name = norm(name)
         if email is not None:
-            broker.broker_email = norm(email)
+            broker.email = norm(email)
         if phone is not None:
-            broker.broker_phone = norm(phone)
+            broker.phone = norm(phone)
         if firm is not None:
-            broker.broker_firm = norm(firm)
+            broker.firm = norm(firm)
         if city is not None:
-            broker.broker_city = norm(city)
+            broker.city = norm(city)
         if state_in is not None:
             state_val = norm(state_in)
             if state_val and len(state_val.upper()) != 2:
-                return Response({"detail": "broker_state must be a 2-letter code."}, status=status.HTTP_400_BAD_REQUEST)
-            broker.broker_state = state_val.upper() if state_val else None
+                return Response({"detail": "state must be a 2-letter code."}, status=status.HTTP_400_BAD_REQUEST)
+            broker.state = state_val.upper() if state_val else None
 
         broker.save()
 
         updated = {
             "id": broker.id,
-            "broker_name": broker.broker_name,
-            "broker_email": broker.broker_email,
-            "broker_phone": broker.broker_phone,
-            "broker_firm": broker.broker_firm,
-            "broker_city": broker.broker_city,
-            "broker_state": broker.broker_state,
+            "name": broker.name,
+            "email": broker.email,
+            "phone": broker.phone,
+            "firm": broker.firm,
+            "city": broker.city,
+            "state": broker.state,
             "created_at": broker.created_at.isoformat() if broker.created_at else None,
         }
         return Response(updated, status=status.HTTP_200_OK)
@@ -98,12 +98,12 @@ def broker_detail(request, broker_id: int):
 
     data: Dict[str, Any] = {
         "id": broker.id,
-        "broker_name": broker.broker_name,
-        "broker_email": broker.broker_email,
-        "broker_phone": broker.broker_phone,
-        "broker_firm": broker.broker_firm,
-        "broker_city": broker.broker_city,
-        "broker_state": broker.broker_state,
+        "name": broker.name,
+        "email": broker.email,
+        "phone": broker.phone,
+        "firm": broker.firm,
+        "city": broker.city,
+        "state": broker.state,
         "stats": stats,
     }
     return Response(data, status=status.HTTP_200_OK)
@@ -121,16 +121,16 @@ def list_assigned_loans(request, broker_id: int):
       and whether a BrokerValues submission exists for that SRD.
     - Response shape: { "results": AssignedLoanEntry[] }
     """
-    broker = get_object_or_404(Brokercrm, pk=broker_id)
+    broker: MasterCRM = get_object_or_404(MasterCRM, pk=broker_id)
 
     results = list_assigned_loan_entries(broker)
     return Response({"results": results}, status=status.HTTP_200_OK)
 
 
-@api_view(["GET", "POST"])  # Dev: public list + create endpoint for Brokercrm directory
+@api_view(["GET", "POST"])  # Dev: public list + create endpoint for MasterCRM directory
 @permission_classes([AllowAny])
 def list_brokers(request):
-    """List or create brokers in the Brokercrm directory.
+    """List or create contacts in the MasterCRM directory.
 
     GET query params:
       - q: case-insensitive search across name, email, firm, city
@@ -139,12 +139,12 @@ def list_brokers(request):
       - page_size: items per page (default 25, max 100)
 
     POST JSON body (all fields optional):
-      - broker_name: string
-      - broker_email: string (email)
-      - broker_phone: string
-      - broker_firm: string
-      - broker_city: string
-      - broker_state: 2-letter code (uppercase)
+      - name: string
+      - email: string (email)
+      - phone: string
+      - firm: string
+      - city: string
+      - state: 2-letter code (uppercase)
 
     Returns:
       - GET: a paginated shape compatible with simple list UIs.
@@ -159,33 +159,33 @@ def list_brokers(request):
     if request.method == "POST":
         # Minimal create handler; production can use DRF serializers for validation
         payload = request.data or {}
-        name = (payload.get("broker_name") or "").strip() or None
-        email = (payload.get("broker_email") or "").strip() or None
-        phone = (payload.get("broker_phone") or "").strip() or None
-        firm = (payload.get("broker_firm") or "").strip() or None
-        city = (payload.get("broker_city") or "").strip() or None
-        state_in = (payload.get("broker_state") or "").strip().upper() or None
+        name = (payload.get("name") or "").strip() or None
+        email = (payload.get("email") or "").strip() or None
+        phone = (payload.get("phone") or "").strip() or None
+        firm = (payload.get("firm") or "").strip() or None
+        city = (payload.get("city") or "").strip() or None
+        state_in = (payload.get("state") or "").strip().upper() or None
 
         # Basic format checks
         if state_in and len(state_in) != 2:
-            return Response({"detail": "broker_state must be a 2-letter code."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "state must be a 2-letter code."}, status=status.HTTP_400_BAD_REQUEST)
 
-        broker = Brokercrm.objects.create(
-            broker_name=name,
-            broker_email=email,
-            broker_phone=phone,
-            broker_firm=firm,
-            broker_city=city,
-            broker_state=state_in,
+        broker = MasterCRM.objects.create(
+            name=name,
+            email=email,
+            phone=phone,
+            firm=firm,
+            city=city,
+            state=state_in,
         )
         item = {
             "id": broker.id,
-            "broker_name": broker.broker_name,
-            "broker_email": broker.broker_email,
-            "broker_phone": broker.broker_phone,
-            "broker_firm": broker.broker_firm,
-            "broker_city": broker.broker_city,
-            "broker_state": broker.broker_state,
+            "name": broker.name,
+            "email": broker.email,
+            "phone": broker.phone,
+            "firm": broker.firm,
+            "city": broker.city,
+            "state": broker.state,
             "created_at": broker.created_at.isoformat() if broker.created_at else None,
         }
         return Response(item, status=status.HTTP_201_CREATED)
@@ -203,17 +203,17 @@ def list_brokers(request):
         page_size = 25
     page_size = max(1, min(page_size, 100))
 
-    qs = Brokercrm.objects.all().order_by("-created_at")
+    qs = MasterCRM.objects.all().order_by("-created_at")
 
     if q:
         qs = qs.filter(
-            Q(broker_name__icontains=q)
-            | Q(broker_email__icontains=q)
-            | Q(broker_firm__icontains=q)
-            | Q(broker_city__icontains=q)
+            Q(name__icontains=q)
+            | Q(email__icontains=q)
+            | Q(firm__icontains=q)
+            | Q(city__icontains=q)
         )
     if state:
-        qs = qs.filter(broker_state=state)
+        qs = qs.filter(state=state)
 
     total = qs.count()
     start = (page - 1) * page_size
@@ -221,12 +221,12 @@ def list_brokers(request):
     items = list(
         qs.values(
             "id",
-            "broker_name",
-            "broker_email",
-            "broker_phone",
-            "broker_firm",
-            "broker_city",
-            "broker_state",
+            "name",
+            "email",
+            "phone",
+            "firm",
+            "city",
+            "state",
             "created_at",
         )[start:end]
     )

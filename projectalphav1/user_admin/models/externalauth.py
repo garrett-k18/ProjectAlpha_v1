@@ -7,8 +7,8 @@ class BrokerTokenAuth(models.Model):
     """Token-based, loginless access for external brokers to submit values.
 
     This model is intentionally placed in the `user_admin` app to keep
-    authentication-like concerns together and separate from the broker CRM
-    directory data stored in `acq_module.Brokercrm`.
+    authentication-like concerns together and separate from the CRM directory
+    data stored in `core.MasterCRM`.
 
     Relations are referenced by app label and model name to avoid import cycles.
     """
@@ -21,9 +21,9 @@ class BrokerTokenAuth(models.Model):
         help_text='SellerRawData row this token is for.'
     )
 
-    # Optional link to canonical broker directory entry
+    # Optional link to canonical CRM directory entry (Broker contact)
     broker = models.ForeignKey(
-        'core.Brokercrm',
+        'core.MasterCRM',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -100,9 +100,9 @@ class BrokerPortalToken(models.Model):
     - Per-loan access and submissions are still governed by `BrokerTokenAuth`.
     """
 
-    # Canonical broker directory entry
+    # Canonical CRM directory entry (Broker contact)
     broker = models.ForeignKey(
-        'core.Brokercrm',
+        'core.MasterCRM',
         on_delete=models.CASCADE,
         related_name='portal_tokens',
         help_text='Broker this portal token is issued for.'

@@ -48,7 +48,7 @@ from django.db.models import Q
 from ...models.seller import SellerRawData
 from core.models.valuations import Valuation
 from core.models.attachments import Photo, Document
-from core.models.crm import Brokercrm
+from core.models.crm import MasterCRM
 from user_admin.models import BrokerTokenAuth
 
 

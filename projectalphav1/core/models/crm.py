@@ -1,137 +1,79 @@
 from django.db import models
+from django.conf import settings
 
-class Brokercrm(models.Model):
-    """Canonical Broker directory entry (independent of any loan/token).
+class MasterCRM(models.Model):
+    """Unified Master CRM directory entry (broker-first, now generalized).
 
-    Stores contact and firm/location data used across the app (e.g., dropdowns,
-    assignments). Token/authentication for external submissions lives in
-    `user_admin.models.BrokerTokenAuth` and is intentionally decoupled.
+    Originally a broker directory, this model has been expanded to serve as the
+    single Master CRM record by incorporating additional fields used by trading
+    partners and legal contacts. External authentication/tokens remain in
+    `user_admin` and are linked via optional FKs here.
+    Docs: https://docs.djangoproject.com/en/stable/ref/models/fields/
     """
-    broker_firm = models.CharField(max_length=255, blank=True, null=True)
-    broker_state = models.CharField(max_length=2, blank=True, null=True)
-    broker_city = models.CharField(max_length=255, blank=True, null=True)
-    broker_email = models.EmailField(blank=True, null=True)
-    broker_phone = models.CharField(max_length=255, blank=True, null=True)
-    broker_name = models.CharField(max_length=255, blank=True, null=True)
-
-    # Audit
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        indexes = [
-            models.Index(fields=['broker_state']),
-            models.Index(fields=['broker_email']),
-        ]
-        # Note: Using default table naming under 'core' app for clean drop-and-recreate
-        # (no explicit db_table) since there is no data to preserve.
-        ordering = ['-created_at']
-        verbose_name = 'Broker'
-        verbose_name_plural = 'Brokers'
-
-    def __str__(self) -> str:
-        # Useful admin label
-        parts = [p for p in [self.broker_name, self.broker_firm, self.broker_city] if p]
-        return " - ".join(parts) or (self.broker_email or f"Broker {self.pk}")
-
-
-class TradingPartnerCRM(models.Model):
-    """Canonical Trading Partner directory entry.
-
-    This model captures core contact details for trading partners (e.g., hedge funds,
-    private lenders, institutions) independent of any specific deal/loan. It mirrors
-    the lightweight directory style of `Brokercrm` and is intended for global lookups
-    and assignments.
-    """
-
-    # Primary contact / firm information
-    firm = models.CharField(
-        max_length=255,
-        blank=False,
-        null=False,
-        help_text="Firm or organization name for the trading partner.",
-    )
-    name = models.CharField(
-        max_length=255,
-        blank=True,
-        null=True,
-        help_text="Primary contact person's full name.",
-    )
-    email = models.EmailField(
-        blank=True,
-        null=True,
-        help_text="Primary contact email address.",
-    )
-    phone = models.CharField(
-        max_length=255,
-        blank=True,
-        null=True,
-        help_text="Primary contact phone number (free-form, include country code if applicable).",
-    )
-
-    # Alternate contact
-    altname = models.CharField(
-        max_length=255,
-        blank=True,
-        null=True,
-        help_text="Alternate contact person's full name.",
-    )
-    altemail = models.EmailField(
-        blank=True,
-        null=True,
-        help_text="Alternate contact email address.",
-    )
-    alt_phone = models.CharField(
-        max_length=255,
-        blank=True,
-        null=True,
-        help_text="Alternate contact phone number.",
-    )
-
-    # NDA tracking
-    nda_flag = models.BooleanField(
-        default=False,
-        help_text="Whether an NDA is required/expected with this partner.",
-    )
-    nda_signed = models.DateField(
-        blank=True,
-        null=True,
-        help_text="Date the NDA was fully executed (leave blank if not signed).",
-    )
-
-    # Audit
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        indexes = [
-            models.Index(fields=['email']),
-            models.Index(fields=['firm']),
-        ]
-        # Note: Using default table naming under 'core' app for clean drop-and-recreate
-        # (no explicit db_table) since there is no data to preserve.
-        ordering = ['-created_at']
-        verbose_name = 'Trading Partner'
-        verbose_name_plural = 'Trading Partners'
-
-    def __str__(self) -> str:
-        """Human-friendly label for admin/change lists."""
-        parts = [p for p in [self.name, self.firm] if p]
-        return " - ".join(parts) or (self.email or f"Trading Partner {self.pk}")
-
-class LegalCRM(models.Model):
-    """Legal entity/contact information.""" 
-    firm_name = models.CharField(max_length=255, blank=True, null=True)
-    contact_name = models.CharField(max_length=255, blank=True, null=True)
+    firm = models.CharField(max_length=255, blank=True, null=True)
+    name = models.CharField(max_length=255, blank=True, null=True)
+    state = models.CharField(max_length=2, blank=True, null=True)
+    city = models.CharField(max_length=255, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
     phone = models.CharField(max_length=255, blank=True, null=True)
 
+    # Contact type tag (for simple categorization)
+    TAG_BROKER = "broker"
+    TAG_TRADING = "trading_partner"
+    TAG_LEGAL = "legal"
+    TAG_CHOICES = (
+        (TAG_BROKER, "Broker"),
+        (TAG_TRADING, "Trading Partner"),
+        (TAG_LEGAL, "Legal"),
+    )
+    tag = models.CharField(
+        max_length=32,
+        choices=TAG_CHOICES,
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="Simple type tag for this contact (Broker, Trading Partner, Legal).",
+    )
+    
+
+    # Unified fields (from TradingPartnerCRM/LegalCRM)
+    # Alternate contact (partner-style)
+    alt_contact_name = models.CharField(max_length=255, blank=True, null=True)
+    alt_contact_email = models.EmailField(blank=True, null=True)
+    alt_contact_phone = models.CharField(max_length=255, blank=True, null=True)
+
+    # NDA tracking
+    nda_flag = models.BooleanField(default=False)
+    nda_signed = models.DateField(blank=True, null=True)
+
+    # Dependencies removed as requested to simplify migrations.
+
+    # Notes and audit
+    notes = models.TextField(blank=True, null=True)
+
     # Audit
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         indexes = [
+            models.Index(fields=['state']),
             models.Index(fields=['email']),
-            models.Index(fields=['firm_name']),
+            models.Index(fields=['firm']),
+            models.Index(fields=['tag']),
         ]
         ordering = ['-created_at']
-        verbose_name = 'Legal Entity'
-        verbose_name_plural = 'Legal Entities'
+        verbose_name = 'Master CRM'
+        verbose_name_plural = 'Master CRM'
+        # Default table name (no legacy table preservation)
+
+    def __str__(self) -> str:
+        # Useful admin label
+        parts = [p for p in [self.name, self.firm, self.city] if p]
+        return " - ".join(parts) or (self.email or f"CRM {self.pk}")
+
+    # No legacy alias properties; API layers should map keys explicitly
+
+
+
+

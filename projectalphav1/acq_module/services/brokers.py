@@ -15,17 +15,17 @@ from typing import List, Dict, Any, Tuple
 
 from django.db.models import QuerySet
 
-from core.models.crm import Brokercrm
+from core.models.crm import MasterCRM
 from ..models.seller import SellerRawData
 from core.models.valuations import Valuation
 from user_admin.models import BrokerTokenAuth
 
 
-def get_broker_stats_dict(broker: Brokercrm) -> Dict[str, int]:
+def get_broker_stats_dict(broker: MasterCRM) -> Dict[str, int]:
     """Return counts for invites, distinct assigned loans, and submissions.
 
     Args:
-        broker: A `Brokercrm` instance (already fetched by the caller).
+        broker: A `MasterCRM` instance (already fetched by the caller).
 
     Returns:
         A dict with keys: total_invites, assigned_loan_count, submissions_count
@@ -56,7 +56,7 @@ def get_broker_stats_dict(broker: Brokercrm) -> Dict[str, int]:
     }
 
 
-def list_latest_tokens_for_broker(broker: Brokercrm) -> QuerySet[BrokerTokenAuth]:
+def list_latest_tokens_for_broker(broker: MasterCRM) -> QuerySet[BrokerTokenAuth]:
     """Return a queryset of the latest token per loan for the given broker.
 
     Uses PostgreSQL DISTINCT ON by ordering and then calling distinct on
@@ -70,7 +70,7 @@ def list_latest_tokens_for_broker(broker: Brokercrm) -> QuerySet[BrokerTokenAuth
     )
 
 
-def list_assigned_loan_entries(broker: Brokercrm) -> List[Dict[str, Any]]:
+def list_assigned_loan_entries(broker: MasterCRM) -> List[Dict[str, Any]]:
     """Build a list of assigned loan entries for UI consumption.
 
     Each entry includes SRD id, minimal seller/trade info, address, an optional

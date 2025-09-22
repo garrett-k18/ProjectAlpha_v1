@@ -135,10 +135,10 @@ const cols: Record<string, ColDef> = {
       },
     },
   },
-  seller_asis_value: { headerName: 'Seller AIV', field: 'seller_asis_value', minWidth: 130, valueFormatter: currency0 },
-  seller_arv_value: { headerName: 'Seller ARV', field: 'seller_arv_value', minWidth: 130, valueFormatter: currency0 },
+  seller_asis_value: { headerName: 'Seller AIV', field: 'seller_asis_value', minWidth: 140, valueFormatter: currency0 },
+  seller_arv_value: { headerName: 'Seller ARV', field: 'seller_arv_value', minWidth: 140, valueFormatter: currency0 },
   // Origination value (from serializer)
-  origination_value: { headerName: 'Origination AIV', field: 'origination_value', minWidth: 150, valueFormatter: currency0 },
+  origination_value: { headerName: 'Origination AIV', field: 'origination_value', minWidth: 140, valueFormatter: currency0 },
   seller_value_date: { headerName: 'Seller Value Date', field: 'seller_value_date', valueFormatter: dateFmt, minWidth: 140 },
   current_balance: { headerName: 'Current Balance', field: 'current_balance', valueFormatter: currency0, minWidth: 140 },
   interest_rate: { headerName: 'Interest Rate', field: 'interest_rate', valueFormatter: percentFmt, minWidth: 110 },
@@ -173,8 +173,8 @@ const cols: Record<string, ColDef> = {
   // Valuations (unified from backend serializer)
   broker_asis_value: { headerName: 'Broker AIV', field: 'broker_asis_value', minWidth: 140, valueFormatter: currency0 },
   broker_arv_value: { headerName: 'Broker ARV', field: 'broker_arv_value', minWidth: 140, valueFormatter: currency0 },
-  internal_initial_uw_asis_value: { headerName: 'Internal UW AIV', field: 'internal_initial_uw_asis_value', minWidth: 190, valueFormatter: currency0 },
-  internal_initial_uw_arv_value: { headerName: 'Internal UW ARV', field: 'internal_initial_uw_arv_value', minWidth: 190, valueFormatter: currency0 },
+  internal_initial_uw_asis_value: { headerName: 'Internal UW AIV', field: 'internal_initial_uw_asis_value', minWidth: 140, valueFormatter: currency0 },
+  internal_initial_uw_arv_value: { headerName: 'Internal UW ARV', field: 'internal_initial_uw_arv_value', minWidth: 140, valueFormatter: currency0 },
 }
 
 /* --------------------------------------------------------------------------
@@ -199,6 +199,7 @@ const presets: Record<'snapshot' | 'all' | 'valuations', ColDef[]> = {
   ],
   valuations: [
     // Seller valuations
+    cols.agent_name,
     cols.seller_asis_value,
     cols.seller_arv_value,
     // Broker valuations
@@ -208,7 +209,7 @@ const presets: Record<'snapshot' | 'all' | 'valuations', ColDef[]> = {
     cols.internal_initial_uw_asis_value,
     cols.internal_initial_uw_arv_value,
     // Context columns for this view
-    cols.agent_name,
+    
   ],
   all: Object.values(cols),
 }

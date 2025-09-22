@@ -32,7 +32,7 @@ from rest_framework import status, serializers
 
 from ...models.seller import SellerRawData
 from core.models.valuations import Valuation
-from core.models.crm import Brokercrm
+from core.models.crm import MasterCRM
 from ...services.brokers import list_assigned_loan_entries
 from user_admin.models import BrokerTokenAuth
 from user_admin.models.externalauth import BrokerPortalToken
@@ -68,7 +68,7 @@ def assign_broker_batch(request):
     serializer.is_valid(raise_exception=True)
     data = serializer.validated_data
 
-    broker: Brokercrm = get_object_or_404(Brokercrm, pk=data["broker_id"]) 
+    broker: MasterCRM = get_object_or_404(MasterCRM, pk=data["broker_id"]) 
     srd_ids: List[int] = data["seller_raw_data_ids"]
 
     invite_hours = int(data.get("expires_in_hours") or 360)

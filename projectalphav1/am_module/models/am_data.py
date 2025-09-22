@@ -324,15 +324,15 @@ class REOData(models.Model):
         help_text='1:1 with hub; REO data keyed by AssetIdHub.',
     )
     
-    # Optional one-to-one link to a Broker CRM directory entry
+    # Optional one-to-one link to a CRM directory entry (Broker contact)
     # Using string app label reference to avoid circular imports
     broker_crm = models.OneToOneField(
-        "core.Brokercrm",
+        "core.MasterCRM",
         on_delete=models.SET_NULL,   # If broker entry is removed, preserve REOData but null the link
         null=True,
         blank=True,
-        related_name="reo_record",  # Access from Brokercrm via: brokercrm.reo_record
-        help_text="Linked Broker CRM contact for this REO asset (optional).",
+        related_name="reo_record",  # Access from MasterCRM via: mastercrm.reo_record
+        help_text="Linked CRM contact (Broker) for this REO asset (optional).",
     )
 
     list_price = models.DecimalField(
@@ -433,11 +433,11 @@ class FCSale(models.Model):
     
     # Optional association to a Legal CRM contact/entity managing the FC
     legal_crm = models.ForeignKey(
-        "core.LegalCRM",
+        "core.MasterCRM",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="fc_sales",  # Access from LegalCRM via: legalcrm.fc_sales.all()
+        related_name="fc_sales",  # Access from MasterCRM via: legalcrm.fc_sales.all()
         help_text="Legal entity/contact from CRM associated with this foreclosure sale (optional).",
     )
     
