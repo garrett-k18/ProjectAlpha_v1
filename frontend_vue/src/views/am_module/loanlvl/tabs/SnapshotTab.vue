@@ -50,6 +50,8 @@ import http from '@/lib/http'
 import PropertyMap from '@/components/PropertyMap.vue'
 import PhotoCarousel from '@/components/PhotoCarousel.vue'
 import DocumentsQuickView from '@/components/DocumentsQuickView.vue'
+// Reuse acquisitions valuation matrix component (container-less) in AM snapshot
+import ValuationMatrix from '@/views/acq_module/loanlvl/components/valuationMatrix.vue'
 import type { DocumentItem } from '@/components/DocumentsQuickView.vue'
 
 export type PhotoItem = { src: string; alt?: string; thumb?: string; type?: string }

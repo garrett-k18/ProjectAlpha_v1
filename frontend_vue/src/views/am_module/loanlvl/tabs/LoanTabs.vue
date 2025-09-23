@@ -5,16 +5,16 @@
       <SnapshotTab :row="row" :productId="productId" />
     </b-tab>
 
+    <b-tab title="Asset Management">
+      <AssetManagementTab :row="row" :productId="productId" />
+    </b-tab>
+
     <b-tab title="Servicing">
       <ServicingTab :row="row" :productId="productId" />
     </b-tab>
 
     <b-tab title="Property Details">
       <PropertyDetailsTab :row="row" :productId="productId" />
-    </b-tab>
-
-    <b-tab title="Acquisition Analysis">
-      <AcquisitionAnalysisTab :row="row" :productId="productId" />
     </b-tab>
 
     <b-tab title="Documents">
@@ -34,6 +34,6 @@ withDefaults(defineProps<{ row?: Record<string, any> | null; productId?: string 
 const SnapshotTab = defineAsyncComponent(() => import('./SnapshotTab.vue'))
 const ServicingTab = defineAsyncComponent(() => import('./ServicingTab.vue'))
 const PropertyDetailsTab = defineAsyncComponent(() => import('./PropertyDetailsTab.vue'))
-const AcquisitionAnalysisTab = defineAsyncComponent(() => import('./AcquisitionAnalysisTab.vue'))
+const AssetManagementTab = defineAsyncComponent(() => import('./AssetManagement.vue'))
 const DocumentsTab = defineAsyncComponent(() => import('./DocumentsTab.vue'))
 </script>

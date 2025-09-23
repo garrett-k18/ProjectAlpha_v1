@@ -9,7 +9,7 @@
               class="m-0"
           ></b-breadcrumb>
         </div>
-        <h4 class="page-title">{{ title }}</h4>
+        <h4 class="page-title" v-html="title"></h4>
       </div>
     </b-col>
   </b-row>

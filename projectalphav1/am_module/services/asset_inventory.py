@@ -43,14 +43,14 @@ def build_queryset(
     ordering: Optional[str] = None,
 ) -> QuerySet[SellerBoardedData]:
     """
-    Return a QuerySet of SellerBoardedData with metrics joined.
+    Return a QuerySet of SellerBoardedData with metrics joined via AssetIdHub.
     - Applies quick filter across common text fields when q is provided
     - Applies simple equality filters from the filters dict
     - Applies ordering when provided (supports -prefix for desc)
     """
     qs = (
         SellerBoardedData.objects
-        .select_related("metrics")  # OneToOne relation to AssetMetrics
+        .select_related("asset_hub__am_metrics")  # hub-keyed AssetMetrics
         .select_related("asset_hub__blended_outcome_model")  # hub-keyed BlendedOutcomeModel
     )
 
@@ -86,7 +86,7 @@ def build_queryset(
                 # Sort by purchase_date as a proxy for hold length
                 # Note: this is inversely correlated to hold_days; the client can
                 # choose asc/desc to match desired behavior.
-                model_field = "metrics__purchase_date"
+                model_field = "asset_hub__am_metrics__purchase_date"
             else:
                 model_field = key  # pass-through for any other field
 

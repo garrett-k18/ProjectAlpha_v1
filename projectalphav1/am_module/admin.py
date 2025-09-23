@@ -5,6 +5,14 @@ from am_module.models.servicers import ServicerLoanData
 
 
 class AssetMetricsInline(admin.StackedInline):
+    """
+    NOTE: AssetMetrics is keyed to core.AssetIdHub (primary key) and does NOT
+    have a ForeignKey to SellerBoardedData. Django inlines require a direct FK
+    to the parent model, so we cannot inline AssetMetrics under SellerBoardedData.
+
+    Keeping this class as a placeholder for future hub-centric admin, but it is
+    not used in SellerBoardedDataAdmin.inlines.
+    """
     model = AssetMetrics
     can_delete = False
     extra = 0
@@ -14,8 +22,7 @@ class AssetMetricsInline(admin.StackedInline):
         "updated_at",
     )
     readonly_fields = ("created_at", "updated_at")
-
-# Inline removed: BlendedOutcomeModel is keyed to AssetIdHub, not directly to SellerBoardedData
+# Inline note: BlendedOutcomeModel is keyed to AssetIdHub, not directly to SellerBoardedData
 
 
 @admin.register(SellerBoardedData)
@@ -49,24 +56,26 @@ class SellerBoardedDataAdmin(admin.ModelAdmin):
         "zip",
     )
     ordering = ("-id",)
-    inlines = [AssetMetricsInline]
+    # Cannot inline AssetMetrics here because it is keyed to core.AssetIdHub, not this model.
+    inlines = []
 
 
 @admin.register(AssetMetrics)
 class AssetMetricsAdmin(admin.ModelAdmin):
     list_display = (
-        "asset",
+        "asset_hub",
         "purchase_date",
         "time_held_days_display",
         "created_at",
         "updated_at",
     )
-    list_select_related = ("asset",)
+    list_select_related = ("asset_hub",)
     search_fields = (
-        "asset__sellertape_id",
-        "asset__street_address",
-        "asset__city",
-        "asset__state",
+        # Traverse hub -> boarded record for human fields
+        "asset_hub__am_boarded__sellertape_id",
+        "asset_hub__am_boarded__street_address",
+        "asset_hub__am_boarded__city",
+        "asset_hub__am_boarded__state",
     )
     ordering = ("-created_at",)
 

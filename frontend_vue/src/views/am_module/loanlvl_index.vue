@@ -60,8 +60,8 @@ const displayTitle = computed<string>(() => {
   const propAddr = String(addressProp?.value ?? '').trim()
   const address = built || propAddr
 
-  if (id && address) return `${id} — ${address}`
-  if (id) return id
+  if (id && address) return `<span class="fw-bold">${id}</span> — ${address}`
+  if (id) return `<span class="fw-bold">${id}</span>`
   if (address) return address
   return ''
 })

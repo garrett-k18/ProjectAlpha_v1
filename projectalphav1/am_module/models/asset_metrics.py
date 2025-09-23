@@ -13,18 +13,17 @@ from django.utils import timezone  # Timezone-aware date utilities (localdate)
 class AssetMetrics(models.Model):
     """
     AssetMetrics tracks performance-related attributes for a single boarded asset.
-    It is a strict 1:1 with SellerBoardedData (exactly one metrics row per boarded asset).
+    It is a strict 1:1 with AssetIdHub (asset hub id as primary key).
     """
 
-    # One-to-one link to the boarded asset record.
-    # Using string "am_module.SellerBoardedData" avoids import ordering issues.
-    # primary_key=True means this model shares the same PK as the linked asset; guarantees 1:1.
-    asset = models.OneToOneField(
-        "am_module.SellerBoardedData",  # Target model in same Django app
-        on_delete=models.CASCADE,       # Delete metrics if the asset is deleted
-        related_name="metrics",         # Reverse accessor: asset.metrics
-        primary_key=True,               # Shared PK -> strict one-to-one mapping
-        help_text="The boarded asset this metrics record belongs to."
+    # One-to-one link to the Asset Hub record (hub-first architecture).
+    # We share the same PK as the hub to enforce strict 1:1 by hub id.
+    asset_hub = models.OneToOneField(
+        'core.AssetIdHub',              # Stable hub id source of truth
+        on_delete=models.PROTECT,       # Protect hub integrity; do not cascade delete
+        related_name='am_metrics',      # Reverse accessor: hub.am_metrics
+        primary_key=True,               # PK equals hub id
+        help_text='The AssetIdHub this metrics record belongs to.'
     )
 
     # Required purchase date (cannot be null or blank) as requested.

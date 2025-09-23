@@ -468,4 +468,175 @@ class FCSale(models.Model):
         help_text="Sale price of the foreclosure sale (optional).",
     )
     
+class DIL(models.Model):
+    """Data about a DIL (hub-keyed 1:1)."""
+    
+    asset_hub = models.OneToOneField(
+        'core.AssetIdHub',
+        on_delete=models.PROTECT,
+        primary_key=True,
+        related_name='dil',
+        help_text='1:1 with hub; DIL keyed by AssetIdHub.',
+    )
+    
+    # Optional association to a Legal CRM contact/entity managing the DIL
+    legal_crm = models.ForeignKey(
+        "core.MasterCRM",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="dils",  # Access from MasterCRM via: legalcrm.dils.all()
+        help_text="Legal entity/contact from CRM associated with this DIL (optional).",
+    )
+    
+    dil_completion_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Completion date of the DIL (optional).",
+    )
+    
+    dil_cost = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Average cost of the DIL (optional).",
+    )
+    
+    cfk_cost = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="CFK cost of the DIL (optional).",
+    )      
+
+class ShortSale(models.Model):
+    """Data about a short sale (hub-keyed 1:1)."""
+
+    asset_hub = models.OneToOneField(
+        'core.AssetIdHub',
+        on_delete=models.PROTECT,
+        primary_key=True,
+        related_name='short_sale',
+        help_text='1:1 with hub; short sale keyed by AssetIdHub.',
+    )
+
+    # Optional association to a Broker CRM contact/entity managing the short sale
+    broker_crm = models.ForeignKey(
+        "core.MasterCRM",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="short_sales",  # Access from MasterCRM via: broker.short_sales.all()
+        help_text="Broker entity/contact from CRM associated with this short sale (optional).",
+    )
+
+    
+
+    acceptable_min_offer = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Acceptable minimum offer for the short sale (optional).",
+    )
+        
+    short_sale_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date of the short sale (optional).",
+    )
+    
+    
+
+class Modification(models.Model):
+    """Data about a modification (hub-keyed 1:1)."""
+    
+    # Enumerated payment type options for clarity and data integrity
+    MOD_PAYMENT_PI = "pi"
+    MOD_PAYMENT_IO = "io"
+    MOD_PAYMENT_OTHER = "other"
+    MODIFICATION_PAYMENT_CHOICES = (
+        (MOD_PAYMENT_PI, "P&I"),
+        (MOD_PAYMENT_IO, "Interest Only"),
+        (MOD_PAYMENT_OTHER, "Other"),
+    )
+
+    asset_hub = models.OneToOneField(
+        'core.AssetIdHub',
+        on_delete=models.PROTECT,
+        primary_key=True,
+        related_name='modification',
+        help_text='1:1 with hub; modification keyed by AssetIdHub.',
+    )
+    
+    # Optional association to a Broker CRM contact/entity managing the modification
+    broker_crm = models.ForeignKey(
+        "core.MasterCRM",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="modifications",  # Access from MasterCRM via: broker.modifications.all()
+        help_text="Broker entity/contact from CRM associated with this modification (optional).",
+    )
+    
+    modification_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date of the modification (optional).",
+    )
+    
+    modification_cost = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Cost of the modification (optional).",
+    )
+    
+    modification_upb = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="UPB of the modification (optional).",
+    )
+
+    modification_term = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Term of the modification (optional).",
+    )
+
+    modification_rate = models.DecimalField(
+        max_digits=6,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        help_text="Rate of the modification (optional).",
+    )
+    
+    modification_maturity_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Maturity date of the modification (optional).",
+    )   
+
+    modification_pi = models.CharField(
+        max_length=32,
+        choices=MODIFICATION_PAYMENT_CHOICES,
+        null=True,
+        blank=True,
+        help_text="Payment of the modification (optional).",
+    )
+
+    modification_down_payment = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Down payment of the modification (optional).",
+    )
+    
         

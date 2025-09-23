@@ -11,6 +11,7 @@ from am_module.serializers.asset_inventory import (
     AssetInventoryColumnsSerializer,
     AssetDetailSerializer,
 )
+from am_module.serializers.am_note import AMNoteSerializer
 from am_module.serializers.servicer_loan_data import ServicerLoanDataSerializer
 from am_module.models.servicers import ServicerLoanData
 from am_module.models.boarded_data import SellerBoardedData
@@ -19,6 +20,9 @@ from am_module.models.boarded_data import SellerBoardedData
 from acq_module.models.seller import SellerRawData
 from core.models.attachments import Photo
 from rest_framework import serializers, status
+from rest_framework.permissions import IsAuthenticatedOrReadOnly, AllowAny
+from rest_framework.authentication import SessionAuthentication
+from am_module.models.am_data import AMNote
 
 class StandardResultsSetPagination(PageNumberPagination):
     page_size = 50
@@ -52,7 +56,11 @@ class AssetInventoryViewSet(ViewSet):
         URL: /api/am/assets/<id>/
         Response: AssetDetailSerializer
         """
-        asset = get_object_or_404(SellerBoardedData.objects.select_related("metrics"), pk=pk)
+        # Join via hub-keyed metrics (AssetMetrics keyed by core.AssetIdHub)
+        asset = get_object_or_404(
+            SellerBoardedData.objects.select_related("asset_hub__am_metrics"),
+            pk=pk,
+        )
         ser = AssetDetailSerializer(asset)
         return Response(ser.data)
 
@@ -76,6 +84,43 @@ class AssetInventoryViewSet(ViewSet):
         if not latest:
             return Response({}, status=status.HTTP_200_OK)
         return Response(ServicerLoanDataSerializer(latest).data)
+
+    # DEV: Allow unauthenticated POST and avoid CSRF by not using SessionAuthentication here
+    @action(detail=True, methods=['get', 'post'], permission_classes=[AllowAny], authentication_classes=[])
+    def notes(self, request: Request, pk: int | str | None = None):
+        """List or create AM notes for a boarded asset by AM asset id.
+
+        GET: Return notes (most recent first) keyed by the asset's hub.
+        POST: Create a new note with HTML body and optional tag.
+
+        URL: /api/am/assets/<id>/notes/
+        """
+        # Resolve the SellerBoardedData and the associated hub id
+        asset = get_object_or_404(SellerBoardedData.objects.select_related("asset_hub"), pk=pk)
+        hub = getattr(asset, 'asset_hub', None)
+        if hub is None:
+            return Response({"detail": "Asset has no hub assigned."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if request.method.lower() == 'get':
+            # List notes for this hub (ordering handled by model Meta)
+            qs = AMNote.objects.filter(asset_hub=hub)
+            data = AMNoteSerializer(qs, many=True).data
+            return Response(data)
+
+        # POST create
+        body = request.data.get('body')
+        tag = request.data.get('tag')
+        if not body or not str(body).strip():
+            return Response({"detail": "'body' is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        note = AMNote.objects.create(
+            asset_hub=hub,
+            body=str(body),
+            tag=str(tag) if tag else None,
+            created_by=getattr(request, 'user', None) if getattr(request, 'user', None) and request.user.is_authenticated else None,
+            updated_by=getattr(request, 'user', None) if getattr(request, 'user', None) and request.user.is_authenticated else None,
+        )
+        return Response(AMNoteSerializer(note).data, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=['get'])
     def columns(self, request: Request):

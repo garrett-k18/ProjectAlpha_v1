@@ -1,0 +1,42 @@
+<template>
+  <!-- Asset Management: Servicing Notes -->
+  <div class="px-3 px-lg-4">
+    <b-row class="g-3 align-items-stretch">
+      <b-col lg="12" class="d-flex">
+        <Notes :assetId="amId || undefined" class="w-100" />
+      </b-col>
+    </b-row>
+  </div>
+  
+</template>
+
+<script setup lang="ts">
+import { withDefaults, defineProps, ref, computed } from 'vue'
+import Notes from '@/components/Notes.vue'
+
+const props = withDefaults(defineProps<{ row?: Record<string, any> | null; productId?: string | number | null }>(), {
+  row: null,
+  productId: null,
+})
+
+// Resolve AM asset id to hit backend endpoints
+const amId = computed<number | null>(() => {
+  if (props.productId != null && props.productId !== '') return Number(props.productId)
+  const rid = props.row && (props.row as any).id
+  return rid != null ? Number(rid) : null
+})
+
+</script>
+
+<style scoped>
+.note-body :deep(p) { margin-bottom: 0.5rem; }
+.note-body :deep(h1), .note-body :deep(h2) { margin: 0.25rem 0; font-size: 1.1rem; }
+.notes-list { font-size: 0.875rem; }
+.note-item { padding: 0.5rem 0.75rem; }
+.note-item .meta { font-size: 0.78rem; }
+.note-body { line-height: 1.2; }
+.note-body :deep(p:last-child) { margin-bottom: 0; }
+.note-body :deep(img),
+.note-body :deep(video),
+.note-body :deep(iframe) { max-width: 100%; height: auto; display: block; }
+</style>
