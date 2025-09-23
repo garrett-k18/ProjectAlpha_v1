@@ -3,6 +3,7 @@ from am_module.models.boarded_data import SellerBoardedData
 from am_module.models.asset_metrics import AssetMetrics
 from am_module.models.servicers import ServicerLoanData
 from core.models.valuations import Valuation
+from .servicer_loan_data import ServicerLoanDataSerializer
 
 class AssetInventoryRowSerializer(serializers.Serializer):
     """
@@ -34,10 +35,7 @@ class AssetInventoryRowSerializer(serializers.Serializer):
     expected_net_proceeds = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True, source='asset_hub.blended_outcome_model.expected_net_proceeds')
 
     # --- Latest Servicer Loan Data ---
-    servicer_current_balance = serializers.SerializerMethodField()
-    servicer_interest_rate = serializers.SerializerMethodField()
-    servicer_next_due_date = serializers.SerializerMethodField()
-    servicer_total_debt = serializers.SerializerMethodField()
+    servicer_loan_data = serializers.SerializerMethodField()
 
     # --- Unified Valuation (latest per source) ---
     # Internal (source='internal')
@@ -150,34 +148,20 @@ class AssetInventoryRowSerializer(serializers.Serializer):
             .first()
         )
 
-    def _latest_servicer(self, obj):
-        """Return latest ServicerLoanData by as_of_date then reporting period."""
-        hub = getattr(obj, 'asset_hub', None)
-        if hub is None:
-            return None
-        return (
+    # ----------------- Servicer getters -----------------
+    def get_servicer_loan_data(self, obj):
+        """Fetch and serialize the most recent ServicerLoanData record by asset_hub."""
+        # Resolve asset_hub consistently (obj may be an AssetIdHub or any model with asset_hub FK)
+        hub = getattr(obj, 'asset_hub', None) or obj
+        latest_servicer_record = (
             ServicerLoanData.objects
             .filter(asset_hub=hub)
-            .order_by('-as_of_date', '-reporting_year', '-reporting_month', '-created_at')
+            .order_by('-reporting_year', '-reporting_month', '-as_of_date')
             .first()
         )
-
-    # ----------------- Servicer getters -----------------
-    def get_servicer_current_balance(self, obj):
-        s = self._latest_servicer(obj)
-        return getattr(s, 'current_balance', None) if s else None
-
-    def get_servicer_interest_rate(self, obj):
-        s = self._latest_servicer(obj)
-        return getattr(s, 'interest_rate', None) if s else None
-
-    def get_servicer_next_due_date(self, obj):
-        s = self._latest_servicer(obj)
-        return getattr(s, 'next_due_date', None) if s else None
-
-    def get_servicer_total_debt(self, obj):
-        s = self._latest_servicer(obj)
-        return getattr(s, 'total_debt', None) if s else None
+        if latest_servicer_record:
+            return ServicerLoanDataSerializer(latest_servicer_record).data
+        return None
 
     # ----------------- Internal getters -----------------
     def get_internal_asis_value(self, obj):

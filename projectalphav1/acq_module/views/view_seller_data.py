@@ -313,9 +313,11 @@ def get_wac_stratification(request, seller_id: int, trade_id: int):
 @api_view(["GET"])  # Judicial strat
 def get_judicial_stratification(request, seller_id: int, trade_id: int):
     try:
-        return JsonResponse(judicial_stratification_dynamic(seller_id, trade_id), safe=False)
+        data = judicial_stratification_dynamic(seller_id, trade_id)
+        # Frontend expects an object with a 'bands' array
+        return JsonResponse({"bands": data}, safe=False)
     except Exception:
-        return JsonResponse([], safe=False)
+        return JsonResponse({"bands": []}, safe=False)
 
 
 @api_view(["GET"])  # Property type strat

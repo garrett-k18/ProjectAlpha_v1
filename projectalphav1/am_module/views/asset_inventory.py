@@ -11,6 +11,8 @@ from am_module.serializers.asset_inventory import (
     AssetInventoryColumnsSerializer,
     AssetDetailSerializer,
 )
+from am_module.serializers.servicer_loan_data import ServicerLoanDataSerializer
+from am_module.models.servicers import ServicerLoanData
 from am_module.models.boarded_data import SellerBoardedData
 
 # Import acquisitions models to surface photos linked to SellerRawData (via sellertape_id)
@@ -53,6 +55,27 @@ class AssetInventoryViewSet(ViewSet):
         asset = get_object_or_404(SellerBoardedData.objects.select_related("metrics"), pk=pk)
         ser = AssetDetailSerializer(asset)
         return Response(ser.data)
+
+    @action(detail=True, methods=['get'])
+    def servicing(self, request: Request, pk: int | str | None = None):
+        """Return the latest ServicerLoanData for a boarded asset by AM asset id.
+
+        URL: /api/am/assets/<id>/servicing/
+        Response: ServicerLoanDataSerializer
+        """
+        asset = get_object_or_404(SellerBoardedData.objects.select_related("asset_hub"), pk=pk)
+        hub = getattr(asset, 'asset_hub', None)
+        if hub is None:
+            return Response({}, status=status.HTTP_200_OK)
+        latest = (
+            ServicerLoanData.objects
+            .filter(asset_hub=hub)
+            .order_by('-reporting_year', '-reporting_month', '-as_of_date')
+            .first()
+        )
+        if not latest:
+            return Response({}, status=status.HTTP_200_OK)
+        return Response(ServicerLoanDataSerializer(latest).data)
 
     @action(detail=False, methods=['get'])
     def columns(self, request: Request):

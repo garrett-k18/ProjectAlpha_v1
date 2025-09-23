@@ -1,6 +1,7 @@
 <template>
   <!-- AM Snapshot: Photos + Valuation + Documents quick view -->
-  <b-row class="g-3 g-lg-4 px-3 px-lg-4">
+  <!-- Stretch columns to equal height so the map matches the photo card -->
+  <b-row class="g-3 g-lg-4 px-3 px-lg-4 align-items-stretch">
     <!-- Left: Photo carousel within a card -->
     <b-col lg="8" class="d-flex">
       <div class="card w-100 h-100 d-flex flex-column">
@@ -8,10 +9,10 @@
           <h4 class="header-title mb-0">Photos</h4>
         </div>
         <div class="card-body pt-2">
+          <!-- Pass correct props to PhotoCarousel; set explicit containerHeight to control card height -->
           <PhotoCarousel
-            :items="images"
-            :width="carouselWidth"
-            :height="carouselHeight"
+            :images="images"
+            :containerHeight="carouselHeight"
             :thumbWidth="thumbWidth"
             :thumbHeight="thumbHeight"
           />
@@ -60,6 +61,7 @@ const props = withDefaults(defineProps<{
   row?: Record<string, any> | null
   productId?: string | number | null
   carouselWidth?: number | string
+  // Controls the vertical height of the photo card via PhotoCarousel.containerHeight
   carouselHeight?: number | string
   thumbWidth?: number | string
   thumbHeight?: number | string
@@ -67,7 +69,8 @@ const props = withDefaults(defineProps<{
   row: null,
   productId: null,
   carouselWidth: 500,
-  carouselHeight: 300,
+  // Provide a taller default to avoid a cramped first row
+  carouselHeight: 280,
   thumbWidth: 120,
   thumbHeight: 90,
 })

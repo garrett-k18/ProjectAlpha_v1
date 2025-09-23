@@ -55,7 +55,7 @@ const constantColumns: ColDef[] = [
     colId: 'actions',
     pinned: 'left',
     width: 220,
-    minWidth: 160,
+    minWidth: 210,
     lockPosition: true,
     suppressMovable: true,
     sortable: false,
@@ -64,7 +64,7 @@ const constantColumns: ColDef[] = [
     cellRenderer: ActionsCell as any,
     cellRendererParams: { onAction: onRowAction },
   },
-  { headerName: 'Seller Tape ID', field: 'sellertape_id', pinned: 'left', minWidth: 120 },
+  { headerName: 'Seller ID', field: 'sellertape_id', pinned: 'left', minWidth: 90 },
   {
     headerName: 'Property Address',
     colId: 'address',

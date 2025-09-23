@@ -11,6 +11,8 @@
       </b-col>
     </b-row>
 
+   
+
     <!-- Prominent, centered selectors: MUST choose before page functions -->
     <b-row class="mb-0">
       <b-col class="col-12">
@@ -89,6 +91,13 @@
     <!-- Top metrics widgets rendered by a dedicated component -->
     <Widgets />
 
+    <!-- Tasking summary grid directly beneath selectors -->
+   
+      <b-col class="col-12">
+        <TaskingGrid />
+      </b-col>
+    
+    
     <!-- Seller Data Tape card (AG Grid) moved directly under top metrics -->
     <b-row class="mt-1">
       <b-col class="col-12">
@@ -138,17 +147,7 @@
       </b-col>
     </b-row>
 
-    <b-row class="g-2 mt-2" v-if="gridRowsLoaded">
-      <b-col xl="12" lg="12" md="12" class="d-flex">
-        <DocumentsQuickView
-          title="Document Quick View"
-          :docs="docItems"
-          :maxItems="5"
-          :showViewAll="false"
-          class="h-100 d-flex flex-column w-100"
-        />
-      </b-col>
-    </b-row>
+    
 
     
 
@@ -247,8 +246,9 @@ import StratsJudVsNon from "@/views/dashboards/acquisitions/strats/strats-judvsn
 import StratsDelinquency from "@/views/dashboards/acquisitions/strats/strats-delinquency.vue";
 import VectorMap from "@/views/dashboards/acquisitions/vectorMap.vue";
 import Widgets from "@/views/dashboards/acquisitions/widgets.vue";
-import DocumentsQuickView from "@/components/DocumentsQuickView.vue";
-import type { DocumentItem } from "@/components/DocumentsQuickView.vue";
+import TaskingGrid from "@/views/dashboards/acquisitions/components/TaskingGrid.vue";
+// Local type for document items used by TradeDocumentsModal
+interface DocumentItem { id: string; name: string; type: string; sizeBytes: number; previewUrl: string; downloadUrl: string }
 // AG Grid: simplified testing grid for acquisitions dashboard
 import AcqGrid from "@/views/dashboards/acquisitions/acq-grid.vue";
 // BootstrapVue Next modal component (Vue 3 compatible)
@@ -283,13 +283,13 @@ export default {
     StratsOccupancy,
     StratsDelinquency,
     Widgets,
+    TaskingGrid,
     // Register simplified AG Grid component for testing
     AcqGrid,
     Layout,
     // Register modal + loan-level wrapper
     BModal,
     LoanLevelIndex,
-    DocumentsQuickView,
     TradeDetailsModal,
     TradeDocumentsModal,
   },
@@ -502,8 +502,16 @@ export default {
 
     // Function to reset all selections via store actions
     function resetSelections(): void {
+      // Clear global selections
       acqStore.setSeller(null)
       acqStore.setTrade(null)
+      // Also clear the AG Grid dataset immediately
+      try {
+        gridRowsStore.resetRows()
+        gridRowsStore.clearCache()
+      } catch (e) {
+        console.warn('[Acq Index] resetSelections: failed to reset grid rows', e)
+      }
     }
     
     // Consider grid rows "loaded" when we have both IDs, not currently fetching, and have >0 rows

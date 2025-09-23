@@ -74,6 +74,26 @@
         @sort-changed="onSortChanged"
       />
 
+      <!-- Bottom-right pagination controls -->
+      <div class="d-flex justify-content-end align-items-center gap-2 mt-2">
+        <label for="pageSizeSelect" class="small mb-0">Rows</label>
+        <select id="pageSizeSelect" class="form-select form-select-sm" v-model="pageSizeSelection" @change="onPageSizeChange" style="width: auto;">
+          <option :value="50">50</option>
+          <option :value="100">100</option>
+          <option :value="200">200</option>
+          <option :value="500">500</option>
+          <option value="ALL">All</option>
+        </select>
+
+        <div class="d-flex align-items-center gap-1" v-if="!viewAll">
+          <button class="btn btn-sm btn-light" :disabled="page <= 1 || loading" @click="prevPage" title="Prev">‹</button>
+          <span class="small">Page {{ page }} / {{ totalPages || 1 }}</span>
+          <button class="btn btn-sm btn-light" :disabled="page >= (totalPages || 1) || loading" @click="nextPage" title="Next">›</button>
+        </div>
+
+        <div class="small" v-if="totalCount !== null">Total: <strong>{{ totalCount }}</strong></div>
+      </div>
+
       <!-- Loan-Level Modal (mirrors acquisitions dashboard) -->
       <!-- Docs: https://bootstrap-vue-next.github.io/bootstrap-vue-next/docs/components/modal -->
       <BModal
@@ -126,7 +146,7 @@ import type { GridApi, GridReadyEvent, ColDef, ValueFormatterParams } from 'ag-g
 import { ref, computed, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { BModal } from 'bootstrap-vue-next'
-import LoanLevelIndex from '@/views/am_module/loanlvl/loanlvl_index.vue'
+import LoanLevelIndex from '@/views/am_module/loanlvl_index.vue'
 import ActionsCell from '@/views/dashboards/acquisitions/components/ActionsCell.vue'
 import http from '@/lib/http'
 
@@ -187,10 +207,32 @@ const cols: Record<string, ColDef> = {
   expectedIRR: { headerName: 'IRR %', field: 'expected_irr', valueFormatter: percentFormatter, minWidth: 110 },
   expectedMOIC: { headerName: 'MOIC', field: 'expected_moic', valueFormatter: moicFormatter, minWidth: 110 },
   expectedNPV: { headerName: 'NPV', field: 'expected_npv', valueFormatter: currencyFormatter, minWidth: 140 },
-  servicer_current_balance: { headerName: 'Current Balance', field: 'servicer_current_balance', valueFormatter: currencyFormatter, minWidth: 140 },
-  servicer_interest_rate: { headerName: 'Interest Rate', field: 'servicer_interest_rate', valueFormatter: (p) => (p.value == null ? '' : `${(Number(p.value) * 100).toFixed(2)}%`), minWidth: 110 },
-  servicer_next_due_date: { headerName: 'Next Due Date', field: 'servicer_next_due_date', valueFormatter: dateFormatter, minWidth: 140 },
-  servicer_total_debt: { headerName: 'Total Debt', field: 'servicer_total_debt', valueFormatter: currencyFormatter, minWidth: 140 },
+ 
+  // ---- Servicing (nested under servicer_loan_data) ----
+  sAsOfDate: { headerName: 'As Of', minWidth: 120, valueGetter: (p:any) => p.data?.servicer_loan_data?.as_of_date, valueFormatter: dateFormatter },
+  sCurrentBalance: { headerName: 'Current Balance', minWidth: 140, valueGetter: (p:any) => p.data?.servicer_loan_data?.current_balance, valueFormatter: currencyFormatter },
+  sInterestRate: { headerName: 'Interest Rate', minWidth: 120, valueGetter: (p:any) => p.data?.servicer_loan_data?.interest_rate, valueFormatter: (p:any) => (p.value == null ? '' : `${(Number(p.value) * 100).toFixed(2)}%`) },
+  sNextDueDate: { headerName: 'Next Due Date', minWidth: 140, valueGetter: (p:any) => p.data?.servicer_loan_data?.next_due_date, valueFormatter: dateFormatter },
+  sTotalDebt: { headerName: 'Total Debt', minWidth: 140, valueGetter: (p:any) => p.data?.servicer_loan_data?.total_debt, valueFormatter: currencyFormatter },
+  sInvestorId: { headerName: 'Investor ID', minWidth: 120, valueGetter: (p:any) => p.data?.servicer_loan_data?.investor_id },
+  sServicerId: { headerName: 'Servicer ID', minWidth: 120, valueGetter: (p:any) => p.data?.servicer_loan_data?.servicer_id },
+  sFCStatus: { headerName: 'FC Status', minWidth: 140, valueGetter: (p:any) => p.data?.servicer_loan_data?.fc_status },
+  sBKStatus: { headerName: 'BK Status', minWidth: 140, valueGetter: (p:any) => p.data?.servicer_loan_data?.bk_current_status },
+  sLossMitStatus: { headerName: 'Loss Mit Status', minWidth: 160, valueGetter: (p:any) => p.data?.servicer_loan_data?.loss_mitigation_status },
+  sCurrentPI: { headerName: 'Current P&I', minWidth: 130, valueGetter: (p:any) => p.data?.servicer_loan_data?.current_pi, valueFormatter: currencyFormatter },
+  sCurrentTI: { headerName: 'Current T&I', minWidth: 130, valueGetter: (p:any) => p.data?.servicer_loan_data?.current_ti, valueFormatter: currencyFormatter },
+  sPITI: { headerName: 'PITI', minWidth: 130, valueGetter: (p:any) => p.data?.servicer_loan_data?.piti, valueFormatter: currencyFormatter },
+  // Additional BK/FC/Loss Mit detail
+  sBKFiledDate: { headerName: 'BK Filed', minWidth: 130, valueGetter: (p:any) => p.data?.servicer_loan_data?.bk_filed_date, valueFormatter: dateFormatter },
+  sBKDischargeDate: { headerName: 'BK Discharge', minWidth: 140, valueGetter: (p:any) => p.data?.servicer_loan_data?.bk_discharge_date, valueFormatter: dateFormatter },
+  sBKDismissedDate: { headerName: 'BK Dismissed', minWidth: 140, valueGetter: (p:any) => p.data?.servicer_loan_data?.bk_dismissed_date, valueFormatter: dateFormatter },
+  sFCScheduledSaleDate: { headerName: 'FC Scheduled Sale', minWidth: 170, valueGetter: (p:any) => p.data?.servicer_loan_data?.scheduled_fc_sale_date, valueFormatter: dateFormatter },
+  sFCActualSaleDate: { headerName: 'FC Actual Sale', minWidth: 150, valueGetter: (p:any) => p.data?.servicer_loan_data?.actual_fc_sale_date, valueFormatter: dateFormatter },
+  sFCBAStatusDate: { headerName: 'FC BA Status Date', minWidth: 170, valueGetter: (p:any) => p.data?.servicer_loan_data?.foreclosure_business_area_status_date, valueFormatter: dateFormatter },
+  sFCBAStatus: { headerName: 'FC BA Status', minWidth: 160, valueGetter: (p:any) => p.data?.servicer_loan_data?.foreclosure_business_area_status },
+  sLossMitStartDate: { headerName: 'Loss Mit Start', minWidth: 150, valueGetter: (p:any) => p.data?.servicer_loan_data?.loss_mitigation_start_date, valueFormatter: dateFormatter },
+  sLoanModDate: { headerName: 'Loan Mod Date', minWidth: 140, valueGetter: (p:any) => p.data?.servicer_loan_data?.loan_modification_date, valueFormatter: dateFormatter },
+  sRepayPlanStatus: { headerName: 'Repay Plan Status', minWidth: 170, valueGetter: (p:any) => p.data?.servicer_loan_data?.repayment_plan_status },
   internal_initial_uw_asis_value: { headerName: 'Underwritten AIV', field: 'internal_initial_uw_asis_value', valueFormatter: currencyFormatter, minWidth: 140 },
   internal_initial_uw_arv_value: { headerName: 'Underwritten ARV', field: 'internal_initial_uw_arv_value', valueFormatter: currencyFormatter, minWidth: 140 },
 }
@@ -202,12 +244,10 @@ const presets: Record<string, ColDef[]> = {
     cols.propertyType,
     cols.internal_initial_uw_asis_value,
     cols.internal_initial_uw_arv_value,
-    
-    cols.servicer_current_balance,
-    cols.servicer_interest_rate,
-    cols.servicer_next_due_date,
-    cols.servicer_total_debt,
-  
+    cols.sCurrentBalance,
+    cols.sInterestRate,
+    cols.sNextDueDate,
+    cols.sTotalDebt,
   ],
   performance: [
     cols.arvSeller,
@@ -221,8 +261,29 @@ const presets: Record<string, ColDef[]> = {
     cols.expectedNPV,
   ],
   servicing: [
-    cols.totalHold,
-    cols.exitDate,
+    cols.sAsOfDate,
+    cols.sInvestorId,
+    cols.sServicerId,
+    cols.sCurrentBalance,
+    cols.sInterestRate,
+    cols.sCurrentPI,
+    cols.sCurrentTI,
+    cols.sPITI,
+    cols.sTotalDebt,
+    cols.sNextDueDate,
+    cols.sFCStatus,
+    cols.sBKStatus,
+    cols.sLossMitStatus,
+    cols.sBKFiledDate,
+    cols.sBKDischargeDate,
+    cols.sBKDismissedDate,
+    cols.sFCScheduledSaleDate,
+    cols.sFCActualSaleDate,
+    cols.sFCBAStatusDate,
+    cols.sFCBAStatus,
+    cols.sLossMitStartDate,
+    cols.sLoanModDate,
+    cols.sRepayPlanStatus,
   ],
   all: Object.values(cols),
 }
@@ -342,6 +403,10 @@ const rowData = ref<any[]>([])
 const loading = ref<boolean>(false)
 const page = ref<number>(1)
 const pageSize = ref<number>(50)
+const pageSizeSelection = ref<string | number>(50)
+const viewAll = ref<boolean>(false)
+const totalCount = ref<number | null>(null)
+const totalPages = ref<number | null>(null)
 const sortExpr = ref<string>('')
 
 // Quick filter state bound to the grid's quickFilterText option
@@ -451,14 +516,90 @@ async function fetchRows(): Promise<void> {
     if (quickFilter.value) params.q = quickFilter.value
     if (sortExpr.value) params.sort = sortExpr.value
     const { data } = await http.get('/am/assets/', { params })
+    // DRF pagination: { count, next, previous, results }
+    totalCount.value = typeof data?.count === 'number' ? data.count : null
     rowData.value = Array.isArray(data?.results) ? data.results : []
+    if (totalCount.value != null && pageSize.value > 0) {
+      totalPages.value = Math.max(1, Math.ceil(totalCount.value / pageSize.value))
+    } else {
+      totalPages.value = null
+    }
     console.debug('[AssetGrid] loaded rows:', rowData.value.length)
   } catch (e) {
     console.debug('[AssetGrid] fetch failed', e)
     rowData.value = []
+    totalCount.value = null
+    totalPages.value = null
   } finally {
     loading.value = false
     nextTick(() => updateGridSize())
+  }
+}
+
+// Fetch all pages (uses server max_page_size=500)
+async function fetchAllRows(): Promise<void> {
+  loading.value = true
+  try {
+    const baseParams: Record<string, any> = { page: 1, page_size: 500 }
+    if (quickFilter.value) baseParams.q = quickFilter.value
+    if (sortExpr.value) baseParams.sort = sortExpr.value
+
+    const all: any[] = []
+    let currentPage = 1
+    let count: number | null = null
+    while (true) {
+      const params = { ...baseParams, page: currentPage }
+      const { data } = await http.get('/am/assets/', { params })
+      const results = Array.isArray(data?.results) ? data.results : []
+      if (count === null && typeof data?.count === 'number') count = data.count
+      all.push(...results)
+      if (!data?.next || results.length === 0) break
+      currentPage += 1
+      // Safety cap to avoid runaway loops
+      if (currentPage > 100) break
+    }
+    rowData.value = all
+    totalCount.value = count ?? all.length
+    totalPages.value = 1
+    console.debug('[AssetGrid] loaded ALL rows:', rowData.value.length)
+  } catch (e) {
+    console.debug('[AssetGrid] fetchAll failed', e)
+    rowData.value = []
+    totalCount.value = null
+    totalPages.value = null
+  } finally {
+    loading.value = false
+    nextTick(() => updateGridSize())
+  }
+}
+
+function onPageSizeChange(): void {
+  if (pageSizeSelection.value === 'ALL') {
+    viewAll.value = true
+    // keep pageSize for future use but fetch all now
+    fetchAllRows()
+  } else {
+    viewAll.value = false
+    pageSize.value = Number(pageSizeSelection.value)
+    page.value = 1
+    fetchRows()
+  }
+}
+
+function prevPage(): void {
+  if (loading.value || viewAll.value) return
+  if (page.value > 1) {
+    page.value -= 1
+    fetchRows()
+  }
+}
+
+function nextPage(): void {
+  if (loading.value || viewAll.value) return
+  const tp = totalPages.value || 1
+  if (page.value < tp) {
+    page.value += 1
+    fetchRows()
   }
 }
 

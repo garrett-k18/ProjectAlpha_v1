@@ -5,8 +5,8 @@
       <SnapshotTab :row="row" :productId="productId" />
     </b-tab>
 
-    <b-tab title="Loan Details">
-      <LoanDetailsTab :row="row" :productId="productId" />
+    <b-tab title="Servicing">
+      <ServicingTab :row="row" :productId="productId" />
     </b-tab>
 
     <b-tab title="Property Details">
@@ -32,7 +32,7 @@ withDefaults(defineProps<{ row?: Record<string, any> | null; productId?: string 
 })
 
 const SnapshotTab = defineAsyncComponent(() => import('./SnapshotTab.vue'))
-const LoanDetailsTab = defineAsyncComponent(() => import('./LoanDetailsTab.vue'))
+const ServicingTab = defineAsyncComponent(() => import('./ServicingTab.vue'))
 const PropertyDetailsTab = defineAsyncComponent(() => import('./PropertyDetailsTab.vue'))
 const AcquisitionAnalysisTab = defineAsyncComponent(() => import('./AcquisitionAnalysisTab.vue'))
 const DocumentsTab = defineAsyncComponent(() => import('./DocumentsTab.vue'))
