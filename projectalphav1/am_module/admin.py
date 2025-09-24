@@ -2,7 +2,11 @@ from django.contrib import admin
 from am_module.models.boarded_data import SellerBoardedData, BlendedOutcomeModel
 from am_module.models.asset_metrics import AssetMetrics
 from am_module.models.servicers import ServicerLoanData
-
+from am_module.models.am_data import (
+    AMMetrics, AMMetricsChange, AuditLog,
+    AMNote, REOData, FCSale, DIL, ShortSale, Modification,
+    REOtask, FCTask, DILTask, ShortSaleTask, ModificationTask
+)
 
 class AssetMetricsInline(admin.StackedInline):
     """
@@ -164,3 +168,180 @@ class ServicerLoanDataAdmin(admin.ModelAdmin):
         return "N/A"
     
     reporting_period.short_description = "Period"
+
+
+@admin.register(REOtask)
+class REOtaskAdmin(admin.ModelAdmin):
+    list_display = ('id', 'asset_hub', 'reo_outcome', 'task_type', 'created_at', 'updated_at')
+    list_filter = ('task_type',)
+    search_fields = (
+        'asset_hub__am_boarded__sellertape_id',
+        'asset_hub__am_boarded__street_address',
+    )
+    ordering = ('-updated_at',)
+    list_select_related = ('asset_hub', 'reo_outcome')
+
+
+@admin.register(FCTask)
+class FCTaskAdmin(admin.ModelAdmin):
+    list_display = ('id', 'asset_hub', 'fc_sale', 'task_type', 'created_at', 'updated_at')
+    list_filter = ('task_type',)
+    search_fields = (
+        'asset_hub__am_boarded__sellertape_id',
+        'asset_hub__am_boarded__street_address',
+    )
+    ordering = ('-updated_at',)
+    list_select_related = ('asset_hub', 'fc_sale')
+
+
+@admin.register(DILTask)
+class DILTaskAdmin(admin.ModelAdmin):
+    list_display = ('id', 'asset_hub', 'dil', 'task_type', 'created_at', 'updated_at')
+    list_filter = ('task_type',)
+    search_fields = (
+        'asset_hub__am_boarded__sellertape_id',
+        'asset_hub__am_boarded__street_address',
+    )
+    ordering = ('-updated_at',)
+    list_select_related = ('asset_hub', 'dil')
+
+
+@admin.register(ShortSaleTask)
+class ShortSaleTaskAdmin(admin.ModelAdmin):
+    list_display = ('id', 'asset_hub', 'short_sale', 'task_type', 'created_at', 'updated_at')
+    list_filter = ('task_type',)
+    search_fields = (
+        'asset_hub__am_boarded__sellertape_id',
+        'asset_hub__am_boarded__street_address',
+    )
+    ordering = ('-updated_at',)
+    list_select_related = ('asset_hub', 'short_sale')
+
+
+@admin.register(ModificationTask)
+class ModificationTaskAdmin(admin.ModelAdmin):
+    list_display = ('id', 'asset_hub', 'modification', 'task_type', 'created_at', 'updated_at')
+    list_filter = ('task_type',)
+    search_fields = (
+        'asset_hub__am_boarded__sellertape_id',
+        'asset_hub__am_boarded__street_address',
+    )
+    ordering = ('-updated_at',)
+    list_select_related = ('asset_hub', 'modification')
+
+
+@admin.register(AMMetrics)
+class AMMetricsAdmin(admin.ModelAdmin):
+    list_display = ('id', 'asset_hub', 'updated_at', 'updated_by')
+    search_fields = (
+        'asset_hub__am_boarded__sellertape_id',
+        'asset_hub__am_boarded__street_address',
+    )
+    ordering = ('-updated_at',)
+    list_select_related = ('asset_hub', 'updated_by')
+    readonly_fields = ('updated_at',)
+
+
+@admin.register(AMMetricsChange)
+class AMMetricsChangeAdmin(admin.ModelAdmin):
+    list_display = ('id', 'record', 'asset_hub', 'field_name', 'changed_at', 'changed_by')
+    list_filter = ('field_name', 'changed_at')
+    search_fields = (
+        'asset_hub__am_boarded__sellertape_id',
+        'field_name',
+    )
+    ordering = ('-changed_at',)
+    list_select_related = ('record', 'asset_hub', 'changed_by')
+    readonly_fields = ('changed_at',)
+
+
+@admin.register(AMNote)
+class AMNoteAdmin(admin.ModelAdmin):
+    list_display = ('id', 'asset_hub', 'tag', 'pinned', 'body_preview', 'created_at', 'created_by')
+    list_filter = ('tag', 'pinned', 'created_at')
+    search_fields = (
+        'asset_hub__am_boarded__sellertape_id',
+        'body',
+    )
+    ordering = ('-pinned', '-updated_at')
+    list_select_related = ('asset_hub', 'created_by', 'updated_by')
+    readonly_fields = ('created_at', 'updated_at')
+    
+    def body_preview(self, obj):
+        return obj.body[:50] + '...' if len(obj.body) > 50 else obj.body
+    body_preview.short_description = 'Body Preview'
+
+
+@admin.register(REOData)
+class REODataAdmin(admin.ModelAdmin):
+    list_display = ('asset_hub', 'list_price', 'list_date', 'under_contract_flag', 'contract_price', 'actual_close_date')
+    list_filter = ('under_contract_flag', 'purchase_type')
+    search_fields = (
+        'asset_hub__am_boarded__sellertape_id',
+        'asset_hub__am_boarded__street_address',
+    )
+    ordering = ('-list_date',)
+    list_select_related = ('asset_hub', 'broker_crm')
+
+
+@admin.register(FCSale)
+class FCSaleAdmin(admin.ModelAdmin):
+    list_display = ('asset_hub', 'fc_sale_sched_date', 'fc_sale_actual_date', 'fc_bid_price', 'fc_sale_price')
+    search_fields = (
+        'asset_hub__am_boarded__sellertape_id',
+        'asset_hub__am_boarded__street_address',
+    )
+    ordering = ('-fc_sale_actual_date', '-fc_sale_sched_date')
+    list_select_related = ('asset_hub', 'legal_crm')
+
+
+@admin.register(DIL)
+class DILAdmin(admin.ModelAdmin):
+    list_display = ('asset_hub', 'dil_completion_date', 'dil_cost', 'cfk_cost')
+    search_fields = (
+        'asset_hub__am_boarded__sellertape_id',
+        'asset_hub__am_boarded__street_address',
+    )
+    ordering = ('-dil_completion_date',)
+    list_select_related = ('asset_hub', 'legal_crm')
+
+
+@admin.register(ShortSale)
+class ShortSaleAdmin(admin.ModelAdmin):
+    list_display = ('asset_hub', 'acceptable_min_offer', 'short_sale_date')
+    search_fields = (
+        'asset_hub__am_boarded__sellertape_id',
+        'asset_hub__am_boarded__street_address',
+    )
+    ordering = ('-short_sale_date',)
+    list_select_related = ('asset_hub', 'broker_crm')
+
+
+@admin.register(Modification)
+class ModificationAdmin(admin.ModelAdmin):
+    list_display = ('asset_hub', 'modification_date', 'modification_cost', 'modification_upb', 'modification_rate', 'modification_pi')
+    list_filter = ('modification_pi',)
+    search_fields = (
+        'asset_hub__am_boarded__sellertape_id',
+        'asset_hub__am_boarded__street_address',
+    )
+    ordering = ('-modification_date',)
+    list_select_related = ('asset_hub', 'broker_crm')
+
+
+@admin.register(AuditLog)
+class AuditLogAdmin(admin.ModelAdmin):
+    list_display = ('id', 'content_type', 'object_id', 'asset_hub', 'field_name', 'changed_at', 'changed_by')
+    list_filter = ('content_type', 'field_name', 'changed_at')
+    search_fields = (
+        'asset_hub__am_boarded__sellertape_id',
+        'field_name',
+        'old_value',
+        'new_value',
+    )
+    ordering = ('-changed_at',)
+    list_select_related = ('content_type', 'asset_hub', 'changed_by')
+    readonly_fields = ('changed_at', 'content_type', 'object_id', 'content_object')
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('content_type', 'asset_hub', 'changed_by')

@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from am_module.models.boarded_data import SellerBoardedData
 from am_module.models.asset_metrics import AssetMetrics
+from am_module.models.am_data import AMMetrics
 from am_module.models.servicers import ServicerLoanData
 from core.models.valuations import Valuation
 from .servicer_loan_data import ServicerLoanDataSerializer
@@ -13,6 +14,7 @@ class AssetInventoryRowSerializer(serializers.Serializer):
     id = serializers.IntegerField(read_only=True)
     asset_id = serializers.SerializerMethodField()
     asset_status = serializers.CharField(allow_null=True)
+    delinquency_status = serializers.SerializerMethodField()
     street_address = serializers.CharField()
     city = serializers.CharField()
     state = serializers.CharField()
@@ -109,6 +111,24 @@ class AssetInventoryRowSerializer(serializers.Serializer):
     def get_asset_id(self, obj):
         stid = getattr(obj, "sellertape_id", None)
         return stid if stid is not None else getattr(obj, "pk", None)
+
+    def get_delinquency_status(self, obj):
+        """Return the cached delinquency bucket from `AMMetrics` for this asset.
+
+        We intentionally expose the denormalized field to avoid recomputing the
+        bucket on every serializer call. Upstream nightly jobs (or manual refreshes)
+        should call `AMMetrics.refresh_delinquency_status()` whenever new servicer
+        data arrives so that this field stays in sync.
+        """
+
+        # Resolve hub from the row; this serializer is usually fed a
+        # `SellerBoardedData` instance so we can jump through `asset_hub`.
+        hub = getattr(obj, 'asset_hub', None)
+        if not hub:
+            return None
+
+        metrics: AMMetrics | None = getattr(hub, 'ammetrics', None)
+        return metrics.delinquency_status if metrics else None
 
     def get_address(self, obj):
         parts = [

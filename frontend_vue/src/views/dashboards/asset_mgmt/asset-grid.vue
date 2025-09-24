@@ -110,8 +110,11 @@
         <template #header>
           <div class="d-flex align-items-center w-100">
             <h5 class="modal-title mb-0">
-              <div class="lh-sm">ID - <span class="fw-bold">{{ modalIdText }}</span></div>
-              <div class="text-muted lh-sm">Address - <span class="fw-bold text-dark">{{ modalAddrText }}</span></div>
+              <div class="lh-sm">
+                <span class="fw-bold text-dark">{{ modalIdText }}</span>
+                <span v-if="modalTradeText" class="fw-bold text-dark ms-1">/ {{ modalTradeText }}</span>
+              </div>
+              <div class="text-muted lh-sm"><span class="fw-bold text-dark">{{ modalAddrText }}</span></div>
             </h5>
             <div class="ms-auto">
               <button
@@ -309,6 +312,11 @@ const selectedAddr = ref<string | null>(null)
 
 // Build friendly header text for modal
 const modalIdText = computed<string>(() => (selectedId.value != null ? String(selectedId.value) : 'Asset'))
+const modalTradeText = computed<string>(() => {
+  // Normalize trade name across potential naming conventions and trim whitespace for display
+  const rawTrade = selectedRow.value?.trade_name ?? selectedRow.value?.tradeName ?? ''
+  return rawTrade ? String(rawTrade).trim() : ''
+})
 const modalAddrText = computed<string>(() => {
   const r: any = selectedRow.value || {}
   const street = String(r.street_address ?? '').trim()

@@ -24,8 +24,11 @@ Design
 from __future__ import annotations
 
 from django.db import models  # Django ORM base class and field types
+from datetime import date  # Core date type used to compute delinquency buckets
 from django.utils import timezone  # Timezone-aware utilities
 from django.conf import settings   # To reference AUTH_USER_MODEL
+from django.contrib.contenttypes.models import ContentType  # For generic foreign keys
+from django.contrib.contenttypes.fields import GenericForeignKey  # For generic relationships
 import json                        # For serializing JSON diffs
 
 
@@ -54,6 +57,21 @@ class AMMetrics(models.Model):
         null=True,                       # Allow global rows (non-asset specific)
         blank=True,
         help_text="Optional hub this data belongs to (NULL for global entries).",
+    )
+
+    DELINQUENCY_STATUS_CHOICES = (
+        ("current", "Current"),
+        ("30", "30D"),
+        ("60", "60D"),
+        ("90", "90D"),
+        ("120_plus", "120+D"),
+    )
+
+    delinquency_status = models.CharField(
+        max_length=16,
+        choices=DELINQUENCY_STATUS_CHOICES,
+        default="current",
+        help_text="Bucketed delinquency status derived from ServicerLoanData dates.",
     )
 
    
@@ -104,6 +122,95 @@ class AMMetrics(models.Model):
         hub_part = f"hub={getattr(self.asset_hub, 'pk', None)}" if self.asset_hub_id else "hub=GLOBAL"
         return f"AMMetrics({hub_part})"
 
+    @staticmethod
+    def _compute_delinquency_bucket(as_of: date | None, next_due: date | None) -> str:
+        """Derive a delinquency bucket string from two dates.
+
+        The logic follows standard mortgage servicing guidance where the number of
+        days between the servicer's reporting `as_of` date and the contractual
+        `next_due` payment date determines which delinquency bucket the loan
+        currently resides in. Missing dates default to the "current" bucket so that
+        the UI does not report a false delinquency.
+        """
+
+        # When either date is missing we treat the asset as current to avoid
+        # misclassifying incomplete snapshots. This matches the business request to
+        # only bucket when both reference dates are available.
+        if as_of is None or next_due is None:
+            return "current"
+
+        # Calculate the integer day delta between the reporting snapshot and the
+        # next due date. Positive values indicate delinquency days past due.
+        day_delta = (as_of - next_due).days
+
+        # Loans that are not yet past due (delta <= 0) remain in the current bucket.
+        if day_delta <= 0:
+            return "current"
+
+        # 1–30 days delinquent map to the 30 day bucket.
+        if day_delta <= 30:
+            return "30"
+
+        # 31–60 days delinquent map to the 60 day bucket.
+        if day_delta <= 60:
+            return "60"
+
+        # 61–90 days delinquent map to the 90 day bucket.
+        if day_delta <= 90:
+            return "90"
+
+        # Anything beyond 90 days is surfaced as 120+ to satisfy the specification.
+        return "120_plus"
+
+    def refresh_delinquency_status(self, snapshot: "ServicerLoanData" | None = None) -> str:
+        """Update `delinquency_status` using the most recent servicer snapshot.
+
+        Parameters
+        ----------
+        snapshot:
+            Optional explicit `ServicerLoanData` instance. When omitted the latest
+            record for the linked `asset_hub` (ordered by `as_of_date` then
+            reporting period) is automatically selected. This keeps the helper easy
+            to reuse in scheduled jobs or ad-hoc admin actions.
+
+        Returns
+        -------
+        str
+            The freshly derived delinquency status value that also gets persisted on
+            this model instance.
+        """
+
+        # Import locally to avoid circular dependency at module import time since
+        # `.servicers` also references AM modules.
+        from .servicers import ServicerLoanData
+
+        # Ensure we have a snapshot to use; if none was supplied, fetch the most
+        # recent record for this asset hub. We rely on ordering by `as_of_date`,
+        # then reporting period, and finally primary key to get deterministic
+        # results.
+        if snapshot is None and self.asset_hub_id:
+            snapshot = (
+                ServicerLoanData.objects
+                .filter(asset_hub=self.asset_hub)
+                .order_by('-as_of_date', '-reporting_year', '-reporting_month', '-pk')
+                .first()
+            )
+
+        # Derive the bucket using the helper; fall back to "current" when no
+        # snapshot is available.
+        bucket = self._compute_delinquency_bucket(
+            getattr(snapshot, 'as_of_date', None),
+            getattr(snapshot, 'next_due_date', None),
+        )
+
+        # Persist the new bucket on the model so downstream consumers can rely on
+        # the denormalized value without recomputation.
+        self.delinquency_status = bucket
+        self.save(update_fields=['delinquency_status', 'updated_at'])
+
+        # Return the bucket to allow calling code to surface it immediately.
+        return bucket
+
     # ---------------------------------------------------------------
     # Field-level change tracking
     # ---------------------------------------------------------------
@@ -118,7 +225,7 @@ class AMMetrics(models.Model):
 
     # Fields we track at a field-level (extend as needed)
     # Track only existing fields; extend as you add more columns
-    TRACKED_FIELDS = ("asset_hub", )
+    TRACKED_FIELDS = ("asset_hub", "delinquency_status")
 
     def set_actor(self, user) -> None:
         """Attach the acting user to the instance for the next save()."""
@@ -178,10 +285,227 @@ class AMMetrics(models.Model):
                 )
 
 
+class AuditLog(models.Model):
+    """Generic audit log for tracking changes to any model in the system.
+
+    This model provides comprehensive field-level change tracking across all business
+    entities in the Asset Management module. It uses Django's ContentType framework to
+    create a single, unified audit table that can track changes to any model.
+
+    ════════════════════════════════════════════════════════════════════════════════
+    PURPOSE & BENEFITS:
+    ════════════════════════════════════════════════════════════════════════════════
+
+    🔍 COMPLIANCE & AUDITING:
+       - Track all data changes for regulatory compliance
+       - Maintain complete audit trail for financial transactions
+       - Support forensic analysis of data modifications
+
+    🛠️ DEBUGGING & TROUBLESHOOTING:
+       - See exactly what changed, when, and by whom
+       - Track field-level modifications for issue diagnosis
+       - Monitor data integrity and unexpected changes
+
+    📊 BUSINESS INTELLIGENCE:
+       - Analyze modification patterns and user behavior
+       - Generate reports on data update frequency
+       - Track workflow progress and status changes
+
+    🔐 SECURITY MONITORING:
+       - Detect unauthorized or suspicious changes
+       - Monitor user activity across sensitive data
+       - Support incident response investigations
+
+    ════════════════════════════════════════════════════════════════════════════════
+    ARCHITECTURE:
+    ════════════════════════════════════════════════════════════════════════════════
+
+    Uses Django's GenericForeignKey pattern:
+    - One audit table serves all models (REOData, FCSale, DIL, etc.)
+    - ContentType + object_id uniquely identifies any model instance
+    - Efficient querying across all audit entries
+
+    ════════════════════════════════════════════════════════════════════════════════
+    USAGE EXAMPLES:
+    ════════════════════════════════════════════════════════════════════════════════
+
+    AUTOMATIC TRACKING (via model save methods):
+    ```python
+    # In views/forms - set the user making changes
+    reo_instance.save(actor=request.user)
+
+    # Alternative - set user first, then save
+    task.set_actor(user)
+    task.save()
+    ```
+
+    MANUAL TRACKING (for custom logic):
+    ```python
+    # Direct audit logging
+    AuditLog.log_change(
+        instance=my_model_instance,
+        field_name='status',
+        old_value='pending',
+        new_value='approved',
+        changed_by=user,
+        asset_hub=asset_hub  # optional
+    )
+    ```
+
+    QUERYING AUDIT DATA:
+    ```python
+    # All changes for a specific asset
+    AuditLog.objects.filter(asset_hub=hub)
+
+    # All changes to a specific model
+    AuditLog.objects.filter(content_type__model='reodata')
+
+    # Changes by a specific user
+    AuditLog.objects.filter(changed_by=user)
+
+    # Status changes only
+    AuditLog.objects.filter(field_name='task_type')
+
+    # Recent changes (last 24 hours)
+    from django.utils import timezone
+    yesterday = timezone.now() - timezone.timedelta(days=1)
+    AuditLog.objects.filter(changed_at__gte=yesterday)
+    ```
+
+    ════════════════════════════════════════════════════════════════════════════════
+    INTEGRATION:
+    ════════════════════════════════════════════════════════════════════════════════
+
+    All outcome and task models in this file have been enhanced with automatic
+    change tracking via custom save() methods. Every field modification is
+    automatically logged to this table with:
+
+    - What changed (field name)
+    - Previous and new values
+    - When it changed (timestamp)
+    - Who made the change (user)
+    - Which asset it relates to (hub reference)
+
+    The system tracks changes to:
+    - REOData, REOtask (property disposition)
+    - FCSale, FCTask (foreclosure sales)
+    - DIL, DILTask (deed-in-lieu)
+    - ShortSale, ShortSaleTask (short sales)
+    - Modification, ModificationTask (loan modifications)
+
+    ════════════════════════════════════════════════════════════════════════════════
+    ADMIN INTERFACE:
+    ════════════════════════════════════════════════════════════════════════════════
+
+    Access via Django Admin > AM Module > Audit Log Entries
+    - Filter by model type (Content Type)
+    - Filter by field name
+    - Search by asset ID or field values
+    - View complete change history with user attribution
+
+    ════════════════════════════════════════════════════════════════════════════════
+    PERFORMANCE CONSIDERATIONS:
+    ════════════════════════════════════════════════════════════════════════════════
+
+    - Optimized with database indexes on frequently queried fields
+    - Only logs actual changes (not no-op updates)
+    - Minimal performance impact on save operations
+    - Efficient bulk queries for audit reporting
+    """
+
+    # Generic foreign key to any model instance
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.PositiveIntegerField()
+    content_object = GenericForeignKey('content_type', 'object_id')
+
+    # Denormalized direct link to hub for easy filtering/reporting
+    asset_hub = models.ForeignKey(
+        "core.AssetIdHub",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        help_text="Denormalized hub reference for direct filtering.",
+    )
+
+    # Name of the field that changed
+    field_name = models.CharField(max_length=64, help_text="Field name that was updated.")
+
+    # Previous and new values (serialized as text for consistency)
+    old_value = models.TextField(null=True, blank=True, help_text="Previous value (as text/JSON).")
+    new_value = models.TextField(null=True, blank=True, help_text="New value (as text/JSON).")
+
+    # Who/when
+    changed_at = models.DateTimeField(auto_now_add=True, help_text="When the change occurred.")
+    changed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        help_text="User who made the change (if known).",
+    )
+
+    class Meta:
+        verbose_name = "Audit Log Entry"
+        verbose_name_plural = "Audit Log Entries"
+        indexes = [
+            models.Index(fields=["content_type", "object_id", "changed_at"]),
+            models.Index(fields=["field_name", "changed_at"]),
+            models.Index(fields=["asset_hub", "changed_at"]),
+            models.Index(fields=["changed_by", "changed_at"]),
+        ]
+        ordering = ["-changed_at", "-id"]
+
+    def __str__(self) -> str:  # pragma: no cover - trivial
+        who = getattr(self.changed_by, "username", None) or "system"
+        model_name = self.content_type.model if self.content_type else "Unknown"
+        return f"{model_name}.{self.field_name} changed by {who} at {self.changed_at:%Y-%m-%d %H:%M:%S}"
+
+    @classmethod
+    def log_change(cls, instance, field_name, old_value, new_value, changed_by=None, asset_hub=None):
+        """Helper method to create audit log entries.
+
+        Args:
+            instance: The model instance that was changed
+            field_name: Name of the field that changed
+            old_value: Previous value of the field
+            new_value: New value of the field
+            changed_by: User who made the change (optional)
+            asset_hub: Asset hub reference (auto-detected if not provided)
+
+        Returns:
+            AuditLog: The created audit log entry
+
+        Usage:
+            AuditLog.log_change(
+                instance=my_reo_instance,
+                field_name='list_price',
+                old_value=150000,
+                new_value=160000,
+                changed_by=request.user
+            )
+        """
+        # Auto-detect asset_hub if the instance has one
+        if not asset_hub and hasattr(instance, 'asset_hub'):
+            asset_hub = instance.asset_hub
+
+        return cls.objects.create(
+            content_object=instance,
+            asset_hub=asset_hub,
+            field_name=field_name,
+            old_value=str(old_value) if old_value is not None else None,
+            new_value=str(new_value) if new_value is not None else None,
+            changed_by=changed_by,
+        )
+
+
+# DEPRECATED: AMMetricsChange - Use BaseChangeAudit pattern instead
+# TODO: Remove this model in next major overhaul after data migration
+# This model is kept for backward compatibility and to avoid migration issues
 class AMMetricsChange(models.Model):
     """Field-level change audit log for `AMMetrics` records.
-
-    One row per change, per field, capturing who changed it and when.
+    
+    DEPRECATED: This model uses the old pattern. New audit models should inherit
+    from BaseChangeAudit for consistency. Will be removed in next major overhaul.
     """
 
     # Link back to the record that changed
@@ -221,6 +545,8 @@ class AMMetricsChange(models.Model):
     )
 
     class Meta:
+        verbose_name = "AM Metrics Change (Deprecated)"
+        verbose_name_plural = "AM Metrics Changes (Deprecated)"
         indexes = [
             models.Index(fields=["record", "changed_at"]),
             models.Index(fields=["field_name", "changed_at"]),
@@ -231,6 +557,8 @@ class AMMetricsChange(models.Model):
     def __str__(self) -> str:  # pragma: no cover - trivial
         who = getattr(self.changed_by, "username", None) or "system"
         return f"Change({self.field_name} by {who} at {self.changed_at:%Y-%m-%d %H:%M:%S})"
+
+
 
 
 class AMNote(models.Model):
@@ -303,6 +631,8 @@ class AMNote(models.Model):
     )
 
     class Meta:
+        verbose_name = "AM Note"
+        verbose_name_plural = "AM Notes"
         indexes = [
             models.Index(fields=["asset_hub", "pinned", "updated_at"]),
         ]
@@ -414,11 +744,145 @@ class REOData(models.Model):
         blank=True,
         help_text="Gross purchase price of the REO property (optional).",
     )
-    # Note: No Meta ordering here because there is no `as_of_date` field on REOData.
-    # If you want ordering, consider one of the existing date fields, e.g.,
-    # ordering by most recent list_date or estimated_close_date.
-    # class Meta:
-    #     ordering = ["-list_date"]
+    class Meta:
+        verbose_name = "REO Data"
+        verbose_name_plural = "REO Data"
+        ordering = ["-list_date"]
+
+    # Change tracking
+    _actor = None
+
+    def set_actor(self, user):
+        """Set the user who is making changes to this record."""
+        self._actor = user
+
+    def save(self, *args, **kwargs):
+        """Save with automatic audit logging for all field changes."""
+        actor = kwargs.pop('actor', None) or self._actor
+        
+        # Get original values if this is an update
+        if self.pk:
+            try:
+                original = self.__class__.objects.get(pk=self.pk)
+                original_values = {field.name: getattr(original, field.name) for field in self._meta.fields}
+            except self.__class__.DoesNotExist:
+                original_values = {}
+        else:
+            original_values = {}
+
+        # Save the record
+        super().save(*args, **kwargs)
+
+        # Log changes for all fields
+        if original_values:
+            for field in self._meta.fields:
+                field_name = field.name
+                old_value = original_values.get(field_name)
+                new_value = getattr(self, field_name)
+                
+                # Only log if value actually changed
+                if old_value != new_value:
+                    AuditLog.log_change(
+                        instance=self,
+                        field_name=field_name,
+                        old_value=old_value,
+                        new_value=new_value,
+                        changed_by=actor,
+                        asset_hub=self.asset_hub
+                    )
+
+class REOtask(models.Model):
+    """Simple REO task tracker using Django's TextChoices.
+
+    We use a nested TextChoices enum to define the allowed task types with
+    a single source of truth for value+label. Extend later with hub FK,
+    due dates, assignee, status, etc.
+    Docs reviewed: https://docs.djangoproject.com/en/stable/ref/models/fields/#enumeration-types
+    """
+
+    class TaskType(models.TextChoices):
+        """Canonical REO task types and their display labels."""
+        EVICTION = "eviction", "Eviction"
+        TRASHOUT = "trashout", "Trashout"
+        RENOVATION = "renovation", "Renovation"
+        MARKETING = "marketing", "Marketing"
+        UNDER_CONTRACT = "under_contract", "Under Contract"
+        SOLD = "sold", "Sold"
+
+    # Selected task type (single-select). Use TaskType.<NAME> in code.
+    task_type = models.CharField(
+        max_length=20,                   # fits the longest value 'under_contract'
+        choices=TaskType.choices,        # built-in mapping of value->label
+        help_text=(
+            "Type of REO task (Eviction, Trashout, Renovation, Marketing, Under Contract, Sold)."
+        ),
+    )
+
+    # Direct link to the asset hub for simplified querying.
+    asset_hub = models.ForeignKey(
+        'core.AssetIdHub',
+        on_delete=models.PROTECT,
+        related_name='reo_tasks',
+        help_text='The asset hub this REO task belongs to.',
+    )
+
+    # Link back to the REO record this task pertains to (many tasks per REOData)
+    reo_outcome = models.ForeignKey(
+        'am_module.REOData',
+        on_delete=models.PROTECT,            # protect REOData if tasks exist
+        related_name='tasks',                # access via: reo_data.tasks.all()
+        help_text='The REOData record this task is associated with (many-to-one).',
+    )
+
+    # Minimal audit timestamps to help with ordering and history
+    created_at = models.DateTimeField(auto_now_add=True, help_text="When this task row was created.")
+    updated_at = models.DateTimeField(auto_now=True, help_text="When this task row was last updated.")
+
+    class Meta:
+        verbose_name = "REO Task"
+        verbose_name_plural = "REO Tasks"
+
+    # Change tracking
+    _actor = None
+
+    def set_actor(self, user):
+        """Set the user who is making changes to this record."""
+        self._actor = user
+
+    def save(self, *args, **kwargs):
+        """Save with automatic audit logging for all field changes."""
+        actor = kwargs.pop('actor', None) or self._actor
+        
+        # Get original values if this is an update
+        if self.pk:
+            try:
+                original = self.__class__.objects.get(pk=self.pk)
+                original_values = {field.name: getattr(original, field.name) for field in self._meta.fields}
+            except self.__class__.DoesNotExist:
+                original_values = {}
+        else:
+            original_values = {}
+
+        # Save the record
+        super().save(*args, **kwargs)
+
+        # Log changes for all fields
+        if original_values:
+            for field in self._meta.fields:
+                field_name = field.name
+                old_value = original_values.get(field_name)
+                new_value = getattr(self, field_name)
+                
+                # Only log if value actually changed
+                if old_value != new_value:
+                    AuditLog.log_change(
+                        instance=self,
+                        field_name=field_name,
+                        old_value=old_value,
+                        new_value=new_value,
+                        changed_by=actor,
+                        asset_hub=self.asset_hub
+                    )
 
 class FCSale(models.Model):
     """Data about a foreclosure sale (hub-keyed 1:1)."""
@@ -467,6 +931,141 @@ class FCSale(models.Model):
         blank=True,
         help_text="Sale price of the foreclosure sale (optional).",
     )
+
+    class Meta:
+        verbose_name = "Foreclosure Sale"
+        verbose_name_plural = "Foreclosure Sales"
+
+    # Change tracking
+    _actor = None
+
+    def set_actor(self, user):
+        """Set the user who is making changes to this record."""
+        self._actor = user
+
+    def save(self, *args, **kwargs):
+        """Save with automatic audit logging for all field changes."""
+        actor = kwargs.pop('actor', None) or self._actor
+        
+        # Get original values if this is an update
+        if self.pk:
+            try:
+                original = self.__class__.objects.get(pk=self.pk)
+                original_values = {field.name: getattr(original, field.name) for field in self._meta.fields}
+            except self.__class__.DoesNotExist:
+                original_values = {}
+        else:
+            original_values = {}
+
+        # Save the record
+        super().save(*args, **kwargs)
+
+        # Log changes for all fields
+        if original_values:
+            for field in self._meta.fields:
+                field_name = field.name
+                old_value = original_values.get(field_name)
+                new_value = getattr(self, field_name)
+                
+                # Only log if value actually changed
+                if old_value != new_value:
+                    AuditLog.log_change(
+                        instance=self,
+                        field_name=field_name,
+                        old_value=old_value,
+                        new_value=new_value,
+                        changed_by=actor,
+                        asset_hub=self.asset_hub
+                    )
+
+class FCTask(models.Model):
+    """Foreclosure workflow task linked to an `FCSale` record.
+
+    Uses Django's TextChoices for well-defined stage values. Extend later with
+    due dates, assignee, notes, etc.
+    """
+
+    class TaskType(models.TextChoices):
+        NOD_NOI = "nod_noi", "NOD/NOI"
+        FC_FILING = "fc_filing", "FC Filing"
+        MEDIATION = "mediation", "Mediation"
+        JUDGEMENT = "judgement", "Judgement"
+        REDEMPTION = "redemption", "Redemption"
+        SALE_SCHEDULED = "sale_scheduled", "Sale Scheduled"
+        SOLD = "sold", "Sold"
+
+    # Direct link to the asset hub for simplified querying.
+    asset_hub = models.ForeignKey(
+        'core.AssetIdHub',
+        on_delete=models.PROTECT,
+        related_name='fc_tasks',
+        help_text='The asset hub this foreclosure task belongs to.',
+    )
+
+    # Link to the foreclosure sale record (many tasks per FCSale)
+    fc_sale = models.ForeignKey(
+        'am_module.FCSale',
+        on_delete=models.PROTECT,           # prevent deleting sale while tasks exist
+        related_name='tasks',               # access via: fc_sale.tasks.all()
+        help_text='The FCSale record this task is associated with (many-to-one).',
+    )
+
+    # Selected stage
+    task_type = models.CharField(
+        max_length=32,
+        choices=TaskType.choices,
+        help_text='Foreclosure workflow stage for this task.',
+    )
+
+    # Minimal audit timestamps
+    created_at = models.DateTimeField(auto_now_add=True, help_text="When this task was created.")
+    updated_at = models.DateTimeField(auto_now=True, help_text="When this task was last updated.")
+
+    class Meta:
+        verbose_name = "Foreclosure Task"
+        verbose_name_plural = "Foreclosure Tasks"
+
+    # Change tracking
+    _actor = None
+
+    def set_actor(self, user):
+        """Set the user who is making changes to this record."""
+        self._actor = user
+
+    def save(self, *args, **kwargs):
+        """Save with automatic audit logging for all field changes."""
+        actor = kwargs.pop('actor', None) or self._actor
+        
+        # Get original values if this is an update
+        if self.pk:
+            try:
+                original = self.__class__.objects.get(pk=self.pk)
+                original_values = {field.name: getattr(original, field.name) for field in self._meta.fields}
+            except self.__class__.DoesNotExist:
+                original_values = {}
+        else:
+            original_values = {}
+
+        # Save the record
+        super().save(*args, **kwargs)
+
+        # Log changes for all fields
+        if original_values:
+            for field in self._meta.fields:
+                field_name = field.name
+                old_value = original_values.get(field_name)
+                new_value = getattr(self, field_name)
+                
+                # Only log if value actually changed
+                if old_value != new_value:
+                    AuditLog.log_change(
+                        instance=self,
+                        field_name=field_name,
+                        old_value=old_value,
+                        new_value=new_value,
+                        changed_by=actor,
+                        asset_hub=self.asset_hub
+                    )
     
 class DIL(models.Model):
     """Data about a DIL (hub-keyed 1:1)."""
@@ -509,7 +1108,138 @@ class DIL(models.Model):
         null=True,
         blank=True,
         help_text="CFK cost of the DIL (optional).",
-    )      
+    )
+
+    class Meta:
+        verbose_name = "Deed in Lieu (DIL)"
+        verbose_name_plural = "Deeds in Lieu (DILs)"
+
+    # Change tracking
+    _actor = None
+
+    def set_actor(self, user):
+        """Set the user who is making changes to this record."""
+        self._actor = user
+
+    def save(self, *args, **kwargs):
+        """Save with automatic audit logging for all field changes."""
+        actor = kwargs.pop('actor', None) or self._actor
+        
+        # Get original values if this is an update
+        if self.pk:
+            try:
+                original = self.__class__.objects.get(pk=self.pk)
+                original_values = {field.name: getattr(original, field.name) for field in self._meta.fields}
+            except self.__class__.DoesNotExist:
+                original_values = {}
+        else:
+            original_values = {}
+
+        # Save the record
+        super().save(*args, **kwargs)
+
+        # Log changes for all fields
+        if original_values:
+            for field in self._meta.fields:
+                field_name = field.name
+                old_value = original_values.get(field_name)
+                new_value = getattr(self, field_name)
+                
+                # Only log if value actually changed
+                if old_value != new_value:
+                    AuditLog.log_change(
+                        instance=self,
+                        field_name=field_name,
+                        old_value=old_value,
+                        new_value=new_value,
+                        changed_by=actor,
+                        asset_hub=self.asset_hub
+                    )
+
+class DILTask(models.Model):
+    """DIL workflow task linked to a `DIL` record.
+
+    Uses Django's TextChoices for well-defined stage values.
+    """
+
+    class TaskType(models.TextChoices):
+        OWNER_CONTACTED = "owner_contacted", "Owner/Heirs contacted"
+        DRAFTED = "dil_drafted", "Deed-in-Lieu Drafted"
+        SUCCESSFUL = "dil_successful", "Deed-in-Lieu Successful"
+
+    # Direct link to the asset hub for simplified querying.
+    asset_hub = models.ForeignKey(
+        'core.AssetIdHub',
+        on_delete=models.PROTECT,
+        related_name='dil_tasks',
+        help_text='The asset hub this DIL task belongs to.',
+    )
+
+    # Link to the DIL record (many tasks per DIL)
+    dil = models.ForeignKey(
+        'am_module.DIL',
+
+        on_delete=models.PROTECT,
+        related_name='tasks',
+        help_text='The DIL record this task is associated with (many-to-one).',
+    )
+
+    # Selected stage
+    task_type = models.CharField(
+        max_length=32,
+        choices=TaskType.choices,
+        help_text='DIL workflow stage for this task.',
+    )
+
+    # Minimal audit timestamps
+    created_at = models.DateTimeField(auto_now_add=True, help_text="When this task was created.")
+    updated_at = models.DateTimeField(auto_now=True, help_text="When this task was last updated.")
+
+    class Meta:
+        verbose_name = "DIL Task"
+        verbose_name_plural = "DIL Tasks"
+
+    # Change tracking
+    _actor = None
+
+    def set_actor(self, user):
+        """Set the user who is making changes to this record."""
+        self._actor = user
+
+    def save(self, *args, **kwargs):
+        """Save with automatic audit logging for all field changes."""
+        actor = kwargs.pop('actor', None) or self._actor
+        
+        # Get original values if this is an update
+        if self.pk:
+            try:
+                original = self.__class__.objects.get(pk=self.pk)
+                original_values = {field.name: getattr(original, field.name) for field in self._meta.fields}
+            except self.__class__.DoesNotExist:
+                original_values = {}
+        else:
+            original_values = {}
+
+        # Save the record
+        super().save(*args, **kwargs)
+
+        # Log changes for all fields
+        if original_values:
+            for field in self._meta.fields:
+                field_name = field.name
+                old_value = original_values.get(field_name)
+                new_value = getattr(self, field_name)
+                
+                # Only log if value actually changed
+                if old_value != new_value:
+                    AuditLog.log_change(
+                        instance=self,
+                        field_name=field_name,
+                        old_value=old_value,
+                        new_value=new_value,
+                        changed_by=actor,
+                        asset_hub=self.asset_hub
+                    )
 
 class ShortSale(models.Model):
     """Data about a short sale (hub-keyed 1:1)."""
@@ -547,8 +1277,137 @@ class ShortSale(models.Model):
         blank=True,
         help_text="Date of the short sale (optional).",
     )
-    
-    
+
+    class Meta:
+        verbose_name = "Short Sale"
+        verbose_name_plural = "Short Sales"
+
+    # Change tracking
+    _actor = None
+
+    def set_actor(self, user):
+        """Set the user who is making changes to this record."""
+        self._actor = user
+
+    def save(self, *args, **kwargs):
+        """Save with automatic audit logging for all field changes."""
+        actor = kwargs.pop('actor', None) or self._actor
+        
+        # Get original values if this is an update
+        if self.pk:
+            try:
+                original = self.__class__.objects.get(pk=self.pk)
+                original_values = {field.name: getattr(original, field.name) for field in self._meta.fields}
+            except self.__class__.DoesNotExist:
+                original_values = {}
+        else:
+            original_values = {}
+
+        # Save the record
+        super().save(*args, **kwargs)
+
+        # Log changes for all fields
+        if original_values:
+            for field in self._meta.fields:
+                field_name = field.name
+                old_value = original_values.get(field_name)
+                new_value = getattr(self, field_name)
+                
+                # Only log if value actually changed
+                if old_value != new_value:
+                    AuditLog.log_change(
+                        instance=self,
+                        field_name=field_name,
+                        old_value=old_value,
+                        new_value=new_value,
+                        changed_by=actor,
+                        asset_hub=self.asset_hub
+                    )
+
+class ShortSaleTask(models.Model):
+    """Short Sale workflow task linked to a `ShortSale` record.
+
+    Uses Django's TextChoices for well-defined stage values.
+    """
+
+    class TaskType(models.TextChoices):
+        LIST_PRICE_ACCEPTED = "list_price_accepted", "List Price Accepted"
+        LISTED = "listed", "Listed"
+        UNDER_CONTRACT = "under_contract", "Under-Contract"
+        SOLD = "sold", "Sold"
+
+    # Direct link to the asset hub for simplified querying.
+    asset_hub = models.ForeignKey(
+        'core.AssetIdHub',
+        on_delete=models.PROTECT,
+        related_name='short_sale_tasks',
+        help_text='The asset hub this short sale task belongs to.',
+    )
+
+    # Link to the ShortSale record (many tasks per ShortSale)
+    short_sale = models.ForeignKey(
+        'am_module.ShortSale',
+        on_delete=models.PROTECT,
+        related_name='tasks',
+        help_text='The ShortSale record this task is associated with (many-to-one).',
+    )
+
+    # Selected stage
+    task_type = models.CharField(
+        max_length=32,
+        choices=TaskType.choices,
+        help_text='Short Sale workflow stage for this task.',
+    )
+
+    # Minimal audit timestamps
+    created_at = models.DateTimeField(auto_now_add=True, help_text="When this task was created.")
+    updated_at = models.DateTimeField(auto_now=True, help_text="When this task was last updated.")
+
+    class Meta:
+        verbose_name = "Short Sale Task"
+        verbose_name_plural = "Short Sale Tasks"
+
+    # Change tracking
+    _actor = None
+
+    def set_actor(self, user):
+        """Set the user who is making changes to this record."""
+        self._actor = user
+
+    def save(self, *args, **kwargs):
+        """Save with automatic audit logging for all field changes."""
+        actor = kwargs.pop('actor', None) or self._actor
+        
+        # Get original values if this is an update
+        if self.pk:
+            try:
+                original = self.__class__.objects.get(pk=self.pk)
+                original_values = {field.name: getattr(original, field.name) for field in self._meta.fields}
+            except self.__class__.DoesNotExist:
+                original_values = {}
+        else:
+            original_values = {}
+
+        # Save the record
+        super().save(*args, **kwargs)
+
+        # Log changes for all fields
+        if original_values:
+            for field in self._meta.fields:
+                field_name = field.name
+                old_value = original_values.get(field_name)
+                new_value = getattr(self, field_name)
+                
+                # Only log if value actually changed
+                if old_value != new_value:
+                    AuditLog.log_change(
+                        instance=self,
+                        field_name=field_name,
+                        old_value=old_value,
+                        new_value=new_value,
+                        changed_by=actor,
+                        asset_hub=self.asset_hub
+                    )
 
 class Modification(models.Model):
     """Data about a modification (hub-keyed 1:1)."""
@@ -638,5 +1497,134 @@ class Modification(models.Model):
         blank=True,
         help_text="Down payment of the modification (optional).",
     )
-    
+
+    class Meta:
+        verbose_name = "Loan Modification"
+        verbose_name_plural = "Loan Modifications"
+
+    # Change tracking
+    _actor = None
+
+    def set_actor(self, user):
+        """Set the user who is making changes to this record."""
+        self._actor = user
+
+    def save(self, *args, **kwargs):
+        """Save with automatic audit logging for all field changes."""
+        actor = kwargs.pop('actor', None) or self._actor
         
+        # Get original values if this is an update
+        if self.pk:
+            try:
+                original = self.__class__.objects.get(pk=self.pk)
+                original_values = {field.name: getattr(original, field.name) for field in self._meta.fields}
+            except self.__class__.DoesNotExist:
+                original_values = {}
+        else:
+            original_values = {}
+
+        # Save the record
+        super().save(*args, **kwargs)
+
+        # Log changes for all fields
+        if original_values:
+            for field in self._meta.fields:
+                field_name = field.name
+                old_value = original_values.get(field_name)
+                new_value = getattr(self, field_name)
+                
+                # Only log if value actually changed
+                if old_value != new_value:
+                    AuditLog.log_change(
+                        instance=self,
+                        field_name=field_name,
+                        old_value=old_value,
+                        new_value=new_value,
+                        changed_by=actor,
+                        asset_hub=self.asset_hub
+                    )
+
+class ModificationTask(models.Model):
+    """Modification workflow task linked to a `Modification` record.
+
+    Uses Django's TextChoices for well-defined stage values.
+    """
+
+    class TaskType(models.TextChoices):
+        NEGOTIATIONS = "mod_negotiations", "Mod negotiations"
+        ACCEPTED = "mod_accepted", "Mod Accepted"
+        STARTED = "mod_started", "Mod Started"
+        FAILED = "mod_failed", "Mod Failed"
+
+    # Direct link to the asset hub for simplified querying.
+    asset_hub = models.ForeignKey(
+        'core.AssetIdHub',
+        on_delete=models.PROTECT,
+        related_name='modification_tasks',
+        help_text='The asset hub this modification task belongs to.',
+    )
+
+    # Link to the Modification record (many tasks per Modification)
+    modification = models.ForeignKey(
+        'am_module.Modification',
+        on_delete=models.PROTECT,
+        related_name='tasks',
+        help_text='The Modification record this task is associated with (many-to-one).',
+    )
+
+    # Selected stage
+    task_type = models.CharField(
+        max_length=32,
+        choices=TaskType.choices,
+        help_text='Modification workflow stage for this task.',
+    )
+
+    # Minimal audit timestamps
+    created_at = models.DateTimeField(auto_now_add=True, help_text="When this task was created.")
+    updated_at = models.DateTimeField(auto_now=True, help_text="When this task was last updated.")
+
+    class Meta:
+        verbose_name = "Modification Task"
+        verbose_name_plural = "Modification Tasks"
+
+    # Change tracking
+    _actor = None
+
+    def set_actor(self, user):
+        """Set the user who is making changes to this record."""
+        self._actor = user
+
+    def save(self, *args, **kwargs):
+        """Save with automatic audit logging for all field changes."""
+        actor = kwargs.pop('actor', None) or self._actor
+        
+        # Get original values if this is an update
+        if self.pk:
+            try:
+                original = self.__class__.objects.get(pk=self.pk)
+                original_values = {field.name: getattr(original, field.name) for field in self._meta.fields}
+            except self.__class__.DoesNotExist:
+                original_values = {}
+        else:
+            original_values = {}
+
+        # Save the record
+        super().save(*args, **kwargs)
+
+        # Log changes for all fields
+        if original_values:
+            for field in self._meta.fields:
+                field_name = field.name
+                old_value = original_values.get(field_name)
+                new_value = getattr(self, field_name)
+                
+                # Only log if value actually changed
+                if old_value != new_value:
+                    AuditLog.log_change(
+                        instance=self,
+                        field_name=field_name,
+                        old_value=old_value,
+                        new_value=new_value,
+                        changed_by=actor,
+                        asset_hub=self.asset_hub
+                    )

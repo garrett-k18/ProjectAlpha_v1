@@ -1,9 +1,21 @@
 <template>
-  <!-- Asset Management: Servicing Notes -->
+  <!-- Asset Management: Tasking & Outcome Management -->
   <div class="px-3 px-lg-4">
-    <b-row class="g-3 align-items-stretch">
+    <!-- Include the full tasking interface -->
+    <AmLlTasking :assetId="amId" :row="props.row" />
+    
+    <!-- Servicing Notes Section -->
+    <b-row class="g-3 align-items-stretch mt-4">
       <b-col lg="12" class="d-flex">
-        <Notes :assetId="amId || undefined" class="w-100" />
+        <b-card class="w-100">
+          <template #header>
+            <h5 class="mb-0">
+              <i class="fas fa-sticky-note me-2"></i>
+              Servicing Notes
+            </h5>
+          </template>
+          <Notes :assetId="amId || undefined" class="w-100" />
+        </b-card>
       </b-col>
     </b-row>
   </div>
@@ -13,6 +25,7 @@
 <script setup lang="ts">
 import { withDefaults, defineProps, ref, computed } from 'vue'
 import Notes from '@/components/Notes.vue'
+import AmLlTasking from '@/views/am_module/loanlvl/am_tasking/am_ll_tasking.vue'
 
 const props = withDefaults(defineProps<{ row?: Record<string, any> | null; productId?: string | number | null }>(), {
   row: null,

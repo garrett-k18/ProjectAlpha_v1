@@ -1,5 +1,5 @@
 <template>
-  <!-- AM Snapshot: Photos + Valuation + Documents quick view -->
+  <!-- AM Snapshot: Photos + Documents quick view -->
   <!-- Stretch columns to equal height so the map matches the photo card -->
   <b-row class="g-3 g-lg-4 px-3 px-lg-4 align-items-stretch">
     <!-- Left: Photo carousel within a card -->
@@ -28,15 +28,9 @@
     </b-col>
   </b-row>
 
-  <!-- Valuation + Documents row -->
+  <!-- Documents row (full width for simpler static template) -->
   <b-row class="g-3 mt-1 align-items-stretch px-3 px-lg-4">
-    <b-col lg="9" class="d-flex">
-      <div class="w-100 h-100">
-        <ValuationMatrix class="h-100 d-flex flex-column" :row="row" :productId="productId" />
-      </div>
-    </b-col>
-
-    <b-col lg="3" class="d-flex">
+    <b-col lg="12" class="d-flex">
       <div class="w-100 h-100">
         <DocumentsQuickView title="Document Quick View" :docs="docItems" :maxItems="5" :showViewAll="false" />
       </div>
@@ -50,8 +44,6 @@ import http from '@/lib/http'
 import PropertyMap from '@/components/PropertyMap.vue'
 import PhotoCarousel from '@/components/PhotoCarousel.vue'
 import DocumentsQuickView from '@/components/DocumentsQuickView.vue'
-// Reuse acquisitions valuation matrix component (container-less) in AM snapshot
-import ValuationMatrix from '@/views/acq_module/loanlvl/components/valuationMatrix.vue'
 import type { DocumentItem } from '@/components/DocumentsQuickView.vue'
 
 export type PhotoItem = { src: string; alt?: string; thumb?: string; type?: string }

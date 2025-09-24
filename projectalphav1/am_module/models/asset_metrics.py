@@ -10,7 +10,7 @@
 from django.db import models  # Django ORM base class and field types
 from django.utils import timezone  # Timezone-aware date utilities (localdate)
 
-class AssetMetrics(models.Model):
+class AssetMetrics(models.Model): #deprecated delete in PRod
     """
     AssetMetrics tracks performance-related attributes for a single boarded asset.
     It is a strict 1:1 with AssetIdHub (asset hub id as primary key).
