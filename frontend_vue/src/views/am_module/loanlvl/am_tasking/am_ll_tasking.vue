@@ -53,13 +53,25 @@
         <b-col md="3">
           <div class="bg-light rounded p-3">
             <div class="small text-muted">Active Outcomes</div>
-            <div class="fw-semibold">{{ outcomeStats.pending + outcomeStats.in_progress }}</div>
+            <div class="kpi-badges d-flex gap-2 align-items-center">
+              <template v-if="activeTypes.length">
+                <span
+                  v-for="t in activeTypes"
+                  :key="t"
+                  class="badge rounded-pill"
+                  :class="trackBadge(t).cls"
+                >
+                  {{ trackBadge(t).label }}
+                </span>
+              </template>
+              <span v-else class="text-muted">None</span>
+            </div>
           </div>
         </b-col>
       </b-row>
     </b-card>
 
-    <!-- Outcome Summary Cards -->
+    <!-- Outcome Summary Cards (moved above Track) -->
     <b-row class="g-3 mb-4">
       <b-col md="4">
         <b-card class="text-center h-100">
@@ -96,161 +108,122 @@
       </b-col>
     </b-row>
 
-    <!-- Filters -->
-    <b-card class="mb-4">
-      <div class="d-flex align-items-center justify-content-between">
-        <div class="d-flex align-items-center">
-          <i class="fas fa-filter text-muted me-3"></i>
-          
-          <b-form-select v-model="outcomeFilter" size="sm" class="me-3" style="width: auto;">
-            <option value="all">All Outcome Types</option>
-            <option value="foreclosure">Foreclosure</option>
-            <option value="modification">Modification</option>
-            <option value="deed_in_lieu">Deed in Lieu</option>
-            <option value="short_sale">Short Sale</option>
-          </b-form-select>
-          
-          <b-form-select v-model="statusFilter" size="sm" style="width: auto;">
-            <option value="all">All Statuses</option>
-            <option value="pending">Pending</option>
-            <option value="in_progress">In Progress</option>
-            <option value="completed">Completed</option>
-          </b-form-select>
+    <!-- Track: Start/ensure outcomes and render cards -->
+    <b-row class="g-3 align-items-stretch mb-4">
+      <b-col cols="12">
+        <b-card class="w-100">
+          <template #header>
+            <div class="d-flex align-items-center justify-content-between w-100">
+              <h5 class="mb-0 d-flex align-items-center">
+                <i class="fas fa-stream me-2"></i>
+                Current Track(s)
+              </h5>
+              <div class="position-relative" ref="trackMenuRef">
+                <button type="button" class="btn btn-sm btn-outline-primary px-3 d-inline-flex align-items-center justify-content-center position-relative" :disabled="!hubId || ensureBusy" @click.stop="toggleTrackMenu">
+                  <span class="w-100 text-center">Choose Track</span>
+                  <i class="fas fa-chevron-down small position-absolute end-0 me-2 top-50 translate-middle-y" aria-hidden="true"></i>
+                </button>
+                <!-- Custom dropdown menu with pill badges -->
+                <div v-if="showTrackMenu" class="card shadow-sm mt-1" style="position: absolute; right: 0; min-width: 680px; z-index: 1060;" @click.stop>
+                  <div class="card-body py-2">
+                    <div class="d-flex flex-row flex-nowrap align-items-center justify-content-center gap-2 text-center">
+                      <button class="btn p-0 bg-transparent border-0" @click="selectTrack('modification')" :disabled="ensureBusy">
+                        <span class="badge rounded-pill text-bg-secondary px-3 py-2">Modification</span>
+                      </button>
+                      <button class="btn p-0 bg-transparent border-0" @click="selectTrack('short_sale')" :disabled="ensureBusy">
+                        <span class="badge rounded-pill text-bg-warning px-3 py-2">Short Sale</span>
+                      </button>
+                      <button class="btn p-0 bg-transparent border-0" @click="selectTrack('dil')" :disabled="ensureBusy">
+                        <span class="badge rounded-pill text-bg-primary px-3 py-2">Deed-in-Lieu</span>
+                      </button>
+                      <button class="btn p-0 bg-transparent border-0" @click="selectTrack('fc')" :disabled="ensureBusy">
+                        <span class="badge rounded-pill text-bg-danger px-3 py-2">Foreclosure</span>
+                      </button>
+                      <button class="btn p-0 bg-transparent border-0" @click="selectTrack('reo')" :disabled="ensureBusy">
+                        <span class="badge rounded-pill text-bg-info px-3 py-2">REO</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <div class="row g-3">
+            <div class="col-12 col-lg-6" v-if="visibleOutcomes.dil">
+              <DilCard :hubId="hubId!" @delete="() => requestDelete('dil')" />
+            </div>
+            <div class="col-12 col-lg-6" v-if="visibleOutcomes.fc">
+              <FcCard :hubId="hubId!" @delete="() => requestDelete('fc')" />
+            </div>
+            <div class="col-12 col-lg-6" v-if="visibleOutcomes.reo">
+              <ReoCard :hubId="hubId!" @delete="() => requestDelete('reo')" />
+            </div>
+            <div class="col-12 col-lg-6" v-if="visibleOutcomes.short_sale">
+              <ShortSaleCard :hubId="hubId!" @delete="() => requestDelete('short_sale')" />
+            </div>
+            <div class="col-12 col-lg-6" v-if="visibleOutcomes.modification">
+              <ModificationCard :hubId="hubId!" @delete="() => requestDelete('modification')" />
+            </div>
+            <div v-if="!anyVisibleOutcome" class="col-12 small text-muted">
+              Pick a track above to create its card for this asset.
+            </div>
+          </div>
+        </b-card>
+      </b-col>
+    </b-row>
+
+    <!-- Confirm Delete Modal (Hyper UI style) -->
+    <template v-if="confirm.open">
+      <!-- Backdrop behind modal -->
+      <div class="modal-backdrop fade show" style="z-index: 1050;"></div>
+      <!-- Modal above backdrop -->
+      <div class="modal fade show" tabindex="-1" role="dialog" aria-modal="true"
+           style="display: block; position: fixed; inset: 0; z-index: 1055;">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+          <div class="modal-content">
+            <div class="modal-header bg-danger-subtle">
+              <h5 class="modal-title d-flex align-items-center">
+                <i class="fas fa-triangle-exclamation text-danger me-2"></i>
+                Confirm Deletion
+              </h5>
+              <button type="button" class="btn-close" aria-label="Close" @click="closeConfirm"></button>
+            </div>
+            <div class="modal-body">
+              <p class="mb-0">Are you sure you want to delete this outcome record? This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-light" @click="closeConfirm">Cancel</button>
+              <button type="button" class="btn btn-danger" @click="confirmDelete" :disabled="confirm.busy">
+                <span v-if="confirm.busy" class="spinner-border spinner-border-sm me-2"></span>
+                Delete
+              </button>
+            </div>
+          </div>
         </div>
-        
-        <b-button variant="primary" size="sm" @click="createNewOutcome">
-          <i class="fas fa-plus me-2"></i>
-          New Outcome
-        </b-button>
       </div>
-    </b-card>
+    </template>
 
-    <!-- Outcome Cards -->
-    <div v-if="filteredOutcomes.length > 0" class="mb-4">
-      <b-card 
-        v-for="outcome in filteredOutcomes" 
-        :key="outcome.id" 
-        :class="['mb-3 border-start border-4', getPriorityBorderClass(outcome.priority)]"
-      >
-        <!-- Main Outcome Header -->
-        <div class="d-flex align-items-start justify-content-between mb-3">
-          <div class="d-flex align-items-center">
-            <i :class="['me-3 fa-lg', getOutcomeIcon(outcome.outcomeType)]"></i>
-            <div>
-              <b-badge :variant="getOutcomeTypeVariant(outcome.outcomeType)" class="me-2">
-                {{ getOutcomeTypeLabel(outcome.outcomeType) }}
-              </b-badge>
-              <b-badge :variant="getStatusVariant(outcome.overallStatus)" class="me-2">
-                <i :class="['me-1', getStatusIcon(outcome.overallStatus)]"></i>
-                {{ getStatusLabel(outcome.overallStatus) }}
-              </b-badge>
-            </div>
-          </div>
-          <div class="d-flex align-items-center">
-            <b-badge :variant="getPriorityVariant(outcome.priority)" class="me-2">
-              {{ outcome.priority.charAt(0).toUpperCase() + outcome.priority.slice(1) }} Priority
-            </b-badge>
-            <b-button 
-              variant="outline-secondary" 
-              size="sm" 
-              @click="toggleOutcomeExpansion(outcome.outcomeType, outcome.id)"
-            >
-              <i :class="isExpanded(outcome.outcomeType, outcome.id) ? 'fas fa-chevron-up' : 'fas fa-chevron-down'"></i>
-            </b-button>
-          </div>
-        </div>
-        
-        <h5 class="mb-2">{{ outcome.title }}</h5>
-        <p class="text-muted small mb-3">{{ outcome.description }}</p>
-        
-        <!-- Progress Bar -->
-        <div class="mb-3">
-          <div class="d-flex justify-content-between small text-muted mb-1">
-            <span>Progress: {{ getSubtaskProgress(outcome.subtasks) }} subtasks</span>
-            <span>{{ Math.round(getProgressPercentage(outcome.subtasks)) }}% complete</span>
-          </div>
-          <b-progress :value="getProgressPercentage(outcome.subtasks)" variant="primary" height="8px"></b-progress>
-        </div>
-        
-        <div class="d-flex align-items-center justify-content-between small text-muted">
-          <div class="d-flex align-items-center">
-            <div class="d-flex align-items-center me-4">
-              <i class="fas fa-user me-1"></i>
-              {{ outcome.assignedTo }}
-            </div>
-            <div class="d-flex align-items-center">
-              <i class="fas fa-calendar me-1"></i>
-              Target: {{ formatDate(outcome.targetDate) }}
-            </div>
-          </div>
-          <span>Started: {{ formatDate(outcome.startDate) }}</span>
-        </div>
-
-        <!-- Subtasks (Expandable) -->
-        <b-collapse :visible="isExpanded(outcome.outcomeType, outcome.id)">
-          <hr>
-          <h6 class="mb-3">Subtasks</h6>
-          <div class="row g-2">
-            <div v-for="subtask in outcome.subtasks" :key="subtask.id" class="col-12">
-              <b-card class="border">
-                <div class="d-flex align-items-start justify-content-between mb-2">
-                  <div class="d-flex align-items-center">
-                    <b-badge :variant="getStatusVariant(subtask.status)" class="me-2">
-                      <i :class="['me-1', getStatusIcon(subtask.status)]"></i>
-                      {{ getStatusLabel(subtask.status) }}
-                    </b-badge>
-                    <span class="fw-medium">{{ subtask.title }}</span>
-                  </div>
-                  <span class="small text-muted">
-                    Due: {{ formatDate(subtask.dueDate) }}
-                  </span>
-                </div>
-                
-                <div class="d-flex align-items-center justify-content-between small text-muted">
-                  <div class="d-flex align-items-center">
-                    <i class="fas fa-user me-1"></i>
-                    {{ subtask.assignedTo }}
-                  </div>
-                  <span v-if="subtask.completedDate" class="text-success">
-                    Completed: {{ formatDate(subtask.completedDate) }}
-                  </span>
-                </div>
-                
-                <div v-if="subtask.notes" class="mt-2 small text-muted bg-light rounded p-2">
-                  <strong>Notes:</strong> {{ subtask.notes }}
-                </div>
-              </b-card>
-            </div>
-          </div>
-        </b-collapse>
-      </b-card>
-    </div>
-
-    <!-- No outcomes found -->
-    <b-card v-else class="text-center py-5">
-      <i class="fas fa-file-alt fa-3x text-muted mb-3"></i>
-      <h5 class="mb-2">No outcomes found</h5>
-      <p class="text-muted mb-3">
-        No outcomes match your current filters for this asset.
-      </p>
-      <b-button variant="primary" @click="createNewOutcome">
-        Create New Outcome
-      </b-button>
-    </b-card>
+    
+    <!-- Filters and legacy outcome list removed -->
   </div>
 </template>
 
 <script setup lang="ts">
-import { withDefaults, defineProps, ref, computed, watch, onMounted } from 'vue'
+import { withDefaults, defineProps, ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 defineOptions({
   name: 'AmLlTasking',
 })
-import http from '@/lib/http'
-import PropertyMap from '@/components/PropertyMap.vue'
-import PhotoCarousel from '@/components/PhotoCarousel.vue'
-import DocumentsQuickView from '@/components/DocumentsQuickView.vue'
+// (legacy imports removed)
 import UiBadge from '@/components/ui/UiBadge.vue'
 import { getDelinquencyBadgeTone, getPropertyTypeBadgeTone } from '@/config/badgeTokens'
+// Outcome cards + store
+import DilCard from '@/views/am_module/outcomes/DilCard.vue'
+import FcCard from '@/views/am_module/outcomes/FcCard.vue'
+import ReoCard from '@/views/am_module/outcomes/ReoCard.vue'
+import ShortSaleCard from '@/views/am_module/outcomes/ShortSaleCard.vue'
+import ModificationCard from '@/views/am_module/outcomes/ModificationCard.vue'
+import { useAmOutcomesStore, type OutcomeType } from '@/stores/outcomes'
 
 interface HeaderAssetView {
   propertyAddress: string
@@ -317,9 +290,6 @@ const props = withDefaults(defineProps<{
 
 // Reactive state
 const currentAssetId = ref<number>(1)
-const outcomeFilter = ref<string>('all')
-const statusFilter = ref<string>('all')
-const expandedOutcomes = ref<Set<string>>(new Set(['foreclosure1', 'modification2']))
 
 // Mock data - replace with Django API calls
 const assets = ref<Asset[]>([
@@ -564,13 +534,7 @@ const assetOutcomes = computed<Outcome[]>(() => {
   return outcomes.value.filter((outcome: Outcome) => outcome.assetId === currentAssetId.value)
 })
 
-const filteredOutcomes = computed(() => {
-  return assetOutcomes.value.filter(outcome => {
-    const matchesOutcomeType = outcomeFilter.value === 'all' || outcome.outcomeType === outcomeFilter.value
-    const matchesStatus = statusFilter.value === 'all' || outcome.overallStatus === statusFilter.value
-    return matchesOutcomeType && matchesStatus
-  })
-})
+// (legacy filteredOutcomes removed)
 
 const outcomeStats = computed(() => {
   return {
@@ -579,6 +543,101 @@ const outcomeStats = computed(() => {
     completed: assetOutcomes.value.filter(o => o.overallStatus === 'completed').length
   }
 })
+
+// ------- AM Outcomes (Track) integration -------
+const outcomesStore = useAmOutcomesStore()
+const ensureBusy = ref(false)
+const selectedOutcome = ref<OutcomeType | ''>('')
+const showTrackMenu = ref(false)
+const trackMenuRef = ref<HTMLElement | null>(null)
+const visibleOutcomes = ref<Record<OutcomeType, boolean>>({ dil: false, fc: false, reo: false, short_sale: false, modification: false })
+const anyVisibleOutcome = computed(() => Object.values(visibleOutcomes.value).some(Boolean))
+
+// Resolve hub id from the incoming row props
+const hubId = computed<number | null>(() => {
+  const raw = (props.row as any)?.asset_hub_id
+  return raw != null ? Number(raw) : null
+})
+
+// Active outcome types for KPI header badges
+const activeTypes = computed<OutcomeType[]>(() => {
+  return (Object.keys(visibleOutcomes.value) as OutcomeType[]).filter(
+    (k) => visibleOutcomes.value[k]
+  )
+})
+
+function trackBadge(t: OutcomeType): { label: string; cls: string } {
+  switch (t) {
+    case 'modification':
+      return { label: 'Modification', cls: 'text-bg-secondary' }
+    case 'short_sale':
+      return { label: 'Short Sale', cls: 'text-bg-warning' }
+    case 'dil':
+      return { label: 'Deed-in-Lieu', cls: 'text-bg-primary' }
+    case 'fc':
+      return { label: 'Foreclosure', cls: 'text-bg-danger' }
+    case 'reo':
+      return { label: 'REO', cls: 'text-bg-info' }
+    default:
+      return { label: t, cls: 'text-bg-secondary' }
+  }
+}
+
+function toggleTrackMenu() {
+  showTrackMenu.value = !showTrackMenu.value
+}
+async function selectTrack(type: OutcomeType) {
+  if (!hubId.value) return
+  try {
+    ensureBusy.value = true
+    selectedOutcome.value = type
+    await outcomesStore.ensureOutcome(hubId.value, type)
+    visibleOutcomes.value[type] = true
+  } finally {
+    ensureBusy.value = false
+    showTrackMenu.value = false
+  }
+}
+// Close menu on outside click
+function handleTrackOutside(e: MouseEvent) {
+  const root = trackMenuRef.value
+  if (!root) return
+  if (showTrackMenu.value && !root.contains(e.target as Node)) showTrackMenu.value = false
+}
+onMounted(() => document.addEventListener('click', handleTrackOutside))
+onBeforeUnmount(() => document.removeEventListener('click', handleTrackOutside))
+
+// Confirm deletion modal
+const confirm = ref<{ open: boolean; type: OutcomeType | null; busy: boolean }>({ open: false, type: null, busy: false })
+function requestDelete(type: OutcomeType) {
+  confirm.value = { open: true, type, busy: false }
+}
+function closeConfirm() { confirm.value.open = false }
+async function confirmDelete() {
+  if (!hubId.value || !confirm.value.type) return
+  try {
+    confirm.value.busy = true
+    await outcomesStore.deleteOutcome(hubId.value, confirm.value.type)
+    visibleOutcomes.value[confirm.value.type] = false
+    closeConfirm()
+  } finally {
+    confirm.value.busy = false
+  }
+}
+
+// Hydrate visible cards when hub changes
+async function refreshVisible() {
+  visibleOutcomes.value = { dil: false, fc: false, reo: false, short_sale: false, modification: false }
+  const id = hubId.value
+  if (!id) return
+  const types: OutcomeType[] = ['dil', 'fc', 'reo', 'short_sale', 'modification']
+  for (const t of types) {
+    const exists = await outcomesStore.fetchOutcome(id, t)
+    if (exists) visibleOutcomes.value[t] = true
+  }
+}
+onMounted(refreshVisible)
+watch(hubId, refreshVisible)
 
 // Utility functions
 const formatCurrency = (amount?: number | null) => {
@@ -600,134 +659,7 @@ const normalizeNumeric = (value: unknown): number | null => {
   }
   return null
 }
-
-const formatDate = (dateString: string) => {
-  return new Date(dateString).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric'
-  })
-}
-
-const getSubtaskProgress = (subtasks: Subtask[]) => {
-  const completed = subtasks.filter(s => s.status === 'completed').length
-  return `${completed}/${subtasks.length}`
-}
-
-const getProgressPercentage = (subtasks: Subtask[]) => {
-  const completed = subtasks.filter(s => s.status === 'completed').length
-  return (completed / subtasks.length) * 100
-}
-
-// Methods
-const navigateAsset = (direction: 'prev' | 'next') => {
-  const currentIndex = assets.value.findIndex(asset => asset.id === currentAssetId.value)
-  let newIndex: number
-  
-  if (direction === 'prev') {
-    newIndex = currentIndex > 0 ? currentIndex - 1 : assets.value.length - 1
-  } else {
-    newIndex = currentIndex < assets.value.length - 1 ? currentIndex + 1 : 0
-  }
-  
-  currentAssetId.value = assets.value[newIndex].id
-}
-
-const toggleOutcomeExpansion = (outcomeType: string, outcomeId: number) => {
-  const key = outcomeType + outcomeId
-  const newExpanded = new Set(expandedOutcomes.value)
-  if (newExpanded.has(key)) {
-    newExpanded.delete(key)
-  } else {
-    newExpanded.add(key)
-  }
-  expandedOutcomes.value = newExpanded
-}
-
-const isExpanded = (outcomeType: string, outcomeId: number) => {
-  return expandedOutcomes.value.has(outcomeType + outcomeId)
-}
-
-const createNewOutcome = () => {
-  // TODO: Implement create new outcome modal/form
-  console.log('Create new outcome for asset:', currentAssetId.value)
-}
-
-// Style helper functions
-const getOutcomeTypeLabel = (type: string) => {
-  const types: Record<string, string> = {
-    foreclosure: 'Foreclosure',
-    modification: 'Modification',
-    deed_in_lieu: 'Deed in Lieu',
-    short_sale: 'Short Sale'
-  }
-  return types[type] || 'Unknown'
-}
-
-const getOutcomeTypeVariant = (type: string) => {
-  const variants: Record<string, any> = {
-    foreclosure: 'danger',
-    modification: 'primary',
-    deed_in_lieu: 'success',
-    short_sale: 'warning'
-  }
-  return variants[type] || 'secondary'
-}
-
-const getOutcomeIcon = (type: string) => {
-  const icons: Record<string, string> = {
-    foreclosure: 'fas fa-home text-danger',
-    modification: 'fas fa-file-contract text-primary',
-    deed_in_lieu: 'fas fa-handshake text-success',
-    short_sale: 'fas fa-dollar-sign text-warning'
-  }
-  return icons[type] || 'fas fa-question text-secondary'
-}
-
-const getStatusLabel = (status: string) => {
-  const labels: Record<string, string> = {
-    pending: 'Pending',
-    in_progress: 'In Progress',
-    completed: 'Completed'
-  }
-  return labels[status] || 'Unknown'
-}
-
-const getStatusVariant = (status: string) => {
-  const variants: Record<string, any> = {
-    pending: 'warning',
-    in_progress: 'primary',
-    completed: 'success'
-  }
-  return variants[status] || 'secondary'
-}
-
-const getStatusIcon = (status: string) => {
-  const icons: Record<string, string> = {
-    pending: 'fas fa-clock',
-    in_progress: 'fas fa-spinner',
-    completed: 'fas fa-check-circle'
-  }
-  return icons[status] || 'fas fa-question'
-}
-
-const getPriorityVariant = (priority: string) => {
-  const variants: Record<string, any> = {
-    high: 'danger',
-    medium: 'warning',
-    low: 'secondary'
-  }
-  return variants[priority] || 'secondary'
-}
-
-const getPriorityBorderClass = (priority: string) => {
-  const classes: Record<string, string> = {
-    high: 'border-danger',
-    medium: 'border-warning',
-    low: 'border-secondary'
-  }
-  return classes[priority] || 'border-secondary'
-}
+// (legacy helper functions removed)
 
 // Initialize with current asset if available
 onMounted(() => {
@@ -780,5 +712,19 @@ onMounted(() => {
 
 .border-secondary {
   border-color: #6c757d !important;
+}
+
+/* Keep KPI card height stable when showing multiple active outcome pills */
+.kpi-badges {
+  flex-wrap: nowrap;
+  overflow: hidden;           /* prevent growing the card */
+  text-overflow: ellipsis;    /* gracefully truncate if too many */
+  white-space: nowrap;        /* keep on one line */
+  min-height: 1.5rem;         /* stable line box */
+}
+.kpi-badges .badge {
+  padding: 0.15rem 0.5rem;    /* smaller pill without changing font size */
+  line-height: 1;             /* compact height */
+  font-weight: 500;           /* readable weight */
 }
 </style>

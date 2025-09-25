@@ -1,5 +1,6 @@
 <template>
-  <b-card class="w-100 h-100">
+  <!-- Subtle primary-colored border (no fill) to match the DIL pill -->
+  <b-card class="w-100 h-100 border border-1 border-primary rounded-2 shadow-sm">
     <template #header>
       <div class="d-flex align-items-center justify-content-between">
         <h5 class="mb-0 d-flex align-items-center">
@@ -80,44 +81,63 @@
 
     <hr class="my-3" />
 
-    <!-- Tasks Timeline -->
-    <div>
-      <div class="d-flex align-items-center justify-content-between mb-2">
-        <h6 class="mb-0">Task Timeline</h6>
-        <div class="d-flex gap-2">
-          <select class="form-select form-select-sm" v-model="newTaskType">
-            <option disabled value="">Select Task</option>
-            <option v-for="opt in taskOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-          </select>
-          <button class="btn btn-sm btn-outline-primary" :disabled="!newTaskType || tasksBusy" @click="onAddTask">
-            <span v-if="tasksBusy" class="spinner-border spinner-border-sm me-1"></span>
-            Add Task
+    <!-- Sub Tasks -->
+    <div class="p-3">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <div class="small text-muted">Sub Tasks</div>
+        <div class="position-relative" ref="addMenuRef">
+          <button type="button" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-2" @click.stop="toggleAddMenu">
+            <i class="fas" :class="addMenuOpen ? 'fa-minus' : 'fa-plus'"></i>
+            <span>Add Task</span>
+            <i class="fas fa-chevron-down small"></i>
           </button>
+          <div v-if="addMenuOpen" class="card shadow-sm mt-1" style="position: absolute; right: 0; min-width: 260px; z-index: 1060;">
+            <div class="list-group list-group-flush p-2 d-flex flex-wrap gap-2">
+              <button
+                v-for="opt in taskOptions"
+                :key="opt.value"
+                type="button"
+                class="btn btn-sm border-0 p-0"
+                :disabled="existingTypes.has(opt.value) || tasksBusy"
+                @click="onSelectPill(opt.value)"
+                :title="existingTypes.has(opt.value) ? 'Already added' : 'Add ' + opt.label"
+              >
+                <span :class="badgeClass(opt.value)" class="me-0">{{ opt.label }}</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div class="list-group list-group-flush">
-        <div v-if="!tasks.length && !tasksBusy" class="text-muted small">No tasks yet.</div>
-        <div v-for="t in tasks" :key="t.id" class="list-group-item px-0">
-          <div class="d-flex align-items-start justify-content-between">
+      <!-- Subtask cards list -->
+      <div v-if="tasks.length" class="list-group list-group-flush">
+        <div
+          v-for="t in tasks"
+          :key="t.id"
+          :class="[
+            'list-group-item',
+            'px-0',
+            'bg-body-secondary', // darker grey for better contrast
+            'border', 'border-1', // subtle outline
+            'rounded-2', 'shadow-sm',
+            itemBorderClass(t.task_type) // colored left border
+          ]"
+        >
+          <div class="d-flex align-items-center justify-content-between" role="button" @click="toggleExpand(t.id)">
             <div class="d-flex align-items-center">
-              <span class="badge bg-success me-2">
-                <i class="me-1 fas fa-check-circle"></i>
-                {{ taskLabel(t.task_type) }}
-              </span>
-              <span class="fw-medium">DIL Task</span>
+              <span :class="badgeClass(t.task_type)" class="me-2">{{ taskLabel(t.task_type) }}</span>
             </div>
-            <span class="small text-muted">{{ isoDate(t.created_at) }}</span>
+            <div class="d-flex align-items-center small text-muted">
+              <span class="me-3">Created: {{ isoDate(t.created_at) }}</span>
+              <i :class="expandedId === t.id ? 'fas fa-chevron-up' : 'fas fa-chevron-down'"></i>
+            </div>
           </div>
-          <div class="d-flex align-items-center justify-content-between small text-muted">
-            <div class="d-flex align-items-center">
-              <i class="fas fa-user me-1"></i>
-              System
-            </div>
-            <span class="text-success">Updated: {{ isoDate(t.updated_at) }}</span>
+          <div v-if="expandedId === t.id" class="mt-2 small text-muted">
+            Subtask details coming soon for "{{ taskLabel(t.task_type) }}".
           </div>
         </div>
       </div>
+      <div v-else class="text-muted small">No subtasks yet. Use Add Task to create one.</div>
     </div>
   </b-card>
 </template>
@@ -137,6 +157,10 @@ const emit = defineEmits<{ (e: 'delete'): void }>()
 const store = useAmOutcomesStore()
 const dil = computed<Dil | null>(() => store.getDil(props.hubId))
 const tasks = computed<DilTask[]>(() => store.getDilTasks(props.hubId))
+const expandedId = ref<number | null>(null)
+// Add Task custom dropdown state
+const addMenuOpen = ref(false)
+const addMenuRef = ref<HTMLElement | null>(null)
 
 // Settings menu (3-dot) state and handlers
 const menuOpen = ref(false)
@@ -157,12 +181,34 @@ const taskOptions: Array<{ value: DilTaskType; label: string }> = [
   { value: 'dil_successful', label: 'Deed-in-Lieu Successful' },
 ]
 
-const newTaskType = ref<DilTaskType | ''>('')
 const tasksBusy = ref(false)
 
 function taskLabel(v: DilTaskType): string {
   const m = taskOptions.find(o => o.value === v)
   return m?.label ?? v
+}
+
+// Set of existing task types used to disable duplicate adds
+const existingTypes = computed<Set<DilTaskType>>(() => new Set(tasks.value.map(t => t.task_type)))
+
+// Badge classes per DIL task type (pill style)
+function badgeClass(tp: DilTaskType): string {
+  const map: Record<DilTaskType, string> = {
+    owner_contacted: 'badge rounded-pill text-bg-primary',
+    dil_drafted: 'badge rounded-pill text-bg-warning',
+    dil_successful: 'badge rounded-pill text-bg-success',
+  }
+  return map[tp]
+}
+
+// Left border color per DIL task type
+function itemBorderClass(tp: DilTaskType): string {
+  const map: Record<DilTaskType, string> = {
+    owner_contacted: 'border-start border-2 border-primary',
+    dil_drafted: 'border-start border-2 border-warning',
+    dil_successful: 'border-start border-2 border-success',
+  }
+  return map[tp]
 }
 
 const latestStatusValue = computed<string | null>(() => tasks.value[0]?.task_type ?? null)
@@ -212,16 +258,14 @@ watch(form, async () => {
   }, 600)
 }, { deep: true })
 
-async function onAddTask() {
-  if (!newTaskType.value) return
-  try {
-    tasksBusy.value = true
-    await store.createDilTask(props.hubId, newTaskType.value)
-    newTaskType.value = ''
-  } finally {
-    tasksBusy.value = false
-  }
+function toggleAddMenu() { addMenuOpen.value = !addMenuOpen.value }
+function onSelectPill(tp: DilTaskType) {
+  if (existingTypes.value.has(tp) || tasksBusy.value) return
+  tasksBusy.value = true
+  store.createDilTask(props.hubId, tp)
+    .finally(() => { tasksBusy.value = false; addMenuOpen.value = false })
 }
+function toggleExpand(id: number) { expandedId.value = expandedId.value === id ? null : id }
 
 onMounted(async () => {
   // Load tasks when card mounts
@@ -236,5 +280,5 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.list-group-item { background: transparent; }
+/* Keep component-scoped styles lean; use Bootstrap utilities for most styling */
 </style>

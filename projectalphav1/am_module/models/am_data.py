@@ -826,23 +826,24 @@ class REOtask(models.Model):
         help_text='The asset hub this REO task belongs to.',
     )
 
-    # Link back to the REO record this task pertains to (many tasks per REOData)
+    # Link to the REO outcome record (many tasks per REOData)
     reo_outcome = models.ForeignKey(
         'am_module.REOData',
-        on_delete=models.PROTECT,            # protect REOData if tasks exist
-        related_name='tasks',                # access via: reo_data.tasks.all()
-        help_text='The REOData record this task is associated with (many-to-one).',
+        on_delete=models.PROTECT,           # prevent deleting outcome while tasks exist
+        related_name='tasks',               # access via: reo_data.tasks.all()
+        help_text='The REO outcome record this task is associated with (many-to-one).',
     )
 
-    # Minimal audit timestamps to help with ordering and history
-    created_at = models.DateTimeField(auto_now_add=True, help_text="When this task row was created.")
-    updated_at = models.DateTimeField(auto_now=True, help_text="When this task row was last updated.")
+    # Minimal audit timestamps (used by serializers)
+    created_at = models.DateTimeField(auto_now_add=True, help_text="When this task was created.")
+    updated_at = models.DateTimeField(auto_now=True, help_text="When this task was last updated.")
 
     class Meta:
         verbose_name = "REO Task"
         verbose_name_plural = "REO Tasks"
+        ordering = ['-created_at', '-id']
 
-    # Change tracking
+    # Change tracking (match pattern used by other task models)
     _actor = None
 
     def set_actor(self, user):
@@ -852,7 +853,7 @@ class REOtask(models.Model):
     def save(self, *args, **kwargs):
         """Save with automatic audit logging for all field changes."""
         actor = kwargs.pop('actor', None) or self._actor
-        
+
         # Get original values if this is an update
         if self.pk:
             try:
@@ -872,7 +873,7 @@ class REOtask(models.Model):
                 field_name = field.name
                 old_value = original_values.get(field_name)
                 new_value = getattr(self, field_name)
-                
+
                 # Only log if value actually changed
                 if old_value != new_value:
                     AuditLog.log_change(

@@ -1,5 +1,6 @@
 <template>
-  <b-card class="w-100 h-100">
+  <!-- Subtle info-colored border (no fill) to match the REO pill -->
+  <b-card class="w-100 h-100 border border-1 border-info rounded-2 shadow-sm">
     <template #header>
       <div class="d-flex align-items-center justify-content-between">
         <h5 class="mb-0 d-flex align-items-center">
@@ -38,91 +39,175 @@
         </div>
       </div>
     </template>
-
-    <div class="row g-3">
-      <div class="col-lg-6">
-        <div class="mb-2 small text-muted">Outcome Details</div>
-        <div class="d-flex flex-column gap-2">
-          <div class="d-flex justify-content-between"><span class="text-muted">Broker CRM</span><span class="fw-medium">{{ reo?.broker_crm ?? '—' }}</span></div>
-          <div class="d-flex justify-content-between"><span class="text-muted">List Price</span><span class="fw-medium">{{ money(reo?.list_price) }}</span></div>
-          <div class="d-flex justify-content-between"><span class="text-muted">List Date</span><span class="fw-medium">{{ reo?.list_date ?? '—' }}</span></div>
-          <div class="d-flex justify-content-between"><span class="text-muted">Under Contract?</span><span class="fw-medium">{{ reo?.under_contract_flag ? 'Yes' : 'No' }}</span></div>
-          <div class="d-flex justify-content-between"><span class="text-muted">Under Contract Date</span><span class="fw-medium">{{ reo?.under_contract_date ?? '—' }}</span></div>
-          <div class="d-flex justify-content-between"><span class="text-muted">Contract Price</span><span class="fw-medium">{{ money(reo?.contract_price) }}</span></div>
-          <div class="d-flex justify-content-between"><span class="text-muted">Estimated Close</span><span class="fw-medium">{{ reo?.estimated_close_date ?? '—' }}</span></div>
-          <div class="d-flex justify-content-between"><span class="text-muted">Actual Close</span><span class="fw-medium">{{ reo?.actual_close_date ?? '—' }}</span></div>
-          <div class="d-flex justify-content-between"><span class="text-muted">Seller Credit</span><span class="fw-medium">{{ money(reo?.seller_credit_amt) }}</span></div>
-          <div class="d-flex justify-content-between"><span class="text-muted">Purchase Type</span><span class="fw-medium">{{ purchaseTypeLabel(reo?.purchase_type ?? null) }}</span></div>
-          <div class="d-flex justify-content-between"><span class="text-muted">Gross Purchase Price</span><span class="fw-medium">{{ money(reo?.gross_purchase_price) }}</span></div>
+    <!-- Sub Tasks -->
+    <div class="p-3">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <div class="small text-muted">Sub Tasks</div>
+        <div class="position-relative" ref="addMenuRef">
+          <button type="button" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-2" @click.stop="toggleAddMenu">
+            <i class="fas" :class="addMenuOpen ? 'fa-minus' : 'fa-plus'"></i>
+            <span>Add Task</span>
+            <i class="fas fa-chevron-down small"></i>
+          </button>
+          <div v-if="addMenuOpen" class="card shadow-sm mt-1" style="position: absolute; right: 0; min-width: 260px; z-index: 1060;">
+            <div class="list-group list-group-flush p-2 d-flex flex-wrap gap-2">
+              <button
+                v-for="opt in taskOptions"
+                :key="opt.value"
+                type="button"
+                class="btn btn-sm border-0 p-0"
+                :disabled="existingTypes.has(opt.value) || busy"
+                @click="onSelectPill(opt.value)"
+                :title="existingTypes.has(opt.value) ? 'Already added' : 'Add ' + opt.label"
+              >
+                <span :class="badgeClass(opt.value)" class="me-0">{{ opt.label }}</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
-      <div class="col-lg-6">
-        <div class="mb-2 small text-muted">Quick Update</div>
-        <form class="row g-2" @submit.prevent>
-          <div class="col-6">
-            <label class="form-label small text-muted">List Price</label>
-            <input v-currency pattern="[0-9,]*" class="form-control" v-model="form.list_price" />
+
+      <!-- Subtask cards list -->
+      <div v-if="tasks.length" class="list-group list-group-flush">
+        <div
+          v-for="t in tasks"
+          :key="t.id"
+          :class="[
+            'list-group-item',
+            'px-0',
+            'bg-light', // match requested grey fill
+            'border', 'border-1', 'border-light', // subtle neutral outline
+            'rounded-2', 'shadow-sm',
+            'mb-2' // minimal spacing between cards
+          ]"
+        >
+          <div class="d-flex align-items-center justify-content-between" role="button" @click="toggleExpand(t.id)">
+            <div class="d-flex align-items-center">
+              <span :class="badgeClass(t.task_type)" class="me-2">{{ labelFor(t.task_type) }}</span>
+              <span class="fw-medium"></span>
+            </div>
+            <div class="d-flex align-items-center small text-muted">
+              <span class="me-3">Created: {{ isoDate(t.created_at) }}</span>
+              <i :class="expandedId === t.id ? 'fas fa-chevron-up' : 'fas fa-chevron-down'"></i>
+            </div>
           </div>
-          <div class="col-6">
-            <label class="form-label small text-muted">List Date</label>
-            <input type="date" class="form-control" v-model="form.list_date" />
+          <div v-if="expandedId === t.id" class="mt-2 small text-muted">
+            Subtask details coming soon. This area will hold fields and actions for "{{ labelFor(t.task_type) }}".
           </div>
-          <div class="col-6">
-            <label class="form-label small text-muted">Under Contract?</label>
-            <select class="form-select" v-model="form.under_contract_flag">
-              <option :value="true">Yes</option>
-              <option :value="false">No</option>
-            </select>
-          </div>
-          <div class="col-6">
-            <label class="form-label small text-muted">Under Contract Date</label>
-            <input type="date" class="form-control" v-model="form.under_contract_date" />
-          </div>
-          <div class="col-6">
-            <label class="form-label small text-muted">Contract Price</label>
-            <input v-currency pattern="[0-9,]*" class="form-control" v-model="form.contract_price" />
-          </div>
-          <div class="col-6">
-            <label class="form-label small text-muted">Estimated Close</label>
-            <input type="date" class="form-control" v-model="form.estimated_close_date" />
-          </div>
-          <div class="col-6">
-            <label class="form-label small text-muted">Actual Close</label>
-            <input type="date" class="form-control" v-model="form.actual_close_date" />
-          </div>
-          <div class="col-6">
-            <label class="form-label small text-muted">Seller Credit</label>
-            <input v-currency pattern="[0-9,]*" class="form-control" v-model="form.seller_credit_amt" />
-          </div>
-          <div class="col-6">
-            <label class="form-label small text-muted">Purchase Type</label>
-            <select class="form-select" v-model="form.purchase_type">
-              <option :value="null">—</option>
-              <option value="cash">Cash</option>
-              <option value="financing">Financing</option>
-              <option value="seller_financing">Seller Financing</option>
-            </select>
-          </div>
-          <div class="col-6">
-            <label class="form-label small text-muted">Gross Purchase Price</label>
-            <input v-currency pattern="[0-9,]*" class="form-control" v-model="form.gross_purchase_price" />
-          </div>
-          <!-- Auto-save enabled, no Save button -->
-        </form>
+        </div>
       </div>
+      <div v-else class="text-muted small">No subtasks yet. Choose one from the dropdown and click Add.</div>
     </div>
   </b-card>
 </template>
 
 <script setup lang="ts">
-import { withDefaults, defineProps, ref, reactive, onMounted, defineEmits, watch, onBeforeUnmount } from 'vue'
-import { useAmOutcomesStore, type ReoData } from '@/stores/outcomes'
+import { withDefaults, defineProps, ref, computed, onMounted, defineEmits, onBeforeUnmount } from 'vue'
+import { useAmOutcomesStore, type ReoTask, type ReoTaskType } from '@/stores/outcomes'
 
 const props = withDefaults(defineProps<{ hubId: number }>(), {})
-const store = useAmOutcomesStore()
 const emit = defineEmits<{ (e: 'delete'): void }>()
-const reo = ref<ReoData | null>(null)
+// Pinia store for outcomes/tasks
+const store = useAmOutcomesStore()
+// Local state: list of tasks and busy flag
+const tasks = ref<ReoTask[]>([])
 const busy = ref(false)
+const newType = ref<ReoTaskType | ''>('')
+const expandedId = ref<number | null>(null)
+// Add Task custom dropdown state
+const addMenuOpen = ref(false)
+const addMenuRef = ref<HTMLElement | null>(null)
+
+// Options for creating tasks (mirrors Django TextChoices in REOtask.TaskType)
+const taskOptions: ReadonlyArray<{ value: ReoTaskType; label: string }> = [
+  { value: 'eviction', label: 'Eviction' },
+  { value: 'trashout', label: 'Trashout' },
+  { value: 'renovation', label: 'Renovation' },
+  { value: 'marketing', label: 'Marketing' },
+  { value: 'under_contract', label: 'Under Contract' },
+  { value: 'sold', label: 'Sold' },
+]
+
+// Set of existing task types used to disable duplicate adds
+const existingTypes = computed<Set<ReoTaskType>>(() => new Set(tasks.value.map(t => t.task_type)))
+
+// Map a task type to its human label
+function labelFor(tp: ReoTaskType): string {
+  const m = taskOptions.find(o => o.value === tp)
+  return m ? m.label : tp
+}
+
+// Return Bootstrap pill badge class matching the task type
+function badgeClass(tp: ReoTaskType): string {
+  const map: Record<ReoTaskType, string> = {
+    eviction: 'badge rounded-pill text-bg-danger',
+    trashout: 'badge rounded-pill text-bg-warning',
+    renovation: 'badge rounded-pill text-bg-info',
+    marketing: 'badge rounded-pill text-bg-primary',
+    under_contract: 'badge rounded-pill text-bg-success',
+    sold: 'badge rounded-pill text-bg-secondary',
+  }
+  return map[tp]
+}
+
+// Return Bootstrap border classes for subtle left border matching the pill color
+function itemBorderClass(tp: ReoTaskType): string {
+  // Keep a thin outline (border-1) from the container, then thicken the left edge
+  const map: Record<ReoTaskType, string> = {
+    eviction: 'border-start border-2 border-danger',
+    trashout: 'border-start border-2 border-warning',
+    renovation: 'border-start border-2 border-info',
+    marketing: 'border-start border-2 border-primary',
+    under_contract: 'border-start border-2 border-success',
+    sold: 'border-start border-2 border-secondary',
+  }
+  return map[tp]
+}
+
+// Load tasks from API
+async function loadTasks() {
+  tasks.value = await store.listReoTasks(props.hubId, true)
+}
+
+// Add a new task of a given type
+async function addTask(tp: ReoTaskType) {
+  try {
+    busy.value = true
+    const created = await store.createReoTask(props.hubId, tp)
+    await loadTasks()
+    expandedId.value = created.id
+  } finally {
+    busy.value = false
+  }
+}
+
+function onSelectAdd() {
+  if (!newType.value) return
+  const selected = newType.value
+  // Immediately create then reset selection
+  addTask(selected)
+  newType.value = ''
+}
+
+// Toggle the custom Add Task menu
+function toggleAddMenu() {
+  addMenuOpen.value = !addMenuOpen.value
+}
+
+// Handle clicking a pill inside the custom menu
+function onSelectPill(tp: ReoTaskType) {
+  if (existingTypes.value.has(tp) || busy.value) return
+  addTask(tp)
+  addMenuOpen.value = false
+}
+
+function toggleExpand(id: number) {
+  expandedId.value = expandedId.value === id ? null : id
+}
+
+function isoDate(iso: string): string {
+  try { const d = new Date(iso); return d.toLocaleDateString() } catch { return iso }
+}
 // Settings menu state and handlers
 const menuOpen = ref(false)
 const menuRef = ref<HTMLElement | null>(null)
@@ -130,78 +215,11 @@ function toggleMenu() { menuOpen.value = !menuOpen.value }
 function onDelete() { menuOpen.value = false; emit('delete') }
 function handleDocClick(e: MouseEvent) {
   const root = menuRef.value
-  if (!root) return
-  if (menuOpen.value && !root.contains(e.target as Node)) menuOpen.value = false
+  const addRoot = addMenuRef.value
+  if (menuOpen.value && root && !root.contains(e.target as Node)) menuOpen.value = false
+  if (addMenuOpen.value && addRoot && !addRoot.contains(e.target as Node)) addMenuOpen.value = false
 }
-onMounted(() => document.addEventListener('click', handleDocClick))
+onMounted(() => { document.addEventListener('click', handleDocClick); loadTasks() })
 onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
 
-function money(val: string | number | null | undefined): string {
-  if (val == null || val === '') return '—'
-  const num = typeof val === 'string' ? Number(val) : Number(val)
-  try {
-    return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(num)
-  } catch { return String(val) }
-}
-
-function purchaseTypeLabel(v: ReoData['purchase_type'] | undefined): string {
-  if (!v) return '—'
-  if (v === 'cash') return 'Cash'
-  if (v === 'financing') return 'Financing'
-  if (v === 'seller_financing') return 'Seller Financing'
-  return String(v)
-}
-
-const form = reactive({
-  list_price: '' as string,
-  list_date: '' as string,
-  under_contract_flag: false as boolean,
-  under_contract_date: '' as string,
-  contract_price: '' as string,
-  estimated_close_date: '' as string,
-  actual_close_date: '' as string,
-  seller_credit_amt: '' as string,
-  purchase_type: null as ReoData['purchase_type'],
-  gross_purchase_price: '' as string,
-})
-
-async function load() {
-  reo.value = await store.fetchReo(props.hubId)
-  if (reo.value) {
-    form.list_price = reo.value.list_price || ''
-    form.list_date = reo.value.list_date || ''
-    form.under_contract_flag = !!reo.value.under_contract_flag
-    form.under_contract_date = reo.value.under_contract_date || ''
-    form.contract_price = reo.value.contract_price || ''
-    form.estimated_close_date = reo.value.estimated_close_date || ''
-    form.actual_close_date = reo.value.actual_close_date || ''
-    form.seller_credit_amt = reo.value.seller_credit_amt || ''
-    form.purchase_type = reo.value.purchase_type
-    form.gross_purchase_price = reo.value.gross_purchase_price || ''
-  }
-}
-
-// Debounced auto-save on form changes
-let timer: number | undefined
-watch(form, async () => {
-  if (!reo.value) return
-  if (timer) window.clearTimeout(timer)
-  timer = window.setTimeout(async () => {
-    try {
-      busy.value = true
-      const payload: Record<string, any> = {}
-      for (const k of Object.keys(form)) {
-        const v = (form as any)[k]
-        if (v !== '' && v !== null && v !== undefined) payload[k] = v
-      }
-      if (!Object.keys(payload).length) return
-      await store.patchReo(props.hubId, payload)
-      await load()
-    } finally {
-      busy.value = false
-    }
-  }, 600)
-}, { deep: true })
-
-onMounted(load)
 </script>

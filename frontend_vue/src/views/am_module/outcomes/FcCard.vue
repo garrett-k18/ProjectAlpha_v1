@@ -1,5 +1,6 @@
 <template>
-  <b-card class="w-100 h-100">
+  <!-- Subtle danger-colored border (no fill) to match the Foreclosure pill -->
+  <b-card class="w-100 h-100 border border-1 border-danger rounded-2 shadow-sm">
     <template #header>
       <div class="d-flex align-items-center justify-content-between">
         <h5 class="mb-0 d-flex align-items-center">
@@ -71,12 +72,72 @@
         </form>
       </div>
     </div>
+    <hr class="my-3" />
+
+    <!-- Sub Tasks -->
+    <div class="p-3">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <div class="small text-muted">Sub Tasks</div>
+        <div class="position-relative" ref="addMenuRef">
+          <button type="button" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-2" @click.stop="toggleAddMenu">
+            <i class="fas" :class="addMenuOpen ? 'fa-minus' : 'fa-plus'"></i>
+            <span>Add Task</span>
+            <i class="fas fa-chevron-down small"></i>
+          </button>
+          <div v-if="addMenuOpen" class="card shadow-sm mt-1" style="position: absolute; right: 0; min-width: 260px; z-index: 1060;">
+            <div class="list-group list-group-flush p-2 d-flex flex-wrap gap-2">
+              <button
+                v-for="opt in taskOptions"
+                :key="opt.value"
+                type="button"
+                class="btn btn-sm border-0 p-0"
+                :disabled="existingTypes.has(opt.value) || busy"
+                @click="onSelectPill(opt.value)"
+                :title="existingTypes.has(opt.value) ? 'Already added' : 'Add ' + opt.label"
+              >
+                <span :class="badgeClass(opt.value)" class="me-0">{{ opt.label }}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Subtask cards list -->
+      <div v-if="tasks.length" class="list-group list-group-flush">
+        <div
+          v-for="t in tasks"
+          :key="t.id"
+          :class="[
+            'list-group-item',
+            'px-0',
+            'bg-body-secondary',
+            'border', 'border-1',
+            'rounded-2', 'shadow-sm',
+            itemBorderClass(t.task_type)
+          ]"
+        >
+          <div class="d-flex align-items-center justify-content-between" role="button" @click="toggleExpand(t.id)">
+            <div class="d-flex align-items-center">
+              <span :class="badgeClass(t.task_type)" class="me-2">{{ labelFor(t.task_type) }}</span>
+            </div>
+            <div class="d-flex align-items-center small text-muted">
+              <span class="me-3">Created: {{ isoDate(t.created_at) }}</span>
+              <i :class="expandedId === t.id ? 'fas fa-chevron-up' : 'fas fa-chevron-down'"></i>
+            </div>
+          </div>
+          <div v-if="expandedId === t.id" class="mt-2 small text-muted">
+            Subtask details coming soon for "{{ labelFor(t.task_type) }}".
+          </div>
+        </div>
+      </div>
+      <div v-else class="text-muted small">No subtasks yet. Use Add Task to create one.</div>
+    </div>
   </b-card>
 </template>
 
 <script setup lang="ts">
 import { withDefaults, defineProps, computed, ref, reactive, onMounted, defineEmits, watch, onBeforeUnmount } from 'vue'
-import { useAmOutcomesStore, type FcSale } from '@/stores/outcomes'
+import { useAmOutcomesStore, type FcSale, type FcTask, type FcTaskType } from '@/stores/outcomes'
 import http from '@/lib/http'
 
 const props = withDefaults(defineProps<{ hubId: number }>(), {})
@@ -84,6 +145,11 @@ const emit = defineEmits<{ (e: 'delete'): void }>()
 const store = useAmOutcomesStore()
 const fc = ref<FcSale | null>(null)
 const busy = ref(false)
+// FC Subtasks state
+const tasks = ref<FcTask[]>([])
+const expandedId = ref<number | null>(null)
+const addMenuOpen = ref(false)
+const addMenuRef = ref<HTMLElement | null>(null)
 
 // Settings menu (3-dot) state and handlers
 const menuOpen = ref(false)
@@ -121,6 +187,8 @@ async function load() {
     form.fc_bid_price = fc.value.fc_bid_price || ''
     form.fc_sale_price = fc.value.fc_sale_price || ''
   }
+  // Load subtasks
+  tasks.value = await store.listFcTasks(props.hubId, true)
 }
 
 // Debounced auto-save on form changes
@@ -146,4 +214,54 @@ watch(form, async () => {
 }, { deep: true })
 
 onMounted(load)
+
+// ---------- Subtasks helpers ----------
+const taskOptions: ReadonlyArray<{ value: FcTaskType; label: string }> = [
+  { value: 'nod_noi', label: 'NOD/NOI' },
+  { value: 'fc_filing', label: 'FC Filing' },
+  { value: 'mediation', label: 'Mediation' },
+  { value: 'judgement', label: 'Judgement' },
+  { value: 'redemption', label: 'Redemption' },
+  { value: 'sale_scheduled', label: 'Sale Scheduled' },
+  { value: 'sold', label: 'Sold' },
+]
+function labelFor(tp: FcTaskType): string {
+  const m = taskOptions.find(o => o.value === tp)
+  return m ? m.label : tp
+}
+const existingTypes = computed<Set<FcTaskType>>(() => new Set(tasks.value.map(t => t.task_type)))
+function toggleAddMenu() { addMenuOpen.value = !addMenuOpen.value }
+function onSelectPill(tp: FcTaskType) {
+  if (existingTypes.value.has(tp) || busy.value) return
+  busy.value = true
+  store.createFcTask(props.hubId, tp)
+    .then(async () => { tasks.value = await store.listFcTasks(props.hubId, true) })
+    .finally(() => { busy.value = false; addMenuOpen.value = false })
+}
+function toggleExpand(id: number) { expandedId.value = expandedId.value === id ? null : id }
+function isoDate(iso: string): string { try { return new Date(iso).toLocaleDateString() } catch { return iso } }
+function badgeClass(tp: FcTaskType): string {
+  const map: Record<FcTaskType, string> = {
+    nod_noi: 'badge rounded-pill text-bg-warning',
+    fc_filing: 'badge rounded-pill text-bg-primary',
+    mediation: 'badge rounded-pill text-bg-info',
+    judgement: 'badge rounded-pill text-bg-secondary',
+    redemption: 'badge rounded-pill text-bg-success',
+    sale_scheduled: 'badge rounded-pill text-bg-dark',
+    sold: 'badge rounded-pill text-bg-danger',
+  }
+  return map[tp]
+}
+function itemBorderClass(tp: FcTaskType): string {
+  const map: Record<FcTaskType, string> = {
+    nod_noi: 'border-start border-2 border-warning',
+    fc_filing: 'border-start border-2 border-primary',
+    mediation: 'border-start border-2 border-info',
+    judgement: 'border-start border-2 border-secondary',
+    redemption: 'border-start border-2 border-success',
+    sale_scheduled: 'border-start border-2 border-dark',
+    sold: 'border-start border-2 border-danger',
+  }
+  return map[tp]
+}
 </script>
