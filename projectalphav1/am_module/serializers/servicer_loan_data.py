@@ -14,9 +14,12 @@ class ServicerLoanDataSerializer(serializers.ModelSerializer):
     # Frontend-friendly aliases
     as_of = serializers.DateField(source='as_of_date', read_only=True)
 
+    asset_hub_id = serializers.IntegerField(read_only=True)
+
     class Meta:
         model = ServicerLoanData
         fields = [
+            'asset_hub_id',
             'as_of',
             'investor_id',
             'servicer_id',

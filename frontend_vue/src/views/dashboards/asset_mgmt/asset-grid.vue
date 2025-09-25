@@ -169,7 +169,13 @@ const constantColumns: ColDef[] = [
     cellRenderer: ActionsCell as any,
     cellRendererParams: { onAction: onRowAction },
   },
-  { headerName: 'Asset ID', field: 'asset_id', minWidth: 120, pinned: 'left' },
+  { 
+    headerName: 'Asset ID', 
+    minWidth: 120, 
+    pinned: 'left',
+    // Display the canonical AssetIdHub primary key when available; fallback to legacy asset_id
+    valueGetter: (p: any) => p.data?.asset_hub_id ?? p.data?.asset_id ?? p.data?.id ?? ''
+  },
   { headerName: 'Status', field: 'asset_status', minWidth: 120, pinned: 'left' },
   {
     headerName: 'Property Address',
@@ -311,7 +317,13 @@ const selectedRow = ref<any>(null)
 const selectedAddr = ref<string | null>(null)
 
 // Build friendly header text for modal
-const modalIdText = computed<string>(() => (selectedId.value != null ? String(selectedId.value) : 'Asset'))
+const modalIdText = computed<string>(() => {
+  // Prefer the canonical AssetIdHub id for display in the modal header
+  const hubId = selectedRow.value?.asset_hub_id ?? selectedRow.value?.asset_hub?.id
+  if (hubId != null && hubId !== '') return String(hubId)
+  // Fallback to the selected product/row id if hub id is unavailable
+  return selectedId.value != null ? String(selectedId.value) : 'Asset'
+})
 const modalTradeText = computed<string>(() => {
   // Normalize trade name across potential naming conventions and trim whitespace for display
   const rawTrade = selectedRow.value?.trade_name ?? selectedRow.value?.tradeName ?? ''

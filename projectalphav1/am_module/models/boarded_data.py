@@ -42,7 +42,29 @@ class SellerBoardedData(models.Model):
     city = models.CharField(max_length=100, null=True, blank=True)
     state = models.CharField(max_length=100, null=True, blank=True)
     zip = models.CharField(max_length=100, null=True, blank=True)
-    property_type = models.CharField(max_length=100, choices=SellerRawData.PROPERTY_TYPE_CHOICES, default=SellerRawData.PROPERTY_TYPE_SFR, null=True, blank=True)
+    class PropertyType(models.TextChoices):
+        """Mirror acquisition property types so boarded data stays in sync.
+
+        Using TextChoices ensures Django validation + form rendering constrain values
+        without relying on free-form strings. Aligns with SellerRawData.PROPERTY_TYPE_CHOICES.
+        Docs: https://docs.djangoproject.com/en/stable/ref/models/fields/#enumeration-types
+        """
+
+        SFR = 'SFR', 'SFR'
+        MANUFACTURED = 'Manufactured', 'Manufactured'
+        CONDO = 'Condo', 'Condo'
+        TWO_TO_FOUR_FAMILY = '2-4 Family', '2-4 Family'
+        LAND = 'Land', 'Land'
+        MULTIFAMILY = 'Multifamily 5+', 'Multifamily 5+'
+
+    property_type = models.CharField(
+        max_length=100,
+        choices=PropertyType.choices,
+        default=PropertyType.SFR,
+        null=True,
+        blank=True,
+        help_text='Categorized property type synced with acquisition import definitions.',
+    )
     occupancy = models.CharField(max_length=100, choices=SellerRawData.OCCUPANCY_CHOICES, default=SellerRawData.OCCUPANCY_UNKNOWN, null=True, blank=True)
     year_built = models.IntegerField(null=True, blank=True)
     sq_ft = models.IntegerField(null=True, blank=True)

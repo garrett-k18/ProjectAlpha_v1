@@ -6,50 +6,48 @@
       <div class="d-flex align-items-center justify-content-between mb-3">
         <div>
           <h3 class="mb-1">{{ headerAsset?.propertyAddress || 'No address selected' }}</h3>
-          <div class="d-flex align-items-center flex-wrap gap-3 text-muted small">
-            <div class="d-flex align-items-center gap-1">
-              <span class="text-muted">Delinquency:</span>
-              <span
+          <div class="d-flex align-items-center flex-wrap gap-3 text-muted">
+            <div class="d-flex align-items-center gap-2">
+              <UiBadge
                 v-if="headerAsset?.delinquencyStatusLabel"
-                :class="['badge rounded-pill', headerAsset?.delinquencyBadgeClass]"
-              >
-                {{ headerAsset.delinquencyStatusLabel }}
-              </span>
-              <span v-else>Delinquency unknown</span>
+                :tone="headerAsset.delinquencyTone"
+                size="sm"
+                :label="headerAsset.delinquencyStatusLabel"
+              />
+              <span v-else class="text-body">Delinquency unknown</span>
             </div>
-            <div class="d-flex align-items-center gap-1">
-              <span class="text-muted">Property Type:</span>
-              <span class="text-body">{{ headerAsset?.propertyType || '—' }}</span>
-            </div>
-            <div>
-              {{ headerAsset?.monthsDelinquentLabel || 'Delinquency unknown' }}
+            <div class="d-flex align-items-center gap-2">
+              <UiBadge
+                v-if="headerAsset?.propertyTypeLabel"
+                :tone="headerAsset.propertyTypeTone"
+                size="sm"
+                :label="headerAsset.propertyTypeLabel"
+              />
+              <span v-else class="text-body">Property type unavailable</span>
             </div>
           </div>
         </div>
         
-        <div class="text-end">
-          <div class="small text-muted">Asset template · static design sample</div>
-        </div>
       </div>
       
       <!-- Asset Details Row (static placeholders) -->
       <b-row class="g-3">
         <b-col md="3">
           <div class="bg-light rounded p-3">
-            <div class="small text-muted">Borrower</div>
-            <div class="fw-semibold">{{ headerAsset?.borrowerName || 'Borrower pending' }}</div>
-          </div>
-        </b-col>
-        <b-col md="3">
-          <div class="bg-light rounded p-3">
-            <div class="small text-muted">Original Amount</div>
-            <div class="fw-semibold">{{ formatCurrency(headerAsset?.originalAmount) }}</div>
-          </div>
-        </b-col>
-        <b-col md="3">
-          <div class="bg-light rounded p-3">
             <div class="small text-muted">Current Balance</div>
             <div class="fw-semibold">{{ formatCurrency(headerAsset?.currentBalance) }}</div>
+          </div>
+        </b-col>
+        <b-col md="3">
+          <div class="bg-light rounded p-3">
+            <div class="small text-muted">Total Debt</div>
+            <div class="fw-semibold">{{ formatCurrency(headerAsset?.totalDebt) }}</div>
+          </div>
+        </b-col>
+        <b-col md="3">
+          <div class="bg-light rounded p-3">
+            <div class="small text-muted">Borrower</div>
+            <div class="fw-semibold">{{ headerAsset?.borrowerName || 'Borrower pending' }}</div>
           </div>
         </b-col>
         <b-col md="3">
@@ -243,19 +241,32 @@
 </template>
 
 <script setup lang="ts">
-import { withDefaults, defineProps, ref, computed, onMounted } from 'vue'
+import { withDefaults, defineProps, ref, computed, watch, onMounted } from 'vue'
+defineOptions({
+  name: 'AmLlTasking',
+})
+import http from '@/lib/http'
+import PropertyMap from '@/components/PropertyMap.vue'
+import PhotoCarousel from '@/components/PhotoCarousel.vue'
+import DocumentsQuickView from '@/components/DocumentsQuickView.vue'
+import UiBadge from '@/components/ui/UiBadge.vue'
+import { getDelinquencyBadgeTone, getPropertyTypeBadgeTone } from '@/config/badgeTokens'
 
-// Types for Asset Management data
-interface Asset {
-  id: number
+interface HeaderAssetView {
   propertyAddress: string
+  loanNumber: string | number | undefined
+  propertyType: string | null
+  assetStatus: string
+  monthsDelinquentLabel: string
   borrowerName: string
-  loanAmount: number
-  loanNumber: string
-  propertyType: string
-  currentBalance: number
-  monthsDelinquent: number
-  assetStatus?: string
+  originalAmount?: number
+  currentBalance?: number
+  totalDebt?: number
+  delinquencyStatus?: string | null
+  delinquencyStatusLabel?: string | null
+  delinquencyTone: import('@/config/badgeTokens').BadgeToneKey
+  propertyTypeLabel?: string | null
+  propertyTypeTone: import('@/config/badgeTokens').BadgeToneKey
 }
 
 interface Subtask {
@@ -280,6 +291,20 @@ interface Outcome {
   assignedTo: string
   description: string
   subtasks: Subtask[]
+}
+
+interface Asset {
+  id: number
+  propertyAddress: string
+  borrowerName: string
+  loanAmount: number
+  loanNumber: string
+  propertyType: string
+  currentBalance: number
+  monthsDelinquent: number
+  assetStatus?: string
+  delinquencyStatus?: string
+  totalDebt?: number
 }
 
 const props = withDefaults(defineProps<{ 
@@ -307,7 +332,9 @@ const assets = ref<Asset[]>([
     propertyType: 'Single Family',
     currentBalance: 235000,
     monthsDelinquent: 4,
-    assetStatus: 'In Review'
+    assetStatus: 'In Review',
+    delinquencyStatus: '60',
+    totalDebt: 247500
   },
   {
     id: 2,
@@ -318,7 +345,9 @@ const assets = ref<Asset[]>([
     propertyType: 'Condo',
     currentBalance: 165000,
     monthsDelinquent: 2,
-    assetStatus: 'Active'
+    assetStatus: 'Active',
+    delinquencyStatus: '30',
+    totalDebt: 172250
   }
 ])
 
@@ -363,18 +392,35 @@ const amId = computed<number | null>(() => {
   return rid != null ? Number(rid) : null
 })
 
+function syncAssetId(next: number | null | undefined) {
+  if (typeof next !== 'number' || Number.isNaN(next)) return
+  const exists = assets.value.some((asset: Asset) => asset.id === next)
+  if (exists) {
+    currentAssetId.value = next
+  }
+}
+
+watch(amId, (id) => {
+  syncAssetId(id)
+})
+
+watch(() => props.row, (row) => {
+  const nextId = row && (row as any).id
+  syncAssetId(nextId != null ? Number(nextId) : null)
+})
+
 // Computed properties
-const currentAsset = computed(() => {
+const currentAsset = computed<Asset | undefined>(() => {
   // Identify which mock asset matches the currently selected id so we can pull mock data
-  return assets.value.find(asset => asset.id === currentAssetId.value)
+  return assets.value.find((asset: Asset) => asset.id === currentAssetId.value)
 })
 
-const currentAssetIndex = computed(() => {
+const currentAssetIndex = computed<number>(() => {
   // Track the array index for navigation statistics even if the header runs in template mode
-  return assets.value.findIndex(asset => asset.id === currentAssetId.value)
+  return assets.value.findIndex((asset: Asset) => asset.id === currentAssetId.value)
 })
 
-const headerAsset = computed(() => {
+const headerAsset = computed<HeaderAssetView>(() => {
   // Capture the incoming row payload (may be null depending on upstream selection state)
   const rowData = props.row as Record<string, any> | null
 
@@ -400,12 +446,13 @@ const headerAsset = computed(() => {
   )
 
   // Resolve property type (snake_case or camelCase) with safe fallback text
-  const propertyType = (
+  const propertyTypeRaw = (
     rowData?.property_type ??
     rowData?.propertyType ??
     fallback?.propertyType ??
-    '—'
+    null
   )
+  const propertyType = propertyTypeRaw ? String(propertyTypeRaw) : null
 
   // Identify an asset status label from the upstream row and keep a clear fallback for design mode
   const assetStatus = (
@@ -414,6 +461,30 @@ const headerAsset = computed(() => {
     fallback?.assetStatus ??
     'Status pending'
   )
+
+  // Resolve delinquency status bucket (e.g., "30", "60", "90", "120_plus", "current")
+  const delinquencyStatus = (
+    rowData?.delinquency_status ??
+    rowData?.delinquencyStatus ??
+    fallback?.delinquencyStatus ??
+    null
+  ) as string | null
+
+  // Map bucket to a short label and badge styling for the header pill
+  const delinquencyStatusLabel = delinquencyStatus
+    ? (({
+        current: 'Current',
+        '30': '30D',
+        '60': '60D',
+        '90': '90D',
+        '120_plus': '120+D',
+      } as Record<string, string>)[delinquencyStatus] ?? delinquencyStatus.toUpperCase()) + ' DLQ'
+    : null
+  const delinquencyTone = getDelinquencyBadgeTone(delinquencyStatus ?? undefined)
+
+  // Determine property type badge tone + label
+  const propertyTypeLabel = propertyType ?? null
+  const propertyTypeTone = getPropertyTypeBadgeTone(propertyTypeLabel ?? undefined)
 
   // Determine delinquency months and format a user-friendly label
   const monthsDelinquentRaw = (
@@ -437,27 +508,38 @@ const headerAsset = computed(() => {
     'Borrower pending'
   )
 
+  // --- Servicer data alignment guard ---
+  // Only trust nested servicer data when its hub id matches the row's hub id
+  const hubId = (rowData as any)?.asset_hub_id ?? null
+  const servicer = (rowData as any)?.servicer_loan_data ?? null
+  const servicerHubId = servicer?.asset_hub_id ?? null
+  const servicerAligned = hubId != null && servicerHubId != null && Number(hubId) === Number(servicerHubId)
+
+  // Total debt prefers aligned servicer payload; fallback to mocked asset or row totals
+  const totalDebt = normalizeNumeric(
+    (servicerAligned ? servicer?.total_debt : null) ??
+    rowData?.total_debt ??
+    rowData?.servicer_total_debt ??
+    fallback?.totalDebt ??
+    null
+  )
+
   // Original balance can arrive as string/number; normalize to number when possible
-  const originalAmountRaw = (
+  const originalAmount = normalizeNumeric(
     rowData?.original_balance ??
     rowData?.originalAmount ??
     fallback?.loanAmount ??
     null
   )
-  const originalAmount = typeof originalAmountRaw === 'string'
-    ? Number.parseFloat(originalAmountRaw)
-    : originalAmountRaw
 
-  // Same normalization for current balance
-  const currentBalanceRaw = (
+  // Current balance: prefer aligned servicer current_balance, then row fallback
+  const currentBalance = normalizeNumeric(
+    (servicerAligned ? servicer?.current_balance : null) ??
     rowData?.current_balance ??
     rowData?.currentBalance ??
     fallback?.currentBalance ??
     null
   )
-  const currentBalance = typeof currentBalanceRaw === 'string'
-    ? Number.parseFloat(currentBalanceRaw)
-    : currentBalanceRaw
 
   // Return the unified object consumed by the header template bindings
   return {
@@ -465,15 +547,21 @@ const headerAsset = computed(() => {
     loanNumber,
     propertyType,
     assetStatus,
+    delinquencyStatus,
+    delinquencyStatusLabel,
+    delinquencyTone,
+    propertyTypeLabel,
+    propertyTypeTone,
     monthsDelinquentLabel,
     borrowerName,
+    totalDebt: totalDebt ?? undefined,
     originalAmount: Number.isFinite(originalAmount as number) ? (originalAmount as number) : undefined,
     currentBalance: Number.isFinite(currentBalance as number) ? (currentBalance as number) : undefined,
   }
 })
 
-const assetOutcomes = computed(() => {
-  return outcomes.value.filter(outcome => outcome.assetId === currentAssetId.value)
+const assetOutcomes = computed<Outcome[]>(() => {
+  return outcomes.value.filter((outcome: Outcome) => outcome.assetId === currentAssetId.value)
 })
 
 const filteredOutcomes = computed(() => {
@@ -493,13 +581,24 @@ const outcomeStats = computed(() => {
 })
 
 // Utility functions
-const formatCurrency = (amount?: number) => {
-  if (!amount) return '$0'
+const formatCurrency = (amount?: number | null) => {
+  const numeric = typeof amount === 'string' ? Number.parseFloat(amount) : amount
+  if (!Number.isFinite(numeric as number)) return '$0'
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
     minimumFractionDigits: 0
-  }).format(amount)
+  }).format(numeric as number)
+}
+
+const normalizeNumeric = (value: unknown): number | null => {
+  if (value == null) return null
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string') {
+    const parsed = Number.parseFloat(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
 }
 
 const formatDate = (dateString: string) => {

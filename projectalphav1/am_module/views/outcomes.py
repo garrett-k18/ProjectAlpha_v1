@@ -1,0 +1,162 @@
+from __future__ import annotations
+
+# DRF docs reviewed:
+# - ViewSets & Routers: https://www.django-rest-framework.org/api-guide/viewsets/
+# - Mixins: https://www.django-rest-framework.org/api-guide/generic-views/#mixins
+# - Filtering via query params: https://www.django-rest-framework.org/api-guide/filtering/
+
+from typing import Any
+
+from django.shortcuts import get_object_or_404
+from rest_framework import status, mixins
+from rest_framework.authentication import SessionAuthentication
+from rest_framework.decorators import action
+from rest_framework.permissions import AllowAny
+from rest_framework.request import Request
+from rest_framework.response import Response
+from rest_framework.viewsets import GenericViewSet
+
+from am_module.models.am_data import (
+    REOData, REOtask,
+    FCSale, FCTask,
+    DIL, DILTask,
+    ShortSale, ShortSaleTask,
+    Modification, ModificationTask,
+)
+from am_module.serializers.outcomes import (
+    REODataSerializer, REOTaskSerializer,
+    FCSaleSerializer, FCTaskSerializer,
+    DILSerializer, DILTaskSerializer,
+    ShortSaleSerializer, ShortSaleTaskSerializer,
+    ModificationSerializer, ModificationTaskSerializer,
+)
+
+
+class _OutcomeBaseViewSet(mixins.ListModelMixin,
+                          mixins.RetrieveModelMixin,
+                          mixins.CreateModelMixin,
+                          mixins.UpdateModelMixin,
+                          mixins.DestroyModelMixin,
+                          GenericViewSet):
+    """Base for 1:1 hub-keyed outcome viewsets with idempotent create.
+
+    Behavior:
+    - GET /?asset_hub_id=123 returns the outcome if present, else empty list []
+    - POST {asset_hub_id} performs idempotent ensure-create via serializer.create()
+{{ ... }}
+    - PUT/PATCH allowed for field updates (audit handled by model save)
+    """
+
+    permission_classes = [AllowAny]
+    authentication_classes: list[type[SessionAuthentication]] = []
+
+    def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        asset_hub_id = request.query_params.get('asset_hub_id')
+        if not asset_hub_id:
+            # For safety, require explicit filter to avoid accidental full-table fetch
+            return Response([], status=status.HTTP_200_OK)
+        try:
+            asset_hub_id = int(asset_hub_id)
+        except Exception:
+            return Response({"detail": "asset_hub_id must be an integer"}, status=status.HTTP_400_BAD_REQUEST)
+
+        qs = self.get_queryset().filter(asset_hub_id=asset_hub_id)
+        page = self.paginate_queryset(qs)
+        if page is not None:
+            ser = self.get_serializer(page, many=True)
+            return self.get_paginated_response(ser.data)
+        ser = self.get_serializer(qs, many=True)
+        return Response(ser.data)
+
+
+class REODataViewSet(_OutcomeBaseViewSet):
+    queryset = REOData.objects.all().select_related('asset_hub', 'broker_crm')
+    serializer_class = REODataSerializer
+
+
+class FCSaleViewSet(_OutcomeBaseViewSet):
+    queryset = FCSale.objects.all().select_related('asset_hub', 'legal_crm')
+    serializer_class = FCSaleSerializer
+
+
+class DILViewSet(_OutcomeBaseViewSet):
+    queryset = DIL.objects.all().select_related('asset_hub', 'legal_crm')
+    serializer_class = DILSerializer
+
+
+class ShortSaleViewSet(_OutcomeBaseViewSet):
+    queryset = ShortSale.objects.all().select_related('asset_hub', 'broker_crm')
+    serializer_class = ShortSaleSerializer
+
+
+class ModificationViewSet(_OutcomeBaseViewSet):
+    queryset = Modification.objects.all().select_related('asset_hub', 'broker_crm')
+    serializer_class = ModificationSerializer
+
+
+class _TaskBaseViewSet(mixins.ListModelMixin,
+                       mixins.RetrieveModelMixin,
+                       mixins.CreateModelMixin,
+                       mixins.UpdateModelMixin,
+                       GenericViewSet):
+    """Base for task viewsets. List supports filtering by asset_hub_id and parent id."""
+
+    permission_classes = [AllowAny]
+    authentication_classes: list[type[SessionAuthentication]] = []
+
+    parent_field_name: str = ''  # e.g., 'dil', 'fc_sale', etc.
+
+    def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        qs = self.get_queryset()
+
+        asset_hub_id = request.query_params.get('asset_hub_id')
+        if asset_hub_id:
+            try:
+                qs = qs.filter(asset_hub_id=int(asset_hub_id))
+            except Exception:
+                return Response({"detail": "asset_hub_id must be an integer"}, status=status.HTTP_400_BAD_REQUEST)
+
+        parent_id = request.query_params.get(self.parent_field_name)
+        if parent_id:
+            try:
+                filter_kwargs = {f"{self.parent_field_name}_id": int(parent_id)}
+            except Exception:
+                return Response({"detail": f"{self.parent_field_name} must be an integer"}, status=status.HTTP_400_BAD_REQUEST)
+            qs = qs.filter(**filter_kwargs)
+
+        page = self.paginate_queryset(qs)
+        if page is not None:
+            ser = self.get_serializer(page, many=True)
+            return self.get_paginated_response(ser.data)
+        ser = self.get_serializer(qs, many=True)
+        return Response(ser.data)
+
+
+class REOTaskViewSet(_TaskBaseViewSet):
+    queryset = REOtask.objects.all().select_related('asset_hub', 'reo_outcome')
+    serializer_class = REOTaskSerializer
+    parent_field_name = 'reo_outcome'
+
+
+class FCTaskViewSet(_TaskBaseViewSet):
+    queryset = FCTask.objects.all().select_related('asset_hub', 'fc_sale')
+    serializer_class = FCTaskSerializer
+    parent_field_name = 'fc_sale'
+
+
+class DILTaskViewSet(_TaskBaseViewSet):
+    queryset = DILTask.objects.all().select_related('asset_hub', 'dil')
+    serializer_class = DILTaskSerializer
+    parent_field_name = 'dil'
+
+
+class ShortSaleTaskViewSet(_TaskBaseViewSet):
+    queryset = ShortSaleTask.objects.all().select_related('asset_hub', 'short_sale')
+    serializer_class = ShortSaleTaskSerializer
+    parent_field_name = 'short_sale'
+
+
+class ModificationTaskViewSet(_TaskBaseViewSet):
+    queryset = ModificationTask.objects.all().select_related('asset_hub', 'modification')
+    serializer_class = ModificationTaskSerializer
+    parent_field_name = 'modification'

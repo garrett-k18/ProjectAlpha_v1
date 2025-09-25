@@ -12,6 +12,8 @@ class AssetInventoryRowSerializer(serializers.Serializer):
     detached from a specific model to freely compose from multiple sources.
     """
     id = serializers.IntegerField(read_only=True)
+    # Expose the hub id explicitly so the frontend can validate nested records
+    asset_hub_id = serializers.IntegerField(read_only=True)
     asset_id = serializers.SerializerMethodField()
     asset_status = serializers.CharField(allow_null=True)
     delinquency_status = serializers.SerializerMethodField()
@@ -127,8 +129,19 @@ class AssetInventoryRowSerializer(serializers.Serializer):
         if not hub:
             return None
 
-        metrics: AMMetrics | None = getattr(hub, 'ammetrics', None)
-        return metrics.delinquency_status if metrics else None
+        metrics_manager = getattr(hub, 'ammetrics', None)
+        if metrics_manager is None:
+            return None
+
+        # Related manager can return multiple rows; grab the most recently
+        # updated metric to keep the UI consistent with backend refresh jobs.
+        metrics: AMMetrics | None
+        if isinstance(metrics_manager, AMMetrics):
+            metrics = metrics_manager
+        else:
+            metrics = metrics_manager.order_by('-updated_at').first()
+
+        return getattr(metrics, 'delinquency_status', None)
 
     def get_address(self, obj):
         parts = [
@@ -413,12 +426,19 @@ class AssetDetailSerializer(serializers.ModelSerializer):
     - DRF ModelSerializer: https://www.django-rest-framework.org/api-guide/serializers/#modelserializer
     """
 
+    # Expose hub id explicitly for downstream API calls (e.g., outcomes ensure-create)
+    asset_hub_id = serializers.SerializerMethodField()
+
+    def get_asset_hub_id(self, obj):
+        hub = getattr(obj, 'asset_hub', None)
+        return getattr(hub, 'id', None)
+
     class Meta:
         model = SellerBoardedData
         # Explicitly list fields for stability and to avoid over-exposing internals
         fields = [
             # Identity
-            'id', 'sellertape_id', 'seller_name', 'trade_name', 'asset_status', 'as_of_date',
+            'id', 'asset_hub_id', 'sellertape_id', 'seller_name', 'trade_name', 'asset_status', 'as_of_date',
             # Address / property
             'street_address', 'city', 'state', 'zip', 'property_type', 'occupancy', 'year_built',
             'sq_ft', 'lot_size', 'beds', 'baths',

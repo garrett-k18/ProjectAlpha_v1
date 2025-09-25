@@ -1,5 +1,8 @@
 from django.contrib import admin
 from django.db.models import Exists, OuterRef
+from django.urls import reverse
+from django.utils.html import format_html
+from urllib.parse import quote
 from .models.capital import DebtFacility
 from .models.crm import MasterCRM
 from .models.assumptions import Servicer, StateReference
@@ -187,7 +190,7 @@ admin.site.add_action(delete_hub_and_children, name='delete_hub_and_children')
 class AssetIdHubAdmin(admin.ModelAdmin):
     """Admin for the central Asset ID Hub."""
     list_display = (
-        'id', 'sellertape_id',
+        'id', 'servicer_id', 'servicer_refs',
         # Boolean columns indicating presence of child records
         'has_raw', 'has_boarded', 'has_blended', 'has_servicer', 'has_valuation', 'has_photo', 'has_document',
         'created_at',
@@ -196,7 +199,7 @@ class AssetIdHubAdmin(admin.ModelAdmin):
     list_per_page = 500
     list_max_show_all = 2000
     search_fields = (
-        'sellertape_id',
+        'servicer_id',
     )
     list_filter = ()
     actions_on_top = True
@@ -233,6 +236,24 @@ class AssetIdHubAdmin(admin.ModelAdmin):
                 Document.objects.filter(asset_hub=OuterRef('pk'))
             ),
         )
+
+    def servicer_refs(self, obj: AssetIdHub):  # type: ignore[name-defined]
+        """Link to ServicerLoanData rows that share this hub's servicer_id.
+
+        Allows quick navigation to all imported servicer rows tied to the same
+        external servicer identifier.
+        """
+        sid = getattr(obj, 'servicer_id', None)
+        if not sid:
+            return '-'
+        try:
+            servicer_url = f"{reverse('admin:am_module_servicerloandata_changelist')}?servicer_id={quote(str(sid))}"
+        except Exception:
+            servicer_url = '#'
+
+        count = ServicerLoanData.objects.filter(servicer_id=sid).count()
+        return format_html('<a href="{}">Servicer Rows ({})</a>', servicer_url, count)
+    servicer_refs.short_description = 'Servicer Data'
 
     # Override the built-in delete_selected to delete the hub bundle in the correct order
     @admin.action(description="Delete selected Asset ID Hub (bundle)")
