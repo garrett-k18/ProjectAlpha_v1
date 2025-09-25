@@ -110,11 +110,13 @@
           :class="[
             'list-group-item',
             'px-0',
-            'bg-body-secondary',
-            'border', 'border-1',
+            'bg-secondary-subtle', // subtle neutral fill with slight contrast
+            'border', 'border-1', 'border-light', // neutral thin outline
             'rounded-2', 'shadow-sm',
-            itemBorderClass(t.task_type)
+            'mb-2', // spacing between cards
+            'border-start', // ensure left edge area
           ]"
+          :style="leftEdgeStyle(t.task_type)"
         >
           <div class="d-flex align-items-center justify-content-between" role="button" @click="toggleExpand(t.id)">
             <div class="d-flex align-items-center">
@@ -263,5 +265,21 @@ function itemBorderClass(tp: FcTaskType): string {
     sold: 'border-start border-2 border-danger',
   }
   return map[tp]
+}
+
+// Robust left-edge stripe using inset box-shadow + Bootstrap CSS vars with fallbacks
+function leftEdgeStyle(tp: FcTaskType): Record<string, string> {
+  const colorMap: Record<FcTaskType, string> = {
+    nod_noi: 'var(--bs-warning, #ffc107)',
+    fc_filing: 'var(--bs-primary, #0d6efd)',
+    mediation: 'var(--bs-info, #0dcaf0)',
+    judgement: 'var(--bs-secondary, #6c757d)',
+    redemption: 'var(--bs-success, #198754)',
+    sale_scheduled: 'var(--bs-dark, #212529)',
+    sold: 'var(--bs-danger, #dc3545)',
+  }
+  return {
+    boxShadow: `inset 3px 0 0 ${colorMap[tp]}, var(--bs-box-shadow-sm, 0 .125rem .25rem rgba(0,0,0,.075))`,
+  }
 }
 </script>

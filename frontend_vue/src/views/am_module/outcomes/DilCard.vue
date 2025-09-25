@@ -117,11 +117,13 @@
           :class="[
             'list-group-item',
             'px-0',
-            'bg-body-secondary', // darker grey for better contrast
-            'border', 'border-1', // subtle outline
+            'bg-secondary-subtle', // subtle neutral fill with slight contrast vs. card
+            'border', 'border-1', 'border-light', // subtle neutral outline
             'rounded-2', 'shadow-sm',
-            itemBorderClass(t.task_type) // colored left border
+            'mb-2', // minimal spacing between cards
+            'border-start', // ensure left edge area
           ]"
+          :style="leftEdgeStyle(t.task_type)"
         >
           <div class="d-flex align-items-center justify-content-between" role="button" @click="toggleExpand(t.id)">
             <div class="d-flex align-items-center">
@@ -209,6 +211,18 @@ function itemBorderClass(tp: DilTaskType): string {
     dil_successful: 'border-start border-2 border-success',
   }
   return map[tp]
+}
+
+// Robust left-edge stripe using inset box-shadow + Bootstrap CSS vars with fallbacks
+function leftEdgeStyle(tp: DilTaskType): Record<string, string> {
+  const colorMap: Record<DilTaskType, string> = {
+    owner_contacted: 'var(--bs-primary, #0d6efd)',
+    dil_drafted: 'var(--bs-warning, #ffc107)',
+    dil_successful: 'var(--bs-success, #198754)',
+  }
+  return {
+    boxShadow: `inset 3px 0 0 ${colorMap[tp]}, var(--bs-box-shadow-sm, 0 .125rem .25rem rgba(0,0,0,.075))`,
+  }
 }
 
 const latestStatusValue = computed<string | null>(() => tasks.value[0]?.task_type ?? null)

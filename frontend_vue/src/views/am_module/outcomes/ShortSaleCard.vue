@@ -101,11 +101,13 @@
           :class="[
             'list-group-item',
             'px-0',
-            'bg-body-secondary',
-            'border', 'border-1',
+            'bg-secondary-subtle', // subtle neutral fill
+            'border', 'border-1', 'border-light', // neutral thin outline
             'rounded-2', 'shadow-sm',
-            itemBorderClass(t.task_type)
+            'mb-2', // spacing
+            'border-start', // ensure left edge area
           ]"
+          :style="leftEdgeStyle(t.task_type)"
         >
           <div class="d-flex align-items-center justify-content-between" role="button" @click="toggleExpand(t.id)">
             <div class="d-flex align-items-center">
@@ -239,5 +241,18 @@ function itemBorderClass(tp: ShortSaleTaskType): string {
     sold: 'border-start border-2 border-success',
   }
   return map[tp]
+}
+
+// Robust left-edge stripe using inset box-shadow + Bootstrap CSS vars with fallbacks
+function leftEdgeStyle(tp: ShortSaleTaskType): Record<string, string> {
+  const colorMap: Record<ShortSaleTaskType, string> = {
+    list_price_accepted: 'var(--bs-warning, #ffc107)',
+    listed: 'var(--bs-info, #0dcaf0)',
+    under_contract: 'var(--bs-primary, #0d6efd)',
+    sold: 'var(--bs-success, #198754)',
+  }
+  return {
+    boxShadow: `inset 3px 0 0 ${colorMap[tp]}, var(--bs-box-shadow-sm, 0 .125rem .25rem rgba(0,0,0,.075))`,
+  }
 }
 </script>

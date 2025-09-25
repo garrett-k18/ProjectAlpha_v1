@@ -54,17 +54,7 @@
           <div class="bg-light rounded p-3">
             <div class="small text-muted">Active Outcomes</div>
             <div class="kpi-badges d-flex gap-2 align-items-center">
-              <template v-if="activeTypes.length">
-                <span
-                  v-for="t in activeTypes"
-                  :key="t"
-                  class="badge rounded-pill"
-                  :class="trackBadge(t).cls"
-                >
-                  {{ trackBadge(t).label }}
-                </span>
-              </template>
-              <span v-else class="text-muted">None</span>
+              <span class="text-muted">Moved to Pending Outcomes</span>
             </div>
           </div>
         </b-col>
@@ -77,8 +67,22 @@
         <b-card class="text-center h-100">
           <div class="d-flex align-items-center justify-content-between">
             <div>
-              <div class="h2 text-warning mb-0">{{ outcomeStats.pending }}</div>
-              <div class="small text-muted">Pending Outcomes</div>
+              <div class="kpi-badges d-flex gap-2 align-items-center">
+                <template v-if="activeTypes.length">
+                  <span
+                    v-for="t in activeTypes"
+                    :key="t"
+                    class="badge rounded-pill"
+                    :class="trackBadge(t).cls"
+                  >
+                    {{ trackBadge(t).label }}
+                  </span>
+                </template>
+                <span v-else class="text-muted small">None</span>
+              </div>
+              <div class="small text-muted">Active Tracks
+              
+              </div>
             </div>
             <i class="fas fa-clock fa-2x text-warning"></i>
           </div>

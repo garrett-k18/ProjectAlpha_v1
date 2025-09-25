@@ -276,6 +276,7 @@ export const useAmOutcomesStore = defineStore('amOutcomes', {
       const path = outcomePath[type]
       const url = `/am/outcomes/${path}/${hubId}/`
       await http.delete(url)
+      // Purge caches for the deleted outcome to avoid stale UI
       if (type === 'dil') {
         delete this.dilByHub[hubId]
         delete this.dilTasksByHub[hubId]
@@ -283,8 +284,24 @@ export const useAmOutcomesStore = defineStore('amOutcomes', {
         delete this.loadingDilTasks[hubId]
         delete this.errorDil[hubId]
         delete this.errorDilTasks[hubId]
+      } else if (type === 'reo') {
+        // REO outcome is keyed by hub id; tasks cache should be cleared as well
+        delete this.reoTasksByHub[hubId]
+        delete this.loadingReoTasks[hubId]
+        delete this.errorReoTasks[hubId]
+      } else if (type === 'fc') {
+        delete this.fcTasksByHub[hubId]
+        delete this.loadingFcTasks[hubId]
+        delete this.errorFcTasks[hubId]
+      } else if (type === 'short_sale') {
+        delete this.shortSaleTasksByHub[hubId]
+        delete this.loadingShortSaleTasks[hubId]
+        delete this.errorShortSaleTasks[hubId]
+      } else if (type === 'modification') {
+        delete this.modificationTasksByHub[hubId]
+        delete this.loadingModificationTasks[hubId]
+        delete this.errorModificationTasks[hubId]
       }
-      // For other outcomes, caches live only in component for now
     },
 
     // Generic fetch to detect if an outcome exists for a hub. Returns first match or null.

@@ -75,11 +75,13 @@
           :class="[
             'list-group-item',
             'px-0',
-            'bg-light', // match requested grey fill
+            'bg-secondary-subtle', // subtle neutral fill with slight contrast vs. card
             'border', 'border-1', 'border-light', // subtle neutral outline
             'rounded-2', 'shadow-sm',
-            'mb-2' // minimal spacing between cards
+            'mb-2', // minimal spacing between cards
+            'border-start' // ensure left edge is rendered
           ]"
+          :style="leftEdgeStyle(t.task_type)"
         >
           <div class="d-flex align-items-center justify-content-between" role="button" @click="toggleExpand(t.id)">
             <div class="d-flex align-items-center">
@@ -154,14 +156,31 @@ function badgeClass(tp: ReoTaskType): string {
 function itemBorderClass(tp: ReoTaskType): string {
   // Keep a thin outline (border-1) from the container, then thicken the left edge
   const map: Record<ReoTaskType, string> = {
-    eviction: 'border-start border-2 border-danger',
-    trashout: 'border-start border-2 border-warning',
-    renovation: 'border-start border-2 border-info',
-    marketing: 'border-start border-2 border-primary',
-    under_contract: 'border-start border-2 border-success',
-    sold: 'border-start border-2 border-secondary',
+    eviction: 'border-start',
+    trashout: 'border-start',
+    renovation: 'border-start',
+    marketing: 'border-start',
+    under_contract: 'border-start',
+    sold: 'border-start',
   }
   return map[tp]
+}
+
+// Compute per-type left-edge style using Bootstrap CSS variables for exact color match
+function leftEdgeStyle(tp: ReoTaskType): Record<string, string> {
+  const colorMap: Record<ReoTaskType, string> = {
+    eviction: 'var(--bs-danger, #dc3545)',
+    trashout: 'var(--bs-warning, #ffc107)',
+    renovation: 'var(--bs-info, #0dcaf0)',
+    marketing: 'var(--bs-primary, #0d6efd)',
+    under_contract: 'var(--bs-success, #198754)',
+    sold: 'var(--bs-secondary, #6c757d)',
+  }
+  // Subtle but visible left edge; keep other sides neutral via border-light
+  return {
+    // Use inset box-shadow to draw a reliable left stripe and keep Bootstrap's small drop shadow
+    boxShadow: `inset 3px 0 0 ${colorMap[tp]}, var(--bs-box-shadow-sm, 0 .125rem .25rem rgba(0,0,0,.075))`,
+  }
 }
 
 // Load tasks from API

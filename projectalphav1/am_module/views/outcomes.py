@@ -9,6 +9,7 @@ from typing import Any
 
 from django.shortcuts import get_object_or_404
 from rest_framework import status, mixins
+from django.db import transaction
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny
@@ -67,6 +68,22 @@ class _OutcomeBaseViewSet(mixins.ListModelMixin,
             return self.get_paginated_response(ser.data)
         ser = self.get_serializer(qs, many=True)
         return Response(ser.data)
+
+    def destroy(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        """Delete an outcome and its child tasks in a single transaction.
+
+        All outcome models in this module expose their child tasks via the
+        `related_name='tasks'` reverse relation. Since the FK from task->outcome
+        uses PROTECT, we must delete children first to allow outcome deletion.
+        """
+        instance = self.get_object()
+        with transaction.atomic():
+            # Delete child tasks if present; ignore when relation is missing
+            tasks_rel = getattr(instance, 'tasks', None)
+            if tasks_rel is not None:
+                tasks_rel.all().delete()
+            self.perform_destroy(instance)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class REODataViewSet(_OutcomeBaseViewSet):
