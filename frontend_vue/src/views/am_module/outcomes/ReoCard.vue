@@ -7,10 +7,34 @@
           <span class="badge rounded-pill text-bg-info px-3 py-2">REO</span>
         </h5>
         <div class="d-flex align-items-center gap-2">
-          <div class="text-muted small">Hub {{ hubId }}</div>
-          <button type="button" class="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center px-3 py-1 lh-1" @click="emit('delete')">
-            <span class="text-center w-100">Delete</span>
-          </button>
+          <div class="position-relative" ref="menuRef">
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center px-2 lh-1"
+              @click.stop="toggleMenu"
+              :aria-expanded="menuOpen ? 'true' : 'false'"
+              aria-label="Card settings"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                <circle cx="8" cy="2.5" r="1.5" />
+                <circle cx="8" cy="8" r="1.5" />
+                <circle cx="8" cy="13.5" r="1.5" />
+              </svg>
+            </button>
+            <div
+              v-if="menuOpen"
+              class="card shadow-sm mt-1"
+              style="position: absolute; right: 0; min-width: 160px; z-index: 1060;"
+              @click.stop
+            >
+              <div class="list-group list-group-flush">
+                <button class="list-group-item list-group-item-action d-flex align-items-center gap-2 text-danger" @click="onDelete">
+                  <i class="fas fa-trash"></i>
+                  <span>Delete</span>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </template>
@@ -34,7 +58,7 @@
       </div>
       <div class="col-lg-6">
         <div class="mb-2 small text-muted">Quick Update</div>
-        <form class="row g-2" @submit.prevent="onSave">
+        <form class="row g-2" @submit.prevent>
           <div class="col-6">
             <label class="form-label small text-muted">List Price</label>
             <input v-currency pattern="[0-9,]*" class="form-control" v-model="form.list_price" />
@@ -83,12 +107,7 @@
             <label class="form-label small text-muted">Gross Purchase Price</label>
             <input v-currency pattern="[0-9,]*" class="form-control" v-model="form.gross_purchase_price" />
           </div>
-          <div class="col-12 d-flex align-items-end">
-            <button type="submit" class="btn btn-primary ms-auto" :disabled="busy">
-              <span v-if="busy" class="spinner-border spinner-border-sm me-2"></span>
-              Save
-            </button>
-          </div>
+          <!-- Auto-save enabled, no Save button -->
         </form>
       </div>
     </div>
@@ -96,7 +115,7 @@
 </template>
 
 <script setup lang="ts">
-import { withDefaults, defineProps, ref, reactive, onMounted, defineEmits } from 'vue'
+import { withDefaults, defineProps, ref, reactive, onMounted, defineEmits, watch, onBeforeUnmount } from 'vue'
 import { useAmOutcomesStore, type ReoData } from '@/stores/outcomes'
 
 const props = withDefaults(defineProps<{ hubId: number }>(), {})
@@ -104,6 +123,18 @@ const store = useAmOutcomesStore()
 const emit = defineEmits<{ (e: 'delete'): void }>()
 const reo = ref<ReoData | null>(null)
 const busy = ref(false)
+// Settings menu state and handlers
+const menuOpen = ref(false)
+const menuRef = ref<HTMLElement | null>(null)
+function toggleMenu() { menuOpen.value = !menuOpen.value }
+function onDelete() { menuOpen.value = false; emit('delete') }
+function handleDocClick(e: MouseEvent) {
+  const root = menuRef.value
+  if (!root) return
+  if (menuOpen.value && !root.contains(e.target as Node)) menuOpen.value = false
+}
+onMounted(() => document.addEventListener('click', handleDocClick))
+onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
 
 function money(val: string | number | null | undefined): string {
   if (val == null || val === '') return '—'
@@ -150,21 +181,27 @@ async function load() {
   }
 }
 
-async function onSave() {
-  try {
-    busy.value = true
-    const payload: Record<string, any> = {}
-    for (const k of Object.keys(form)) {
-      const v = (form as any)[k]
-      if (v !== '' && v !== null && v !== undefined) payload[k] = v
+// Debounced auto-save on form changes
+let timer: number | undefined
+watch(form, async () => {
+  if (!reo.value) return
+  if (timer) window.clearTimeout(timer)
+  timer = window.setTimeout(async () => {
+    try {
+      busy.value = true
+      const payload: Record<string, any> = {}
+      for (const k of Object.keys(form)) {
+        const v = (form as any)[k]
+        if (v !== '' && v !== null && v !== undefined) payload[k] = v
+      }
+      if (!Object.keys(payload).length) return
+      await store.patchReo(props.hubId, payload)
+      await load()
+    } finally {
+      busy.value = false
     }
-    if (!Object.keys(payload).length) return
-    await store.patchReo(props.hubId, payload)
-    await load()
-  } finally {
-    busy.value = false
-  }
-}
+  }, 600)
+}, { deep: true })
 
 onMounted(load)
 </script>

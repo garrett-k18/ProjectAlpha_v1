@@ -1,6 +1,11 @@
 <template>
   <!-- Asset Management: Tasking & Outcome Management -->
   <div class="px-3 px-lg-4">
+    <!-- Asset Header & KPIs moved above Track -->
+    <div class="mb-4">
+      <AmLlTasking :assetId="amId" :row="props.row" />
+    </div>
+
     <!-- Outcomes Row: Start/ensure outcomes and render cards -->
     <b-row class="g-3 align-items-stretch mb-4">
       <b-col cols="12">
@@ -9,7 +14,7 @@
             <div class="d-flex align-items-center justify-content-between w-100">
               <h5 class="mb-0 d-flex align-items-center">
                 <i class="fas fa-stream me-2"></i>
-                Track
+                Current Tracks
               </h5>
               <div class="position-relative" ref="trackMenuRef">
                 <button type="button" class="btn btn-sm btn-outline-primary px-3 d-inline-flex align-items-center justify-content-center" :disabled="!hubId || ensureBusy" @click.stop="toggleTrackMenu">
@@ -97,8 +102,6 @@
       </div>
     </template>
 
-    <!-- Include the full tasking interface -->
-    <AmLlTasking :assetId="amId" :row="props.row" />
     
     <!-- Servicing Notes Section -->
     <b-row class="g-3 align-items-stretch mt-4">
