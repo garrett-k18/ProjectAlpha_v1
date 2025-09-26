@@ -56,9 +56,6 @@ class MasterCRMAdmin(admin.ModelAdmin):
         ('NDA', {
             'fields': ('nda_flag', 'nda_signed')
         }),
-        ('Relationships', {
-            'fields': ('contact_user', 'contact_profile', 'latest_broker_token', 'latest_portal_token')
-        }),
         ('Notes & Audit', {
             'fields': ('notes', 'created_at', 'updated_at')
         }),

@@ -38,19 +38,75 @@
               </div>
             </div>
           </div>
-        </div>
       </div>
-    </template>
+    </div>
+  </template>
 
 
     <!-- Sub Tasks (collapsible body) -->
-    <div class="p-3" v-show="!collapsed">
+    <hr class="my-3" />
+
+    <!-- Legal Contact (simplified clickable field) -->
+    <div class="px-3">
+      <div class="d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center gap-2 small text-muted">
+          <i class="fas fa-scale-balanced"></i>
+          <span>Legal</span>
+        </div>
+        <button 
+          type="button" 
+          class="btn btn-link p-0 text-decoration-none fw-medium"
+          @click="showLegalModal = true"
+          :title="'Click for contact details'"
+        >
+          {{ legal.company || 'Assign Legal Firm' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Legal Contact Modal -->
+    <div v-if="showLegalModal" class="modal d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+      <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h6 class="modal-title">Legal Contact</h6>
+            <button type="button" class="btn-close" @click="showLegalModal = false"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-2">
+              <strong>{{ legal.company || 'No firm assigned' }}</strong>
+            </div>
+            <div class="mb-2" v-if="legal.name">
+              <small class="text-muted">Contact:</small><br>
+              {{ legal.name }}
+            </div>
+            <div class="mb-2" v-if="legal.phone">
+              <small class="text-muted">Phone:</small><br>
+              <a :href="`tel:${legal.phone}`" class="text-decoration-none">{{ legal.phone }}</a>
+            </div>
+            <div class="mb-2" v-if="legal.email">
+              <small class="text-muted">Email:</small><br>
+              <button class="btn btn-sm btn-outline-primary" @click="sendEmail">
+                <i class="fas fa-envelope me-1"></i>Send Email
+              </button>
+            </div>
+            <div v-if="!legal.company" class="text-muted small">
+              No legal firm assigned to this DIL.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sub Tasks -->
+    <div class="p-3">
       <div class="d-flex align-items-center justify-content-between mb-3">
         <div class="small text-muted">Sub Tasks</div>
         <div class="position-relative" ref="addMenuRef">
           <button type="button" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-2" @click.stop="toggleAddMenu">
             <i class="fas" :class="addMenuOpen ? 'fa-minus' : 'fa-plus'"></i>
             <span>Add Task</span>
+
             <i class="fas fa-chevron-down small"></i>
           </button>
           <div v-if="addMenuOpen" class="card shadow-sm mt-1" style="position: absolute; right: 0; min-width: 260px; z-index: 1060;">
@@ -64,7 +120,7 @@
                 @click="onSelectPill(opt.value)"
                 :title="existingTypes.has(opt.value) ? 'Already added' : 'Add ' + opt.label"
               >
-                <span :class="badgeClass(opt.value)" class="me-0">{{ opt.label }}</span>
+                <UiBadge :tone="pillTone(opt.value)" size="sm" class="me-0">{{ opt.label }}</UiBadge>
               </button>
             </div>
           </div>
@@ -83,13 +139,12 @@
             'border', 'border-1', 'border-light', // subtle neutral outline
             'rounded-2', 'shadow-sm',
             'mb-2', // minimal spacing between cards
-            'border-start', // ensure left edge area
           ]"
           :style="leftEdgeStyle(t.task_type)"
         >
           <div class="d-flex align-items-center justify-content-between" role="button" @click="toggleExpand(t.id)">
             <div class="d-flex align-items-center ps-2">
-              <span :class="badgeClass(t.task_type)" class="me-2">{{ taskLabel(t.task_type) }}</span>
+              <UiBadge :tone="pillTone(t.task_type)" size="sm" class="me-2">{{ taskLabel(t.task_type) }}</UiBadge>
             </div>
             <div class="d-flex align-items-center small text-muted">
               <span class="me-3">Created: {{ isoDate(t.created_at) }}</span>
@@ -137,7 +192,10 @@
 
 import { onMounted, computed, ref, withDefaults, defineProps, defineEmits, onBeforeUnmount } from 'vue'
 import { useAmOutcomesStore, type Dil, type DilTask, type DilTaskType } from '@/stores/outcomes'
-import SubtaskNotes from '@/components/notes/SubtaskNotes.vue'
+import UiBadge from '@/components/ui/UiBadge.vue'
+// Feature-local notes component (moved for AM Tasking scope)
+// Path: src/views/am_module/loanlvl/am_tasking/components/SubtaskNotes.vue
+import SubtaskNotes from '@/views/am_module/loanlvl/am_tasking/components/SubtaskNotes.vue'
 
 const props = withDefaults(defineProps<{ hubId: number }>(), {})
 const emit = defineEmits<{ (e: 'delete'): void }>()
@@ -165,9 +223,10 @@ onMounted(() => document.addEventListener('click', handleDocClick))
 onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
 
 const taskOptions: Array<{ value: DilTaskType; label: string }> = [
-  { value: 'owner_contacted', label: 'Owner/Heirs contacted' },
-  { value: 'dil_drafted', label: 'Deed-in-Lieu Drafted' },
-  { value: 'dil_successful', label: 'Deed-in-Lieu Successful' },
+  { value: 'owner_contacted', label: 'Borrowers/Heirs Cooperation' },
+  { value: 'no_cooperation', label: 'No Cooperation' },
+  { value: 'dil_drafted', label: 'Drafted' },
+  { value: 'dil_successful', label: 'Executed' },
 ]
 
 const tasksBusy = ref(false)
@@ -177,23 +236,35 @@ function taskLabel(v: DilTaskType): string {
   return m?.label ?? v
 }
 
-// Set of existing task types used to disable duplicate adds
 const existingTypes = computed<Set<DilTaskType>>(() => new Set(tasks.value.map(t => t.task_type)))
 
 // Badge classes per DIL task type (pill style)
 function badgeClass(tp: DilTaskType): string {
   const map: Record<DilTaskType, string> = {
-    owner_contacted: 'badge rounded-pill size_small text-bg-primary',
-    dil_drafted: 'badge rounded-pill size_small text-bg-warning',
-    dil_successful: 'badge rounded-pill size_small text-bg-success',
+    owner_contacted: 'badge rounded-pill text-bg-primary',
+    no_cooperation: 'badge rounded-pill text-bg-secondary',
+    dil_drafted: 'badge rounded-pill text-bg-warning',
+    dil_successful: 'badge rounded-pill text-bg-success',
   }
   return map[tp]
+}
+
+// Map DIL task types to UiBadge tones so all pills follow our shared badge template.
+function pillTone(tp: DilTaskType): import('@/config/badgeTokens').BadgeToneKey {
+  const m: Record<DilTaskType, import('@/config/badgeTokens').BadgeToneKey> = {
+    owner_contacted: 'primary',
+    no_cooperation: 'secondary',
+    dil_drafted: 'warning',
+    dil_successful: 'success',
+  }
+  return m[tp]
 }
 
 // Left border color per DIL task type
 function itemBorderClass(tp: DilTaskType): string {
   const map: Record<DilTaskType, string> = {
     owner_contacted: 'border-start border-2 border-primary',
+    no_cooperation: 'border-start border-2 border-secondary',
     dil_drafted: 'border-start border-2 border-warning',
     dil_successful: 'border-start border-2 border-success',
   }
@@ -204,6 +275,7 @@ function itemBorderClass(tp: DilTaskType): string {
 function leftEdgeStyle(tp: DilTaskType): Record<string, string> {
   const colorMap: Record<DilTaskType, string> = {
     owner_contacted: 'var(--bs-primary, #0d6efd)',
+    no_cooperation: 'var(--bs-secondary, #6c757d)',
     dil_drafted: 'var(--bs-warning, #ffc107)',
     dil_successful: 'var(--bs-success, #198754)',
   }
@@ -217,6 +289,36 @@ const latestStatusLabel = computed<string | null>(() => latestStatusValue.value 
 
 // DIL outcome data for displaying dil_cost and syncing cfk_cost
 const dil = computed<Dil | null>(() => store.getDil(props.hubId))
+// Placeholder legal contact view model until CRM wiring is implemented.
+// WHAT: Minimal fields we expect from CRM (company, name, email, phone).
+// WHY: Provide immediate links (mailto/tel) and show linked CRM id.
+// HOW: For now, only legal_crm id is known; others display as placeholders.
+// Legal contact modal state
+const showLegalModal = ref(false)
+
+// Placeholder legal contact view model until CRM wiring is implemented.
+// WHAT: Minimal fields we expect from CRM (company, name, email, phone).
+// WHY: Provide immediate contact access via modal and prepare for Outlook API integration.
+// HOW: For now, only legal_crm id is known; others display as placeholders.
+const legal = computed<{ id: number | null; company: string | null; name: string | null; email: string | null; phone: string | null }>(() => {
+  return {
+    id: dil.value?.crm ?? null,
+    company: null, // Will be populated from CRM lookup
+    name: null,
+    email: null,
+    phone: null,
+  }
+})
+
+// Placeholder for Outlook API email integration
+// WHAT: Opens email compose window using platform's Outlook API.
+// WHY: Allows in-platform email without leaving the DIL workflow.
+// HOW: Will integrate with Outlook API; for now shows placeholder alert.
+function sendEmail() {
+  // TODO: Integrate with Outlook API to compose email to legal.email
+  alert(`Email integration coming soon. Would send to: ${legal.value.email || 'legal contact'}`)
+  showLegalModal.value = false
+}
 const legalCostDisplay = computed<string>(() => dil.value?.dil_cost ?? '—')
 // Currency formatting for read-only display of legal cost
 function money(val: string | number | null | undefined): string {

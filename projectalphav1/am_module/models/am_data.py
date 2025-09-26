@@ -710,13 +710,13 @@ class REOData(models.Model):
     
     # Optional one-to-one link to a CRM directory entry (Broker contact)
     # Using string app label reference to avoid circular imports
-    broker_crm = models.OneToOneField(
+    crm = models.OneToOneField(
         "core.MasterCRM",
         on_delete=models.SET_NULL,   # If broker entry is removed, preserve REOData but null the link
         null=True,
         blank=True,
         related_name="reo_record",  # Access from MasterCRM via: mastercrm.reo_record
-        help_text="Linked CRM contact (Broker) for this REO asset (optional).",
+        help_text="Linked CRM contact for this REO asset (optional).",
     )
 
     list_price = models.DecimalField(
@@ -950,14 +950,14 @@ class FCSale(models.Model):
         help_text='1:1 with hub; foreclosure sale keyed by AssetIdHub.',
     )
     
-    # Optional association to a Legal CRM contact/entity managing the FC
-    legal_crm = models.ForeignKey(
+    # Optional association to a CRM contact/entity managing the FC
+    crm = models.ForeignKey(
         "core.MasterCRM",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="fc_sales",  # Access from MasterCRM via: legalcrm.fc_sales.all()
-        help_text="Legal entity/contact from CRM associated with this foreclosure sale (optional).",
+        related_name="fc_sales",  # Access from MasterCRM via: crm.fc_sales.all()
+        help_text="CRM contact associated with this foreclosure sale (optional).",
     )
     
     fc_sale_sched_date = models.DateField(
@@ -1133,14 +1133,14 @@ class DIL(models.Model):
         help_text='1:1 with hub; DIL keyed by AssetIdHub.',
     )
     
-    # Optional association to a Legal CRM contact/entity managing the DIL
-    legal_crm = models.ForeignKey(
+    # Optional association to a CRM contact/entity managing the DIL
+    crm = models.ForeignKey(
         "core.MasterCRM",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="dils",  # Access from MasterCRM via: legalcrm.dils.all()
-        help_text="Legal entity/contact from CRM associated with this DIL (optional).",
+        related_name="dils",  # Access from MasterCRM via: crm.dils.all()
+        help_text="CRM contact associated with this DIL (optional).",
     )
     
     dil_completion_date = models.DateField(
@@ -1219,6 +1219,8 @@ class DILTask(models.Model):
 
     class TaskType(models.TextChoices):
         OWNER_CONTACTED = "owner_contacted", "Owner/Heirs contacted"
+        # Explicit tag when borrower/heirs are not cooperating
+        NO_COOPERATION = "no_cooperation", "No Cooperation"
         DRAFTED = "dil_drafted", "Deed-in-Lieu Drafted"
         SUCCESSFUL = "dil_successful", "Deed-in-Lieu Successful"
 
@@ -1307,14 +1309,14 @@ class ShortSale(models.Model):
         help_text='1:1 with hub; short sale keyed by AssetIdHub.',
     )
 
-    # Optional association to a Broker CRM contact/entity managing the short sale
-    broker_crm = models.ForeignKey(
+    # Optional association to a CRM contact/entity managing the short sale
+    crm = models.ForeignKey(
         "core.MasterCRM",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="short_sales",  # Access from MasterCRM via: broker.short_sales.all()
-        help_text="Broker entity/contact from CRM associated with this short sale (optional).",
+        related_name="short_sales",  # Access from MasterCRM via: crm.short_sales.all()
+        help_text="CRM contact associated with this short sale (optional).",
     )
 
     
@@ -1485,14 +1487,14 @@ class Modification(models.Model):
         help_text='1:1 with hub; modification keyed by AssetIdHub.',
     )
     
-    # Optional association to a Broker CRM contact/entity managing the modification
-    broker_crm = models.ForeignKey(
+    # Optional association to a CRM contact/entity managing the modification
+    crm = models.ForeignKey(
         "core.MasterCRM",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="modifications",  # Access from MasterCRM via: broker.modifications.all()
-        help_text="Broker entity/contact from CRM associated with this modification (optional).",
+        related_name="modifications",  # Access from MasterCRM via: crm.modifications.all()
+        help_text="CRM contact associated with this modification (optional).",
     )
     
     modification_date = models.DateField(

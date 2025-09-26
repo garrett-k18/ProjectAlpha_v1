@@ -18,7 +18,7 @@ import http from '@/lib/http'
 // -----------------------------
 // Type Definitions
 // -----------------------------
-export type DilTaskType = 'owner_contacted' | 'dil_drafted' | 'dil_successful'
+export type DilTaskType = 'owner_contacted' | 'no_cooperation' | 'dil_drafted' | 'dil_successful'
 
 // Allow a generic start for any outcome
 export type OutcomeType = 'dil' | 'fc' | 'reo' | 'short_sale' | 'modification'
@@ -67,7 +67,7 @@ export interface Dil {
   // hub-owned PK; serializer returns foreign key field name
   asset_hub: number
   // nullable relationships
-  legal_crm: number | null
+  crm: number | null
   // business fields (stringified decimals/dates from DRF)
   dil_completion_date: string | null
   dil_cost: string | null
@@ -77,7 +77,7 @@ export interface Dil {
 // FC outcome interface aligns to FCSale model in backend
 export interface FcSale {
   asset_hub: number
-  legal_crm: number | null
+  crm: number | null
   fc_sale_sched_date: string | null
   fc_sale_actual_date: string | null
   fc_bid_price: string | null
@@ -87,7 +87,7 @@ export interface FcSale {
 // REOData interface
 export interface ReoData {
   asset_hub: number
-  broker_crm: number | null
+  crm: number | null
   list_price: string | null
   list_date: string | null
   under_contract_flag: boolean
@@ -103,7 +103,7 @@ export interface ReoData {
 // Short Sale interface
 export interface ShortSaleOutcome {
   asset_hub: number
-  broker_crm: number | null
+  crm: number | null
   acceptable_min_offer: string | null
   short_sale_date: string | null
 }
@@ -111,7 +111,7 @@ export interface ShortSaleOutcome {
 // Modification interface
 export interface ModificationOutcome {
   asset_hub: number
-  broker_crm: number | null
+  crm: number | null
   modification_date: string | null
   modification_cost: string | null
   modification_upb: string | null
@@ -146,6 +146,7 @@ export interface ReoTask {
 interface StateShape {
   // outcomes by hub id
   dilByHub: Record<number, Dil | null>
+  reoByHub: Record<number, ReoData | null>
   // tasks by hub id
   dilTasksByHub: Record<number, DilTask[]>
   // REO tasks by hub id
@@ -174,6 +175,7 @@ interface StateShape {
 export const useAmOutcomesStore = defineStore('amOutcomes', {
   state: (): StateShape => ({
     dilByHub: {},
+    reoByHub: {},
     dilTasksByHub: {},
     reoTasksByHub: {},
     fcTasksByHub: {},
@@ -197,6 +199,8 @@ export const useAmOutcomesStore = defineStore('amOutcomes', {
   getters: {
     getDil: (state) => (hubId: number) => state.dilByHub[hubId] ?? null,
     getDilTasks: (state) => (hubId: number) => state.dilTasksByHub[hubId] ?? [],
+    getReo: (state) => (hubId: number) => state.reoByHub[hubId] ?? null,
+    getReoTasks: (state) => (hubId: number) => state.reoTasksByHub[hubId] ?? [],
     isDilLoading: (state) => (hubId: number) => !!state.loadingDil[hubId],
     isDilTasksLoading: (state) => (hubId: number) => !!state.loadingDilTasks[hubId],
   },

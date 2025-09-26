@@ -147,7 +147,9 @@
 <script setup lang="ts">
 import { withDefaults, defineProps, computed, ref, reactive, onMounted, defineEmits, watch, onBeforeUnmount } from 'vue'
 import { useAmOutcomesStore, type FcSale, type FcTask, type FcTaskType } from '@/stores/outcomes'
-import SubtaskNotes from '@/components/notes/SubtaskNotes.vue'
+// Feature-local notes component (moved for AM Tasking scope)
+// Path: src/views/am_module/loanlvl/am_tasking/components/SubtaskNotes.vue
+import SubtaskNotes from '@/views/am_module/loanlvl/am_tasking/components/SubtaskNotes.vue'
 import http from '@/lib/http'
 
 const props = withDefaults(defineProps<{ hubId: number }>(), {})

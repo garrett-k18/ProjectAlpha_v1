@@ -117,6 +117,31 @@
       </b-col>
     </b-row>
 
+    <!-- Demo: Recent Activity timeline (right-sized card below KPIs) -->
+    <b-row class="g-3 mb-4">
+      <b-col md="4">
+        <!-- WHAT: Small, scrollable list of recent events for this asset.
+             WHY: Quick context without opening each outcome card.
+             WHERE: Feature-local component under am_tasking; see recent-activity.vue
+             HOW: Pass ActivityItem[] via :activityData. Currently demo data. -->
+        <RecentActivity
+          title="Recent Activity"
+          :activityWindowHeight="'280px'"
+          :activityData="activityItems"
+        />
+      </b-col>
+      <b-col md="4">
+        <!-- WHAT: Upcoming deadlines across outcomes/tasks.
+             WHY: Fast view of what is due soon.
+             WHERE: Feature-local component under am_tasking; see upcoming-deadlines.vue
+             HOW: Pass DeadlineItem[] via :items. Currently demo data. -->
+        <UpcomingDeadlines
+          title="Upcoming Deadlines"
+          :items="deadlineItems"
+        />
+      </b-col>
+    </b-row>
+
     <!-- Track: Start/ensure outcomes and render cards -->
     <b-row class="g-3 align-items-stretch mb-4">
       <b-col cols="12">
@@ -233,6 +258,12 @@ import ReoCard from '@/views/am_module/loanlvl/am_tasking/outcomes/ReoCard.vue'
 import ShortSaleCard from '@/views/am_module/loanlvl/am_tasking/outcomes/ShortSaleCard.vue'
 import ModificationCard from '@/views/am_module/loanlvl/am_tasking/outcomes/ModificationCard.vue'
 import { useAmOutcomesStore, type OutcomeType } from '@/stores/outcomes'
+// Recent Activity widget (feature-local). Path: views/.../am_tasking/recent-activity.vue
+import RecentActivity from '@/views/am_module/loanlvl/am_tasking/recent-activity.vue'
+import type { ActivityItem } from '@/views/am_module/loanlvl/am_tasking/recent-activity.vue'
+// Upcoming Deadlines widget (feature-local). Path: views/.../am_tasking/upcoming-deadlines.vue
+import UpcomingDeadlines from '@/views/am_module/loanlvl/am_tasking/upcoming-deadlines.vue'
+import type { DeadlineItem } from '@/views/am_module/loanlvl/am_tasking/upcoming-deadlines.vue'
 
 interface HeaderAssetView {
   propertyAddress: string
@@ -331,6 +362,21 @@ const assets = ref<Asset[]>([
     delinquencyStatus: '30',
     totalDebt: 172250
   }
+])
+
+// Demo activity items for the RecentActivity widget (replace with backend feed later)
+const activityItems = ref<ActivityItem[]>([
+  { id: 1, icon: 'mdi-file-document', title: 'DIL Drafted', text: 'Waiting on legal', boldText: 'for signature', subtext: 'Today', color: 'warning' },
+  { id: 2, icon: 'mdi-gavel', title: 'FC Filing', text: 'Filed with county', boldText: 'NOD/NOI', subtext: 'Yesterday', color: 'primary' },
+])
+
+// Demo deadline items for the UpcomingDeadlines widget (replace with backend feed later)
+// WHAT: Simple due date list per outcome or subtask.
+// WHY: Surfaces time-sensitive tasks in one place.
+// WHERE: Right below KPI row, next to Recent Activity.
+const deadlineItems = ref<DeadlineItem[]>([
+  { id: 101, label: 'DIL: Borrower Signature', dueDate: new Date(Date.now() + 3*24*3600*1000).toISOString(), tone: 'warning' },
+  { id: 102, label: 'FC: Mediation Hearing', dueDate: new Date(Date.now() + 5*24*3600*1000).toISOString(), tone: 'danger' },
 ])
 
 const outcomes = ref<Outcome[]>([
@@ -655,13 +701,16 @@ const shortSaleToneMap: Record<import('@/stores/outcomes').ShortSaleTaskType, Ba
   under_contract: 'primary',
   sold: 'success',
 }
+// Align DIL labels with subtask labels used in DilCard.vue (consistency across UI)
 const dilTaskLabel: Record<import('@/stores/outcomes').DilTaskType, string> = {
-  owner_contacted: 'Owner/Heirs contacted',
-  dil_drafted: 'Deed-in-Lieu Drafted',
-  dil_successful: 'Deed-in-Lieu Successful',
+  owner_contacted: 'Borrowers/Heirs contacted',
+  no_cooperation: 'No Cooperation',
+  dil_drafted: 'DIL Drafted',
+  dil_successful: 'DIL Executed',
 }
 const dilToneMap: Record<import('@/stores/outcomes').DilTaskType, BadgeToneKey> = {
   owner_contacted: 'primary',
+  no_cooperation: 'secondary',
   dil_drafted: 'warning',
   dil_successful: 'success',
 }

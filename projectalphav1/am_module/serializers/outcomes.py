@@ -45,7 +45,7 @@ class REODataSerializer(serializers.ModelSerializer):
         model = REOData
         fields = [
             'asset_hub', 'asset_hub_id',
-            'broker_crm',
+            'crm',
             'list_price', 'list_date', 'under_contract_flag', 'under_contract_date',
             'contract_price', 'estimated_close_date', 'actual_close_date',
             'seller_credit_amt', 'purchase_type', 'gross_purchase_price',
@@ -71,7 +71,7 @@ class FCSaleSerializer(serializers.ModelSerializer):
         model = FCSale
         fields = [
             'asset_hub', 'asset_hub_id',
-            'legal_crm', 'fc_sale_sched_date', 'fc_sale_actual_date',
+            'crm', 'fc_sale_sched_date', 'fc_sale_actual_date',
             'fc_bid_price', 'fc_sale_price',
         ]
         read_only_fields = ['asset_hub']
@@ -93,7 +93,7 @@ class DILSerializer(serializers.ModelSerializer):
         model = DIL
         fields = [
             'asset_hub', 'asset_hub_id',
-            'legal_crm', 'dil_completion_date', 'dil_cost', 'cfk_cost',
+            'crm', 'dil_completion_date', 'dil_cost', 'cfk_cost',
         ]
         read_only_fields = ['asset_hub']
 
@@ -114,7 +114,7 @@ class ShortSaleSerializer(serializers.ModelSerializer):
         model = ShortSale
         fields = [
             'asset_hub', 'asset_hub_id',
-            'broker_crm', 'acceptable_min_offer', 'short_sale_date',
+            'crm', 'acceptable_min_offer', 'short_sale_date',
         ]
         read_only_fields = ['asset_hub']
 
@@ -135,7 +135,7 @@ class ModificationSerializer(serializers.ModelSerializer):
         model = Modification
         fields = [
             'asset_hub', 'asset_hub_id',
-            'broker_crm', 'modification_date', 'modification_cost', 'modification_upb',
+            'crm', 'modification_date', 'modification_cost', 'modification_upb',
             'modification_term', 'modification_rate', 'modification_maturity_date',
             'modification_pi', 'modification_down_payment',
         ]

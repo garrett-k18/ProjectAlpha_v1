@@ -3,7 +3,7 @@
     <div class="card-header d-flex justify-content-between align-items-center">
       <h4 class="header-title">{{ title }}</h4>
       <div class="float-end">
-        <b-dropdown toggle-class="arrow-none card-drop p-0" variant="white" right>
+        <b-dropdown toggle-class="arrow-none card-drop p-0" variant="light" right>
           <template v-slot:button-content>
             <i class="mdi mdi-dots-vertical"></i>
           </template>
@@ -17,7 +17,7 @@
 
     <simplebar class="card-body py-0 mb-3" :style="`max-height:${activityWindowHeight}`">
       <div class="timeline-alt py-0">
-        <div v-for="activity of activityData" :key="activity.id" class="timeline-item">
+        <div v-for="activity in activityData" :key="activity.id" class="timeline-item">
           <i
               :class="`mdi ${activity.icon} bg-${activity.color}-lighten text-${activity.color} timeline-icon`"
           ></i>
@@ -42,7 +42,22 @@
 
 
 <script lang="ts">
+// WHAT: Small, scrollable "recent activity" timeline used in AM Tasking.
+// WHY: Shows a list of colored events with titles and short descriptions.
+// WHERE: Feature: am_tasking (loan-level); can be reused in other panels.
+// HOW: Pass an array of ActivityItem via the `activityData` prop.
 import simplebar from 'simplebar-vue'
+import type { PropType } from 'vue'
+
+export interface ActivityItem {
+  id: number
+  icon: string
+  title: string
+  text: string
+  subtext: string
+  boldText: string
+  color: 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'secondary' | string
+}
 
 /**
  * Recent-activity component
@@ -71,10 +86,8 @@ export default {
       default: '424',
     },
     activityData: {
-      type: Array,
-      default: function () {
-        return []
-      },
+      type: Array as PropType<ActivityItem[]>,
+      default: () => [],
     },
   },
 }

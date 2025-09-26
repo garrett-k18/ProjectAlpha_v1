@@ -87,27 +87,27 @@ class _OutcomeBaseViewSet(mixins.ListModelMixin,
 
 
 class REODataViewSet(_OutcomeBaseViewSet):
-    queryset = REOData.objects.all().select_related('asset_hub', 'broker_crm')
+    queryset = REOData.objects.all().select_related('asset_hub', 'crm')
     serializer_class = REODataSerializer
 
 
 class FCSaleViewSet(_OutcomeBaseViewSet):
-    queryset = FCSale.objects.all().select_related('asset_hub', 'legal_crm')
+    queryset = FCSale.objects.all().select_related('asset_hub', 'crm')
     serializer_class = FCSaleSerializer
 
 
 class DILViewSet(_OutcomeBaseViewSet):
-    queryset = DIL.objects.all().select_related('asset_hub', 'legal_crm')
+    queryset = DIL.objects.all().select_related('asset_hub', 'crm')
     serializer_class = DILSerializer
 
 
 class ShortSaleViewSet(_OutcomeBaseViewSet):
-    queryset = ShortSale.objects.all().select_related('asset_hub', 'broker_crm')
+    queryset = ShortSale.objects.all().select_related('asset_hub', 'crm')
     serializer_class = ShortSaleSerializer
 
 
 class ModificationViewSet(_OutcomeBaseViewSet):
-    queryset = Modification.objects.all().select_related('asset_hub', 'broker_crm')
+    queryset = Modification.objects.all().select_related('asset_hub', 'crm')
     serializer_class = ModificationSerializer
 
 

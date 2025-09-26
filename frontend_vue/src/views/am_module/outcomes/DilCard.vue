@@ -43,7 +43,7 @@
         <div class="d-flex flex-column gap-2">
           <div class="d-flex justify-content-between">
             <span class="text-muted">Legal CRM</span>
-            <span class="fw-medium">{{ dil?.legal_crm ?? '—' }}</span>
+            <span class="fw-medium">{{ dil?.crm ?? '—' }}</span>
           </div>
           <div class="d-flex justify-content-between">
             <span class="text-muted">Completion Date</span>
@@ -178,9 +178,10 @@ onMounted(() => document.addEventListener('click', handleDocClick))
 onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
 
 const taskOptions: Array<{ value: DilTaskType; label: string }> = [
-  { value: 'owner_contacted', label: 'Owner/Heirs contacted' },
-  { value: 'dil_drafted', label: 'Deed-in-Lieu Drafted' },
-  { value: 'dil_successful', label: 'Deed-in-Lieu Successful' },
+  { value: 'owner_contacted', label: 'Borrowers/Heirs Cooperation' },
+  { value: 'no_cooperation', label: 'No Cooperation' },
+  { value: 'dil_drafted', label: 'DIL Drafted' },
+  { value: 'dil_successful', label: 'DIL Executed' },
 ]
 
 const tasksBusy = ref(false)
@@ -197,6 +198,7 @@ const existingTypes = computed<Set<DilTaskType>>(() => new Set(tasks.value.map(t
 function badgeClass(tp: DilTaskType): string {
   const map: Record<DilTaskType, string> = {
     owner_contacted: 'badge rounded-pill text-bg-primary',
+    no_cooperation: 'badge rounded-pill text-bg-secondary',
     dil_drafted: 'badge rounded-pill text-bg-warning',
     dil_successful: 'badge rounded-pill text-bg-success',
   }
@@ -207,6 +209,7 @@ function badgeClass(tp: DilTaskType): string {
 function itemBorderClass(tp: DilTaskType): string {
   const map: Record<DilTaskType, string> = {
     owner_contacted: 'border-start border-2 border-primary',
+    no_cooperation: 'border-start border-2 border-secondary',
     dil_drafted: 'border-start border-2 border-warning',
     dil_successful: 'border-start border-2 border-success',
   }
@@ -217,6 +220,7 @@ function itemBorderClass(tp: DilTaskType): string {
 function leftEdgeStyle(tp: DilTaskType): Record<string, string> {
   const colorMap: Record<DilTaskType, string> = {
     owner_contacted: 'var(--bs-primary, #0d6efd)',
+    no_cooperation: 'var(--bs-secondary, #6c757d)',
     dil_drafted: 'var(--bs-warning, #ffc107)',
     dil_successful: 'var(--bs-success, #198754)',
   }

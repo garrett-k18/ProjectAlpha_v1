@@ -42,6 +42,71 @@
       </div>
     </template>
 
+    <!-- Assign Brokerage (compact; will wire to CRM later) -->
+    <div class="px-3 pt-3">
+      <div class="d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center gap-2 small text-muted">
+          <i class="fas fa-handshake"></i>
+          <span>Brokerage</span>
+        </div>
+        <button 
+          type="button" 
+          class="btn btn-link p-0 text-decoration-none fw-medium"
+          @click="openBrokerModal"
+          :title="'Click to assign brokerage'"
+        >
+          {{ broker.company || 'Assign Brokerage' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Brokerage Assignment Modal -->
+    <div v-if="showBrokerModal" class="modal d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+      <div class="modal-dialog modal-md">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h6 class="modal-title">Assign Brokerage</h6>
+            <button type="button" class="btn-close" @click="showBrokerModal = false"></button>
+          </div>
+          <div class="modal-body">
+            <div v-if="loadingBrokers" class="text-center py-3">
+              <div class="spinner-border spinner-border-sm" role="status">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+              <div class="small text-muted mt-2">Loading brokerages...</div>
+            </div>
+            <div v-else-if="brokerOptions.length">
+              <div class="mb-3">
+                <label class="form-label small text-muted">Select Brokerage</label>
+                <select v-model="selectedBrokerId" class="form-select">
+                  <option value="">-- Choose Brokerage --</option>
+                  <option v-for="b in brokerOptions" :key="b.id" :value="b.id">
+                    {{ b.firm }} {{ b.name ? `(${b.name})` : '' }}
+                  </option>
+                </select>
+              </div>
+              <div class="d-flex gap-2">
+                <button 
+                  type="button" 
+                  class="btn btn-primary btn-sm"
+                  @click="assignBroker"
+                  :disabled="!selectedBrokerId"
+                >
+                  Assign
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" @click="showBrokerModal = false">
+                  Cancel
+                </button>
+              </div>
+            </div>
+            <div v-else class="text-muted small">
+              No brokerages found. Add broker contacts in CRM with tag "broker".
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Sub Tasks (collapsible body) -->
     <div class="p-3" v-show="!collapsed">
       <div class="d-flex align-items-center justify-content-between mb-3">
@@ -107,8 +172,10 @@
 
 <script setup lang="ts">
 import { withDefaults, defineProps, ref, computed, onMounted, defineEmits, onBeforeUnmount } from 'vue'
-import { useAmOutcomesStore, type ReoTask, type ReoTaskType } from '@/stores/outcomes'
-import SubtaskNotes from '@/components/notes/SubtaskNotes.vue'
+import { useAmOutcomesStore, type ReoTask, type ReoTaskType, type ReoData } from '@/stores/outcomes'
+// Feature-local notes component (moved for AM Tasking scope)
+// Path: src/views/am_module/loanlvl/am_tasking/components/SubtaskNotes.vue
+import SubtaskNotes from '@/views/am_module/loanlvl/am_tasking/components/SubtaskNotes.vue'
 
 const props = withDefaults(defineProps<{ hubId: number }>(), {})
 const emit = defineEmits<{ (e: 'delete'): void }>()
@@ -124,6 +191,78 @@ const collapsed = ref<boolean>(false)
 // Add Task custom dropdown state
 const addMenuOpen = ref(false)
 const addMenuRef = ref<HTMLElement | null>(null)
+
+// Brokerage assignment modal state
+const showBrokerModal = ref(false)
+const selectedBrokerId = ref<number | ''>()
+
+// REO outcome data for displaying broker assignment
+const reo = computed<ReoData | null>(() => store.getReo(props.hubId))
+
+// Placeholder broker contact view model until CRM wiring is implemented.
+// WHAT: Minimal fields we expect from CRM (company, name, email, phone).
+// WHY: Provide immediate contact access and prepare for broker assignment.
+// HOW: For now, only crm id is known; others display as placeholders.
+const broker = computed<{ id: number | null; company: string | null; name: string | null; email: string | null; phone: string | null }>(() => {
+  return {
+    id: reo.value?.crm ?? null,
+    company: null, // Will be populated from CRM lookup
+    name: null,
+    email: null,
+    phone: null,
+  }
+})
+
+// Broker options from CRM API
+// WHAT: List of available brokerages from MasterCRM with tag="broker".
+// WHY: Allow selection of broker to assign to REO.
+// HOW: Fetches from CRM API when modal opens.
+const brokerOptions = ref<Array<{ id: number; firm: string; name: string | null }>>([])  
+const loadingBrokers = ref(false)
+
+// Fetch broker options from CRM API
+// WHAT: Loads MasterCRM records filtered by tag="broker".
+// WHY: Populate dropdown with available brokerages for assignment.
+// HOW: Calls /api/core/mastercrm/ with tag filter.
+async function loadBrokerOptions() {
+  try {
+    loadingBrokers.value = true
+    // Fetch MasterCRM records with broker tag
+    const response = await fetch('/api/acq/brokers/?tag=broker')
+    if (!response.ok) throw new Error('Failed to fetch brokers')
+    const data = await response.json()
+    
+    // Map to dropdown format
+    brokerOptions.value = (data.results || data || []).map((crm: any) => ({
+      id: crm.id,
+      firm: crm.firm || 'Unknown Firm',
+      name: crm.name
+    }))
+  } catch (error) {
+    console.error('Error loading broker options:', error)
+    brokerOptions.value = []
+  } finally {
+    loadingBrokers.value = false
+  }
+}
+
+// Open modal and load broker options
+function openBrokerModal() {
+  showBrokerModal.value = true
+  loadBrokerOptions()
+}
+
+// Placeholder for broker assignment
+// WHAT: Assigns selected broker to the REO outcome.
+// WHY: Links REO to specific brokerage for management.
+// HOW: Will update REO.crm field; for now shows placeholder alert.
+function assignBroker() {
+  if (!selectedBrokerId.value) return
+  // TODO: Update REO outcome with selected broker CRM ID
+  alert(`Broker assignment coming soon. Would assign broker ID: ${selectedBrokerId.value}`)
+  showBrokerModal.value = false
+  selectedBrokerId.value = ''
+}
 
 // Options for creating tasks (mirrors Django TextChoices in REOtask.TaskType)
 const taskOptions: ReadonlyArray<{ value: ReoTaskType; label: string }> = [
@@ -242,6 +381,10 @@ function handleDocClick(e: MouseEvent) {
   const addRoot = addMenuRef.value
   if (menuOpen.value && root && !root.contains(e.target as Node)) menuOpen.value = false
   if (addMenuOpen.value && addRoot && !addRoot.contains(e.target as Node)) addMenuOpen.value = false
+  // Close broker modal when clicking outside
+  if (showBrokerModal.value && !(e.target as Element)?.closest('.modal-content')) {
+    showBrokerModal.value = false
+  }
 }
 onMounted(() => { document.addEventListener('click', handleDocClick); loadTasks() })
 onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))

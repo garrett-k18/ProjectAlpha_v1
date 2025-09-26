@@ -131,7 +131,9 @@
 <script setup lang="ts">
 import { withDefaults, defineProps, defineEmits, ref, onMounted, onBeforeUnmount, computed, reactive, watch } from 'vue'
 import { useAmOutcomesStore, type ShortSaleOutcome, type ShortSaleTask, type ShortSaleTaskType } from '@/stores/outcomes'
-import SubtaskNotes from '@/components/notes/SubtaskNotes.vue'
+// Feature-local notes component (moved for AM Tasking scope)
+// Path: src/views/am_module/loanlvl/am_tasking/components/SubtaskNotes.vue
+import SubtaskNotes from '@/views/am_module/loanlvl/am_tasking/components/SubtaskNotes.vue'
 
 const props = withDefaults(defineProps<{ hubId: number }>(), {})
 const emit = defineEmits<{ (e: 'delete'): void }>()

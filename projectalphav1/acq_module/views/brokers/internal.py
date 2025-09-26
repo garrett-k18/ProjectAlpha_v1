@@ -135,6 +135,7 @@ def list_brokers(request):
     GET query params:
       - q: case-insensitive search across name, email, firm, city
       - state: 2-letter state code to filter (case-insensitive)
+      - tag: filter by contact type tag (broker, legal, trading_partner)
       - page: 1-based page number (default 1)
       - page_size: items per page (default 25, max 100)
 
@@ -193,6 +194,7 @@ def list_brokers(request):
     # GET flow
     q = (request.query_params.get("q") or "").strip()
     state = (request.query_params.get("state") or "").strip().upper()
+    tag = (request.query_params.get("tag") or "").strip().lower()
     try:
         page = max(1, int(request.query_params.get("page", 1)))
     except (TypeError, ValueError):
@@ -214,6 +216,8 @@ def list_brokers(request):
         )
     if state:
         qs = qs.filter(state=state)
+    if tag:
+        qs = qs.filter(tag=tag)
 
     total = qs.count()
     start = (page - 1) * page_size

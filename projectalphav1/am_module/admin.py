@@ -281,7 +281,7 @@ class REODataAdmin(admin.ModelAdmin):
         'asset_hub__am_boarded__street_address',
     )
     ordering = ('-list_date',)
-    list_select_related = ('asset_hub', 'broker_crm')
+    list_select_related = ('asset_hub', 'crm')
 
 
 @admin.register(FCSale)
@@ -292,7 +292,7 @@ class FCSaleAdmin(admin.ModelAdmin):
         'asset_hub__am_boarded__street_address',
     )
     ordering = ('-fc_sale_actual_date', '-fc_sale_sched_date')
-    list_select_related = ('asset_hub', 'legal_crm')
+    list_select_related = ('asset_hub', 'crm')
 
 
 @admin.register(DIL)
@@ -303,7 +303,7 @@ class DILAdmin(admin.ModelAdmin):
         'asset_hub__am_boarded__street_address',
     )
     ordering = ('-dil_completion_date',)
-    list_select_related = ('asset_hub', 'legal_crm')
+    list_select_related = ('asset_hub', 'crm')
 
 
 @admin.register(ShortSale)
@@ -314,7 +314,7 @@ class ShortSaleAdmin(admin.ModelAdmin):
         'asset_hub__am_boarded__street_address',
     )
     ordering = ('-short_sale_date',)
-    list_select_related = ('asset_hub', 'broker_crm')
+    list_select_related = ('asset_hub', 'crm')
 
 
 @admin.register(Modification)
@@ -326,7 +326,7 @@ class ModificationAdmin(admin.ModelAdmin):
         'asset_hub__am_boarded__street_address',
     )
     ordering = ('-modification_date',)
-    list_select_related = ('asset_hub', 'broker_crm')
+    list_select_related = ('asset_hub', 'crm')
 
 
 @admin.register(AuditLog)

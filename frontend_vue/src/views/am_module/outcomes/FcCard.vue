@@ -42,7 +42,7 @@
       <div class="col-lg-6">
         <div class="mb-2 small text-muted">Outcome Details</div>
         <div class="d-flex flex-column gap-2">
-          <div class="d-flex justify-content-between"><span class="text-muted">Legal CRM</span><span class="fw-medium">{{ fc?.legal_crm ?? '—' }}</span></div>
+          <div class="d-flex justify-content-between"><span class="text-muted">Legal CRM</span><span class="fw-medium">{{ fc?.crm ?? '—' }}</span></div>
           <div class="d-flex justify-content-between"><span class="text-muted">Scheduled Sale</span><span class="fw-medium">{{ fc?.fc_sale_sched_date ?? '—' }}</span></div>
           <div class="d-flex justify-content-between"><span class="text-muted">Actual Sale</span><span class="fw-medium">{{ fc?.fc_sale_actual_date ?? '—' }}</span></div>
           <div class="d-flex justify-content-between"><span class="text-muted">Bid Price</span><span class="fw-medium">{{ money(fc?.fc_bid_price) }}</span></div>
