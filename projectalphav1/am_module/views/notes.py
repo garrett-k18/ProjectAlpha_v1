@@ -80,13 +80,22 @@ class AMNoteViewSet(ModelViewSet):
         except Exception:
             hub_id_int = None
 
-        # created_by/updated_by are set in serializer when user is authenticated; pass-through here as well.
+        # Only stamp user fields when authenticated to avoid AnonymousUser assignment errors
+        user = getattr(request, 'user', None)
+        extra = {}
+        if user is not None and getattr(user, 'is_authenticated', False):
+            extra = { 'created_by': user, 'updated_by': user }
+
         if hub_id_int is not None:
-            serializer.save(asset_hub_id=hub_id_int, created_by=getattr(request, 'user', None), updated_by=getattr(request, 'user', None))
+            serializer.save(asset_hub_id=hub_id_int, **extra)
         else:
-            serializer.save(created_by=getattr(request, 'user', None), updated_by=getattr(request, 'user', None))
+            serializer.save(**extra)
 
     # Ensure updated_by is stamped on updates
     def perform_update(self, serializer):  # type: ignore[override]
         request: Request = self.request
-        serializer.save(updated_by=getattr(request, 'user', None))
+        user = getattr(request, 'user', None)
+        if user is not None and getattr(user, 'is_authenticated', False):
+            serializer.save(updated_by=user)
+        else:
+            serializer.save()

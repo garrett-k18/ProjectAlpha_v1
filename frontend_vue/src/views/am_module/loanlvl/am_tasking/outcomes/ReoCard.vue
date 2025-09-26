@@ -2,13 +2,20 @@
   <!-- Subtle info-colored border (no fill) to match the REO pill -->
   <b-card class="w-100 h-100 border border-1 border-info rounded-2 shadow-sm">
     <template #header>
-      <div class="d-flex align-items-center justify-content-between">
+      <div
+        class="d-flex align-items-center justify-content-between"
+        role="button"
+        :aria-expanded="!collapsed"
+        title="Toggle sub tasks"
+        style="cursor: pointer;"
+        @click="collapsed = !collapsed"
+      >
         <h5 class="mb-0 d-flex align-items-center">
-          <i class="fas fa-home me-2 text-info"></i>
+          <i class="fas fa-house-chimney me-2 text-info"></i>
           <span class="badge rounded-pill text-bg-info size_med">REO</span>
         </h5>
         <div class="d-flex align-items-center gap-2">
-          <div class="position-relative" ref="menuRef">
+          <div class="position-relative ms-2" ref="menuRef">
             <button
               type="button"
               class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center px-2 lh-1"
@@ -22,12 +29,7 @@
                 <circle cx="8" cy="13.5" r="1.5" />
               </svg>
             </button>
-            <div
-              v-if="menuOpen"
-              class="card shadow-sm mt-1"
-              style="position: absolute; right: 0; min-width: 160px; z-index: 1060;"
-              @click.stop
-            >
+            <div v-if="menuOpen" class="card shadow-sm mt-1" style="position: absolute; right: 0; min-width: 160px; z-index: 1060;" @click.stop>
               <div class="list-group list-group-flush">
                 <button class="list-group-item list-group-item-action d-flex align-items-center gap-2 text-danger" @click="onDelete">
                   <i class="fas fa-trash"></i>
@@ -39,8 +41,9 @@
         </div>
       </div>
     </template>
-    <!-- Sub Tasks -->
-    <div class="p-3">
+
+    <!-- Sub Tasks (collapsible body) -->
+    <div class="p-3" v-show="!collapsed">
       <div class="d-flex align-items-center justify-content-between mb-3">
         <div class="small text-muted">Sub Tasks</div>
         <div class="position-relative" ref="addMenuRef">
@@ -75,18 +78,17 @@
           :class="[
             'list-group-item',
             'px-0',
-            'bg-secondary-subtle', // subtle neutral fill with slight contrast vs. card
-            'border', 'border-1', 'border-light', // subtle neutral outline
+            'bg-secondary-subtle',
+            'border', 'border-1', 'border-light',
             'rounded-2', 'shadow-sm',
-            'mb-2', // minimal spacing between cards
-            'border-start' // ensure left edge is rendered
+            'mb-2',
+            'border-start'
           ]"
           :style="leftEdgeStyle(t.task_type)"
         >
           <div class="d-flex align-items-center justify-content-between" role="button" @click="toggleExpand(t.id)">
             <div class="d-flex align-items-center ps-2">
               <span :class="badgeClass(t.task_type)" class="me-2">{{ labelFor(t.task_type) }}</span>
-              <span class="fw-medium"></span>
             </div>
             <div class="d-flex align-items-center small text-muted">
               <span class="me-3">Created: {{ isoDate(t.created_at) }}</span>
@@ -117,6 +119,8 @@ const tasks = ref<ReoTask[]>([])
 const busy = ref(false)
 const newType = ref<ReoTaskType | ''>('')
 const expandedId = ref<number | null>(null)
+// Collapsed state for the entire card body (subtasks section hidden when true)
+const collapsed = ref<boolean>(false)
 // Add Task custom dropdown state
 const addMenuOpen = ref(false)
 const addMenuRef = ref<HTMLElement | null>(null)

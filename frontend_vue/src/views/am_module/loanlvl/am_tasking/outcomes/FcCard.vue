@@ -2,7 +2,14 @@
   <!-- Subtle danger-colored border (no fill) to match the Foreclosure pill -->
   <b-card class="w-100 h-100 border border-1 border-danger rounded-2 shadow-sm">
     <template #header>
-      <div class="d-flex align-items-center justify-content-between">
+      <div
+        class="d-flex align-items-center justify-content-between"
+        role="button"
+        :aria-expanded="!collapsed"
+        title="Toggle sub tasks"
+        style="cursor: pointer;"
+        @click="collapsed = !collapsed"
+      >
         <h5 class="mb-0 d-flex align-items-center">
           <i class="fas fa-gavel me-2 text-danger"></i>
           <span class="badge rounded-pill text-bg-danger size_med">Foreclosure</span>
@@ -74,8 +81,8 @@
     </div>
     <hr class="my-3" />
 
-    <!-- Sub Tasks -->
-    <div class="p-3">
+    <!-- Sub Tasks (collapsible body) -->
+    <div class="p-3" v-show="!collapsed">
       <div class="d-flex align-items-center justify-content-between mb-3">
         <div class="small text-muted">Sub Tasks</div>
         <div class="position-relative" ref="addMenuRef">
@@ -147,6 +154,8 @@ const props = withDefaults(defineProps<{ hubId: number }>(), {})
 const emit = defineEmits<{ (e: 'delete'): void }>()
 const store = useAmOutcomesStore()
 const fc = ref<FcSale | null>(null)
+// Collapsed state for the entire card body (subtasks section hidden when true)
+const collapsed = ref<boolean>(false)
 const busy = ref(false)
 // FC Subtasks state
 const tasks = ref<FcTask[]>([])

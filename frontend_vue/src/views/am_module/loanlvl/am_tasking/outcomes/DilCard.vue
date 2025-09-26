@@ -2,13 +2,19 @@
   <!-- Subtle primary-colored border (no fill) to match the DIL pill -->
   <b-card class="w-100 h-100 border border-1 border-primary rounded-2 shadow-sm">
     <template #header>
-      <div class="d-flex align-items-center justify-content-between">
+      <div
+        class="d-flex align-items-center justify-content-between"
+        role="button"
+        :aria-expanded="!collapsed"
+        title="Toggle sub tasks"
+        style="cursor: pointer;"
+        @click="collapsed = !collapsed"
+      >
         <h5 class="mb-0 d-flex align-items-center">
           <i class="fas fa-handshake me-2 text-primary"></i>
           <span class="badge rounded-pill text-bg-primary size_med">Deed-in-Lieu</span>
         </h5>
         <div class="d-flex align-items-center gap-2">
-          <span v-if="latestStatusLabel" class="badge bg-success" :title="latestStatusValue ?? undefined">{{ latestStatusLabel }}</span>
           <div class="position-relative" ref="menuRef">
             <button
               type="button"
@@ -37,8 +43,8 @@
     </template>
 
 
-    <!-- Sub Tasks -->
-    <div class="p-3">
+    <!-- Sub Tasks (collapsible body) -->
+    <div class="p-3" v-show="!collapsed">
       <div class="d-flex align-items-center justify-content-between mb-3">
         <div class="small text-muted">Sub Tasks</div>
         <div class="position-relative" ref="addMenuRef">
@@ -91,6 +97,30 @@
             </div>
           </div>
           <div v-if="expandedId === t.id" class="mt-2">
+            <!-- When the subtask is 'Deed-in-Lieu Drafted', render extra fields -->
+            <div v-if="t.task_type === 'dil_drafted'" class="mb-2 p-1 bg-transparent">
+              <div class="row g-1 align-items-center">
+                <div class="col-md-6">
+                  <label class="form-label small text-muted">Current Legal Cost</label>
+                  <!-- Read-only placeholder; actual value to be wired to GL entry later -->
+                  <input type="text" class="form-control form-control-sm" :value="legalCostPlaceholder" readonly aria-describedby="legalCostHelp" />
+                  <div id="legalCostHelp" class="form-text">Pulled from GL (to be wired).</div>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label small text-muted">Cash-for-Keys Offered</label>
+                  <!-- Editable; tracked locally per subtask id. Use simple text/number for now; can swap to currency directive -->
+                  <input
+                    type="text"
+                    class="form-control form-control-sm"
+                    v-model="cashForKeysByTask[t.id]"
+                    placeholder="$0"
+                    aria-describedby="cfkHelp"
+                  />
+                  <div id="cfkHelp" class="form-text">User-entered; backend wiring TBD.</div>
+                </div>
+              </div>
+            </div>
+
             <SubtaskNotes :hubId="props.hubId" outcome="dil" :taskType="t.task_type" :taskId="t.id" />
           </div>
         </div>
@@ -112,6 +142,8 @@ const props = withDefaults(defineProps<{ hubId: number }>(), {})
 const emit = defineEmits<{ (e: 'delete'): void }>()
 
 const store = useAmOutcomesStore()
+// Collapsed state for the entire card body (subtasks section hidden when true)
+const collapsed = ref<boolean>(false)
 const tasks = computed<DilTask[]>(() => store.getDilTasks(props.hubId))
 const expandedId = ref<number | null>(null)
 // Add Task custom dropdown state
@@ -202,6 +234,12 @@ onMounted(async () => {
   // Load tasks when card mounts
   await store.listDilTasks(props.hubId)
 })
+
+// --- Extra UI state for 'dil_drafted' subtask fields ---
+// Map of subtask id -> Cash-for-Keys offered input value. This is frontend-only until backend wiring is added.
+const cashForKeysByTask = ref<Record<number, string>>({})
+// Placeholder for Current Legal Cost (GL integration pending). Using dash until wired.
+const legalCostPlaceholder = '—'
 </script>
 
 <style scoped>

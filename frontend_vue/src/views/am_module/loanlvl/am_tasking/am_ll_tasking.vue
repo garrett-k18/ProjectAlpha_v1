@@ -46,8 +46,8 @@
         </b-col>
         <b-col md="3">
           <div class="bg-light rounded p-3">
-            <div class="small text-muted">Borrower</div>
-            <div class="fw-semibold">{{ headerAsset?.borrowerName || 'Borrower pending' }}</div>
+            <div class="small text-muted">UW As-Is -ARV</div>
+            <div class="fw-semibold">{{ formatCurrencyRange(headerAsset?.uwAsIsValue, headerAsset?.uwArvValue) }}</div>
           </div>
         </b-col>
         <b-col md="3">
@@ -67,7 +67,7 @@
         <b-card class="h-100">
           <div class="d-flex align-items-center justify-content-between">
             <div class="flex-grow-1 me-3">
-              <div class="h2 text-warning mb-0">{{ activeTypes.length }}</div>
+              <div class="h2 text-black mb-0">{{ activeTypes.length }}</div>
               <div class="small text-muted mb-2">Active Tracks</div>
               <div class="d-flex flex-wrap gap-2" style="max-height: 84px; overflow: auto;">
                 <template v-if="activeTypes.length">
@@ -89,7 +89,7 @@
         <b-card class="h-100">
           <div class="d-flex align-items-center justify-content-between">
             <div class="flex-grow-1 me-3">
-              <div class="h2 text-primary mb-0">{{ activeTaskCount }}</div>
+              <div class="h2 text-black mb-0">{{ activeTaskCount }}</div>
               <div class="small text-muted mb-2">Active Tasks</div>
               <div class="d-flex flex-wrap gap-2" style="max-height: 84px; overflow: auto;">
                 <UiBadge
@@ -108,8 +108,8 @@
         <b-card class="text-center h-100">
           <div class="d-flex align-items-center justify-content-between">
             <div>
-              <div class="h2 text-success mb-0">{{ outcomeStats.completed }}</div>
-              <div class="small text-muted">Next Milestones</div>
+              <div class="h2 text-black mb-0">{{ completedTaskCount }}</div>
+              <div class="small text-muted">Completed Tasks</div>
             </div>
             <i class="fas fa-check-circle fa-2x text-success"></i>
           </div>
@@ -249,6 +249,9 @@ interface HeaderAssetView {
   delinquencyTone: import('@/config/badgeTokens').BadgeToneKey
   propertyTypeLabel?: string | null
   propertyTypeTone: import('@/config/badgeTokens').BadgeToneKey
+  // Underwriting values used for the UW Property Value range display
+  uwAsIsValue?: number | null
+  uwArvValue?: number | null
 }
 
 interface Subtask {
@@ -536,6 +539,10 @@ const headerAsset = computed<HeaderAssetView>(() => {
     totalDebt: totalDebt ?? undefined,
     originalAmount: Number.isFinite(originalAmount as number) ? (originalAmount as number) : undefined,
     currentBalance: Number.isFinite(currentBalance as number) ? (currentBalance as number) : undefined,
+    // Map UW values coming from the row payload (flat serializer fields)
+    // Use internal_asis_value and internal_arv_value per AssetInventoryRowSerializer
+    uwAsIsValue: normalizeNumeric((rowData as any)?.internal_asis_value),
+    uwArvValue: normalizeNumeric((rowData as any)?.internal_arv_value),
   }
 })
 
@@ -674,36 +681,84 @@ const modificationToneMap: Record<import('@/stores/outcomes').ModificationTaskTy
 type BadgeToneKey = import('@/config/badgeTokens').BadgeToneKey
 type PillItem = { key: string; label: string; tone: BadgeToneKey }
 
+// Pick only the most recent subtask per outcome for Active Tasks
 const activeTaskItems = computed<PillItem[]>(() => {
   const id = hubId.value
   if (!id) return []
   const items: PillItem[] = []
+
+  // Helper: get latest by created_at (fallback to highest id)
+  const pickLatest = <T extends { created_at?: string; id: number; task_type: string }>(list: T[]) => {
+    if (!list?.length) return null
+    const sorted = [...list].sort((a, b) => {
+      const ad = a.created_at ? Date.parse(a.created_at) : 0
+      const bd = b.created_at ? Date.parse(b.created_at) : 0
+      if (ad === bd) return a.id - b.id
+      return ad - bd
+    })
+    return sorted[sorted.length - 1]
+  }
+
   // FC
   if (visibleOutcomes.value.fc) {
     const list = outcomesStore.fcTasksByHub[id] ?? []
-    for (const t of list) items.push({ key: `fc-${t.id}`, label: `FC: ${fcTaskLabel[t.task_type] ?? t.task_type}`, tone: fcToneMap[t.task_type] })
+    const latest = pickLatest(list)
+    if (latest) {
+      const tp = latest.task_type as import('@/stores/outcomes').FcTaskType
+      items.push({ key: `fc-${latest.id}`, label: `FC: ${fcTaskLabel[tp] ?? latest.task_type}`, tone: fcToneMap[tp] })
+    }
   }
   // REO
   if (visibleOutcomes.value.reo) {
     const list = outcomesStore.reoTasksByHub[id] ?? []
-    for (const t of list) items.push({ key: `reo-${t.id}`, label: `REO: ${reoTaskLabel[t.task_type] ?? t.task_type}`, tone: reoToneMap[t.task_type] })
+    const latest = pickLatest(list)
+    if (latest) {
+      const tp = latest.task_type as import('@/stores/outcomes').ReoTaskType
+      items.push({ key: `reo-${latest.id}`, label: `REO: ${reoTaskLabel[tp] ?? latest.task_type}`, tone: reoToneMap[tp] })
+    }
   }
   // Short Sale
   if (visibleOutcomes.value.short_sale) {
     const list = outcomesStore.shortSaleTasksByHub[id] ?? []
-    for (const t of list) items.push({ key: `ss-${t.id}`, label: `Short Sale: ${shortSaleTaskLabel[t.task_type] ?? t.task_type}`, tone: shortSaleToneMap[t.task_type] })
+    const latest = pickLatest(list)
+    if (latest) {
+      const tp = latest.task_type as import('@/stores/outcomes').ShortSaleTaskType
+      items.push({ key: `ss-${latest.id}`, label: `Short Sale: ${shortSaleTaskLabel[tp] ?? latest.task_type}`, tone: shortSaleToneMap[tp] })
+    }
   }
   // DIL
   if (visibleOutcomes.value.dil) {
     const list = outcomesStore.dilTasksByHub[id] ?? []
-    for (const t of list) items.push({ key: `dil-${t.id}`, label: `DIL: ${dilTaskLabel[t.task_type] ?? t.task_type}`, tone: dilToneMap[t.task_type] })
+    const latest = pickLatest(list)
+    if (latest) {
+      const tp = latest.task_type as import('@/stores/outcomes').DilTaskType
+      items.push({ key: `dil-${latest.id}`, label: `DIL: ${dilTaskLabel[tp] ?? latest.task_type}`, tone: dilToneMap[tp] })
+    }
   }
   // Modification
   if (visibleOutcomes.value.modification) {
     const list = outcomesStore.modificationTasksByHub[id] ?? []
-    for (const t of list) items.push({ key: `mod-${t.id}`, label: `Mod: ${modificationTaskLabel[t.task_type] ?? t.task_type}`, tone: modificationToneMap[t.task_type] })
+    const latest = pickLatest(list)
+    if (latest) {
+      const tp = latest.task_type as import('@/stores/outcomes').ModificationTaskType
+      items.push({ key: `mod-${latest.id}`, label: `Mod: ${modificationTaskLabel[tp] ?? latest.task_type}`, tone: modificationToneMap[tp] })
+    }
   }
   return items
+})
+
+// Completed tasks = for each outcome, total subtasks minus 1 (if at least one exists)
+const completedTaskCount = computed<number>(() => {
+  const id = hubId.value
+  if (!id) return 0
+  let total = 0
+  const add = (list?: Array<{ id: number }>) => { if (list && list.length > 1) total += (list.length - 1) }
+  if (visibleOutcomes.value.fc) add(outcomesStore.fcTasksByHub[id])
+  if (visibleOutcomes.value.reo) add(outcomesStore.reoTasksByHub[id])
+  if (visibleOutcomes.value.short_sale) add(outcomesStore.shortSaleTasksByHub[id])
+  if (visibleOutcomes.value.dil) add(outcomesStore.dilTasksByHub[id])
+  if (visibleOutcomes.value.modification) add(outcomesStore.modificationTasksByHub[id])
+  return total
 })
 
 const activeTaskCount = computed<number>(() => activeTaskItems.value.length)
@@ -781,6 +836,18 @@ const formatCurrency = (amount?: number | null) => {
     currency: 'USD',
     minimumFractionDigits: 0
   }).format(numeric as number)
+}
+
+// Format a currency range like "$120,000 - $180,000".
+// If one side is missing, show the available value only.
+// If both are missing, show an em dash.
+function formatCurrencyRange(asis?: number | null, arv?: number | null): string {
+  const hasAsIs = Number.isFinite(asis as number)
+  const hasArv = Number.isFinite(arv as number)
+  if (hasAsIs && hasArv) return `${formatCurrency(asis)} - ${formatCurrency(arv)}`
+  if (hasAsIs) return formatCurrency(asis)
+  if (hasArv) return formatCurrency(arv)
+  return '—'
 }
 
 const normalizeNumeric = (value: unknown): number | null => {
