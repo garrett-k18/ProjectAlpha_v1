@@ -102,21 +102,22 @@
               <div class="row g-1 align-items-center">
                 <div class="col-md-6">
                   <label class="form-label small text-muted">Current Legal Cost</label>
-                  <!-- Read-only placeholder; actual value to be wired to GL entry later -->
-                  <input type="text" class="form-control form-control-sm" :value="legalCostPlaceholder" readonly aria-describedby="legalCostHelp" />
-                  <div id="legalCostHelp" class="form-text">Pulled from GL (to be wired).</div>
+                  <!-- Read-only text display; not an input field -->
+                  <div class="small fw-semibold">{{ legalCostFormatted }}</div>
                 </div>
                 <div class="col-md-6">
                   <label class="form-label small text-muted">Cash-for-Keys Offered</label>
-                  <!-- Editable; tracked locally per subtask id. Use simple text/number for now; can swap to currency directive -->
-                  <input
-                    type="text"
-                    class="form-control form-control-sm"
-                    v-model="cashForKeysByTask[t.id]"
-                    placeholder="$0"
-                    aria-describedby="cfkHelp"
-                  />
-                  <div id="cfkHelp" class="form-text">User-entered; backend wiring TBD.</div>
+                  <!-- Editable; tracked locally per subtask id. Shows a $ prefix via input-group without affecting v-model -->
+                  <div class="input-group input-group-sm">
+                    <span class="input-group-text">$</span>
+                    <input
+                      type="text"
+                      class="form-control form-control-sm"
+                      v-model="cashForKeysByTask[t.id]"
+                      placeholder="0"
+                      @input="onCfkInput(t.id)"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -135,7 +136,7 @@
 // Docs: Pinia https://pinia.vuejs.org/ ; DRF ViewSets https://www.django-rest-framework.org/api-guide/viewsets/
 
 import { onMounted, computed, ref, withDefaults, defineProps, defineEmits, onBeforeUnmount } from 'vue'
-import { useAmOutcomesStore, type DilTask, type DilTaskType } from '@/stores/outcomes'
+import { useAmOutcomesStore, type Dil, type DilTask, type DilTaskType } from '@/stores/outcomes'
 import SubtaskNotes from '@/components/notes/SubtaskNotes.vue'
 
 const props = withDefaults(defineProps<{ hubId: number }>(), {})
@@ -214,6 +215,19 @@ function leftEdgeStyle(tp: DilTaskType): Record<string, string> {
 const latestStatusValue = computed<string | null>(() => tasks.value[0]?.task_type ?? null)
 const latestStatusLabel = computed<string | null>(() => latestStatusValue.value ? taskLabel(latestStatusValue.value as DilTaskType) : null)
 
+// DIL outcome data for displaying dil_cost and syncing cfk_cost
+const dil = computed<Dil | null>(() => store.getDil(props.hubId))
+const legalCostDisplay = computed<string>(() => dil.value?.dil_cost ?? '—')
+// Currency formatting for read-only display of legal cost
+function money(val: string | number | null | undefined): string {
+  if (val == null || val === '') return '—'
+  const num = typeof val === 'string' ? Number(val) : Number(val)
+  try {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(num)
+  } catch { return String(val) }
+}
+const legalCostFormatted = computed<string>(() => money(dil.value?.dil_cost ?? null))
+
 function isoDate(iso: string): string {
   try {
     const d = new Date(iso)
@@ -228,18 +242,75 @@ function onSelectPill(tp: DilTaskType) {
   store.createDilTask(props.hubId, tp)
     .finally(() => { tasksBusy.value = false; addMenuOpen.value = false })
 }
-function toggleExpand(id: number) { expandedId.value = expandedId.value === id ? null : id }
+// Initialize CFK input when expanding the drafted subtask
+function toggleExpand(id: number) {
+  expandedId.value = expandedId.value === id ? null : id
+  if (expandedId.value === id) {
+    const t = tasks.value.find(x => x.id === id)
+    if (t && t.task_type === 'dil_drafted' && cashForKeysByTask.value[id] === undefined) {
+      // Format initial value from backend with thousand separators for display
+      const initialRaw = (dil.value?.cfk_cost ?? '') as string
+      cashForKeysByTask.value[id] = formatNumberWithCommas(initialRaw.replace(/[^0-9.]/g, ''))
+    }
+  }
+}
 
 onMounted(async () => {
   // Load tasks when card mounts
   await store.listDilTasks(props.hubId)
+  // Fetch DIL so we can show dil_cost and current cfk_cost
+  await store.fetchDil(props.hubId, true)
 })
 
 // --- Extra UI state for 'dil_drafted' subtask fields ---
 // Map of subtask id -> Cash-for-Keys offered input value. This is frontend-only until backend wiring is added.
 const cashForKeysByTask = ref<Record<number, string>>({})
-// Placeholder for Current Legal Cost (GL integration pending). Using dash until wired.
-const legalCostPlaceholder = '—'
+// Debounce timers keyed by subtask id so multiple drafted rows won't conflict
+const saveTimers = ref<Record<number, number | undefined>>({})
+
+// Sanitize to digits + optional decimal and PATCH to backend
+function onCfkInput(taskId: number) {
+  const raw = cashForKeysByTask.value[taskId] ?? ''
+  // keep digits and dot only
+  const numeric = raw.replace(/[^0-9.]/g, '')
+  // live-format with thousand separators while typing
+  const formatted = formatNumberWithCommas(numeric)
+  cashForKeysByTask.value[taskId] = formatted
+  // debounce
+  if (saveTimers.value[taskId]) window.clearTimeout(saveTimers.value[taskId])
+  saveTimers.value[taskId] = window.setTimeout(async () => {
+    try {
+      // Ensure the DIL outcome exists before patching
+      if (!store.getDil(props.hubId)) {
+        await store.ensureDil(props.hubId)
+      }
+      const payload: Partial<Dil> = { cfk_cost: (numeric || null) as any }
+      // optimistic cache update
+      const current = store.getDil(props.hubId)
+      if (current) current.cfk_cost = payload.cfk_cost as any
+      await store.patchDil(props.hubId, payload)
+      // refresh cached DIL
+      await store.fetchDil(props.hubId, true)
+      // sync input from canonical value (e.g., backend rounding)
+      const refreshed = store.getDil(props.hubId)
+      if (refreshed) {
+        const back = (refreshed.cfk_cost ?? '') as string
+        cashForKeysByTask.value[taskId] = formatNumberWithCommas(back.replace(/[^0-9.]/g, ''))
+      }
+    } catch (err) {
+      // Log for debugging if save fails (endpoint/serializer issues)
+      console.error('Failed to save Cash-for-Keys (cfk_cost):', err)
+    }
+  }, 400)
+}
+
+// Insert commas in the integer portion of a numeric string, preserving decimal portion if present.
+function formatNumberWithCommas(n: string): string {
+  if (!n) return ''
+  const [intPart, decPart] = n.split('.')
+  const withCommas = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+  return decPart !== undefined ? `${withCommas}.${decPart}` : withCommas
+}
 </script>
 
 <style scoped>

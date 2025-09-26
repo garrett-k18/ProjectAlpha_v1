@@ -239,6 +239,13 @@ export const useAmOutcomesStore = defineStore('amOutcomes', {
         this.loadingReoTasks[hubId] = false
       }
     },
+
+    // Update DIL fields (e.g., cfk_cost, dil_cost). Also updates local cache.
+    async patchDil(hubId: number, payload: Partial<Dil>): Promise<Dil> {
+      const res = await http.patch<Dil>(`/am/outcomes/dil/${hubId}/`, payload)
+      this.dilByHub[hubId] = res.data
+      return res.data
+    },
     async createReoTask(hubId: number, taskType: ReoTaskType): Promise<ReoTask> {
       try {
         this.loadingReoTasks[hubId] = true

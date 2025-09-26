@@ -33,6 +33,8 @@ import 'flatpickr/dist/flatpickr.min.css'
 
 import '@/assets/scss/app-saas.scss'
 import '@/assets/scss/icons.scss'
+// Global theme variables + utilities for AM Tasking UI
+import '@/assets/styles/theme.css'
 
 // Global directives
 import currencyDirective from '@/lib/directives/currency'

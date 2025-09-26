@@ -33,9 +33,9 @@
           :key="n.id"
           class="px-1 py-0 rounded bg-transparent text-body small"
         >
-          <span class="fw-semibold">{{ localTime(n.created_at) }}</span>
+          <span>{{ localTime(n.created_at) }}</span>
           <span>: </span>
-          <span>{{ n.body }}</span>
+          <span class="fw-bold">{{ n.body }}</span>
           <span> - {{ n.created_by_username || 'User' }}</span>
         </div>
       </div>
@@ -83,8 +83,16 @@ const loading = computed(() => store.loadingByHub[props.hubId] ?? false)
 const notes = computed<NoteItem[]>(() => store.getNotesForHub(props.hubId))
 
 // Helper to convert ISO timestamp to a localized, human-friendly date string
+// Keep it very compact: date only with 2-digit year (e.g., "9/26/25")
 function localTime(iso: string): string {
-  try { return new Date(iso).toLocaleString() } catch { return iso }
+  try {
+    const d = new Date(iso)
+    return d.toLocaleDateString(undefined, {
+      year: '2-digit',
+      month: 'numeric',
+      day: 'numeric',
+    })
+  } catch { return iso }
 }
 
 // Load notes for the current context (asset + outcome + task type + optional task id)

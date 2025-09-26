@@ -1,0 +1,27 @@
+/* theme.css
+   Global CSS variables and lightweight utilities for AM Tasking UI.
+   Docs (Hyper UI): https://hyperui.dev/
+*/
+
+:root {
+  /* Spacing */
+  --am-gap-compact: 0.25rem; /* aligns with Bootstrap g-1 */
+  --am-padding-compact: 0.25rem;
+
+  /* Radii */
+  --am-radius-sm: 0.25rem;
+  --am-radius-md: 0.5rem;
+}
+
+/* Compact form helpers (use sparingly; prefer Bootstrap utilities first) */
+.am-form-compact .form-control,
+.am-form-compact .form-select {
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+  min-height: 1.75rem;
+}
+
+/* KPI number style: black text by default (icons keep their color) */
+.am-kpi-number {
+  color: #000 !important;
+}
