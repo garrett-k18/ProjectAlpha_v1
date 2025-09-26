@@ -20,6 +20,11 @@ class AMNoteSerializer(serializers.ModelSerializer):
             "asset_hub",
             "body",
             "tag",
+            # context fields
+            "scope",
+            "context_outcome",
+            "context_task_type",
+            "context_task_id",
             "pinned",
             "created_at",
             "updated_at",
@@ -46,3 +51,19 @@ class AMNoteSerializer(serializers.ModelSerializer):
     def get_updated_by_username(self, obj: AMNote) -> str | None:
         u = getattr(obj.updated_by, "username", None)
         return u
+
+    # Ensure created_by/updated_by are set from request user when available
+    def create(self, validated_data):  # type: ignore[override]
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if user and getattr(user, "is_authenticated", False):
+            validated_data.setdefault("created_by", user)
+            validated_data.setdefault("updated_by", user)
+        return super().create(validated_data)
+
+    def update(self, instance: AMNote, validated_data):  # type: ignore[override]
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if user and getattr(user, "is_authenticated", False):
+            validated_data["updated_by"] = user
+        return super().update(instance, validated_data)

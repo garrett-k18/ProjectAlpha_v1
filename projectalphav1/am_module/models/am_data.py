@@ -604,6 +604,56 @@ class AMNote(models.Model):
         blank=True,
         help_text="Optional single tag for categorizing the note.",
     )
+
+    # --- Context fields for scoping notes to outcome/task while storing centrally ---
+    # Scope clarifies what the note is primarily attached to (asset, outcome, or specific task)
+    SCOPE_ASSET = "asset"
+    SCOPE_OUTCOME = "outcome"
+    SCOPE_TASK = "task"
+    SCOPE_CHOICES = (
+        (SCOPE_ASSET, "Asset"),
+        (SCOPE_OUTCOME, "Outcome"),
+        (SCOPE_TASK, "Task"),
+    )
+    scope = models.CharField(
+        max_length=16,
+        choices=SCOPE_CHOICES,
+        default=SCOPE_ASSET,
+        help_text="Primary attachment context for this note (asset, outcome, or task).",
+    )
+
+    # Outcome context (nullable for pure asset-level notes)
+    OUTCOME_DIL = "dil"
+    OUTCOME_FC = "fc"
+    OUTCOME_REO = "reo"
+    OUTCOME_SHORT_SALE = "short_sale"
+    OUTCOME_MODIFICATION = "modification"
+    OUTCOME_CHOICES = (
+        (OUTCOME_DIL, "Deed-in-Lieu"),
+        (OUTCOME_FC, "Foreclosure"),
+        (OUTCOME_REO, "REO"),
+        (OUTCOME_SHORT_SALE, "Short Sale"),
+        (OUTCOME_MODIFICATION, "Modification"),
+    )
+    context_outcome = models.CharField(
+        max_length=32,
+        choices=OUTCOME_CHOICES,
+        null=True,
+        blank=True,
+        help_text="Outcome context this note relates to (nullable for asset-level notes).",
+    )
+    # Task context: generic type string and optional task row id for fine-grained linking
+    context_task_type = models.CharField(
+        max_length=64,
+        null=True,
+        blank=True,
+        help_text="Task type key this note relates to (e.g., 'eviction', 'owner_contacted').",
+    )
+    context_task_id = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Optional specific task row id if tying directly to a task instance.",
+    )
     
     pinned = models.BooleanField(
         default=False,
@@ -635,6 +685,10 @@ class AMNote(models.Model):
         verbose_name_plural = "AM Notes"
         indexes = [
             models.Index(fields=["asset_hub", "pinned", "updated_at"]),
+            # Additional indexes to accelerate common filters in unified/filtered views
+            models.Index(fields=["asset_hub", "context_outcome", "updated_at"]),
+            models.Index(fields=["asset_hub", "context_task_type", "updated_at"]),
+            models.Index(fields=["asset_hub", "context_task_id", "updated_at"]),
         ]
         ordering = ["-pinned", "-updated_at", "-id"]
 

@@ -55,6 +55,9 @@ export type BadgeToneKey =
   | 'property-land'
   | 'property-mixed-use'
   | 'property-other'
+  | 'primary'
+  | 'secondary'
+  | 'dark'
   | 'info'
   | 'success'
   | 'warning'
@@ -64,6 +67,18 @@ export type BadgeToneKey =
  * Tone palette for badges. These align to Hyper UI badge color recommendations.
  */
 export const badgeToneMap: Record<BadgeToneKey, BadgeVisualConfig> = {
+  primary: {
+    classes: 'bg-primary text-white border-0',
+    ariaLabel: undefined,
+  },
+  secondary: {
+    classes: 'bg-secondary text-white border-0',
+    ariaLabel: undefined,
+  },
+  dark: {
+    classes: 'bg-dark text-white border-0',
+    ariaLabel: undefined,
+  },
   'delinquency-current': {
     classes: 'bg-success text-white border-0 shadow-sm',
     ariaLabel: 'Current delinquency status',

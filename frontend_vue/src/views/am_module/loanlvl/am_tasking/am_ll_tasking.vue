@@ -64,24 +64,21 @@
     <!-- Outcome Summary Cards (moved above Track) -->
     <b-row class="g-3 mb-4">
       <b-col md="4">
-        <b-card class="text-center h-100">
+        <b-card class="h-100">
           <div class="d-flex align-items-center justify-content-between">
-            <div>
-              <div class="kpi-badges d-flex gap-2 align-items-center">
+            <div class="flex-grow-1 me-3">
+              <div class="h2 text-warning mb-0">{{ activeTypes.length }}</div>
+              <div class="small text-muted mb-2">Active Tracks</div>
+              <div class="d-flex flex-wrap gap-2" style="max-height: 84px; overflow: auto;">
                 <template v-if="activeTypes.length">
-                  <span
+                  <UiBadge
                     v-for="t in activeTypes"
                     :key="t"
-                    class="badge rounded-pill"
-                    :class="trackBadge(t).cls"
-                  >
-                    {{ trackBadge(t).label }}
-                  </span>
+                    :tone="trackTone(t)"
+                    size="sm"
+                  >{{ trackLabel(t) }}</UiBadge>
                 </template>
                 <span v-else class="text-muted small">None</span>
-              </div>
-              <div class="small text-muted">Active Tracks
-              
               </div>
             </div>
             <i class="fas fa-clock fa-2x text-warning"></i>
@@ -89,11 +86,19 @@
         </b-card>
       </b-col>
       <b-col md="4">
-        <b-card class="text-center h-100">
+        <b-card class="h-100">
           <div class="d-flex align-items-center justify-content-between">
-            <div>
-              <div class="h2 text-primary mb-0">{{ outcomeStats.in_progress }}</div>
-              <div class="small text-muted">In Progress</div>
+            <div class="flex-grow-1 me-3">
+              <div class="h2 text-primary mb-0">{{ activeTaskCount }}</div>
+              <div class="small text-muted mb-2">Active Tasks</div>
+              <div class="d-flex flex-wrap gap-2" style="max-height: 84px; overflow: auto;">
+                <UiBadge
+                  v-for="pill in activeTaskItems"
+                  :key="pill.key"
+                  :tone="pill.tone"
+                  size="sm"
+                >{{ pill.label }}</UiBadge>
+              </div>
             </div>
             <i class="fas fa-spinner fa-2x text-primary"></i>
           </div>
@@ -104,7 +109,7 @@
           <div class="d-flex align-items-center justify-content-between">
             <div>
               <div class="h2 text-success mb-0">{{ outcomeStats.completed }}</div>
-              <div class="small text-muted">Completed</div>
+              <div class="small text-muted">Next Milestones</div>
             </div>
             <i class="fas fa-check-circle fa-2x text-success"></i>
           </div>
@@ -132,19 +137,19 @@
                   <div class="card-body py-2">
                     <div class="d-flex flex-row flex-nowrap align-items-center justify-content-center gap-2 text-center">
                       <button class="btn p-0 bg-transparent border-0" @click="selectTrack('modification')" :disabled="ensureBusy">
-                        <span class="badge rounded-pill text-bg-secondary px-3 py-2">Modification</span>
+                        <UiBadge tone="secondary" size="sm">Modification</UiBadge>
                       </button>
                       <button class="btn p-0 bg-transparent border-0" @click="selectTrack('short_sale')" :disabled="ensureBusy">
-                        <span class="badge rounded-pill text-bg-warning px-3 py-2">Short Sale</span>
+                        <UiBadge tone="warning" size="sm">Short Sale</UiBadge>
                       </button>
                       <button class="btn p-0 bg-transparent border-0" @click="selectTrack('dil')" :disabled="ensureBusy">
-                        <span class="badge rounded-pill text-bg-primary px-3 py-2">Deed-in-Lieu</span>
+                        <UiBadge tone="primary" size="sm">Deed-in-Lieu</UiBadge>
                       </button>
                       <button class="btn p-0 bg-transparent border-0" @click="selectTrack('fc')" :disabled="ensureBusy">
-                        <span class="badge rounded-pill text-bg-danger px-3 py-2">Foreclosure</span>
+                        <UiBadge tone="danger" size="sm">Foreclosure</UiBadge>
                       </button>
                       <button class="btn p-0 bg-transparent border-0" @click="selectTrack('reo')" :disabled="ensureBusy">
-                        <span class="badge rounded-pill text-bg-info px-3 py-2">REO</span>
+                        <UiBadge tone="info" size="sm">REO</UiBadge>
                       </button>
                     </div>
                   </div>
@@ -222,11 +227,11 @@ defineOptions({
 import UiBadge from '@/components/ui/UiBadge.vue'
 import { getDelinquencyBadgeTone, getPropertyTypeBadgeTone } from '@/config/badgeTokens'
 // Outcome cards + store
-import DilCard from '@/views/am_module/outcomes/DilCard.vue'
-import FcCard from '@/views/am_module/outcomes/FcCard.vue'
-import ReoCard from '@/views/am_module/outcomes/ReoCard.vue'
-import ShortSaleCard from '@/views/am_module/outcomes/ShortSaleCard.vue'
-import ModificationCard from '@/views/am_module/outcomes/ModificationCard.vue'
+import DilCard from '@/views/am_module/loanlvl/am_tasking/outcomes/DilCard.vue'
+import FcCard from '@/views/am_module/loanlvl/am_tasking/outcomes/FcCard.vue'
+import ReoCard from '@/views/am_module/loanlvl/am_tasking/outcomes/ReoCard.vue'
+import ShortSaleCard from '@/views/am_module/loanlvl/am_tasking/outcomes/ShortSaleCard.vue'
+import ModificationCard from '@/views/am_module/loanlvl/am_tasking/outcomes/ModificationCard.vue'
 import { useAmOutcomesStore, type OutcomeType } from '@/stores/outcomes'
 
 interface HeaderAssetView {
@@ -570,22 +575,138 @@ const activeTypes = computed<OutcomeType[]>(() => {
   )
 })
 
-function trackBadge(t: OutcomeType): { label: string; cls: string } {
+// Map an outcome type to a human-readable label for UiBadge
+function trackLabel(t: OutcomeType): string {
   switch (t) {
-    case 'modification':
-      return { label: 'Modification', cls: 'text-bg-secondary' }
-    case 'short_sale':
-      return { label: 'Short Sale', cls: 'text-bg-warning' }
-    case 'dil':
-      return { label: 'Deed-in-Lieu', cls: 'text-bg-primary' }
-    case 'fc':
-      return { label: 'Foreclosure', cls: 'text-bg-danger' }
-    case 'reo':
-      return { label: 'REO', cls: 'text-bg-info' }
-    default:
-      return { label: t, cls: 'text-bg-secondary' }
+    case 'modification': return 'Modification'
+    case 'short_sale': return 'Short Sale'
+    case 'dil': return 'Deed-in-Lieu'
+    case 'fc': return 'Foreclosure'
+    case 'reo': return 'REO'
+    default: return t
   }
 }
+
+// Map an outcome type to a UiBadge tone defined in badgeTokens
+function trackTone(t: OutcomeType): import('@/config/badgeTokens').BadgeToneKey {
+  switch (t) {
+    case 'modification': return 'secondary'
+    case 'short_sale': return 'warning'
+    case 'dil': return 'primary'
+    case 'fc': return 'danger'
+    case 'reo': return 'info'
+    default: return 'secondary'
+  }
+}
+
+// -------- Active Tasks KPI helpers --------
+// Per-outcome task label maps (kept local to avoid importing component files)
+const fcTaskLabel: Record<import('@/stores/outcomes').FcTaskType, string> = {
+  nod_noi: 'NOD/NOI',
+  fc_filing: 'FC Filing',
+  mediation: 'Mediation',
+  judgement: 'Judgement',
+  redemption: 'Redemption',
+  sale_scheduled: 'Sale Scheduled',
+  sold: 'Sold',
+}
+const reoTaskLabel: Record<import('@/stores/outcomes').ReoTaskType, string> = {
+  eviction: 'Eviction',
+  trashout: 'Trashout',
+  renovation: 'Renovation',
+  marketing: 'Marketing',
+  under_contract: 'Under Contract',
+  sold: 'Sold',
+}
+// Tone maps aligned with outcome components' badgeClass definitions
+const fcToneMap: Record<import('@/stores/outcomes').FcTaskType, BadgeToneKey> = {
+  nod_noi: 'warning',
+  fc_filing: 'primary',
+  mediation: 'info',
+  judgement: 'secondary',
+  redemption: 'success',
+  sale_scheduled: 'dark',
+  sold: 'danger',
+}
+const reoToneMap: Record<import('@/stores/outcomes').ReoTaskType, BadgeToneKey> = {
+  eviction: 'danger',
+  trashout: 'warning',
+  renovation: 'info',
+  marketing: 'primary',
+  under_contract: 'success',
+  sold: 'secondary',
+}
+const shortSaleTaskLabel: Record<import('@/stores/outcomes').ShortSaleTaskType, string> = {
+  list_price_accepted: 'List Price Accepted',
+  listed: 'Listed',
+  under_contract: 'Under Contract',
+  sold: 'Sold',
+}
+const shortSaleToneMap: Record<import('@/stores/outcomes').ShortSaleTaskType, BadgeToneKey> = {
+  list_price_accepted: 'warning',
+  listed: 'info',
+  under_contract: 'primary',
+  sold: 'success',
+}
+const dilTaskLabel: Record<import('@/stores/outcomes').DilTaskType, string> = {
+  owner_contacted: 'Owner/Heirs contacted',
+  dil_drafted: 'Deed-in-Lieu Drafted',
+  dil_successful: 'Deed-in-Lieu Successful',
+}
+const dilToneMap: Record<import('@/stores/outcomes').DilTaskType, BadgeToneKey> = {
+  owner_contacted: 'primary',
+  dil_drafted: 'warning',
+  dil_successful: 'success',
+}
+const modificationTaskLabel: Record<import('@/stores/outcomes').ModificationTaskType, string> = {
+  mod_negotiations: 'Negotiations',
+  mod_accepted: 'Accepted',
+  mod_started: 'Started',
+  mod_failed: 'Failed',
+}
+const modificationToneMap: Record<import('@/stores/outcomes').ModificationTaskType, BadgeToneKey> = {
+  mod_negotiations: 'info',
+  mod_accepted: 'success',
+  mod_started: 'primary',
+  mod_failed: 'danger',
+}
+
+type BadgeToneKey = import('@/config/badgeTokens').BadgeToneKey
+type PillItem = { key: string; label: string; tone: BadgeToneKey }
+
+const activeTaskItems = computed<PillItem[]>(() => {
+  const id = hubId.value
+  if (!id) return []
+  const items: PillItem[] = []
+  // FC
+  if (visibleOutcomes.value.fc) {
+    const list = outcomesStore.fcTasksByHub[id] ?? []
+    for (const t of list) items.push({ key: `fc-${t.id}`, label: `FC: ${fcTaskLabel[t.task_type] ?? t.task_type}`, tone: fcToneMap[t.task_type] })
+  }
+  // REO
+  if (visibleOutcomes.value.reo) {
+    const list = outcomesStore.reoTasksByHub[id] ?? []
+    for (const t of list) items.push({ key: `reo-${t.id}`, label: `REO: ${reoTaskLabel[t.task_type] ?? t.task_type}`, tone: reoToneMap[t.task_type] })
+  }
+  // Short Sale
+  if (visibleOutcomes.value.short_sale) {
+    const list = outcomesStore.shortSaleTasksByHub[id] ?? []
+    for (const t of list) items.push({ key: `ss-${t.id}`, label: `Short Sale: ${shortSaleTaskLabel[t.task_type] ?? t.task_type}`, tone: shortSaleToneMap[t.task_type] })
+  }
+  // DIL
+  if (visibleOutcomes.value.dil) {
+    const list = outcomesStore.dilTasksByHub[id] ?? []
+    for (const t of list) items.push({ key: `dil-${t.id}`, label: `DIL: ${dilTaskLabel[t.task_type] ?? t.task_type}`, tone: dilToneMap[t.task_type] })
+  }
+  // Modification
+  if (visibleOutcomes.value.modification) {
+    const list = outcomesStore.modificationTasksByHub[id] ?? []
+    for (const t of list) items.push({ key: `mod-${t.id}`, label: `Mod: ${modificationTaskLabel[t.task_type] ?? t.task_type}`, tone: modificationToneMap[t.task_type] })
+  }
+  return items
+})
+
+const activeTaskCount = computed<number>(() => activeTaskItems.value.length)
 
 function toggleTrackMenu() {
   showTrackMenu.value = !showTrackMenu.value
@@ -637,7 +758,15 @@ async function refreshVisible() {
   const types: OutcomeType[] = ['dil', 'fc', 'reo', 'short_sale', 'modification']
   for (const t of types) {
     const exists = await outcomesStore.fetchOutcome(id, t)
-    if (exists) visibleOutcomes.value[t] = true
+    if (exists) {
+      visibleOutcomes.value[t] = true
+      // Preload task lists for the KPI widget
+      if (t === 'fc') await outcomesStore.listFcTasks(id)
+      else if (t === 'reo') await outcomesStore.listReoTasks(id)
+      else if (t === 'short_sale') await outcomesStore.listShortSaleTasks(id)
+      else if (t === 'dil') await outcomesStore.listDilTasks(id)
+      else if (t === 'modification') await outcomesStore.listModificationTasks(id)
+    }
   }
 }
 onMounted(refreshVisible)
@@ -726,9 +855,20 @@ onMounted(() => {
   white-space: nowrap;        /* keep on one line */
   min-height: 1.5rem;         /* stable line box */
 }
-.kpi-badges .badge {
-  padding: 0.15rem 0.5rem;    /* smaller pill without changing font size */
-  line-height: 1;             /* compact height */
-  font-weight: 500;           /* readable weight */
+</style>
+
+<style>
+/* Global utility sizes for pill badges (Bootstrap badge compatible) */
+.size_small {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+}
+.kpi-badges .badge.size_small {
+  font-size: 0.75rem; /* ensure override of earlier .kpi-badges .badge */
+  padding: 0.25rem 0.5rem;
+}
+.size_med {
+  font-size: 0.875rem;
+  padding: 0.4rem 0.75rem;
 }
 </style>
