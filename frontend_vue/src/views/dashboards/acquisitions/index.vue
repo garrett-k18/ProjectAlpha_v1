@@ -102,7 +102,8 @@
     <b-row class="mt-1">
       <b-col class="col-12">
         <!-- Temporary: Use simplified AcqGrid for testing -->
-        <AcqGrid />
+        <!-- Wire AcqGrid's View action to open the loan modal in this page -->
+        <AcqGrid @open-loan="onOpenLoan" />
       </b-col>
     </b-row>
 

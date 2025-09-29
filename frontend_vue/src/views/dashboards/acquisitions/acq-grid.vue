@@ -284,6 +284,23 @@ function dateFmt(p: any): string {
 }
 
 function onRowAction(action: string, row: any): void {
+  // NOTE: Actions originate from `ActionsCell.vue` via cellRendererParams.onAction
+  // We promote only the 'view' action to the parent so it can open the Loan modal.
+  // Other actions remain logged for now to avoid surprising side-effects.
+  if (action === 'view') {
+    // Build a friendly address string for modal header consistency
+    const street = String(row?.street_address ?? '').trim()
+    const city = String(row?.city ?? '').trim()
+    const state = String(row?.state ?? '').trim()
+    const addr = [street, [city, state].filter(Boolean).join(', ')].filter(Boolean).join(', ')
+
+    // Ensure we pass a string id; prefer the row.id exposed by API
+    const id = String(row?.id ?? '')
+
+    // Emit to parent acquisitions page, which already has onOpenLoan(payload)
+    emit('open-loan', { id, row, addr })
+    return
+  }
   console.log('[AcqGrid] action', action, row)
 }
 
@@ -326,6 +343,19 @@ const defaultColDef: ColDef = {
   cellClass: 'text-center',
   menuTabs: ['filterMenuTab'],
 }
+
+/* --------------------------------------------------------------------------
+ * Emits – bubble row actions up to parent container (index.vue)
+ * -------------------------------------------------------------------------- */
+const emit = defineEmits<{
+  /**
+   * open-loan
+   * Emitted when the user clicks the "View" action for a row. The parent
+   * `index.vue` listens to this event and opens the Loan-Level modal by
+   * delegating to its existing `onOpenLoan(payload)` method.
+   */
+  (e: 'open-loan', payload: { id: string; row: any; addr?: string }): void
+}>()
 </script>
 
 <style scoped>

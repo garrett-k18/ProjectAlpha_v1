@@ -719,6 +719,7 @@ class REOData(models.Model):
         help_text="Linked CRM contact for this REO asset (optional).",
     )
 
+
     list_price = models.DecimalField(
         max_digits=10,
         decimal_places=2,
@@ -1667,14 +1668,13 @@ class ModificationTask(models.Model):
 
         # Save the record
         super().save(*args, **kwargs)
-
+        
         # Log changes for all fields
         if original_values:
             for field in self._meta.fields:
                 field_name = field.name
                 old_value = original_values.get(field_name)
                 new_value = getattr(self, field_name)
-                
                 # Only log if value actually changed
                 if old_value != new_value:
                     AuditLog.log_change(
@@ -1684,4 +1684,135 @@ class ModificationTask(models.Model):
                         new_value=new_value,
                         changed_by=actor,
                         asset_hub=self.asset_hub
+                    )
+
+class REOScope(models.Model):
+    """Work orders / scopes / bids associated with a property (many-to-one).
+
+    Stores vendor/contact information, scope dates, estimated totals, and notes.
+    Each row ties to a single `AssetIdHub` and can optionally reference a
+    `MasterCRM` vendor/contact record.
+    """
+
+    # Canonical asset key (many scopes per asset)
+    asset_hub = models.ForeignKey(
+        'core.AssetIdHub',
+        on_delete=models.PROTECT,
+        related_name='reo_scopes',
+        help_text='The asset hub this scope/bid belongs to (many-to-one).',
+    )
+
+    # Optional link to CRM vendor/contact
+    crm = models.ForeignKey(
+        'core.MasterCRM',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reo_scopes',
+        help_text='Optional CRM contact/vendor associated with this scope/bid.',
+    )
+
+    # Vendor/contact snapshot fields
+    vendor_name = models.CharField(
+        max_length=255,
+        help_text='Vendor/company name providing the scope/bid.',
+    )
+    contact_name = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text='Primary contact name (optional).',
+    )
+    contact_phone = models.CharField(
+        max_length=32,
+        null=True,
+        blank=True,
+        help_text='Primary contact phone (optional).',
+    )
+    contact_email = models.EmailField(
+        null=True,
+        blank=True,
+        help_text='Primary contact email (optional).',
+    )
+
+    # Scope timing and totals
+    scope_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text='Date of the scope/bid (optional).',
+    )
+    total_cost = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Total cost quoted or expected (optional).',
+    )
+    expected_completion = models.DateField(
+        null=True,
+        blank=True,
+        help_text='Expected completion date (optional).',
+    )
+
+    # Free-form details
+    notes = models.TextField(
+        null=True,
+        blank=True,
+        help_text='Additional notes or itemization (optional).',
+    )
+
+    # Minimal audit timestamps
+    created_at = models.DateTimeField(auto_now_add=True, help_text='When this scope record was created.')
+    updated_at = models.DateTimeField(auto_now=True, help_text='When this scope record was last updated.')
+
+    class Meta:
+        verbose_name = 'REO Scope / Bid'
+        verbose_name_plural = 'REO Scopes / Bids'
+        indexes = [
+            models.Index(fields=['asset_hub', 'created_at']),
+            models.Index(fields=['asset_hub', 'scope_date']),
+            models.Index(fields=['asset_hub', 'expected_completion']),
+            models.Index(fields=['crm']),
+        ]
+        ordering = ['-created_at', '-id']
+
+    # Change tracking (pattern used across this module)
+    _actor = None
+
+    def set_actor(self, user):
+        """Set the acting user for audit logging."""
+        self._actor = user
+
+    def save(self, *args, **kwargs):
+        """Save with automatic field-level audit logging via `AuditLog`.
+        Accepts optional kwarg `actor` to attribute the change to a user.
+        """
+        actor = kwargs.pop('actor', None) or self._actor
+
+        # Snapshot original values on update to compute diffs after save
+        if self.pk:
+            try:
+                original = self.__class__.objects.get(pk=self.pk)
+                original_values = {field.name: getattr(original, field.name) for field in self._meta.fields}
+            except self.__class__.DoesNotExist:
+                original_values = {}
+        else:
+            original_values = {}
+
+        super().save(*args, **kwargs)
+
+        # Log changes for all fields that actually changed
+        if original_values:
+            for field in self._meta.fields:
+                field_name = field.name
+                old_value = original_values.get(field_name)
+                new_value = getattr(self, field_name)
+                if old_value != new_value:
+                    AuditLog.log_change(
+                        instance=self,
+                        field_name=field_name,
+                        old_value=old_value,
+                        new_value=new_value,
+                        changed_by=actor,
+                        asset_hub=self.asset_hub,
                     )
