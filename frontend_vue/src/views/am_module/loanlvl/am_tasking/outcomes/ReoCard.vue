@@ -157,18 +157,39 @@
             </div>
             <div class="d-flex align-items-center small text-muted">
               <span class="me-3">Created: {{ isoDate(t.created_at) }}</span>
-              <i :class="expandedId === t.id ? 'fas fa-chevron-up' : 'fas fa-chevron-down'"></i>
+              <i :class="expandedIds.has(t.id) ? 'fas fa-chevron-up' : 'fas fa-chevron-down'"></i>
             </div>
           </div>
-          <div v-if="expandedId === t.id" class="mt-2">
-            <!-- REO Scopes/Bids (only for Trashout or Renovation) -->
-            <ReoScopesPanel
-              v-if="t.task_type === 'trashout' || t.task_type === 'renovation'"
-              :hub-id="props.hubId"
-              :task-id="t.id"
-              :task-type="t.task_type as 'trashout' | 'renovation'"
-            />
-            <SubtaskNotes :hubId="props.hubId" outcome="reo" :taskType="t.task_type" :taskId="t.id" />
+          <div v-if="expandedIds.has(t.id)" class="mt-2">
+            <SubtaskPanel
+              :title="labelFor(t.task_type)"
+              :tabs="[
+                { key: 'bids', label: 'Bids', icon: 'fas fa-file-invoice-dollar' },
+                { key: 'notes', label: 'Notes', icon: 'fas fa-note-sticky' },
+                { key: 'docs', label: 'Docs', icon: 'fas fa-folder' },
+              ]"
+              initial="bids"
+            >
+              <template #bids>
+                <!-- REO Scopes/Bids (only for Trashout or Renovation) -->
+                <ReoScopesPanel
+                  v-if="t.task_type === 'trashout' || t.task_type === 'renovation'"
+                  :hub-id="props.hubId"
+                  :task-id="t.id"
+                  :task-type="t.task_type as 'trashout' | 'renovation'"
+                />
+                <div v-else class="text-muted small">No bids for this task type.</div>
+              </template>
+
+              <template #notes>
+                <SubtaskNotes :hubId="props.hubId" outcome="reo" :taskType="t.task_type" :taskId="t.id" />
+              </template>
+
+              <template #docs>
+                <!-- Reuse global quick view; wire real items later -->
+                <DocumentsQuickView :items="[]" title="Documents" :showViewAll="false" />
+              </template>
+            </SubtaskPanel>
           </div>
         </div>
       </div>
@@ -186,6 +207,12 @@ import SubtaskNotes from '@/views/am_module/loanlvl/am_tasking/components/Subtas
 // Scopes panel for Trashout/Renovation tasks
 // Path: src/views/am_module/loanlvl/am_tasking/components/ReoScopesPanel.vue
 import ReoScopesPanel from '@/views/am_module/loanlvl/am_tasking/components/ReoScopesPanel.vue'
+// New tab wrapper for subtask sections (Bids/Notes/Docs)
+// Path: src/views/am_module/loanlvl/am_tasking/components/SubtaskPanel.vue
+import SubtaskPanel from '@/views/am_module/loanlvl/am_tasking/components/SubtaskPanel.vue'
+// Global documents quick view card
+// Path: src/components/DocumentsQuickView.vue
+import DocumentsQuickView from '@/components/DocumentsQuickView.vue'
 
 const props = withDefaults(defineProps<{ hubId: number }>(), {})
 const emit = defineEmits<{ (e: 'delete'): void }>()
@@ -195,7 +222,8 @@ const store = useAmOutcomesStore()
 const tasks = ref<ReoTask[]>([])
 const busy = ref(false)
 const newType = ref<ReoTaskType | ''>('')
-const expandedId = ref<number | null>(null)
+// Allow multiple subtasks to be expanded at the same time
+const expandedIds = ref<Set<number>>(new Set())
 // Collapsed state for the entire card body (subtasks section hidden when true)
 const collapsed = ref<boolean>(false)
 // Add Task custom dropdown state
@@ -348,7 +376,7 @@ async function addTask(tp: ReoTaskType) {
     busy.value = true
     const created = await store.createReoTask(props.hubId, tp)
     await loadTasks()
-    expandedId.value = created.id
+    expandedIds.value.add(created.id)
   } finally {
     busy.value = false
   }
@@ -375,7 +403,8 @@ function onSelectPill(tp: ReoTaskType) {
 }
 
 function toggleExpand(id: number) {
-  expandedId.value = expandedId.value === id ? null : id
+  if (expandedIds.value.has(id)) expandedIds.value.delete(id)
+  else expandedIds.value.add(id)
 }
 
 function isoDate(iso: string): string {
