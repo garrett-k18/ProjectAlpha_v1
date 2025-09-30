@@ -11,7 +11,7 @@ class MasterCRM(models.Model):
     Docs: https://docs.djangoproject.com/en/stable/ref/models/fields/
     """
     firm = models.CharField(max_length=255, blank=True, null=True)
-    name = models.CharField(max_length=255, blank=True, null=True)
+    contact_name = models.CharField(max_length=255, blank=True, null=True)
     state = models.CharField(max_length=2, blank=True, null=True)
     city = models.CharField(max_length=255, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
@@ -21,10 +21,12 @@ class MasterCRM(models.Model):
     TAG_BROKER = "broker"
     TAG_TRADING = "trading_partner"
     TAG_LEGAL = "legal"
+    TAG_VENDOR = "vendor"
     TAG_CHOICES = (
         (TAG_BROKER, "Broker"),
         (TAG_TRADING, "Trading Partner"),
         (TAG_LEGAL, "Legal"),
+        (TAG_VENDOR, "Vendor"),
     )
     tag = models.CharField(
         max_length=32,
@@ -32,7 +34,7 @@ class MasterCRM(models.Model):
         null=True,
         blank=True,
         db_index=True,
-        help_text="Simple type tag for this contact (Broker, Trading Partner, Legal).",
+        help_text="Simple type tag for this contact (Broker, Trading Partner, Legal, Vendor).",
     )
     
 
@@ -69,7 +71,7 @@ class MasterCRM(models.Model):
 
     def __str__(self) -> str:
         # Useful admin label
-        parts = [p for p in [self.name, self.firm, self.city] if p]
+        parts = [p for p in [self.contact_name, self.firm, self.city] if p]
         return " - ".join(parts) or (self.email or f"CRM {self.pk}")
 
     # No legacy alias properties; API layers should map keys explicitly

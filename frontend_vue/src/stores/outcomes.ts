@@ -143,6 +143,22 @@ export interface ReoTask {
   updated_at: string
 }
 
+// REO Scope support
+export type ReoScopeKind = 'trashout' | 'renovation'
+export interface ReoScope {
+  id: number
+  asset_hub: number
+  crm: number | null
+  scope_kind: ReoScopeKind | null
+  reo_task: number | null
+  scope_date: string | null
+  total_cost: string | null
+  expected_completion: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
 interface StateShape {
   // outcomes by hub id
   dilByHub: Record<number, Dil | null>
@@ -194,6 +210,8 @@ export const useAmOutcomesStore = defineStore('amOutcomes', {
     errorShortSaleTasks: {},
     errorModificationTasks: {},
     // dynamic extension: attach caches for other outcomes
+    // REO scopes cache keyed by `${hubId}:${taskId || 0}:${scopeKind || ''}`
+    // Keep loading and error maps with same key
   }),
 
   getters: {
@@ -213,6 +231,57 @@ export const useAmOutcomesStore = defineStore('amOutcomes', {
       const res = await http.post(url, { asset_hub_id: hubId })
       // Store/cache per type as implemented; start with DIL
       if (type === 'dil') this.dilByHub[hubId] = res.data as Dil
+      return res.data
+    },
+
+    // -----------------------------
+    // REO Scopes helpers
+    // -----------------------------
+    async listReoScopes(
+      hubId: number,
+      params: { scopeKind?: ReoScopeKind; reoTaskId?: number },
+      force = true,
+    ): Promise<ReoScope[]> {
+      const key = `${hubId}:${params.reoTaskId ?? 0}:${params.scopeKind ?? ''}`
+      // Lazy init maps on first use
+      // @ts-ignore add dynamic maps on store instance
+      this.reoScopesByKey = this.reoScopesByKey || {}
+      // @ts-ignore
+      this.loadingReoScopes = this.loadingReoScopes || {}
+      // @ts-ignore
+      this.errorReoScopes = this.errorReoScopes || {}
+      // Return cache if present and not forcing
+      // @ts-ignore
+      if (!force && this.reoScopesByKey[key] !== undefined) return this.reoScopesByKey[key]
+      try {
+        // @ts-ignore
+        this.loadingReoScopes[key] = true
+        // @ts-ignore
+        this.errorReoScopes[key] = null
+        const res = await http.get<ReoScope[]>('/am/outcomes/reo-scopes/', {
+          params: {
+            asset_hub_id: hubId,
+            scope_kind: params.scopeKind,
+            reo_task: params.reoTaskId,
+          },
+        })
+        const items = Array.isArray(res.data) ? res.data : []
+        // @ts-ignore
+        this.reoScopesByKey[key] = items
+        return items
+      } catch (err: any) {
+        const msg = err?.response?.data?.detail || err?.message || 'Failed to load REO scopes'
+        // @ts-ignore
+        this.errorReoScopes[key] = msg
+        throw err
+      } finally {
+        // @ts-ignore
+        this.loadingReoScopes[key] = false
+      }
+    },
+
+    async createReoScope(payload: Partial<ReoScope> & { asset_hub_id: number }): Promise<ReoScope> {
+      const res = await http.post<ReoScope>('/am/outcomes/reo-scopes/', payload)
       return res.data
     },
 

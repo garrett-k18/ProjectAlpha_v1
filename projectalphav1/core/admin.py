@@ -35,20 +35,20 @@ class DebtFacilityAdmin(admin.ModelAdmin):
 class MasterCRMAdmin(admin.ModelAdmin):
     """Admin configuration for unified Master CRM (Brokercrm) model."""
     list_display = (
-        'name', 'firm', 'email', 'state', 'city', 'tag',
+        'contact_name', 'firm', 'email', 'state', 'city', 'tag',
         'alt_contact_name', 'nda_flag', 'nda_signed', 'created_at'
     )
     list_filter = (
         'state', 'tag', 'nda_flag'
     )
     search_fields = (
-        'name', 'email', 'firm', 'city',
+        'contact_name', 'email', 'firm', 'city',
         'alt_contact_name', 'alt_contact_email'
     )
     readonly_fields = ('created_at', 'updated_at')
     fieldsets = (
         ('Primary Contact', {
-            'fields': ('name', 'email', 'phone', 'firm', 'state', 'city', 'tag')
+            'fields': ('contact_name', 'email', 'phone', 'firm', 'state', 'city', 'tag')
         }),
         ('Alternate Contact', {
             'fields': ('alt_contact_name', 'alt_contact_email', 'alt_contact_phone')

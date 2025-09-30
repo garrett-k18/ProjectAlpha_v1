@@ -5,7 +5,8 @@ from am_module.models.servicers import ServicerLoanData
 from am_module.models.am_data import (
     AMMetrics, AMMetricsChange, AuditLog,
     AMNote, REOData, FCSale, DIL, ShortSale, Modification,
-    REOtask, FCTask, DILTask, ShortSaleTask, ModificationTask
+    REOtask, FCTask, DILTask, ShortSaleTask, ModificationTask,
+    REOScope,
 )
 
 class AssetMetricsInline(admin.StackedInline):
@@ -282,6 +283,23 @@ class REODataAdmin(admin.ModelAdmin):
     )
     ordering = ('-list_date',)
     list_select_related = ('asset_hub', 'crm')
+
+
+@admin.register(REOScope)
+class REOScopeAdmin(admin.ModelAdmin):
+    list_display = (
+        'id', 'asset_hub', 'scope_kind', 'reo_task', 'crm',
+        'total_cost', 'scope_date', 'expected_completion', 'created_at',
+    )
+    list_filter = (
+        'scope_kind', 'created_at',
+    )
+    search_fields = (
+        'asset_hub__am_boarded__sellertape_id',
+        'asset_hub__am_boarded__street_address',
+    )
+    ordering = ('-created_at', '-id')
+    list_select_related = ('asset_hub', 'crm', 'reo_task')
 
 
 @admin.register(FCSale)

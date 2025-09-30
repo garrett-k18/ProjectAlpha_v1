@@ -26,7 +26,7 @@ Docs reviewed:
 from typing import Any, Dict
 
 from django.shortcuts import get_object_or_404
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
@@ -40,6 +40,7 @@ from ...services.brokers import (
 
 @api_view(["GET", "PUT", "PATCH"])  # Dev: public detail + update endpoint
 @permission_classes([AllowAny])
+@authentication_classes([])
 def broker_detail(request, broker_id: int):
     """Return CRM contact info (from MasterCRM) and quick stats.
 
@@ -62,9 +63,10 @@ def broker_detail(request, broker_id: int):
         firm = payload.get("firm")
         city = payload.get("city")
         state_in = payload.get("state")
+        tag_in = payload.get("tag")
 
         if name is not None:
-            broker.name = norm(name)
+            broker.contact_name = norm(name)
         if email is not None:
             broker.email = norm(email)
         if phone is not None:
@@ -78,12 +80,16 @@ def broker_detail(request, broker_id: int):
             if state_val and len(state_val.upper()) != 2:
                 return Response({"detail": "state must be a 2-letter code."}, status=status.HTTP_400_BAD_REQUEST)
             broker.state = state_val.upper() if state_val else None
+        if tag_in is not None:
+            tag_val = norm(tag_in)
+            if tag_val:
+                broker.tag = tag_val.lower()
 
         broker.save()
 
         updated = {
             "id": broker.id,
-            "name": broker.name,
+            "name": broker.contact_name,
             "email": broker.email,
             "phone": broker.phone,
             "firm": broker.firm,
@@ -98,7 +104,7 @@ def broker_detail(request, broker_id: int):
 
     data: Dict[str, Any] = {
         "id": broker.id,
-        "name": broker.name,
+        "name": broker.contact_name,
         "email": broker.email,
         "phone": broker.phone,
         "firm": broker.firm,
@@ -129,6 +135,7 @@ def list_assigned_loans(request, broker_id: int):
 
 @api_view(["GET", "POST"])  # Dev: public list + create endpoint for MasterCRM directory
 @permission_classes([AllowAny])
+@authentication_classes([])
 def list_brokers(request):
     """List or create contacts in the MasterCRM directory.
 
@@ -166,22 +173,26 @@ def list_brokers(request):
         firm = (payload.get("firm") or "").strip() or None
         city = (payload.get("city") or "").strip() or None
         state_in = (payload.get("state") or "").strip().upper() or None
+        tag_in = (payload.get("tag") or "").strip().lower() or None
 
         # Basic format checks
         if state_in and len(state_in) != 2:
             return Response({"detail": "state must be a 2-letter code."}, status=status.HTTP_400_BAD_REQUEST)
 
         broker = MasterCRM.objects.create(
-            name=name,
+            contact_name=name,
             email=email,
             phone=phone,
             firm=firm,
             city=city,
             state=state_in,
         )
+        if tag_in:
+            broker.tag = tag_in
+            broker.save(update_fields=["tag"])
         item = {
             "id": broker.id,
-            "name": broker.name,
+            "name": broker.contact_name,
             "email": broker.email,
             "phone": broker.phone,
             "firm": broker.firm,
@@ -209,7 +220,7 @@ def list_brokers(request):
 
     if q:
         qs = qs.filter(
-            Q(name__icontains=q)
+            Q(contact_name__icontains=q)
             | Q(email__icontains=q)
             | Q(firm__icontains=q)
             | Q(city__icontains=q)
@@ -225,7 +236,7 @@ def list_brokers(request):
     items = list(
         qs.values(
             "id",
-            "name",
+            "contact_name",
             "email",
             "phone",
             "firm",
@@ -237,6 +248,8 @@ def list_brokers(request):
 
     # Convert datetimes to ISO 8601 strings
     for it in items:
+        # Keep API key as 'name' for back-compat, mapped from contact_name
+        it["name"] = it.pop("contact_name", None)
         if it.get("created_at") is not None:
             it["created_at"] = it["created_at"].isoformat()
 

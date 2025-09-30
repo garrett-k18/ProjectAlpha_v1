@@ -8,6 +8,7 @@ from am_module.views.outcomes import (
     DILViewSet, DILTaskViewSet,
     ShortSaleViewSet, ShortSaleTaskViewSet,
     ModificationViewSet, ModificationTaskViewSet,
+    REOScopeViewSet,
 )
 
 router = DefaultRouter()
@@ -23,6 +24,7 @@ router.register(r'outcomes/short-sale', ShortSaleViewSet, basename='am-short-sal
 router.register(r'outcomes/short-sale-tasks', ShortSaleTaskViewSet, basename='am-short-sale-tasks')
 router.register(r'outcomes/modification', ModificationViewSet, basename='am-modification')
 router.register(r'outcomes/modification-tasks', ModificationTaskViewSet, basename='am-modification-tasks')
+router.register(r'outcomes/reo-scopes', REOScopeViewSet, basename='am-reo-scopes')
 
 urlpatterns = [
     path('am/', include(router.urls)),

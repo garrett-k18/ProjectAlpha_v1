@@ -847,6 +847,37 @@ class REOData(models.Model):
                         asset_hub=self.asset_hub,
                     )
 
+    def clean(self):
+        """Model-level validation for REOScope.
+
+        Rules enforced:
+        - If `crm` is provided, it must have `tag='vendor'`.
+        - If `reo_task` is provided, it must belong to the same `asset_hub`.
+        - If both `scope_kind` and `reo_task` are provided, they must match (trashout/renovation).
+        """
+        from django.core.exceptions import ValidationError
+
+        errors = {}
+
+        # crm must be vendor-tagged when present
+        if getattr(self, 'crm_id', None):
+            tag = getattr(self.crm, 'tag', None)
+            if tag != 'vendor':
+                errors['crm'] = 'Selected CRM must have tag "vendor".'
+
+        # REO task linkage integrity
+        if getattr(self, 'reo_task_id', None):
+            if getattr(self.reo_task, 'asset_hub_id', None) != getattr(self, 'asset_hub_id', None):
+                errors['reo_task'] = 'Linked REO task must reference the same AssetIdHub.'
+            tt = getattr(self.reo_task, 'task_type', None)
+            if tt not in ('trashout', 'renovation'):
+                errors['reo_task'] = 'Linked REO task must be type Trashout or Renovation.'
+            if self.scope_kind and tt and self.scope_kind != tt:
+                errors['scope_kind'] = 'Scope kind must match the linked REO task type.'
+
+        if errors:
+            raise ValidationError(errors)
+
 class REOtask(models.Model):
     """Simple REO task tracker using Django's TextChoices.
 
@@ -1734,29 +1765,6 @@ class REOScope(models.Model):
         blank=True,
         related_name='scopes',
         help_text='Optional link to the related REO task (Trashout/Renovation).',
-    )
-
-    # Vendor/contact snapshot fields
-    vendor_name = models.CharField(
-        max_length=255,
-        help_text='Vendor/company name providing the scope/bid.',
-    )
-    contact_name = models.CharField(
-        max_length=255,
-        null=True,
-        blank=True,
-        help_text='Primary contact name (optional).',
-    )
-    contact_phone = models.CharField(
-        max_length=32,
-        null=True,
-        blank=True,
-        help_text='Primary contact phone (optional).',
-    )
-    contact_email = models.EmailField(
-        null=True,
-        blank=True,
-        help_text='Primary contact email (optional).',
     )
 
     # Scope timing and totals

@@ -161,6 +161,13 @@
             </div>
           </div>
           <div v-if="expandedId === t.id" class="mt-2">
+            <!-- REO Scopes/Bids (only for Trashout or Renovation) -->
+            <ReoScopesPanel
+              v-if="t.task_type === 'trashout' || t.task_type === 'renovation'"
+              :hub-id="props.hubId"
+              :task-id="t.id"
+              :task-type="t.task_type as 'trashout' | 'renovation'"
+            />
             <SubtaskNotes :hubId="props.hubId" outcome="reo" :taskType="t.task_type" :taskId="t.id" />
           </div>
         </div>
@@ -176,6 +183,9 @@ import { useAmOutcomesStore, type ReoTask, type ReoTaskType, type ReoData } from
 // Feature-local notes component (moved for AM Tasking scope)
 // Path: src/views/am_module/loanlvl/am_tasking/components/SubtaskNotes.vue
 import SubtaskNotes from '@/views/am_module/loanlvl/am_tasking/components/SubtaskNotes.vue'
+// Scopes panel for Trashout/Renovation tasks
+// Path: src/views/am_module/loanlvl/am_tasking/components/ReoScopesPanel.vue
+import ReoScopesPanel from '@/views/am_module/loanlvl/am_tasking/components/ReoScopesPanel.vue'
 
 const props = withDefaults(defineProps<{ hubId: number }>(), {})
 const emit = defineEmits<{ (e: 'delete'): void }>()

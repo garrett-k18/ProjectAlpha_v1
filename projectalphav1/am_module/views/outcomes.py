@@ -23,6 +23,7 @@ from am_module.models.am_data import (
     DIL, DILTask,
     ShortSale, ShortSaleTask,
     Modification, ModificationTask,
+    REOScope,
 )
 from am_module.serializers.outcomes import (
     REODataSerializer, REOTaskSerializer,
@@ -30,6 +31,7 @@ from am_module.serializers.outcomes import (
     DILSerializer, DILTaskSerializer,
     ShortSaleSerializer, ShortSaleTaskSerializer,
     ModificationSerializer, ModificationTaskSerializer,
+    REOScopeSerializer,
 )
 
 
@@ -177,3 +179,53 @@ class ModificationTaskViewSet(_TaskBaseViewSet):
     queryset = ModificationTask.objects.all().select_related('asset_hub', 'modification')
     serializer_class = ModificationTaskSerializer
     parent_field_name = 'modification'
+
+
+class REOScopeViewSet(mixins.ListModelMixin,
+                      mixins.RetrieveModelMixin,
+                      mixins.CreateModelMixin,
+                      mixins.UpdateModelMixin,
+                      mixins.DestroyModelMixin,
+                      GenericViewSet):
+    """CRUD for REO scopes/bids with query param filters.
+
+    Supported filters via query params:
+    - asset_hub_id: required to list; prevents full-table listings by default
+    - scope_kind: optional ('trashout' | 'renovation')
+    - reo_task: optional (task id)
+    """
+
+    permission_classes = [AllowAny]
+    authentication_classes: list[type[SessionAuthentication]] = []
+    serializer_class = REOScopeSerializer
+    queryset = REOScope.objects.all().select_related('asset_hub', 'crm', 'reo_task')
+
+    def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        asset_hub_id = request.query_params.get('asset_hub_id')
+        if not asset_hub_id:
+            return Response([], status=status.HTTP_200_OK)
+        try:
+            asset_hub_id = int(asset_hub_id)
+        except Exception:
+            return Response({"detail": "asset_hub_id must be an integer"}, status=status.HTTP_400_BAD_REQUEST)
+
+        qs = self.get_queryset().filter(asset_hub_id=asset_hub_id)
+
+        scope_kind = request.query_params.get('scope_kind')
+        if scope_kind in ('trashout', 'renovation'):
+            qs = qs.filter(scope_kind=scope_kind)
+
+        reo_task = request.query_params.get('reo_task')
+        if reo_task:
+            try:
+                qs = qs.filter(reo_task_id=int(reo_task))
+            except Exception:
+                return Response({"detail": "reo_task must be an integer"}, status=status.HTTP_400_BAD_REQUEST)
+
+        qs = qs.order_by('-created_at', '-id')
+        page = self.paginate_queryset(qs)
+        if page is not None:
+            ser = self.get_serializer(page, many=True)
+            return self.get_paginated_response(ser.data)
+        ser = self.get_serializer(qs, many=True)
+        return Response(ser.data)

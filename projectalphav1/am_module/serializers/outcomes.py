@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any, Dict
 
 from rest_framework import serializers
+from django.core.exceptions import ValidationError as DjangoValidationError
 
 from am_module.models.am_data import (
     REOData, REOtask,
@@ -16,6 +17,7 @@ from am_module.models.am_data import (
     DIL, DILTask,
     ShortSale, ShortSaleTask,
     Modification, ModificationTask,
+    REOScope,
 )
 from core.models import AssetIdHub
 from core.models.crm import MasterCRM  # string refs used in models but serializer type hints are fine
@@ -170,6 +172,62 @@ class REOTaskSerializer(serializers.ModelSerializer):
         if reo and hub and reo.asset_hub_id != hub.id:
             raise serializers.ValidationError('REO outcome and asset_hub mismatch.')
         return attrs
+
+
+# -----------------------------
+# REO Scope/Bid Serializer
+# -----------------------------
+
+class REOScopeSerializer(serializers.ModelSerializer):
+    asset_hub_id = _AssetHubPKField()
+
+    class Meta:
+        model = REOScope
+        fields = [
+            'id',
+            'asset_hub', 'asset_hub_id',
+            'crm', 'scope_kind', 'reo_task',
+            'scope_date', 'total_cost', 'expected_completion', 'notes',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = ['id', 'asset_hub', 'created_at', 'updated_at']
+
+    def validate(self, attrs: Dict[str, Any]) -> Dict[str, Any]:
+        # Mirror model.clean() basic checks at serializer level for clearer API errors
+        hub = attrs.get('asset_hub')
+        reo_task = attrs.get('reo_task')
+        scope_kind = attrs.get('scope_kind')
+        crm = attrs.get('crm')
+        if crm and getattr(crm, 'tag', None) != 'vendor':
+            raise serializers.ValidationError('Selected CRM must have tag "vendor".')
+        if reo_task and hub and reo_task.asset_hub_id != hub.id:
+            raise serializers.ValidationError('Linked REO task must reference the same AssetIdHub.')
+        if reo_task and reo_task.task_type not in ('trashout', 'renovation'):
+            raise serializers.ValidationError('Linked REO task must be type Trashout or Renovation.')
+        if scope_kind and reo_task and scope_kind != reo_task.task_type:
+            raise serializers.ValidationError('Scope kind must match the linked REO task type.')
+        return attrs
+
+    def create(self, validated_data: Dict[str, Any]):
+        """Create REOScope while converting Django ValidationError to DRF ValidationError.
+
+        Model.save() calls full_clean(), which raises DjangoValidationError. DRF only formats
+        serializers.ValidationError nicely, so we translate here to produce a 400 with details
+        instead of a 500.
+        """
+        try:
+            return super().create(validated_data)
+        except DjangoValidationError as e:
+            detail = getattr(e, 'message_dict', None) or getattr(e, 'messages', None) or str(e)
+            raise serializers.ValidationError(detail)
+
+    def update(self, instance, validated_data: Dict[str, Any]):
+        """Update REOScope with the same error translation for consistency."""
+        try:
+            return super().update(instance, validated_data)
+        except DjangoValidationError as e:
+            detail = getattr(e, 'message_dict', None) or getattr(e, 'messages', None) or str(e)
+            raise serializers.ValidationError(detail)
 
 
 class FCTaskSerializer(serializers.ModelSerializer):
