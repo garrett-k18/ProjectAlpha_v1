@@ -1,61 +1,43 @@
 <template>
-  <!-- AM Snapshot: Photos + Documents quick view -->
-  <!-- Stretch columns to equal height so the map matches the photo card -->
-  <b-row class="g-3 g-lg-4 px-3 px-lg-4 align-items-stretch">
-    <!-- Left: Photo carousel within a card -->
-    <b-col lg="8" class="d-flex">
-      <div class="card w-100 h-100 d-flex flex-column">
-        <div class="d-flex card-header justify-content-between align-items-center">
-          <h4 class="header-title mb-0">Photos</h4>
-        </div>
-        <div class="card-body pt-2">
-          <!-- Pass correct props to PhotoCarousel; set explicit containerHeight to control card height -->
-          <PhotoCarousel
-            :images="images"
-            :containerHeight="carouselHeight"
-            :thumbWidth="thumbWidth"
-            :thumbHeight="thumbHeight"
-          />
-        </div>
+  <!-- AM Snapshot: Google Map card only (uses global PropertyMap component) -->
+  <b-row class="g-3 px-3 px-lg-4 align-items-stretch">
+    <!-- Left: Street-only View -->
+    <b-col lg="6" class="d-flex">
+      <div class="w-100 h-100">
+        <PropertyMap
+          class="w-100 h-100 d-flex flex-column"
+          :row="row"
+          :productId="productId"
+          :height="380"
+          :viewMode="'street'"
+        />
       </div>
     </b-col>
 
-    <!-- Right: Property map (reuse global component) -->
-    <b-col lg="4" class="d-flex">
+    <!-- Right: Standard Map -->
+    <b-col lg="6" class="d-flex">
       <div class="w-100 h-100">
-        <PropertyMap class="w-100 h-100 d-flex flex-column" :row="row" :productId="productId" height="100%" />
-      </div>
-    </b-col>
-  </b-row>
-
-  <!-- Documents row (full width for simpler static template) -->
-  <b-row class="g-3 mt-1 align-items-stretch px-3 px-lg-4">
-    <b-col lg="12" class="d-flex">
-      <div class="w-100 h-100">
-        <DocumentsQuickView title="Document Quick View" :docs="docItems" :maxItems="5" :showViewAll="false" />
+        <!-- PropertyMap renders its own Hyper-style card by default (bare=false). -->
+        <PropertyMap
+          class="w-100 h-100 d-flex flex-column"
+          :row="row"
+          :productId="productId"
+          :height="380"
+        />
       </div>
     </b-col>
   </b-row>
 </template>
 
 <script setup lang="ts">
-import { withDefaults, defineProps, ref, computed, watch } from 'vue'
-import http from '@/lib/http'
+import { withDefaults, defineProps } from 'vue'
 import PropertyMap from '@/components/PropertyMap.vue'
-import PhotoCarousel from '@/components/PhotoCarousel.vue'
-import DocumentsQuickView from '@/components/DocumentsQuickView.vue'
-import type { DocumentItem } from '@/components/DocumentsQuickView.vue'
 
-export type PhotoItem = { src: string; alt?: string; thumb?: string; type?: string }
-
-const fetchedImages = ref<PhotoItem[]>([])
-const images = computed<PhotoItem[]>(() => fetchedImages.value)
-
-const props = withDefaults(defineProps<{
+// Keep prop contract to avoid extraneous-prop warnings in parents that pass these.
+withDefaults(defineProps<{
   row?: Record<string, any> | null
   productId?: string | number | null
   carouselWidth?: number | string
-  // Controls the vertical height of the photo card via PhotoCarousel.containerHeight
   carouselHeight?: number | string
   thumbWidth?: number | string
   thumbHeight?: number | string
@@ -63,42 +45,8 @@ const props = withDefaults(defineProps<{
   row: null,
   productId: null,
   carouselWidth: 500,
-  // Provide a taller default to avoid a cramped first row
   carouselHeight: 280,
   thumbWidth: 120,
   thumbHeight: 90,
 })
-
-const sourceId = computed<number | null>(() => {
-  // Prefer explicit productId, fallback to row.id
-  const idFromProduct = props.productId != null ? Number(props.productId) : null
-  const idFromRow = (props.row && props.row.id != null) ? Number(props.row.id) : null
-  return idFromProduct ?? idFromRow ?? null
-})
-
-async function loadPhotos(id: number) {
-  try {
-    const res = await http.get(`/am/assets/${id}/photos/`)
-    fetchedImages.value = (res.data || []) as PhotoItem[]
-    console.debug('[AM SnapshotTab] loaded photos for', id, 'count:', fetchedImages.value.length)
-  } catch (err) {
-    console.warn('[AM SnapshotTab] failed to load photos for id', id, err)
-    fetchedImages.value = []
-  }
-}
-
-watch(sourceId, (id) => {
-  if (id && !Number.isNaN(id)) {
-    loadPhotos(id)
-  } else {
-    fetchedImages.value = []
-  }
-}, { immediate: true })
-
-// Demo docs (metadata only)
-const docItems = computed<DocumentItem[]>(() => [
-  { id: 'pdf-bpo', name: 'BPO.pdf', type: 'application/pdf', sizeBytes: Math.round(2.3 * 1024 * 1024), previewUrl: '#', downloadUrl: '#' },
-  { id: 'pdf-appraisal', name: 'Appraisal.pdf', type: 'application/pdf', sizeBytes: Math.round(3.25 * 1024 * 1024), previewUrl: '#', downloadUrl: '#' },
-  { id: 'doc-memo', name: 'Memo.docx', type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', sizeBytes: Math.round(7.05 * 1024 * 1024), previewUrl: '#', downloadUrl: '#' },
-])
 </script>

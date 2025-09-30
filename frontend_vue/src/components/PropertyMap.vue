@@ -1,33 +1,50 @@
 <template>
   <!--
+    <!--
     PropertyMap.vue
     Purpose: Display a Google Map centered on the property's geocoded address.
     Works with either a provided `row` object (modal context) or a `productId`
     (full-page context, where this component will fetch the row itself).
     Uses vue3-google-map with an external async loader and a Vite env API key.
+    Useful in Asset Management -> Loan-Level -> Snapshot tab.
+    -->
   -->
   <div :class="bare ? '' : 'card'">
     <div :class="['d-flex', 'flex-column', 'p-0', 'h-100', 'position-relative', bare ? '' : 'card-body pt-0']">
       <!-- Map fills entire card body (no header) -->
       <div :class="['position-absolute', 'top-0', 'bottom-0', 'start-0', 'end-0']" :style="containerStyle">
-        <GoogleMap
-          :api-promise="googleApiPromise"
-          :zoom="zoom"
-          :center="effectiveCenter"
-          :street-view-control="true"
-          :map-type-control="true"
-          :map-type-id="defaultMapType"
-          :fullscreen-control="true"
-          :zoom-control="true"
-          :clickable-icons="false"
-          :disable-default-ui="false"
-          :map-id="mapId"
-          :style="{ height: '100%', width: '100%' }"
-        >
-          <!-- Use AdvancedMarker when a vector Map ID is configured; otherwise fall back to legacy Marker -->
-          <AdvancedMarker v-if="showMarker && markerPosition && useAdvanced" :options="{ position: markerPosition }" />
-          <Marker v-else-if="showMarker && markerPosition" :options="{ position: markerPosition }" />
-        </GoogleMap>
+        <template v-if="viewMode === 'map'">
+          <GoogleMap
+            :api-promise="googleApiPromise"
+            :zoom="zoom"
+            :center="effectiveCenter"
+            :street-view-control="true"
+            :map-type-control="true"
+            :map-type-id="defaultMapType"
+            :fullscreen-control="true"
+            :zoom-control="true"
+            :clickable-icons="false"
+            :disable-default-ui="false"
+            :map-id="mapId"
+            :style="{ height: '100%', width: '100%' }"
+          >
+            <!-- Use AdvancedMarker when a vector Map ID is configured; otherwise fall back to legacy Marker -->
+            <AdvancedMarker v-if="showMarker && markerPosition && useAdvanced" :options="{ position: markerPosition }" />
+            <Marker v-else-if="showMarker && markerPosition" :options="{ position: markerPosition }" />
+          </GoogleMap>
+        </template>
+        <template v-else>
+          <!-- Street-only view via Google Maps Embed API. Requires the same API key to have Embed API enabled. -->
+          <iframe
+            v-if="panoramaPosition && embedStreetUrl"
+            :src="embedStreetUrl"
+            style="border:0; height: 100%; width: 100%;"
+            allowfullscreen
+            loading="lazy"
+            referrerpolicy="no-referrer-when-downgrade"
+          ></iframe>
+          <div v-else class="text-muted small m-2">Street View not available for this location.</div>
+        </template>
         <div v-if="geocodeError" class="text-danger small m-2">{{ geocodeError }}</div>
       </div>
     </div>
@@ -63,6 +80,8 @@ const props = withDefaults(defineProps<{
   defaultMapType?: MapType
   /** When true, render without the outer card wrapper for embedding inside existing cards */
   bare?: boolean
+  /** When 'street', render Street View panorama instead of map */
+  viewMode?: 'map' | 'street'
 }>(), {
   row: null,
   productId: null,
@@ -75,6 +94,7 @@ const props = withDefaults(defineProps<{
   showMarker: true,
   defaultMapType: 'roadmap',
   bare: false,
+  viewMode: 'map',
 })
 
 // Read API key from Vite env (kept for potential future usage)
@@ -119,6 +139,22 @@ const containerStyle = computed(() => {
 // Provide a sane default center so the map can render immediately
 const defaultCenter = { lat: 39.5, lng: -98.35 } // Approximate center of the contiguous US
 const effectiveCenter = computed(() => mapCenter.value ?? defaultCenter)
+
+// Street View uses a LatLng position; prefer precise marker, fallback to effective center
+const panoramaPosition = computed(() => markerPosition.value ?? effectiveCenter.value)
+
+// Build Google Maps Embed API Street View URL when in 'street' mode
+const embedStreetUrl = computed<string | null>(() => {
+  if (props.viewMode !== 'street' || !apiKey || !panoramaPosition.value) return null
+  const { lat, lng } = panoramaPosition.value
+  // Customize POV/fov if desired; defaults are fine
+  const params = new URLSearchParams({
+    key: apiKey,
+    location: `${lat},${lng}`,
+    // fov: '80', heading: '0', pitch: '0' // optional
+  })
+  return `https://www.google.com/maps/embed/v1/streetview?${params.toString()}`
+})
 
 // Fetch the row by id when needed
 async function loadRowById(id: number) {

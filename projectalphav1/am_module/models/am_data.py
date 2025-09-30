@@ -29,6 +29,7 @@ from django.utils import timezone  # Timezone-aware utilities
 from django.conf import settings   # To reference AUTH_USER_MODEL
 from django.contrib.contenttypes.models import ContentType  # For generic foreign keys
 from django.contrib.contenttypes.fields import GenericForeignKey  # For generic relationships
+from django.core.exceptions import ValidationError  # For model-level validation
 import json                        # For serializing JSON diffs
 
 
@@ -843,7 +844,7 @@ class REOData(models.Model):
                         old_value=old_value,
                         new_value=new_value,
                         changed_by=actor,
-                        asset_hub=self.asset_hub
+                        asset_hub=self.asset_hub,
                     )
 
 class REOtask(models.Model):
@@ -1712,6 +1713,29 @@ class REOScope(models.Model):
         help_text='Optional CRM contact/vendor associated with this scope/bid.',
     )
 
+    # Scope classification and optional link to a specific REO task (Trashout/Renovation)
+    class ScopeKind(models.TextChoices):
+        """Permitted scope categories for REO Scopes."""
+        TRASHOUT = 'trashout', 'Trashout'
+        RENOVATION = 'renovation', 'Renovation'
+
+    scope_kind = models.CharField(
+        max_length=16,
+        choices=ScopeKind.choices,
+        null=True,
+        blank=True,
+        help_text='Scope classification (Trashout or Renovation). Optional but recommended.',
+    )
+
+    reo_task = models.ForeignKey(
+        'am_module.REOtask',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='scopes',
+        help_text='Optional link to the related REO task (Trashout/Renovation).',
+    )
+
     # Vendor/contact snapshot fields
     vendor_name = models.CharField(
         max_length=255,
@@ -1772,7 +1796,9 @@ class REOScope(models.Model):
             models.Index(fields=['asset_hub', 'created_at']),
             models.Index(fields=['asset_hub', 'scope_date']),
             models.Index(fields=['asset_hub', 'expected_completion']),
+            models.Index(fields=['asset_hub', 'scope_kind']),
             models.Index(fields=['crm']),
+            models.Index(fields=['reo_task']),
         ]
         ordering = ['-created_at', '-id']
 
@@ -1788,6 +1814,19 @@ class REOScope(models.Model):
         Accepts optional kwarg `actor` to attribute the change to a user.
         """
         actor = kwargs.pop('actor', None) or self._actor
+
+        # If a related REO task is provided and scope_kind is empty, infer from task_type.
+        # We only infer for the allowed kinds to keep data clean.
+        if getattr(self, 'reo_task_id', None) and not self.scope_kind:
+            try:
+                tt = getattr(self.reo_task, 'task_type', None)
+                if tt in ('trashout', 'renovation'):
+                    self.scope_kind = tt  # safe defaulting based on task type
+            except Exception:
+                pass  # Do not block save; validation below will catch inconsistencies
+
+        # Run model validation before persisting to enforce integrity rules.
+        self.full_clean()
 
         # Snapshot original values on update to compute diffs after save
         if self.pk:
