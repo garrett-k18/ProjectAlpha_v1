@@ -5,16 +5,7 @@
   <!-- WHERE: Used in loan-level tabs (frontend_vue/src/views/am_module/loanlvl/tabs/) -->
   <div class="container-fluid px-0">
     <div class="card border-0 shadow-sm">
-      <div class="card-header bg-body d-flex align-items-center justify-content-between">
-        <div class="d-flex align-items-center gap-2">
-          <i class="fas fa-chart-line text-muted"></i>
-          <span class="fw-semibold">Performance Dashboard</span>
-        </div>
-        <div class="d-flex align-items-center gap-2 small text-muted">
-          <span>Asset ID:</span>
-          <span class="fw-medium">{{ productId ?? row?.asset_hub_id ?? '—' }}</span>
-        </div>
-      </div>
+      
 
       <div class="card-body">
         <!-- WHAT: PLMetrics component - 3-column P&L grid -->
