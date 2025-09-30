@@ -239,12 +239,13 @@ class BlendedOutcomeModel(models.Model):
 
         #Property Expenses
     reconciled_rehab_cost = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The reconciled rehab cost.")
+    trashout_cost = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The trashout cost.")
     property_preservation_cost = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The property preservation cost.")
-    month_insurance = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total yearly insurance cost.")
-    month_property_tax = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total yearly property tax cost.")
-    month_hoa = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total yearly HOA costs.")
-    month_utility = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total yearly utility costs.")
-    month_other = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total yearly other costs.")
+    total_insurance = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total yearly insurance cost.")
+    total_property_tax = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total yearly property tax cost.")
+    total_hoa = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total yearly HOA costs.")
+    total_utility = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total yearly utility costs.")
+    total_other = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total yearly other costs.")
 
         #Fund Expenses
     acq_costs = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="per asset fees when purchasing such as legal, DD, Title, etc.")
@@ -265,6 +266,18 @@ class BlendedOutcomeModel(models.Model):
     servicing_bk = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total BK servicing costs.")
     servicing_liq_fee = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total servicing costs.")
 
+
+
+    #Income
+    principal_collect = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The principal collected.")
+    interest_collect = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The interest collected.")
+    mod_down_payment = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The modified down payment.")
+    rental_income = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The rental income.")
+    cam_income = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The CAM income.")
+    other_income = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The other income.")
+
+    #Expense
+    purchase_price = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The purchase price of the asset.")
 
     expected_exit_date = models.DateField(
         null=True,

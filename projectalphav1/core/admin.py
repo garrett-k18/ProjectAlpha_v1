@@ -9,6 +9,7 @@ from .models.assumptions import Servicer, StateReference
 from .models.asset_id_hub import AssetIdHub
 from .models.valuations import Valuation
 from .models.attachments import Photo, Document
+from .models.transactions import LLTransactionSummary
 
 # Cross-app children that reference AssetIdHub
 from acq_module.models.seller import SellerRawData
@@ -142,6 +143,122 @@ class StateReferenceAdmin(admin.ModelAdmin):
     )
     search_fields = ('state_code', 'state_name')
     list_filter = ('judicialvsnonjudicial',)
+
+
+@admin.register(LLTransactionSummary)
+class LLTransactionSummaryAdmin(admin.ModelAdmin):
+    """
+    WHAT: Admin for LLTransactionSummary - realized P&L tracking
+    WHY: Allow manual entry/editing of realized transaction data
+    HOW: Organized fieldsets matching Performance Summary structure
+    """
+    list_display = (
+        'asset_hub', 'last_updated', 'has_income', 'has_expenses', 'has_proceeds'
+    )
+    search_fields = ('asset_hub__id', 'asset_hub__servicer_id')
+    readonly_fields = ('last_updated', 'created_at')
+    list_per_page = 100
+    
+    fieldsets = (
+        ('Asset', {
+            'fields': ('asset_hub',)
+        }),
+        ('Purchase Cost', {
+            'fields': ('purchase_price_realized',),
+            'classes': ('collapse',)
+        }),
+        ('Acquisition Costs', {
+            'fields': (
+                'acq_due_diligence_realized', 'acq_legal_realized',
+                'acq_title_realized', 'acq_other_realized',
+            ),
+            'classes': ('collapse',)
+        }),
+        ('Income', {
+            'fields': (
+                'income_principal_realized', 'income_interest_realized',
+                'income_rent_realized', 'income_cam_realized',
+                'income_mod_down_payment_realized',
+            ),
+            'classes': ('collapse',)
+        }),
+        ('Operating Expenses', {
+            'fields': (
+                'expense_servicing_realized', 'expense_am_fees_realized',
+                'expense_property_tax_realized', 'expense_property_insurance_realized',
+            ),
+            'classes': ('collapse',)
+        }),
+        ('Legal/DIL Costs', {
+            'fields': (
+                'legal_foreclosure_realized', 'legal_bankruptcy_realized',
+                'legal_dil_realized', 'legal_cash_for_keys_realized',
+                'legal_eviction_realized',
+            ),
+            'classes': ('collapse',)
+        }),
+        ('REO Expenses', {
+            'fields': (
+                'reo_hoa_realized', 'reo_utilities_realized',
+                'reo_trashout_realized', 'reo_renovation_realized',
+                'reo_property_preservation_realized',
+            ),
+            'classes': ('collapse',)
+        }),
+        ('CRE Expenses', {
+            'fields': (
+                'cre_marketing_realized', 'cre_ga_pool_realized',
+                'cre_maintenance_realized',
+            ),
+            'classes': ('collapse',)
+        }),
+        ('Fund Expenses', {
+            'fields': (
+                'fund_taxes_realized', 'fund_legal_realized',
+                'fund_consulting_realized', 'fund_audit_realized',
+            ),
+            'classes': ('collapse',)
+        }),
+        ('Proceeds & Closing', {
+            'fields': (
+                'proceeds_realized', 'broker_closing_realized',
+                'other_closing_realized', 'net_liquidation_proceeds_realized',
+            ),
+            'classes': ('collapse',)
+        }),
+        ('Metadata', {
+            'fields': ('last_updated', 'created_at'),
+        }),
+    )
+    
+    def has_income(self, obj):
+        """Check if any income fields have data"""
+        return any([
+            obj.income_principal_realized,
+            obj.income_interest_realized,
+            obj.income_rent_realized,
+            obj.income_cam_realized,
+            obj.income_mod_down_payment_realized,
+        ])
+    has_income.boolean = True
+    has_income.short_description = 'Income?'
+    
+    def has_expenses(self, obj):
+        """Check if any expense fields have data"""
+        return any([
+            obj.expense_servicing_realized,
+            obj.expense_am_fees_realized,
+            obj.legal_foreclosure_realized,
+            obj.reo_hoa_realized,
+        ])
+    has_expenses.boolean = True
+    has_expenses.short_description = 'Expenses?'
+    
+    def has_proceeds(self, obj):
+        """Check if proceeds data exists"""
+        return obj.proceeds_realized is not None
+    has_proceeds.boolean = True
+    has_proceeds.short_description = 'Proceeds?'
 
 
 # Module-level admin action so it reliably appears in the actions dropdown

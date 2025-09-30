@@ -92,8 +92,24 @@ class AssetMetricsAdmin(admin.ModelAdmin):
 
 @admin.register(BlendedOutcomeModel)
 class BlendedOutcomeModelAdmin(admin.ModelAdmin):
+    """
+    WHAT: Admin interface for BlendedOutcomeModel (P&L metrics)
+    WHY: View and verify dummy data generation for Performance Summary
+    HOW: Display key financial metrics and legal fees
+    WHERE: Django admin at /admin/am_module/blendedoutcomemodel/
+    """
     list_display = (
         "asset_hub",
+        "expected_gross_proceeds",
+        "expected_net_proceeds",
+        "expected_pl",
+        "expected_irr",
+        "total_legal_fees",
+        "created_at",
+    )
+    list_filter = (
+        "created_at",
+        "updated_at",
     )
     search_fields = (
         # Traverse hub -> boarded record for human fields
@@ -102,6 +118,90 @@ class BlendedOutcomeModelAdmin(admin.ModelAdmin):
         "asset_hub__am_boarded__city",
         "asset_hub__am_boarded__state",
     )
+    readonly_fields = ("created_at", "updated_at")
+    ordering = ("-created_at",)
+    
+    fieldsets = (
+        ("Asset", {
+            "fields": ("asset_hub",)
+        }),
+        ("Legal Fees", {
+            "fields": (
+                "fc_expenses", "fc_legal_fees", "other_fc_fees",
+                "dil_fees", "cfk_fees", "bk_legal_fees", "eviction_fees",
+            )
+        }),
+        ("Property Expenses", {
+            "fields": (
+                "reconciled_rehab_cost", "property_preservation_cost",
+                "total_insurance", "total_property_tax", "total_hoa",
+                "total_utility", "total_other",
+            )
+        }),
+        ("Income", {
+            "fields": (
+                "principal_collect", "interest_collect", "mod_down_payment",
+                "rental_income", "cam_income", "other_income",
+            )
+        }),
+        ("Purchase Price", {
+            "fields": ("purchase_price",)
+        }),
+        ("Fund Expenses", {
+            "fields": ("acq_costs", "am_fees")
+        }),
+        ("Servicing Costs", {
+            "fields": (
+                "servicing_board_fee", "servicing_current", "servicing_30d",
+                "servicing_60d", "servicing_90d", "servicing_120d",
+                "servicing_fc", "servicing_bk", "servicing_liq_fee",
+            ),
+            "classes": ("collapse",)
+        }),
+        ("Exit/Proceeds", {
+            "fields": (
+                "expected_exit_date", "expected_gross_proceeds", "expected_net_proceeds",
+            )
+        }),
+        ("Performance Metrics", {
+            "fields": (
+                "expected_pl", "expected_cf", "expected_irr", "expected_moic",
+                "expected_npv", "expected_pv",
+            )
+        }),
+        ("Durations (months)", {
+            "fields": (
+                "servicing_transfer_duration", "performing_duration", "pre_mod_duration",
+                "mod_duration", "pre_fc_duration", "fc_progress_duration",
+                "fc_left_duration", "dil_duration", "bk_duration", "eviction_duration",
+                "renovation_duration", "reo_marketing_duration",
+            ),
+            "classes": ("collapse",)
+        }),
+        ("Outcome Weights", {
+            "fields": (
+                "outcome_perf", "outcome_mod", "outcome_fcsale",
+                "outcome_dil_asis", "outcome_dil_arv", "outcome_reo_asis", "outcome_reo_arv",
+            ),
+            "classes": ("collapse",)
+        }),
+        ("Bid Percentages", {
+            "fields": ("bid_pct_upb", "bid_pct_td", "bid_pct_sellerasis", "bid_pct_pv"),
+            "classes": ("collapse",)
+        }),
+        ("Audit", {
+            "fields": ("created_at", "updated_at")
+        }),
+    )
+    
+    def total_legal_fees(self, obj):
+        """Calculate total of all legal fees."""
+        total = (obj.fc_expenses or 0) + (obj.fc_legal_fees or 0) + (obj.other_fc_fees or 0) + \
+                (obj.dil_fees or 0) + (obj.cfk_fees or 0) + (obj.bk_legal_fees or 0) + \
+                (obj.eviction_fees or 0)
+        return f"${total:,.2f}" if total else "—"
+    
+    total_legal_fees.short_description = "Total Legal Fees"
 
 
 @admin.register(ServicerLoanData)

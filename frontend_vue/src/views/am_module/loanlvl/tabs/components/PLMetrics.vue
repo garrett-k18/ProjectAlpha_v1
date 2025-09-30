@@ -84,7 +84,7 @@
 
           <!-- Acquisition Cost Sub-items (nested) -->
           <tr v-show="!grossCostCollapsed && !acqCostsCollapsed">
-            <td class="small text-muted" style="padding-left: 4rem; font-size: 0.7rem;">Due Diligence</td>
+            <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">Due Diligence</td>
             <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.acqDueDiligence.underwritten) }}</td>
             <td class="text-end realized-col small">{{ fmtCurrency(metrics.acqDueDiligence.realized) }}</td>
             <td class="text-end sandbox-col">
@@ -99,7 +99,7 @@
             </td>
           </tr>
           <tr v-show="!grossCostCollapsed && !acqCostsCollapsed">
-            <td class="small text-muted" style="padding-left: 4rem; font-size: 0.7rem;">Legal</td>
+            <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">Legal</td>
             <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.acqLegal.underwritten) }}</td>
             <td class="text-end realized-col small">{{ fmtCurrency(metrics.acqLegal.realized) }}</td>
             <td class="text-end sandbox-col">
@@ -114,7 +114,7 @@
             </td>
           </tr>
           <tr v-show="!grossCostCollapsed && !acqCostsCollapsed">
-            <td class="small text-muted" style="padding-left: 4rem; font-size: 0.7rem;">Title</td>
+            <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">Title</td>
             <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.acqTitle.underwritten) }}</td>
             <td class="text-end realized-col small">{{ fmtCurrency(metrics.acqTitle.realized) }}</td>
             <td class="text-end sandbox-col">
@@ -129,7 +129,7 @@
             </td>
           </tr>
           <tr v-show="!grossCostCollapsed && !acqCostsCollapsed">
-            <td class="small text-muted" style="padding-left: 4rem; font-size: 0.7rem;">Other</td>
+            <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">Other</td>
             <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.acqOther.underwritten) }}</td>
             <td class="text-end realized-col small">{{ fmtCurrency(metrics.acqOther.realized) }}</td>
             <td class="text-end sandbox-col">
@@ -156,8 +156,8 @@
               <i :class="incomeCollapsed ? 'mdi mdi-chevron-right' : 'mdi mdi-chevron-down'" class="me-1"></i>
               Income
             </td>
-            <td class="text-end underwritten-col">{{ fmtCurrency(metrics.income.underwritten) }}</td>
-            <td class="text-end realized-col">{{ fmtCurrency(metrics.income.realized) }}</td>
+            <td class="text-end underwritten-col">{{ fmtCurrency(incomeTotal.underwritten) }}</td>
+            <td class="text-end realized-col">{{ fmtCurrency(incomeTotal.realized) }}</td>
             <td class="text-end sandbox-col">{{ fmtCurrency(incomeSandboxTotal) }}</td>
           </tr>
 
@@ -207,6 +207,36 @@
               />
             </td>
           </tr>
+          <tr v-show="!incomeCollapsed">
+            <td class="ps-5 small text-muted">CAM Income</td>
+            <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.incomeCAM.underwritten) }}</td>
+            <td class="text-end realized-col small">{{ fmtCurrency(metrics.incomeCAM.realized) }}</td>
+            <td class="text-end sandbox-col">
+              <input
+                v-currency
+                class="form-control form-control-sm text-end"
+                inputmode="numeric"
+                pattern="[0-9,]*"
+                aria-label="Sandbox CAM Income"
+                v-model="sandboxDigits.incomeCAM"
+              />
+            </td>
+          </tr>
+          <tr v-show="!incomeCollapsed">
+            <td class="ps-5 small text-muted">Mod Down Payment</td>
+            <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.incomeModDownPayment.underwritten) }}</td>
+            <td class="text-end realized-col small">{{ fmtCurrency(metrics.incomeModDownPayment.realized) }}</td>
+            <td class="text-end sandbox-col">
+              <input
+                v-currency
+                class="form-control form-control-sm text-end"
+                inputmode="numeric"
+                pattern="[0-9,]*"
+                aria-label="Sandbox Mod Down Payment"
+                v-model="sandboxDigits.incomeModDownPayment"
+              />
+            </td>
+          </tr>
 
           <!-- Operating Expense (Total) - Collapsible -->
           <tr 
@@ -220,8 +250,8 @@
               <i :class="expensesCollapsed ? 'mdi mdi-chevron-right' : 'mdi mdi-chevron-down'" class="me-1"></i>
               Operating Expense
             </td>
-            <td class="text-end underwritten-col">{{ fmtCurrency(metrics.expenses.underwritten) }}</td>
-            <td class="text-end realized-col">{{ fmtCurrency(metrics.expenses.realized) }}</td>
+            <td class="text-end underwritten-col">{{ fmtCurrency(operatingExpensesTotal.underwritten) }}</td>
+            <td class="text-end realized-col">{{ fmtCurrency(operatingExpensesTotal.realized) }}</td>
             <td class="text-end sandbox-col">{{ fmtCurrency(expensesSandboxTotal) }}</td>
           </tr>
 
@@ -241,18 +271,97 @@
               />
             </td>
           </tr>
-          <tr v-show="!expensesCollapsed">
-            <td class="ps-5 small text-muted">Legal/DIL Cost</td>
-            <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.expenseLegal.underwritten) }}</td>
-            <td class="text-end realized-col small">{{ fmtCurrency(metrics.expenseLegal.realized) }}</td>
+          <!-- Legal/DIL Cost (collapsible sub-item) -->
+          <tr 
+            v-show="!expensesCollapsed"
+            @click="legalCostsCollapsed = !legalCostsCollapsed" 
+            style="cursor: pointer;"
+            role="button"
+            :aria-expanded="!legalCostsCollapsed"
+            title="Click to expand/collapse legal cost details"
+          >
+            <td class="ps-5 small fw-semibold text-muted">
+              <i :class="legalCostsCollapsed ? 'mdi mdi-chevron-right' : 'mdi mdi-chevron-down'" class="me-1"></i>
+              Legal/DIL Cost
+            </td>
+            <td class="text-end underwritten-col small">{{ fmtCurrency(legalTotals.underwritten) }}</td>
+            <td class="text-end realized-col small">{{ fmtCurrency(legalTotals.realized) }}</td>
+            <td class="text-end sandbox-col small">{{ fmtCurrency(legalCostsSandboxTotal) }}</td>
+          </tr>
+
+          <!-- Legal/DIL Cost Sub-items (nested) -->
+          <tr v-show="!expensesCollapsed && !legalCostsCollapsed">
+            <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">Foreclosure Fees</td>
+            <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.legalForeclosure.underwritten) }}</td>
+            <td class="text-end realized-col small">{{ fmtCurrency(metrics.legalForeclosure.realized) }}</td>
             <td class="text-end sandbox-col">
               <input
                 v-currency
                 class="form-control form-control-sm text-end"
                 inputmode="numeric"
                 pattern="[0-9,]*"
-                aria-label="Sandbox Legal/DIL Cost"
-                v-model="sandboxDigits.expenseLegal"
+                aria-label="Sandbox Foreclosure Fees"
+                v-model="sandboxDigits.legalForeclosure"
+              />
+            </td>
+          </tr>
+          <tr v-show="!expensesCollapsed && !legalCostsCollapsed">
+            <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">Bankruptcy Fees</td>
+            <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.legalBankruptcy.underwritten) }}</td>
+            <td class="text-end realized-col small">{{ fmtCurrency(metrics.legalBankruptcy.realized) }}</td>
+            <td class="text-end sandbox-col">
+              <input
+                v-currency
+                class="form-control form-control-sm text-end"
+                inputmode="numeric"
+                pattern="[0-9,]*"
+                aria-label="Sandbox Bankruptcy Fees"
+                v-model="sandboxDigits.legalBankruptcy"
+              />
+            </td>
+          </tr>
+          <tr v-show="!expensesCollapsed && !legalCostsCollapsed">
+            <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">Deed-in-Lieu Cost</td>
+            <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.legalDIL.underwritten) }}</td>
+            <td class="text-end realized-col small">{{ fmtCurrency(metrics.legalDIL.realized) }}</td>
+            <td class="text-end sandbox-col">
+              <input
+                v-currency
+                class="form-control form-control-sm text-end"
+                inputmode="numeric"
+                pattern="[0-9,]*"
+                aria-label="Sandbox Deed-in-Lieu Cost"
+                v-model="sandboxDigits.legalDIL"
+              />
+            </td>
+          </tr>
+          <tr v-show="!expensesCollapsed && !legalCostsCollapsed">
+            <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">Cash for Keys Cost</td>
+            <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.legalCashForKeys.underwritten) }}</td>
+            <td class="text-end realized-col small">{{ fmtCurrency(metrics.legalCashForKeys.realized) }}</td>
+            <td class="text-end sandbox-col">
+              <input
+                v-currency
+                class="form-control form-control-sm text-end"
+                inputmode="numeric"
+                pattern="[0-9,]*"
+                aria-label="Sandbox Cash for Keys Cost"
+                v-model="sandboxDigits.legalCashForKeys"
+              />
+            </td>
+          </tr>
+          <tr v-show="!expensesCollapsed && !legalCostsCollapsed">
+            <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">Eviction Cost</td>
+            <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.legalEviction.underwritten) }}</td>
+            <td class="text-end realized-col small">{{ fmtCurrency(metrics.legalEviction.realized) }}</td>
+            <td class="text-end sandbox-col">
+              <input
+                v-currency
+                class="form-control form-control-sm text-end"
+                inputmode="numeric"
+                pattern="[0-9,]*"
+                aria-label="Sandbox Eviction Cost"
+                v-model="sandboxDigits.legalEviction"
               />
             </td>
           </tr>
@@ -314,8 +423,8 @@
               <i :class="reoExpensesCollapsed ? 'mdi mdi-chevron-right' : 'mdi mdi-chevron-down'" class="me-1"></i>
               REO Expenses
             </td>
-            <td class="text-end underwritten-col">{{ fmtCurrency(metrics.reoExpenses.underwritten) }}</td>
-            <td class="text-end realized-col">{{ fmtCurrency(metrics.reoExpenses.realized) }}</td>
+            <td class="text-end underwritten-col">{{ fmtCurrency(reoExpensesTotal.underwritten) }}</td>
+            <td class="text-end realized-col">{{ fmtCurrency(reoExpensesTotal.realized) }}</td>
             <td class="text-end sandbox-col">{{ fmtCurrency(reoExpensesSandboxTotal) }}</td>
           </tr>
 
@@ -409,8 +518,8 @@
               <i :class="creExpensesCollapsed ? 'mdi mdi-chevron-right' : 'mdi mdi-chevron-down'" class="me-1"></i>
               CRE Expenses
             </td>
-            <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.creExpenses.underwritten) }}</td>
-            <td class="text-end realized-col small">{{ fmtCurrency(metrics.creExpenses.realized) }}</td>
+            <td class="text-end underwritten-col small">{{ fmtCurrency(creExpensesTotal.underwritten) }}</td>
+            <td class="text-end realized-col small">{{ fmtCurrency(creExpensesTotal.realized) }}</td>
             <td class="text-end sandbox-col small">{{ fmtCurrency(creExpensesSandboxTotal) }}</td>
           </tr>
 
@@ -473,8 +582,8 @@
               <i :class="fundExpensesCollapsed ? 'mdi mdi-chevron-right' : 'mdi mdi-chevron-down'" class="me-1"></i>
               Fund Expenses
             </td>
-            <td class="text-end underwritten-col">{{ fmtCurrency(metrics.fundExpenses.underwritten) }}</td>
-            <td class="text-end realized-col">{{ fmtCurrency(metrics.fundExpenses.realized) }}</td>
+            <td class="text-end underwritten-col">{{ fmtCurrency(fundExpensesTotal.underwritten) }}</td>
+            <td class="text-end realized-col">{{ fmtCurrency(fundExpensesTotal.realized) }}</td>
             <td class="text-end sandbox-col">{{ fmtCurrency(fundExpensesSandboxTotal) }}</td>
           </tr>
 
@@ -576,7 +685,7 @@
 
           <!-- Closing Costs Sub-items (nested) -->
           <tr v-show="!closingCostsCollapsed">
-            <td class="small text-muted" style="padding-left: 4rem; font-size: 0.7rem;">Broker Closing Costs</td>
+            <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">Broker Closing Costs</td>
             <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.reoBrokerClosing.underwritten) }}</td>
             <td class="text-end realized-col small">{{ fmtCurrency(metrics.reoBrokerClosing.realized) }}</td>
             <td class="text-end sandbox-col">
@@ -591,7 +700,7 @@
             </td>
           </tr>
           <tr v-show="!closingCostsCollapsed">
-            <td class="small text-muted" style="padding-left: 4rem; font-size: 0.7rem;">Other Closing Costs</td>
+            <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">Other Closing Costs</td>
             <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.reoOtherClosing.underwritten) }}</td>
             <td class="text-end realized-col small">{{ fmtCurrency(metrics.reoOtherClosing.realized) }}</td>
             <td class="text-end sandbox-col">
@@ -688,20 +797,29 @@
 <script setup lang="ts">
 // WHAT: Reusable P&L metrics component with Underwritten vs Realized comparison
 // WHY: Modular component for easy reuse across different views
-// HOW: Reactive data structure with computed totals, variance, and ROI calculations
-// NOTE: Placeholder data - wire to backend API later (AcqModel for underwritten, TBD for realized)
-import { withDefaults, defineProps, reactive, computed, ref } from 'vue'
+// HOW: Fetches data from backend API (/api/am/performance-summary/<asset_hub_id>/)
+// WHERE: Used in PerformanceTab.vue (frontend_vue/src/views/am_module/loanlvl/tabs/PerformanceTab.vue)
+import { withDefaults, defineProps, reactive, computed, ref, onMounted, watch } from 'vue'
+import http from '@/lib/http'
 
 // WHAT: Props interface for component
 // WHY: Accept row data from parent to load metrics
-// HOW: Optional row and productId props
-withDefaults(defineProps<{ 
+// HOW: Optional row and productId props (productId = asset_hub_id)
+const props = withDefaults(defineProps<{ 
   row?: Record<string, any> | null
   productId?: string | number | null 
 }>(), {
   row: null,
   productId: null,
 })
+
+// WHAT: Loading state for API call
+// WHY: Show loading indicator while fetching data
+const loading = ref(false)
+
+// WHAT: Error state for API call
+// WHY: Display error message if fetch fails
+const error = ref<string | null>(null)
 
 // WHAT: Main metrics object with underwritten vs realized values
 // WHY: Separate columns for comparison; each metric has two values
@@ -739,7 +857,24 @@ const metrics = reactive({
     underwritten: 0,
     realized: 0,
   },
-  expenseLegal: {
+  // Legal/DIL Cost sub-items
+  legalForeclosure: {
+    underwritten: 0,
+    realized: 0,
+  },
+  legalBankruptcy: {
+    underwritten: 0,
+    realized: 0,
+  },
+  legalDIL: {
+    underwritten: 0,
+    realized: 0,
+  },
+  legalCashForKeys: {
+    underwritten: 0,
+    realized: 0,
+  },
+  legalEviction: {
     underwritten: 0,
     realized: 0,
   },
@@ -847,6 +982,14 @@ const metrics = reactive({
     underwritten: 0,
     realized: 0,
   },
+  incomeCAM: {
+    underwritten: 0,
+    realized: 0,
+  },
+  incomeModDownPayment: {
+    underwritten: 0,
+    realized: 0,
+  },
   // Proceeds (sale proceeds)
   proceeds: {
     underwritten: 0,
@@ -888,6 +1031,10 @@ const creExpensesCollapsed = ref(false)
 // WHY: Allow users to toggle visibility of closing costs breakdown (under Gross Liquidation Proceeds)
 const closingCostsCollapsed = ref(false)
 
+// WHAT: Collapse state for Legal/DIL Costs
+// WHY: Allow users to toggle visibility of legal cost breakdown (nested under Operating Expenses)
+const legalCostsCollapsed = ref(false)
+
 // WHAT: Track if all sections are expanded
 // WHY: Control expand/collapse all button state
 const allExpanded = computed(() => {
@@ -895,6 +1042,7 @@ const allExpanded = computed(() => {
          !acqCostsCollapsed.value && 
          !incomeCollapsed.value && 
          !expensesCollapsed.value && 
+         !legalCostsCollapsed.value && 
          !reoExpensesCollapsed.value && 
          !creExpensesCollapsed.value && 
          !fundExpensesCollapsed.value && 
@@ -910,6 +1058,7 @@ function toggleAllSections() {
   acqCostsCollapsed.value = !shouldExpand
   incomeCollapsed.value = !shouldExpand
   expensesCollapsed.value = !shouldExpand
+  legalCostsCollapsed.value = !shouldExpand
   reoExpensesCollapsed.value = !shouldExpand
   creExpensesCollapsed.value = !shouldExpand
   fundExpensesCollapsed.value = !shouldExpand
@@ -930,9 +1079,16 @@ const sandboxDigits = reactive({
   incomePrincipal: '0',
   incomeInterest: '0',
   incomeRent: '0',
+  incomeCAM: '0',
+  incomeModDownPayment: '0',
   // Expense sub-items (digits-only strings)
   expenseServicing: '0',
-  expenseLegal: '0',
+  // Legal/DIL Cost sub-items (digits-only strings)
+  legalForeclosure: '0',
+  legalBankruptcy: '0',
+  legalDIL: '0',
+  legalCashForKeys: '0',
+  legalEviction: '0',
   expenseAMFees: '0',
   expensePropertyTax: '0',
   expensePropertyInsurance: '0',
@@ -956,39 +1112,49 @@ const sandboxDigits = reactive({
   proceeds: '0',
 })
 
-// Initialize sandbox from underwritten when component loads
-// This keeps a sensible starting point for sandbox experiments
-function initSandboxFromUnderwritten() {
-  sandboxDigits.purchaseCost = String(metrics.purchaseCost.underwritten || 0)
-  sandboxDigits.acqDueDiligence = String(metrics.acqDueDiligence.underwritten || 0)
-  sandboxDigits.acqLegal = String(metrics.acqLegal.underwritten || 0)
-  sandboxDigits.acqTitle = String(metrics.acqTitle.underwritten || 0)
-  sandboxDigits.acqOther = String(metrics.acqOther.underwritten || 0)
-  sandboxDigits.incomePrincipal = String(metrics.incomePrincipal.underwritten || 0)
-  sandboxDigits.incomeInterest = String(metrics.incomeInterest.underwritten || 0)
-  sandboxDigits.incomeRent = String(metrics.incomeRent.underwritten || 0)
-  sandboxDigits.expenseServicing = String(metrics.expenseServicing.underwritten || 0)
-  sandboxDigits.expenseLegal = String(metrics.expenseLegal.underwritten || 0)
-  sandboxDigits.expenseAMFees = String(metrics.expenseAMFees.underwritten || 0)
-  sandboxDigits.expensePropertyTax = String(metrics.expensePropertyTax.underwritten || 0)
-  sandboxDigits.expensePropertyInsurance = String(metrics.expensePropertyInsurance.underwritten || 0)
-  sandboxDigits.reoHOA = String(metrics.reoHOA.underwritten || 0)
-  sandboxDigits.reoUtilities = String(metrics.reoUtilities.underwritten || 0)
-  sandboxDigits.reoTrashout = String(metrics.reoTrashout.underwritten || 0)
-  sandboxDigits.reoRenovation = String(metrics.reoRenovation.underwritten || 0)
-  sandboxDigits.reoBrokerClosing = String(metrics.reoBrokerClosing.underwritten || 0)
-  sandboxDigits.reoOtherClosing = String(metrics.reoOtherClosing.underwritten || 0)
-  sandboxDigits.reoPropertyPreservation = String(metrics.reoPropertyPreservation.underwritten || 0)
-  sandboxDigits.creMarketing = String(metrics.creMarketing.underwritten || 0)
-  sandboxDigits.creGAPool = String(metrics.creGAPool.underwritten || 0)
-  sandboxDigits.creMaintenance = String(metrics.creMaintenance.underwritten || 0)
-  sandboxDigits.fundTaxes = String(metrics.fundTaxes.underwritten || 0)
-  sandboxDigits.fundLegal = String(metrics.fundLegal.underwritten || 0)
-  sandboxDigits.fundConsulting = String(metrics.fundConsulting.underwritten || 0)
-  sandboxDigits.fundAudit = String(metrics.fundAudit.underwritten || 0)
-  sandboxDigits.proceeds = String(metrics.proceeds.underwritten || 0)
+// WHAT: Initialize sandbox with best available data
+// WHY: Prioritize realized (actual) over underwritten (projected) for more accurate scenarios
+// HOW: Use realized if available, fallback to underwritten, then 0
+function initSandboxFromBestAvailable() {
+  // Helper: Pick realized first, then underwritten, then 0
+  const pickBest = (metric: any) => String(metric.realized || metric.underwritten || 0)
+  
+  sandboxDigits.purchaseCost = pickBest(metrics.purchaseCost)
+  sandboxDigits.acqDueDiligence = pickBest(metrics.acqDueDiligence)
+  sandboxDigits.acqLegal = pickBest(metrics.acqLegal)
+  sandboxDigits.acqTitle = pickBest(metrics.acqTitle)
+  sandboxDigits.acqOther = pickBest(metrics.acqOther)
+  sandboxDigits.incomePrincipal = pickBest(metrics.incomePrincipal)
+  sandboxDigits.incomeInterest = pickBest(metrics.incomeInterest)
+  sandboxDigits.incomeRent = pickBest(metrics.incomeRent)
+  sandboxDigits.incomeCAM = pickBest(metrics.incomeCAM)
+  sandboxDigits.incomeModDownPayment = pickBest(metrics.incomeModDownPayment)
+  sandboxDigits.expenseServicing = pickBest(metrics.expenseServicing)
+  sandboxDigits.legalForeclosure = pickBest(metrics.legalForeclosure)
+  sandboxDigits.legalBankruptcy = pickBest(metrics.legalBankruptcy)
+  sandboxDigits.legalDIL = pickBest(metrics.legalDIL)
+  sandboxDigits.legalCashForKeys = pickBest(metrics.legalCashForKeys)
+  sandboxDigits.legalEviction = pickBest(metrics.legalEviction)
+  sandboxDigits.expenseAMFees = pickBest(metrics.expenseAMFees)
+  sandboxDigits.expensePropertyTax = pickBest(metrics.expensePropertyTax)
+  sandboxDigits.expensePropertyInsurance = pickBest(metrics.expensePropertyInsurance)
+  sandboxDigits.reoHOA = pickBest(metrics.reoHOA)
+  sandboxDigits.reoUtilities = pickBest(metrics.reoUtilities)
+  sandboxDigits.reoTrashout = pickBest(metrics.reoTrashout)
+  sandboxDigits.reoRenovation = pickBest(metrics.reoRenovation)
+  sandboxDigits.reoBrokerClosing = pickBest(metrics.reoBrokerClosing)
+  sandboxDigits.reoOtherClosing = pickBest(metrics.reoOtherClosing)
+  sandboxDigits.reoPropertyPreservation = pickBest(metrics.reoPropertyPreservation)
+  sandboxDigits.creMarketing = pickBest(metrics.creMarketing)
+  sandboxDigits.creGAPool = pickBest(metrics.creGAPool)
+  sandboxDigits.creMaintenance = pickBest(metrics.creMaintenance)
+  sandboxDigits.fundTaxes = pickBest(metrics.fundTaxes)
+  sandboxDigits.fundLegal = pickBest(metrics.fundLegal)
+  sandboxDigits.fundConsulting = pickBest(metrics.fundConsulting)
+  sandboxDigits.fundAudit = pickBest(metrics.fundAudit)
+  sandboxDigits.proceeds = pickBest(metrics.proceeds)
 }
-initSandboxFromUnderwritten()
+initSandboxFromBestAvailable()
 
 // WHAT: Convert digits-only strings to numbers safely
 // WHY: Inputs store digits per v-currency; computations need numbers
@@ -999,14 +1165,12 @@ const toNumber = (s: string | number | null | undefined): number => {
   return Number(digits || 0)
 }
 
-// WHAT: Acquisition Cost total (sum of sub-items)
-// WHY: Acq costs broken into Due Diligence, Legal, Title, Other
-const acqCostsTotal = computed(() => ({
-  underwritten: metrics.acqDueDiligence.underwritten + metrics.acqLegal.underwritten + 
-                metrics.acqTitle.underwritten + metrics.acqOther.underwritten,
-  realized: metrics.acqDueDiligence.realized + metrics.acqLegal.realized + 
-            metrics.acqTitle.realized + metrics.acqOther.realized,
-}))
+// WHAT: Acquisition Cost total from backend (BACKEND-COMPUTED)
+// WHY: Single source of truth - backend sums all acq cost sub-items
+const acqCostsTotal = reactive({
+  underwritten: 0,
+  realized: 0,
+})
 
 // WHAT: Sandbox acquisition cost total (sum of sub-items)
 const acqCostsSandboxTotal = computed(() => {
@@ -1016,12 +1180,12 @@ const acqCostsSandboxTotal = computed(() => {
          toNumber(sandboxDigits.acqOther)
 })
 
-// WHAT: Computed Gross Cost = Purchase Cost + Acquisition Cost Total
-// WHY: Common metric for total acquisition basis
-const grossCost = computed(() => ({
-  underwritten: metrics.purchaseCost.underwritten + acqCostsTotal.value.underwritten,
-  realized: metrics.purchaseCost.realized + acqCostsTotal.value.realized,
-}))
+// WHAT: Gross Cost from backend (BACKEND-COMPUTED)
+// WHY: Single source of truth - backend computes Purchase Cost + Acquisition Costs
+const grossCost = reactive({
+  underwritten: 0,
+  realized: 0,
+})
 
 // WHAT: Sandbox gross cost computed from editable inputs
 const grossCostSandbox = computed(() => {
@@ -1033,17 +1197,65 @@ const grossCostSandbox = computed(() => {
 const incomeSandboxTotal = computed(() => {
   return toNumber(sandboxDigits.incomePrincipal) + 
          toNumber(sandboxDigits.incomeInterest) + 
-         toNumber(sandboxDigits.incomeRent)
+         toNumber(sandboxDigits.incomeRent) + 
+         toNumber(sandboxDigits.incomeCAM) + 
+         toNumber(sandboxDigits.incomeModDownPayment)
+})
+
+// WHAT: Legal/DIL Cost total (BACKEND-COMPUTED)
+// WHY: Single source of truth from backend rollup
+const legalTotals = reactive({
+  underwritten: 0,
+  realized: 0,
+})
+
+// WHAT: Sandbox Legal/DIL cost total (sum of sub-items)
+const legalCostsSandboxTotal = computed(() => {
+  return toNumber(sandboxDigits.legalForeclosure) + 
+         toNumber(sandboxDigits.legalBankruptcy) + 
+         toNumber(sandboxDigits.legalDIL) + 
+         toNumber(sandboxDigits.legalCashForKeys) + 
+         toNumber(sandboxDigits.legalEviction)
+})
+
+// WHAT: Rollup totals from API (backend computed)
+// WHY: Single source of truth - backend calculates all parent row totals
+// HOW: Populated from API response fields: *_total_underwritten, *_total_realized
+const incomeTotal = reactive({
+  underwritten: 0,
+  realized: 0,
+})
+
+const reoExpensesTotal = reactive({
+  underwritten: 0,
+  realized: 0,
+})
+
+const creExpensesTotal = reactive({
+  underwritten: 0,
+  realized: 0,
+})
+
+const fundExpensesTotal = reactive({
+  underwritten: 0,
+  realized: 0,
+})
+
+const operatingExpensesTotal = reactive({
+  underwritten: 0,
+  realized: 0,
 })
 
 // WHAT: Sandbox expense total (sum of sub-items)
-// WHY: Expenses broken into Servicing, Legal/DIL, AM Fees, Property Tax, Property Insurance
+// WHY: Expenses broken into Servicing, Legal/DIL (total), AM Fees, Property Tax, Property Insurance
 const expensesSandboxTotal = computed(() => {
   return toNumber(sandboxDigits.expenseServicing) + 
-         toNumber(sandboxDigits.expenseLegal) + 
+         legalCostsSandboxTotal.value + 
          toNumber(sandboxDigits.expenseAMFees) + 
          toNumber(sandboxDigits.expensePropertyTax) + 
-         toNumber(sandboxDigits.expensePropertyInsurance)
+         toNumber(sandboxDigits.expensePropertyInsurance) + 
+         reoExpensesSandboxTotal.value + 
+         fundExpensesSandboxTotal.value
 })
 
 // WHAT: Sandbox CRE expense total (sum of sub-items)
@@ -1066,24 +1278,24 @@ const reoExpensesSandboxTotal = computed(() => {
          creExpensesSandboxTotal.value
 })
 
-// WHAT: Closing Costs total (sum of Broker + Other)
-// WHY: Group closing costs under Gross Liquidation Proceeds
-const closingCostsTotal = computed(() => ({
-  underwritten: metrics.reoBrokerClosing.underwritten + metrics.reoOtherClosing.underwritten,
-  realized: metrics.reoBrokerClosing.realized + metrics.reoOtherClosing.realized,
-}))
+// WHAT: Closing Costs total from backend (BACKEND-COMPUTED)
+// WHY: Single source of truth - backend sums Broker + Other closing costs
+const closingCostsTotal = reactive({
+  underwritten: 0,
+  realized: 0,
+})
 
 // WHAT: Sandbox Closing Costs total
 const closingCostsSandboxTotal = computed(() => {
   return toNumber(sandboxDigits.reoBrokerClosing) + toNumber(sandboxDigits.reoOtherClosing)
 })
 
-// WHAT: Net Liquidation Proceeds = Gross Proceeds - Closing Costs Total
-// WHY: Calculate net proceeds after deducting closing costs
-const netLiquidationProceeds = computed(() => ({
-  underwritten: metrics.proceeds.underwritten - closingCostsTotal.value.underwritten,
-  realized: metrics.proceeds.realized - closingCostsTotal.value.realized,
-}))
+// WHAT: Net Liquidation Proceeds from backend (BACKEND-COMPUTED)
+// WHY: Single source of truth - backend stores expected_net_proceeds
+const netLiquidationProceeds = reactive({
+  underwritten: 0,
+  realized: 0,
+})
 
 // WHAT: Sandbox Net Liquidation Proceeds
 const netLiquidationProceedsSandbox = computed(() => {
@@ -1099,15 +1311,13 @@ const fundExpensesSandboxTotal = computed(() => {
          toNumber(sandboxDigits.fundAudit)
 })
 
-// WHAT: Computed Net P&L = (Income + Proceeds) - (Gross Cost + Expenses)
-// WHY: Final bottom-line profit/loss metric
-// HOW: Calculate for both underwritten and realized scenarios
-const netPL = computed(() => ({
-  underwritten: (metrics.income.underwritten + metrics.proceeds.underwritten)
-                - (grossCost.value.underwritten + metrics.expenses.underwritten),
-  realized: (metrics.income.realized + metrics.proceeds.realized)
-            - (grossCost.value.realized + metrics.expenses.realized),
-}))
+// WHAT: Net P&L from backend (BACKEND-COMPUTED)
+// WHY: Single source of truth for bottom-line calculation
+// HOW: Backend computes: (Proceeds + Income) - (Operating Expenses + Gross Cost)
+const netPL = reactive({
+  underwritten: 0,
+  realized: 0,
+})
 
 // WHAT: Sandbox Net P&L computed from editable inputs
 // NOTE: Income and all Expense categories now use computed totals from sub-items
@@ -1121,7 +1331,7 @@ const netPLSandbox = computed(() => {
 // WHAT: Variance = Realized Net P&L - Underwritten Net P&L
 // WHY: Shows how much better/worse we did vs projection
 // HOW: Subtract underwritten from realized Net P&L
-const variance = computed(() => netPL.value.realized - netPL.value.underwritten)
+const variance = computed(() => netPL.realized - netPL.underwritten)
 
 // WHAT: Dynamic CSS class for variance (green if positive, red if negative)
 // WHY: Visual indicator of performance vs underwriting
@@ -1133,7 +1343,7 @@ const varianceClass = computed(() => {
 })
 
 // WHAT: Variance vs Underwritten for Sandbox
-const varianceSandbox = computed(() => netPLSandbox.value - netPL.value.underwritten)
+const varianceSandbox = computed(() => netPLSandbox.value - netPL.underwritten)
 const varianceSandboxClass = computed(() => {
   if (varianceSandbox.value > 0) return 'text-success'
   if (varianceSandbox.value < 0) return 'text-danger'
@@ -1144,13 +1354,13 @@ const varianceSandboxClass = computed(() => {
 // WHY: Standard return on investment metric in percentage
 // HOW: Divide Net P&L by Gross Cost, multiply by 100, format to 1 decimal
 const roiUnderwritten = computed(() => {
-  if (grossCost.value.underwritten === 0) return 0
-  return ((netPL.value.underwritten / grossCost.value.underwritten) * 100).toFixed(1)
+  if (grossCost.underwritten === 0) return 0
+  return ((netPL.underwritten / grossCost.underwritten) * 100).toFixed(1)
 })
 
 const roiRealized = computed(() => {
-  if (grossCost.value.realized === 0) return 0
-  return ((netPL.value.realized / grossCost.value.realized) * 100).toFixed(1)
+  if (grossCost.realized === 0) return 0
+  return ((netPL.realized / grossCost.realized) * 100).toFixed(1)
 })
 
 // WHAT: ROI for Sandbox
@@ -1169,10 +1379,10 @@ const roiSandboxClass = computed(() => {
 // WHY: Shows how many times the investment was multiplied
 // HOW: (Net P&L + Gross Cost) / Gross Cost = Total Proceeds / Gross Cost
 const moic = computed(() => ({
-  underwritten: grossCost.value.underwritten === 0 ? 0 : 
-    ((netPL.value.underwritten + grossCost.value.underwritten) / grossCost.value.underwritten).toFixed(2),
-  realized: grossCost.value.realized === 0 ? 0 : 
-    ((netPL.value.realized + grossCost.value.realized) / grossCost.value.realized).toFixed(2),
+  underwritten: grossCost.underwritten === 0 ? 0 : 
+    ((netPL.underwritten + grossCost.underwritten) / grossCost.underwritten).toFixed(2),
+  realized: grossCost.realized === 0 ? 0 : 
+    ((netPL.realized + grossCost.realized) / grossCost.realized).toFixed(2),
 }))
 
 // WHAT: MOIC for Sandbox
@@ -1199,22 +1409,221 @@ const aroiSandbox = computed(() => {
 // WHY: Relative variance is more meaningful than absolute dollar amount
 // HOW: Divide variance by absolute underwritten Net P&L, multiply by 100
 const variancePercent = computed(() => {
-  if (netPL.value.underwritten === 0) return 0
-  return ((variance.value / Math.abs(netPL.value.underwritten)) * 100).toFixed(1)
+  if (netPL.underwritten === 0) return 0
+  return ((variance.value / Math.abs(netPL.underwritten)) * 100).toFixed(1)
 })
 
 // WHAT: Currency formatter helper function
 // WHY: Consistent USD formatting across all currency fields
-// HOW: Uses Intl.NumberFormat with USD currency and no decimals, shows "—" for zero
+// HOW: Uses Intl.NumberFormat with no decimals and comma separators, shows "—" for zero
 function fmtCurrency(v: number | null | undefined): string {
   const n = Number(v || 0)
   if (n === 0) return '—'
-  return new Intl.NumberFormat(undefined, { 
-    style: 'currency', 
-    currency: 'USD', 
+  return '$' + new Intl.NumberFormat('en-US', { 
+    minimumFractionDigits: 0,
     maximumFractionDigits: 0 
   }).format(n)
 }
+
+// ------------------------------
+// API Data Fetching
+// ------------------------------
+// WHAT: Fetch performance summary data from backend
+// WHY: Load underwritten/realized values from BlendedOutcomeModel
+// HOW: Call /api/am/performance-summary/<asset_hub_id>/ and populate metrics
+async function fetchPerformanceData() {
+  if (!props.productId) {
+    console.warn('PLMetrics: No productId provided, using placeholder data')
+    return
+  }
+
+  loading.value = true
+  error.value = null
+
+  try {
+    const response = await http.get(`/am/performance-summary/${props.productId}/`)
+    const data = response.data
+
+    // WHAT: Map API response to metrics object
+    // WHY: API uses snake_case, frontend uses camelCase
+    // HOW: Destructure and assign each field
+    
+    // Gross Cost section
+    metrics.purchaseCost.underwritten = data.purchase_cost_underwritten || 0
+    metrics.purchaseCost.realized = data.purchase_cost_realized || 0
+    
+    metrics.acqDueDiligence.underwritten = data.acq_due_diligence_underwritten || 0
+    metrics.acqDueDiligence.realized = data.acq_due_diligence_realized || 0
+    
+    metrics.acqLegal.underwritten = data.acq_legal_underwritten || 0
+    metrics.acqLegal.realized = data.acq_legal_realized || 0
+    
+    metrics.acqTitle.underwritten = data.acq_title_underwritten || 0
+    metrics.acqTitle.realized = data.acq_title_realized || 0
+    
+    metrics.acqOther.underwritten = data.acq_other_underwritten || 0
+    metrics.acqOther.realized = data.acq_other_realized || 0
+    
+    // Income section
+    metrics.incomePrincipal.underwritten = data.income_principal_underwritten || 0
+    metrics.incomePrincipal.realized = data.income_principal_realized || 0
+    
+    metrics.incomeInterest.underwritten = data.income_interest_underwritten || 0
+    metrics.incomeInterest.realized = data.income_interest_realized || 0
+    
+    metrics.incomeRent.underwritten = data.income_rent_underwritten || 0
+    metrics.incomeRent.realized = data.income_rent_realized || 0
+    
+    metrics.incomeCAM.underwritten = data.income_cam_underwritten || 0
+    metrics.incomeCAM.realized = data.income_cam_realized || 0
+    
+    metrics.incomeModDownPayment.underwritten = data.income_mod_down_payment_underwritten || 0
+    metrics.incomeModDownPayment.realized = data.income_mod_down_payment_realized || 0
+    
+    // Operating Expenses section
+    metrics.expenseServicing.underwritten = data.expense_servicing_underwritten || 0
+    metrics.expenseServicing.realized = data.expense_servicing_realized || 0
+    
+    // Legal/DIL Cost sub-items
+    metrics.legalForeclosure.underwritten = data.legal_foreclosure_underwritten || 0
+    metrics.legalForeclosure.realized = data.legal_foreclosure_realized || 0
+    
+    metrics.legalBankruptcy.underwritten = data.legal_bankruptcy_underwritten || 0
+    metrics.legalBankruptcy.realized = data.legal_bankruptcy_realized || 0
+    
+    metrics.legalDIL.underwritten = data.legal_dil_underwritten || 0
+    metrics.legalDIL.realized = data.legal_dil_realized || 0
+    
+    metrics.legalCashForKeys.underwritten = data.legal_cash_for_keys_underwritten || 0
+    metrics.legalCashForKeys.realized = data.legal_cash_for_keys_realized || 0
+    
+    metrics.legalEviction.underwritten = data.legal_eviction_underwritten || 0
+    metrics.legalEviction.realized = data.legal_eviction_realized || 0
+    
+    metrics.expenseAMFees.underwritten = data.expense_am_fees_underwritten || 0
+    metrics.expenseAMFees.realized = data.expense_am_fees_realized || 0
+    
+    metrics.expensePropertyTax.underwritten = data.expense_property_tax_underwritten || 0
+    metrics.expensePropertyTax.realized = data.expense_property_tax_realized || 0
+    
+    metrics.expensePropertyInsurance.underwritten = data.expense_property_insurance_underwritten || 0
+    metrics.expensePropertyInsurance.realized = data.expense_property_insurance_realized || 0
+    
+    // REO Expenses section
+    metrics.reoHOA.underwritten = data.reo_hoa_underwritten || 0
+    metrics.reoHOA.realized = data.reo_hoa_realized || 0
+    
+    metrics.reoUtilities.underwritten = data.reo_utilities_underwritten || 0
+    metrics.reoUtilities.realized = data.reo_utilities_realized || 0
+    
+    metrics.reoTrashout.underwritten = data.reo_trashout_underwritten || 0
+    metrics.reoTrashout.realized = data.reo_trashout_realized || 0
+    
+    metrics.reoRenovation.underwritten = data.reo_renovation_underwritten || 0
+    metrics.reoRenovation.realized = data.reo_renovation_realized || 0
+    
+    metrics.reoPropertyPreservation.underwritten = data.reo_property_preservation_underwritten || 0
+    metrics.reoPropertyPreservation.realized = data.reo_property_preservation_realized || 0
+    
+    // CRE Expenses
+    metrics.creMarketing.underwritten = data.cre_marketing_underwritten || 0
+    metrics.creMarketing.realized = data.cre_marketing_realized || 0
+    
+    metrics.creGAPool.underwritten = data.cre_ga_pool_underwritten || 0
+    metrics.creGAPool.realized = data.cre_ga_pool_realized || 0
+    
+    metrics.creMaintenance.underwritten = data.cre_maintenance_underwritten || 0
+    metrics.creMaintenance.realized = data.cre_maintenance_realized || 0
+    
+    // Fund Expenses section
+    metrics.fundTaxes.underwritten = data.fund_taxes_underwritten || 0
+    metrics.fundTaxes.realized = data.fund_taxes_realized || 0
+    
+    metrics.fundLegal.underwritten = data.fund_legal_underwritten || 0
+    metrics.fundLegal.realized = data.fund_legal_realized || 0
+    
+    metrics.fundConsulting.underwritten = data.fund_consulting_underwritten || 0
+    metrics.fundConsulting.realized = data.fund_consulting_realized || 0
+    
+    metrics.fundAudit.underwritten = data.fund_audit_underwritten || 0
+    metrics.fundAudit.realized = data.fund_audit_realized || 0
+    
+    // Proceeds section
+    metrics.proceeds.underwritten = data.proceeds_underwritten || 0
+    metrics.proceeds.realized = data.proceeds_realized || 0
+    
+    metrics.reoBrokerClosing.underwritten = data.broker_closing_underwritten || 0
+    metrics.reoBrokerClosing.realized = data.broker_closing_realized || 0
+    
+    metrics.reoOtherClosing.underwritten = data.other_closing_underwritten || 0
+    metrics.reoOtherClosing.realized = data.other_closing_realized || 0
+    
+    // WHAT: Populate Net Liquidation Proceeds from backend
+    // WHY: Backend stores expected_net_proceeds field
+    netLiquidationProceeds.underwritten = data.net_liquidation_proceeds_underwritten || 0
+    netLiquidationProceeds.realized = data.net_liquidation_proceeds_realized || 0
+    
+    // WHAT: Populate Gross Cost from backend
+    // WHY: Backend computes Purchase Cost + Acquisition Costs
+    grossCost.underwritten = data.gross_cost_total_underwritten || 0
+    grossCost.realized = data.gross_cost_total_realized || 0
+    
+    // WHAT: Populate Acquisition Costs Total from backend
+    acqCostsTotal.underwritten = data.acq_costs_total_underwritten || 0
+    acqCostsTotal.realized = data.acq_costs_total_realized || 0
+    
+    // WHAT: Populate Closing Costs Total from backend
+    closingCostsTotal.underwritten = data.closing_costs_total_underwritten || 0
+    closingCostsTotal.realized = data.closing_costs_total_realized || 0
+    
+    // WHAT: Populate rollup totals from backend API
+    // WHY: Backend computes all parent row sums for consistency
+    incomeTotal.underwritten = data.income_total_underwritten || 0
+    incomeTotal.realized = data.income_total_realized || 0
+    
+    legalTotals.underwritten = data.legal_costs_total_underwritten || 0
+    legalTotals.realized = data.legal_costs_total_realized || 0
+    
+    operatingExpensesTotal.underwritten = data.operating_expenses_total_underwritten || 0
+    operatingExpensesTotal.realized = data.operating_expenses_total_realized || 0
+    
+    reoExpensesTotal.underwritten = data.reo_expenses_total_underwritten || 0
+    reoExpensesTotal.realized = data.reo_expenses_total_realized || 0
+    
+    creExpensesTotal.underwritten = data.cre_expenses_total_underwritten || 0
+    creExpensesTotal.realized = data.cre_expenses_total_realized || 0
+    
+    fundExpensesTotal.underwritten = data.fund_expenses_total_underwritten || 0
+    fundExpensesTotal.realized = data.fund_expenses_total_realized || 0
+    
+    // WHAT: Populate Net P&L from backend
+    // WHY: Backend computes bottom-line profitability
+    netPL.underwritten = data.net_pl_underwritten || 0
+    netPL.realized = data.net_pl_realized || 0
+    
+    // Re-initialize sandbox from newly loaded data (prioritizes realized over underwritten)
+    initSandboxFromBestAvailable()
+    
+    console.log('PLMetrics: Data loaded successfully', data)
+  } catch (err: any) {
+    console.error('PLMetrics: Failed to fetch performance data', err)
+    error.value = err.response?.data?.detail || 'Failed to load performance data'
+  } finally {
+    loading.value = false
+  }
+}
+
+// WHAT: Fetch data on component mount
+// WHY: Load data when component first renders
+onMounted(() => {
+  fetchPerformanceData()
+})
+
+// WHAT: Watch productId changes
+// WHY: Refetch data if user switches to different asset
+watch(() => props.productId, () => {
+  fetchPerformanceData()
+})
 </script>
 
 <style scoped>
@@ -1258,21 +1667,27 @@ function fmtCurrency(v: number | null | undefined): string {
 /* Underwritten column styling - subtle blue tint */
 .underwritten-col {
   background-color: #f0f7ff;
-  min-width: 140px;
+  width: 350px;
+  min-width: 350px;
+  max-width: 350px;
   font-weight: 500;
 }
 
 /* Realized column styling - subtle green tint */
 .realized-col {
   background-color: #f0fdf4;
-  min-width: 140px;
+  width: 350px;
+  min-width: 350px;
+  max-width: 350px;
   font-weight: 500;
 }
 
 /* Sandbox column styling - subtle yellow tint */
 .sandbox-col {
   background-color: #fffbeb;
-  min-width: 140px;
+  width: 350px;
+  min-width: 350px;
+  max-width: 350px;
   font-weight: 500;
 }
 

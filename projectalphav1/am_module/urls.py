@@ -2,6 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from am_module.views.asset_inventory import AssetInventoryViewSet
 from am_module.views.notes import AMNoteViewSet
+from am_module.views.view_performance_summary import PerformanceSummaryViewSet
 from am_module.views.outcomes import (
     REODataViewSet, REOTaskViewSet,
     FCSaleViewSet, FCTaskViewSet,
@@ -14,6 +15,7 @@ from am_module.views.outcomes import (
 router = DefaultRouter()
 router.register(r'assets', AssetInventoryViewSet, basename='asset-inventory')
 router.register(r'notes', AMNoteViewSet, basename='am-notes')
+router.register(r'performance-summary', PerformanceSummaryViewSet, basename='performance-summary')
 router.register(r'outcomes/reo', REODataViewSet, basename='am-reo')
 router.register(r'outcomes/reo-tasks', REOTaskViewSet, basename='am-reo-tasks')
 router.register(r'outcomes/fc', FCSaleViewSet, basename='am-fc')
