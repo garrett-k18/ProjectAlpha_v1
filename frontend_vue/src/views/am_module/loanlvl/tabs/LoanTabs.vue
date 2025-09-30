@@ -20,6 +20,10 @@
     <b-tab title="Documents">
       <DocumentsTab :row="row" :productId="productId" />
     </b-tab>
+    
+    <b-tab title="Performance">
+      <PerformanceTab :row="row" :productId="productId" />
+    </b-tab>
   </b-tabs>
 </template>
 
@@ -36,4 +40,5 @@ const ServicingTab = defineAsyncComponent(() => import('./ServicingTab.vue'))
 const PropertyDetailsTab = defineAsyncComponent(() => import('./PropertyDetailsTab.vue'))
 const AssetManagementTab = defineAsyncComponent(() => import('./AssetManagement.vue'))
 const DocumentsTab = defineAsyncComponent(() => import('./DocumentsTab.vue'))
+const PerformanceTab = defineAsyncComponent(() => import('./PerformanceTab.vue'))
 </script>

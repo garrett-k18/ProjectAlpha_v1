@@ -1,20 +1,9 @@
 <template>
-  <!-- WHAT: Neutral wrapper card for a single subtask with top-aligned tabs -->
-  <!-- WHY: Reduce visual noise from multiple nested cards and colored badges -->
-  <!-- WHERE: Used inside outcome cards (e.g., REO) for each subtask item -->
-  <!-- HOW: Provides small nav-tabs and renders slot content per selected tab -->
-  <div class="card border-0 bg-body">
-    <!-- Header row: compact title + optional summary chips -->
-    <div class="d-flex align-items-center justify-content-between px-2 pt-2">
-      <div class="d-flex align-items-center gap-2">
-        <span class="small text-muted">{{ title }}</span>
-      </div>
-      <!-- Optional right side slot (e.g., actions) -->
-      <div><slot name="actions" /></div>
-    </div>
-
+  <!-- WHAT: Minimal, containerless tabs wrapper (no card chrome) -->
+  <!-- WHY: Flatten UI to line items within the parent card -->
+  <div>
     <!-- Tabs: small, neutral -->
-    <ul class="nav nav-tabs nav-tabs-sm px-2 mt-2" role="tablist" style="--bs-nav-link-padding-y: .25rem; --bs-nav-link-padding-x: .5rem;">
+    <ul class="nav nav-tabs nav-tabs-sm mt-1" role="tablist" style="--bs-nav-link-padding-y: .25rem; --bs-nav-link-padding-x: .5rem;">
       <li v-for="t in tabs" :key="t.key" class="nav-item" role="presentation">
         <button
           class="nav-link"
@@ -30,7 +19,7 @@
     </ul>
 
     <!-- Body -->
-    <div class="p-2">
+    <div class="pt-2">
       <div v-show="current === 'bids'">
         <slot name="bids" />
       </div>
