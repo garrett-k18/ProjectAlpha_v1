@@ -8,12 +8,16 @@ from .servicer_loan_data import ServicerLoanDataSerializer
 
 class AssetInventoryRowSerializer(serializers.Serializer):
     """
-    Flat row shape tailored for AG Grid. We keep this serializer
-    detached from a specific model to freely compose from multiple sources.
+    WHAT: Flat row shape tailored for AG Grid
+    WHY: Compose data from multiple sources for asset inventory display
+    HOW: Detached from specific model to freely compose fields
+    
+    NOTE: After migration, SellerBoardedData.pk == asset_hub_id
+    So 'id' field now returns asset_hub_id (not old SellerBoardedData id)
     """
-    id = serializers.IntegerField(read_only=True)
+    id = serializers.IntegerField(read_only=True, help_text='Asset Hub ID (SellerBoardedData.pk)')
     # Expose the hub id explicitly so the frontend can validate nested records
-    asset_hub_id = serializers.IntegerField(read_only=True)
+    asset_hub_id = serializers.IntegerField(read_only=True, help_text='Asset Hub ID (same as id)')
     asset_id = serializers.SerializerMethodField()
     asset_status = serializers.CharField(allow_null=True)
     delinquency_status = serializers.SerializerMethodField()

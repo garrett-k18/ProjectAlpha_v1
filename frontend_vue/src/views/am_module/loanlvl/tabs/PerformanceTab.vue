@@ -11,7 +11,7 @@
         <!-- WHAT: PLMetrics component - 3-column P&L grid -->
         <!-- WHY: Reusable component for Underwritten vs Realized comparison -->
         <!-- WHERE: Component at frontend_vue/src/views/am_module/loanlvl/tabs/components/PLMetrics.vue -->
-        <PLMetrics :row="row" :product-id="productId" />
+        <PLMetrics :row="row" :asset-hub-id="assetHubId" />
       </div>
     </div>
 
@@ -20,7 +20,7 @@
     <!-- WHERE: Component at frontend_vue/src/views/am_module/loanlvl/tabs/components/CashFlowSeries.vue -->
     <div class="card border-0 shadow-sm mt-4">
       <div class="card-body">
-        <CashFlowSeries :product-id="productId" />
+        <CashFlowSeries :asset-hub-id="assetHubId" />
       </div>
     </div>
   </div>
@@ -36,15 +36,18 @@ import PLMetrics from './components/PLMetrics.vue'
 import CashFlowSeries from './components/CashFlowSeries.vue'
 
 // WHAT: Props interface for parent data
-// WHY: Accept row data and asset ID to pass to PLMetrics
-// HOW: Optional row and productId props with null defaults
-withDefaults(defineProps<{ 
+// WHY: Accept row data and asset hub ID to pass to PLMetrics
+// HOW: Optional row and assetHubId props with null defaults
+const props = withDefaults(defineProps<{ 
   row?: Record<string, any> | null
-  productId?: string | number | null 
+  assetHubId?: string | number | null 
 }>(), {
   row: null,
-  productId: null,
+  assetHubId: null,
 })
+
+// DEBUG: Log what we receive
+console.log('PerformanceTab - Received assetHubId:', props.assetHubId)
 </script>
 
 <style scoped>

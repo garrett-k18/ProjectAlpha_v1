@@ -29,26 +29,40 @@
       <table class="table table-sm table-bordered cash-flow-table">
         <thead class="sticky-header">
           <!-- WHAT: Row 1 - Period numbers -->
-          <tr class="bg-light">
-            <th class="sticky-col line-item-col">Period #</th>
+          <!-- 
+            NOTE: Header background color #f0f7ff (subtle blue tint)
+            WHY: Matches Performance Summary table's "Underwritten" column color scheme
+            WHERE: Same color defined in PLMetrics.vue line 1726 (.underwritten-col)
+            TO CHANGE: Update this inline style AND PLMetrics.vue .underwritten-col background
+          -->
+          <tr>
+            <th class="sticky-col line-item-col" style="background-color: #f0f7ff !important;">Period #</th>
             <th 
               v-for="period in periods" 
               :key="`period-${period.period_number}`"
               :class="{'current-period': period.is_current}"
               class="text-center period-col"
+              style="background-color: #f0f7ff !important;"
             >
               P{{ period.period_number }}
             </th>
           </tr>
           
           <!-- WHAT: Row 2 - Period dates -->
-          <tr class="bg-light">
-            <th class="sticky-col line-item-col">Date</th>
+          <!-- 
+            NOTE: Header background color #f0f7ff (subtle blue tint)
+            WHY: Matches Performance Summary table's "Underwritten" column color scheme
+            WHERE: Same color defined in PLMetrics.vue line 1726 (.underwritten-col)
+            TO CHANGE: Update this inline style AND PLMetrics.vue .underwritten-col background
+          -->
+          <tr>
+            <th class="sticky-col line-item-col" style="background-color: #f0f7ff !important;">Date</th>
             <th 
               v-for="period in periods" 
               :key="`date-${period.period_number}`"
               :class="{'current-period': period.is_current}"
               class="text-center period-col"
+              style="background-color: #f0f7ff !important;"
             >
               {{ formatDate(period.period_date) }}
             </th>
@@ -56,17 +70,22 @@
         </thead>
 
         <tbody>
-          <!-- WHAT: Net Cash Flow (default view - always visible) -->
-          <tr class="section-header bg-primary-subtle">
-            <td class="sticky-col fw-bold">Net Cash Flow</td>
+          <!-- WHAT: Net Cash Flow (clickable to toggle inflows/outflows) -->
+          <tr class="section-header clickable" @click="toggleAllSections">
+            <td class="sticky-col fw-bold">
+              <i :class="showNetCashFlow ? 'mdi mdi-chevron-down' : 'mdi mdi-chevron-right'" class="me-2"></i>
+              Net Cash Flow
+            </td>
             <td v-for="period in periods" :key="`net-${period.period_number}`" class="text-end fw-bold">
               {{ fmtCurrency(period.net_cash_flow) }}
             </td>
           </tr>
 
-          <!-- WHAT: Inflows Section (collapsible) -->
-          <tr class="section-header bg-success-subtle clickable" @click="toggleSection('inflows')">
-            <td class="sticky-col fw-bold">
+          <!-- WHAT: Inflows and Outflows sections (only show when Net Cash Flow is expanded) -->
+          <template v-if="showNetCashFlow">
+            <!-- WHAT: Inflows Section (collapsible) -->
+            <tr class="section-header clickable" @click="toggleSection('inflows')">
+            <td class="sticky-col fw-bold ps-4">
               <i :class="showInflows ? 'mdi mdi-chevron-down' : 'mdi mdi-chevron-right'" class="me-2"></i>
               Total Inflows
             </td>
@@ -76,37 +95,37 @@
           </tr>
           <template v-if="showInflows">
             <tr>
-              <td class="sticky-col ps-4 small text-muted">Principal</td>
+              <td class="sticky-col ps-5 small text-muted">Principal</td>
               <td v-for="period in periods" :key="`principal-${period.period_number}`" class="text-end small">
                 {{ fmtCurrency(period.income_principal) }}
               </td>
             </tr>
             <tr>
-              <td class="sticky-col ps-4 small text-muted">Interest</td>
+              <td class="sticky-col ps-5 small text-muted">Interest</td>
               <td v-for="period in periods" :key="`interest-${period.period_number}`" class="text-end small">
                 {{ fmtCurrency(period.income_interest) }}
               </td>
             </tr>
             <tr>
-              <td class="sticky-col ps-4 small text-muted">Rent</td>
+              <td class="sticky-col ps-5 small text-muted">Rent</td>
               <td v-for="period in periods" :key="`rent-${period.period_number}`" class="text-end small">
                 {{ fmtCurrency(period.income_rent) }}
               </td>
             </tr>
             <tr>
-              <td class="sticky-col ps-4 small text-muted">CAM</td>
+              <td class="sticky-col ps-5 small text-muted">CAM</td>
               <td v-for="period in periods" :key="`cam-${period.period_number}`" class="text-end small">
                 {{ fmtCurrency(period.income_cam) }}
               </td>
             </tr>
             <tr>
-              <td class="sticky-col ps-4 small text-muted">Mod Down Payment</td>
+              <td class="sticky-col ps-5 small text-muted">Mod Down Payment</td>
               <td v-for="period in periods" :key="`mod-${period.period_number}`" class="text-end small">
                 {{ fmtCurrency(period.income_mod_down_payment) }}
               </td>
             </tr>
             <tr>
-              <td class="sticky-col ps-4 small text-muted">Liquidation Proceeds</td>
+              <td class="sticky-col ps-5 small text-muted">Liquidation Proceeds</td>
               <td v-for="period in periods" :key="`proceeds-${period.period_number}`" class="text-end small">
                 {{ fmtCurrency(period.net_liquidation_proceeds) }}
               </td>
@@ -114,8 +133,8 @@
           </template>
 
           <!-- WHAT: Outflows Section (collapsible) -->
-          <tr class="section-header bg-danger-subtle clickable" @click="toggleSection('outflows')">
-            <td class="sticky-col fw-bold">
+          <tr class="section-header clickable" @click="toggleSection('outflows')">
+            <td class="sticky-col fw-bold ps-4">
               <i :class="showOutflows ? 'mdi mdi-chevron-down' : 'mdi mdi-chevron-right'" class="me-2"></i>
               Total Outflows
             </td>
@@ -126,7 +145,7 @@
           <template v-if="showOutflows">
             <!-- Purchase Cost (Period 0 only) -->
             <tr>
-              <td class="sticky-col ps-4 small text-muted">Purchase Price</td>
+              <td class="sticky-col ps-5 small text-muted">Purchase Price</td>
               <td v-for="period in periods" :key="`purchase-${period.period_number}`" class="text-end small">
                 {{ period.period_number === 0 ? fmtCurrency(period.purchase_price) : '-' }}
               </td>
@@ -134,19 +153,19 @@
             
             <!-- Acquisition Costs -->
             <tr>
-              <td class="sticky-col ps-4 small text-muted">Due Diligence</td>
+              <td class="sticky-col ps-5 small text-muted">Due Diligence</td>
               <td v-for="period in periods" :key="`dd-${period.period_number}`" class="text-end small">
                 {{ fmtCurrency(period.acq_due_diligence_expenses) }}
               </td>
             </tr>
             <tr>
-              <td class="sticky-col ps-4 small text-muted">Acq Legal</td>
+              <td class="sticky-col ps-5 small text-muted">Acq Legal</td>
               <td v-for="period in periods" :key="`acq-legal-${period.period_number}`" class="text-end small">
                 {{ fmtCurrency(period.acq_legal_expenses) }}
               </td>
             </tr>
             <tr>
-              <td class="sticky-col ps-4 small text-muted">Title</td>
+              <td class="sticky-col ps-5 small text-muted">Title</td>
               <td v-for="period in periods" :key="`title-${period.period_number}`" class="text-end small">
                 {{ fmtCurrency(period.acq_title_expenses) }}
               </td>
@@ -154,25 +173,25 @@
             
             <!-- Operating Expenses -->
             <tr>
-              <td class="sticky-col ps-4 small text-muted">Servicing</td>
+              <td class="sticky-col ps-5 small text-muted">Servicing</td>
               <td v-for="period in periods" :key="`servicing-${period.period_number}`" class="text-end small">
                 {{ fmtCurrency(period.servicing_expenses) }}
               </td>
             </tr>
             <tr>
-              <td class="sticky-col ps-4 small text-muted">AM Fees</td>
+              <td class="sticky-col ps-5 small text-muted">AM Fees</td>
               <td v-for="period in periods" :key="`am-${period.period_number}`" class="text-end small">
                 {{ fmtCurrency(period.am_fees_expenses) }}
               </td>
             </tr>
             <tr>
-              <td class="sticky-col ps-4 small text-muted">Property Tax</td>
+              <td class="sticky-col ps-5 small text-muted">Property Tax</td>
               <td v-for="period in periods" :key="`tax-${period.period_number}`" class="text-end small">
                 {{ fmtCurrency(period.property_tax_expenses) }}
               </td>
             </tr>
             <tr>
-              <td class="sticky-col ps-4 small text-muted">Insurance</td>
+              <td class="sticky-col ps-5 small text-muted">Insurance</td>
               <td v-for="period in periods" :key="`insurance-${period.period_number}`" class="text-end small">
                 {{ fmtCurrency(period.property_insurance_expenses) }}
               </td>
@@ -180,13 +199,13 @@
             
             <!-- Legal/DIL Costs -->
             <tr>
-              <td class="sticky-col ps-4 small text-muted">Foreclosure Legal</td>
+              <td class="sticky-col ps-5 small text-muted">Foreclosure Legal</td>
               <td v-for="period in periods" :key="`fc-${period.period_number}`" class="text-end small">
                 {{ fmtCurrency(period.legal_foreclosure_expenses) }}
               </td>
             </tr>
             <tr>
-              <td class="sticky-col ps-4 small text-muted">Bankruptcy Legal</td>
+              <td class="sticky-col ps-5 small text-muted">Bankruptcy Legal</td>
               <td v-for="period in periods" :key="`bk-${period.period_number}`" class="text-end small">
                 {{ fmtCurrency(period.legal_bankruptcy_expenses) }}
               </td>
@@ -194,25 +213,25 @@
             
             <!-- REO Expenses -->
             <tr>
-              <td class="sticky-col ps-4 small text-muted">HOA</td>
+              <td class="sticky-col ps-5 small text-muted">HOA</td>
               <td v-for="period in periods" :key="`hoa-${period.period_number}`" class="text-end small">
                 {{ fmtCurrency(period.reo_hoa_expenses) }}
               </td>
             </tr>
             <tr>
-              <td class="sticky-col ps-4 small text-muted">Utilities</td>
+              <td class="sticky-col ps-5 small text-muted">Utilities</td>
               <td v-for="period in periods" :key="`util-${period.period_number}`" class="text-end small">
                 {{ fmtCurrency(period.reo_utilities_expenses) }}
               </td>
             </tr>
             <tr>
-              <td class="sticky-col ps-4 small text-muted">Renovation</td>
+              <td class="sticky-col ps-5 small text-muted">Renovation</td>
               <td v-for="period in periods" :key="`reno-${period.period_number}`" class="text-end small">
                 {{ fmtCurrency(period.reo_renovation_expenses) }}
               </td>
             </tr>
             <tr>
-              <td class="sticky-col ps-4 small text-muted">Property Preservation</td>
+              <td class="sticky-col ps-5 small text-muted">Property Preservation</td>
               <td v-for="period in periods" :key="`pres-${period.period_number}`" class="text-end small">
                 {{ fmtCurrency(period.reo_property_preservation_expenses) }}
               </td>
@@ -220,17 +239,18 @@
             
             <!-- CRE Expenses -->
             <tr>
-              <td class="sticky-col ps-4 small text-muted">Marketing</td>
+              <td class="sticky-col ps-5 small text-muted">Marketing</td>
               <td v-for="period in periods" :key="`mkt-${period.period_number}`" class="text-end small">
                 {{ fmtCurrency(period.cre_marketing_expenses) }}
               </td>
             </tr>
             <tr>
-              <td class="sticky-col ps-4 small text-muted">Maintenance</td>
+              <td class="sticky-col ps-5 small text-muted">Maintenance</td>
               <td v-for="period in periods" :key="`maint-${period.period_number}`" class="text-end small">
                 {{ fmtCurrency(period.cre_maintenance_expenses) }}
               </td>
             </tr>
+          </template>
           </template>
         </tbody>
       </table>
@@ -248,12 +268,12 @@
     </div>
     <div v-if="!loading && periods.length === 0" class="alert alert-info">
       <i class="mdi mdi-information me-2"></i>
-      No cash flow data available for this asset. (Asset ID: {{ productId }})
+      No cash flow data available for this asset. (Asset Hub ID: {{ assetHubId }})
     </div>
     
     <!-- DEBUG: Show period count -->
     <div v-if="!loading && periods.length > 0" class="alert alert-success mt-3">
-      <strong>DEBUG:</strong> Loaded {{ periods.length }} periods for asset {{ productId }}
+      <strong>DEBUG:</strong> Loaded {{ periods.length }} periods for asset {{ assetHubId }}
     </div>
   </div>
 </template>
@@ -268,11 +288,11 @@ import { ref, computed, onMounted, watch } from 'vue'
 import axios from 'axios'
 
 // WHAT: Component props
-// WHY: Need asset ID to fetch cash flow data
+// WHY: Need asset hub ID to fetch cash flow data
 const props = withDefaults(defineProps<{
-  productId?: string | number | null
+  assetHubId?: string | number | null
 }>(), {
-  productId: null
+  assetHubId: null
 })
 
 // WHAT: Reactive state
@@ -281,6 +301,7 @@ const purchaseDate = ref<string | null>(null)
 const loading = ref(false)
 const error = ref<string | null>(null)
 const tableContainer = ref<HTMLElement | null>(null)
+const showNetCashFlow = ref(false) // Master toggle for inflows/outflows visibility
 const showInflows = ref(false)
 const showOutflows = ref(false)
 
@@ -308,14 +329,18 @@ const maxPeriod = computed(() => {
 // WHY: Load period-by-period data for display
 // HOW: GET request to /api/am/cash-flow-series/{asset_id}/
 async function fetchCashFlowData() {
-  if (!props.productId) return
+  console.log('CashFlowSeries - assetHubId prop:', props.assetHubId)
+  if (!props.assetHubId) {
+    console.warn('CashFlowSeries - No assetHubId provided, skipping fetch')
+    return
+  }
   
   loading.value = true
   error.value = null
   
   try {
     // WHAT: Fetch cash flow series data
-    const response = await axios.get(`/api/am/cash-flow-series/${props.productId}/`)
+    const response = await axios.get(`/api/am/cash-flow-series/${props.assetHubId}/`)
     
     console.log('Cash Flow API Response:', response.data)
     
@@ -380,6 +405,18 @@ function toggleSection(section: 'inflows' | 'outflows') {
   }
 }
 
+// WHAT: Toggle Net Cash Flow section (shows/hides inflows and outflows)
+// WHY: Clicking Net Cash Flow should expand/collapse the entire breakdown
+// HOW: Toggle master visibility flag; subsections start collapsed by default
+function toggleAllSections() {
+  showNetCashFlow.value = !showNetCashFlow.value
+  // When collapsing Net Cash Flow, also collapse both subsections
+  if (!showNetCashFlow.value) {
+    showInflows.value = false
+    showOutflows.value = false
+  }
+}
+
 // WHAT: Scroll to current period column
 // WHY: Quick navigation to "today" in the timeline
 function scrollToCurrentPeriod() {
@@ -393,19 +430,34 @@ function scrollToCurrentPeriod() {
   tableContainer.value.scrollLeft = scrollPosition
 }
 
-// WHAT: Fetch data on mount and when productId changes
+// WHAT: Fetch data on mount and when assetHubId changes
 onMounted(() => {
   fetchCashFlowData()
 })
 
-watch(() => props.productId, () => {
+watch(() => props.assetHubId, () => {
   fetchCashFlowData()
 })
 </script>
 
 <style scoped>
-/* WHAT: Cash flow series table styling */
-/* WHY: Horizontal scrolling with sticky first column and header */
+/* 
+  ============================================================================
+  CASH FLOW SERIES STYLING
+  ============================================================================
+  
+  WHAT: Custom styles for time-series cash flow table
+  WHY: Horizontal scrolling with sticky first column and header
+  
+  COLOR CUSTOMIZATION:
+  - Header background: #f0f7ff (subtle blue tint, matches PLMetrics.vue .underwritten-col)
+  - Body sticky column: white
+  - Current period highlight: #fff3cd with #ffc107 borders
+  - To change header color: Update inline styles in template (lines 39, 45, 59, 65) 
+    AND update PLMetrics.vue .underwritten-col (line 1726)
+  
+  ============================================================================
+*/
 
 .cash-flow-series-container {
   width: 100%;
@@ -441,11 +493,16 @@ watch(() => props.productId, () => {
   z-index: 5;
   background-color: white;
   border-right: 2px solid #dee2e6 !important;
+  box-shadow: 2px 0 5px rgba(0,0,0,0.1);
 }
 
 .sticky-header .sticky-col {
   z-index: 15;
-  background-color: #f8f9fa;
+}
+
+/* WHAT: Ensure body sticky columns stay white */
+.cash-flow-table tbody .sticky-col {
+  background-color: white !important;
 }
 
 /* WHAT: Column widths */
@@ -470,8 +527,12 @@ watch(() => props.productId, () => {
 
 /* WHAT: Section headers */
 .section-header td {
-  background-color: #f8f9fa;
   font-weight: 600;
+}
+
+/* WHAT: Ensure sticky column in section headers has white background */
+.section-header .sticky-col {
+  background-color: white !important;
 }
 
 /* WHAT: Clickable section headers */

@@ -2,27 +2,27 @@
   <!-- AM LoanTabs: mirrors acquisitions tab structure, but can diverge safely -->
   <b-tabs nav-class="nav-bordered mb-3" content-class="pt-0">
     <b-tab title="Snapshot" active>
-      <SnapshotTab :row="row" :productId="productId" />
+      <SnapshotTab :row="row" :assetHubId="assetHubId" />
     </b-tab>
 
     <b-tab title="Asset Management">
-      <AssetManagementTab :row="row" :productId="productId" />
+      <AssetManagementTab :row="row" :assetHubId="assetHubId" />
     </b-tab>
 
     <b-tab title="Servicing">
-      <ServicingTab :row="row" :productId="productId" />
+      <ServicingTab :row="row" :assetHubId="assetHubId" />
     </b-tab>
 
     <b-tab title="Property Details">
-      <PropertyDetailsTab :row="row" :productId="productId" />
+      <PropertyDetailsTab :row="row" :assetHubId="assetHubId" />
     </b-tab>
 
     <b-tab title="Documents">
-      <DocumentsTab :row="row" :productId="productId" />
+      <DocumentsTab :row="row" :assetHubId="assetHubId" />
     </b-tab>
     
     <b-tab title="Performance">
-      <PerformanceTab :row="row" :productId="productId" />
+      <PerformanceTab :row="row" :assetHubId="assetHubId" />
     </b-tab>
   </b-tabs>
 </template>
@@ -30,9 +30,9 @@
 <script setup lang="ts">
 import { defineAsyncComponent, withDefaults, defineProps } from 'vue'
 
-withDefaults(defineProps<{ row?: Record<string, any> | null; productId?: string | number | null }>(), {
+withDefaults(defineProps<{ row?: Record<string, any> | null; assetHubId?: string | number | null }>(), {
   row: null,
-  productId: null,
+  assetHubId: null,
 })
 
 const SnapshotTab = defineAsyncComponent(() => import('./SnapshotTab.vue'))

@@ -325,10 +325,10 @@ interface Asset {
 
 const props = withDefaults(defineProps<{ 
   row?: Record<string, any> | null
-  productId?: string | number | null 
+  assetHubId?: string | number | null 
 }>(), {
   row: null,
-  productId: null,
+  assetHubId: null,
 })
 
 // Reactive state
@@ -413,9 +413,9 @@ const outcomes = ref<Outcome[]>([
   }
 ])
 
-// Resolve AM asset id to hit backend endpoints
+// Resolve AM asset hub id to hit backend endpoints
 const amId = computed<number | null>(() => {
-  if (props.productId != null && props.productId !== '') return Number(props.productId)
+  if (props.assetHubId != null && props.assetHubId !== '') return Number(props.assetHubId)
   const rid = props.row && (props.row as any).id
   return rid != null ? Number(rid) : null
 })

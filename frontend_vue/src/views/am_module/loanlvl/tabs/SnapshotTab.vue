@@ -7,7 +7,7 @@
         <PropertyMap
           class="w-100 h-100 d-flex flex-column"
           :row="row"
-          :productId="productId"
+          :assetHubId="assetHubId"
           :height="380"
           :viewMode="'street'"
         />
@@ -21,7 +21,7 @@
         <PropertyMap
           class="w-100 h-100 d-flex flex-column"
           :row="row"
-          :productId="productId"
+          :assetHubId="assetHubId"
           :height="380"
         />
       </div>
@@ -36,14 +36,14 @@ import PropertyMap from '@/components/PropertyMap.vue'
 // Keep prop contract to avoid extraneous-prop warnings in parents that pass these.
 withDefaults(defineProps<{
   row?: Record<string, any> | null
-  productId?: string | number | null
+  assetHubId?: string | number | null
   carouselWidth?: number | string
   carouselHeight?: number | string
   thumbWidth?: number | string
   thumbHeight?: number | string
 }>(), {
   row: null,
-  productId: null,
+  assetHubId: null,
   carouselWidth: 500,
   carouselHeight: 280,
   thumbWidth: 120,

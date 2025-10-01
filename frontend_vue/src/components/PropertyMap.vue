@@ -66,7 +66,7 @@ const props = withDefaults(defineProps<{
   // Optional backing data row (modal usage)
   row?: Record<string, any> | null
   // Optional id to fetch the row (full-page usage)
-  productId?: string | number | null
+  assetHubId?: string | number | null
   // Optional address parts; if not supplied, derived from row
   address?: string | null
   city?: string | null
@@ -84,7 +84,7 @@ const props = withDefaults(defineProps<{
   viewMode?: 'map' | 'street'
 }>(), {
   row: null,
-  productId: null,
+  assetHubId: null,
   address: null,
   city: null,
   state: null,
@@ -172,7 +172,7 @@ async function loadRowById(id: number) {
 
 // Trigger fetch if we have no row but do have an id
 watch(
-  () => props.productId,
+  () => props.assetHubId,
   (raw) => {
     const id = raw != null ? Number(raw) : NaN
     if (!props.row && Number.isFinite(id)) {

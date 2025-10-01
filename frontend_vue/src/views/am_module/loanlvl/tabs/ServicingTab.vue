@@ -5,38 +5,38 @@
   <!-- AM Loan Details: composes loan detail subcomponents -->
   <b-row class="g-3 g-lg-4 px-3 px-lg-4">
     <b-col lg="4" class="d-flex">
-      <LoanDetails class="w-100" :row="servicerData" :productId="productId" />
+      <LoanDetails class="w-100" :row="servicerData" :assetHubId="assetHubId" />
     </b-col>
     <b-col lg="4" class="d-flex">
-      <TotalDebt class="w-100" :row="servicerData" :productId="productId" />
-    </b-col>
-
-    <b-col lg="4" class="d-flex">
-      <Origination class="w-100" :row="servicerData" :productId="productId" />
-    </b-col>
-    <b-col lg="4" class="d-flex">
-      <Borrower class="w-100" :row="servicerData" :productId="productId" />
-    </b-col>
-    <b-col lg="4" class="d-flex">
-      <Foreclosure class="w-100" :row="servicerData" :productId="productId" />
+      <TotalDebt class="w-100" :row="servicerData" :assetHubId="assetHubId" />
     </b-col>
 
     <b-col lg="4" class="d-flex">
-      <Bankruptcy class="w-100" :row="servicerData" :productId="productId" />
+      <Origination class="w-100" :row="servicerData" :assetHubId="assetHubId" />
     </b-col>
     <b-col lg="4" class="d-flex">
-      <LossMitigation class="w-100" :row="servicerData" :productId="productId" />
+      <Borrower class="w-100" :row="servicerData" :assetHubId="assetHubId" />
+    </b-col>
+    <b-col lg="4" class="d-flex">
+      <Foreclosure class="w-100" :row="servicerData" :assetHubId="assetHubId" />
     </b-col>
 
     <b-col lg="4" class="d-flex">
-      <RehabHoldbacks class="w-100" :row="servicerData" :productId="productId" />
+      <Bankruptcy class="w-100" :row="servicerData" :assetHubId="assetHubId" />
     </b-col>
     <b-col lg="4" class="d-flex">
-      <ServicingNotes class="w-100" :row="servicerData" :productId="productId" />
+      <LossMitigation class="w-100" :row="servicerData" :assetHubId="assetHubId" />
+    </b-col>
+
+    <b-col lg="4" class="d-flex">
+      <RehabHoldbacks class="w-100" :row="servicerData" :assetHubId="assetHubId" />
+    </b-col>
+    <b-col lg="4" class="d-flex">
+      <ServicingNotes class="w-100" :row="servicerData" :assetHubId="assetHubId" />
     </b-col>
 
     <b-col lg="12" class="d-flex">
-      <T12CashFlow class="w-100" :row="servicerData" :productId="productId" />
+      <T12CashFlow class="w-100" :row="servicerData" :assetHubId="assetHubId" />
     </b-col>
   </b-row>
 </template>
@@ -57,15 +57,15 @@ import ServicingNotes from '@/views/am_module/loanlvl/components/servicingnotes.
 import T12CashFlow from '@/views/am_module/loanlvl/components/t12cashflow.vue'
 
 // Single defineProps with defaults (avoid duplicate defineProps error)
-const props = withDefaults(defineProps<{ row?: Record<string, any> | null; productId?: string | number | null }>(), {
+const props = withDefaults(defineProps<{ row?: Record<string, any> | null; assetHubId?: string | number | null }>(), {
   row: null,
-  productId: null,
+  assetHubId: null,
 })
 
 // Fetch latest ServicerLoanData from dedicated endpoint
 const servicerData = ref<Record<string, any> | null>(null)
 watch(
-  () => props.productId,
+  () => props.assetHubId,
   async (raw) => {
     const id = raw != null ? Number(raw) : NaN
     if (!Number.isFinite(id)) { servicerData.value = null; return }

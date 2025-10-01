@@ -5,10 +5,10 @@
 
     <div v-if="!standalone" class="content">
       <b-container fluid>
-        <LoanTabs :row="effectiveRow" :productId="productId" />
+        <LoanTabs :row="effectiveRow" :assetHubId="assetHubId" />
       </b-container>
     </div>
-    <LoanTabs v-else :row="effectiveRow" :productId="productId" />
+    <LoanTabs v-else :row="effectiveRow" :assetHubId="assetHubId" />
   </component>
 </template>
 
@@ -25,12 +25,12 @@ import http from '@/lib/http'
 
 const props = withDefaults(defineProps<{
   row?: Record<string, any> | null
-  productId?: string | number | null
+  assetHubId?: string | number | null
   address?: string | null
   standalone?: boolean
 }>(), {
   row: null,
-  productId: null,
+  assetHubId: null,
   address: null,
   standalone: true,
 })
@@ -41,13 +41,13 @@ const items = ref<Array<{ text: string; href?: string; to?: string; active?: boo
   { text: 'Asset Details', active: true },
 ])
 
-const productId = toRef(props, 'productId')
+const assetHubId = toRef(props, 'assetHubId')
 const row = toRef(props, 'row')
 const addressProp = toRef(props, 'address')
 const standalone = toRef(props, 'standalone')
 
 const displayTitle = computed<string>(() => {
-  const rawId = productId.value
+  const rawId = assetHubId.value
   const id = typeof rawId === 'string' || typeof rawId === 'number' ? String(rawId) : ''
 
   const r = row.value || {}
@@ -81,7 +81,7 @@ async function loadRowById(id: number) {
   }
 }
 
-watch(productId, (raw) => {
+watch(assetHubId, (raw) => {
   const id = raw != null ? Number(raw) : NaN
   if (!row.value && Number.isFinite(id)) {
     loadRowById(id)

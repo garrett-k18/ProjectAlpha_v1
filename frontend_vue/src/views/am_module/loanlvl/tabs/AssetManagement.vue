@@ -2,7 +2,7 @@
   <!-- Asset Management: Tasking & Outcome Management -->
   <div class="px-3 px-lg-4">
     <!-- AM content is fully delegated to AmLlTasking -->
-    <AmLlTasking :row="props.row" :productId="props.productId" />
+    <AmLlTasking :row="props.row" :assetHubId="props.assetHubId" />
   </div>
   
 </template>
@@ -11,9 +11,9 @@
 import { withDefaults, defineProps } from 'vue'
 import AmLlTasking from '@/views/am_module/loanlvl/am_tasking/am_ll_tasking.vue'
 
-const props = withDefaults(defineProps<{ row?: Record<string, any> | null; productId?: string | number | null }>(), {
+const props = withDefaults(defineProps<{ row?: Record<string, any> | null; assetHubId?: string | number | null }>(), {
   row: null,
-  productId: null,
+  assetHubId: null,
 })
 
 </script>

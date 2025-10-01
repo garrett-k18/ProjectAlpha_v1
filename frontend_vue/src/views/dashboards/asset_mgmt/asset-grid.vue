@@ -131,7 +131,7 @@
         </template>
         <!-- Centralized loan-level wrapper rendered inside the modal -->
         <LoanLevelIndex
-          :productId="selectedId"
+          :assetHubId="selectedId"
           :row="selectedRow"
           :address="selectedAddr"
           :standalone="false"
@@ -342,10 +342,11 @@ const modalAddrText = computed<string>(() => {
   return rawAddr.replace(/,?\s*\d{5}(?:-\d{4})?$/, '')
 })
 
-// Helper to compute a product/asset id from the row
-function getProductIdFromRow(row: any): string | number | null {
-  // Prefer domain-specific id if present, fallback to common fields
-  const candidates = [row?.id, row?.asset_id, row?.sellertape_id]
+// WHAT: Helper to extract asset hub id from grid row
+// WHY: After migration, asset_hub_id is the primary identifier for all related models
+// HOW: Check asset_hub_id first, then fallback to id (which equals asset_hub after migration)
+function getAssetHubIdFromRow(row: any): string | number | null {
+  const candidates = [row?.asset_hub_id, row?.id]
   for (const c of candidates) {
     if (c !== undefined && c !== null && c !== '') return c as any
   }
@@ -364,7 +365,7 @@ function buildAddress(row: any): string {
 function onRowAction(action: string, row: any): void {
   // Normalize action; only 'view' opens modal currently
   if (action === 'view') {
-    selectedId.value = getProductIdFromRow(row)
+    selectedId.value = getAssetHubIdFromRow(row)
     selectedRow.value = row
     selectedAddr.value = buildAddress(row)
     showAssetModal.value = true

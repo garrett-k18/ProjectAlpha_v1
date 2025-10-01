@@ -15,9 +15,9 @@ import { withDefaults, defineProps, computed } from 'vue'
 import DocumentsQuickView from '@/components/DocumentsQuickView.vue'
 import type { DocumentItem } from '@/components/DocumentsQuickView.vue'
 
-withDefaults(defineProps<{ row?: Record<string, any> | null; productId?: string | number | null }>(), {
+withDefaults(defineProps<{ row?: Record<string, any> | null; assetHubId?: string | number | null }>(), {
   row: null,
-  productId: null,
+  assetHubId: null,
 })
 
 const docItems = computed<DocumentItem[]>(() => [

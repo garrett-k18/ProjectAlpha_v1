@@ -831,13 +831,13 @@ import http from '@/lib/http'
 
 // WHAT: Props interface for component
 // WHY: Accept row data from parent to load metrics
-// HOW: Optional row and productId props (productId = asset_hub_id)
+// HOW: Optional row and assetHubId props
 const props = withDefaults(defineProps<{ 
   row?: Record<string, any> | null
-  productId?: string | number | null 
+  assetHubId?: string | number | null 
 }>(), {
   row: null,
-  productId: null,
+  assetHubId: null,
 })
 
 // WHAT: Loading state for API call
@@ -1471,8 +1471,8 @@ function fmtCurrency(v: number | null | undefined): string {
 // WHY: Load underwritten/realized values from BlendedOutcomeModel
 // HOW: Call /api/am/performance-summary/<asset_hub_id>/ and populate metrics
 async function fetchPerformanceData() {
-  if (!props.productId) {
-    console.warn('PLMetrics: No productId provided, using placeholder data')
+  if (!props.assetHubId) {
+    console.warn('PLMetrics: No assetHubId provided, using placeholder data')
     return
   }
 
@@ -1480,7 +1480,7 @@ async function fetchPerformanceData() {
   error.value = null
 
   try {
-    const response = await http.get(`/am/performance-summary/${props.productId}/`)
+    const response = await http.get(`/am/performance-summary/${props.assetHubId}/`)
     const data = response.data
 
     // WHAT: Map API response to metrics object
@@ -1658,9 +1658,9 @@ onMounted(() => {
   fetchPerformanceData()
 })
 
-// WHAT: Watch productId changes
+// WHAT: Watch assetHubId changes
 // WHY: Refetch data if user switches to different asset
-watch(() => props.productId, () => {
+watch(() => props.assetHubId, () => {
   fetchPerformanceData()
 })
 </script>
@@ -1721,7 +1721,13 @@ watch(() => props.productId, () => {
   font-weight: 600;
 }
 
-/* Underwritten column styling - subtle blue tint */
+/* 
+  WHAT: Underwritten column styling - subtle blue tint
+  WHY: Visual distinction between Underwritten, Realized, and Sandbox columns
+  NOTE: This color (#f0f7ff) is also used in cashFlowSeries.vue for Period/Date headers
+  WHERE: cashFlowSeries.vue lines 39, 45, 59, 65 (inline styles)
+  TO CHANGE: Update this background-color AND CashFlowSeries.vue inline styles
+*/
 .underwritten-col {
   background-color: #f0f7ff;
   width: 350px;
@@ -1733,7 +1739,6 @@ watch(() => props.productId, () => {
 /* Realized column styling - subtle green tint */
 .realized-col {
   background-color: #f0fdf4;
-  width: 350px;
   min-width: 350px;
   max-width: 350px;
   font-weight: 500;
