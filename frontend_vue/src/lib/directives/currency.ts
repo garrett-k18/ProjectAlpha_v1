@@ -54,12 +54,28 @@ export const currencyDirective: Directive<HTMLInputElement, void> = {
     const target = input || (el as unknown as HTMLInputElement)
 
     const onInput = () => applyFormat(target)
+    const onBlur = () => applyFormat(target)
+    
     // Initial format (in case value was prefilled)
     applyFormat(target)
+    
+    // Also format after a short delay to catch v-model updates
+    setTimeout(() => applyFormat(target), 100)
+    
     target.addEventListener('input', onInput)
+    target.addEventListener('blur', onBlur)
 
     // Store cleanup
-    ;(target as any)._currency_cleanup = () => target.removeEventListener('input', onInput)
+    ;(target as any)._currency_cleanup = () => {
+      target.removeEventListener('input', onInput)
+      target.removeEventListener('blur', onBlur)
+    }
+  },
+  updated(el) {
+    // Re-apply format when the element updates (e.g., v-model changes)
+    const input: HTMLInputElement | null = (el as any).tagName === 'INPUT' ? (el as HTMLInputElement) : (el.querySelector?.('input') as HTMLInputElement | null)
+    const target = input || (el as unknown as HTMLInputElement)
+    applyFormat(target)
   },
   beforeUnmount(el) {
     const input: HTMLInputElement | null = (el as any).tagName === 'INPUT' ? (el as HTMLInputElement) : (el.querySelector?.('input') as HTMLInputElement | null)

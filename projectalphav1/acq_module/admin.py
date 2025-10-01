@@ -72,10 +72,10 @@ class TradeAdmin(admin.ModelAdmin):
 @admin.register(SellerRawData)
 class SellerRawDataAdmin(admin.ModelAdmin):
     """Admin configuration for SellerRawData model"""
-    # Include the Asset Hub ID for quick reference
-    list_display = ('id', 'asset_hub_id', 'seller', 'trade', 'asset_status', 'state', 'current_balance', 'months_dlq')
+    # Include the Asset Hub ID for quick reference (asset_hub is now the PK)
+    list_display = ('asset_hub', 'seller', 'trade', 'asset_status', 'state', 'current_balance', 'months_dlq')
     # Optimize FK lookups for list view performance
-    list_select_related = ('asset_hub', 'seller', 'trade')
+    list_select_related = ('seller', 'trade')
     list_filter = ('asset_status', 'state', 'seller', 'trade')
     search_fields = ('street_address', 'city', 'state', 'zip')
     fieldsets = (

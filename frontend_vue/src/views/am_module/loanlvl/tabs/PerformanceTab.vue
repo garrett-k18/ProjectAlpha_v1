@@ -14,6 +14,15 @@
         <PLMetrics :row="row" :product-id="productId" />
       </div>
     </div>
+
+    <!-- WHAT: Cash Flow Series component - time-series grid -->
+    <!-- WHY: Show period-by-period cash flows for detailed analysis -->
+    <!-- WHERE: Component at frontend_vue/src/views/am_module/loanlvl/tabs/components/CashFlowSeries.vue -->
+    <div class="card border-0 shadow-sm mt-4">
+      <div class="card-body">
+        <CashFlowSeries :product-id="productId" />
+      </div>
+    </div>
   </div>
 </template>
 
@@ -24,6 +33,7 @@
 // NOTE: PLMetrics handles all calculations and data - this is just the wrapper
 import { withDefaults, defineProps } from 'vue'
 import PLMetrics from './components/PLMetrics.vue'
+import CashFlowSeries from './components/CashFlowSeries.vue'
 
 // WHAT: Props interface for parent data
 // WHY: Accept row data and asset ID to pass to PLMetrics

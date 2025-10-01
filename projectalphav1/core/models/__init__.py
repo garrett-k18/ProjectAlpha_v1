@@ -6,7 +6,7 @@ from .assumptions import Servicer, StateReference
 from .enrichment import LlDataEnrichment
 from .valuations import Valuation
 from .attachments import Photo, Document
-from .transactions import LLTransactionSummary
+from .transactions import LLTransactionSummary, LLCashFlowSeries
 
 __all__ = [
     'DebtFacility',
@@ -19,4 +19,5 @@ __all__ = [
     'Photo',
     'Document',
     'LLTransactionSummary',
+    'LLCashFlowSeries',
 ]

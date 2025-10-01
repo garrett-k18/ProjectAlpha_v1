@@ -29,14 +29,10 @@
           </tr>
         </thead>
         <tbody>
-          <!-- Gross Cost (Total) - Collapsible -->
+          <!-- Gross Cost (collapsible parent) -->
           <tr 
             @click="grossCostCollapsed = !grossCostCollapsed" 
-            style="cursor: pointer;"
-            role="button"
-            :aria-expanded="!grossCostCollapsed"
-            title="Click to expand/collapse gross cost details"
-            class="table-secondary"
+            class="parent-row cursor-pointer"
           >
             <td class="fw-bold ps-3">
               <i :class="grossCostCollapsed ? 'mdi mdi-chevron-right' : 'mdi mdi-chevron-down'" class="me-1"></i>
@@ -49,7 +45,8 @@
 
           <!-- Purchase Cost (sub-item) -->
           <tr v-show="!grossCostCollapsed">
-            <td class="ps-5 small text-muted">Purchase Cost</td>
+            <!-- TODO: Replace manual padding with CSS class system for consistent alignment -->
+            <td class="small text-muted" style="padding-left: 3.65rem;">Purchase Cost</td>
             <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.purchaseCost.underwritten) }}</td>
             <td class="text-end realized-col small">{{ fmtCurrency(metrics.purchaseCost.realized) }}</td>
             <td class="text-end sandbox-col">
@@ -73,7 +70,7 @@
             :aria-expanded="!acqCostsCollapsed"
             title="Click to expand/collapse acquisition cost details"
           >
-            <td class="ps-5 small fw-semibold text-muted">
+            <td class="ps-4 small fw-semibold text-muted">
               <i :class="acqCostsCollapsed ? 'mdi mdi-chevron-right' : 'mdi mdi-chevron-down'" class="me-1"></i>
               Acquisition Cost
             </td>
@@ -84,6 +81,7 @@
 
           <!-- Acquisition Cost Sub-items (nested) -->
           <tr v-show="!grossCostCollapsed && !acqCostsCollapsed">
+            <!-- TODO: Replace manual padding with CSS class system for consistent alignment -->
             <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">Due Diligence</td>
             <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.acqDueDiligence.underwritten) }}</td>
             <td class="text-end realized-col small">{{ fmtCurrency(metrics.acqDueDiligence.realized) }}</td>
@@ -147,7 +145,7 @@
           <!-- Income (Total) - Collapsible -->
           <tr 
             @click="incomeCollapsed = !incomeCollapsed" 
-            style="cursor: pointer;"
+            class="parent-row cursor-pointer"
             role="button"
             :aria-expanded="!incomeCollapsed"
             title="Click to expand/collapse income details"
@@ -163,7 +161,8 @@
 
           <!-- Income Sub-lines (collapsible) -->
           <tr v-show="!incomeCollapsed">
-            <td class="ps-5 small text-muted">Principal Collected</td>
+            <!-- TODO: Replace manual padding with CSS class system for consistent alignment -->
+            <td class="small text-muted" style="padding-left: 3.65rem;">Principal Collected</td>
             <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.incomePrincipal.underwritten) }}</td>
             <td class="text-end realized-col small">{{ fmtCurrency(metrics.incomePrincipal.realized) }}</td>
             <td class="text-end sandbox-col">
@@ -178,7 +177,7 @@
             </td>
           </tr>
           <tr v-show="!incomeCollapsed">
-            <td class="ps-5 small text-muted">Interest Collected</td>
+            <td class="small text-muted" style="padding-left: 3.65rem;">Interest Collected</td>
             <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.incomeInterest.underwritten) }}</td>
             <td class="text-end realized-col small">{{ fmtCurrency(metrics.incomeInterest.realized) }}</td>
             <td class="text-end sandbox-col">
@@ -193,7 +192,7 @@
             </td>
           </tr>
           <tr v-show="!incomeCollapsed">
-            <td class="ps-5 small text-muted">Rent Collected</td>
+            <td class="small text-muted" style="padding-left: 3.65rem;">Rent Collected</td>
             <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.incomeRent.underwritten) }}</td>
             <td class="text-end realized-col small">{{ fmtCurrency(metrics.incomeRent.realized) }}</td>
             <td class="text-end sandbox-col">
@@ -208,7 +207,7 @@
             </td>
           </tr>
           <tr v-show="!incomeCollapsed">
-            <td class="ps-5 small text-muted">CAM Income</td>
+            <td class="small text-muted" style="padding-left: 3.65rem;">CAM Income</td>
             <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.incomeCAM.underwritten) }}</td>
             <td class="text-end realized-col small">{{ fmtCurrency(metrics.incomeCAM.realized) }}</td>
             <td class="text-end sandbox-col">
@@ -223,7 +222,7 @@
             </td>
           </tr>
           <tr v-show="!incomeCollapsed">
-            <td class="ps-5 small text-muted">Mod Down Payment</td>
+            <td class="small text-muted" style="padding-left: 3.65rem;">Mod Down Payment</td>
             <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.incomeModDownPayment.underwritten) }}</td>
             <td class="text-end realized-col small">{{ fmtCurrency(metrics.incomeModDownPayment.realized) }}</td>
             <td class="text-end sandbox-col">
@@ -238,26 +237,45 @@
             </td>
           </tr>
 
-          <!-- Operating Expense (Total) - Collapsible -->
+          <!-- Expenses (Parent Toggle) - Collapsible -->
           <tr 
+            @click="allExpensesCollapsed = !allExpensesCollapsed" 
+            class="parent-row cursor-pointer"
+            role="button"
+            :aria-expanded="!allExpensesCollapsed"
+            title="Click to expand/collapse all expense categories"
+          >
+            <td class="fw-bold ps-3">
+              <i :class="allExpensesCollapsed ? 'mdi mdi-chevron-right' : 'mdi mdi-chevron-down'" class="me-1"></i>
+              Expenses
+            </td>
+            <td class="text-end fw-bold underwritten-col">{{ fmtCurrency(operatingExpensesTotal.underwritten) }}</td>
+            <td class="text-end fw-bold realized-col">{{ fmtCurrency(operatingExpensesTotal.realized) }}</td>
+            <td class="text-end fw-bold sandbox-col">{{ fmtCurrency(expensesSandboxTotal + reoExpensesSandboxTotal + fundExpensesSandboxTotal) }}</td>
+          </tr>
+
+          <!-- Operating Expense (nested under Expenses) - Collapsible -->
+          <tr 
+            v-show="!allExpensesCollapsed"
             @click="expensesCollapsed = !expensesCollapsed" 
-            style="cursor: pointer;"
+            class="cursor-pointer"
             role="button"
             :aria-expanded="!expensesCollapsed"
-            title="Click to expand/collapse expense details"
+            title="Click to expand/collapse operating expense details"
           >
-            <td class="fw-semibold ps-3">
+            <td class="fw-semibold ps-4 small text-muted">
               <i :class="expensesCollapsed ? 'mdi mdi-chevron-right' : 'mdi mdi-chevron-down'" class="me-1"></i>
               Operating Expense
             </td>
-            <td class="text-end underwritten-col">{{ fmtCurrency(operatingExpensesTotal.underwritten) }}</td>
-            <td class="text-end realized-col">{{ fmtCurrency(operatingExpensesTotal.realized) }}</td>
-            <td class="text-end sandbox-col">{{ fmtCurrency(expensesSandboxTotal) }}</td>
+            <td class="text-end underwritten-col small">{{ fmtCurrency(operatingExpensesTotal.underwritten) }}</td>
+            <td class="text-end realized-col small">{{ fmtCurrency(operatingExpensesTotal.realized) }}</td>
+            <td class="text-end sandbox-col small">{{ fmtCurrency(expensesSandboxTotal) }}</td>
           </tr>
 
-          <!-- Expense Sub-lines (collapsible) -->
-          <tr v-show="!expensesCollapsed">
-            <td class="ps-5 small text-muted">Servicing Fees</td>
+          <!-- Operating Expense Sub-lines (collapsible) -->
+          <tr v-show="!allExpensesCollapsed && !expensesCollapsed">
+            <!-- TODO: Replace manual padding with CSS class system for consistent alignment -->
+            <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">Servicing Fees</td>
             <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.expenseServicing.underwritten) }}</td>
             <td class="text-end realized-col small">{{ fmtCurrency(metrics.expenseServicing.realized) }}</td>
             <td class="text-end sandbox-col">
@@ -273,14 +291,15 @@
           </tr>
           <!-- Legal/DIL Cost (collapsible sub-item) -->
           <tr 
-            v-show="!expensesCollapsed"
+            v-show="!allExpensesCollapsed && !expensesCollapsed"
             @click="legalCostsCollapsed = !legalCostsCollapsed" 
             style="cursor: pointer;"
             role="button"
             :aria-expanded="!legalCostsCollapsed"
             title="Click to expand/collapse legal cost details"
           >
-            <td class="ps-5 small fw-semibold text-muted">
+            <!-- TODO: Replace manual padding with CSS class system for consistent alignment -->
+            <td class="small fw-semibold text-muted" style="padding-left: 4.3rem; font-size: 0.7rem;">
               <i :class="legalCostsCollapsed ? 'mdi mdi-chevron-right' : 'mdi mdi-chevron-down'" class="me-1"></i>
               Legal/DIL Cost
             </td>
@@ -290,8 +309,9 @@
           </tr>
 
           <!-- Legal/DIL Cost Sub-items (nested) -->
-          <tr v-show="!expensesCollapsed && !legalCostsCollapsed">
-            <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">Foreclosure Fees</td>
+          <tr v-show="!allExpensesCollapsed && !expensesCollapsed && !legalCostsCollapsed">
+            <!-- TODO: Replace manual padding with CSS class system for consistent alignment -->
+            <td class="small text-muted" style="padding-left: 6.5rem; font-size: 0.65rem;">Foreclosure Fees</td>
             <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.legalForeclosure.underwritten) }}</td>
             <td class="text-end realized-col small">{{ fmtCurrency(metrics.legalForeclosure.realized) }}</td>
             <td class="text-end sandbox-col">
@@ -305,8 +325,8 @@
               />
             </td>
           </tr>
-          <tr v-show="!expensesCollapsed && !legalCostsCollapsed">
-            <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">Bankruptcy Fees</td>
+          <tr v-show="!allExpensesCollapsed && !expensesCollapsed && !legalCostsCollapsed">
+            <td class="small text-muted" style="padding-left: 6.5rem; font-size: 0.65rem;">Bankruptcy Fees</td>
             <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.legalBankruptcy.underwritten) }}</td>
             <td class="text-end realized-col small">{{ fmtCurrency(metrics.legalBankruptcy.realized) }}</td>
             <td class="text-end sandbox-col">
@@ -320,8 +340,8 @@
               />
             </td>
           </tr>
-          <tr v-show="!expensesCollapsed && !legalCostsCollapsed">
-            <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">Deed-in-Lieu Cost</td>
+          <tr v-show="!allExpensesCollapsed && !expensesCollapsed && !legalCostsCollapsed">
+            <td class="small text-muted" style="padding-left: 6.5rem; font-size: 0.65rem;">Deed-in-Lieu Cost</td>
             <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.legalDIL.underwritten) }}</td>
             <td class="text-end realized-col small">{{ fmtCurrency(metrics.legalDIL.realized) }}</td>
             <td class="text-end sandbox-col">
@@ -335,8 +355,8 @@
               />
             </td>
           </tr>
-          <tr v-show="!expensesCollapsed && !legalCostsCollapsed">
-            <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">Cash for Keys Cost</td>
+          <tr v-show="!allExpensesCollapsed && !expensesCollapsed && !legalCostsCollapsed">
+            <td class="small text-muted" style="padding-left: 6.5rem; font-size: 0.65rem;">Cash for Keys Cost</td>
             <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.legalCashForKeys.underwritten) }}</td>
             <td class="text-end realized-col small">{{ fmtCurrency(metrics.legalCashForKeys.realized) }}</td>
             <td class="text-end sandbox-col">
@@ -350,8 +370,8 @@
               />
             </td>
           </tr>
-          <tr v-show="!expensesCollapsed && !legalCostsCollapsed">
-            <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">Eviction Cost</td>
+          <tr v-show="!allExpensesCollapsed && !expensesCollapsed && !legalCostsCollapsed">
+            <td class="small text-muted" style="padding-left: 6.5rem; font-size: 0.65rem;">Eviction Cost</td>
             <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.legalEviction.underwritten) }}</td>
             <td class="text-end realized-col small">{{ fmtCurrency(metrics.legalEviction.realized) }}</td>
             <td class="text-end sandbox-col">
@@ -365,8 +385,8 @@
               />
             </td>
           </tr>
-          <tr v-show="!expensesCollapsed">
-            <td class="ps-5 small text-muted">AM Fees</td>
+          <tr v-show="!allExpensesCollapsed && !expensesCollapsed">
+            <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">AM Fees</td>
             <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.expenseAMFees.underwritten) }}</td>
             <td class="text-end realized-col small">{{ fmtCurrency(metrics.expenseAMFees.realized) }}</td>
             <td class="text-end sandbox-col">
@@ -380,8 +400,8 @@
               />
             </td>
           </tr>
-          <tr v-show="!expensesCollapsed">
-            <td class="ps-5 small text-muted">Property Taxes</td>
+          <tr v-show="!allExpensesCollapsed && !expensesCollapsed">
+            <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">Property Taxes</td>
             <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.expensePropertyTax.underwritten) }}</td>
             <td class="text-end realized-col small">{{ fmtCurrency(metrics.expensePropertyTax.realized) }}</td>
             <td class="text-end sandbox-col">
@@ -395,8 +415,8 @@
               />
             </td>
           </tr>
-          <tr v-show="!expensesCollapsed">
-            <td class="ps-5 small text-muted">Property Insurance</td>
+          <tr v-show="!allExpensesCollapsed && !expensesCollapsed">
+            <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">Property Insurance</td>
             <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.expensePropertyInsurance.underwritten) }}</td>
             <td class="text-end realized-col small">{{ fmtCurrency(metrics.expensePropertyInsurance.realized) }}</td>
             <td class="text-end sandbox-col">
@@ -411,26 +431,28 @@
             </td>
           </tr>
 
-          <!-- REO Expenses (Total) - Collapsible -->
+          <!-- REO Expenses (nested under Expenses) - Collapsible -->
           <tr 
+            v-show="!allExpensesCollapsed"
             @click="reoExpensesCollapsed = !reoExpensesCollapsed" 
-            style="cursor: pointer;"
+            class="cursor-pointer"
             role="button"
             :aria-expanded="!reoExpensesCollapsed"
             title="Click to expand/collapse REO expense details"
           >
-            <td class="fw-semibold ps-3">
+            <td class="fw-semibold ps-4 small text-muted">
               <i :class="reoExpensesCollapsed ? 'mdi mdi-chevron-right' : 'mdi mdi-chevron-down'" class="me-1"></i>
               REO Expenses
             </td>
-            <td class="text-end underwritten-col">{{ fmtCurrency(reoExpensesTotal.underwritten) }}</td>
-            <td class="text-end realized-col">{{ fmtCurrency(reoExpensesTotal.realized) }}</td>
-            <td class="text-end sandbox-col">{{ fmtCurrency(reoExpensesSandboxTotal) }}</td>
+            <td class="text-end underwritten-col small">{{ fmtCurrency(reoExpensesTotal.underwritten) }}</td>
+            <td class="text-end realized-col small">{{ fmtCurrency(reoExpensesTotal.realized) }}</td>
+            <td class="text-end sandbox-col small">{{ fmtCurrency(reoExpensesSandboxTotal) }}</td>
           </tr>
 
           <!-- REO Expense Sub-lines (collapsible) -->
-          <tr v-show="!reoExpensesCollapsed">
-            <td class="ps-5 small text-muted">HOA</td>
+          <tr v-show="!allExpensesCollapsed && !reoExpensesCollapsed">
+            <!-- TODO: Replace manual padding with CSS class system for consistent alignment -->
+            <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">HOA</td>
             <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.reoHOA.underwritten) }}</td>
             <td class="text-end realized-col small">{{ fmtCurrency(metrics.reoHOA.realized) }}</td>
             <td class="text-end sandbox-col">
@@ -444,8 +466,8 @@
               />
             </td>
           </tr>
-          <tr v-show="!reoExpensesCollapsed">
-            <td class="ps-5 small text-muted">Utilities</td>
+          <tr v-show="!allExpensesCollapsed && !reoExpensesCollapsed">
+            <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">Utilities</td>
             <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.reoUtilities.underwritten) }}</td>
             <td class="text-end realized-col small">{{ fmtCurrency(metrics.reoUtilities.realized) }}</td>
             <td class="text-end sandbox-col">
@@ -459,8 +481,8 @@
               />
             </td>
           </tr>
-          <tr v-show="!reoExpensesCollapsed">
-            <td class="ps-5 small text-muted">Trashout Cost</td>
+          <tr v-show="!allExpensesCollapsed && !reoExpensesCollapsed">
+            <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">Trashout Cost</td>
             <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.reoTrashout.underwritten) }}</td>
             <td class="text-end realized-col small">{{ fmtCurrency(metrics.reoTrashout.realized) }}</td>
             <td class="text-end sandbox-col">
@@ -474,8 +496,8 @@
               />
             </td>
           </tr>
-          <tr v-show="!reoExpensesCollapsed">
-            <td class="ps-5 small text-muted">Renovation Cost</td>
+          <tr v-show="!allExpensesCollapsed && !reoExpensesCollapsed">
+            <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">Renovation Cost</td>
             <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.reoRenovation.underwritten) }}</td>
             <td class="text-end realized-col small">{{ fmtCurrency(metrics.reoRenovation.realized) }}</td>
             <td class="text-end sandbox-col">
@@ -489,8 +511,8 @@
               />
             </td>
           </tr>
-          <tr v-show="!reoExpensesCollapsed">
-            <td class="ps-5 small text-muted">Property Preservation</td>
+          <tr v-show="!allExpensesCollapsed && !reoExpensesCollapsed">
+            <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">Property Preservation</td>
             <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.reoPropertyPreservation.underwritten) }}</td>
             <td class="text-end realized-col small">{{ fmtCurrency(metrics.reoPropertyPreservation.realized) }}</td>
             <td class="text-end sandbox-col">
@@ -507,14 +529,15 @@
 
           <!-- CRE Expenses (Total) - Collapsible -->
           <tr 
-            v-show="!reoExpensesCollapsed"
+            v-show="!allExpensesCollapsed && !reoExpensesCollapsed"
             @click="creExpensesCollapsed = !creExpensesCollapsed" 
             style="cursor: pointer;"
             role="button"
             :aria-expanded="!creExpensesCollapsed"
             title="Click to expand/collapse CRE expense details"
           >
-            <td class="ps-5 small fw-semibold text-muted">
+            <!-- TODO: Replace manual padding with CSS class system for consistent alignment -->
+            <td class="small fw-semibold text-muted" style="padding-left: 4.2rem; font-size: 0.65rem;">
               <i :class="creExpensesCollapsed ? 'mdi mdi-chevron-right' : 'mdi mdi-chevron-down'" class="me-1"></i>
               CRE Expenses
             </td>
@@ -524,8 +547,9 @@
           </tr>
 
           <!-- CRE Expense Sub-lines (collapsible) -->
-          <tr v-show="!reoExpensesCollapsed && !creExpensesCollapsed">
-            <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">Marketing</td>
+          <tr v-show="!allExpensesCollapsed && !reoExpensesCollapsed && !creExpensesCollapsed">
+            <!-- TODO: Replace manual padding with CSS class system for consistent alignment -->
+            <td class="small text-muted" style="padding-left: 6.5rem; font-size: 0.65rem;">Marketing</td>
             <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.creMarketing.underwritten) }}</td>
             <td class="text-end realized-col small">{{ fmtCurrency(metrics.creMarketing.realized) }}</td>
             <td class="text-end sandbox-col">
@@ -539,8 +563,8 @@
               />
             </td>
           </tr>
-          <tr v-show="!reoExpensesCollapsed && !creExpensesCollapsed">
-            <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">G&A Pool/Groundskeeping</td>
+          <tr v-show="!allExpensesCollapsed && !reoExpensesCollapsed && !creExpensesCollapsed">
+            <td class="small text-muted" style="padding-left: 6.5rem; font-size: 0.65rem;">G&A Pool/Groundskeeping</td>
             <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.creGAPool.underwritten) }}</td>
             <td class="text-end realized-col small">{{ fmtCurrency(metrics.creGAPool.realized) }}</td>
             <td class="text-end sandbox-col">
@@ -554,8 +578,8 @@
               />
             </td>
           </tr>
-          <tr v-show="!reoExpensesCollapsed && !creExpensesCollapsed">
-            <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">Maintenance</td>
+          <tr v-show="!allExpensesCollapsed && !reoExpensesCollapsed && !creExpensesCollapsed">
+            <td class="small text-muted" style="padding-left: 6.5rem; font-size: 0.65rem;">Maintenance</td>
             <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.creMaintenance.underwritten) }}</td>
             <td class="text-end realized-col small">{{ fmtCurrency(metrics.creMaintenance.realized) }}</td>
             <td class="text-end sandbox-col">
@@ -570,26 +594,28 @@
             </td>
           </tr>
 
-          <!-- Fund Expenses (Total) - Collapsible -->
+          <!-- Fund Expenses (nested under Expenses) - Collapsible -->
           <tr 
+            v-show="!allExpensesCollapsed"
             @click="fundExpensesCollapsed = !fundExpensesCollapsed" 
-            style="cursor: pointer;"
+            class="cursor-pointer"
             role="button"
             :aria-expanded="!fundExpensesCollapsed"
             title="Click to expand/collapse fund expense details"
           >
-            <td class="fw-semibold ps-3">
+            <td class="fw-semibold ps-4 small text-muted">
               <i :class="fundExpensesCollapsed ? 'mdi mdi-chevron-right' : 'mdi mdi-chevron-down'" class="me-1"></i>
               Fund Expenses
             </td>
-            <td class="text-end underwritten-col">{{ fmtCurrency(fundExpensesTotal.underwritten) }}</td>
-            <td class="text-end realized-col">{{ fmtCurrency(fundExpensesTotal.realized) }}</td>
-            <td class="text-end sandbox-col">{{ fmtCurrency(fundExpensesSandboxTotal) }}</td>
+            <td class="text-end underwritten-col small">{{ fmtCurrency(fundExpensesTotal.underwritten) }}</td>
+            <td class="text-end realized-col small">{{ fmtCurrency(fundExpensesTotal.realized) }}</td>
+            <td class="text-end sandbox-col small">{{ fmtCurrency(fundExpensesSandboxTotal) }}</td>
           </tr>
 
           <!-- Fund Expense Sub-lines (collapsible) -->
-          <tr v-show="!fundExpensesCollapsed">
-            <td class="ps-5 small text-muted">Taxes</td>
+          <tr v-show="!allExpensesCollapsed && !fundExpensesCollapsed">
+            <!-- TODO: Replace manual padding with CSS class system for consistent alignment -->
+            <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">Taxes</td>
             <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.fundTaxes.underwritten) }}</td>
             <td class="text-end realized-col small">{{ fmtCurrency(metrics.fundTaxes.realized) }}</td>
             <td class="text-end sandbox-col">
@@ -603,8 +629,8 @@
               />
             </td>
           </tr>
-          <tr v-show="!fundExpensesCollapsed">
-            <td class="ps-5 small text-muted">Legal</td>
+          <tr v-show="!allExpensesCollapsed && !fundExpensesCollapsed">
+            <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">Legal</td>
             <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.fundLegal.underwritten) }}</td>
             <td class="text-end realized-col small">{{ fmtCurrency(metrics.fundLegal.realized) }}</td>
             <td class="text-end sandbox-col">
@@ -618,8 +644,8 @@
               />
             </td>
           </tr>
-          <tr v-show="!fundExpensesCollapsed">
-            <td class="ps-5 small text-muted">Consulting</td>
+          <tr v-show="!allExpensesCollapsed && !fundExpensesCollapsed">
+            <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">Consulting</td>
             <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.fundConsulting.underwritten) }}</td>
             <td class="text-end realized-col small">{{ fmtCurrency(metrics.fundConsulting.realized) }}</td>
             <td class="text-end sandbox-col">
@@ -633,8 +659,8 @@
               />
             </td>
           </tr>
-          <tr v-show="!fundExpensesCollapsed">
-            <td class="ps-5 small text-muted">Audit</td>
+          <tr v-show="!allExpensesCollapsed && !fundExpensesCollapsed">
+            <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">Audit</td>
             <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.fundAudit.underwritten) }}</td>
             <td class="text-end realized-col small">{{ fmtCurrency(metrics.fundAudit.realized) }}</td>
             <td class="text-end sandbox-col">
@@ -674,7 +700,7 @@
             :aria-expanded="!closingCostsCollapsed"
             title="Click to expand/collapse closing costs details"
           >
-            <td class="ps-5 small fw-semibold text-muted">
+            <td class="ps-4 small fw-semibold text-muted">
               <i :class="closingCostsCollapsed ? 'mdi mdi-chevron-right' : 'mdi mdi-chevron-down'" class="me-1"></i>
               Closing Costs
             </td>
@@ -685,6 +711,7 @@
 
           <!-- Closing Costs Sub-items (nested) -->
           <tr v-show="!closingCostsCollapsed">
+            <!-- TODO: Replace manual padding with CSS class system for consistent alignment -->
             <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">Broker Closing Costs</td>
             <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.reoBrokerClosing.underwritten) }}</td>
             <td class="text-end realized-col small">{{ fmtCurrency(metrics.reoBrokerClosing.realized) }}</td>
@@ -716,15 +743,15 @@
           </tr>
 
           <!-- Net Liquidation Proceeds (calculated) -->
-          <tr class="table-secondary">
+          <tr>
             <td class="fw-bold ps-3">Net Liquidation Proceeds</td>
             <td class="text-end fw-bold underwritten-col">{{ fmtCurrency(netLiquidationProceeds.underwritten) }}</td>
             <td class="text-end fw-bold realized-col">{{ fmtCurrency(netLiquidationProceeds.realized) }}</td>
             <td class="text-end fw-bold sandbox-col">{{ fmtCurrency(netLiquidationProceedsSandbox) }}</td>
           </tr>
 
-          <!-- Net P&L (calculated) -->
-          <tr class="table-success">
+          <!-- Net P&L (calculated) - BOTTOM LINE -->
+          <tr class="table-success bottom-line-row">
             <td class="fw-bold ps-3">Net P&L</td>
             <td class="text-end fw-bold underwritten-col">{{ fmtCurrency(netPL.underwritten) }}</td>
             <td class="text-end fw-bold realized-col">{{ fmtCurrency(netPL.realized) }}</td>
@@ -1000,10 +1027,17 @@ const metrics = reactive({
 // WHAT: Collapse state for Income sub-items
 // WHY: Allow users to toggle visibility of income breakdown
 // HOW: Boolean reactive ref, toggled by clicking Income row
-const incomeCollapsed = ref(false)
+// NOTE: Defaults to true (collapsed) for cleaner initial view
+const incomeCollapsed = ref(true)
 
-// WHAT: Collapse state for Expense sub-items
-// WHY: Allow users to toggle visibility of expense breakdown
+// WHAT: Collapse state for overall Expenses section
+// WHY: Allow users to toggle visibility of all expense categories
+// HOW: Boolean reactive ref, toggled by clicking Expenses parent row
+// NOTE: Defaults to true (collapsed) for cleaner initial view
+const allExpensesCollapsed = ref(true)
+
+// WHAT: Collapse state for Operating Expense sub-items
+// WHY: Allow users to toggle visibility of operating expense breakdown (nested under Expenses)
 // HOW: Boolean reactive ref, toggled by clicking Operating Expense row
 const expensesCollapsed = ref(false)
 
@@ -1017,7 +1051,8 @@ const fundExpensesCollapsed = ref(false)
 
 // WHAT: Collapse state for Gross Cost
 // WHY: Allow users to toggle visibility of Purchase Cost and Acquisition Cost breakdown
-const grossCostCollapsed = ref(false)
+// NOTE: Defaults to true (collapsed) for cleaner initial view
+const grossCostCollapsed = ref(true)
 
 // WHAT: Collapse state for Acquisition Cost sub-items
 // WHY: Allow users to toggle visibility of acq cost breakdown (nested under Gross Cost)
@@ -1029,7 +1064,8 @@ const creExpensesCollapsed = ref(false)
 
 // WHAT: Collapse state for Closing Costs
 // WHY: Allow users to toggle visibility of closing costs breakdown (under Gross Liquidation Proceeds)
-const closingCostsCollapsed = ref(false)
+// NOTE: Defaults to true (collapsed) for cleaner initial view
+const closingCostsCollapsed = ref(true)
 
 // WHAT: Collapse state for Legal/DIL Costs
 // WHY: Allow users to toggle visibility of legal cost breakdown (nested under Operating Expenses)
@@ -1041,6 +1077,7 @@ const allExpanded = computed(() => {
   return !grossCostCollapsed.value && 
          !acqCostsCollapsed.value && 
          !incomeCollapsed.value && 
+         !allExpensesCollapsed.value &&
          !expensesCollapsed.value && 
          !legalCostsCollapsed.value && 
          !reoExpensesCollapsed.value && 
@@ -1057,6 +1094,7 @@ function toggleAllSections() {
   grossCostCollapsed.value = !shouldExpand
   acqCostsCollapsed.value = !shouldExpand
   incomeCollapsed.value = !shouldExpand
+  allExpensesCollapsed.value = !shouldExpand
   expensesCollapsed.value = !shouldExpand
   legalCostsCollapsed.value = !shouldExpand
   reoExpensesCollapsed.value = !shouldExpand
@@ -1117,7 +1155,8 @@ const sandboxDigits = reactive({
 // HOW: Use realized if available, fallback to underwritten, then 0
 function initSandboxFromBestAvailable() {
   // Helper: Pick realized first, then underwritten, then 0
-  const pickBest = (metric: any) => String(metric.realized || metric.underwritten || 0)
+  // Convert to integer to avoid decimal issues, then to string for v-currency
+  const pickBest = (metric: any) => String(Math.round(metric.realized || metric.underwritten || 0))
   
   sandboxDigits.purchaseCost = pickBest(metrics.purchaseCost)
   sandboxDigits.acqDueDiligence = pickBest(metrics.acqDueDiligence)
@@ -1641,6 +1680,13 @@ watch(() => props.productId, () => {
   border-bottom: 1px solid #e9ecef;
 }
 
+/* WHAT: Subtle fill for parent toggle rows */
+/* WHY: Visually distinguish collapsible sections from their children */
+/* HOW: Target rows with parent-row class (all collapsible section headers) */
+.performance-grid tbody tr.parent-row {
+  background-color: #f8f9fa;
+}
+
 /* Dashed borders for sub-line items (indented rows) */
 .performance-grid tbody tr td.ps-5,
 .performance-grid tbody tr td[style*="padding-left"] {
@@ -1656,6 +1702,17 @@ watch(() => props.productId, () => {
 /* Header row styling */
 .performance-grid thead th {
   border-bottom: 2px solid #dee2e6;
+}
+
+/* WHAT: Bottom line row styling (Net P&L) */
+/* WHY: Emphasize the final profitability metric */
+/* HOW: Double border top to separate from other rows */
+.performance-grid tbody tr.bottom-line-row td {
+  border-top: 3px double #198754 !important;
+  border-bottom: 3px double #198754 !important;
+  padding-top: 0.875rem !important;
+  padding-bottom: 0.875rem !important;
+  font-size: 1.05rem;
 }
 
 /* Metric header column styling */

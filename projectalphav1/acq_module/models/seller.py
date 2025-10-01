@@ -123,18 +123,18 @@ class SellerRawData(models.Model):
         (ASSET_STATUS_PERF, 'PERF'),
         (ASSET_STATUS_RPL, 'RPL'),
     ]
-    seller = models.ForeignKey(Seller, on_delete=models.CASCADE, related_name='seller_raw_data')
-    trade = models.ForeignKey(Trade, on_delete=models.CASCADE, related_name='seller_raw_data')
-    # Stable hub link (1:1) – create hub first, then attach the single raw row for this asset.
-    # Nullable during backfill, but enforces unique one-to-one once set.
+    # WHAT: Hub-owned primary key - strict 1:1 with core.AssetIdHub
+    # WHY: Aligns with hub-first architecture so this model's PK equals the hub ID
+    # HOW: OneToOneField with primary_key=True (same pattern as BlendedOutcomeModel)
     asset_hub = models.OneToOneField(
         'core.AssetIdHub',
         on_delete=models.PROTECT,
-        null=True,
-        blank=True,
+        primary_key=True,
         related_name='acq_raw',
-        help_text='One hub per asset; one raw row per hub (set during ETL).',
+        help_text='1:1 with hub; this model\'s PK equals the hub ID.',
     )
+    seller = models.ForeignKey(Seller, on_delete=models.CASCADE, related_name='seller_raw_data')
+    trade = models.ForeignKey(Trade, on_delete=models.CASCADE, related_name='seller_raw_data')
     sellertape_id = models.IntegerField()
     sellertape_altid = models.IntegerField(null=True, blank=True)
     asset_status = models.CharField(max_length=100, choices=ASSET_STATUS_CHOICES, null=True, blank=True)
@@ -224,7 +224,7 @@ class SellerRawData(models.Model):
         verbose_name = "Seller Raw Data"
         verbose_name_plural = "Seller Raw Data"
         indexes = [
-            models.Index(fields=['id']),  # Primary key index
+            models.Index(fields=['asset_hub']),  # Primary key index (now asset_hub)
             models.Index(fields=['asset_status']),
             models.Index(fields=['seller']),
             models.Index(fields=['trade']),
@@ -302,4 +302,4 @@ class SellerRawData(models.Model):
         super().save(*args, **kwargs)
     
     def __str__(self):
-        return f"Seller Raw Data {self.id} - {self.seller.name} - {self.trade.trade_name}"
+        return f"Seller Raw Data {self.pk} - {self.seller.name} - {self.trade.trade_name}"

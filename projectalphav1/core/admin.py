@@ -9,7 +9,7 @@ from .models.assumptions import Servicer, StateReference
 from .models.asset_id_hub import AssetIdHub
 from .models.valuations import Valuation
 from .models.attachments import Photo, Document
-from .models.transactions import LLTransactionSummary
+from .models.transactions import LLTransactionSummary, LLCashFlowSeries
 
 # Cross-app children that reference AssetIdHub
 from acq_module.models.seller import SellerRawData
@@ -261,6 +261,102 @@ class LLTransactionSummaryAdmin(admin.ModelAdmin):
     has_proceeds.short_description = 'Proceeds?'
 
 
+@admin.register(LLCashFlowSeries)
+class LLCashFlowSeriesAdmin(admin.ModelAdmin):
+    """
+    WHAT: Admin for LLCashFlowSeries - period-by-period cash flow time series
+    WHY: Allow viewing/editing of monthly cash flow data for analytics
+    HOW: Organized by period with collapsible fieldsets for each category
+    """
+    list_display = (
+        'asset_hub', 'period_number', 'period_date', 'net_cash_flow',
+        'total_income', 'total_expenses', 'has_liquidation'
+    )
+    list_filter = ('period_number',)
+    search_fields = ('asset_hub__id', 'asset_hub__servicer_id')
+    readonly_fields = ('period_date', 'total_income', 'total_expenses', 'net_cash_flow', 'purchase_date')
+    list_per_page = 100
+    ordering = ('asset_hub', 'period_number')
+    
+    fieldsets = (
+        ('Period Information', {
+            'fields': ('asset_hub', 'period_number', 'period_date', 'purchase_date')
+        }),
+        ('Purchase Cost (Period 0)', {
+            'fields': ('purchase_price',),
+            'classes': ('collapse',)
+        }),
+        ('Acquisition Costs (Period 0)', {
+            'fields': (
+                'acq_due_diligence_expenses', 'acq_legal_expenses',
+                'acq_title_expenses', 'acq_other_expenses',
+            ),
+            'classes': ('collapse',)
+        }),
+        ('Income', {
+            'fields': (
+                'income_principal', 'income_interest',
+                'income_rent', 'income_cam',
+                'income_mod_down_payment',
+            ),
+            'classes': ('collapse',)
+        }),
+        ('Operating Expenses', {
+            'fields': (
+                'servicing_expenses', 'am_fees_expenses',
+                'property_tax_expenses', 'property_insurance_expenses',
+            ),
+            'classes': ('collapse',)
+        }),
+        ('Legal/DIL Costs', {
+            'fields': (
+                'legal_foreclosure_expenses', 'legal_bankruptcy_expenses',
+                'legal_dil_expenses', 'legal_cash_for_keys_expenses',
+                'legal_eviction_expenses',
+            ),
+            'classes': ('collapse',)
+        }),
+        ('REO Expenses', {
+            'fields': (
+                'reo_hoa_expenses', 'reo_utilities_expenses',
+                'reo_trashout_expenses', 'reo_renovation_expenses',
+                'reo_property_preservation_expenses',
+            ),
+            'classes': ('collapse',)
+        }),
+        ('CRE Expenses', {
+            'fields': (
+                'cre_marketing_expenses', 'cre_ga_pool_expenses',
+                'cre_maintenance_expenses',
+            ),
+            'classes': ('collapse',)
+        }),
+        ('Fund Expenses', {
+            'fields': (
+                'fund_taxes_expenses', 'fund_legal_expenses',
+                'fund_consulting_expenses', 'fund_audit_expenses',
+            ),
+            'classes': ('collapse',)
+        }),
+        ('Liquidation Proceeds', {
+            'fields': (
+                'proceeds', 'broker_closing_expenses',
+                'other_closing_expenses', 'net_liquidation_proceeds',
+            ),
+            'classes': ('collapse',)
+        }),
+        ('Calculated Totals', {
+            'fields': ('total_income', 'total_expenses', 'net_cash_flow'),
+        }),
+    )
+    
+    def has_liquidation(self, obj):
+        """Check if this period has liquidation proceeds"""
+        return obj.proceeds > 0 or obj.net_liquidation_proceeds > 0
+    has_liquidation.boolean = True
+    has_liquidation.short_description = 'Liquidation?'
+
+
 # Module-level admin action so it reliably appears in the actions dropdown
 @admin.action(description="Delete hub and all children")
 def delete_hub_and_children(modeladmin, request, queryset):
@@ -305,8 +401,9 @@ class AssetIdHubAdmin(admin.ModelAdmin):
     """Admin for the central Asset ID Hub."""
     list_display = (
         'id', 'servicer_id', 'servicer_refs',
-        # Boolean columns indicating presence of child records
-        'has_raw', 'has_boarded', 'has_blended', 'has_servicer', 'has_valuation', 'has_photo', 'has_document',
+        # PK columns showing actual IDs of related records
+        'seller_raw_data_id', 'seller_boarded_data_id', 'blended_outcome_model_id', 
+        'servicer_loan_data_id', 'valuation_id', 'photo_id', 'document_id',
         'created_at',
     )
     # Show more rows per page (default is 100). Also allow larger "Show all" limit.
@@ -321,34 +418,16 @@ class AssetIdHubAdmin(admin.ModelAdmin):
     actions = ['delete_selected', delete_hub_and_children]
 
     def get_queryset(self, request):
-        """Annotate queryset with boolean flags indicating related children exist.
-
-        We keep this read-only and computed at query time using EXISTS subqueries
-        to avoid schema changes and synchronization complexity.
+        """
+        WHAT: Optimize queryset with select_related for related records
+        WHY: Reduce database queries when displaying PKs of related records
+        HOW: Use select_related for OneToOne/ForeignKey relationships
         """
         qs = super().get_queryset(request)
-        return qs.annotate(
-            has_raw=Exists(
-                SellerRawData.objects.filter(asset_hub=OuterRef('pk'))
-            ),
-            has_boarded=Exists(
-                SellerBoardedData.objects.filter(asset_hub=OuterRef('pk'))
-            ),
-            has_blended=Exists(
-                BlendedOutcomeModel.objects.filter(asset_hub=OuterRef('pk'))
-            ),
-            has_servicer=Exists(
-                ServicerLoanData.objects.filter(asset_hub=OuterRef('pk'))
-            ),
-            has_valuation=Exists(
-                Valuation.objects.filter(asset_hub=OuterRef('pk'))
-            ),
-            has_photo=Exists(
-                Photo.objects.filter(asset_hub=OuterRef('pk'))
-            ),
-            has_document=Exists(
-                Document.objects.filter(asset_hub=OuterRef('pk'))
-            ),
+        return qs.select_related(
+            'acq_raw',  # SellerRawData reverse relation
+            'am_boarded',  # SellerBoardedData reverse relation
+            'blended_outcome_model',  # BlendedOutcomeModel reverse relation
         )
 
     def servicer_refs(self, obj: AssetIdHub):  # type: ignore[name-defined]
@@ -373,43 +452,46 @@ class AssetIdHubAdmin(admin.ModelAdmin):
     @admin.action(description="Delete selected Asset ID Hub (bundle)")
     def delete_selected(self, request, queryset):
         return delete_hub_and_children(self, request, queryset)
-
     
-
-    # The following accessors simply surface the annotated booleans to the admin list.
-    # Django admin uses the attribute name in list_display, so we expose them as methods
-    # and mark them as boolean for visual check/times.
-    def has_raw(self, obj: AssetIdHub) -> bool:
-        return bool(getattr(obj, 'has_raw', False))
-    has_raw.boolean = True
-    has_raw.short_description = 'Raw?'
-
-    def has_boarded(self, obj: AssetIdHub) -> bool:
-        return bool(getattr(obj, 'has_boarded', False))
-    has_boarded.boolean = True
-    has_boarded.short_description = 'Boarded?'
-
-    def has_blended(self, obj: AssetIdHub) -> bool:
-        return bool(getattr(obj, 'has_blended', False))
-    has_blended.boolean = True
-    has_blended.short_description = 'Blended?'
-
-    def has_servicer(self, obj: AssetIdHub) -> bool:
-        return bool(getattr(obj, 'has_servicer', False))
-    has_servicer.boolean = True
-    has_servicer.short_description = 'Servicer?'
-
-    def has_valuation(self, obj: AssetIdHub) -> bool:
-        return bool(getattr(obj, 'has_valuation', False))
-    has_valuation.boolean = True
-    has_valuation.short_description = 'Valuation?'
-
-    def has_photo(self, obj: AssetIdHub) -> bool:
-        return bool(getattr(obj, 'has_photo', False))
-    has_photo.boolean = True
-    has_photo.short_description = 'Photos?'
-
-    def has_document(self, obj: AssetIdHub) -> bool:
-        return bool(getattr(obj, 'has_document', False))
-    has_document.boolean = True
-    has_document.short_description = 'Docs?'
+    # WHAT: Display methods showing PKs of related records
+    # WHY: Show actual IDs instead of checkmarks for reference table
+    # HOW: Access reverse OneToOne relationships and return PK or dash
+    
+    def seller_raw_data_id(self, obj: AssetIdHub):
+        """Display SellerRawData PK if exists"""
+        return obj.acq_raw.pk if hasattr(obj, 'acq_raw') else '—'
+    seller_raw_data_id.short_description = 'SellerRawData'
+    
+    def seller_boarded_data_id(self, obj: AssetIdHub):
+        """Display SellerBoardedData PK if exists"""
+        return obj.am_boarded.pk if hasattr(obj, 'am_boarded') else '—'
+    seller_boarded_data_id.short_description = 'SellerBoardedData'
+    
+    def blended_outcome_model_id(self, obj: AssetIdHub):
+        """Display BlendedOutcomeModel PK if exists (PK = asset_hub_id)"""
+        return obj.blended_outcome_model.pk if hasattr(obj, 'blended_outcome_model') else '—'
+    blended_outcome_model_id.short_description = 'BlendedOutcomeModel'
+    
+    def servicer_loan_data_id(self, obj: AssetIdHub):
+        """Display first ServicerLoanData PK if exists (may be multiple)"""
+        servicer_data = ServicerLoanData.objects.filter(asset_hub=obj).first()
+        return servicer_data.id if servicer_data else '—'
+    servicer_loan_data_id.short_description = 'ServicerLoanData'
+    
+    def valuation_id(self, obj: AssetIdHub):
+        """Display first Valuation PK if exists (may be multiple)"""
+        valuation = Valuation.objects.filter(asset_hub=obj).first()
+        return valuation.id if valuation else '—'
+    valuation_id.short_description = 'Valuation'
+    
+    def photo_id(self, obj: AssetIdHub):
+        """Display count of photos"""
+        count = Photo.objects.filter(asset_hub=obj).count()
+        return f'{count} photos' if count > 0 else '—'
+    photo_id.short_description = 'Photos'
+    
+    def document_id(self, obj: AssetIdHub):
+        """Display count of documents"""
+        count = Document.objects.filter(asset_hub=obj).count()
+        return f'{count} docs' if count > 0 else '—'
+    document_id.short_description = 'Documents'

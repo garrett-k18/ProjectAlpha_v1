@@ -3,6 +3,7 @@ from rest_framework.routers import DefaultRouter
 from am_module.views.asset_inventory import AssetInventoryViewSet
 from am_module.views.notes import AMNoteViewSet
 from am_module.views.view_performance_summary import PerformanceSummaryViewSet
+from am_module.views.views import cash_flow_series_view
 from am_module.views.outcomes import (
     REODataViewSet, REOTaskViewSet,
     FCSaleViewSet, FCTaskViewSet,
@@ -30,4 +31,8 @@ router.register(r'outcomes/reo-scopes', REOScopeViewSet, basename='am-reo-scopes
 
 urlpatterns = [
     path('am/', include(router.urls)),
+    # WHAT: Cash flow series endpoint
+    # WHY: Retrieve period-by-period cash flow data for time-series grid
+    # WHERE: Used by CashFlowSeries.vue component
+    path('am/cash-flow-series/<int:asset_id>/', cash_flow_series_view, name='cash-flow-series'),
 ]

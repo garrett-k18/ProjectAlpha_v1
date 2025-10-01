@@ -8,25 +8,31 @@ import re
 # including trade name, trade ID, and seller name.
 
 class SellerBoardedData(models.Model):
-    """Model for boarded seller data transferred from acq_module.
-    Contains all data points from SellerRawData plus trade name, trade_id, seller name.
     """
-    # Property Type choices - Inheriting from SellerRawData via import
-    # Occupancy choices - Inheriting from SellerRawData via import
-    # Asset status choices - Inheriting from SellerRawData via import
+    WHAT: Model for boarded seller data transferred from acq_module
+    WHY: Contains all data points from SellerRawData plus trade name, trade_id, seller name
+    HOW: Uses asset_hub as primary key for 1:1 relationship with AssetIdHub
+    
+    Architecture:
+    - Uses asset_hub as primary key (no separate id field)
+    - This ensures SellerBoardedData.pk == AssetIdHub.pk
+    - Eliminates ID mapping confusion between tables
+    """
+    
+    # WHAT: Hub-owned primary key - strict 1:1 with core.AssetIdHub
+    # WHY: Aligns with hub-first architecture so this model's PK equals the hub ID
+    # HOW: OneToOneField with primary_key=True (same pattern as BlendedOutcomeModel)
+    asset_hub = models.OneToOneField(
+        'core.AssetIdHub',
+        on_delete=models.PROTECT,
+        primary_key=True,
+        related_name='am_boarded',
+        help_text='1:1 with hub; this model\'s PK equals the hub ID.',
+    )
     
     # Original seller and trade references (using ID values for future-proofing)
     acq_seller_id = models.IntegerField(help_text="ID reference to the original Seller model in acq_module", null=True)
     acq_trade_id = models.IntegerField(help_text="ID reference to the original Trade model in acq_module", null=True)
-    # Stable hub link (1:1) – the boarded record for this hub/asset
-    asset_hub = models.OneToOneField(
-        'core.AssetIdHub',
-        on_delete=models.PROTECT,
-        null=True,
-        blank=True,
-        related_name='am_boarded',
-        help_text='One boarded record per hub/asset.',
-    )
     
     # String representations for display and reporting
     seller_name = models.CharField(max_length=100, null=True, blank=True)
@@ -150,7 +156,7 @@ class SellerBoardedData(models.Model):
         verbose_name = "Boarded Seller Data"
         verbose_name_plural = "Boarded Seller Data"
         indexes = [
-            models.Index(fields=['id']),  # Primary key index
+            models.Index(fields=['asset_hub']),  # Primary key index (now asset_hub)
             models.Index(fields=['asset_status']),
             models.Index(fields=['acq_seller_id']),
             models.Index(fields=['acq_trade_id']),
@@ -170,7 +176,7 @@ class SellerBoardedData(models.Model):
         super().save(*args, **kwargs)
     
     def __str__(self):
-        return f"Boarded Data {self.id} - {self.seller_name} - {self.trade_name}"
+        return f"Boarded Data {self.pk} - {self.seller_name} - {self.trade_name}"
 
 
 # -----------------------------------------------------------------------------------
@@ -205,7 +211,8 @@ class BlendedOutcomeModel(models.Model):
         related_name='blended_outcome_model',
         help_text='1:1 with hub; this model’s PK equals the hub ID.'
     )
-
+    purchase_price = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The purchase price of the asset.")
+    purchase_date = models.DateField(null=True, blank=True, help_text="The purchase date of the asset.")
     # ------------------------------
     # Cost / Proceeds / Timing
     # ------------------------------
@@ -276,8 +283,8 @@ class BlendedOutcomeModel(models.Model):
     cam_income = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The CAM income.")
     other_income = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The other income.")
 
-    #Expense
-    purchase_price = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The purchase price of the asset.")
+    
+    
 
     expected_exit_date = models.DateField(
         null=True,

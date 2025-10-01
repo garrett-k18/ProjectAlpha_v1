@@ -33,7 +33,7 @@ class AssetMetricsInline(admin.StackedInline):
 @admin.register(SellerBoardedData)
 class SellerBoardedDataAdmin(admin.ModelAdmin):
     list_display = (
-        "id",
+        "asset_hub",
         "sellertape_id",
         "seller_name",
         "trade_name",
@@ -60,7 +60,7 @@ class SellerBoardedDataAdmin(admin.ModelAdmin):
         "state",
         "zip",
     )
-    ordering = ("-id",)
+    ordering = ("-boarded_at",)
     # Cannot inline AssetMetrics here because it is keyed to core.AssetIdHub, not this model.
     inlines = []
 

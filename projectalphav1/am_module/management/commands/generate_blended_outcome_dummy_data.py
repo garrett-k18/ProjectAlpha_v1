@@ -169,7 +169,17 @@ class Command(BaseCommand):
         purchase_price = rand_dec(50000, 500000)
         gross_proceeds = rand_dec(float(purchase_price) * 0.8, float(purchase_price) * 1.5)
         
+        # Generate purchase date (random date in past 1-3 years)
+        days_ago = random.randint(365, 1095)  # 1-3 years ago
+        purchase_date = date.today() - timedelta(days=days_ago)
+        
         return {
+            # ------------------------------
+            # Purchase Information
+            # ------------------------------
+            'purchase_price': purchase_price,
+            'purchase_date': purchase_date,
+            
             # ------------------------------
             # Timeline Durations (months)
             # ------------------------------
