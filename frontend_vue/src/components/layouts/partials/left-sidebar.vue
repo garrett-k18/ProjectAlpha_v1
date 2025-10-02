@@ -73,6 +73,13 @@
           </b-collapse>
         </li>
 
+        <li class="side-nav-item">
+          <router-link to="/assumptions" class="side-nav-link side-nav-link-ref">
+            <i class="uil-cog"></i>
+            <span> Assumptions </span>
+          </router-link>
+        </li>
+
         <li class="side-nav-title">Apps</li>
 
         <li class="side-nav-item">

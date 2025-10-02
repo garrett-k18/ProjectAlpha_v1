@@ -447,6 +447,18 @@ const landingRoutes = [
     }
 ];
 
+// assumptions (reference tables and assumptions management)
+const assumptionsRoutes = [
+    {
+        path: '/assumptions',
+        name: 'Assumptions',
+        header: 'Navigation',
+        icon: 'uil-cog',
+        meta: {authRequired: true},
+        component: () => import('@/1_global/assumptions/assumptionviews.vue'),
+    }
+]
+
 // loan level (custom app pages)
 const loanlvlRoutes = [
     {
@@ -1002,7 +1014,7 @@ const externalPublicRoutes = [
     },
 ]
 
-const customRoutes = [...pagesRoutes, ...landingRoutes, ...layoutRoutes, ...loanlvlRoutes, ...acqModuleRoutes, ...externalPublicRoutes]
+const customRoutes = [...pagesRoutes, ...landingRoutes, ...layoutRoutes, ...loanlvlRoutes, ...acqModuleRoutes, ...externalPublicRoutes, ...assumptionsRoutes]
 
 const componentRoutes = [...uiRoutes, ...extendedRoutes, ...widgetRoute, ...iconsRoutes, ...chartsRoutes, ...formsRoutes, ...tablesRoutes, ...mapRoutes]
 

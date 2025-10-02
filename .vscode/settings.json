@@ -23,6 +23,11 @@
             "folderPath": "ProjectAlpha_v1\\projectalphav1\\core\\",
             "color": "foldercolorizer.color_00ffff",
             "isFolderOnly": true
+        },
+        {
+            "folderPath": "ProjectAlpha_v1\\frontend_vue\\src\\",
+            "color": "foldercolorizer.color_996633",
+            "isFolderOnly": true
         }
     ],
     "favoritesPanel.commandsForWorkspace": [

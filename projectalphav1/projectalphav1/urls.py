@@ -23,6 +23,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/acq/', include('acq_module.urls')),
     path('api/', include('am_module.urls')),
+    path('api/core/', include('core.urls')),  # Core module API endpoints (assumptions, etc.)
     # Include user_admin URLs directly (they already have the /api/auth/ prefix)
     path('', include('user_admin.urls')),
 ]

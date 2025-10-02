@@ -17,21 +17,35 @@ class Command(BaseCommand):
         parser.add_argument(
             "--csv",
             dest="csv_path",
-            default=os.path.join("Admin", "DataUploads", "state_ref.csv"),
-            help="Path to the CSV file (defaults to Admin/DataUploads/state_ref.csv)",
+            default=os.path.join("..", "Admin", "DataUploads", "state_ref.csv"),
+            help="Path to the CSV file (defaults to ../Admin/DataUploads/state_ref.csv)",
         )
         parser.add_argument(
             "--dry-run",
             action="store_true",
             help="Parse and validate without writing to DB.",
         )
+        parser.add_argument(
+            "--purge",
+            action="store_true",
+            help="Delete all existing StateReference records before importing.",
+        )
 
     def handle(self, *args, **options):
         csv_path = options["csv_path"]
         dry_run = options["dry_run"]
+        purge = options["purge"]
 
         if not os.path.exists(csv_path):
             raise CommandError(f"CSV not found at: {csv_path}")
+
+        # Purge existing data if requested
+        if purge and not dry_run:
+            count = StateReference.objects.count()
+            StateReference.objects.all().delete()
+            self.stdout.write(
+                self.style.WARNING(f"Purged {count} existing StateReference records")
+            )
 
         created = 0
         updated = 0

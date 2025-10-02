@@ -1,4 +1,6 @@
 from django.db import models
+from django.core.validators import MinValueValidator, MaxValueValidator
+from decimal import Decimal
 
 class Servicer(models.Model):
     """Model to store servicer information for loan servicing"""
@@ -56,17 +58,40 @@ class StateReference(models.Model):
     dil_duration_avg = models.IntegerField(help_text="Average months to complete dilution")
     
 
-    # Tax data
-    property_tax_rate = models.DecimalField(max_digits=5, decimal_places=4, help_text="Average property tax rate")
-    transfer_tax_rate = models.DecimalField(max_digits=5, decimal_places=4, help_text="Tax rate for property transfers")
-    insurance_rate_avg = models.DecimalField(max_digits=5, decimal_places=4, help_text="Average insurance rate")
+    # Tax data (stored as decimals with 4 decimal places: 0.0063 = 0.63%)
+    # Validation: 0.0000 (0%) to 1.0000 (100%)
+    property_tax_rate = models.DecimalField(
+        max_digits=6, 
+        decimal_places=4,
+        validators=[MinValueValidator(Decimal('0.0000')), MaxValueValidator(Decimal('1.0000'))],
+        help_text="Average property tax rate (as decimal: 0.0063 = 0.63%, range: 0-100%)"
+    )
+    transfer_tax_rate = models.DecimalField(
+        max_digits=6, 
+        decimal_places=4,
+        validators=[MinValueValidator(Decimal('0.0000')), MaxValueValidator(Decimal('1.0000'))],
+        help_text="Tax rate for property transfers (as decimal: 0.0033 = 0.33%, range: 0-100%)"
+    )
+    insurance_rate_avg = models.DecimalField(
+        max_digits=6, 
+        decimal_places=4,
+        validators=[MinValueValidator(Decimal('0.0000')), MaxValueValidator(Decimal('1.0000'))],
+        help_text="Average insurance rate (as decimal: 0.0040 = 0.40%, range: 0-100%)"
+    )
     
     # Legal fees
     fc_legal_fees_avg = models.DecimalField(max_digits=10, decimal_places=2, help_text="Average legal fees for foreclosure")
     dil_cost_avg = models.DecimalField(max_digits=10, decimal_places=2, help_text="Average dilution cost")
     cfk_cost_avg = models.DecimalField(max_digits=10, decimal_places=2, help_text="Average CFK cost")
     
-    value_adjustment_annual = models.DecimalField(max_digits=10, decimal_places=4, help_text="Average value adjustment")
+    # Value adjustment can be negative (depreciation) or positive (appreciation)
+    # Validation: -1.0000 (-100%) to 1.0000 (100%)
+    value_adjustment_annual = models.DecimalField(
+        max_digits=6, 
+        decimal_places=4,
+        validators=[MinValueValidator(Decimal('-1.0000')), MaxValueValidator(Decimal('1.0000'))],
+        help_text="Average value adjustment (as decimal: 0.0028 = 0.28%, range: -100% to +100%)"
+    )
     
 
 

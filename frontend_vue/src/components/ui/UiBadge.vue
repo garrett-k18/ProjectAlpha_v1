@@ -18,6 +18,7 @@
     :class="resolvedClasses"
     :aria-label="computedAriaLabel"
     role="status"
+    style="line-height: 1; padding-top: 0.6rem; padding-bottom: 0.5rem;"
   >
     <!-- Allow callers to override the content via default slot; fall back to provided label -->
     <slot>{{ label }}</slot>
