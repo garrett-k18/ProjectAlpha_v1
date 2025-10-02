@@ -60,6 +60,54 @@
                   Foreclosure Timelines
                 </a>
               </li>
+              <li class="nav-item" role="presentation">
+                <a 
+                  class="nav-link"
+                  :class="{ active: activeTab === 'msa-assumptions' }"
+                  href="#"
+                  @click.prevent="activeTab = 'msa-assumptions'"
+                  role="tab"
+                >
+                  <i class="mdi mdi-city-variant-outline me-1"></i>
+                  MSA Assumptions
+                </a>
+              </li>
+              <li class="nav-item" role="presentation">
+                <a 
+                  class="nav-link"
+                  :class="{ active: activeTab === 'modeling-assumptions' }"
+                  href="#"
+                  @click.prevent="activeTab = 'modeling-assumptions'"
+                  role="tab"
+                >
+                  <i class="mdi mdi-tune-variant me-1"></i>
+                  Modeling Assumptions
+                </a>
+              </li>
+              <li class="nav-item" role="presentation">
+                <a 
+                  class="nav-link"
+                  :class="{ active: activeTab === 'commercial-asset-assumptions' }"
+                  href="#"
+                  @click.prevent="activeTab = 'commercial-asset-assumptions'"
+                  role="tab"
+                >
+                  <i class="mdi mdi-office-building-cog-outline me-1"></i>
+                  Commercial Asset Assumptions
+                </a>
+              </li>
+              <li class="nav-item" role="presentation">
+                <a 
+                  class="nav-link"
+                  :class="{ active: activeTab === 'servicer-assumptions' }"
+                  href="#"
+                  @click.prevent="activeTab = 'servicer-assumptions'"
+                  role="tab"
+                >
+                  <i class="mdi mdi-account-cog-outline me-1"></i>
+                  Servicer Assumptions
+                </a>
+              </li>
             </ul>
 
             <!-- Tab Content -->
@@ -84,6 +132,54 @@
                 role="tabpanel"
               >
                 <ForeclosureTimelinesTable 
+                  @changed="markAsChanged"
+                />
+              </div>
+
+              <!-- MSA Assumptions Tab -->
+              <div 
+                v-show="activeTab === 'msa-assumptions'"
+                class="tab-pane"
+                :class="{ active: activeTab === 'msa-assumptions' }"
+                role="tabpanel"
+              >
+                <MsaAssumptionsTable 
+                  @changed="markAsChanged"
+                />
+              </div>
+
+              <!-- Modeling Assumptions Tab -->
+              <div 
+                v-show="activeTab === 'modeling-assumptions'"
+                class="tab-pane"
+                :class="{ active: activeTab === 'modeling-assumptions' }"
+                role="tabpanel"
+              >
+                <ModelingAssumptions 
+                  @changed="markAsChanged"
+                />
+              </div>
+
+              <!-- Commercial Asset Assumptions Tab -->
+              <div 
+                v-show="activeTab === 'commercial-asset-assumptions'"
+                class="tab-pane"
+                :class="{ active: activeTab === 'commercial-asset-assumptions' }"
+                role="tabpanel"
+              >
+                <CommercialAssetAssumptions 
+                  @changed="markAsChanged"
+                />
+              </div>
+
+              <!-- Servicer Assumptions Tab -->
+              <div 
+                v-show="activeTab === 'servicer-assumptions'"
+                class="tab-pane"
+                :class="{ active: activeTab === 'servicer-assumptions' }"
+                role="tabpanel"
+              >
+                <ServicerAssumptions 
                   @changed="markAsChanged"
                 />
               </div>
@@ -118,6 +214,10 @@ import Breadcrumb from '@/components/breadcrumb.vue'
 import Layout from '@/components/layouts/layout.vue'
 import StateAssumptionsTable from './components/StateAssumptionsTable.vue'
 import ForeclosureTimelinesTable from './components/ForeclosureTimelinesTable.vue'
+import MsaAssumptionsTable from './components/MsaAssumptionsTable.vue'
+import ModelingAssumptions from './components/ModelingAssumptions.vue'
+import CommercialAssetAssumptions from './components/CommercialAssetAssumptions.vue'
+import ServicerAssumptions from './components/ServicerAssumptions.vue'
 
 // Page metadata
 const pageTitle = ref('Assumptions & Reference Tables')
@@ -137,7 +237,14 @@ const breadcrumbItems = ref([
 ])
 
 // Tab state
-const activeTab = ref<'state-assumptions' | 'foreclosure-timelines'>('state-assumptions')
+const activeTab = ref<
+  'state-assumptions' |
+  'foreclosure-timelines' |
+  'msa-assumptions' |
+  'modeling-assumptions' |
+  'commercial-asset-assumptions' |
+  'servicer-assumptions'
+>('state-assumptions')
 
 // Change tracking
 const hasUnsavedChanges = ref(false)
