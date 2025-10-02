@@ -6,16 +6,28 @@
     WHERE: Used in PerformanceTab.vue (frontend_vue/src/views/am_module/loanlvl/tabs/PerformanceTab.vue)
   -->
   <div class="cash-flow-series-container">
-    <!-- WHAT: Header with purchase date and period range -->
+    <!-- WHAT: Header with title and controls -->
     <div class="d-flex justify-content-between align-items-center mb-3">
       <div>
-        <h5 class="mb-1">Cash Flow Series</h5>
-        <small class="text-muted" v-if="purchaseDate">
-          Purchase Date: {{ formatDate(purchaseDate) }} | 
-          Periods: 0 (Acquisition) - {{ maxPeriod }} ({{ formatDate(currentPeriodDate) }})
-        </small>
+        <h5 class="mb-1">Cash Flows</h5>
       </div>
-      <div>
+      <div class="d-flex gap-2">
+        <!-- 
+          TODO: IMPLEMENT UNDERWRITTEN VS REALIZED COMPARISON
+          1. Update API to return net_cash_flow_underwritten (from cf_p0-p30 in BlendedOutcomeModel)
+          2. Calculate variance (realized - underwritten) in API response
+          3. Add conditional rendering based on viewMode:
+             - 'realized': Show only realized Net Cash Flow row (current behavior)
+             - 'underwritten': Show only underwritten Net Cash Flow row
+             - 'both': Show stacked rows: Underwritten, Realized, Variance (with color coding)
+          4. Line items (inflows/outflows) remain realized-only until underwritten line items are added
+          5. Variance row should use red for negative, green for positive
+        -->
+        <select v-model="viewMode" class="form-select form-select-sm" style="width: auto;">
+          <option value="realized">Realized</option>
+          <option value="underwritten">Underwritten</option>
+          <option value="both">Both (with Variance)</option>
+        </select>
         <button class="btn btn-sm btn-outline-secondary" @click="scrollToCurrentPeriod">
           <i class="mdi mdi-calendar-today me-1"></i>
           Jump to Current Period
@@ -30,39 +42,43 @@
         <thead class="sticky-header">
           <!-- WHAT: Row 1 - Period numbers -->
           <!-- 
-            NOTE: Header background color #f0f7ff (subtle blue tint)
-            WHY: Matches Performance Summary table's "Underwritten" column color scheme
-            WHERE: Same color defined in PLMetrics.vue line 1726 (.underwritten-col)
-            TO CHANGE: Update this inline style AND PLMetrics.vue .underwritten-col background
+            STYLING NOTES:
+            - Background color: #f0f7ff (subtle blue tint, matches PLMetrics.vue .underwritten-col line 1731)
+            - Border removal: border-bottom: none removes line between Period # and Date rows
+            - Why inline styles: Bootstrap's table-bordered class overrides scoped CSS, so we use inline styles with !important
+            - To change header color: Update background-color here AND in PLMetrics.vue .underwritten-col
+            - To restore border: Remove "border-bottom: none !important;" from inline styles below
           -->
-          <tr>
-            <th class="sticky-col line-item-col" style="background-color: #f0f7ff !important;">Period #</th>
+          <tr style="border-bottom: none !important;">
+            <th class="sticky-col line-item-col" style="background-color: #f0f7ff !important; border-bottom: none !important;">Period</th>
             <th 
               v-for="period in periods" 
               :key="`period-${period.period_number}`"
               :class="{'current-period': period.is_current}"
               class="text-center period-col"
-              style="background-color: #f0f7ff !important;"
+              style="background-color: #f0f7ff !important; border-bottom: none !important;"
             >
-              P{{ period.period_number }}
+              {{ period.period_number }}
             </th>
           </tr>
           
           <!-- WHAT: Row 2 - Period dates -->
           <!-- 
-            NOTE: Header background color #f0f7ff (subtle blue tint)
-            WHY: Matches Performance Summary table's "Underwritten" column color scheme
-            WHERE: Same color defined in PLMetrics.vue line 1726 (.underwritten-col)
-            TO CHANGE: Update this inline style AND PLMetrics.vue .underwritten-col background
+            STYLING NOTES:
+            - Background color: #f0f7ff (subtle blue tint, matches PLMetrics.vue .underwritten-col line 1731)
+            - Border removal: border-top: none removes line between Period # and Date rows (matches border-bottom on row above)
+            - Why inline styles: Bootstrap's table-bordered class overrides scoped CSS, so we use inline styles with !important
+            - To change header color: Update background-color here AND in PLMetrics.vue .underwritten-col
+            - To restore border: Remove "border-top: none !important;" from inline styles below
           -->
-          <tr>
-            <th class="sticky-col line-item-col" style="background-color: #f0f7ff !important;">Date</th>
+          <tr style="border-top: none !important;">
+            <th class="sticky-col line-item-col" style="background-color: #f0f7ff !important; border-top: none !important;">Date</th>
             <th 
               v-for="period in periods" 
               :key="`date-${period.period_number}`"
               :class="{'current-period': period.is_current}"
               class="text-center period-col"
-              style="background-color: #f0f7ff !important;"
+              style="background-color: #f0f7ff !important; border-top: none !important;"
             >
               {{ formatDate(period.period_date) }}
             </th>
@@ -139,7 +155,7 @@
               Total Outflows
             </td>
             <td v-for="period in periods" :key="`expenses-${period.period_number}`" class="text-end fw-semibold">
-              {{ fmtCurrency(period.total_expenses) }}
+              {{ fmtExpense(period.total_expenses) }}
             </td>
           </tr>
           <template v-if="showOutflows">
@@ -147,7 +163,7 @@
             <tr>
               <td class="sticky-col ps-5 small text-muted">Purchase Price</td>
               <td v-for="period in periods" :key="`purchase-${period.period_number}`" class="text-end small">
-                {{ period.period_number === 0 ? fmtCurrency(period.purchase_price) : '-' }}
+                {{ period.period_number === 0 ? fmtExpense(period.purchase_price) : '-' }}
               </td>
             </tr>
             
@@ -155,19 +171,19 @@
             <tr>
               <td class="sticky-col ps-5 small text-muted">Due Diligence</td>
               <td v-for="period in periods" :key="`dd-${period.period_number}`" class="text-end small">
-                {{ fmtCurrency(period.acq_due_diligence_expenses) }}
+                {{ fmtExpense(period.acq_due_diligence_expenses) }}
               </td>
             </tr>
             <tr>
               <td class="sticky-col ps-5 small text-muted">Acq Legal</td>
               <td v-for="period in periods" :key="`acq-legal-${period.period_number}`" class="text-end small">
-                {{ fmtCurrency(period.acq_legal_expenses) }}
+                {{ fmtExpense(period.acq_legal_expenses) }}
               </td>
             </tr>
             <tr>
               <td class="sticky-col ps-5 small text-muted">Title</td>
               <td v-for="period in periods" :key="`title-${period.period_number}`" class="text-end small">
-                {{ fmtCurrency(period.acq_title_expenses) }}
+                {{ fmtExpense(period.acq_title_expenses) }}
               </td>
             </tr>
             
@@ -175,25 +191,25 @@
             <tr>
               <td class="sticky-col ps-5 small text-muted">Servicing</td>
               <td v-for="period in periods" :key="`servicing-${period.period_number}`" class="text-end small">
-                {{ fmtCurrency(period.servicing_expenses) }}
+                {{ fmtExpense(period.servicing_expenses) }}
               </td>
             </tr>
             <tr>
               <td class="sticky-col ps-5 small text-muted">AM Fees</td>
               <td v-for="period in periods" :key="`am-${period.period_number}`" class="text-end small">
-                {{ fmtCurrency(period.am_fees_expenses) }}
+                {{ fmtExpense(period.am_fees_expenses) }}
               </td>
             </tr>
             <tr>
               <td class="sticky-col ps-5 small text-muted">Property Tax</td>
               <td v-for="period in periods" :key="`tax-${period.period_number}`" class="text-end small">
-                {{ fmtCurrency(period.property_tax_expenses) }}
+                {{ fmtExpense(period.property_tax_expenses) }}
               </td>
             </tr>
             <tr>
               <td class="sticky-col ps-5 small text-muted">Insurance</td>
               <td v-for="period in periods" :key="`insurance-${period.period_number}`" class="text-end small">
-                {{ fmtCurrency(period.property_insurance_expenses) }}
+                {{ fmtExpense(period.property_insurance_expenses) }}
               </td>
             </tr>
             
@@ -201,13 +217,13 @@
             <tr>
               <td class="sticky-col ps-5 small text-muted">Foreclosure Legal</td>
               <td v-for="period in periods" :key="`fc-${period.period_number}`" class="text-end small">
-                {{ fmtCurrency(period.legal_foreclosure_expenses) }}
+                {{ fmtExpense(period.legal_foreclosure_expenses) }}
               </td>
             </tr>
             <tr>
               <td class="sticky-col ps-5 small text-muted">Bankruptcy Legal</td>
               <td v-for="period in periods" :key="`bk-${period.period_number}`" class="text-end small">
-                {{ fmtCurrency(period.legal_bankruptcy_expenses) }}
+                {{ fmtExpense(period.legal_bankruptcy_expenses) }}
               </td>
             </tr>
             
@@ -215,25 +231,25 @@
             <tr>
               <td class="sticky-col ps-5 small text-muted">HOA</td>
               <td v-for="period in periods" :key="`hoa-${period.period_number}`" class="text-end small">
-                {{ fmtCurrency(period.reo_hoa_expenses) }}
+                {{ fmtExpense(period.reo_hoa_expenses) }}
               </td>
             </tr>
             <tr>
               <td class="sticky-col ps-5 small text-muted">Utilities</td>
               <td v-for="period in periods" :key="`util-${period.period_number}`" class="text-end small">
-                {{ fmtCurrency(period.reo_utilities_expenses) }}
+                {{ fmtExpense(period.reo_utilities_expenses) }}
               </td>
             </tr>
             <tr>
               <td class="sticky-col ps-5 small text-muted">Renovation</td>
               <td v-for="period in periods" :key="`reno-${period.period_number}`" class="text-end small">
-                {{ fmtCurrency(period.reo_renovation_expenses) }}
+                {{ fmtExpense(period.reo_renovation_expenses) }}
               </td>
             </tr>
             <tr>
               <td class="sticky-col ps-5 small text-muted">Property Preservation</td>
               <td v-for="period in periods" :key="`pres-${period.period_number}`" class="text-end small">
-                {{ fmtCurrency(period.reo_property_preservation_expenses) }}
+                {{ fmtExpense(period.reo_property_preservation_expenses) }}
               </td>
             </tr>
             
@@ -241,13 +257,13 @@
             <tr>
               <td class="sticky-col ps-5 small text-muted">Marketing</td>
               <td v-for="period in periods" :key="`mkt-${period.period_number}`" class="text-end small">
-                {{ fmtCurrency(period.cre_marketing_expenses) }}
+                {{ fmtExpense(period.cre_marketing_expenses) }}
               </td>
             </tr>
             <tr>
               <td class="sticky-col ps-5 small text-muted">Maintenance</td>
               <td v-for="period in periods" :key="`maint-${period.period_number}`" class="text-end small">
-                {{ fmtCurrency(period.cre_maintenance_expenses) }}
+                {{ fmtExpense(period.cre_maintenance_expenses) }}
               </td>
             </tr>
           </template>
@@ -265,15 +281,6 @@
     <div v-if="error" class="alert alert-danger">
       <i class="mdi mdi-alert-circle me-2"></i>
       {{ error }}
-    </div>
-    <div v-if="!loading && periods.length === 0" class="alert alert-info">
-      <i class="mdi mdi-information me-2"></i>
-      No cash flow data available for this asset. (Asset Hub ID: {{ assetHubId }})
-    </div>
-    
-    <!-- DEBUG: Show period count -->
-    <div v-if="!loading && periods.length > 0" class="alert alert-success mt-3">
-      <strong>DEBUG:</strong> Loaded {{ periods.length }} periods for asset {{ assetHubId }}
     </div>
   </div>
 </template>
@@ -304,6 +311,7 @@ const tableContainer = ref<HTMLElement | null>(null)
 const showNetCashFlow = ref(false) // Master toggle for inflows/outflows visibility
 const showInflows = ref(false)
 const showOutflows = ref(false)
+const viewMode = ref<'realized' | 'underwritten' | 'both'>('realized') // TODO: Implement comparison logic
 
 // WHAT: Calculate current period based on purchase date
 // WHY: Highlight which period we're currently in
@@ -329,30 +337,19 @@ const maxPeriod = computed(() => {
 // WHY: Load period-by-period data for display
 // HOW: GET request to /api/am/cash-flow-series/{asset_id}/
 async function fetchCashFlowData() {
-  console.log('CashFlowSeries - assetHubId prop:', props.assetHubId)
-  if (!props.assetHubId) {
-    console.warn('CashFlowSeries - No assetHubId provided, skipping fetch')
-    return
-  }
+  if (!props.assetHubId) return
   
   loading.value = true
   error.value = null
   
   try {
-    // WHAT: Fetch cash flow series data
     const response = await axios.get(`/api/am/cash-flow-series/${props.assetHubId}/`)
-    
-    console.log('Cash Flow API Response:', response.data)
     
     if (response.data) {
       periods.value = response.data.periods || []
       purchaseDate.value = response.data.purchase_date || null
       
-      console.log('Periods loaded:', periods.value.length)
-      console.log('Purchase date:', purchaseDate.value)
-      
-      // WHAT: Mark current period
-      // WHY: Visual indicator of where we are in the timeline
+      // Mark current period for highlighting
       const currentDate = currentPeriodDate.value
       periods.value.forEach(period => {
         period.is_current = period.period_date === currentDate
@@ -360,43 +357,40 @@ async function fetchCashFlowData() {
     }
   } catch (err: any) {
     error.value = err.response?.data?.detail || 'Failed to load cash flow data'
-    console.error('Error fetching cash flow data:', err)
   } finally {
     loading.value = false
   }
 }
 
-// WHAT: Calculate total acquisition costs
-// WHY: Sum all acquisition expense fields
-function getAcqTotal(period: any): number {
-  return (period.acq_due_diligence_expenses || 0) +
-         (period.acq_legal_expenses || 0) +
-         (period.acq_title_expenses || 0) +
-         (period.acq_other_expenses || 0)
-}
 
-// WHAT: Format currency values
-// WHY: Consistent display of monetary amounts
+// Format currency with negative numbers in parentheses (accounting format)
 function fmtCurrency(value: number | null | undefined): string {
   if (value === null || value === undefined || value === 0) return '-'
-  return new Intl.NumberFormat('en-US', {
+  
+  const abs = Math.abs(value)
+  const formatted = new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(value)
+  }).format(abs)
+  
+  return value < 0 ? `(${formatted})` : formatted
 }
 
-// WHAT: Format date values
-// WHY: Consistent date display (MM/YYYY)
+// Format expenses as negative (in parentheses)
+function fmtExpense(value: number | null | undefined): string {
+  if (value === null || value === undefined || value === 0) return '-'
+  return fmtCurrency(-Math.abs(value))
+}
+
+// Format date as 'Mon YYYY'
 function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return '-'
   const date = new Date(dateStr)
   return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
 }
 
-// WHAT: Toggle section visibility
-// WHY: Collapse/expand inflows and outflows details
 function toggleSection(section: 'inflows' | 'outflows') {
   if (section === 'inflows') {
     showInflows.value = !showInflows.value
@@ -405,32 +399,24 @@ function toggleSection(section: 'inflows' | 'outflows') {
   }
 }
 
-// WHAT: Toggle Net Cash Flow section (shows/hides inflows and outflows)
-// WHY: Clicking Net Cash Flow should expand/collapse the entire breakdown
-// HOW: Toggle master visibility flag; subsections start collapsed by default
 function toggleAllSections() {
   showNetCashFlow.value = !showNetCashFlow.value
-  // When collapsing Net Cash Flow, also collapse both subsections
   if (!showNetCashFlow.value) {
     showInflows.value = false
     showOutflows.value = false
   }
 }
 
-// WHAT: Scroll to current period column
-// WHY: Quick navigation to "today" in the timeline
 function scrollToCurrentPeriod() {
   if (!tableContainer.value) return
   const currentPeriodIndex = periods.value.findIndex(p => p.is_current)
   if (currentPeriodIndex === -1) return
   
-  // WHAT: Calculate scroll position (approximate)
-  const columnWidth = 120 // Approximate width of each period column
+  const columnWidth = 120
   const scrollPosition = currentPeriodIndex * columnWidth
   tableContainer.value.scrollLeft = scrollPosition
 }
 
-// WHAT: Fetch data on mount and when assetHubId changes
 onMounted(() => {
   fetchCashFlowData()
 })
@@ -450,11 +436,8 @@ watch(() => props.assetHubId, () => {
   WHY: Horizontal scrolling with sticky first column and header
   
   COLOR CUSTOMIZATION:
-  - Header background: #f0f7ff (subtle blue tint, matches PLMetrics.vue .underwritten-col)
-  - Body sticky column: white
-  - Current period highlight: #fff3cd with #ffc107 borders
-  - To change header color: Update inline styles in template (lines 39, 45, 59, 65) 
-    AND update PLMetrics.vue .underwritten-col (line 1726)
+  - Header background: #f0f7ff (matches PLMetrics.vue .underwritten-col)
+  - Current period: 3px black border with bold text
   
   ============================================================================
 */
@@ -476,8 +459,7 @@ watch(() => props.assetHubId, () => {
   font-size: 0.875rem;
 }
 
-/* WHAT: Sticky header rows */
-/* WHY: Keep period numbers and dates visible while scrolling */
+/* Sticky header rows */
 .sticky-header {
   position: sticky;
   top: 0;
@@ -485,8 +467,34 @@ watch(() => props.assetHubId, () => {
   background-color: #f8f9fa;
 }
 
-/* WHAT: Sticky first column (line item names) */
-/* WHY: Keep row labels visible while scrolling horizontally */
+/* Remove border between Period # and Date rows */
+:deep(.cash-flow-table thead.sticky-header tr:first-child th) {
+  border-bottom: none !important;
+  padding-bottom: 0.25rem !important;
+}
+
+:deep(.cash-flow-table thead.sticky-header tr:nth-child(2) th) {
+  border-top: none !important;
+  padding-top: 0.25rem !important;
+}
+
+:deep(.table-bordered thead tr:first-child th) {
+  border-bottom: none !important;
+}
+
+:deep(.table-bordered thead tr:nth-child(2) th) {
+  border-top: none !important;
+}
+
+:deep(.table.table-bordered thead tr:first-child > th) {
+  border-bottom-width: 0 !important;
+}
+
+:deep(.table.table-bordered thead tr:nth-child(2) > th) {
+  border-top-width: 0 !important;
+}
+
+/* Sticky first column */
 .sticky-col {
   position: sticky;
   left: 0;
@@ -500,12 +508,10 @@ watch(() => props.assetHubId, () => {
   z-index: 15;
 }
 
-/* WHAT: Ensure body sticky columns stay white */
 .cash-flow-table tbody .sticky-col {
   background-color: white !important;
 }
 
-/* WHAT: Column widths */
 .line-item-col {
   min-width: 200px;
   max-width: 200px;
@@ -517,25 +523,31 @@ watch(() => props.assetHubId, () => {
   white-space: nowrap;
 }
 
-/* WHAT: Current period highlighting */
-/* WHY: Visual indicator of current month */
+/* Current period highlighting */
 .current-period {
-  background-color: #fff3cd !important;
-  border-left: 3px solid #ffc107 !important;
-  border-right: 3px solid #ffc107 !important;
+  border-left: 3px solid #000 !important;
+  border-right: 3px solid #000 !important;
+  border-top: 3px solid #000 !important;
+  border-bottom: 3px solid #000 !important;
+  font-weight: bold !important;
 }
 
-/* WHAT: Section headers */
+thead .current-period {
+  border-top: 3px solid #000 !important;
+}
+
+tbody tr:last-child .current-period {
+  border-bottom: 3px solid #000 !important;
+}
+
 .section-header td {
   font-weight: 600;
 }
 
-/* WHAT: Ensure sticky column in section headers has white background */
 .section-header .sticky-col {
   background-color: white !important;
 }
 
-/* WHAT: Clickable section headers */
 .clickable {
   cursor: pointer;
   user-select: none;
@@ -545,7 +557,6 @@ watch(() => props.assetHubId, () => {
   opacity: 0.9;
 }
 
-/* WHAT: Hover effects */
 .cash-flow-table tbody tr:hover {
   background-color: #f8f9fa;
 }

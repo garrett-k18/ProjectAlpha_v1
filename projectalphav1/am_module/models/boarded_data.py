@@ -436,41 +436,7 @@ class BlendedOutcomeModel(models.Model):
         help_text="Bid percentage of present value (percent 0–100)."
     )
 
-    # ------------------------------
-    # Cash flow periods (P1..P30)
-    # ------------------------------
-    # Stored as currency decimals; can be positive (inflows) or negative (outflows).
-    cf_p0 = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="Cash flow period 0 (currency; can be negative). THis will be bid amount plus any period 0 costs")
-    cf_p1 = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="Cash flow period 1 (currency; can be negative).")
-    cf_p2 = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="Cash flow period 2 (currency; can be negative).")
-    cf_p3 = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="Cash flow period 3 (currency; can be negative).")
-    cf_p4 = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="Cash flow period 4 (currency; can be negative).")
-    cf_p5 = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="Cash flow period 5 (currency; can be negative).")
-    cf_p6 = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="Cash flow period 6 (currency; can be negative).")
-    cf_p7 = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="Cash flow period 7 (currency; can be negative).")
-    cf_p8 = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="Cash flow period 8 (currency; can be negative).")
-    cf_p9 = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="Cash flow period 9 (currency; can be negative).")
-    cf_p10 = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="Cash flow period 10 (currency; can be negative).")
-    cf_p11 = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="Cash flow period 11 (currency; can be negative).")
-    cf_p12 = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="Cash flow period 12 (currency; can be negative).")
-    cf_p13 = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="Cash flow period 13 (currency; can be negative).")
-    cf_p14 = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="Cash flow period 14 (currency; can be negative).")
-    cf_p15 = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="Cash flow period 15 (currency; can be negative).")
-    cf_p16 = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="Cash flow period 16 (currency; can be negative).")
-    cf_p17 = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="Cash flow period 17 (currency; can be negative).")
-    cf_p18 = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="Cash flow period 18 (currency; can be negative).")
-    cf_p19 = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="Cash flow period 19 (currency; can be negative).")
-    cf_p20 = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="Cash flow period 20 (currency; can be negative).")
-    cf_p21 = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="Cash flow period 21 (currency; can be negative).")
-    cf_p22 = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="Cash flow period 22 (currency; can be negative).")
-    cf_p23 = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="Cash flow period 23 (currency; can be negative).")
-    cf_p24 = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="Cash flow period 24 (currency; can be negative).")
-    cf_p25 = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="Cash flow period 25 (currency; can be negative).")
-    cf_p26 = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="Cash flow period 26 (currency; can be negative).")
-    cf_p27 = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="Cash flow period 27 (currency; can be negative).")
-    cf_p28 = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="Cash flow period 28 (currency; can be negative).")
-    cf_p29 = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="Cash flow period 29 (currency; can be negative).")
-    cf_p30 = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="Cash flow period 30 (currency; can be negative).")
+    # NOTE: Cash flow fields removed - migrated to CashFlowPeriod model below
 
     
     
@@ -492,3 +458,239 @@ class BlendedOutcomeModel(models.Model):
     def __str__(self) -> str:
         """Readable string for admin/debugging."""
         return f"AcqModel(hub_id={self.pk})"
+
+
+class UWCashFlows(models.Model):
+    """
+    WHAT: Stores cash flow data for a single period (month) of an asset
+    WHY: Flexible, scalable structure for unlimited periods with underwritten vs realized comparison
+    HOW: Many-to-one relationship with AssetIdHub, one record per period
+    WHERE: Replaces cf_p0-p30 fields in BlendedOutcomeModel
+    
+    Architecture:
+    - Each asset can have unlimited periods (not limited to 30)
+    - Stores both underwritten (from acquisition model) and realized (actual) cash flows
+    - Supports detailed line items for both underwritten and realized
+    - Enables easy variance calculation and period-level queries
+    """
+    
+    # WHAT: Foreign key to AssetIdHub (many periods per asset)
+    # WHY: Allows unlimited periods per asset, easy filtering/querying
+    asset_hub = models.ForeignKey(
+        'core.AssetIdHub',
+        on_delete=models.CASCADE,
+        related_name='cash_flow_periods',
+        help_text='Asset this period belongs to'
+    )
+    
+    # ------------------------------
+    # Period Identification
+    # ------------------------------
+    period_number = models.IntegerField(
+        help_text='Period number: 0 = acquisition, 1+ = monthly periods'
+    )
+    period_date = models.DateField(
+        help_text='Month/year of this period (first day of month)'
+    )
+    
+    # ------------------------------
+    # Net Cash Flows (Summary)
+    # ------------------------------
+    # WHAT: Net cash flow from underwriting model (acquisition projections)
+    net_cash_flow_underwritten = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Projected net cash flow from acquisition model (can be negative)'
+    )
+    
+    # WHAT: Net cash flow from realized data (actual performance)
+    net_cash_flow_realized = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Actual net cash flow (calculated from realized line items)'
+    )
+    
+    # ------------------------------
+    # Underwritten Line Items (Future)
+    # ------------------------------
+    # TODO: Add underwritten line items when acquisition model is expanded
+    # underwritten_income_principal = models.DecimalField(...)
+    # underwritten_income_interest = models.DecimalField(...)
+    # underwritten_expense_servicing = models.DecimalField(...)
+    # etc.
+    
+    # ------------------------------
+    # Realized Line Items (Detailed)
+    # ------------------------------
+    # WHAT: Actual income collected during this period
+    realized_income_principal = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        help_text='Principal collected'
+    )
+    realized_income_interest = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        help_text='Interest collected'
+    )
+    realized_income_rent = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        help_text='Rent collected'
+    )
+    realized_income_cam = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        help_text='CAM income'
+    )
+    realized_income_mod_down_payment = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        help_text='Modification down payment'
+    )
+    realized_net_liquidation_proceeds = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        help_text='Net proceeds from liquidation'
+    )
+    
+    # WHAT: Actual expenses incurred during this period
+    realized_purchase_price = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        help_text='Purchase price (period 0 only)'
+    )
+    realized_acq_due_diligence = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        help_text='Due diligence expenses'
+    )
+    realized_acq_legal = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        help_text='Acquisition legal expenses'
+    )
+    realized_acq_title = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        help_text='Title expenses'
+    )
+    realized_expense_servicing = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        help_text='Servicing fees'
+    )
+    realized_expense_am_fees = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        help_text='Asset management fees'
+    )
+    realized_expense_property_tax = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        help_text='Property taxes'
+    )
+    realized_expense_property_insurance = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        help_text='Property insurance'
+    )
+    realized_legal_foreclosure = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        help_text='Foreclosure legal fees'
+    )
+    realized_legal_bankruptcy = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        help_text='Bankruptcy legal fees'
+    )
+    realized_reo_hoa = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        help_text='HOA fees'
+    )
+    realized_reo_utilities = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        help_text='Utilities'
+    )
+    realized_reo_renovation = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        help_text='Renovation costs'
+    )
+    realized_reo_property_preservation = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        help_text='Property preservation'
+    )
+    realized_cre_marketing = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        help_text='Marketing expenses'
+    )
+    realized_cre_maintenance = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        help_text='Maintenance expenses'
+    )
+    
+    # ------------------------------
+    # Metadata
+    # ------------------------------
+    is_current_period = models.BooleanField(
+        default=False,
+        help_text='True if this is the current period (based on today\'s date)'
+    )
+    notes = models.TextField(
+        blank=True,
+        help_text='Optional notes for this period'
+    )
+    
+    # Audit timestamps
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text='When this period record was created'
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        help_text='When this period record was last updated'
+    )
+    
+    class Meta:
+        verbose_name = 'UW Cash Flows'
+        verbose_name_plural = 'UW Cash Flows'
+        ordering = ['asset_hub', 'period_number']
+        unique_together = ('asset_hub', 'period_number')
+        indexes = [
+            models.Index(fields=['asset_hub', 'period_number']),
+            models.Index(fields=['period_date']),
+        ]
+    
+    def __str__(self) -> str:
+        """Readable string for admin/debugging."""
+        return f"UWCashFlowPeriod(asset={self.asset_hub_id}, period={self.period_number}, date={self.period_date})"
+    
+    @property
+    def variance(self) -> float:
+        """Calculate variance: realized - underwritten."""
+        if self.net_cash_flow_realized is None or self.net_cash_flow_underwritten is None:
+            return 0
+        return float(self.net_cash_flow_realized - self.net_cash_flow_underwritten)
+    
+    @property
+    def total_income(self) -> float:
+        """Calculate total realized income for this period."""
+        return sum([
+            float(self.realized_income_principal or 0),
+            float(self.realized_income_interest or 0),
+            float(self.realized_income_rent or 0),
+            float(self.realized_income_cam or 0),
+            float(self.realized_income_mod_down_payment or 0),
+            float(self.realized_net_liquidation_proceeds or 0),
+        ])
+    
+    @property
+    def total_expenses(self) -> float:
+        """Calculate total realized expenses for this period."""
+        return sum([
+            float(self.realized_purchase_price or 0),
+            float(self.realized_acq_due_diligence or 0),
+            float(self.realized_acq_legal or 0),
+            float(self.realized_acq_title or 0),
+            float(self.realized_expense_servicing or 0),
+            float(self.realized_expense_am_fees or 0),
+            float(self.realized_expense_property_tax or 0),
+            float(self.realized_expense_property_insurance or 0),
+            float(self.realized_legal_foreclosure or 0),
+            float(self.realized_legal_bankruptcy or 0),
+            float(self.realized_reo_hoa or 0),
+            float(self.realized_reo_utilities or 0),
+            float(self.realized_reo_renovation or 0),
+            float(self.realized_reo_property_preservation or 0),
+            float(self.realized_cre_marketing or 0),
+            float(self.realized_cre_maintenance or 0),
+        ])

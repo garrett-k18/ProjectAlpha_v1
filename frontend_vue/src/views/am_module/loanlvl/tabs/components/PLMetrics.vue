@@ -25,7 +25,7 @@
             <th scope="col" class="metric-header">Performance Summary</th>
             <th scope="col" class="text-center underwritten-col">Underwritten</th>
             <th scope="col" class="text-center realized-col">Realized</th>
-            <th scope="col" class="text-center sandbox-col">Sandbox (editable)</th>
+            <th scope="col" class="text-center sandbox-col">Sandbox</th>
           </tr>
         </thead>
         <tbody>
@@ -36,7 +36,7 @@
           >
             <td class="fw-bold ps-3">
               <i :class="grossCostCollapsed ? 'mdi mdi-chevron-right' : 'mdi mdi-chevron-down'" class="me-1"></i>
-              Gross Cost
+              Gross Acquisition Cost
             </td>
             <td class="text-end fw-bold underwritten-col">{{ fmtCurrency(grossCost.underwritten) }}</td>
             <td class="text-end fw-bold realized-col">{{ fmtCurrency(grossCost.realized) }}</td>
@@ -249,9 +249,9 @@
               <i :class="allExpensesCollapsed ? 'mdi mdi-chevron-right' : 'mdi mdi-chevron-down'" class="me-1"></i>
               Expenses
             </td>
-            <td class="text-end fw-bold underwritten-col">{{ fmtCurrency(operatingExpensesTotal.underwritten) }}</td>
-            <td class="text-end fw-bold realized-col">{{ fmtCurrency(operatingExpensesTotal.realized) }}</td>
-            <td class="text-end fw-bold sandbox-col">{{ fmtCurrency(expensesSandboxTotal + reoExpensesSandboxTotal + fundExpensesSandboxTotal) }}</td>
+            <td class="text-end fw-bold underwritten-col">{{ fmtExpense(operatingExpensesTotal.underwritten) }}</td>
+            <td class="text-end fw-bold realized-col">{{ fmtExpense(operatingExpensesTotal.realized) }}</td>
+            <td class="text-end fw-bold sandbox-col">{{ fmtExpense(expensesSandboxTotal + reoExpensesSandboxTotal + fundExpensesSandboxTotal) }}</td>
           </tr>
 
           <!-- Operating Expense (nested under Expenses) - Collapsible -->
@@ -267,17 +267,17 @@
               <i :class="expensesCollapsed ? 'mdi mdi-chevron-right' : 'mdi mdi-chevron-down'" class="me-1"></i>
               Operating Expense
             </td>
-            <td class="text-end underwritten-col small">{{ fmtCurrency(operatingExpensesTotal.underwritten) }}</td>
-            <td class="text-end realized-col small">{{ fmtCurrency(operatingExpensesTotal.realized) }}</td>
-            <td class="text-end sandbox-col small">{{ fmtCurrency(expensesSandboxTotal) }}</td>
+            <td class="text-end underwritten-col small">{{ fmtExpense(operatingExpensesTotal.underwritten) }}</td>
+            <td class="text-end realized-col small">{{ fmtExpense(operatingExpensesTotal.realized) }}</td>
+            <td class="text-end sandbox-col small">{{ fmtExpense(expensesSandboxTotal) }}</td>
           </tr>
 
           <!-- Operating Expense Sub-lines (collapsible) -->
           <tr v-show="!allExpensesCollapsed && !expensesCollapsed">
             <!-- TODO: Replace manual padding with CSS class system for consistent alignment -->
             <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">Servicing Fees</td>
-            <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.expenseServicing.underwritten) }}</td>
-            <td class="text-end realized-col small">{{ fmtCurrency(metrics.expenseServicing.realized) }}</td>
+            <td class="text-end underwritten-col small">{{ fmtExpense(metrics.expenseServicing.underwritten) }}</td>
+            <td class="text-end realized-col small">{{ fmtExpense(metrics.expenseServicing.realized) }}</td>
             <td class="text-end sandbox-col">
               <input
                 v-currency
@@ -303,17 +303,17 @@
               <i :class="legalCostsCollapsed ? 'mdi mdi-chevron-right' : 'mdi mdi-chevron-down'" class="me-1"></i>
               Legal/DIL Cost
             </td>
-            <td class="text-end underwritten-col small">{{ fmtCurrency(legalTotals.underwritten) }}</td>
-            <td class="text-end realized-col small">{{ fmtCurrency(legalTotals.realized) }}</td>
-            <td class="text-end sandbox-col small">{{ fmtCurrency(legalCostsSandboxTotal) }}</td>
+            <td class="text-end underwritten-col small">{{ fmtExpense(legalTotals.underwritten) }}</td>
+            <td class="text-end realized-col small">{{ fmtExpense(legalTotals.realized) }}</td>
+            <td class="text-end sandbox-col small">{{ fmtExpense(legalCostsSandboxTotal) }}</td>
           </tr>
 
           <!-- Legal/DIL Cost Sub-items (nested) -->
           <tr v-show="!allExpensesCollapsed && !expensesCollapsed && !legalCostsCollapsed">
             <!-- TODO: Replace manual padding with CSS class system for consistent alignment -->
             <td class="small text-muted" style="padding-left: 6.5rem; font-size: 0.65rem;">Foreclosure Fees</td>
-            <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.legalForeclosure.underwritten) }}</td>
-            <td class="text-end realized-col small">{{ fmtCurrency(metrics.legalForeclosure.realized) }}</td>
+            <td class="text-end underwritten-col small">{{ fmtExpense(metrics.legalForeclosure.underwritten) }}</td>
+            <td class="text-end realized-col small">{{ fmtExpense(metrics.legalForeclosure.realized) }}</td>
             <td class="text-end sandbox-col">
               <input
                 v-currency
@@ -327,8 +327,8 @@
           </tr>
           <tr v-show="!allExpensesCollapsed && !expensesCollapsed && !legalCostsCollapsed">
             <td class="small text-muted" style="padding-left: 6.5rem; font-size: 0.65rem;">Bankruptcy Fees</td>
-            <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.legalBankruptcy.underwritten) }}</td>
-            <td class="text-end realized-col small">{{ fmtCurrency(metrics.legalBankruptcy.realized) }}</td>
+            <td class="text-end underwritten-col small">{{ fmtExpense(metrics.legalBankruptcy.underwritten) }}</td>
+            <td class="text-end realized-col small">{{ fmtExpense(metrics.legalBankruptcy.realized) }}</td>
             <td class="text-end sandbox-col">
               <input
                 v-currency
@@ -342,8 +342,8 @@
           </tr>
           <tr v-show="!allExpensesCollapsed && !expensesCollapsed && !legalCostsCollapsed">
             <td class="small text-muted" style="padding-left: 6.5rem; font-size: 0.65rem;">Deed-in-Lieu Cost</td>
-            <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.legalDIL.underwritten) }}</td>
-            <td class="text-end realized-col small">{{ fmtCurrency(metrics.legalDIL.realized) }}</td>
+            <td class="text-end underwritten-col small">{{ fmtExpense(metrics.legalDIL.underwritten) }}</td>
+            <td class="text-end realized-col small">{{ fmtExpense(metrics.legalDIL.realized) }}</td>
             <td class="text-end sandbox-col">
               <input
                 v-currency
@@ -357,8 +357,8 @@
           </tr>
           <tr v-show="!allExpensesCollapsed && !expensesCollapsed && !legalCostsCollapsed">
             <td class="small text-muted" style="padding-left: 6.5rem; font-size: 0.65rem;">Cash for Keys Cost</td>
-            <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.legalCashForKeys.underwritten) }}</td>
-            <td class="text-end realized-col small">{{ fmtCurrency(metrics.legalCashForKeys.realized) }}</td>
+            <td class="text-end underwritten-col small">{{ fmtExpense(metrics.legalCashForKeys.underwritten) }}</td>
+            <td class="text-end realized-col small">{{ fmtExpense(metrics.legalCashForKeys.realized) }}</td>
             <td class="text-end sandbox-col">
               <input
                 v-currency
@@ -372,8 +372,8 @@
           </tr>
           <tr v-show="!allExpensesCollapsed && !expensesCollapsed && !legalCostsCollapsed">
             <td class="small text-muted" style="padding-left: 6.5rem; font-size: 0.65rem;">Eviction Cost</td>
-            <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.legalEviction.underwritten) }}</td>
-            <td class="text-end realized-col small">{{ fmtCurrency(metrics.legalEviction.realized) }}</td>
+            <td class="text-end underwritten-col small">{{ fmtExpense(metrics.legalEviction.underwritten) }}</td>
+            <td class="text-end realized-col small">{{ fmtExpense(metrics.legalEviction.realized) }}</td>
             <td class="text-end sandbox-col">
               <input
                 v-currency
@@ -387,8 +387,8 @@
           </tr>
           <tr v-show="!allExpensesCollapsed && !expensesCollapsed">
             <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">AM Fees</td>
-            <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.expenseAMFees.underwritten) }}</td>
-            <td class="text-end realized-col small">{{ fmtCurrency(metrics.expenseAMFees.realized) }}</td>
+            <td class="text-end underwritten-col small">{{ fmtExpense(metrics.expenseAMFees.underwritten) }}</td>
+            <td class="text-end realized-col small">{{ fmtExpense(metrics.expenseAMFees.realized) }}</td>
             <td class="text-end sandbox-col">
               <input
                 v-currency
@@ -402,8 +402,8 @@
           </tr>
           <tr v-show="!allExpensesCollapsed && !expensesCollapsed">
             <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">Property Taxes</td>
-            <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.expensePropertyTax.underwritten) }}</td>
-            <td class="text-end realized-col small">{{ fmtCurrency(metrics.expensePropertyTax.realized) }}</td>
+            <td class="text-end underwritten-col small">{{ fmtExpense(metrics.expensePropertyTax.underwritten) }}</td>
+            <td class="text-end realized-col small">{{ fmtExpense(metrics.expensePropertyTax.realized) }}</td>
             <td class="text-end sandbox-col">
               <input
                 v-currency
@@ -417,8 +417,8 @@
           </tr>
           <tr v-show="!allExpensesCollapsed && !expensesCollapsed">
             <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">Property Insurance</td>
-            <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.expensePropertyInsurance.underwritten) }}</td>
-            <td class="text-end realized-col small">{{ fmtCurrency(metrics.expensePropertyInsurance.realized) }}</td>
+            <td class="text-end underwritten-col small">{{ fmtExpense(metrics.expensePropertyInsurance.underwritten) }}</td>
+            <td class="text-end realized-col small">{{ fmtExpense(metrics.expensePropertyInsurance.realized) }}</td>
             <td class="text-end sandbox-col">
               <input
                 v-currency
@@ -444,17 +444,17 @@
               <i :class="reoExpensesCollapsed ? 'mdi mdi-chevron-right' : 'mdi mdi-chevron-down'" class="me-1"></i>
               REO Expenses
             </td>
-            <td class="text-end underwritten-col small">{{ fmtCurrency(reoExpensesTotal.underwritten) }}</td>
-            <td class="text-end realized-col small">{{ fmtCurrency(reoExpensesTotal.realized) }}</td>
-            <td class="text-end sandbox-col small">{{ fmtCurrency(reoExpensesSandboxTotal) }}</td>
+            <td class="text-end underwritten-col small">{{ fmtExpense(reoExpensesTotal.underwritten) }}</td>
+            <td class="text-end realized-col small">{{ fmtExpense(reoExpensesTotal.realized) }}</td>
+            <td class="text-end sandbox-col small">{{ fmtExpense(reoExpensesSandboxTotal) }}</td>
           </tr>
 
           <!-- REO Expense Sub-lines (collapsible) -->
           <tr v-show="!allExpensesCollapsed && !reoExpensesCollapsed">
             <!-- TODO: Replace manual padding with CSS class system for consistent alignment -->
             <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">HOA</td>
-            <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.reoHOA.underwritten) }}</td>
-            <td class="text-end realized-col small">{{ fmtCurrency(metrics.reoHOA.realized) }}</td>
+            <td class="text-end underwritten-col small">{{ fmtExpense(metrics.reoHOA.underwritten) }}</td>
+            <td class="text-end realized-col small">{{ fmtExpense(metrics.reoHOA.realized) }}</td>
             <td class="text-end sandbox-col">
               <input
                 v-currency
@@ -468,8 +468,8 @@
           </tr>
           <tr v-show="!allExpensesCollapsed && !reoExpensesCollapsed">
             <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">Utilities</td>
-            <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.reoUtilities.underwritten) }}</td>
-            <td class="text-end realized-col small">{{ fmtCurrency(metrics.reoUtilities.realized) }}</td>
+            <td class="text-end underwritten-col small">{{ fmtExpense(metrics.reoUtilities.underwritten) }}</td>
+            <td class="text-end realized-col small">{{ fmtExpense(metrics.reoUtilities.realized) }}</td>
             <td class="text-end sandbox-col">
               <input
                 v-currency
@@ -483,8 +483,8 @@
           </tr>
           <tr v-show="!allExpensesCollapsed && !reoExpensesCollapsed">
             <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">Trashout Cost</td>
-            <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.reoTrashout.underwritten) }}</td>
-            <td class="text-end realized-col small">{{ fmtCurrency(metrics.reoTrashout.realized) }}</td>
+            <td class="text-end underwritten-col small">{{ fmtExpense(metrics.reoTrashout.underwritten) }}</td>
+            <td class="text-end realized-col small">{{ fmtExpense(metrics.reoTrashout.realized) }}</td>
             <td class="text-end sandbox-col">
               <input
                 v-currency
@@ -498,8 +498,8 @@
           </tr>
           <tr v-show="!allExpensesCollapsed && !reoExpensesCollapsed">
             <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">Renovation Cost</td>
-            <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.reoRenovation.underwritten) }}</td>
-            <td class="text-end realized-col small">{{ fmtCurrency(metrics.reoRenovation.realized) }}</td>
+            <td class="text-end underwritten-col small">{{ fmtExpense(metrics.reoRenovation.underwritten) }}</td>
+            <td class="text-end realized-col small">{{ fmtExpense(metrics.reoRenovation.realized) }}</td>
             <td class="text-end sandbox-col">
               <input
                 v-currency
@@ -513,8 +513,8 @@
           </tr>
           <tr v-show="!allExpensesCollapsed && !reoExpensesCollapsed">
             <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">Property Preservation</td>
-            <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.reoPropertyPreservation.underwritten) }}</td>
-            <td class="text-end realized-col small">{{ fmtCurrency(metrics.reoPropertyPreservation.realized) }}</td>
+            <td class="text-end underwritten-col small">{{ fmtExpense(metrics.reoPropertyPreservation.underwritten) }}</td>
+            <td class="text-end realized-col small">{{ fmtExpense(metrics.reoPropertyPreservation.realized) }}</td>
             <td class="text-end sandbox-col">
               <input
                 v-currency
@@ -704,17 +704,17 @@
               <i :class="closingCostsCollapsed ? 'mdi mdi-chevron-right' : 'mdi mdi-chevron-down'" class="me-1"></i>
               Closing Costs
             </td>
-            <td class="text-end underwritten-col small">{{ fmtCurrency(closingCostsTotal.underwritten) }}</td>
-            <td class="text-end realized-col small">{{ fmtCurrency(closingCostsTotal.realized) }}</td>
-            <td class="text-end sandbox-col small">{{ fmtCurrency(closingCostsSandboxTotal) }}</td>
+            <td class="text-end underwritten-col small">{{ fmtExpense(closingCostsTotal.underwritten) }}</td>
+            <td class="text-end realized-col small">{{ fmtExpense(closingCostsTotal.realized) }}</td>
+            <td class="text-end sandbox-col small">{{ fmtExpense(closingCostsSandboxTotal) }}</td>
           </tr>
 
           <!-- Closing Costs Sub-items (nested) -->
           <tr v-show="!closingCostsCollapsed">
             <!-- TODO: Replace manual padding with CSS class system for consistent alignment -->
             <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">Broker Closing Costs</td>
-            <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.reoBrokerClosing.underwritten) }}</td>
-            <td class="text-end realized-col small">{{ fmtCurrency(metrics.reoBrokerClosing.realized) }}</td>
+            <td class="text-end underwritten-col small">{{ fmtExpense(metrics.reoBrokerClosing.underwritten) }}</td>
+            <td class="text-end realized-col small">{{ fmtExpense(metrics.reoBrokerClosing.realized) }}</td>
             <td class="text-end sandbox-col">
               <input
                 v-currency
@@ -728,8 +728,8 @@
           </tr>
           <tr v-show="!closingCostsCollapsed">
             <td class="small text-muted" style="padding-left: 5.5rem; font-size: 0.7rem;">Other Closing Costs</td>
-            <td class="text-end underwritten-col small">{{ fmtCurrency(metrics.reoOtherClosing.underwritten) }}</td>
-            <td class="text-end realized-col small">{{ fmtCurrency(metrics.reoOtherClosing.realized) }}</td>
+            <td class="text-end underwritten-col small">{{ fmtExpense(metrics.reoOtherClosing.underwritten) }}</td>
+            <td class="text-end realized-col small">{{ fmtExpense(metrics.reoOtherClosing.realized) }}</td>
             <td class="text-end sandbox-col">
               <input
                 v-currency
@@ -758,65 +758,15 @@
             <td class="text-end fw-bold sandbox-col">{{ fmtCurrency(netPLSandbox) }}</td>
           </tr>
 
-          <!-- MOIC (Multiple on Invested Capital) -->
+          <!-- MOIC / Annualized ROI (Combined) -->
           <tr>
-            <td class="fw-semibold ps-3">MOIC</td>
-            <td class="text-end underwritten-col">{{ moic.underwritten }}x</td>
-            <td class="text-end realized-col">{{ moic.realized }}x</td>
-            <td class="text-end sandbox-col">{{ moicSandbox }}x</td>
-          </tr>
-
-          <!-- AROI (Annualized Return on Investment) -->
-          <tr>
-            <td class="fw-semibold ps-3">Annualized ROI</td>
-            <td class="text-end underwritten-col">{{ aroi.underwritten }}%</td>
-            <td class="text-end realized-col">{{ aroi.realized }}%</td>
-            <td class="text-end sandbox-col">{{ aroiSandbox }}%</td>
-          </tr>
-
-          <!-- Variance (Realized vs Underwritten) -->
-          <tr class="table-info">
-            <td class="fw-bold ps-3">Variance</td>
-            <td class="text-center text-muted small">—</td>
-            <td class="text-end fw-bold realized-col" :class="varianceClass">
-              {{ fmtCurrency(variance) }}
-              <i v-if="variance > 0" class="mdi mdi-arrow-up-circle ms-1"></i>
-              <i v-else-if="variance < 0" class="mdi mdi-arrow-down-circle ms-1"></i>
-            </td>
-            <td class="text-end fw-bold sandbox-col" :class="varianceSandboxClass">
-              {{ fmtCurrency(varianceSandbox) }}
-            </td>
+            <td class="fw-semibold ps-3">MOIC / Annualized ROI</td>
+            <td class="text-end underwritten-col">{{ moic.underwritten }}x / {{ aroi.underwritten }}%</td>
+            <td class="text-end realized-col">{{ moic.realized }}x / {{ aroi.realized }}%</td>
+            <td class="text-end sandbox-col">{{ moicSandbox }}x / {{ aroiSandbox }}%</td>
           </tr>
         </tbody>
       </table>
-    </div>
-
-    <!-- Quick Stats Summary Cards -->
-    <div class="row g-2 mt-3">
-      <div class="col-md-3">
-        <div class="p-2 rounded bg-light border">
-          <div class="small text-muted">ROI (Underwritten)</div>
-          <div class="fs-5 fw-semibold">{{ roiUnderwritten }}%</div>
-        </div>
-      </div>
-      <div class="col-md-3">
-        <div class="p-2 rounded bg-light border">
-          <div class="small text-muted">ROI (Realized)</div>
-          <div class="fs-5 fw-semibold">{{ roiRealized }}%</div>
-        </div>
-      </div>
-      <div class="col-md-3">
-        <div class="p-2 rounded bg-light border">
-          <div class="small text-muted">Variance</div>
-          <div class="fs-5 fw-semibold" :class="varianceClass">{{ variancePercent }}%</div>
-        </div>
-      </div>
-      <div class="col-md-3">
-        <div class="p-2 rounded bg-light border">
-          <div class="small text-muted">ROI (Sandbox)</div>
-          <div class="fs-5 fw-semibold" :class="roiSandboxClass">{{ roiSandbox }}%</div>
-        </div>
-      </div>
     </div>
   </div>
 </template>
@@ -1454,14 +1404,29 @@ const variancePercent = computed(() => {
 
 // WHAT: Currency formatter helper function
 // WHY: Consistent USD formatting across all currency fields
-// HOW: Uses Intl.NumberFormat with no decimals and comma separators, shows "—" for zero
+// HOW: Uses Intl.NumberFormat with no decimals, shows negative numbers in parentheses
 function fmtCurrency(v: number | null | undefined): string {
   const n = Number(v || 0)
   if (n === 0) return '—'
-  return '$' + new Intl.NumberFormat('en-US', { 
+  
+  const abs = Math.abs(n)
+  const formatted = new Intl.NumberFormat('en-US', { 
     minimumFractionDigits: 0,
     maximumFractionDigits: 0 
-  }).format(n)
+  }).format(abs)
+  
+  // WHAT: Show negative numbers in parentheses (accounting format)
+  return n < 0 ? `($${formatted})` : `$${formatted}`
+}
+
+// WHAT: Format expenses as negative (in parentheses)
+// WHY: Expenses reduce profit, so they should display as negative in accounting format
+function fmtExpense(v: number | null | undefined): string {
+  const n = Number(v || 0)
+  if (n === 0) return '—'
+  
+  // Negate the value to show as expense
+  return fmtCurrency(-Math.abs(n))
 }
 
 // ------------------------------
@@ -1710,8 +1675,6 @@ watch(() => props.assetHubId, () => {
 .performance-grid tbody tr.bottom-line-row td {
   border-top: 3px double #198754 !important;
   border-bottom: 3px double #198754 !important;
-  padding-top: 0.875rem !important;
-  padding-bottom: 0.875rem !important;
   font-size: 1.05rem;
 }
 
@@ -1739,6 +1702,7 @@ watch(() => props.assetHubId, () => {
 /* Realized column styling - subtle green tint */
 .realized-col {
   background-color: #f0fdf4;
+  width: 350px;
   min-width: 350px;
   max-width: 350px;
   font-weight: 500;

@@ -40,12 +40,16 @@ def get_broker_stats_dict(broker: MasterCRM) -> Dict[str, int]:
     )
     assigned_loan_count = assigned_qs.count()
 
+    # Count distinct asset_hub_id values for broker submissions
+    # Use values().distinct() instead of distinct("field") to avoid PostgreSQL
+    # DISTINCT ON ordering conflicts with .count()
     submissions_count = (
         Valuation.objects.filter(
             source='broker',
             asset_hub__acq_raw__broker_tokens__broker_id=broker.id
         )
-        .distinct("asset_hub_id")
+        .values("asset_hub_id")
+        .distinct()
         .count()
     )
 

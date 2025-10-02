@@ -5,7 +5,7 @@ from django.utils.html import format_html
 from urllib.parse import quote
 from .models.capital import DebtFacility
 from .models.crm import MasterCRM
-from .models.assumptions import Servicer, StateReference
+from .models.assumptions import Servicer, StateReference, FCStatus, FCTimelines, CommercialUnits
 from .models.asset_id_hub import AssetIdHub
 from .models.valuations import Valuation
 from .models.attachments import Photo, Document
@@ -143,6 +143,98 @@ class StateReferenceAdmin(admin.ModelAdmin):
     )
     search_fields = ('state_code', 'state_name')
     list_filter = ('judicialvsnonjudicial',)
+
+
+@admin.register(FCStatus)
+class FCStatusAdmin(admin.ModelAdmin):
+    """Admin configuration for FCStatus model.
+    
+    What this does:
+    - Manages foreclosure status records with categorical choices
+    - Displays status, order, and associated metadata in list view
+    - Allows filtering and searching by status category
+    """
+    list_display = (
+        'id', 'status', 'order', 'notes', 'created_at', 'updated_at'
+    )
+    list_filter = ('status',)
+    search_fields = ('notes',)
+    readonly_fields = ('created_at', 'updated_at')
+    ordering = ('order', 'status')
+    
+    fieldsets = (
+        ('Status Information', {
+            'fields': ('status', 'order', 'notes')
+        }),
+        ('Audit', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+
+@admin.register(FCTimelines)
+class FCTimelinesAdmin(admin.ModelAdmin):
+    """Admin configuration for FCTimelines model.
+    
+    What this does:
+    - Manages state-specific foreclosure timeline data
+    - Links states to foreclosure statuses with duration and cost metrics
+    - Enforces unique state/status combinations
+    """
+    list_display = (
+        'state', 'fc_status', 'duration_days', 'cost_avg', 'updated_at'
+    )
+    list_filter = ('state', 'fc_status__status')
+    search_fields = ('state__state_code', 'state__state_name', 'notes')
+    readonly_fields = ('created_at', 'updated_at')
+    autocomplete_fields = ['state', 'fc_status']
+    
+    fieldsets = (
+        ('Timeline Configuration', {
+            'fields': ('state', 'fc_status')
+        }),
+        ('Metrics', {
+            'fields': ('duration_days', 'cost_avg', 'notes'),
+            'description': 'State-specific duration and cost data for this foreclosure status'
+        }),
+        ('Audit', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+
+@admin.register(CommercialUnits)
+class CommercialUnitsAdmin(admin.ModelAdmin):
+    """Admin configuration for CommercialUnits model.
+    
+    What this does:
+    - Manages commercial unit scaling factors
+    - Displays unit counts and their associated cost/duration multipliers
+    - Used for adjusting assumptions based on property unit count
+    """
+    list_display = (
+        'units', 'fc_cost_scale', 'rehab_cost_scale', 'rehab_duration_scale',
+        'created_at', 'updated_at'
+    )
+    search_fields = ('units',)
+    ordering = ('units',)
+    readonly_fields = ('created_at', 'updated_at')
+    
+    fieldsets = (
+        ('Unit Configuration', {
+            'fields': ('units',)
+        }),
+        ('Scaling Factors', {
+            'fields': ('fc_cost_scale', 'rehab_cost_scale', 'rehab_duration_scale'),
+            'description': 'Multipliers applied to base costs and durations for commercial properties'
+        }),
+        ('Audit', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
 
 
 @admin.register(LLTransactionSummary)

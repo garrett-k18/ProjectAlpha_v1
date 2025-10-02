@@ -264,7 +264,7 @@ def geocode_markers_for_seller_trade(seller_id: int, trade_id: int) -> Dict[str,
     rows = list(
         SellerRawData.objects
         .filter(Q(seller_id=seller_id) & Q(trade_id=trade_id))
-        .values("id", "city", "state", "zip")
+        .values("asset_hub_id", "city", "state", "zip")
     )
 
     # Deduplicate by the most specific candidate to minimize geocoding calls
@@ -279,7 +279,7 @@ def geocode_markers_for_seller_trade(seller_id: int, trade_id: int) -> Dict[str,
         if not norm:
             continue
         addr_to_rows.setdefault(norm, []).append({
-            "id": r["id"],
+            "id": r["asset_hub_id"],
             "candidates": candidates,
             "display_name": _build_display_address(r),
         })
@@ -407,7 +407,7 @@ def geocode_row(row_id: int) -> Optional[Tuple[float, float]]:
 
         r = (SellerRawData.objects
              .filter(pk=row_id)
-             .values("id", "city", "state", "zip")
+             .values("asset_hub_id", "city", "state", "zip")
              .first())
         if not r:
             return None

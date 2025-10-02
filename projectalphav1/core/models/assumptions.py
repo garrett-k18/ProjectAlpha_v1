@@ -85,3 +85,205 @@ class StateReference(models.Model):
     
     def __str__(self):
         return self.state_name.rstrip('.')
+
+class MSAReference(models.Model):
+    """Model to store MSA-specific data and regulations"""
+    msa_code = models.CharField(max_length=5, primary_key=True)
+    msa_name = models.CharField(max_length=50)
+    
+class FCStatus(models.Model):
+    """Model to store foreclosure status as a categorical choice field.
+    
+    What this does:
+    - Tracks the current foreclosure status of a loan using predefined categories
+    - Each status represents a stage in the foreclosure process
+    - Status categories are based on judicial vs non-judicial foreclosure types
+    
+    How it works:
+    - Use the STATUS_CHOICES to select the current foreclosure stage
+    - Different statuses apply to judicial vs non-judicial states
+    - This model can be linked to loan records via ForeignKey
+    """
+    
+    # Foreclosure status category choices
+    # Each tuple: (database_value, human_readable_display)
+    STATUS_CHOICES = [
+        ('pre_fc', 'Pre-Foreclosure'),
+        ('first_legal_filed', 'First Legal Filed (NOD/Complaint)'),
+        ('mediation', 'Mediation'),
+        ('order_of_reference', 'Order of Reference (Judicial Only)'),
+        ('judgement', 'Judgment (Judicial Only)'),
+        ('pre_sale_redemption', 'Pre-Sale Redemption'),
+        ('sale_scheduled', 'Sale Scheduled'),
+        ('sale_completed', 'Sale Completed'),
+        ('post_sale_redemption', 'Post-Sale Redemption'),
+    ]
+    
+    # The current foreclosure status category
+    status = models.CharField(
+        max_length=50,
+        choices=STATUS_CHOICES,
+        help_text="Current foreclosure status category"
+    )
+    
+    # Order/sequence of this status in the foreclosure process
+    order = models.IntegerField(
+        default=0,
+        help_text="Order in which this status typically occurs (lower numbers = earlier stages)"
+    )
+    
+    # Optional: Additional context or notes about this status
+    notes = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Additional notes or context about this foreclosure status"
+    )
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Foreclosure Status"
+        verbose_name_plural = "Foreclosure Statuses"
+        ordering = ['order', 'status']
+        indexes = [
+            models.Index(fields=['status']),
+            models.Index(fields=['order']),
+        ]
+        db_table = 'fc_status'
+    
+    def __str__(self):
+        return f"{self.get_status_display()}"
+
+class FCTimelines(models.Model):
+    """Model to store foreclosure timelines for different states.
+    
+    What this does:
+    - Stores state-specific and status-specific foreclosure timeline data
+    - Links state codes to foreclosure status categories
+    - Tracks duration and costs for each status in each state
+    
+    How it works:
+    - Each row represents a specific foreclosure status in a specific state
+    - ForeignKey to StateReference provides state-level context
+    - ForeignKey to FCStatus provides the foreclosure stage
+    - Duration and cost fields capture state/status-specific metrics
+    """
+    
+    # Foreign key to StateReference (links to state_code)
+    state = models.ForeignKey(
+        StateReference,
+        on_delete=models.CASCADE,
+        related_name='fc_timelines',
+        help_text="State this timeline applies to"
+    )
+    
+    # Foreign key to FCStatus (links to foreclosure status)
+    fc_status = models.ForeignKey(
+        FCStatus,
+        on_delete=models.CASCADE,
+        related_name='timelines',
+        help_text="Foreclosure status category this timeline represents"
+    )
+    
+    # Average duration in days for this status in this state
+    duration_days = models.IntegerField(
+        blank=True,
+        null=True,
+        help_text="Average number of days to complete this status in this state"
+    )
+    
+    # Average cost for this status in this state
+    cost_avg = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        help_text="Average cost associated with this status in this state"
+    )
+    
+    # Optional notes specific to this state/status combination
+    notes = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Additional notes about this status in this state"
+    )
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Foreclosure Timeline"
+        verbose_name_plural = "Foreclosure Timelines"
+        ordering = ['state', 'fc_status']
+        # Ensure unique combination of state and status
+        unique_together = [['state', 'fc_status']]
+        indexes = [
+            models.Index(fields=['state', 'fc_status']),
+        ]
+        db_table = 'fc_timelines'
+    
+    def __str__(self):
+        return f"{self.state.state_code} - {self.fc_status.get_status_display()}"
+    
+
+class CommercialUnits(models.Model):
+    """Model to store commercial property unit-based scaling factors.
+    
+    What this does:
+    - Stores scaling multipliers for foreclosure costs, rehab costs, and rehab duration
+      based on the number of commercial units in a property
+    - Used to adjust base assumptions for multi-unit commercial properties
+    - Each row represents a unit count threshold with its associated scaling factors
+    
+    Example usage:
+    - A 5-unit commercial property might have higher foreclosure costs (1.5x scale)
+      and longer rehab duration (1.3x scale) compared to a single-unit property
+    """
+    # Number of commercial units (e.g., 1, 2-4, 5-10, 10+)
+    units = models.IntegerField(
+        unique=True,
+        help_text="Number of commercial units (use upper bound for ranges, e.g., 4 for 2-4 units)"
+    )
+    
+    # Foreclosure cost scaling factor (multiplier applied to base FC costs)
+    fc_cost_scale = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=1.00,
+        help_text="Foreclosure cost multiplier (e.g., 1.50 = 150% of base cost)"
+    )
+    
+    # Rehab cost scaling factor (multiplier applied to base rehab costs)
+    rehab_cost_scale = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=1.00,
+        help_text="Rehab cost multiplier (e.g., 1.25 = 125% of base cost)"
+    )
+    
+    # Rehab duration scaling factor (multiplier applied to base rehab duration)
+    rehab_duration_scale = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=1.00,
+        help_text="Rehab duration multiplier (e.g., 1.30 = 130% of base duration)"
+    )
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Commercial Unit Scaling"
+        verbose_name_plural = "Commercial Unit Scalings"
+        ordering = ['units']
+        indexes = [
+            models.Index(fields=['units']),
+        ]
+        db_table = 'commercial_units'
+    
+    def __str__(self):
+        return f"{self.units} units"

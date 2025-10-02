@@ -4,7 +4,11 @@
   <!-- HOW: Imports PLMetrics component and passes row/productId props -->
   <!-- WHERE: Used in loan-level tabs (frontend_vue/src/views/am_module/loanlvl/tabs/) -->
   <div class="container-fluid px-0">
-    <div class="card border-0 shadow-sm">
+    <!-- WHAT: Hyper UI stat widgets for key cash flow metrics -->
+    <!-- WHY: Quick overview at the top of the page -->
+    <PerformanceWidgets :asset-hub-id="assetHubId" />
+
+    <div class="card shadow mt-4">
       
 
       <div class="card-body">
@@ -18,7 +22,7 @@
     <!-- WHAT: Cash Flow Series component - time-series grid -->
     <!-- WHY: Show period-by-period cash flows for detailed analysis -->
     <!-- WHERE: Component at frontend_vue/src/views/am_module/loanlvl/tabs/components/CashFlowSeries.vue -->
-    <div class="card border-0 shadow-sm mt-4">
+    <div class="card shadow mt-4">
       <div class="card-body">
         <CashFlowSeries :asset-hub-id="assetHubId" />
       </div>
@@ -34,6 +38,7 @@
 import { withDefaults, defineProps } from 'vue'
 import PLMetrics from './components/PLMetrics.vue'
 import CashFlowSeries from './components/CashFlowSeries.vue'
+import PerformanceWidgets from './components/PerformanceWidgets.vue'
 
 // WHAT: Props interface for parent data
 // WHY: Accept row data and asset hub ID to pass to PLMetrics

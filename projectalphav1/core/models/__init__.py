@@ -2,7 +2,7 @@
 from .capital import DebtFacility
 from .crm import MasterCRM
 from .asset_id_hub import AssetIdHub
-from .assumptions import Servicer, StateReference
+from .assumptions import Servicer, StateReference, FCStatus, FCTimelines, CommercialUnits
 from .enrichment import LlDataEnrichment
 from .valuations import Valuation
 from .attachments import Photo, Document
@@ -14,6 +14,9 @@ __all__ = [
     'AssetIdHub',
     'Servicer',
     'StateReference',
+    'FCStatus',
+    'FCTimelines',
+    'CommercialUnits',
     'LlDataEnrichment', 
     'Valuation',
     'Photo',

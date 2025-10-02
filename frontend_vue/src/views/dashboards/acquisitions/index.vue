@@ -64,9 +64,9 @@
               
               <!-- Trade action buttons (open modals) -->
               <div class="d-flex align-items-end gap-2" v-if="selectedTradeId">
-                <!-- Trade Details -->
+                <!-- Trade Assumptions -->
                 <button class="btn btn-sm btn-primary mb-0" @click="showTradeDetailsModal = true">
-                  <i class="mdi mdi-file-document-outline me-1"></i> Trade Details
+                  <i class="mdi mdi-file-document-outline me-1"></i> Trade Assumptions
                 </button>
                 <!-- Trade Documents -->
                 <button class="btn btn-sm btn-outline-primary mb-0" @click="showTradeDocumentsModal = true">
@@ -194,11 +194,11 @@
       />
     </BModal>
     
-    <!-- Trade Details Modal (centered) -->
+    <!-- Trade Assumptions Modal (centered) -->
     <BModal
       v-model="showTradeDetailsModal"
-      title="Trade Details"
-      size="md"
+      title="Trade Assumptions"
+      size="lg"
       centered
       hide-header-close
     >
