@@ -15,10 +15,10 @@
         <!-- Foreclosure Timeline Summary (by asset state) -->
         <div class="mb-2">
           <div v-if="fcTimeline && fcTimeline.totalDurationDays != null" class="d-flex align-items-baseline gap-2">
-            <span class="text-muted small">Total FC Duration ({{ fcTimeline.state }}):</span>
+            <span class="text-muted">Total FC Duration ({{ fcTimeline.state }}):</span>
             <span class="fw-bold">{{ fcTimeline.totalDurationDays }} days</span>
           </div>
-          <div v-else class="text-muted small">Total FC Duration: —</div>
+          <div v-else class="text-muted">Total FC Duration: —</div>
         </div>
 
         <hr />
