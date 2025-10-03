@@ -470,9 +470,9 @@ const loanlvlRoutes = [
                 path: 'products-details',
                 name: 'Loan Product Details',
                 component: () => import('@/views/acq_module/loanlvl/loanlvl_index.vue'),
-                // Provide productId prop from query string (?id=123)
+                // Provide assetId prop from query string (?id=123)
                 props: (route: any) => ({
-                    productId: route.query.id,
+                    assetId: route.query.id,
                     // forward best-effort address when available (?addr=...)
                     address: route.query.addr ?? null,
                     // pass module context (defaults to 'acq' if unspecified)

@@ -54,7 +54,7 @@
       <!-- Right column: Property map -->
       <b-col lg="4" class="d-flex">
         <div class="w-100" style="height: 380px;">
-          <PropertyMap class="w-100 h-100 d-flex flex-column" :row="row" :productId="productId" height="100%" />
+          <PropertyMap class="w-100 h-100 d-flex flex-column" :row="row" :assetId="assetId" height="100%" />
         </div>
       </b-col>
       </b-row>
@@ -64,7 +64,7 @@
         <!-- Valuation Matrix (component renders its own card now) -->
         <b-col lg="9" class="d-flex">
           <div class="w-100 h-100">
-            <ValuationMatrix class="h-100 d-flex flex-column" :row="row" :productId="productId" :module="module" />
+            <ValuationMatrix class="h-100 d-flex flex-column" :row="row" :assetId="assetId" :module="module" />
           </div>
         </b-col>
 
@@ -109,26 +109,25 @@ import { withDefaults, defineProps, ref, computed, watch } from 'vue'
 // Centralized Axios instance (baseURL from env; proxied to Django in dev)
 import http from '@/lib/http'
 // Photos API is public in development; no auth gating required
-// Demo documents below are pure metadata; no image thumbnails required
 
 // Strongly-typed props for context
 const props = withDefaults(defineProps<{
   // row: optional dataset row for future bindings
   row?: Record<string, any> | null
-  // productId: optional identifier for the asset
-  productId?: string | number | null
+  // assetId: Asset Hub ID for the current asset
+  assetId?: string | number | null
   // module: selects API base ('acq' | 'am'); defaults to acquisitions
   module?: 'acq' | 'am'
   // Optional sizing overrides for the PhotoCarousel
-  // Accept number (pixels) or string (e.g., '100%')
   carouselWidth?: number | string
   carouselHeight?: number | string
-  // Optional thumbnail sizing for PhotoCarousel
   thumbWidth?: number | string
   thumbHeight?: number | string
+  // Optional override for the valuation matrix
+  valuationMatrixWidth?: number | string
 }>(), {
   row: null,
-  productId: null,
+  assetId: null,
   module: 'acq',
   // Use fixed dimensions to ensure consistent photo sizing and prevent card resizing
   carouselWidth: 500,
@@ -165,11 +164,13 @@ const carouselContainerHeight = computed<string>(() => {
 })
 
 // Determine which SellerRawData id to load photos for
-// Order: productId prop -> row.id -> null
+// Order: assetId prop -> row.id -> null
 const sourceId = computed<number | null>(() => {
-  const idFromProduct = props.productId != null ? Number(props.productId) : null
+  const idFromProduct = props.assetId != null ? Number(props.assetId) : null
   const idFromRow = (props.row && props.row.id != null) ? Number(props.row.id) : null
-  return idFromProduct ?? idFromRow ?? null
+  const result = idFromProduct ?? idFromRow ?? null
+  console.log('[SnapshotTab] assetId=', props.assetId, 'row.id=', (props.row as any)?.id, 'using=', result)
+  return result
 })
 
 // No auth token required for photo fetches (public endpoint in development)

@@ -15,10 +15,10 @@
     -->
     <div v-if="!standalone" class="content">
       <b-container fluid>
-        <LoanTabs :row="effectiveRow" :productId="productId" :module="module" />
+        <LoanTabs :row="effectiveRow" :assetId="productId" :module="module" />
       </b-container>
     </div>
-    <LoanTabs v-else :row="effectiveRow" :productId="productId" :module="module" />
+    <LoanTabs v-else :row="effectiveRow" :assetId="productId" :module="module" />
   </component>
 </template>
 
@@ -39,13 +39,13 @@ import http from '@/lib/http'
 // Strongly-typed props forwarded from router or parent (e.g., when used in a modal)
 const props = withDefaults(defineProps<{
   row?: Record<string, any> | null
-  productId?: string | number | null
+  assetId?: string | number | null
   address?: string | null
   standalone?: boolean
   module?: 'acq' | 'am'
 }>(), {
   row: null,
-  productId: null,
+  assetId: null,
   address: null,
   standalone: true,
   module: 'acq',
@@ -60,11 +60,13 @@ const items = ref<Array<{ text: string; href?: string; to?: string; active?: boo
 ])
 
 // Create reactive references to incoming props
-const productId = toRef(props, 'productId')
+const productId = toRef(props, 'assetId')
 const row = toRef(props, 'row')
 const addressProp = toRef(props, 'address')
 const standalone = toRef(props, 'standalone')
 const module = toRef(props, 'module')
+
+console.log('[LoanLevelIndex] mounted with assetId=', props.assetId, 'row=', props.row?.id)
 
 // Page title matches the previous modal header format: `{id} — {address}`
 const displayTitle = computed<string>(() => {
@@ -111,7 +113,7 @@ async function loadRowById(id: number) {
   }
 }
 
-// Trigger fetch when productId changes and only if a row isn't already supplied
+// Trigger fetch when assetId changes and only if a row isn't already supplied
 watch(productId, (raw) => {
   const id = raw != null ? Number(raw) : NaN
   if (!row.value && Number.isFinite(id)) {

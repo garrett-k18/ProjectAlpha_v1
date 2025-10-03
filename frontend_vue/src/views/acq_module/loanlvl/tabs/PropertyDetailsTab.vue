@@ -3,12 +3,12 @@
     <div class="row g-3">
       <!-- Property Details Card -->
       <div class="col-12 col-lg-6 col-xl-4">
-        <PropertyDetails :row="row" :productId="productId" />
+        <PropertyDetails :row="row" :assetId="assetId" />
       </div>
 
       <!-- Demographics Grid Card -->
       <div class="col-12 col-lg-6 col-xl-4">
-        <DemographicsGrid :row="row" :productId="productId" />
+        <DemographicsGrid :row="row" :assetId="assetId" />
       </div>
 
       <!-- Empty Card 3: 1:1 square -->
@@ -16,7 +16,7 @@
         <div class="card h-100 d-flex flex-column">
           <div class="card-body d-flex flex-column p-0" style="height: 500px;">
             <!-- Embedded Google Map (same data source as Snapshot) -->
-            <PropertyMap class="h-100 d-flex flex-column" bare :row="row" :productId="productId" height="100%" />
+            <PropertyMap class="h-100 d-flex flex-column" bare :row="row" :assetId="assetId" height="100%" />
           </div>
         </div>
       </div>
@@ -31,12 +31,12 @@ import PropertyMap from '@/components/PropertyMap.vue'
 import PropertyDetails from '@/views/acq_module/loanlvl/components/propertydetails.vue'
 import DemographicsGrid from '@/views/acq_module/loanlvl/components/DemographicsGrid.vue'
 
-// Keep props consistent with other tabs so parent can pass row/productId
+// Keep props consistent with other tabs so parent can pass row/assetId
 withDefaults(defineProps<{
   row?: Record<string, any> | null
-  productId?: string | number | null
+  assetId?: string | number | null
 }>(), {
   row: null,
-  productId: null,
+  assetId: null,
 })
 </script>

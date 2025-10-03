@@ -26,10 +26,10 @@ import type { DocumentItem } from '@/components/DocumentsQuickView.vue'
 
 withDefaults(defineProps<{
   row?: Record<string, any> | null
-  productId?: string | number | null
+  assetId?: string | number | null
 }>(), {
   row: null,
-  productId: null,
+  assetId: null,
 })
 
 // Demo dataset renamed per request

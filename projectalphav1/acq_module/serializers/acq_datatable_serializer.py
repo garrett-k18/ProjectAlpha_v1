@@ -30,8 +30,14 @@ class SellerRawDataRowSerializer(serializers.Serializer):
     pulling broker and internal valuation data from the core.Valuation model.
     """
     # Core SellerRawData fields
-    id = serializers.IntegerField(read_only=True)
+    # Note: SellerRawData uses asset_hub as PK (OneToOne primary_key=True), so obj.id doesn't exist.
+    # Expose asset_hub_id as 'id' for frontend consistency (Asset Hub ID is the master ID).
+    id = serializers.SerializerMethodField()
     sellertape_id = serializers.IntegerField(read_only=True)
+    
+    def get_id(self, obj):
+        """Return the Asset Hub ID (SellerRawData PK)."""
+        return getattr(obj, 'asset_hub_id', None) or getattr(obj, 'pk', None)
     asset_status = serializers.CharField(allow_null=True)
     
     # Related model fields accessed via foreign keys

@@ -2,28 +2,28 @@
   <div class="px-3 px-lg-4">
     <div class="row g-3">
       <div class="col-12 col-lg-6 col-xl-4">
-        <LoanDetails :row="row" :productId="productId" class="h-100 d-flex flex-column" />
+        <LoanDetails :row="row" :assetId="assetId" class="h-100 d-flex flex-column" />
       </div>
       <div class="col-12 col-lg-6 col-xl-4">
-        <TotalDebt :row="row" :productId="productId" class="h-100 d-flex flex-column" />
+        <TotalDebt :row="row" :assetId="assetId" class="h-100 d-flex flex-column" />
       </div>
       <div class="col-12 col-lg-6 col-xl-4">
-        <Origination :row="row" :productId="productId" class="h-100 d-flex flex-column" />
+        <Origination :row="row" :assetId="assetId" class="h-100 d-flex flex-column" />
       </div>
       <div class="col-12 col-lg-6 col-xl-4">
-        <Foreclosure :row="row" :productId="productId" class="h-100 d-flex flex-column" />
+        <Foreclosure :row="row" :assetId="assetId" class="h-100 d-flex flex-column" />
       </div>
       <div class="col-12 col-lg-6 col-xl-4">
-        <Bankruptcy :row="row" :productId="productId" class="h-100 d-flex flex-column" />
+        <Bankruptcy :row="row" :assetId="assetId" class="h-100 d-flex flex-column" />
       </div>
       <div class="col-12 col-lg-6 col-xl-4">
-        <LossMitigation :row="row" :productId="productId" class="h-100 d-flex flex-column" />
+        <LossMitigation :row="row" :assetId="assetId" class="h-100 d-flex flex-column" />
       </div>
       <div class="col-12 col-lg-6 col-xl-4">
-        <RehabHoldbacks :row="row" :productId="productId" class="h-100 d-flex flex-column" />
+        <RehabHoldbacks :row="row" :assetId="assetId" class="h-100 d-flex flex-column" />
       </div>
       <div class="col-12 col-lg-6 col-xl-4">
-        <ServicingNotes :row="row" :productId="productId" class="h-100 d-flex flex-column" />
+        <ServicingNotes :row="row" :assetId="assetId" class="h-100 d-flex flex-column" />
       </div>
     </div>
 
@@ -51,11 +51,11 @@ import ServicingNotes from '@/views/acq_module/loanlvl/components/servicingnotes
 
 withDefaults(defineProps<{
   row?: Record<string, any> | null
-  productId?: string | number | null
+  assetId?: string | number | null
   module?: 'acq' | 'am'
 }>(), {
   row: null,
-  productId: null,
+  assetId: null,
   module: 'acq',
 })
 </script>

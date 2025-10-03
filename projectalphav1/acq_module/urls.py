@@ -30,6 +30,7 @@ from .views.photos_api import (
 )
 from .views.ai_summary import generate_quick_summary
 from .views.valuation_api import internal_valuation_view
+from .views.asset_fc_timeline import AssetFCTimelineView
 from .views.brokers.invites import (
     create_broker_invite,
     validate_broker_invite,
@@ -117,10 +118,11 @@ urlpatterns = [
     path('summary/strat/property-type/<int:seller_id>/<int:trade_id>/', get_property_type_stratification, name='api_property_type_stratification'),
     # Occupancy stratification (categorical)
     path('summary/strat/occupancy/<int:seller_id>/<int:trade_id>/', get_occupancy_stratification, name='api_occupancy_stratification'),
-    # Delinquency (days past due) stratification (categorical ranges)
     path('summary/strat/delinquency/<int:seller_id>/<int:trade_id>/', get_delinquency_stratification, name='api_delinquency_stratification'),
     # LTV scatter chart data
     path('summary/ltv-scatter/<int:seller_id>/<int:trade_id>/', get_ltv_scatter_data_view, name='api_ltv_scatter_data'),
     # State reference endpoints
     path('state-references/judicial/', get_judicial_states, name='api_judicial_states'),
+    # Asset-scoped foreclosure timeline
+    path('assets/<int:id>/fc-timeline/', AssetFCTimelineView.as_view(), name='api_asset_fc_timeline'),
 ]

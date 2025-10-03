@@ -296,6 +296,7 @@ function onRowAction(action: string, row: any): void {
 
     // Ensure we pass a string id; prefer the row.id exposed by API
     const id = String(row?.id ?? '')
+    console.log('[AcqGrid] open-loan: row.id=', row?.id, 'as string=', id, 'row=', row)
 
     // Emit to parent acquisitions page, which already has onOpenLoan(payload)
     emit('open-loan', { id, row, addr })

@@ -187,7 +187,7 @@
       </template>
       <!-- Render the centralized loan-level wrapper inside the modal -->
       <LoanLevelIndex
-        :productId="selectedId"
+        :assetId="selectedId"
         :row="selectedRow"
         :address="selectedAddr"
         :standalone="false"
@@ -595,9 +595,11 @@ export default {
      * Next modal and stores the provided payload (id, row, addr).
      */
     onOpenLoan(payload: { id: string; row: any; addr?: string }): void {
+      console.log('[Acquisitions] onOpenLoan payload=', payload)
       this.selectedId = payload?.id ?? null
       this.selectedRow = payload?.row ?? null
       this.selectedAddr = payload?.addr ?? null
+      console.log('[Acquisitions] set selectedId=', this.selectedId, 'selectedRow.id=', this.selectedRow?.id)
       this.showLoanModal = true
     },
     /**

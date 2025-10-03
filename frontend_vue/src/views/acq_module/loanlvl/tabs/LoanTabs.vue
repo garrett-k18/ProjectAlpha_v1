@@ -12,27 +12,27 @@
     <!-- Snapshot (default active) -->
     <b-tab title="Snapshot" active>
       <!-- SnapshotTab now fetches its own photos; module selects API base (acq|am) -->
-      <SnapshotTab :row="row" :productId="productId" :module="module" />
+      <SnapshotTab :row="row" :assetId="assetId" :module="module" />
     </b-tab>
 
     <!-- Loan Details -->
     <b-tab title="Loan Details">
-      <LoanDetailsTab :row="row" :productId="productId" :module="module" />
+      <LoanDetailsTab :row="row" :assetId="assetId" :module="module" />
     </b-tab>
 
     <!-- Property Details -->
     <b-tab title="Property Details">
-      <PropertyDetailsTab :row="row" :productId="productId" :module="module" />
+      <PropertyDetailsTab :row="row" :assetId="assetId" :module="module" />
     </b-tab>
 
     <!-- Acquisition Analysis -->
     <b-tab title="Acquisition Analysis">
-      <AcquisitionAnalysisTab :row="row" :productId="productId" :module="module" />
+      <AcquisitionAnalysisTab :row="row" :assetId="assetId" :module="module" />
     </b-tab>
 
     <!-- Documents -->
     <b-tab title="Documents">
-      <DocumentsTab :row="row" :productId="productId" :module="module" />
+      <DocumentsTab :row="row" :assetId="assetId" :module="module" />
     </b-tab>
   </b-tabs>
 </template>
@@ -51,14 +51,16 @@ import { defineAsyncComponent } from 'vue'
 
 // Define props for strong typing and reusability
 // - row: the active row object (nullable)
-// - productId: id extracted from the row (nullable)
+// - assetId: Asset Hub ID for the current asset (nullable)
 // - module: selects the API module ('acq' | 'am') for child tabs
 // These props are forwarded to the tab components.
 const props = defineProps<{
   row: Record<string, unknown> | null
-  productId: string | number | null
+  assetId: string | number | null
   module?: 'acq' | 'am'
 }>()
+
+console.log('[LoanTabs] received assetId=', props.assetId, 'row.id=', (props.row as any)?.id)
 
 // -----------------------------------------------------------------------------------
 // Lazy-load tab content components per Vue documentation:

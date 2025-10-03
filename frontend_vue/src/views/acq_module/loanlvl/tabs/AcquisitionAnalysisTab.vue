@@ -1,19 +1,64 @@
 <template>
-  <!-- Placeholder for Acquisition Analysis tab content. Replace with charts/metrics. -->
-  <div class="text-muted">
-    Acquisition Analysis content coming soon.
+  <div>
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <div>
+        <h5 class="mb-1">Acquisition Analysis</h5>
+        <p class="text-muted small mb-0">Key inputs impacting the acquisition model</p>
+      </div>
+    </div>
+
+    <!-- Assumptions Summary -->
+    <AssumptionsSummary
+      :fcTimeline="fcTimeline"
+      :commercialUnits="commercialUnits"
+    />
   </div>
+  
 </template>
 
 <script setup lang="ts">
-// Placeholder component for Acquisition Analysis.
-import { withDefaults, defineProps } from 'vue'
+import { withDefaults, defineProps, ref, onMounted } from 'vue'
+import AssumptionsSummary from '@/views/acq_module/loanlvl/components/model/assumptionsSummary.vue'
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
   row?: Record<string, any> | null
-  productId?: string | number | null
+  assetId?: string | number | null
 }>(), {
   row: null,
-  productId: null,
+  assetId: null,
 })
+
+console.log('[AcquisitionAnalysisTab] MOUNTED with props assetId=', props.assetId, 'row=', props.row)
+
+// State for summary props
+const fcTimeline = ref<any | null>(null)
+const commercialUnits = ref<any[]>([])
+
+// Fetch data from existing DRF endpoints
+async function loadSummaryData() {
+  try {
+    // Commercial units
+    const cuRes = await fetch('/api/core/commercial-units/', { credentials: 'include' })
+    commercialUnits.value = await cuRes.json()
+
+    // Asset-scoped FC timeline
+    const id = props.assetId != null ? String(props.assetId) : ''
+    console.log('[AcquisitionAnalysisTab] assetId=', props.assetId, 'using id=', id)
+    if (id) {
+      const fcRes = await fetch(`/api/acq/assets/${id}/fc-timeline/`, { credentials: 'include' })
+      console.log('[AcquisitionAnalysisTab] FC timeline fetch status=', fcRes.status, 'ok=', fcRes.ok)
+      if (fcRes.ok) fcTimeline.value = await fcRes.json()
+      else fcTimeline.value = null
+      console.log('[AcquisitionAnalysisTab] fcTimeline=', fcTimeline.value)
+    } else {
+      fcTimeline.value = null
+      console.log('[AcquisitionAnalysisTab] No id provided, fcTimeline set to null')
+    }
+  } catch (e) {
+    console.warn('Failed to load acquisition assumptions summary', e)
+  }
+}
+
+onMounted(loadSummaryData)
 </script>

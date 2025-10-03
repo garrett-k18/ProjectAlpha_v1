@@ -155,7 +155,7 @@ export default defineComponent({
   name: 'PropertyDetails',
   props: {
     row: { type: Object as PropType<Record<string, any> | null>, default: null },
-    productId: { type: [String, Number] as PropType<string | number | null>, default: null },
+    assetId: { type: [String, Number] as PropType<string | number | null>, default: null },
   },
   setup(props) {
     const fetchedRow = ref<Record<string, any> | null>(null)
@@ -193,7 +193,7 @@ export default defineComponent({
     }
 
     watch(
-      () => props.productId,
+      () => props.assetId,
       (raw) => {
         const id = raw != null ? Number(raw) : NaN
         if (!props.row && Number.isFinite(id)) {

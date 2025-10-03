@@ -146,9 +146,9 @@ export type ValuationRow = {
 }
 
 // Props: accept multiple valuation rows and/or a live SellerRawData row. No demo defaults.
-const props = withDefaults(defineProps<{ rows?: ValuationRow[]; row?: Record<string, any> | null; productId?: string | number | null }>(), {
+const props = withDefaults(defineProps<{ rows?: ValuationRow[]; row?: Record<string, any> | null; assetId?: string | number | null }>(), {
   row: null,
-  productId: null,
+  assetId: null,
 })
 
 // -----------------------------------------------------------------------------
@@ -171,11 +171,11 @@ const formatCurrency = (value: any) => {
 // Determine the active row (prefer explicit prop)
 const activeRow = computed<Record<string, any> | null>(() => props.row ?? null)
 
-// Compute SellerRawData id used by API calls. Falls back to props.row.id when productId is not provided.
+// Compute SellerRawData id used by API calls. Falls back to props.row.id when assetId is not provided.
 const sellerId = computed<number | null>(() => {
-  const idFromProduct = props.productId != null ? Number(props.productId) : null
+  const idFromAsset = props.assetId != null ? Number(props.assetId) : null
   const idFromRow = props.row && props.row.id != null ? Number(props.row.id) : null
-  return idFromProduct ?? idFromRow ?? null
+  return idFromAsset ?? idFromRow ?? null
 })
 
 /** Build non-internal default valuation rows from a live data row.
