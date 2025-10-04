@@ -157,7 +157,7 @@ def internal_valuation_view(request, seller_id: int | str):
         )
         data = ser_cls().to_representation(obj) if obj else {}
         data.update({
-            'seller_raw_data': srd.id,
+            'seller_raw_data': srd.asset_hub_id,
             'source': source,
         })
         return Response(data, status=status.HTTP_200_OK)
@@ -220,7 +220,7 @@ def internal_valuation_view(request, seller_id: int | str):
 
     out = ser_cls().to_representation(obj)
     out.update({
-        'seller_raw_data': srd.id,
+        'seller_raw_data': srd.asset_hub_id,
         'source': source,
     })
     return Response(out, status=status.HTTP_200_OK)
@@ -335,7 +335,7 @@ def internal_valuation_view(request, seller_id: int | str):
         )
         data = ser_cls().to_representation(obj) if obj else {}
         data.update({
-            'seller_raw_data': srd.id,
+            'seller_raw_data': srd.asset_hub_id,
             'source': source,
         })
         return Response(data, status=status.HTTP_200_OK)
@@ -388,7 +388,7 @@ def internal_valuation_view(request, seller_id: int | str):
 
     out = ser_cls().to_representation(obj)
     out.update({
-        'seller_raw_data': srd.id,
+        'seller_raw_data': srd.asset_hub_id,
         'source': source,
     })
     return Response(out, status=status.HTTP_200_OK)

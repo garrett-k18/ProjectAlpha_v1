@@ -13,17 +13,19 @@
         
 
         <!-- Foreclosure Timeline Summary (by asset state) -->
-        <div class="mb-2">
-          <div v-if="fcTimeline && fcTimeline.totalDurationDays != null" class="d-flex align-items-baseline gap-2">
-            <span class="text-muted">Total FC Duration ({{ fcTimeline.state }}):</span>
-            <span class="fw-bold">{{ fcTimeline.totalDurationDays }} days</span>
-          </div>
-          <div v-else class="text-muted">Total FC Duration: —</div>
+        <div class="mb-2 d-flex align-items-baseline gap-2">
+          <span class="text-muted">Total FC Duration:</span>
+          <span class="fw-bold">
+            {{ fcTimeline?.totalDurationDays ? Math.ceil(fcTimeline.totalDurationDays / 30) : '—' }} months
+          </span>
         </div>
 
+        <!-- REO Marketing Duration -->
+        <div class="mb-2 d-flex align-items-baseline gap-2">
+          <span class="text-muted">REO Marketing Duration:</span>
+          <span class="fw-bold">{{ fcTimeline?.reoMarketingMonths ?? '—' }} months</span>
+        </div>
         <hr />
-
-        
       </div>
     </div>
   </div>
@@ -40,7 +42,7 @@ import { computed } from 'vue'
 
 // Types aligning with backend serializers
 interface StatusTimelineItem { id: number; status: string; statusDisplay: string; durationDays: number | null }
-interface AssetFCTimeline { state: string | null; statuses: StatusTimelineItem[]; totalDurationDays?: number | null }
+interface AssetFCTimeline { state: string | null; statuses: StatusTimelineItem[]; totalDurationDays?: number | null; reoMarketingMonths?: number | null }
 
 interface CommercialUnitRow {
   id: number

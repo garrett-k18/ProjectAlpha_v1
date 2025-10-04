@@ -28,6 +28,8 @@ from django.db.models import (
 from django.db.models.functions import Coalesce, Cast, Extract
 
 from .common import sellertrade_qs
+from core.models.assumptions import StateReference
+from acq_module.models.seller import SellerRawData
 
 
 class LtvDataItem(TypedDict):
@@ -88,6 +90,9 @@ def get_ltv_data(seller_id: int, trade_id: int) -> List[LtvDataItem]:
         })
     
     return result
+
+
+
 
 
 def get_ltv_scatter_data(seller_id: int, trade_id: int) -> List[LtvDataItem]:
@@ -183,3 +188,4 @@ def get_days_dlq_data(seller_id: int, trade_id: int) -> List[DlqDataItem]:
         })
 
     return result
+

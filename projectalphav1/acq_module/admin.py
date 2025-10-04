@@ -30,7 +30,7 @@ class SellerRawDataInline(admin.TabularInline):
     """Inline admin for SellerRawData model to display in Trade admin"""
     model = SellerRawData
     extra = 0
-    fields = ('asset_status', 'as_of_date', 'state', 'current_balance', 'months_dlq')
+    # Do not specify `fields` so Django renders all editable fields by default.
     show_change_link = True
     
 ## Removed PhotoInline: Photo is hub-first and no longer has FK to SellerRawData
@@ -77,44 +77,15 @@ class SellerRawDataAdmin(admin.ModelAdmin):
     list_display = ('asset_hub', 'seller', 'trade', 'asset_status', 'state', 'current_balance', 'months_dlq')
     # Optimize FK lookups for list view performance
     list_select_related = ('seller', 'trade')
-    list_filter = ('asset_status', 'state', 'seller', 'trade')
-    search_fields = ('street_address', 'city', 'state', 'zip')
-    fieldsets = (
-        ('Identification', {
-            'fields': ('seller', 'trade', 'sellertape_id', 'asset_status', 'as_of_date')
-        }),
-        ('Property Information', {
-            'fields': ('street_address', 'city', 'state', 'zip')
-        }),
-        ('Loan Details', {
-            'fields': ('current_balance', 'deferred_balance', 'interest_rate', 'next_due_date', 'last_paid_date')
-        }),
-        ('Origination Information', {
-            'fields': ('first_pay_date', 'origination_date', 'original_balance', 'original_term', 'original_rate', 'original_maturity_date')
-        }),
-        ('Current Loan Status', {
-            'fields': ('default_rate', 'months_dlq', 'current_maturity_date', 'current_term')
-        }),
-        ('Financial Details', {
-            'fields': ('accrued_note_interest', 'accrued_default_interest', 'escrow_balance', 'escrow_advance', 
-                     'recoverable_corp_advance', 'late_fees', 'other_fees', 'suspense_balance', 'total_debt')
-        }),
-        ('Valuation Information', {
-            'fields': ('origination_value', 'origination_arv', 'origination_value_date',
-                     'seller_asis_value', 'seller_arv_value', 'seller_value_date',
-                     'additional_asis_value', 'additional_arv_value', 'additional_value_date')
-        }),
-        ('Foreclosure Information', {
-            'fields': ('fc_flag', 'fc_first_legal_date', 'fc_referred_date', 'fc_judgement_date',
-                     'fc_scheduled_sale_date', 'fc_sale_date', 'fc_starting')
-        }),
-        ('Bankruptcy Information', {
-            'fields': ('bk_flag', 'bk_chapter')
-        }),
-        ('Modification Information', {
-            'fields': ('mod_flag', 'mod_date', 'mod_maturity_date', 'mod_term', 'mod_rate', 'mod_initial_balance')
-        }),
+    list_filter = ('asset_status', 'state', 'seller', 'trade', 'property_type', 'product_type', 'occupancy')
+    search_fields = (
+        'street_address', 'city', 'state', 'zip',
+        'sellertape_id', 'sellertape_altid',
+        'borrower1_last', 'borrower1_first', 'borrower2_last', 'borrower2_first'
     )
+    # Expose read-only identifiers and audit fields on the form
+    readonly_fields = ('asset_hub', 'created_at', 'updated_at')
+    # Use Django's default add/change form, which renders ALL model fields by default.
     # Show enrichment inline
     inlines = [LlDataEnrichmentInline]
 
@@ -162,33 +133,7 @@ class StaticModelAssumptionsAdmin(admin.ModelAdmin):
     )
     readonly_fields = ('id', 'created_at', 'updated_at')
     
-    fieldsets = (
-        ('Version Info', {
-            'fields': ('id', 'version_name'),
-            'description': 'This is a singleton settings record. Only one record exists. Edit values below to change global defaults.'
-        }),
-        ('Performance/RPL Defaults', {
-            'fields': ('perf_rpl_hold_period',),
-            'description': 'Default assumptions for performing/re-performing loans'
-        }),
-        ('Modification Defaults', {
-            'fields': ('mod_rate', 'mod_legal_term', 'mod_amort_term', 'max_mod_ltv', 'mod_io_flag', 
-                      'mod_down_pmt', 'mod_orig_cost', 'mod_setup', 'mod_hold'),
-            'description': 'Default modification parameters used across all trades'
-        }),
-        ('Acquisition Cost Defaults', {
-            'fields': ('acq_legal_cost', 'acq_dd_cost', 'acq_tax_title_cost'),
-            'description': 'Default acquisition cost percentages'
-        }),
-        ('Asset Management Fees', {
-            'fields': ('am_fee_pct',),
-            'description': 'Default AM fee percentage'
-        }),
-        ('Audit', {
-            'fields': ('created_at', 'updated_at'),
-            'classes': ('collapse',)
-        }),
-    )
+    # No fieldsets: show all fields by default
     
     def changelist_view(self, request, extra_context=None):
         """Override to redirect to the single record's change page"""
@@ -218,43 +163,7 @@ class TradeLevelAssumptionAdmin(admin.ModelAdmin):
     readonly_fields = ('created_at', 'updated_at')
     autocomplete_fields = ['trade']
     
-    fieldsets = (
-        ('Trade Link', {
-            'fields': ('trade',),
-            'description': 'Link to trade'
-        }),
-        ('Trade Dates', {
-            'fields': ('bid_date', 'settlement_date', 'servicing_transfer_date')
-        }),
-        ('Financial Assumptions', {
-            'fields': ('pctUPB', 'target_irr', 'discount_rate'),
-            'description': 'Trade-specific financial parameters'
-        }),
-        ('Performance/RPL Assumptions', {
-            'fields': ('perf_rpl_hold_period',),
-            'description': 'Performing/re-performing loan assumptions'
-        }),
-        ('Modification Assumptions', {
-            'fields': ('mod_rate', 'mod_legal_term', 'mod_amort_term', 'max_mod_ltv', 'mod_io_flag',
-                      'mod_down_pmt', 'mod_orig_cost', 'mod_setup', 'mod_hold'),
-            'description': 'Modification parameters (defaults can be overridden)',
-            'classes': ('collapse',)
-        }),
-        ('Acquisition Costs', {
-            'fields': ('acq_legal_cost', 'acq_dd_cost', 'acq_tax_title_cost'),
-            'description': 'Acquisition cost percentages',
-            'classes': ('collapse',)
-        }),
-        ('Asset Management', {
-            'fields': ('am_fee_pct',),
-            'description': 'AM fee percentage',
-            'classes': ('collapse',)
-        }),
-        ('Audit', {
-            'fields': ('created_at', 'updated_at'),
-            'classes': ('collapse',)
-        }),
-    )
+    # No fieldsets: show all fields by default
 
 ## InternalValuation and BrokerValues admin removed (deprecated). Use core.admin Valuation.
 

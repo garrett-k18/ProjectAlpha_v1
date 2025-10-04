@@ -83,46 +83,38 @@ class Trade(models.Model):
 
 
 class SellerRawData(models.Model):
-    # Property Type choices
-    PROPERTY_TYPE_SFR = 'SFR'
-    PROPERTY_TYPE_MANUFACTURED = 'Manufactured'
-    PROPERTY_TYPE_CONDO = 'Condo'
-    PROPERTY_TYPE_2_4_FAMILY = '2-4 Family'
-    PROPERTY_TYPE_LAND = 'Land'
-    PROPERTY_TYPE_MULTIFAMILY = 'Multifamily 5+'
-    
-    PROPERTY_TYPE_CHOICES = [
-        (PROPERTY_TYPE_SFR, 'SFR'),
-        (PROPERTY_TYPE_MANUFACTURED, 'Manufactured'),
-        (PROPERTY_TYPE_CONDO, 'Condo'),
-        (PROPERTY_TYPE_2_4_FAMILY, '2-4 Family'),
-        (PROPERTY_TYPE_LAND, 'Land'),
-        (PROPERTY_TYPE_MULTIFAMILY, 'Multifamily 5+'),
-    ]
-    
-    # Occupancy choices
-    OCCUPANCY_VACANT = 'Vacant'
-    OCCUPANCY_OCCUPIED = 'Occupied'
-    OCCUPANCY_UNKNOWN = 'Unknown'
-    
-    OCCUPANCY_CHOICES = [
-        (OCCUPANCY_VACANT, 'Vacant'),
-        (OCCUPANCY_OCCUPIED, 'Occupied'),
-        (OCCUPANCY_UNKNOWN, 'Unknown'),
-    ]
+    # Django 3.0+ enumeration types for choices
+    # Docs: https://docs.djangoproject.com/en/stable/ref/models/fields/#enumeration-types
+    class PropertyType(models.TextChoices):
+        SFR = 'SFR', 'SFR'
+        MANUFACTURED = 'Manufactured', 'Manufactured'
+        CONDO = 'Condo', 'Condo'
+        TWO_TO_FOUR = '2-4 Family', '2-4 Family'
+        LAND = 'Land', 'Land'
+        MULTIFAMILY = 'Multifamily 5+', 'Multifamily 5+'
+        INDUSTRIAL = 'Industrial', 'Industrial'
+        MIXED_USE = 'Mixed Use', 'Mixed Use'
+        STORAGE = 'Storage', 'Storage'
 
-    # Asset status choices (dropdown)
-    ASSET_STATUS_NPL = 'NPL'   # Non-Performing Loan
-    ASSET_STATUS_REO = 'REO'   # Real Estate Owned
-    ASSET_STATUS_PERF = 'PERF' # Performing
-    ASSET_STATUS_RPL = 'RPL'   # Re-Performing Loan
+    class ProductType(models.TextChoices):
+        BPL = 'BPL', 'BPL'
+        HECM = 'HECM', 'HECM'
+        VA = 'VA', 'VA'
+        CONV = 'Conv', 'Conv'
+        COMMERCIAL = 'Commercial', 'Commercial'
+    
+    # Occupancy choices (TextChoices)
+    class Occupancy(models.TextChoices):
+        VACANT = 'Vacant', 'Vacant'
+        OCCUPIED = 'Occupied', 'Occupied'
+        UNKNOWN = 'Unknown', 'Unknown'
 
-    ASSET_STATUS_CHOICES = [
-        (ASSET_STATUS_NPL, 'NPL'),
-        (ASSET_STATUS_REO, 'REO'),
-        (ASSET_STATUS_PERF, 'PERF'),
-        (ASSET_STATUS_RPL, 'RPL'),
-    ]
+    # Asset status choices (TextChoices)
+    class AssetStatus(models.TextChoices):
+        NPL = 'NPL', 'NPL'       # Non-Performing Loan
+        REO = 'REO', 'REO'       # Real Estate Owned
+        PERF = 'PERF', 'PERF'    # Performing
+        RPL = 'RPL', 'RPL'       # Re-Performing Loan
     # WHAT: Hub-owned primary key - strict 1:1 with core.AssetIdHub
     # WHY: Aligns with hub-first architecture so this model's PK equals the hub ID
     # HOW: OneToOneField with primary_key=True (same pattern as BlendedOutcomeModel)
@@ -137,15 +129,38 @@ class SellerRawData(models.Model):
     trade = models.ForeignKey(Trade, on_delete=models.CASCADE, related_name='seller_raw_data')
     sellertape_id = models.IntegerField()
     sellertape_altid = models.IntegerField(null=True, blank=True)
-    asset_status = models.CharField(max_length=100, choices=ASSET_STATUS_CHOICES, null=True, blank=True)
+    asset_status = models.CharField(
+        max_length=100,
+        choices=AssetStatus.choices,
+        null=True,
+        blank=True,
+    )
     as_of_date = models.DateField(null=True, blank=True)
     
     street_address = models.CharField(max_length=100, null=True, blank=True)
     city = models.CharField(max_length=100, null=True, blank=True)
     state = models.CharField(max_length=100, null=True, blank=True)
     zip = models.CharField(max_length=100, null=True, blank=True)
-    property_type = models.CharField(max_length=100, choices=PROPERTY_TYPE_CHOICES, default=PROPERTY_TYPE_SFR, null=True, blank=True)
-    occupancy = models.CharField(max_length=100, choices=OCCUPANCY_CHOICES, default=OCCUPANCY_UNKNOWN, null=True, blank=True)
+    property_type = models.CharField(
+        max_length=100,
+        choices=PropertyType.choices,
+        default=PropertyType.SFR,
+        null=True,
+        blank=True,
+    )
+    product_type = models.CharField(
+        max_length=50,
+        choices=ProductType.choices,
+        null=True,
+        blank=True,
+    )
+    occupancy = models.CharField(
+        max_length=100,
+        choices=Occupancy.choices,
+        default=Occupancy.UNKNOWN,
+        null=True,
+        blank=True,
+    )
     year_built = models.IntegerField(null=True, blank=True)
     sq_ft = models.IntegerField(null=True, blank=True)
     lot_size = models.IntegerField(null=True, blank=True)

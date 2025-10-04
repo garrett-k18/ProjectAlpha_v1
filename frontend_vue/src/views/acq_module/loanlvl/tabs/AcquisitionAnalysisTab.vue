@@ -1,18 +1,27 @@
 <template>
-  <div>
-    <!-- Header -->
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <div>
-        <h5 class="mb-1">Acquisition Analysis</h5>
-        <p class="text-muted small mb-0">Key inputs impacting the acquisition model</p>
+  <div class="acquisition-analysis-tab">
+    <!-- Asset Snapshot spanning full width -->
+    <AssetSnapshot :row="row" />
+
+    <div class="row g-3">
+      <!-- Left Column: Assumptions Summary -->
+      <div class="col-lg-6">
+        <AssumptionsSummary
+          :fcTimeline="fcTimeline"
+          :commercialUnits="commercialUnits"
+        />
+      </div>
+
+      <!-- Right Column: Placeholder for additional model components -->
+      <div class="col-lg-6">
+        <div class="card">
+          <div class="card-body">
+            <h5 class="card-title">Model Outputs</h5>
+            <p class="text-muted">Additional modeling components will be added here.</p>
+          </div>
+        </div>
       </div>
     </div>
-
-    <!-- Assumptions Summary -->
-    <AssumptionsSummary
-      :fcTimeline="fcTimeline"
-      :commercialUnits="commercialUnits"
-    />
   </div>
   
 </template>
@@ -20,6 +29,7 @@
 <script setup lang="ts">
 import { withDefaults, defineProps, ref, onMounted } from 'vue'
 import AssumptionsSummary from '@/views/acq_module/loanlvl/components/model/assumptionsSummary.vue'
+import AssetSnapshot from '@/views/acq_module/loanlvl/components/model/assetSnapshot.vue'
 
 const props = withDefaults(defineProps<{
   row?: Record<string, any> | null

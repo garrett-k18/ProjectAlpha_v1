@@ -169,8 +169,8 @@
       <template #header>
         <div class="d-flex align-items-center w-100">
           <h5 class="modal-title mb-0">
-            <div class="lh-sm">ID - <span class="fw-bold">{{ modalIdText }}</span></div>
-            <div class="text-muted lh-sm">Address - <span class="fw-bold text-dark">{{ modalAddrText }}</span></div>
+            <div class="lh-sm"><span class="fw-bold">{{ modalIdText }}</span></div>
+            <div class="text-muted lh-sm"><span class="fw-bold text-dark fs-4">{{ modalAddrText }}</span></div>
           </h5>
           <div class="ms-auto">
             <button
@@ -186,7 +186,15 @@
         </div>
       </template>
       <!-- Render the centralized loan-level wrapper inside the modal -->
+      <!-- 
+        CRITICAL: v-if + :key force component re-creation when selectedId changes.
+        Without this, Vue reuses the existing LoanLevelIndex instance (mounted with null props)
+        instead of creating a fresh instance with the new assetId/row data.
+        This was causing FC timeline and other features to fail in modals.
+      -->
       <LoanLevelIndex
+        v-if="selectedId"
+        :key="`loan-${selectedId}`"
         :assetId="selectedId"
         :row="selectedRow"
         :address="selectedAddr"
@@ -565,7 +573,12 @@ export default {
     },
     // First line: just the ID (if available)
     modalIdText(): string {
-      return this.selectedId ? String(this.selectedId) : 'Asset'
+      const id = this.selectedId ? String(this.selectedId) : ''
+      const r: any = this.selectedRow || {}
+      // Try multiple common keys for trade name
+      const tradeName = String(r.trade_name ?? r.trade?.trade_name ?? r.tradeName ?? '').trim()
+      const line = [id, tradeName].filter(Boolean).join(' / ')
+      return line || 'Asset'
     },
     // Second line: Address without ZIP. Prefer selectedRow fields; fallback to selectedAddr string
     modalAddrText(): string {

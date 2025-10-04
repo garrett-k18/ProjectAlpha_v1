@@ -121,78 +121,7 @@ class BlendedOutcomeModelAdmin(admin.ModelAdmin):
     readonly_fields = ("created_at", "updated_at")
     ordering = ("-created_at",)
     
-    fieldsets = (
-        ("Asset", {
-            "fields": ("asset_hub",)
-        }),
-        ("Legal Fees", {
-            "fields": (
-                "fc_expenses", "fc_legal_fees", "other_fc_fees",
-                "dil_fees", "cfk_fees", "bk_legal_fees", "eviction_fees",
-            )
-        }),
-        ("Property Expenses", {
-            "fields": (
-                "reconciled_rehab_cost", "property_preservation_cost",
-                "total_insurance", "total_property_tax", "total_hoa",
-                "total_utility", "total_other",
-            )
-        }),
-        ("Income", {
-            "fields": (
-                "principal_collect", "interest_collect", "mod_down_payment",
-                "rental_income", "cam_income", "other_income",
-            )
-        }),
-        ("Purchase Price", {
-            "fields": ("purchase_price",)
-        }),
-        ("Fund Expenses", {
-            "fields": ("acq_costs", "am_fees")
-        }),
-        ("Servicing Costs", {
-            "fields": (
-                "servicing_board_fee", "servicing_current", "servicing_30d",
-                "servicing_60d", "servicing_90d", "servicing_120d",
-                "servicing_fc", "servicing_bk", "servicing_liq_fee",
-            ),
-            "classes": ("collapse",)
-        }),
-        ("Exit/Proceeds", {
-            "fields": (
-                "expected_exit_date", "expected_gross_proceeds", "expected_net_proceeds",
-            )
-        }),
-        ("Performance Metrics", {
-            "fields": (
-                "expected_pl", "expected_cf", "expected_irr", "expected_moic",
-                "expected_npv", "expected_pv",
-            )
-        }),
-        ("Durations (months)", {
-            "fields": (
-                "servicing_transfer_duration", "performing_duration", "pre_mod_duration",
-                "mod_duration", "pre_fc_duration", "fc_progress_duration",
-                "fc_left_duration", "dil_duration", "bk_duration", "eviction_duration",
-                "renovation_duration", "reo_marketing_duration",
-            ),
-            "classes": ("collapse",)
-        }),
-        ("Outcome Weights", {
-            "fields": (
-                "outcome_perf", "outcome_mod", "outcome_fcsale",
-                "outcome_dil_asis", "outcome_dil_arv", "outcome_reo_asis", "outcome_reo_arv",
-            ),
-            "classes": ("collapse",)
-        }),
-        ("Bid Percentages", {
-            "fields": ("bid_pct_upb", "bid_pct_td", "bid_pct_sellerasis", "bid_pct_pv"),
-            "classes": ("collapse",)
-        }),
-        ("Audit", {
-            "fields": ("created_at", "updated_at")
-        }),
-    )
+    # No fieldsets: show all fields by default
     
     def total_legal_fees(self, obj):
         """Calculate total of all legal fees."""
@@ -228,37 +157,7 @@ class ServicerLoanDataAdmin(admin.ModelAdmin):
         "asset_hub__am_boarded__city",
         "asset_hub__am_boarded__state",
     )
-    fieldsets = (
-        ("Asset Information", {
-            "fields": ("asset_hub",)
-        }),
-        ("Reporting Period", {
-            "fields": (
-                "reporting_year", "reporting_month", "as_of_date",
-            )
-        }),
-        ("Current Loan Data", {
-            "fields": (
-                "current_balance", "deferred_balance", "interest_rate",
-                "next_due_date", "last_paid_date", "term_remaining", "maturity_date", "lien_pos",
-            )
-        }),
-        ("Balance Information", {
-            "fields": (
-                "escrow_balance", "escrow_advance_balance", "third_party_recov_balance",
-                "suspense_balance", "servicer_late_fees", "other_charges", "interest_arrears", "total_debt",
-            )
-        }),
-        ("BPLS", {
-            "fields": ("default_rate",)
-        }),
-        ("Origination Data", {
-            "fields": ("origination_date", "origination_balance", "origination_interest_rate")
-        }),
-        ("Audit", {
-            "fields": ("created_at", "updated_at", "created_by", "updated_by")
-        }),
-    )
+    # No fieldsets: show all fields by default
     readonly_fields = ("created_at", "updated_at")
     ordering = ("-reporting_year", "-reporting_month", "-updated_at")
     

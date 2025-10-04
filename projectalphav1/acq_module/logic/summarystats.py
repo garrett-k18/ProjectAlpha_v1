@@ -28,6 +28,7 @@ from __future__ import annotations
 
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Dict, List
+import logging
 
 # Django ORM aggregation and functions
 from django.db.models import Count, DecimalField, Sum, Value
@@ -35,6 +36,9 @@ from django.db.models.functions import Coalesce
 
 # Centralized base selector for seller+trade
 from .common import sellertrade_qs
+
+# Module logger for diagnostics (widgets, summaries)
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Pool Level Summary Stats
@@ -46,6 +50,11 @@ def total_assets(seller_id: int, trade_id: int) -> int:
     """
     # Start from the validated base queryset
     qs = sellertrade_qs(seller_id, trade_id)
+    try:
+        sample_count = qs.count()
+    except Exception as e:
+        logger.error("[pool-summary] queryset count failed seller=%s trade=%s: %s", seller_id, trade_id, e)
+        sample_count = 0
     # Ask the database for the count (returns int)
     count = qs.count()
     return count
@@ -101,7 +110,7 @@ def count_upb_td_val_summary(seller_id: int, trade_id: int) -> Dict[str, object]
     zero_dec = Value(Decimal("0.00"), output_field=DecimalField(max_digits=15, decimal_places=2))
     # Execute a single aggregate call to compute all required metrics
     agg = qs.aggregate(
-        assets=Count("id"),
+        assets=Count("asset_hub"),
         current_balance=Coalesce(Sum("current_balance"), zero_dec),
         total_debt=Coalesce(Sum("total_debt"), zero_dec),
         seller_asis_value=Coalesce(Sum("seller_asis_value"), zero_dec),
@@ -120,7 +129,7 @@ def count_upb_td_val_summary(seller_id: int, trade_id: int) -> Dict[str, object]
     td_ltv_percent = _pct(td, asis)
 
     # Normalize and return a predictable dict for API/consumers
-    return {
+    out = {
         "assets": int(agg.get("assets", 0)),
         "current_balance": upb,
         "total_debt": td,
@@ -128,6 +137,16 @@ def count_upb_td_val_summary(seller_id: int, trade_id: int) -> Dict[str, object]
         "upb_ltv_percent": upb_ltv_percent,
         "td_ltv_percent": td_ltv_percent,
     }
+    # Debug line to help diagnose zeros in widgets (log computed assets)
+    try:
+        logger.debug(
+            "[pool-summary] seller=%s trade=%s assets=%s agg=%s",
+            seller_id, trade_id, out.get("assets"), {k: str(v) for k, v in out.items()}
+        )
+    except Exception:
+        # Avoid logging-related failures impacting the response
+        pass
+    return out
 # ---------------------------------------------------------------------------
 # Pool LTVs
 # ---------------------------------------------------------------------------

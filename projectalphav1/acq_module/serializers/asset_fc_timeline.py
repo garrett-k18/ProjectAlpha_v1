@@ -20,3 +20,4 @@ class AssetFCTimelineSerializer(serializers.Serializer):
     state = serializers.CharField(allow_null=True)
     statuses = StatusTimelineItemSerializer(many=True)
     totalDurationDays = serializers.IntegerField(allow_null=True)
+    reoMarketingMonths = serializers.IntegerField(allow_null=True)

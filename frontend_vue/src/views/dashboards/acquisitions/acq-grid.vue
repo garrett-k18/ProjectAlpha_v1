@@ -294,9 +294,10 @@ function onRowAction(action: string, row: any): void {
     const state = String(row?.state ?? '').trim()
     const addr = [street, [city, state].filter(Boolean).join(', ')].filter(Boolean).join(', ')
 
-    // Ensure we pass a string id; prefer the row.id exposed by API
-    const id = String(row?.id ?? '')
-    console.log('[AcqGrid] open-loan: row.id=', row?.id, 'as string=', id, 'row=', row)
+    // Ensure we pass a string id; prefer row.id, but fall back to hub-based keys
+    const rawId = (row as any)?.id ?? (row as any)?.asset_hub_id ?? (row as any)?.asset_hub?.id ?? (row as any)?.asset_hub
+    const id = rawId != null && rawId !== '' ? String(rawId) : ''
+    console.log('[AcqGrid] open-loan: resolved id=', id, 'row.id=', (row as any)?.id, 'row.asset_hub=', (row as any)?.asset_hub, 'row=', row)
 
     // Emit to parent acquisitions page, which already has onOpenLoan(payload)
     emit('open-loan', { id, row, addr })

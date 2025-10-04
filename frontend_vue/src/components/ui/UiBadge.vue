@@ -17,6 +17,7 @@
     v-if="resolvedClasses"
     :class="resolvedClasses"
     :aria-label="computedAriaLabel"
+    :title="hoverTitle"
     role="status"
     style="line-height: 1; padding-top: 0.6rem; padding-bottom: 0.5rem;"
   >
@@ -68,4 +69,17 @@ const computedAriaLabel = computed(() => props.ariaLabel ?? tokens.value.ariaLab
  * Normalize label to a string for template fallback rendering.
  */
 const label = computed(() => (props.label ?? '').toString())
+
+/**
+ * Provide a native hover tooltip. Priority:
+ * 1) explicit ariaLabel prop
+ * 2) ariaLabel from token map
+ * 3) visible label text
+ */
+const hoverTitle = computed(() => {
+  if (props.ariaLabel) return props.ariaLabel
+  if (tokens.value.ariaLabel) return tokens.value.ariaLabel
+  const l = props.label
+  return l != null ? String(l) : undefined
+})
 </script>

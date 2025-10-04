@@ -47,20 +47,7 @@ class MasterCRMAdmin(admin.ModelAdmin):
         'alt_contact_name', 'alt_contact_email'
     )
     readonly_fields = ('created_at', 'updated_at')
-    fieldsets = (
-        ('Primary Contact', {
-            'fields': ('contact_name', 'email', 'phone', 'firm', 'state', 'city', 'tag')
-        }),
-        ('Alternate Contact', {
-            'fields': ('alt_contact_name', 'alt_contact_email', 'alt_contact_phone')
-        }),
-        ('NDA', {
-            'fields': ('nda_flag', 'nda_signed')
-        }),
-        ('Notes & Audit', {
-            'fields': ('notes', 'created_at', 'updated_at')
-        }),
-    )
+    # No fieldsets: show all fields by default
 
 
 
@@ -89,24 +76,7 @@ class ValuationAdmin(admin.ModelAdmin):
     search_fields = (
         'asset_hub__id', 'notes'
     )
-    fieldsets = (
-        ('Asset Information', {
-            'fields': ('asset_hub', 'source')
-        }),
-        ('Valuation Data', {
-            'fields': ('asis_value', 'arv_value', 'value_date', 'rehab_est_total')
-        }),
-        ('Rehab Estimates', {
-            'fields': ('roof_est', 'kitchen_est', 'bath_est', 'flooring_est', 'windows_est',
-                      'appliances_est', 'plumbing_est', 'electrical_est', 'landscaping_est')
-        }),
-        ('Additional Information', {
-            'fields': ('notes', 'links')
-        }),
-        ('Audit', {
-            'fields': ('created_at', 'updated_at', 'created_by', 'updated_by')
-        }),
-    )
+    # No fieldsets: show all fields by default
     readonly_fields = ('created_at', 'updated_at')
 
 
@@ -162,15 +132,7 @@ class FCStatusAdmin(admin.ModelAdmin):
     readonly_fields = ('created_at', 'updated_at')
     ordering = ('order', 'status')
     
-    fieldsets = (
-        ('Status Information', {
-            'fields': ('status', 'order', 'notes')
-        }),
-        ('Audit', {
-            'fields': ('created_at', 'updated_at'),
-            'classes': ('collapse',)
-        }),
-    )
+    # No fieldsets: show all fields by default
 
 
 @admin.register(FCTimelines)
@@ -190,19 +152,7 @@ class FCTimelinesAdmin(admin.ModelAdmin):
     readonly_fields = ('created_at', 'updated_at')
     autocomplete_fields = ['state', 'fc_status']
     
-    fieldsets = (
-        ('Timeline Configuration', {
-            'fields': ('state', 'fc_status')
-        }),
-        ('Metrics', {
-            'fields': ('duration_days', 'cost_avg', 'notes'),
-            'description': 'State-specific duration and cost data for this foreclosure status'
-        }),
-        ('Audit', {
-            'fields': ('created_at', 'updated_at'),
-            'classes': ('collapse',)
-        }),
-    )
+    # No fieldsets: show all fields by default
 
 
 @admin.register(CommercialUnits)
@@ -222,19 +172,7 @@ class CommercialUnitsAdmin(admin.ModelAdmin):
     ordering = ('units',)
     readonly_fields = ('created_at', 'updated_at')
     
-    fieldsets = (
-        ('Unit Configuration', {
-            'fields': ('units',)
-        }),
-        ('Scaling Factors', {
-            'fields': ('fc_cost_scale', 'rehab_cost_scale', 'rehab_duration_scale'),
-            'description': 'Multipliers applied to base costs and durations for commercial properties'
-        }),
-        ('Audit', {
-            'fields': ('created_at', 'updated_at'),
-            'classes': ('collapse',)
-        }),
-    )
+    # No fieldsets: show all fields by default
 
 
 @admin.register(LLTransactionSummary)
@@ -251,77 +189,7 @@ class LLTransactionSummaryAdmin(admin.ModelAdmin):
     readonly_fields = ('last_updated', 'created_at')
     list_per_page = 100
     
-    fieldsets = (
-        ('Asset', {
-            'fields': ('asset_hub',)
-        }),
-        ('Purchase Cost', {
-            'fields': ('purchase_price_realized',),
-            'classes': ('collapse',)
-        }),
-        ('Acquisition Costs', {
-            'fields': (
-                'acq_due_diligence_realized', 'acq_legal_realized',
-                'acq_title_realized', 'acq_other_realized',
-            ),
-            'classes': ('collapse',)
-        }),
-        ('Income', {
-            'fields': (
-                'income_principal_realized', 'income_interest_realized',
-                'income_rent_realized', 'income_cam_realized',
-                'income_mod_down_payment_realized',
-            ),
-            'classes': ('collapse',)
-        }),
-        ('Operating Expenses', {
-            'fields': (
-                'expense_servicing_realized', 'expense_am_fees_realized',
-                'expense_property_tax_realized', 'expense_property_insurance_realized',
-            ),
-            'classes': ('collapse',)
-        }),
-        ('Legal/DIL Costs', {
-            'fields': (
-                'legal_foreclosure_realized', 'legal_bankruptcy_realized',
-                'legal_dil_realized', 'legal_cash_for_keys_realized',
-                'legal_eviction_realized',
-            ),
-            'classes': ('collapse',)
-        }),
-        ('REO Expenses', {
-            'fields': (
-                'reo_hoa_realized', 'reo_utilities_realized',
-                'reo_trashout_realized', 'reo_renovation_realized',
-                'reo_property_preservation_realized',
-            ),
-            'classes': ('collapse',)
-        }),
-        ('CRE Expenses', {
-            'fields': (
-                'cre_marketing_realized', 'cre_ga_pool_realized',
-                'cre_maintenance_realized',
-            ),
-            'classes': ('collapse',)
-        }),
-        ('Fund Expenses', {
-            'fields': (
-                'fund_taxes_realized', 'fund_legal_realized',
-                'fund_consulting_realized', 'fund_audit_realized',
-            ),
-            'classes': ('collapse',)
-        }),
-        ('Proceeds & Closing', {
-            'fields': (
-                'proceeds_realized', 'broker_closing_realized',
-                'other_closing_realized', 'net_liquidation_proceeds_realized',
-            ),
-            'classes': ('collapse',)
-        }),
-        ('Metadata', {
-            'fields': ('last_updated', 'created_at'),
-        }),
-    )
+    # No fieldsets: show all fields by default
     
     def has_income(self, obj):
         """Check if any income fields have data"""
@@ -370,77 +238,7 @@ class LLCashFlowSeriesAdmin(admin.ModelAdmin):
     list_per_page = 100
     ordering = ('asset_hub', 'period_number')
     
-    fieldsets = (
-        ('Period Information', {
-            'fields': ('asset_hub', 'period_number', 'period_date', 'purchase_date')
-        }),
-        ('Purchase Cost (Period 0)', {
-            'fields': ('purchase_price',),
-            'classes': ('collapse',)
-        }),
-        ('Acquisition Costs (Period 0)', {
-            'fields': (
-                'acq_due_diligence_expenses', 'acq_legal_expenses',
-                'acq_title_expenses', 'acq_other_expenses',
-            ),
-            'classes': ('collapse',)
-        }),
-        ('Income', {
-            'fields': (
-                'income_principal', 'income_interest',
-                'income_rent', 'income_cam',
-                'income_mod_down_payment',
-            ),
-            'classes': ('collapse',)
-        }),
-        ('Operating Expenses', {
-            'fields': (
-                'servicing_expenses', 'am_fees_expenses',
-                'property_tax_expenses', 'property_insurance_expenses',
-            ),
-            'classes': ('collapse',)
-        }),
-        ('Legal/DIL Costs', {
-            'fields': (
-                'legal_foreclosure_expenses', 'legal_bankruptcy_expenses',
-                'legal_dil_expenses', 'legal_cash_for_keys_expenses',
-                'legal_eviction_expenses',
-            ),
-            'classes': ('collapse',)
-        }),
-        ('REO Expenses', {
-            'fields': (
-                'reo_hoa_expenses', 'reo_utilities_expenses',
-                'reo_trashout_expenses', 'reo_renovation_expenses',
-                'reo_property_preservation_expenses',
-            ),
-            'classes': ('collapse',)
-        }),
-        ('CRE Expenses', {
-            'fields': (
-                'cre_marketing_expenses', 'cre_ga_pool_expenses',
-                'cre_maintenance_expenses',
-            ),
-            'classes': ('collapse',)
-        }),
-        ('Fund Expenses', {
-            'fields': (
-                'fund_taxes_expenses', 'fund_legal_expenses',
-                'fund_consulting_expenses', 'fund_audit_expenses',
-            ),
-            'classes': ('collapse',)
-        }),
-        ('Liquidation Proceeds', {
-            'fields': (
-                'proceeds', 'broker_closing_expenses',
-                'other_closing_expenses', 'net_liquidation_proceeds',
-            ),
-            'classes': ('collapse',)
-        }),
-        ('Calculated Totals', {
-            'fields': ('total_income', 'total_expenses', 'net_cash_flow'),
-        }),
-    )
+    # No fieldsets: show all fields by default
     
     def has_liquidation(self, obj):
         """Check if this period has liquidation proceeds"""

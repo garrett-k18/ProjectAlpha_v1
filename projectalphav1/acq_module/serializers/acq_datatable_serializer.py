@@ -30,14 +30,35 @@ class SellerRawDataRowSerializer(serializers.Serializer):
     pulling broker and internal valuation data from the core.Valuation model.
     """
     # Core SellerRawData fields
-    # Note: SellerRawData uses asset_hub as PK (OneToOne primary_key=True), so obj.id doesn't exist.
-    # Expose asset_hub_id as 'id' for frontend consistency (Asset Hub ID is the master ID).
+    # CRITICAL: SellerRawData uses asset_hub as PK (OneToOne primary_key=True), so obj.id doesn't exist.
+    # Using SerializerMethodField to expose asset_hub_id as 'id' for frontend consistency.
+    # Asset Hub ID is the master identifier across the system.
+    # WARNING: Never use `id = serializers.IntegerField(read_only=True)` - it will return undefined!
     id = serializers.SerializerMethodField()
     sellertape_id = serializers.IntegerField(read_only=True)
+    # Trade metadata for header/title usage in frontend
+    # Expose the FK id directly and a readable trade_name from related Trade model
+    trade_id = serializers.IntegerField(read_only=True, required=False)
+    trade_name = serializers.SerializerMethodField()
     
     def get_id(self, obj):
-        """Return the Asset Hub ID (SellerRawData PK)."""
+        """Return the Asset Hub ID (SellerRawData PK).
+        
+        SellerRawData model uses asset_hub OneToOneField as primary_key=True,
+        so Django doesn't create a standard 'id' field. Always use asset_hub_id.
+        """
         return getattr(obj, 'asset_hub_id', None) or getattr(obj, 'pk', None)
+    
+    def get_trade_name(self, obj):
+        """Return related Trade.trade_name if available; else empty string.
+        Keeping this as a method avoids N+1 when views prefetch related trade.
+        """
+        try:
+            # Access already-fetched relation when prefetch/select_related is applied
+            t = getattr(obj, 'trade', None)
+            return getattr(t, 'trade_name', '') if t else ''
+        except Exception:
+            return ''
     asset_status = serializers.CharField(allow_null=True)
     
     # Related model fields accessed via foreign keys
@@ -49,6 +70,8 @@ class SellerRawDataRowSerializer(serializers.Serializer):
     state = serializers.CharField(allow_null=True)
     zip = serializers.CharField(allow_null=True)  # Map zip field from model
     property_type = serializers.CharField(allow_null=True)
+    # New: flow product_type to frontend rows so badges render in snapshots/modals
+    product_type = serializers.CharField(allow_null=True, allow_blank=True)
     occupancy = serializers.CharField(allow_null=True)
     year_built = serializers.IntegerField(allow_null=True)
     sq_ft = serializers.IntegerField(allow_null=True)
@@ -229,7 +252,7 @@ class SellerRawDataDetailSerializer(serializers.ModelSerializer):
             # Identity
             'id', 'sellertape_id', 'asset_status', 'as_of_date',
             # Address / property
-            'street_address', 'city', 'state', 'zip', 'property_type', 'occupancy', 
+            'street_address', 'city', 'state', 'zip', 'property_type', 'product_type', 'occupancy', 
             'year_built', 'sq_ft', 'lot_size', 'beds', 'baths',
             # Borrower info
             'borrower1_last', 'borrower1_first', 'borrower2_last', 'borrower2_first',

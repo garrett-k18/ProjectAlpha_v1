@@ -41,7 +41,12 @@ class SellerBoardedData(models.Model):
     # Asset data fields from SellerRawData
     sellertape_id = models.CharField(max_length=64, null=True, blank=True)
     sellertape_altid = models.CharField(max_length=64, null=True, blank=True)
-    asset_status = models.CharField(max_length=100, choices=SellerRawData.ASSET_STATUS_CHOICES, null=True, blank=True)
+    asset_status = models.CharField(
+        max_length=100,
+        choices=SellerRawData.AssetStatus.choices,
+        null=True,
+        blank=True,
+    )
     
     # Property information
     street_address = models.CharField(max_length=100, null=True, blank=True)
@@ -71,7 +76,13 @@ class SellerBoardedData(models.Model):
         blank=True,
         help_text='Categorized property type synced with acquisition import definitions.',
     )
-    occupancy = models.CharField(max_length=100, choices=SellerRawData.OCCUPANCY_CHOICES, default=SellerRawData.OCCUPANCY_UNKNOWN, null=True, blank=True)
+    occupancy = models.CharField(
+        max_length=100,
+        choices=SellerRawData.Occupancy.choices,
+        default=SellerRawData.Occupancy.UNKNOWN,
+        null=True,
+        blank=True,
+    )
     year_built = models.IntegerField(null=True, blank=True)
     sq_ft = models.IntegerField(null=True, blank=True)
     lot_size = models.IntegerField(null=True, blank=True)
