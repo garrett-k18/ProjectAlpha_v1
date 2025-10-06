@@ -3,7 +3,59 @@ from typing import Optional
 
 from acq_module.models.seller import SellerRawData
 
+
+class FCServicingFees:
+    """
+    Handles all servicing fee calculations for FC outcomes.
+    
+    What: Calculator class for foreclosure servicing fees.
+    Why: Isolate servicing fee logic for better maintainability and reusability.
+    Where: projectalphav1/acq_module/logic/outcome_logic.py
+    How: Initialize with asset_hub_id and call specific fee calculation methods.
+    """
+    
+    def __init__(self, asset_hub_id: int):
+        """
+        Initialize the servicing fees calculator for a specific asset.
+        
+        Args:
+            asset_hub_id: Primary key of the master asset (core.AssetIdHub)
+        """
+        self.asset_hub_id = asset_hub_id
+    
+    def onetwenty_day_fee(self) -> Decimal:
+        """
+        Calculate 120-day delinquency servicing fee.
+        
+        Returns:
+            Decimal: Calculated 120-day fee amount
+        """
+        # TODO: Implement actual calculation logic based on business rules
+        # Example: might be a percentage of UPB or fixed fee from assumptions
+        return Decimal('0.00')
+    
+    def fcfee(self) -> Decimal:
+        """
+        Calculate general foreclosure servicing fee.
+        
+        Returns:
+            Decimal: Calculated FC servicing fee amount
+        """
+        # TODO: Implement actual calculation logic based on business rules
+        # Example: might be based on state, loan amount, or fixed assumptions
+        return Decimal('0.00')
+
+
 class fcoutcomeLogic:
+    """
+    Main logic class for foreclosure outcome calculations.
+    
+    What: Handles all FC outcome forecasting and calculations.
+    Why: Centralize FC outcome logic for API views and other modules.
+    Where: projectalphav1/acq_module/logic/outcome_logic.py
+    How: Initialize and call specific calculation methods with asset_hub_id.
+    """
+    
     def __init__(self):
         pass
 
@@ -65,6 +117,19 @@ class fcoutcomeLogic:
         return base_debt
 
     def fc_am_liq_fee(self, asset_hub_id: int) -> Decimal:
+        """
+        Calculate FC AM liquidation fee for a specific asset.
         
-
-   
+        Uses the FCServicingFees calculator to compute the liquidation fee.
+        
+        Args:
+            asset_hub_id: Primary key of the master asset (core.AssetIdHub)
+            
+        Returns:
+            Decimal: Calculated liquidation fee amount
+        """
+        # Initialize servicing fees calculator for this asset
+        fees = FCServicingFees(asset_hub_id)
+        
+        # Return the FC fee calculation
+        return fees.fcfee()

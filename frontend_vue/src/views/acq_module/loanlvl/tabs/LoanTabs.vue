@@ -30,6 +30,11 @@
       <AcquisitionAnalysisTab :row="row" :assetId="assetId" :module="module" />
     </b-tab>
 
+    <!-- Commercial Analysis (conditional) -->
+    <b-tab v-if="isCommercial" title="Commercial Analysis">
+      <CommercialAnalysisTab :row="row" :assetId="assetId" :module="module" />
+    </b-tab>
+
     <!-- Documents -->
     <b-tab title="Documents">
       <DocumentsTab :row="row" :assetId="assetId" :module="module" />
@@ -48,6 +53,7 @@
 // -----------------------------------------------------------------------------------
 
 import { defineAsyncComponent } from 'vue'
+import { computed } from 'vue'
 
 // Define props for strong typing and reusability
 // - row: the active row object (nullable)
@@ -72,6 +78,29 @@ const LoanDetailsTab = defineAsyncComponent(() => import('./LoanDetailsTab.vue')
 const PropertyDetailsTab = defineAsyncComponent(() => import('./PropertyDetailsTab.vue'))
 const AcquisitionAnalysisTab = defineAsyncComponent(() => import('./AcquisitionAnalysisTab.vue'))
 const DocumentsTab = defineAsyncComponent(() => import('./DocumentsTab.vue'))
+const CommercialAnalysisTab = defineAsyncComponent(() => import('./CommercialAnalysisTab.vue'))
+
+// Determine if the asset should show the Commercial Analysis tab.
+// Priority: use backend-provided boolean flags on the row to avoid extra requests.
+// Supported keys:
+// - row.is_commercial (preferred)
+// - row.is_commercial_flag (fallback naming)
+// - row.asset_hub_is_commercial (if serializer flattened under a different name)
+const isCommercial = computed<boolean>(() => {
+  const r = props.row as any
+  if (!r) return false
+  // 1) Prefer backend-provided booleans
+  if (typeof r.is_commercial === 'boolean') return r.is_commercial
+  if (typeof r.is_commercial_flag === 'boolean') return r.is_commercial_flag
+  if (typeof r.asset_hub_is_commercial === 'boolean') return r.asset_hub_is_commercial
+  // 2) Fallback: infer from SRD standardized tags on the row
+  const pt = r.property_type as string | undefined
+  const prod = r.product_type as string | undefined
+  const commercialPT = new Set(['Multifamily 5+', 'Industrial', 'Mixed Use'])
+  if (pt && commercialPT.has(pt)) return true
+  if (prod === 'Commercial') return true
+  return false
+})
 </script>
 
 <style scoped>

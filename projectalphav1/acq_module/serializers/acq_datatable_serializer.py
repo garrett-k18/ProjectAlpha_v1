@@ -40,6 +40,8 @@ class SellerRawDataRowSerializer(serializers.Serializer):
     # Expose the FK id directly and a readable trade_name from related Trade model
     trade_id = serializers.IntegerField(read_only=True, required=False)
     trade_name = serializers.SerializerMethodField()
+    # Hub-level commercial flag for UI toggles
+    is_commercial = serializers.SerializerMethodField()
     
     def get_id(self, obj):
         """Return the Asset Hub ID (SellerRawData PK).
@@ -59,6 +61,16 @@ class SellerRawDataRowSerializer(serializers.Serializer):
             return getattr(t, 'trade_name', '') if t else ''
         except Exception:
             return ''
+    
+    def get_is_commercial(self, obj):
+        """Return boolean commercial tag from AssetIdHub.
+        Falls back to False if hub/flag not present.
+        """
+        try:
+            hub = getattr(obj, 'asset_hub', None)
+            return bool(getattr(hub, 'is_commercial', False)) if hub is not None else False
+        except Exception:
+            return False
     asset_status = serializers.CharField(allow_null=True)
     
     # Related model fields accessed via foreign keys
@@ -246,11 +258,14 @@ class SellerRawDataDetailSerializer(serializers.ModelSerializer):
     Used by loan-level detail views and modals.
     """
     
+    # Include hub-level commercial flag for loan-level UI
+    is_commercial = serializers.SerializerMethodField()
+
     class Meta:
         model = SellerRawData
         fields = [
             # Identity
-            'id', 'sellertape_id', 'asset_status', 'as_of_date',
+            'id', 'sellertape_id', 'asset_status', 'as_of_date', 'is_commercial',
             # Address / property
             'street_address', 'city', 'state', 'zip', 'property_type', 'product_type', 'occupancy', 
             'year_built', 'sq_ft', 'lot_size', 'beds', 'baths',
@@ -277,6 +292,14 @@ class SellerRawDataDetailSerializer(serializers.ModelSerializer):
             # Timestamps
             'created_at', 'updated_at',
         ]
+
+    def get_is_commercial(self, obj):
+        """Return boolean commercial tag from AssetIdHub for detail view."""
+        try:
+            hub = getattr(obj, 'asset_hub', None)
+            return bool(getattr(hub, 'is_commercial', False)) if hub is not None else False
+        except Exception:
+            return False
 
 
 class SellerRawDataFieldsSerializer(serializers.Serializer):

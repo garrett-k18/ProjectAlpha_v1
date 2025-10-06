@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from django.db import models
 from django.conf import settings
+from decimal import Decimal
+from datetime import date
 
 class InternalValuation(models.Model):
     """[DEPRECATED] Use `Valuation` instead.
@@ -256,3 +258,1030 @@ class Valuation(models.Model):
     def __str__(self):
         hub_id = self.asset_hub.id if self.asset_hub else 'No Hub'
         return f"{self.get_source_display()} for Hub #{hub_id} as of {self.value_date or 'N/A'}"
+
+
+class ComparableProperty(models.Model):
+    """
+    Parent model for comparable properties (sales and lease).
+    
+    What: Stores shared property characteristics for all comparables.
+    Why: Normalizes common fields to avoid duplication between sales and lease comps.
+    Where: Extended by SalesComparable and LeaseComparable via OneToOne relationships.
+    How: Create once per property, then attach sales OR lease data (or both if needed).
+    """
+    # Link to subject property
+    asset_hub = models.ForeignKey(
+        'core.AssetIdHub',
+        on_delete=models.CASCADE,
+        related_name='comparable_properties',
+        help_text='Link to hub; multiple comparables per asset are supported.'
+    )
+    as_of_date = models.DateField(help_text='Date the comparable was ascertained.')
+    property_name = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text='Name of the comparable property (e.g., apartment complex name).'
+    )
+    # Address fields
+    street_address = models.CharField(max_length=255, help_text='Street address of the comparable property.')
+    city = models.CharField(max_length=100, help_text='City of the comparable property.')
+    state = models.CharField(max_length=2, help_text='State of the comparable property.')
+    zip_code = models.CharField(max_length=10, help_text='Zip code of the comparable property.')
+    
+    # Property characteristics
+    distance_from_subject = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text='Distance from the subject property in feet.'
+    )
+    property_type = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        help_text='Type of the comparable property (e.g., SFR, Multi-Family, Retail).'
+    )
+    property_style = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        help_text='Style of the comparable property (e.g., Colonial, Ranch).'
+    )
+    
+    # Unit details
+    beds = models.IntegerField(null=True, blank=True, help_text='Number of bedrooms.')
+    baths = models.DecimalField(
+        max_digits=4,
+        decimal_places=1,
+        null=True,
+        blank=True,
+        help_text='Number of bathrooms (e.g., 2.5).'
+    )
+    units = models.IntegerField(null=True, blank=True, help_text='Number of units in the property.')
+    
+    # Size metrics
+    gross_square_ft_building = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text='For commercial...this is total sq feet including common areas. Gross square footage of the building.'
+    )
+    livable_square_ft_building = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text='Livable square footage of the building/ if SFR or non commercial this is just the basic total sq feet.'
+    )
+    year_built = models.IntegerField(null=True, blank=True, help_text='Year the property was built.')
+    total_lot_size = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text='Total lot size in square feet.'
+    )
+    market_type = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        help_text='Type of the market (e.g., SFR, Multi-Family, Retail).'
+    )
+    submarket = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        help_text='Submarket of the comparable property.'
+    )
+    building_class = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        help_text='Building class of the comparable property.'
+    )   
+
+
+
+
+
+    # Notes
+    notes = models.TextField(blank=True, null=True, help_text='Additional notes about this comparable.')
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'core_comparable_property'
+        verbose_name = 'Comparable Property'
+        verbose_name_plural = 'Comparable Properties'
+        ordering = ['-as_of_date', 'street_address']
+        indexes = [
+            models.Index(fields=['asset_hub', 'as_of_date']),
+            models.Index(fields=['property_type']),
+        ]
+    
+    def __str__(self):
+        """String representation showing address and date."""
+        return f"{self.street_address}, {self.city} ({self.as_of_date})"
+
+
+class SalesComparable(models.Model):
+    """
+    Sales-specific data for a comparable property.
+    
+    What: Extends ComparableProperty with sales transaction data.
+    Why: Isolates sales-specific fields (prices, dates, DOM) from lease comps.
+    Where: OneToOne with ComparableProperty.
+    How: Create after ComparableProperty exists; attach sales details.
+    """
+    # OneToOne link to parent
+    comparable_property = models.OneToOneField(
+        ComparableProperty,
+        on_delete=models.CASCADE,
+        related_name='sales_data',
+        help_text='Link to parent comparable property.'
+    )
+    
+    # Listing data
+    current_listed_price = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Current listed price of the comparable property.'
+    )
+    current_listed_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text='Current listed date of the comparable property.'
+    )
+    
+    # Sale data
+    last_sales_price = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Last sales price of the comparable property.'
+    )
+    last_sales_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text='Last sales date of the comparable property.'
+    )
+    
+    # Sales comp quality rating
+    # Will add feature to quantify based on distance, bed/bath match, sale recency, price similarity
+    # Like a perfect rating: same block, same bed/baths, same style, sold last month, similar price/sqft
+    RATING_CHOICES = [
+        (1, '1 - Poor'),
+        (2, '2 - Fair'),
+        (3, '3 - Average'),
+        (4, '4 - Good'),
+        (5, '5 - Excellent'),
+    ]
+    comp_rating = models.PositiveSmallIntegerField(
+        choices=RATING_CHOICES,
+        null=True,
+        blank=True,
+        help_text='Sales comp quality: 1 (poor match) to 5 (excellent match). Based on distance, bed/bath, sale recency, price similarity.'
+    )
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'core_sales_comparable'
+        verbose_name = 'Sales Comparable'
+        verbose_name_plural = 'Sales Comparables'
+        ordering = ['-last_sales_date']
+    
+    def __str__(self):
+        """String representation showing sale price and date."""
+        price = f"${self.last_sales_price:,.0f}" if self.last_sales_price else "N/A"
+        return f"Sale: {price} on {self.last_sales_date or 'N/A'}"
+    
+    # ----- Calculated helpers (sales-specific) -----
+    def last_sale_price_per_unit(self) -> Decimal:
+        """
+        Calculate last sale price per unit.
+
+        What: Divides `last_sales_price` by `units` from parent.
+        Why: Useful for normalizing comparable sale across multi-unit properties.
+        How: Uses Decimal arithmetic; returns Decimal('0.00') if inputs are missing/zero.
+
+        Returns:
+            Decimal: Price per unit rounded to 2 decimals.
+        """
+        if not self.last_sales_price or not self.comparable_property.units or self.comparable_property.units <= 0:
+            return Decimal('0.00')
+        price = self.last_sales_price if isinstance(self.last_sales_price, Decimal) else Decimal(str(self.last_sales_price))
+        units = Decimal(str(self.comparable_property.units))
+        return (price / units).quantize(Decimal('0.01'))
+
+    def last_sale_price_per_gross_sqft(self) -> Decimal:
+        """
+        Calculate last sale price per gross building square foot.
+
+        What: Divides `last_sales_price` by `gross_square_ft_building` from parent.
+        Why: Normalizes comparable sale by building size (gross).
+        How: Uses Decimal; returns Decimal('0.00') if inputs are missing/zero.
+
+        Returns:
+            Decimal: Price per gross sqft rounded to 2 decimals.
+        """
+        if not self.last_sales_price or not self.comparable_property.gross_square_ft_building or self.comparable_property.gross_square_ft_building <= 0:
+            return Decimal('0.00')
+        price = self.last_sales_price if isinstance(self.last_sales_price, Decimal) else Decimal(str(self.last_sales_price))
+        sqft = Decimal(str(self.comparable_property.gross_square_ft_building))
+        return (price / sqft).quantize(Decimal('0.01'))
+
+    def last_sale_price_per_livable_sqft(self) -> Decimal:
+        """
+        Calculate last sale price per livable building square foot.
+
+        What: Divides `last_sales_price` by `livable_square_ft_building` from parent.
+        Why: Normalizes comparable sale by usable/livable area.
+        How: Uses Decimal; returns Decimal('0.00') if inputs are missing/zero.
+
+        Returns:
+            Decimal: Price per livable sqft rounded to 2 decimals.
+        """
+        if not self.last_sales_price or not self.comparable_property.livable_square_ft_building or self.comparable_property.livable_square_ft_building <= 0:
+            return Decimal('0.00')
+        price = self.last_sales_price if isinstance(self.last_sales_price, Decimal) else Decimal(str(self.last_sales_price))
+        sqft = Decimal(str(self.comparable_property.livable_square_ft_building))
+        return (price / sqft).quantize(Decimal('0.01'))
+
+    def days_on_market(self) -> int:
+        """
+        Calculate Days on Market (DOM) using `as_of_date` from parent and `current_listed_date`.
+
+        What: Number of days between the listing date and the as-of date.
+        Why: Useful for market activity and pricing analysis of comparables.
+        How: If either date is missing or inconsistent (as_of before listed), returns 0.
+
+        Returns:
+            int: Non-negative integer days on market.
+        """
+        # Ensure dates exist
+        if not self.current_listed_date or not self.comparable_property.as_of_date:
+            return 0
+        # Compute delta; clamp to 0 if as_of predates listing
+        try:
+            delta_days = (self.comparable_property.as_of_date - self.current_listed_date).days  # type: ignore[operator]
+            return delta_days if delta_days > 0 else 0
+        except Exception:
+            # On any unexpected date issue, default to 0
+            return 0
+
+
+class LeaseComparable(models.Model):
+    """
+    Lease-specific data for a comparable property.
+    
+    What: Extends ComparableProperty with lease/rent data.
+    Why: Isolates lease-specific fields (rent, lease terms, CAM) from sales comps.
+    Where: OneToOne with ComparableProperty.
+    How: Create after ComparableProperty exists; attach lease details.
+    """
+    # OneToOne link to parent
+    comparable_property = models.OneToOneField(
+        ComparableProperty,
+        on_delete=models.CASCADE,
+        related_name='lease_data',
+        help_text='Link to parent comparable property.'
+    )
+    # Lease/Rent data
+    monthly_rent = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Monthly rent amount.'
+    )
+    lease_start_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text='Lease start date.'
+    )
+    lease_end_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text='Lease end date.'
+    )
+    lease_term_months = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text='Lease term in months.'
+    )
+    lease_type = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True,
+        help_text='Type of lease (e.g., NNN, Gross, Modified Gross).'
+    )
+    lease_escalation = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Lease escalation percentage.'
+    )
+    lease_escalation_frequency = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True,
+        help_text='Lease escalation frequency (e.g., Annual, Semi-Annual, Quarterly).'
+    )
+    # CAM (Common Area Maintenance) charges
+    cam_monthly = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Monthly CAM charge.'
+    )
+    
+   
+    # Lease comp quality rating
+    # Will add feature to quantify based on rent similarity, lease terms, amenities, location, tenant quality
+    # Like a perfect rating: similar rent/sqft, same lease type, comparable amenities, same submarket, recent lease
+    RATING_CHOICES = [
+        (1, '1 - Poor'),
+        (2, '2 - Fair'),
+        (3, '3 - Average'),
+        (4, '4 - Good'),
+        (5, '5 - Excellent'),
+    ]
+    comp_rating = models.PositiveSmallIntegerField(
+        choices=RATING_CHOICES,
+        null=True,
+        blank=True,
+        help_text='Lease comp quality: 1 (poor match) to 5 (excellent match). Based on rent similarity, lease terms, amenities, location.'
+    )
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'core_lease_comparable'
+        verbose_name = 'Lease Comparable'
+        verbose_name_plural = 'Lease Comparables'
+        ordering = ['-lease_start_date']
+    
+    def __str__(self):
+        """String representation showing rent and lease term."""
+        rent = f"${self.monthly_rent:,.2f}/mo" if self.monthly_rent else "N/A"
+        return f"Lease: {rent} ({self.lease_term_months or '?'} months)"
+    
+    # ----- Calculated helpers (lease-specific) -----
+    def annual_rent(self) -> Decimal:
+        """
+        Calculate annual rent (monthly rent * 12).
+
+        Returns:
+            Decimal: Annual rent rounded to 2 decimals.
+        """
+        if not self.monthly_rent:
+            return Decimal('0.00')
+        monthly = self.monthly_rent if isinstance(self.monthly_rent, Decimal) else Decimal(str(self.monthly_rent))
+        return (monthly * Decimal('12')).quantize(Decimal('0.01'))
+    
+    def rent_per_sqft(self) -> Decimal:
+        """
+        Calculate monthly rent per square foot (uses livable sqft from parent).
+
+        Returns:
+            Decimal: Rent per sqft rounded to 2 decimals.
+        """
+        if not self.monthly_rent or not self.comparable_property.livable_square_ft_building or self.comparable_property.livable_square_ft_building <= 0:
+            return Decimal('0.00')
+        monthly = self.monthly_rent if isinstance(self.monthly_rent, Decimal) else Decimal(str(self.monthly_rent))
+        sqft = Decimal(str(self.comparable_property.livable_square_ft_building))
+        return (monthly / sqft).quantize(Decimal('0.01'))
+    
+    def cam_per_sqft(self) -> Decimal:
+        """
+        Calculate monthly CAM per square foot (uses livable sqft from parent).
+
+        Returns:
+            Decimal: CAM per sqft rounded to 2 decimals.
+        """
+        if not self.cam_monthly or not self.comparable_property.livable_square_ft_building or self.comparable_property.livable_square_ft_building <= 0:
+            return Decimal('0.00')
+        cam = self.cam_monthly if isinstance(self.cam_monthly, Decimal) else Decimal(str(self.cam_monthly))
+        sqft = Decimal(str(self.comparable_property.livable_square_ft_building))
+        return (cam / sqft).quantize(Decimal('0.01'))
+    
+    def annual_cam(self) -> Decimal:
+        """
+        Calculate annual CAM (monthly CAM * 12).
+
+        Returns:
+            Decimal: Annual CAM rounded to 2 decimals.
+        """
+        if not self.cam_monthly:
+            return Decimal('0.00')
+        cam = self.cam_monthly if isinstance(self.cam_monthly, Decimal) else Decimal(str(self.cam_monthly))
+        return (cam * Decimal('12')).quantize(Decimal('0.01'))
+
+
+class LeaseComparableUnitMix(models.Model):
+    """
+    Unit mix data for multi-family/commercial comparable properties.
+    
+    What: Stores aggregated unit type data for lease comps (e.g., "20 1BR @ avg $1200/mo").
+    Why: More common to get unit mix summaries than full rent rolls for lease comps.
+    Where: Many-to-One with ComparableProperty (multiple unit types per property).
+    How: Create parent ComparableProperty first, then add unit mix records. Mirrors UnitMix model.
+    """
+    # Many-to-One link to parent property
+    comparable_property = models.ForeignKey(
+        ComparableProperty,
+        on_delete=models.CASCADE,
+        related_name='lease_unit_mix',
+        help_text='Link to parent comparable property; multiple unit types per property supported.'
+    )
+    
+    # Unit characteristics (mirrors UnitMix model)
+    unit_type = models.CharField(
+        max_length=50,
+        help_text="Type of unit (e.g., '1BR', '2BR', 'Studio', 'Retail', 'Office')"
+    )
+    unit_count = models.IntegerField(
+        help_text="Number of units of this type"
+    )
+    unit_avg_sqft = models.IntegerField(
+        help_text="Average square footage per unit of this type"
+    )
+    unit_avg_rent = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        help_text="Average monthly rent per unit of this type"
+    )
+    
+    # Calculated field: price per square foot (auto-computed on save)
+    price_sqft = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        editable=False,
+        help_text="Calculated: unit_avg_rent / unit_avg_sqft (rent per sqft)"
+    )
+    
+    # Notes
+    notes = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Additional notes about this unit type"
+    )
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'core_lease_comparable_unit_mix'
+        verbose_name = 'Lease Comparable Unit Mix'
+        verbose_name_plural = 'Lease Comparable Unit Mix Records'
+        ordering = ['comparable_property', 'unit_type']
+        indexes = [
+            models.Index(fields=['comparable_property', 'unit_type']),
+        ]
+    
+    def __str__(self):
+        """String representation showing unit type and count."""
+        return f"{self.unit_type} ({self.unit_count} units)"
+    
+    def save(self, *args, **kwargs):
+        """
+        Override save to calculate price_sqft before saving.
+        
+        What: Automatically calculates rent per square foot.
+        Why: Ensures price_sqft is always in sync with rent and sqft.
+        How: Divides unit_avg_rent by unit_avg_sqft, handles division by zero.
+        """
+        # Calculate price per square foot (rent per sqft)
+        if self.unit_avg_sqft and self.unit_avg_sqft > 0:
+            # Convert to Decimal for precision
+            rent = self.unit_avg_rent if isinstance(self.unit_avg_rent, Decimal) else Decimal(str(self.unit_avg_rent))
+            sqft = Decimal(str(self.unit_avg_sqft))
+            
+            # Calculate and round to 2 decimal places
+            self.price_sqft = (rent / sqft).quantize(Decimal('0.01'))
+        else:
+            # If sqft is 0 or None, set price_sqft to None
+            self.price_sqft = None
+        
+        # Call parent save method
+        super().save(*args, **kwargs)
+    
+    def get_total_sqft(self) -> int:
+        """
+        Calculate total square footage for all units of this type.
+        
+        Returns:
+            int: unit_count * unit_avg_sqft
+        """
+        return self.unit_count * self.unit_avg_sqft
+    
+    def get_total_monthly_rent(self) -> Decimal:
+        """
+        Calculate total monthly rent for all units of this type.
+        
+        Returns:
+            Decimal: unit_count * unit_avg_rent
+        """
+        rent = self.unit_avg_rent if isinstance(self.unit_avg_rent, Decimal) else Decimal(str(self.unit_avg_rent))
+        return Decimal(str(self.unit_count)) * rent
+
+    def get_total_annual_rent(self) -> Decimal:
+        """
+        Calculate total ANNUAL rent for all units of this type.
+
+        What: Multiplies the monthly total by 12.
+        Why: Common KPI used in underwriting and valuation (annualized rent roll).
+        How: Reuses `get_total_monthly_rent()` and multiplies by Decimal('12').
+
+        Returns:
+            Decimal: (unit_count * unit_avg_rent) * 12, rounded to 2 decimals
+        """
+        monthly_total: Decimal = self.get_total_monthly_rent()
+        return (monthly_total * Decimal('12')).quantize(Decimal('0.01'))
+
+
+class LeaseComparableRentRoll(models.Model):
+    """
+    Unit-level rent roll data for multi-family/commercial comparable properties.
+    
+    What: Stores per-unit lease details for multi-family or commercial comparables (rare).
+    Why: Multi-family properties need unit-by-unit rent roll analysis, not just property-level summary.
+    Where: Many-to-One with ComparableProperty (multiple units per property).
+    How: Create parent ComparableProperty first, then add unit records. Similar to RentRoll model.
+    Note: Use LeaseComparableUnitMix for aggregated data (more common); use this for full rent rolls.
+    """
+    # Many-to-One link to parent property
+    comparable_property = models.ForeignKey(
+        ComparableProperty,
+        on_delete=models.CASCADE,
+        related_name='lease_units',
+        help_text='Link to parent comparable property; multiple units per property supported.'
+    )
+    
+    # Unit identification
+    unit_number = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True,
+        help_text='Unit number or identifier (e.g., "101", "2A", "Suite 200").'
+    )
+    
+    # Unit characteristics
+    beds = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text='Number of bedrooms in this unit (overrides property-level if specified).'
+    )
+    baths = models.DecimalField(
+        max_digits=4,
+        decimal_places=1,
+        null=True,
+        blank=True,
+        help_text='Number of bathrooms in this unit (e.g., 2.5).'
+    )
+    unit_sqft = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text='Square footage of this unit.'
+    )
+    
+    # Lease terms (per unit)
+    monthly_rent = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Monthly rent for this unit.'
+    )
+    lease_start_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text='Lease start date for this unit.'
+    )
+    lease_end_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text='Lease end date for this unit.'
+    )
+    lease_term_months = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text='Lease term in months for this unit.'
+    )
+    lease_type = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True,
+        help_text='Type of lease for this unit (e.g., NNN, Gross, Modified Gross).'
+    )
+    
+    # Escalations and CAM (per unit)
+    lease_escalation = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Lease escalation percentage for this unit (e.g., 3.00 for 3%).'
+    )
+    lease_escalation_frequency = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True,
+        help_text='Escalation frequency (e.g., Annual, Semi-Annual, Quarterly).'
+    )
+    cam_monthly = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Monthly CAM charge for this unit.'
+    )
+    
+    # Occupancy status
+    is_occupied = models.BooleanField(
+        default=True,
+        help_text='Whether this unit is currently occupied.'
+    )
+    tenant_name = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text='Tenant name (optional, for tracking).'
+    )
+    
+    # Notes
+    notes = models.TextField(
+        blank=True,
+        null=True,
+        help_text='Additional notes about this unit lease.'
+    )
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'core_lease_comparable_unit'
+        verbose_name = 'Lease Comparable Unit'
+        verbose_name_plural = 'Lease Comparable Units'
+        ordering = ['comparable_property', 'unit_number']
+        indexes = [
+            models.Index(fields=['comparable_property', 'unit_number']),
+            models.Index(fields=['is_occupied']),
+        ]
+    
+    def __str__(self):
+        """String representation showing unit number and rent."""
+        unit = self.unit_number or 'Unit'
+        rent = f"${self.monthly_rent:,.2f}/mo" if self.monthly_rent else "N/A"
+        return f"{unit}: {rent}"
+    
+    # ----- Calculated helpers (unit-specific) -----
+    def annual_rent(self) -> Decimal:
+        """
+        Calculate annual rent for this unit (monthly rent * 12).
+
+        Returns:
+            Decimal: Annual rent rounded to 2 decimals.
+        """
+        if not self.monthly_rent:
+            return Decimal('0.00')
+        monthly = self.monthly_rent if isinstance(self.monthly_rent, Decimal) else Decimal(str(self.monthly_rent))
+        return (monthly * Decimal('12')).quantize(Decimal('0.01'))
+    
+    def rent_per_sqft(self) -> Decimal:
+        """
+        Calculate monthly rent per square foot for this unit.
+
+        Returns:
+            Decimal: Rent per sqft rounded to 2 decimals.
+        """
+        if not self.monthly_rent or not self.unit_sqft or self.unit_sqft <= 0:
+            return Decimal('0.00')
+        monthly = self.monthly_rent if isinstance(self.monthly_rent, Decimal) else Decimal(str(self.monthly_rent))
+        sqft = Decimal(str(self.unit_sqft))
+        return (monthly / sqft).quantize(Decimal('0.01'))
+    
+    def cam_per_sqft(self) -> Decimal:
+        """
+        Calculate monthly CAM per square foot for this unit.
+
+        Returns:
+            Decimal: CAM per sqft rounded to 2 decimals.
+        """
+        if not self.cam_monthly or not self.unit_sqft or self.unit_sqft <= 0:
+            return Decimal('0.00')
+        cam = self.cam_monthly if isinstance(self.cam_monthly, Decimal) else Decimal(str(self.cam_monthly))
+        sqft = Decimal(str(self.unit_sqft))
+        return (cam / sqft).quantize(Decimal('0.01'))
+    
+    def annual_cam(self) -> Decimal:
+        """
+        Calculate annual CAM for this unit (monthly CAM * 12).
+
+        Returns:
+            Decimal: Annual CAM rounded to 2 decimals.
+        """
+        if not self.cam_monthly:
+            return Decimal('0.00')
+        cam = self.cam_monthly if isinstance(self.cam_monthly, Decimal) else Decimal(str(self.cam_monthly))
+        return (cam * Decimal('12')).quantize(Decimal('0.01'))
+
+
+
+class HistoricalPropertyCashFlow(models.Model):
+    """
+    Historical property-level cash flows (income and expenses) by year.
+    
+    What: Tracks annual actual operating performance for your owned/managed assets.
+    Why: Essential for valuation, underwriting, and performance analysis (historical NOI, operating expense ratios).
+    Where: Many-to-One with AssetIdHub (multiple years per asset).
+    How: Create one record per asset per year; use helpers to calculate NOI, EGI, etc.
+    """
+    # Many-to-One link to asset
+    asset_hub = models.ForeignKey(
+        'AssetIdHub',
+        on_delete=models.CASCADE,
+        related_name='historical_cashflows',
+        help_text='Asset this historical cash flow data belongs to.'
+    )
+    
+    # Year for this data
+    year = models.PositiveIntegerField(
+        help_text='Calendar year for this cash flow data (e.g., 2024).'
+    )
+
+    # ----- Income -----
+    gross_rent_revenue = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Gross potential rent (GPR) - fully occupied rent for the year.'
+    )
+    cam_income = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='CAM income for the year.'
+    )
+    other_income = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Other income (parking, laundry, pet fees, etc.).'
+    )
+    vacancy_pct = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Vacancy percentage for the year.'
+    )
+    vacancy_loss = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Vacancy and credit loss for the year (negative impact on income).'
+    )
+
+    # ----- Operating Expenses -----
+    admin = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Administrative expenses.'
+    )
+    insurance = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Property insurance costs.'
+    )
+    utilities_water = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Water utility expenses.'
+    )
+    utilities_sewer = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Sewer utility expenses.'
+    )
+    utilities_electric = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Electric utility expenses.'
+    )
+    utilities_gas = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Gas utility expenses.'
+    )
+    trash = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Trash removal expenses.'
+    )
+    utilities_other = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Other utility expenses.'
+    )
+    property_management = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Property management fees.'
+    )
+    repairs_maintenance = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Repairs and maintenance costs.'
+    )
+    marketing = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Marketing and leasing costs.'
+    )
+    property_taxes = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Property taxes.'
+    )
+    hoa_fees = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='HOA fees (if applicable).'
+    )
+    security_property_preservation = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Security expenses.'
+    )
+    landscaping = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Landscaping and grounds maintenance.'
+    )
+    pool_maintenance = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Pool maintenance costs.'
+    )
+   
+    other_expense = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Other miscellaneous operating expenses.'
+    )
+    
+    # Notes
+    notes = models.TextField(
+        blank=True,
+        null=True,
+        help_text='Additional notes about this year\'s performance.'
+    )
+
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'core_historical_property_cashflow'
+        verbose_name = 'Historical Property Cash Flow'
+        verbose_name_plural = 'Historical Property Cash Flows'
+        ordering = ['asset_hub', '-year']
+        constraints = [
+            models.UniqueConstraint(fields=['asset_hub', 'year'], name='uq_asset_hub_year')
+        ]
+        indexes = [
+            models.Index(fields=['asset_hub', 'year']),
+        ]
+    
+    def __str__(self):
+        """String representation showing asset and year."""
+        return f"{self.asset_hub} - {self.year}"
+    
+    # ----- Calculated helpers -----
+    def effective_gross_income(self) -> Decimal:
+        """
+        Calculate Effective Gross Income (EGI).
+        
+        What: GPR + Other Income - Vacancy Loss
+        Why: Shows actual income after vacancy.
+        
+        Returns:
+            Decimal: EGI rounded to 2 decimals.
+        """
+        gpr = self.gross_rent_revenue or Decimal('0.00')
+        other = self.other_income or Decimal('0.00')
+        vacancy = self.vacancy_loss or Decimal('0.00')
+        
+        gpr = gpr if isinstance(gpr, Decimal) else Decimal(str(gpr))
+        other = other if isinstance(other, Decimal) else Decimal(str(other))
+        vacancy = vacancy if isinstance(vacancy, Decimal) else Decimal(str(vacancy))
+        
+        return (gpr + other - vacancy).quantize(Decimal('0.01'))
+    
+    def total_operating_expenses(self) -> Decimal:
+        """
+        Calculate total operating expenses (sum of all expense fields).
+        
+        Returns:
+            Decimal: Total opex rounded to 2 decimals.
+        """
+        expense_fields = [
+            self.admin, self.insurance, self.utilities_water, self.utilities_sewer,
+            self.utilities_electric, self.utilities_gas, self.trash, self.utilities_other,
+            self.property_management, self.repairs_maintenance, self.marketing,
+            self.property_taxes, self.hoa_fees, self.security_property_preservation, self.landscaping,
+            self.pool_maintenance, self.other_expense
+        ]
+        
+        total = Decimal('0.00')
+        for expense in expense_fields:
+            if expense:
+                exp = expense if isinstance(expense, Decimal) else Decimal(str(expense))
+                total += exp
+        
+        return total.quantize(Decimal('0.01'))
+    
+    def net_operating_income(self) -> Decimal:
+        """
+        Calculate Net Operating Income (NOI).
+        
+        What: EGI - Total Operating Expenses
+        Why: Key valuation metric (NOI / Cap Rate = Value).
+        
+        Returns:
+            Decimal: NOI rounded to 2 decimals.
+        """
+        egi = self.effective_gross_income()
+        opex = self.total_operating_expenses()
+        
+        return (egi - opex).quantize(Decimal('0.01'))
+    
+    def operating_expense_ratio(self) -> Decimal:
+        """
+        Calculate Operating Expense Ratio (OER).
+        
+        What: Total Opex / EGI
+        Why: Measures operating efficiency (lower is better).
+        
+        Returns:
+            Decimal: OER as percentage (e.g., 45.50 for 45.5%), or 0.00 if EGI is zero.
+        """
+        egi = self.effective_gross_income()
+        if egi <= 0:
+            return Decimal('0.00')
+        
+        opex = self.total_operating_expenses()
+        ratio = (opex / egi) * Decimal('100')
+        
+        return ratio.quantize(Decimal('0.01'))
+    

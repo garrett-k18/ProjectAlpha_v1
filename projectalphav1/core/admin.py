@@ -10,6 +10,8 @@ from .models.asset_id_hub import AssetIdHub
 from .models.valuations import Valuation
 from .models.attachments import Photo, Document
 from .models.transactions import LLTransactionSummary, LLCashFlowSeries
+from .models.commercial import UnitMix, RentRoll
+from .models.valuations import ComparableProperty, SalesComparable, LeaseComparable, LeaseComparableUnitMix, LeaseComparableRentRoll, HistoricalPropertyCashFlow
 
 # Cross-app children that reference AssetIdHub
 from acq_module.models.seller import SellerRawData
@@ -175,6 +177,187 @@ class CommercialUnitsAdmin(admin.ModelAdmin):
     # No fieldsets: show all fields by default
 
 
+@admin.register(UnitMix)
+class UnitMixAdmin(admin.ModelAdmin):
+    """
+    Admin configuration for UnitMix model.
+    
+    What: Manages unit mix records for commercial/multi-family properties.
+    Why: Allow viewing and editing of unit type, count, sqft, and rent data.
+    How: Display key metrics including calculated price_sqft field.
+    """
+    list_display = (
+        'id', 'unit_type', 'unit_count', 'unit_avg_sqft', 'unit_avg_rent',
+        'price_sqft', 'total_sqft_display', 'total_rent_display', 'created_at'
+    )
+    list_filter = ('unit_type',)
+    search_fields = ('unit_type',)
+    readonly_fields = ('price_sqft', 'created_at', 'updated_at')
+    ordering = ('unit_type',)
+    
+    # No fieldsets: show all fields by default
+    
+    def total_sqft_display(self, obj):
+        """Display total square footage for all units of this type."""
+        return f"{obj.get_total_sqft():,} sqft"
+    total_sqft_display.short_description = 'Total SqFt'
+    
+    def total_rent_display(self, obj):
+        """Display total monthly rent for all units of this type."""
+        return f"${obj.get_total_monthly_rent():,.2f}"
+    total_rent_display.short_description = 'Total Monthly Rent'
+
+
+@admin.register(RentRoll)
+class RentRollAdmin(admin.ModelAdmin):
+    """
+    Admin configuration for RentRoll model.
+
+    What: Manage per-tenant/unit rent roll records.
+    Why: Allow full visibility and editing of rent roll details.
+    How: Keep default form fields (no fieldsets/fields), expose helpful list columns.
+    """
+    list_display = (
+        'id', 'asset_hub_id', 'tenant_name', 'unit_name', 'sq_feet',
+        'rent', 'cam_month', 'lease_start_date', 'lease_end_date',
+        'lease_term_months', 'lease_type', 'rent_increase_pct'
+    )
+    search_fields = ('tenant_name', 'unit_name')
+    list_filter = ('lease_type',)
+    ordering = ('asset_hub_id', 'tenant_name')
+    # No fieldsets/fields/exclude: show all fields by default
+
+
+@admin.register(ComparableProperty)
+class ComparablePropertyAdmin(admin.ModelAdmin):
+    """
+    Admin configuration for ComparableProperty model.
+
+    What: Parent model storing shared property characteristics for sales/lease comps.
+    Why: Allow full visibility and editing of comparable property base data.
+    How: Default form (all fields visible); list key property info (rating is on child models).
+    """
+    list_display = (
+        'id', 'asset_hub', 'as_of_date', 'street_address', 'city', 'state',
+        'property_type', 'beds', 'baths', 'units', 'livable_square_ft_building',
+        'created_at'
+    )
+    search_fields = ('street_address', 'city', 'zip_code')
+    list_filter = ('state', 'property_type', 'as_of_date')
+    ordering = ('-as_of_date', 'street_address')
+    readonly_fields = ('created_at', 'updated_at')
+    # No fieldsets/fields/exclude: show all fields by default
+
+
+@admin.register(SalesComparable)
+class SalesComparableAdmin(admin.ModelAdmin):
+    """
+    Admin configuration for SalesComparable model.
+
+    What: Sales-specific data extending ComparableProperty.
+    Why: Allow editing of sale prices, dates, and listing info.
+    How: Default form (all fields visible); list key sales metrics and comp rating.
+    """
+    list_display = (
+        'id', 'comparable_property', 'last_sales_price', 'last_sales_date',
+        'current_listed_price', 'current_listed_date', 'comp_rating', 'created_at'
+    )
+    search_fields = ('comparable_property__street_address', 'comparable_property__city')
+    list_filter = ('last_sales_date', 'current_listed_date', 'comp_rating')
+    ordering = ('-last_sales_date',)
+    readonly_fields = ('created_at', 'updated_at')
+    # No fieldsets/fields/exclude: show all fields by default
+
+
+@admin.register(LeaseComparable)
+class LeaseComparableAdmin(admin.ModelAdmin):
+    """
+    Admin configuration for LeaseComparable model.
+
+    What: Lease-specific data extending ComparableProperty (property-level/SFR leases).
+    Why: Allow editing of rent, lease terms, CAM, and property name.
+    How: Default form (all fields visible); list key lease metrics and comp rating.
+    """
+    list_display = (
+        'id', 'comparable_property', 'monthly_rent', 'lease_start_date',
+        'lease_end_date', 'lease_term_months', 'lease_type', 'cam_monthly', 'comp_rating', 'created_at'
+    )
+    search_fields = ('comparable_property__street_address', 'comparable_property__city')
+    list_filter = ('lease_type', 'lease_start_date', 'comp_rating')
+    ordering = ('-lease_start_date',)
+    readonly_fields = ('created_at', 'updated_at')
+    # No fieldsets/fields/exclude: show all fields by default
+
+
+@admin.register(LeaseComparableUnitMix)
+class LeaseComparableUnitMixAdmin(admin.ModelAdmin):
+    """
+    Admin configuration for LeaseComparableUnitMix model.
+
+    What: Aggregated unit mix data for lease comps (more common scenario).
+    Why: Allow editing of unit type summaries (e.g., "20 1BR @ $1200/mo avg").
+    How: Default form (all fields visible); list key metrics with auto-calculated price_sqft.
+    """
+    list_display = (
+        'id', 'comparable_property', 'unit_type', 'unit_count', 'unit_avg_sqft',
+        'unit_avg_rent', 'price_sqft', 'created_at'
+    )
+    search_fields = (
+        'comparable_property__street_address',
+        'comparable_property__city',
+        'unit_type'
+    )
+    list_filter = ('unit_type',)
+    ordering = ['comparable_property', 'unit_type']
+    readonly_fields = ('price_sqft', 'created_at', 'updated_at')
+    # No fieldsets/fields/exclude: show all fields by default
+
+
+@admin.register(LeaseComparableRentRoll)
+class LeaseComparableRentRollAdmin(admin.ModelAdmin):
+    """
+    Admin configuration for LeaseComparableRentRoll model.
+
+    What: Unit-level rent roll data for lease comps (rare scenario).
+    Why: Allow editing of per-unit rent, lease terms, and occupancy for multi-family comps.
+    How: Default form (all fields visible); list key unit metrics.
+    """
+    list_display = (
+        'id', 'comparable_property', 'unit_number', 'beds', 'baths', 'unit_sqft',
+        'monthly_rent', 'lease_start_date', 'lease_end_date', 'is_occupied', 'created_at'
+    )
+    search_fields = (
+        'comparable_property__street_address', 
+        'comparable_property__city', 
+        'unit_number',
+        'tenant_name'
+    )
+    list_filter = ('is_occupied', 'lease_type', 'lease_start_date', 'beds')
+    ordering = ['comparable_property', 'unit_number']
+    readonly_fields = ('created_at', 'updated_at')
+    # No fieldsets/fields/exclude: show all fields by default
+
+
+@admin.register(HistoricalPropertyCashFlow)
+class HistoricalPropertyCashFlowAdmin(admin.ModelAdmin):
+    """
+    Admin configuration for HistoricalPropertyCashFlow model.
+
+    What: Historical property-level cash flows by year for owned/managed assets.
+    Why: Allow editing of annual income and expense data for NOI analysis.
+    How: Default form (all fields visible); list key metrics by asset and year.
+    """
+    list_display = (
+        'id', 'asset_hub', 'year', 'gross_rent_revenue', 'vacancy_loss',
+        'property_management', 'property_taxes', 'created_at'
+    )
+    search_fields = ('asset_hub__id', 'year')
+    list_filter = ('year',)
+    ordering = ['asset_hub', '-year']
+    readonly_fields = ('created_at', 'updated_at')
+    # No fieldsets/fields/exclude: show all fields by default
+
+
 @admin.register(LLTransactionSummary)
 class LLTransactionSummaryAdmin(admin.ModelAdmin):
     """
@@ -290,7 +473,7 @@ admin.site.add_action(delete_hub_and_children, name='delete_hub_and_children')
 class AssetIdHubAdmin(admin.ModelAdmin):
     """Admin for the central Asset ID Hub."""
     list_display = (
-        'id', 'servicer_id', 'servicer_refs',
+        'id', 'servicer_id', 'is_commercial', 'servicer_refs',
         # PK columns showing actual IDs of related records
         'seller_raw_data_id', 'seller_boarded_data_id', 'blended_outcome_model_id', 
         'servicer_loan_data_id', 'valuation_id', 'photo_id', 'document_id',
@@ -302,7 +485,7 @@ class AssetIdHubAdmin(admin.ModelAdmin):
     search_fields = (
         'servicer_id',
     )
-    list_filter = ()
+    list_filter = ('is_commercial',)
     actions_on_top = True
     actions_on_bottom = True
     actions = ['delete_selected', delete_hub_and_children]

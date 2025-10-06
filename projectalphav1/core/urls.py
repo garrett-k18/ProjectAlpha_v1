@@ -5,6 +5,7 @@ What this does:
 - Registers REST API endpoints for assumptions management
 - Uses Django REST Framework's router for automatic URL generation
 - Provides endpoints for StateReference, FCTimelines, etc.
+- Provides commercial analysis endpoints for unit mix and rent roll data
 
 Location: projectalphav1/core/urls.py
 """
@@ -16,6 +17,12 @@ from core.views.views_assumptions import (
     FCStatusViewSet,
     CommercialUnitsViewSet,
     ServicerViewSet
+)
+from core.views.commercial_api import (
+    UnitMixListView,
+    LeaseComparableUnitMixListView,
+    LeaseComparableRentRollListView,
+    RentRollListView
 )
 
 # Create a router and register our viewsets
@@ -31,4 +38,10 @@ router.register(r'servicers', ServicerViewSet, basename='servicers')
 # The API URLs are now determined automatically by the router
 urlpatterns = [
     path('', include(router.urls)),
+    
+    # Commercial analysis endpoints (match paths expected by frontend CommercialAnalysisTab)
+    path('unit-mix/<int:asset_hub_id>/', UnitMixListView.as_view(), name='unit-mix-list'),
+    path('lease-comp-unit-mix/<int:asset_hub_id>/', LeaseComparableUnitMixListView.as_view(), name='lease-comp-unit-mix-list'),
+    path('lease-comp-rent-roll/<int:asset_hub_id>/', LeaseComparableRentRollListView.as_view(), name='lease-comp-rent-roll-list'),
+    path('rent-roll/<int:asset_hub_id>/', RentRollListView.as_view(), name='rent-roll-list'),
 ]
