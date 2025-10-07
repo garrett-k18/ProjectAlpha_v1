@@ -19,6 +19,7 @@ Docs reviewed:
 from pathlib import Path
 import os
 from dotenv import load_dotenv
+import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -115,36 +116,67 @@ WSGI_APPLICATION = 'projectalphav1.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
+# Docs reviewed:
+# * dj-database-url: https://github.com/jazzband/dj-database-url
 
-DATABASES = {
-    # The default database points to the core schema
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DB_NAME', 'projectalphav1'),
-        'USER': os.getenv('DB_USER', 'postgres'),
-        'PASSWORD': os.getenv('DB_PASSWORD', '1218'),  # Default password for development
-        'HOST': os.getenv('DB_HOST', 'localhost'),
-        'PORT': os.getenv('DB_PORT', '5432'),
-        'OPTIONS': {
-            # Include seller_data so admin queries on default can join to seller tables
-            'options': '-c search_path=core,seller_data,public'
+# Use Railway DB in production (via DATABASE_URL env var), local DB in development
+if os.environ.get('DATABASE_URL'):
+    # Production (Railway) - PostgreSQL via DATABASE_URL
+    # Parse the Railway DATABASE_URL and configure both connections to point to production
+    railway_db_config = dj_database_url.parse(
+        os.environ.get('DATABASE_URL'),
+        conn_max_age=600,
+        ssl_require=False,
+    )
+    
+    # Configure default connection with core schema search path
+    DATABASES = {
+        'default': {
+            **railway_db_config,
+            'OPTIONS': {
+                # Include seller_data so admin queries on default can join to seller tables
+                'options': '-c search_path=core,seller_data,public'
+            },
         },
-    },
-    # The seller_data schema database connection
-    'seller_data': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DB_NAME', 'projectalphav1'),  # Same database, different schema
-        'USER': os.getenv('DB_USER', 'postgres'),
-        'PASSWORD': os.getenv('DB_PASSWORD', '1218'),  # Default password for development
-        'HOST': os.getenv('DB_HOST', 'localhost'),
-        'PORT': os.getenv('DB_PORT', '5432'),
-        'OPTIONS': {
-            # Include core so seller_data connection can see non-seller tables
-            'options': '-c search_path=seller_data,core,public'
+        # The seller_data schema database connection (same Railway DB, different schema)
+        'seller_data': {
+            **railway_db_config,
+            'OPTIONS': {
+                # Include core so seller_data connection can see non-seller tables
+                'options': '-c search_path=seller_data,core,public'
+            },
         },
-    },
-
-}
+    }
+else:
+    # Development (Local) - PostgreSQL with separate schema connections
+    DATABASES = {
+        # The default database points to the core schema
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.getenv('DB_NAME', 'projectalphav1'),
+            'USER': os.getenv('DB_USER', 'postgres'),
+            'PASSWORD': os.getenv('DB_PASSWORD', '1218'),  # Default password for development
+            'HOST': os.getenv('DB_HOST', 'localhost'),
+            'PORT': os.getenv('DB_PORT', '5432'),
+            'OPTIONS': {
+                # Include seller_data so admin queries on default can join to seller tables
+                'options': '-c search_path=core,seller_data,public'
+            },
+        },
+        # The seller_data schema database connection
+        'seller_data': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.getenv('DB_NAME', 'projectalphav1'),  # Same database, different schema
+            'USER': os.getenv('DB_USER', 'postgres'),
+            'PASSWORD': os.getenv('DB_PASSWORD', '1218'),  # Default password for development
+            'HOST': os.getenv('DB_HOST', 'localhost'),
+            'PORT': os.getenv('DB_PORT', '5432'),
+            'OPTIONS': {
+                # Include core so seller_data connection can see non-seller tables
+                'options': '-c search_path=seller_data,core,public'
+            },
+        },
+    }
 
 # Configure the database routers
 DATABASE_ROUTERS = ['projectalphav1.router.SchemaRouter']

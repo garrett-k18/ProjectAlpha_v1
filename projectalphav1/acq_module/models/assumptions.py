@@ -182,6 +182,16 @@ class TradeLevelAssumption(models.Model):
     # Link to the trade
     trade = models.ForeignKey(Trade, on_delete=models.CASCADE, related_name='trade_assumptions')
     
+    # Optional: selected servicer for this trade
+    servicer = models.ForeignKey(
+        'core.Servicer',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='trade_level_assumptions',
+        help_text="Selected servicing company for this trade",
+    )
+    
     # Trade dates
     bid_date = models.DateField(help_text="Date the bid was submitted")
     settlement_date = models.DateField(help_text="Expected or actual settlement date")
@@ -226,6 +236,7 @@ class TradeLevelAssumption(models.Model):
         ordering = ['-created_at']
         indexes = [
             models.Index(fields=['trade']),
+            models.Index(fields=['servicer']),
             models.Index(fields=['bid_date']),
         ]
         db_table = 'trade_level_assumptions'

@@ -161,7 +161,7 @@ class TradeLevelAssumptionAdmin(admin.ModelAdmin):
     list_filter = ('trade__seller',)
     search_fields = ('trade__trade_name', 'trade__seller__name')
     readonly_fields = ('created_at', 'updated_at')
-    autocomplete_fields = ['trade']
+    autocomplete_fields = ['trade', 'servicer']
     
     # No fieldsets: show all fields by default
 
