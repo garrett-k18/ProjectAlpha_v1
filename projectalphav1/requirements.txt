@@ -29,3 +29,5 @@ openpyxl>=3.1.0,<4
 
 # Legacy Excel format support (.xls files)
 xlrd>=2.0.0,<3
+
+gunicorn
