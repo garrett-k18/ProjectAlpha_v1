@@ -107,6 +107,9 @@ export const useDjangoAuthStore = defineStore("djangoAuth", {
       this.error = null;
       
       try {
+        // Fetch CSRF token before registration
+        await this.fetchCsrfToken();
+        
         const res = await http.post('/auth/register/', {
           first_name,
           last_name,
@@ -128,6 +131,21 @@ export const useDjangoAuthStore = defineStore("djangoAuth", {
     },
 
     /**
+     * Get CSRF token from Django backend
+     * This must be called before making POST requests to set the csrftoken cookie
+     * Docs: https://docs.djangoproject.com/en/5.2/ref/csrf/#ajax
+     */
+    async fetchCsrfToken() {
+      try {
+        await http.get('/auth/csrf/');
+        // Cookie is automatically set by Django, no need to store it
+      } catch (error) {
+        console.warn('Failed to fetch CSRF token:', error);
+        // Non-fatal - continue anyway
+      }
+    },
+
+    /**
      * Login user
      * @param email User's email
      * @param password User's password
@@ -138,6 +156,9 @@ export const useDjangoAuthStore = defineStore("djangoAuth", {
       this.error = null;
       
       try {
+        // Fetch CSRF token before login
+        await this.fetchCsrfToken();
+        
         const res = await http.post('/auth/login/', { email, password });
         this.authUser = res.data;
         this.token = res.data.token;
