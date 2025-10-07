@@ -22,7 +22,8 @@ from core.views.commercial_api import (
     UnitMixListView,
     LeaseComparableUnitMixListView,
     LeaseComparableRentRollListView,
-    RentRollListView
+    RentRollListView,
+    HistoricalPropertyCashFlowListView
 )
 
 # Create a router and register our viewsets
@@ -44,4 +45,5 @@ urlpatterns = [
     path('lease-comp-unit-mix/<int:asset_hub_id>/', LeaseComparableUnitMixListView.as_view(), name='lease-comp-unit-mix-list'),
     path('lease-comp-rent-roll/<int:asset_hub_id>/', LeaseComparableRentRollListView.as_view(), name='lease-comp-rent-roll-list'),
     path('rent-roll/<int:asset_hub_id>/', RentRollListView.as_view(), name='rent-roll-list'),
+    path('historical-cashflow/<int:asset_hub_id>/', HistoricalPropertyCashFlowListView.as_view(), name='historical-cashflow-list'),
 ]

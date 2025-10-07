@@ -11,7 +11,8 @@ from .models.valuations import Valuation
 from .models.attachments import Photo, Document
 from .models.transactions import LLTransactionSummary, LLCashFlowSeries
 from .models.commercial import UnitMix, RentRoll
-from .models.valuations import ComparableProperty, SalesComparable, LeaseComparable, LeaseComparableUnitMix, LeaseComparableRentRoll, HistoricalPropertyCashFlow
+from .models.valuations import ComparableProperty, SalesComparable, LeaseComparable, LeaseComparableUnitMix, LeaseComparableRentRoll
+from .models.propertycfs import HistoricalPropertyCashFlow
 
 # Cross-app children that reference AssetIdHub
 from acq_module.models.seller import SellerRawData
@@ -348,7 +349,7 @@ class HistoricalPropertyCashFlowAdmin(admin.ModelAdmin):
     How: Default form (all fields visible); list key metrics by asset and year.
     """
     list_display = (
-        'id', 'asset_hub', 'year', 'gross_rent_revenue', 'vacancy_loss',
+        'id', 'asset_hub', 'year', 'gross_potential_rent_revenue', 'vacancy_loss',
         'property_management', 'property_taxes', 'created_at'
     )
     search_fields = ('asset_hub__id', 'year')

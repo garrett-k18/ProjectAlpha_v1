@@ -6,8 +6,8 @@
        Uses Hyper UI utilities + Bootstrap classes for clean layout.
   -->
   <div class="row g-3">
-    <!-- Subject Unit Mix - using reusable component -->
-    <div class="col-12">
+    <!-- Subject Unit Mix and Rent Roll side by side -->
+    <div class="col-md-6">
       <UnitMixTable 
         :unit-mix-data="subjectUnitMix"
         :loading="loading.subjectUnitMix"
@@ -16,89 +16,36 @@
         :show-totals="true"
       />
     </div>
-
-    <!-- Subject Rent Roll - using reusable component -->
-    <div class="col-12">
-      <RentRollTable
-        :rent-roll-data="subjectRentRoll"
-        :loading="loading.subjectRentRoll"
-        title="Subject Rent Roll"
-      />
-    </div>
-
-    <!-- Lease Comparable Unit Mix -->
-    <div class="col-12">
-      <div class="card h-100">
+    <div class="col-md-6">
+      <div class="card h-100 rent-roll-card">
         <div class="card-header d-flex align-items-center justify-content-between">
-          <h5 class="card-title mb-0">Lease Comp Unit Mix</h5>
+          <h5 class="card-title mb-0">Subject Rent Roll</h5>
         </div>
-        <div class="card-body">
-          <div v-if="loading.compMix" class="text-muted">Loading lease comp unit mix…</div>
-          <div v-else-if="leaseCompUnitMix.length === 0" class="text-muted">No lease comp unit mix found.</div>
-          <div v-else class="table-responsive">
-            <table class="table table-sm align-middle mb-0">
-              <thead>
-                <tr>
-                  <th>Property</th>
-                  <th>Unit Type</th>
-                  <th class="text-end">Count</th>
-                  <th class="text-end">Avg Sqft</th>
-                  <th class="text-end">Avg Rent</th>
-                  <th class="text-end">Rent/Sqft</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(m, idx) in leaseCompUnitMix" :key="`mix-${idx}`">
-                  <td>{{ m.property_label }}</td>
-                  <td>{{ m.unit_type }}</td>
-                  <td class="text-end">{{ formatInt(m.unit_count) }}</td>
-                  <td class="text-end">{{ formatInt(m.unit_avg_sqft) }}</td>
-                  <td class="text-end">{{ formatCurrency(m.unit_avg_rent) }}</td>
-                  <td class="text-end">{{ formatCurrency(m.price_sqft) }}</td>
-                </tr>
-              </tbody>
-            </table>
+        <div class="card-body p-0">
+          <div class="rent-roll-content">
+            <RentRollTable
+              :rent-roll-data="subjectRentRoll"
+              :loading="loading.subjectRentRoll"
+              title=""
+            />
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Lease Comparable Rent Roll (rare) -->
+    <!-- Historical Property Cash Flow - full width below -->
     <div class="col-12">
-      <div class="card h-100">
+      <div class="card">
         <div class="card-header d-flex align-items-center justify-content-between">
-          <h5 class="card-title mb-0">Lease Comp Rent Roll</h5>
+          <h5 class="card-title mb-0">Historical Property Cash Flow</h5>
         </div>
-        <div class="card-body">
-          <div v-if="loading.compRoll" class="text-muted">Loading lease comp rent roll…</div>
-          <div v-else-if="leaseCompRentRoll.length === 0" class="text-muted">No lease comp rent roll records.</div>
-          <div v-else class="table-responsive">
-            <table class="table table-sm align-middle mb-0">
-              <thead>
-                <tr>
-                  <th>Property</th>
-                  <th>Unit</th>
-                  <th class="text-end">Beds</th>
-                  <th class="text-end">Baths</th>
-                  <th class="text-end">Sqft</th>
-                  <th class="text-end">Rent</th>
-                  <th class="text-end">Start</th>
-                  <th class="text-end">End</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(r, idx) in leaseCompRentRoll" :key="`roll-${idx}`">
-                  <td>{{ r.property_label }}</td>
-                  <td>{{ r.unit_number }}</td>
-                  <td class="text-end">{{ r.beds ?? '-' }}</td>
-                  <td class="text-end">{{ r.baths ?? '-' }}</td>
-                  <td class="text-end">{{ formatInt(r.unit_sqft) }}</td>
-                  <td class="text-end">{{ formatCurrency(r.monthly_rent) }}</td>
-                  <td class="text-end">{{ formatDate(r.lease_start_date) }}</td>
-                  <td class="text-end">{{ formatDate(r.lease_end_date) }}</td>
-                </tr>
-              </tbody>
-            </table>
+        <div class="card-body p-0">
+          <div class="cashflow-content">
+            <HistoricalCashFlowTable
+              :cash-flow-data="historicalCashFlow"
+              :loading="loading.historicalCashFlow"
+              title=""
+            />
           </div>
         </div>
       </div>
@@ -117,6 +64,7 @@ import http from '@/lib/http'
 // Import reusable components
 import UnitMixTable from '@/views/acq_module/loanlvl/components/commercial/UnitMixTable.vue'
 import RentRollTable from '@/views/acq_module/loanlvl/components/commercial/RentRollTable.vue'
+import HistoricalCashFlowTable from '@/views/acq_module/loanlvl/components/commercial/HistoricalCashFlowTable.vue'
 
 const props = defineProps<{
   row: Record<string, any> | null
@@ -128,15 +76,13 @@ const props = defineProps<{
 const loading = ref({ 
   subjectUnitMix: false, 
   subjectRentRoll: false,
-  compMix: false, 
-  compRoll: false 
+  historicalCashFlow: false
 })
 
 // Data stores
 const subjectUnitMix = ref<Array<any>>([])
 const subjectRentRoll = ref<Array<any>>([])
-const leaseCompUnitMix = ref<Array<any>>([])
-const leaseCompRentRoll = ref<Array<any>>([])
+const historicalCashFlow = ref<Array<any>>([])
 
 // Format helpers (kept simple; consider centralizing if used widely)
 function formatCurrency(v: any) {
@@ -178,29 +124,15 @@ async function fetchSubjectRentRoll(assetId: number) {
   }
 }
 
-async function fetchLeaseCompUnitMix(assetId: number) {
-  loading.value.compMix = true
+async function fetchHistoricalCashFlow(assetId: number) {
+  loading.value.historicalCashFlow = true
   try {
-    // Example endpoint: /core/lease-comp-unit-mix/{assetId}/ (adjust to your actual routes)
-    const res = await http.get(`/core/lease-comp-unit-mix/${assetId}/`)
-    leaseCompUnitMix.value = Array.isArray(res.data) ? res.data : []
+    const res = await http.get(`/core/historical-cashflow/${assetId}/`)
+    historicalCashFlow.value = Array.isArray(res.data) ? res.data : []
   } catch (e) {
-    leaseCompUnitMix.value = []
+    historicalCashFlow.value = []
   } finally {
-    loading.value.compMix = false
-  }
-}
-
-async function fetchLeaseCompRentRoll(assetId: number) {
-  loading.value.compRoll = true
-  try {
-    // Example endpoint: /core/lease-comp-rent-roll/{assetId}/ (adjust to your actual routes)
-    const res = await http.get(`/core/lease-comp-rent-roll/${assetId}/`)
-    leaseCompRentRoll.value = Array.isArray(res.data) ? res.data : []
-  } catch (e) {
-    leaseCompRentRoll.value = []
-  } finally {
-    loading.value.compRoll = false
+    loading.value.historicalCashFlow = false
   }
 }
 
@@ -215,8 +147,7 @@ async function loadAll() {
   await Promise.all([
     fetchSubjectUnitMix(id),
     fetchSubjectRentRoll(id),
-    fetchLeaseCompUnitMix(id),
-    fetchLeaseCompRentRoll(id),
+    fetchHistoricalCashFlow(id),
   ])
 }
 
@@ -227,4 +158,30 @@ watch(() => props.assetId, loadAll)
 <style scoped>
 /* Minimal; rely on Hyper UI / Bootstrap styles */
 .card-title { font-weight: 600; }
+
+/* Rent Roll Card - Taller with scroll */
+.rent-roll-card {
+  min-height: 600px;
+  max-height: 800px;
+  display: flex;
+  flex-direction: column;
+}
+
+.rent-roll-card .card-body {
+  flex: 1;
+  overflow: hidden;
+}
+
+.rent-roll-content {
+  height: 100%;
+  max-height: calc(100vh - 300px);
+  overflow-y: auto;
+  padding: 1.25rem;
+}
+
+/* Cash Flow Content - Horizontal scroll for wide table */
+.cashflow-content {
+  overflow-x: auto;
+  padding: 1.25rem;
+}
 </style>

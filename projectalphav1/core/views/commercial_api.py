@@ -16,20 +16,20 @@ Docs reviewed:
 - DRF ListAPIView: https://www.django-rest-framework.org/api-guide/generic-views/#listapiview
 """
 from rest_framework import generics
-from rest_framework.response import Response
-from core.models.commercial import UnitMix
+from core.models.commercial import UnitMix, RentRoll
 from core.models.valuations import (
     LeaseComparableUnitMix,
     LeaseComparableRentRoll,
     ComparableProperty
 )
+from core.models.propertycfs import HistoricalPropertyCashFlow
 from core.serializers.commercial_serializers import (
     UnitMixSerializer,
     LeaseComparableUnitMixSerializer,
     LeaseComparableRentRollSerializer,
-    RentRollSerializer
+    RentRollSerializer,
+    HistoricalPropertyCashFlowSerializer
 )
-from core.models.commercial import RentRoll
 
 
 class UnitMixListView(generics.ListAPIView):
@@ -38,7 +38,6 @@ class UnitMixListView(generics.ListAPIView):
     
     What: Returns all unit mix records for a given asset
     Why: Frontend Commercial Analysis tab needs subject property unit mix data
-    How: Filter UnitMix by asset_hub_id from URL parameter
     
     Returns: List of unit mix objects with unit_type, count, avg sqft, avg rent, rent/sqft
     """
@@ -143,3 +142,18 @@ class RentRollListView(generics.ListAPIView):
         asset_hub_id = self.kwargs.get('asset_hub_id')
         # NOTE: Model field is named 'asset_hub_id' (ForeignKey), so the integer column is 'asset_hub_id_id'
         return RentRoll.objects.filter(asset_hub_id_id=asset_hub_id).order_by('unit_name', 'tenant_name')
+
+
+class HistoricalPropertyCashFlowListView(generics.ListAPIView):
+    """
+    GET /core/historical-cashflow/<asset_hub_id>/
+    
+    What: Returns historical property cash flow records (annual operating data) for the asset
+    Why: Frontend needs historical cash flow for Commercial Analysis tab
+    How: Filter HistoricalPropertyCashFlow by asset_hub from the URL, order by year descending
+    """
+    serializer_class = HistoricalPropertyCashFlowSerializer
+
+    def get_queryset(self):
+        asset_hub_id = self.kwargs.get('asset_hub_id')
+        return HistoricalPropertyCashFlow.objects.filter(asset_hub_id=asset_hub_id).order_by('-year')

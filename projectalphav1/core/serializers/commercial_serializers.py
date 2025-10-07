@@ -13,6 +13,7 @@ Docs reviewed:
 from rest_framework import serializers
 from core.models.commercial import UnitMix, RentRoll
 from core.models.valuations import LeaseComparableUnitMix, LeaseComparableRentRoll
+from core.models.propertycfs import HistoricalPropertyCashFlow
 
 
 class UnitMixSerializer(serializers.ModelSerializer):
@@ -288,3 +289,132 @@ class LeaseComparableRentRollSerializer(serializers.ModelSerializer):
             return f"Comparable Property #{comp.id}"
         except Exception:
             return "Unknown Property"
+
+
+class HistoricalPropertyCashFlowSerializer(serializers.ModelSerializer):
+    """
+    Serializer for Historical Property Cash Flow data.
+    
+    What: Exposes annual cash flow data with calculated metrics from model methods
+    Why: Frontend needs historical operating performance for analysis
+    How: Include model-derived metrics like vacancy_loss, effective rent, EGI, Total Opex, NOI, and OER
+    """
+    # Calculated metrics provided by model helpers
+    vacancy_loss = serializers.SerializerMethodField()
+    effective_gross_rent_revenue = serializers.SerializerMethodField()
+    effective_gross_income = serializers.SerializerMethodField()
+    total_operating_expenses = serializers.SerializerMethodField()
+    net_operating_income = serializers.SerializerMethodField()
+    operating_expense_ratio = serializers.SerializerMethodField()
+
+    class Meta:
+        model = HistoricalPropertyCashFlow
+        fields = [
+            'id',
+            'year',
+            # Income
+            'gross_potential_rent_revenue',
+            'cam_income',
+            'other_income',
+            'vacancy_pct',
+            'vacancy_loss',  # Calculated from vacancy_pct * gross_potential_rent_revenue
+            'effective_gross_rent_revenue',  # Calculated: gross_potential_rent_revenue - vacancy_loss
+            # Operating Expenses
+            'admin',
+            'insurance',
+            'utilities_water',
+            'utilities_sewer',
+            'utilities_electric',
+            'utilities_gas',
+            'trash',
+            'utilities_other',
+            'property_management',
+            'repairs_maintenance',
+            'marketing',
+            'property_taxes',
+            'hoa_fees',
+            'security_property_preservation',
+            'landscaping',
+            'pool_maintenance',
+            'other_expense',
+            # Calculated fields
+            'effective_gross_income',  # Calculated: effective_gross_rent_revenue + other_income + cam_income
+            'total_operating_expenses',
+            'net_operating_income',
+            'operating_expense_ratio',
+            # Meta
+            'notes',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = [
+            'id', 'vacancy_loss', 'effective_gross_rent_revenue', 'effective_gross_income', 
+            'total_operating_expenses', 'net_operating_income', 'operating_expense_ratio', 
+            'created_at', 'updated_at'
+        ]
+
+    def get_vacancy_loss(self, obj):
+        """
+        What: Vacancy Loss (Gross Potential Rent * Vacancy %)
+        Why: Shows dollar amount of lost revenue due to vacancy
+        How: Calls obj.vacancy_loss()
+        """
+        try:
+            return float(obj.vacancy_loss())
+        except Exception:
+            return 0.0
+
+    def get_effective_gross_rent_revenue(self, obj):
+        """
+        What: Effective Gross Rent Revenue (GPR - Vacancy Loss)
+        Why: Shows actual rent revenue after vacancy
+        How: Calls obj.effective_gross_rent_revenue()
+        """
+        try:
+            return float(obj.effective_gross_rent_revenue())
+        except Exception:
+            return 0.0
+
+    def get_effective_gross_income(self, obj):
+        """
+        What: Effective Gross Income (Effective Rent + Other Income + CAM)
+        Why: Shows total actual income after vacancy
+        How: Calls obj.effective_gross_income()
+        """
+        try:
+            return float(obj.effective_gross_income())
+        except Exception:
+            return 0.0
+
+    def get_total_operating_expenses(self, obj):
+        """
+        What: Sum of all operating expenses
+        Why: Shows total annual opex
+        How: Calls obj.total_operating_expenses()
+        """
+        try:
+            return float(obj.total_operating_expenses())
+        except Exception:
+            return 0.0
+
+    def get_net_operating_income(self, obj):
+        """
+        What: Net Operating Income (EGI - Total Opex)
+        Why: Key valuation metric (NOI / Cap Rate = Value)
+        How: Calls obj.net_operating_income()
+        """
+        try:
+            return float(obj.net_operating_income())
+        except Exception:
+            return 0.0
+
+    def get_operating_expense_ratio(self, obj):
+        """
+        What: Operating Expense Ratio (Total Opex / EGI * 100)
+        Why: Measures operating efficiency
+        How: Calls obj.operating_expense_ratio()
+        """
+        try:
+            return float(obj.operating_expense_ratio())
+        except Exception:
+            return 0.0

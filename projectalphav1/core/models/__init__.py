@@ -8,7 +8,8 @@ from .valuations import Valuation
 from .attachments import Photo, Document
 from .transactions import LLTransactionSummary, LLCashFlowSeries
 from .commercial import UnitMix, RentRoll
-from .valuations import ComparableProperty, SalesComparable, LeaseComparable, LeaseComparableUnitMix, LeaseComparableRentRoll, HistoricalPropertyCashFlow
+from .valuations import ComparableProperty, SalesComparable, LeaseComparable, LeaseComparableUnitMix, LeaseComparableRentRoll
+from .propertycfs import HistoricalPropertyCashFlow
 
 __all__ = [
     'DebtFacility',

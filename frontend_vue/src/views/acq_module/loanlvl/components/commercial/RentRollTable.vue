@@ -7,84 +7,76 @@
     
     Props:
     - rentRollData: Array of rent roll objects with unit-level lease details
-    - title: string - card header title
+    - title: string - card header title (can be empty if wrapped in parent card)
     - loading: boolean - show loading spinner
   -->
-  <div class="card">
-    <div class="card-header d-flex align-items-center justify-content-between">
-      <!-- Title prop allows parent to customize header -->
-      <h5 class="card-title mb-0">{{ title }}</h5>
-      <!-- Optional slot for actions (e.g., add/edit buttons) -->
-      <slot name="actions"></slot>
+  <div>
+    <!-- Loading state -->
+    <div v-if="loading" class="text-muted text-center py-3">
+      <div class="spinner-border spinner-border-sm me-2" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+      Loading rent roll data...
     </div>
-    <div class="card-body">
-      <!-- Loading state -->
-      <div v-if="loading" class="text-muted text-center py-3">
-        <div class="spinner-border spinner-border-sm me-2" role="status">
-          <span class="visually-hidden">Loading...</span>
-        </div>
-        Loading rent roll data...
-      </div>
-      
-      <!-- Empty state -->
-      <div v-else-if="!rentRollData || rentRollData.length === 0" class="text-muted text-center py-3">
-        No rent roll data available.
-      </div>
-      
-      <!-- Data table (Hyper UI theme - table-centered) -->
-      <div v-else class="table-responsive">
-        <table class="table table-centered mb-0">
-          <thead>
-            <tr>
-              <!-- Column headers for rent roll data -->
-              <th>Tenant</th>
-              <th>Unit</th>
-              <th class="text-end">Sq Feet</th>
-              <th class="text-end">Monthly Rent</th>
-              <th class="text-end">Rent/Sqft</th>
-              <th class="text-end">Annual Rent</th>
-              <th class="text-end">Lease Start</th>
-              <th class="text-end">Lease End</th>
-              <th class="text-end">Term (Mo)</th>
-              <th>Lease Type</th>
-            </tr>
-          </thead>
-          <tbody>
-            <!-- Loop through rent roll rows -->
-            <tr v-for="(unit, index) in rentRollData" :key="`unit-${index}`">
-              <!-- Tenant Name -->
-              <td>{{ unit.tenant_name || '-' }}</td>
-              
-              <!-- Unit Name/Number -->
-              <td>{{ unit.unit_name || '-' }}</td>
-              
-              <!-- Square Feet -->
-              <td class="text-end">{{ formatNumber(unit.sq_feet) }}</td>
-              
-              <!-- Monthly Rent -->
-              <td class="text-end">{{ formatCurrency(unit.rent) }}</td>
-              
-              <!-- Rent per Sqft (from backend calculation) -->
-              <td class="text-end">{{ formatCurrencyWithDecimals(unit.price_per_sqft) }}</td>
-              
-              <!-- Annual Rent (from backend calculation) -->
-              <td class="text-end">{{ formatCurrency(unit.annual_rent) }}</td>
-              
-              <!-- Lease Start Date -->
-              <td class="text-end">{{ formatDate(unit.lease_start_date) }}</td>
-              
-              <!-- Lease End Date -->
-              <td class="text-end">{{ formatDate(unit.lease_end_date) }}</td>
-              
-              <!-- Lease Term (months) -->
-              <td class="text-end">{{ formatCount(unit.lease_term_months) }}</td>
-              
-              <!-- Lease Type -->
-              <td>{{ unit.lease_type || '-' }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+    
+    <!-- Empty state -->
+    <div v-else-if="!rentRollData || rentRollData.length === 0" class="text-muted text-center py-3">
+      No rent roll data available.
+    </div>
+    
+    <!-- Data table (Hyper UI theme - table-centered) -->
+    <div v-else class="table-responsive">
+      <table class="table table-centered mb-0">
+        <thead>
+          <tr>
+            <!-- Column headers for rent roll data -->
+            <th>Tenant</th>
+            <th>Unit</th>
+            <th class="text-end">Sq Feet</th>
+            <th class="text-end">Monthly Rent</th>
+            <th class="text-end">Rent/Sqft</th>
+            <th class="text-end">Annual Rent</th>
+            <th class="text-end">Lease Start</th>
+            <th class="text-end">Lease End</th>
+            <th class="text-end">Term (Mo)</th>
+            <th>Lease Type</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Loop through rent roll rows -->
+          <tr v-for="(unit, index) in rentRollData" :key="`unit-${index}`">
+            <!-- Tenant Name -->
+            <td>{{ unit.tenant_name || '-' }}</td>
+            
+            <!-- Unit Name/Number -->
+            <td>{{ unit.unit_name || '-' }}</td>
+            
+            <!-- Square Feet -->
+            <td class="text-end">{{ formatNumber(unit.sq_feet) }}</td>
+            
+            <!-- Monthly Rent -->
+            <td class="text-end">{{ formatCurrency(unit.rent) }}</td>
+            
+            <!-- Rent per Sqft (from backend calculation) -->
+            <td class="text-end">{{ formatCurrencyWithDecimals(unit.price_per_sqft) }}</td>
+            
+            <!-- Annual Rent (from backend calculation) -->
+            <td class="text-end">{{ formatCurrency(unit.annual_rent) }}</td>
+            
+            <!-- Lease Start Date -->
+            <td class="text-end">{{ formatDate(unit.lease_start_date) }}</td>
+            
+            <!-- Lease End Date -->
+            <td class="text-end">{{ formatDate(unit.lease_end_date) }}</td>
+            
+            <!-- Lease Term (months) -->
+            <td class="text-end">{{ formatCount(unit.lease_term_months) }}</td>
+            
+            <!-- Lease Type -->
+            <td>{{ unit.lease_type || '-' }}</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </div>
 </template>
@@ -93,14 +85,13 @@
 /**
  * RentRollTable Component
  * 
- * WHAT: Displays rent roll (unit-level lease) data in a formatted table
  * WHY: Centralizes rent roll display logic for reuse across commercial analysis
  * HOW: Accepts rent roll array from parent, formats all fields using backend calculations
  * 
  * Props:
  * - rentRollData: Array<RentRollRow> - list of rent roll units
- * - title: string - card header title
- * - loading: boolean - loading state
+ * - title?: string - card header title (optional, can be empty if wrapped in parent card)
+ * - loading?: boolean - loading state
  */
 
 // Props interface for strong typing
