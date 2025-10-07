@@ -292,7 +292,8 @@ import VectorMap from "@/views/dashboards/acquisitions/vectorMap.vue";
 import Widgets from "@/views/dashboards/acquisitions/widgets.vue";
 import TaskingGrid from "@/views/dashboards/acquisitions/components/TaskingGrid.vue";
 // Local type for document items used by TradeDocumentsModal
-interface DocumentItem { id: string; name: string; type: string; sizeBytes: number; previewUrl: string; downloadUrl: string }
+// Exported to fix TypeScript module inference when this component is imported elsewhere
+export interface DocumentItem { id: string; name: string; type: string; sizeBytes: number; previewUrl: string; downloadUrl: string }
 // AG Grid: simplified testing grid for acquisitions dashboard
 import AcqGrid from "@/views/dashboards/acquisitions/acq-grid.vue";
 // BootstrapVue Next modal component (Vue 3 compatible)
