@@ -80,6 +80,16 @@ class UnitMixSerializer(serializers.ModelSerializer):
         except Exception:
             return 0.0
 
+    def get_cap_rate(self, obj):
+        """
+        What: Cap Rate (NOI / Value * 100)
+        Why: Standard unlevered return metric
+        How: Calls obj.cap_rate()
+        """
+        try:
+            return float(obj.cap_rate())
+        except Exception:
+            return 0.0
 
 class RentRollSerializer(serializers.ModelSerializer):
     """
@@ -306,6 +316,8 @@ class HistoricalPropertyCashFlowSerializer(serializers.ModelSerializer):
     total_operating_expenses = serializers.SerializerMethodField()
     net_operating_income = serializers.SerializerMethodField()
     operating_expense_ratio = serializers.SerializerMethodField()
+    cap_rate = serializers.SerializerMethodField()
+    total_utilities = serializers.SerializerMethodField()
 
     class Meta:
         model = HistoricalPropertyCashFlow
@@ -338,10 +350,12 @@ class HistoricalPropertyCashFlowSerializer(serializers.ModelSerializer):
             'pool_maintenance',
             'other_expense',
             # Calculated fields
+            'total_utilities',
             'effective_gross_income',  # Calculated: effective_gross_rent_revenue + other_income + cam_income
             'total_operating_expenses',
             'net_operating_income',
             'operating_expense_ratio',
+            'cap_rate',
             # Meta
             'notes',
             'created_at',
@@ -349,7 +363,7 @@ class HistoricalPropertyCashFlowSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             'id', 'vacancy_loss', 'effective_gross_rent_revenue', 'effective_gross_income', 
-            'total_operating_expenses', 'net_operating_income', 'operating_expense_ratio', 
+            'total_utilities', 'total_operating_expenses', 'net_operating_income', 'operating_expense_ratio', 'cap_rate', 
             'created_at', 'updated_at'
         ]
 
@@ -416,5 +430,16 @@ class HistoricalPropertyCashFlowSerializer(serializers.ModelSerializer):
         """
         try:
             return float(obj.operating_expense_ratio())
+        except Exception:
+            return 0.0
+
+    def get_total_utilities(self, obj):
+        """
+        What: Total of all utilities expenses
+        Why: Allows grouping utilities under a single UI toggle
+        How: Calls obj.total_utilities()
+        """
+        try:
+            return float(obj.total_utilities())
         except Exception:
             return 0.0

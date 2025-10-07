@@ -58,7 +58,7 @@
             >
               <td class="fw-bold ps-3">
                 <i :class="grossRevenueCollapsed ? 'mdi mdi-chevron-right' : 'mdi mdi-chevron-down'" class="me-1"></i>
-                Total Gross Revenue (EGI)
+                Total Gross Revenue
               </td>
               <td v-for="row in cashFlowData" :key="`egi-total-${row.year}`" class="text-end fw-bold">
                 {{ formatCurrency(row.effective_gross_income) }}
@@ -66,40 +66,40 @@
             </tr>
 
             <!-- Sub-items: Gross Potential Rent Revenue -->
-            <tr v-show="!grossRevenueCollapsed" class="bg-light">
-              <td class="small text-muted ps-5">Gross Potential Rent Revenue</td>
+            <tr v-show="!grossRevenueCollapsed">
+              <td class="small text-muted ps-5 sub-indent">Gross Potential Rent Revenue</td>
               <td v-for="row in cashFlowData" :key="`gpr-${row.year}`" class="text-end small">
                 {{ formatCurrency(row.gross_potential_rent_revenue) }}
               </td>
             </tr>
 
             <!-- Sub-items: Vacancy % / Loss -->
-            <tr v-show="!grossRevenueCollapsed" class="bg-light">
-              <td class="small text-muted ps-5">Vacancy % / Loss</td>
+            <tr v-show="!grossRevenueCollapsed">
+              <td class="small text-muted ps-5 sub-indent sub-indent-2">Vacancy % / Loss</td>
               <td v-for="row in cashFlowData" :key="`vl-${row.year}`" class="text-end small text-danger">
                 {{ formatPercent(row.vacancy_pct) }} / {{ formatCurrency(row.vacancy_loss) }}
               </td>
             </tr>
 
             <!-- Sub-items: Effective Gross Rent Revenue -->
-            <tr v-show="!grossRevenueCollapsed" class="bg-light">
-              <td class="small text-muted ps-5 fw-semibold">Effective Gross Rent Revenue</td>
+            <tr v-show="!grossRevenueCollapsed">
+              <td class="small text-muted ps-5 sub-indent fw-semibold">Effective Gross Rent Revenue</td>
               <td v-for="row in cashFlowData" :key="`egrr-sub-${row.year}`" class="text-end small fw-semibold">
                 {{ formatCurrency(row.effective_gross_rent_revenue) }}
               </td>
             </tr>
 
             <!-- Sub-items: Other Income -->
-            <tr v-show="!grossRevenueCollapsed" class="bg-light">
-              <td class="small text-muted ps-5">Other Income</td>
+            <tr v-show="!grossRevenueCollapsed">
+              <td class="small text-muted ps-5 sub-indent sub-indent-2">Other Income</td>
               <td v-for="row in cashFlowData" :key="`oi-${row.year}`" class="text-end small">
                 {{ formatCurrency(row.other_income) }}
               </td>
             </tr>
 
             <!-- Sub-items: CAM Income -->
-            <tr v-show="!grossRevenueCollapsed" class="bg-light">
-              <td class="small text-muted ps-5">CAM Income</td>
+            <tr v-show="!grossRevenueCollapsed">
+              <td class="small text-muted ps-5 sub-indent sub-indent-2">CAM Income</td>
               <td v-for="row in cashFlowData" :key="`cam-${row.year}`" class="text-end small">
                 {{ formatCurrency(row.cam_income) }}
               </td>
@@ -121,103 +121,119 @@
 
             <!-- Expense Sub-items -->
             <tr v-show="!expensesCollapsed">
-              <td class="small text-muted ps-5">Admin</td>
+              <td class="small text-muted ps-5 sub-indent">Admin</td>
               <td v-for="row in cashFlowData" :key="`admin-${row.year}`" class="text-end small">
                 {{ formatCurrency(row.admin) }}
               </td>
             </tr>
             <tr v-show="!expensesCollapsed">
-              <td class="small text-muted ps-5">Insurance</td>
-              <td v-for="row in cashFlowData" :key="`insurance-${row.year}`" class="text-end small">
-                {{ formatCurrency(row.insurance) }}
+              <td class="small text-muted ps-5 sub-indent">Property Taxes</td>
+              <td v-for="row in cashFlowData" :key="`taxes-${row.year}`" class="text-end small">
+                {{ formatCurrency(row.property_taxes) }}
               </td>
             </tr>
-            <tr v-show="!expensesCollapsed">
-              <td class="small text-muted ps-5">Utilities - Water</td>
+            <!-- Utilities wrapper (nested group) -->
+            <tr 
+              v-show="!expensesCollapsed"
+              @click="utilitiesCollapsed = !utilitiesCollapsed"
+              class="cursor-pointer"
+              role="button"
+              :aria-expanded="!utilitiesCollapsed"
+            >
+              <td class="small fw-semibold text-muted ps-4-5">
+                <i :class="utilitiesCollapsed ? 'mdi mdi-chevron-right' : 'mdi mdi-chevron-down'" class="me-1"></i>
+                Utilities
+              </td>
+              <td v-for="row in cashFlowData" :key="`utils-total-${row.year}`" class="text-end small fw-semibold">
+                {{ formatCurrency(row.total_utilities) }}
+              </td>
+            </tr>
+            <tr v-show="!expensesCollapsed && !utilitiesCollapsed">
+              <td class="small text-muted ps-5 sub-indent sub-indent-2">Water</td>
               <td v-for="row in cashFlowData" :key="`water-${row.year}`" class="text-end small">
                 {{ formatCurrency(row.utilities_water) }}
               </td>
             </tr>
-            <tr v-show="!expensesCollapsed">
-              <td class="small text-muted ps-5">Utilities - Sewer</td>
+            <tr v-show="!expensesCollapsed && !utilitiesCollapsed">
+              <td class="small text-muted ps-5 sub-indent sub-indent-2">Sewer</td>
               <td v-for="row in cashFlowData" :key="`sewer-${row.year}`" class="text-end small">
                 {{ formatCurrency(row.utilities_sewer) }}
               </td>
             </tr>
-            <tr v-show="!expensesCollapsed">
-              <td class="small text-muted ps-5">Utilities - Electric</td>
+            <tr v-show="!expensesCollapsed && !utilitiesCollapsed">
+              <td class="small text-muted ps-5 sub-indent sub-indent-2">Electric</td>
               <td v-for="row in cashFlowData" :key="`electric-${row.year}`" class="text-end small">
                 {{ formatCurrency(row.utilities_electric) }}
               </td>
             </tr>
-            <tr v-show="!expensesCollapsed">
-              <td class="small text-muted ps-5">Utilities - Gas</td>
+            <tr v-show="!expensesCollapsed && !utilitiesCollapsed">
+              <td class="small text-muted ps-5 sub-indent sub-indent-2">Gas</td>
               <td v-for="row in cashFlowData" :key="`gas-${row.year}`" class="text-end small">
                 {{ formatCurrency(row.utilities_gas) }}
               </td>
             </tr>
-            <tr v-show="!expensesCollapsed">
-              <td class="small text-muted ps-5">Trash</td>
+            <tr v-show="!expensesCollapsed && !utilitiesCollapsed">
+              <td class="small text-muted ps-5 sub-indent sub-indent-2">Trash</td>
               <td v-for="row in cashFlowData" :key="`trash-${row.year}`" class="text-end small">
                 {{ formatCurrency(row.trash) }}
               </td>
             </tr>
-            <tr v-show="!expensesCollapsed">
-              <td class="small text-muted ps-5">Utilities - Other</td>
+            <tr v-show="!expensesCollapsed && !utilitiesCollapsed">
+              <td class="small text-muted ps-5 sub-indent sub-indent-2">Other</td>
               <td v-for="row in cashFlowData" :key="`util-other-${row.year}`" class="text-end small">
                 {{ formatCurrency(row.utilities_other) }}
               </td>
             </tr>
             <tr v-show="!expensesCollapsed">
-              <td class="small text-muted ps-5">Property Management</td>
+              <td class="small text-muted ps-5 sub-indent">Property Management</td>
               <td v-for="row in cashFlowData" :key="`pm-${row.year}`" class="text-end small">
                 {{ formatCurrency(row.property_management) }}
               </td>
             </tr>
             <tr v-show="!expensesCollapsed">
-              <td class="small text-muted ps-5">Repairs & Maintenance</td>
+              <td class="small text-muted ps-5 sub-indent">Repairs & Maintenance</td>
               <td v-for="row in cashFlowData" :key="`repairs-${row.year}`" class="text-end small">
                 {{ formatCurrency(row.repairs_maintenance) }}
               </td>
             </tr>
             <tr v-show="!expensesCollapsed">
-              <td class="small text-muted ps-5">Marketing</td>
+              <td class="small text-muted ps-5 sub-indent">Marketing</td>
               <td v-for="row in cashFlowData" :key="`marketing-${row.year}`" class="text-end small">
                 {{ formatCurrency(row.marketing) }}
               </td>
             </tr>
             <tr v-show="!expensesCollapsed">
-              <td class="small text-muted ps-5">Property Taxes</td>
-              <td v-for="row in cashFlowData" :key="`taxes-${row.year}`" class="text-end small">
-                {{ formatCurrency(row.property_taxes) }}
+              <td class="small text-muted ps-5 sub-indent">Insurance</td>
+              <td v-for="row in cashFlowData" :key="`insurance-${row.year}`" class="text-end small">
+                {{ formatCurrency(row.insurance) }}
               </td>
             </tr>
             <tr v-show="!expensesCollapsed">
-              <td class="small text-muted ps-5">HOA Fees</td>
+              <td class="small text-muted ps-5 sub-indent">HOA Fees</td>
               <td v-for="row in cashFlowData" :key="`hoa-${row.year}`" class="text-end small">
                 {{ formatCurrency(row.hoa_fees) }}
               </td>
             </tr>
             <tr v-show="!expensesCollapsed">
-              <td class="small text-muted ps-5">Security</td>
+              <td class="small text-muted ps-5 sub-indent">Security</td>
               <td v-for="row in cashFlowData" :key="`security-${row.year}`" class="text-end small">
                 {{ formatCurrency(row.security_property_preservation) }}
               </td>
             </tr>
             <tr v-show="!expensesCollapsed">
-              <td class="small text-muted ps-5">Landscaping</td>
+              <td class="small text-muted ps-5 sub-indent">Landscaping</td>
               <td v-for="row in cashFlowData" :key="`landscaping-${row.year}`" class="text-end small">
                 {{ formatCurrency(row.landscaping) }}
               </td>
             </tr>
             <tr v-show="!expensesCollapsed">
-              <td class="small text-muted ps-5">Pool Maintenance</td>
+              <td class="small text-muted ps-5 sub-indent">Pool Maintenance</td>
               <td v-for="row in cashFlowData" :key="`pool-${row.year}`" class="text-end small">
                 {{ formatCurrency(row.pool_maintenance) }}
               </td>
             </tr>
             <tr v-show="!expensesCollapsed">
-              <td class="small text-muted ps-5">Other Expenses</td>
+              <td class="small text-muted ps-5 sub-indent">Other Expenses</td>
               <td v-for="row in cashFlowData" :key="`other-${row.year}`" class="text-end small">
                 {{ formatCurrency(row.other_expense) }}
               </td>
@@ -225,15 +241,21 @@
 
             <!-- Bottom Line Metrics (always visible) -->
             <tr class="bg-light border-top border-2">
-              <td class="fw-bold ps-3">Net Operating Income (NOI)</td>
+              <td class="fw-bold ps-3">Net Operating Income</td>
               <td v-for="row in cashFlowData" :key="`noi-${row.year}`" class="text-end fw-bold">
                 {{ formatCurrency(row.net_operating_income) }}
               </td>
             </tr>
             <tr>
-              <td class="ps-3">Operating Expense Ratio (OER %)</td>
+              <td class="ps-3">Operating Expense Ratio</td>
               <td v-for="row in cashFlowData" :key="`oer-${row.year}`" class="text-end">
                 {{ formatPercent(row.operating_expense_ratio) }}
+              </td>
+            </tr>
+            <tr>
+              <td class="ps-3">Cap Rate</td>
+              <td v-for="row in cashFlowData" :key="`cap-${row.year}`" class="text-end">
+                {{ formatPercent(row.cap_rate) }}
               </td>
             </tr>
           </tbody>
@@ -275,6 +297,7 @@ interface CashFlowRow {
   // Operating Expenses
   admin?: number
   insurance?: number
+  total_utilities?: number  // Backend calc: sum of all utilities fields
   utilities_water?: number
   utilities_sewer?: number
   utilities_electric?: number
@@ -295,6 +318,7 @@ interface CashFlowRow {
   total_operating_expenses?: number  // Backend calc: sum of all expense fields
   net_operating_income?: number  // Backend calc: EGI - Total Opex
   operating_expense_ratio?: number  // Backend calc: (Total Opex / EGI) * 100
+  cap_rate?: number  // Backend calc: (NOI / Value) * 100
   notes?: string
 }
 
@@ -311,6 +335,7 @@ const props = withDefaults(defineProps<{
 // Collapsible section states
 const grossRevenueCollapsed = ref(false)
 const expensesCollapsed = ref(false)
+const utilitiesCollapsed = ref(true)
 const allExpanded = ref(false)
 
 // WHAT: Toggle all collapsible sections at once
@@ -320,6 +345,7 @@ function toggleAllSections() {
   allExpanded.value = !allExpanded.value
   grossRevenueCollapsed.value = allExpanded.value
   expensesCollapsed.value = allExpanded.value
+  utilitiesCollapsed.value = allExpanded.value
 }
 
 // WHAT: Format currency as USD with no decimals
@@ -374,5 +400,20 @@ function formatPercent(value: number | null | undefined): string {
 /* Sub-item indentation */
 .ps-5 {
   padding-left: 3rem !important;
+}
+
+/* Extra indentation for sub-toggle rows (one level deeper than ps-5) */
+.ps-5.sub-indent {
+  padding-left: 4rem !important;
+}
+
+/* Second-level extra indentation for selected sub-items */
+.ps-5.sub-indent.sub-indent-2 {
+  padding-left: 5rem !important;
+}
+
+/* Custom half-step padding to align wrapper labels between ps-4 and ps-5 */
+.ps-4-5 {
+  padding-left: 2.75rem !important;
 }
 </style>

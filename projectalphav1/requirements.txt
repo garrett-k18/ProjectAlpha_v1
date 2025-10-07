@@ -12,8 +12,19 @@ python-dateutil>=2.8.0,<3
 djangorestframework>=3.15,<4
 django-cors-headers>=4.4,<5
 
-# Anthropic Python SDK for AI summaries
+# Anthropic Python SDK for AI summaries and ETL column mapping
 anthropic>=0.30,<1
 
 # Geocodio official Python client (latest as of now is 0.2.x)
 geocodio-library-python>=0.2.0,<1
+
+# Data processing and ETL
+# Docs: https://pandas.pydata.org/docs/
+pandas>=2.2.0,<3
+
+# Excel file support for pandas
+# Docs: https://openpyxl.readthedocs.io/
+openpyxl>=3.1.0,<4
+
+# Legacy Excel format support (.xls files)
+xlrd>=2.0.0,<3

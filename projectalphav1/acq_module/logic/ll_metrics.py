@@ -30,6 +30,7 @@ from django.db.models.functions import Coalesce, Cast, Extract
 from .common import sellertrade_qs
 from core.models.assumptions import StateReference
 from acq_module.models.seller import SellerRawData
+from core.models.propertycfs import HistoricalPropertyCashFlow
 
 
 class LtvDataItem(TypedDict):
@@ -90,10 +91,6 @@ def get_ltv_data(seller_id: int, trade_id: int) -> List[LtvDataItem]:
         })
     
     return result
-
-
-
-
 
 def get_ltv_scatter_data(seller_id: int, trade_id: int) -> List[LtvDataItem]:
     """Get LTV data specifically formatted for the LTV scatter chart.
@@ -189,3 +186,97 @@ def get_days_dlq_data(seller_id: int, trade_id: int) -> List[DlqDataItem]:
 
     return result
 
+
+def acq_seller_orig_cap_rate(seller_id: int, asset_hub_id: int) -> Decimal:
+    """
+    Calculate Cap Rate for a subject asset using the latest available data.
+
+    What:
+        Cap Rate (%) = (NOI / Market Value) * 100
+
+    How:
+        - Pull the latest HistoricalPropertyCashFlow row for the given AssetIdHub (by year desc)
+        - Compute NOI from the cash flow row
+        - Use SellerRawData.origination_value as market value proxy
+        - Compute Cap Rate as (NOI / value) * 100
+
+    Safety:
+        - Returns Decimal('0.00') if any required value is missing or non-positive
+
+    Args:
+        asset_hub_id: Primary key of AssetIdHub
+
+    Returns:
+        Decimal: Cap Rate percentage rounded to 2 decimals (e.g., 6.25 for 6.25%)
+    """
+    # TODO(date-selection): Align NOI year and origination value date
+    # - If multiple origination-related values exist, select the value whose date
+    #   is closest to the cash flow year (or within a configured tolerance window).
+    # - Consider falling back to a valuation snapshot if origination_value missing.
+    # - Make date selection rules configurable per asset/product.
+
+    # Get latest historical cash flow for NOI
+    hpcf = (
+        HistoricalPropertyCashFlow.objects
+        .filter(asset_hub_id=asset_hub_id)
+        .order_by('-year', '-id')
+        .first()
+    )
+    if not hpcf:
+        return Decimal('0.00')
+
+    noi = hpcf.net_operating_income()
+
+    # Get origination value from SellerRawData
+    seller = SellerRawData.objects.filter(id=seller_id).only('origination_value').first()
+    if not seller or not seller.origination_value:
+        return Decimal('0.00')
+
+    value = seller.origination_value if isinstance(seller.origination_value, Decimal) else Decimal(str(seller.origination_value))
+    if value <= 0:
+        return Decimal('0.00')
+
+    cap = (noi / value) * Decimal('100')
+    return cap.quantize(Decimal('0.01'))
+
+
+def acq_seller_as_is_cap_rate(seller_id: int, asset_hub_id: int) -> Decimal:
+    """
+    Calculate Cap Rate using the current seller as-is value (SellerRawData.seller_asis_value).
+
+    Args:
+        seller_id: SellerRawData primary key
+        asset_hub_id: AssetIdHub primary key used to locate NOI from HistoricalPropertyCashFlow
+
+    Returns:
+        Decimal percentage (e.g., 7.50 for 7.5%), or 0.00 if unavailable.
+    """
+    # TODO(date-selection): Align NOI timing with seller as-is value date
+    # - Prefer seller_value_date-aligned snapshots; if multiple as-is values exist,
+    #   pick the one closest to cash flow year or reporting date.
+    # - Consider using latest market valuation as fallback when seller as-is is stale.
+    # - Document tie-breaker and tolerance rules.
+    # NOI from latest historical cash flow
+    hpcf = (
+        HistoricalPropertyCashFlow.objects
+        .filter(asset_hub_id=asset_hub_id)
+        .order_by('-year', '-id')
+        .first()
+    )
+    if not hpcf:
+        return Decimal('0.00')
+    
+    # Compute NOI from latest historical cash flow
+    noi = hpcf.net_operating_income()
+    
+    # Seller as-is value
+    seller = SellerRawData.objects.filter(id=seller_id).only('seller_asis_value').first()
+    if not seller or not seller.seller_asis_value:
+        return Decimal('0.00')
+
+    value = seller.seller_asis_value if isinstance(seller.seller_asis_value, Decimal) else Decimal(str(seller.seller_asis_value))
+    if value <= 0:
+        return Decimal('0.00')
+
+    cap = (noi / value) * Decimal('100')
+    return cap.quantize(Decimal('0.01'))

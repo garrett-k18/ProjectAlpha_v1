@@ -36,9 +36,9 @@
 // HOW: Imports PLMetrics and passes props through
 // NOTE: PLMetrics handles all calculations and data - this is just the wrapper
 import { withDefaults, defineProps } from 'vue'
-import PLMetrics from './components/PLMetrics.vue'
-import CashFlowSeries from './components/CashFlowSeries.vue'
-import PerformanceWidgets from './components/PerformanceWidgets.vue'
+import PLMetrics from '../performance/PLMetrics.vue'
+import CashFlowSeries from '../performance/CashFlowSeries.vue'
+import PerformanceWidgets from '../performance/PerformanceWidgets.vue'
 
 // WHAT: Props interface for parent data
 // WHY: Accept row data and asset hub ID to pass to PLMetrics

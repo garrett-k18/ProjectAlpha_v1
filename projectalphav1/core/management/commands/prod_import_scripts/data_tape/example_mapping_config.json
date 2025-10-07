@@ -1,0 +1,252 @@
+{
+  "version": "1.0",
+  "created_at": "2025-01-06T00:00:00",
+  "description": "Example column mapping configuration for SellerRawData ETL. Copy and customize this file for your specific seller tape format.",
+  "notes": [
+    "This is a template showing common column name variations",
+    "The AI mapping system can handle most of these automatically",
+    "Use this when you need consistent, repeatable mappings",
+    "Source columns are case-sensitive and must match your file exactly"
+  ],
+  "column_mapping": {
+    "_comment_identification": "===== IDENTIFICATION FIELDS =====",
+    "Loan ID": "sellertape_id",
+    "Loan Number": "sellertape_id",
+    "Account Number": "sellertape_id",
+    "Alternative ID": "sellertape_altid",
+    "Alt ID": "sellertape_altid",
+    "Secondary ID": "sellertape_altid",
+    
+    "_comment_status": "===== STATUS AND DATES =====",
+    "Loan Status": "asset_status",
+    "Asset Status": "asset_status",
+    "Status": "asset_status",
+    "As Of Date": "as_of_date",
+    "As-Of Date": "as_of_date",
+    "Data Date": "as_of_date",
+    
+    "_comment_property": "===== PROPERTY INFORMATION =====",
+    "Property Address": "street_address",
+    "Street Address": "street_address",
+    "Address": "street_address",
+    "Street": "street_address",
+    "City": "city",
+    "State": "state",
+    "ST": "state",
+    "Zip": "zip",
+    "Zip Code": "zip",
+    "Postal Code": "zip",
+    
+    "Property Type": "property_type",
+    "Prop Type": "property_type",
+    "Type": "property_type",
+    
+    "Product Type": "product_type",
+    "Product": "product_type",
+    "Loan Type": "product_type",
+    
+    "Occupancy": "occupancy",
+    "Occupancy Status": "occupancy",
+    "Occ": "occupancy",
+    
+    "Year Built": "year_built",
+    "Yr Built": "year_built",
+    "Construction Year": "year_built",
+    
+    "Square Feet": "sq_ft",
+    "Sq Ft": "sq_ft",
+    "GLA": "sq_ft",
+    "Living Area": "sq_ft",
+    
+    "Lot Size": "lot_size",
+    "Lot Sq Ft": "lot_size",
+    
+    "Bedrooms": "beds",
+    "Beds": "beds",
+    "# Beds": "beds",
+    
+    "Bathrooms": "baths",
+    "Baths": "baths",
+    "# Baths": "baths",
+    
+    "_comment_borrower": "===== BORROWER INFORMATION =====",
+    "Borrower Last Name": "borrower1_last",
+    "Borrower 1 Last": "borrower1_last",
+    "Last Name": "borrower1_last",
+    
+    "Borrower First Name": "borrower1_first",
+    "Borrower 1 First": "borrower1_first",
+    "First Name": "borrower1_first",
+    
+    "Co-Borrower Last Name": "borrower2_last",
+    "Borrower 2 Last": "borrower2_last",
+    
+    "Co-Borrower First Name": "borrower2_first",
+    "Borrower 2 First": "borrower2_first",
+    
+    "_comment_financials": "===== FINANCIAL FIELDS =====",
+    "Current Balance": "current_balance",
+    "UPB": "current_balance",
+    "Unpaid Principal Balance": "current_balance",
+    "Principal Balance": "current_balance",
+    
+    "Deferred Balance": "deferred_balance",
+    "Deferred UPB": "deferred_balance",
+    
+    "Interest Rate": "interest_rate",
+    "Rate": "interest_rate",
+    "Note Rate": "interest_rate",
+    "Current Rate": "interest_rate",
+    
+    "Next Due Date": "next_due_date",
+    "Next Payment Due": "next_due_date",
+    
+    "Last Paid Date": "last_paid_date",
+    "Last Payment Date": "last_paid_date",
+    
+    "First Payment Date": "first_pay_date",
+    "First Pay Date": "first_pay_date",
+    
+    "Origination Date": "origination_date",
+    "Orig Date": "origination_date",
+    "Note Date": "origination_date",
+    
+    "Original Balance": "original_balance",
+    "Original UPB": "original_balance",
+    "Orig Balance": "original_balance",
+    
+    "Original Term": "original_term",
+    "Orig Term": "original_term",
+    "Term": "original_term",
+    
+    "Original Rate": "original_rate",
+    "Orig Rate": "original_rate",
+    
+    "Original Maturity Date": "original_maturity_date",
+    "Orig Maturity": "original_maturity_date",
+    
+    "Default Rate": "default_rate",
+    
+    "Months Delinquent": "months_dlq",
+    "Months DLQ": "months_dlq",
+    "DLQ Months": "months_dlq",
+    
+    "Current Maturity Date": "current_maturity_date",
+    "Maturity Date": "current_maturity_date",
+    
+    "Current Term": "current_term",
+    
+    "Accrued Interest": "accrued_note_interest",
+    "Accrued Note Interest": "accrued_note_interest",
+    
+    "Default Interest": "accrued_default_interest",
+    "Accrued Default Interest": "accrued_default_interest",
+    
+    "Escrow Balance": "escrow_balance",
+    "Escrow": "escrow_balance",
+    
+    "Escrow Advance": "escrow_advance",
+    "Escrow Adv": "escrow_advance",
+    
+    "Corporate Advance": "recoverable_corp_advance",
+    "Corp Advance": "recoverable_corp_advance",
+    "Recoverable Corporate Advance": "recoverable_corp_advance",
+    
+    "Late Fees": "late_fees",
+    "Late Charges": "late_fees",
+    
+    "Other Fees": "other_fees",
+    "Misc Fees": "other_fees",
+    
+    "Suspense Balance": "suspense_balance",
+    "Suspense": "suspense_balance",
+    
+    "Total Debt": "total_debt",
+    "Total Amount Due": "total_debt",
+    "Total Exposure": "total_debt",
+    
+    "_comment_valuations": "===== VALUATION FIELDS =====",
+    "Origination Value": "origination_value",
+    "Orig Value": "origination_value",
+    "Original Value": "origination_value",
+    
+    "Origination ARV": "origination_arv",
+    "Orig ARV": "origination_arv",
+    
+    "Origination Value Date": "origination_value_date",
+    "Orig Value Date": "origination_value_date",
+    
+    "Seller Value Date": "seller_value_date",
+    "Seller Valuation Date": "seller_value_date",
+    
+    "Seller ARV": "seller_arv_value",
+    "Seller ARV Value": "seller_arv_value",
+    
+    "Seller As-Is": "seller_asis_value",
+    "Seller As-Is Value": "seller_asis_value",
+    "Seller BPO": "seller_asis_value",
+    "Seller Value": "seller_asis_value",
+    
+    "Additional As-Is": "additional_asis_value",
+    "Additional As-Is Value": "additional_asis_value",
+    
+    "Additional ARV": "additional_arv_value",
+    "Additional ARV Value": "additional_arv_value",
+    
+    "Additional Value Date": "additional_value_date",
+    
+    "_comment_foreclosure": "===== FORECLOSURE FIELDS =====",
+    "FC Flag": "fc_flag",
+    "Foreclosure Flag": "fc_flag",
+    "In Foreclosure": "fc_flag",
+    
+    "FC First Legal Date": "fc_first_legal_date",
+    "First Legal Date": "fc_first_legal_date",
+    "FC Start Date": "fc_first_legal_date",
+    
+    "FC Referral Date": "fc_referred_date",
+    "FC Referred Date": "fc_referred_date",
+    "Foreclosure Referral Date": "fc_referred_date",
+    
+    "FC Judgment Date": "fc_judgement_date",
+    "Judgment Date": "fc_judgement_date",
+    
+    "FC Sale Date": "fc_scheduled_sale_date",
+    "Scheduled Sale Date": "fc_scheduled_sale_date",
+    
+    "FC Actual Sale Date": "fc_sale_date",
+    "Foreclosure Sale Date": "fc_sale_date",
+    
+    "FC Starting Bid": "fc_starting",
+    "Opening Bid": "fc_starting",
+    
+    "_comment_bankruptcy": "===== BANKRUPTCY FIELDS =====",
+    "BK Flag": "bk_flag",
+    "Bankruptcy Flag": "bk_flag",
+    "In Bankruptcy": "bk_flag",
+    
+    "BK Chapter": "bk_chapter",
+    "Bankruptcy Chapter": "bk_chapter",
+    "Chapter": "bk_chapter",
+    
+    "_comment_modification": "===== MODIFICATION FIELDS =====",
+    "Mod Flag": "mod_flag",
+    "Modified Flag": "mod_flag",
+    "Modification Flag": "mod_flag",
+    
+    "Mod Date": "mod_date",
+    "Modification Date": "mod_date",
+    
+    "Mod Maturity Date": "mod_maturity_date",
+    "Modified Maturity Date": "mod_maturity_date",
+    
+    "Mod Term": "mod_term",
+    "Modified Term": "mod_term",
+    
+    "Mod Rate": "mod_rate",
+    "Modified Rate": "mod_rate",
+    
+    "Mod Initial Balance": "mod_initial_balance",
+    "Modified Balance": "mod_initial_balance"
+  }
+}

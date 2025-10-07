@@ -295,6 +295,31 @@ class HistoricalPropertyCashFlow(models.Model):
         
         return total.quantize(Decimal('0.01'))
     
+    def total_utilities(self) -> Decimal:
+        """
+        Calculate total utilities expenses.
+        
+        What: Sum of water, sewer, electric, gas, trash, and other utilities
+        Why: Provide grouped utilities total for UI and analysis
+        Returns:
+            Decimal: Total utilities rounded to 2 decimals.
+        """
+        util_fields = [
+            self.utilities_water,
+            self.utilities_sewer,
+            self.utilities_electric,
+            self.utilities_gas,
+            self.trash,
+            self.utilities_other,
+        ]
+
+        total = Decimal('0.00')
+        for v in util_fields:
+            if v:
+                total += v if isinstance(v, Decimal) else Decimal(str(v))
+
+        return total.quantize(Decimal('0.01'))
+
     def net_operating_income(self) -> Decimal:
         """
         Calculate Net Operating Income (NOI).
@@ -329,3 +354,35 @@ class HistoricalPropertyCashFlow(models.Model):
         
         return ratio.quantize(Decimal('0.01'))
     
+    def cap_rate(self) -> Decimal:
+        """
+        Calculate Cap Rate using latest valuation.
+        
+        What: (NOI / Market Value) * 100
+        Why: Standard unlevered return metric
+        How: Uses latest `Valuation` record for this `asset_hub` (by `value_date` desc or created order)
+        Returns:
+            Decimal: Cap rate percent (e.g., 6.25 for 6.25%). 0.00 if value unavailable/non-positive.
+        """
+        try:
+            from .valuations import Valuation  # local import to avoid circulars
+        except Exception:
+            return Decimal('0.00')
+
+        noi = self.net_operating_income()
+        # Get most recent valuation by value_date desc, fallback to latest created
+        valuation = (
+            Valuation.objects
+            .filter(asset_hub=self.asset_hub)
+            .order_by('-value_date', '-id')
+            .first()
+        )
+        if not valuation or not valuation.asis_value:
+            return Decimal('0.00')
+
+        value = valuation.asis_value if isinstance(valuation.asis_value, Decimal) else Decimal(str(valuation.asis_value))
+        if value <= 0:
+            return Decimal('0.00')
+
+        cap = (noi / value) * Decimal('100')
+        return cap.quantize(Decimal('0.01'))
