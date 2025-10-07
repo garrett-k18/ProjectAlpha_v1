@@ -251,12 +251,23 @@ CACHES = {
 }
 
 # CORS settings
+# Docs reviewed:
+# * django-cors-headers: https://github.com/adamchainz/django-cors-headers
 CORS_ALLOW_ALL_ORIGINS = env_bool('DJANGO_CORS_ALLOW_ALL_ORIGINS', True)  # For development only, set to False in production
 CORS_ALLOW_CREDENTIALS = env_bool('DJANGO_CORS_ALLOW_CREDENTIALS', True)
 CORS_ALLOWED_ORIGINS = [
 o.strip() for o in os.getenv(
 'DJANGO_CORS_ALLOWED_ORIGINS',
-'http://localhost:8080,http://localhost:8000'
+'http://localhost:8080,http://localhost:8000,http://localhost:5173'
+).split(',') if o.strip()
+]
+
+# CSRF Trusted Origins - required for Railway production frontend
+# Docs: https://docs.djangoproject.com/en/5.2/ref/settings/#csrf-trusted-origins
+CSRF_TRUSTED_ORIGINS = [
+o.strip() for o in os.getenv(
+'DJANGO_CSRF_TRUSTED_ORIGINS',
+'http://localhost:8080,http://localhost:8000,http://localhost:5173'
 ).split(',') if o.strip()
 ]
 
