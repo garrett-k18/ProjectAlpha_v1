@@ -1,52 +1,52 @@
 <template>
   <!--
-    <!--
     PropertyMap.vue
     Purpose: Display a Google Map centered on the property's geocoded address.
     Works with either a provided `row` object (modal context) or a `productId`
     (full-page context, where this component will fetch the row itself).
     Uses vue3-google-map with an external async loader and a Vite env API key.
     Useful in Asset Management -> Loan-Level -> Snapshot tab.
-    -->
   -->
-  <div :class="bare ? '' : 'card'">
-    <div :class="['d-flex', 'flex-column', 'p-0', 'h-100', 'position-relative', bare ? '' : 'card-body pt-0']">
+  <div :class="bare ? '' : 'card'" class="h-100">
+    <div :class="['p-0', 'h-100', bare ? '' : 'card-body pt-0']">
       <!-- Map fills entire card body (no header) -->
-      <div :class="['position-absolute', 'top-0', 'bottom-0', 'start-0', 'end-0']" :style="containerStyle">
-        <template v-if="viewMode === 'map'">
-          <GoogleMap
-            :api-promise="googleApiPromise"
-            :zoom="zoom"
-            :center="effectiveCenter"
-            :street-view-control="true"
-            :map-type-control="true"
-            :map-type-id="defaultMapType"
-            :fullscreen-control="true"
-            :zoom-control="true"
-            :clickable-icons="false"
-            :disable-default-ui="false"
-            :map-id="mapId"
-            :style="{ height: '100%', width: '100%' }"
-          >
-            <!-- Use AdvancedMarker when a vector Map ID is configured; otherwise fall back to legacy Marker -->
-            <AdvancedMarker v-if="showMarker && markerPosition && useAdvanced" :options="{ position: markerPosition }" />
-            <Marker v-else-if="showMarker && markerPosition" :options="{ position: markerPosition }" />
-          </GoogleMap>
-        </template>
-        <template v-else>
-          <!-- Street-only view via Google Maps Embed API. Requires the same API key to have Embed API enabled. -->
-          <iframe
-            v-if="panoramaPosition && embedStreetUrl"
-            :src="embedStreetUrl"
-            style="border:0; height: 100%; width: 100%;"
-            allowfullscreen
-            loading="lazy"
-            referrerpolicy="no-referrer-when-downgrade"
-          ></iframe>
-          <div v-else class="text-muted small m-2">Street View not available for this location.</div>
-        </template>
-        <div v-if="geocodeError" class="text-danger small m-2">{{ geocodeError }}</div>
-      </div>
+      <template v-if="viewMode === 'map'">
+        <GoogleMap
+          v-if="fullAddress"
+          :api-promise="googleApiPromise"
+          :zoom="zoom"
+          :center="effectiveCenter"
+          :street-view-control="true"
+          :map-type-control="true"
+          :map-type-id="defaultMapType"
+          :fullscreen-control="true"
+          :zoom-control="true"
+          :clickable-icons="false"
+          :disable-default-ui="false"
+          :map-id="mapId"
+          :style="{ height: '100%', width: '100%' }"
+        >
+          <!-- Use AdvancedMarker when a vector Map ID is configured; otherwise fall back to legacy Marker -->
+          <AdvancedMarker v-if="showMarker && markerPosition && useAdvanced" :options="{ position: markerPosition }" />
+          <Marker v-else-if="showMarker && markerPosition" :options="{ position: markerPosition }" />
+        </GoogleMap>
+        <div v-else class="d-flex align-items-center justify-content-center h-100 text-muted small">
+          No address available for mapping
+        </div>
+      </template>
+      <template v-else>
+        <!-- Street-only view via Google Maps Embed API. Requires the same API key to have Embed API enabled. -->
+        <iframe
+          v-if="panoramaPosition && embedStreetUrl"
+          :src="embedStreetUrl"
+          style="border:0; height: 100%; width: 100%;"
+          allowfullscreen
+          loading="lazy"
+          referrerpolicy="no-referrer-when-downgrade"
+        ></iframe>
+        <div v-else class="text-muted small m-2">Street View not available for this location.</div>
+      </template>
+      <div v-if="geocodeError" class="text-danger small m-2 position-absolute top-0 start-0">{{ geocodeError }}</div>
     </div>
   </div>
 </template>
@@ -134,6 +134,11 @@ const containerStyle = computed(() => {
   const h = props.height
   const heightCss = typeof h === 'number' ? `${h}px` : (h || '300px')
   return { height: heightCss, width: '100%' }
+})
+
+// Container style with overflow hidden to prevent map from extending past card boundaries
+const containerStyleWithOverflow = computed(() => {
+  return { ...containerStyle.value, overflow: 'hidden' }
 })
 
 // Provide a sane default center so the map can render immediately

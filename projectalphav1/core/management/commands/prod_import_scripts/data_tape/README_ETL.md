@@ -146,8 +146,11 @@ Uses **pandas** library to read Excel (.xlsx, .xls) or CSV files with flexible p
 Three mapping strategies:
 
 1. **AI Mapping (Default)**: Claude AI analyzes column names and semantically maps to database fields
-2. **Config Mapping**: Uses predefined JSON mapping file
-3. **Exact Matching**: Direct column name to field name matching
+   - **Learned Patterns**: AI knows "Loan Number", "Loan ID", "Account Number" → `sellertape_id`
+   - **Smart Recognition**: Handles synonyms (UPB → current_balance, Prop Type → property_type)
+   - **Critical Fields**: Always prioritizes mapping unique identifiers to `sellertape_id`
+2. **Config Mapping**: Uses predefined JSON mapping file (saved from previous imports)
+3. **Exact Matching**: Direct column name to field name matching (fastest, no AI)
 
 ### Step 3: Data Transformation
 - Currency formatting: `$1,234.56` → `1234.56`

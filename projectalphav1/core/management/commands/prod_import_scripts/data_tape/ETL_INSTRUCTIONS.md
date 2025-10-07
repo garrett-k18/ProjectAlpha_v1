@@ -381,6 +381,40 @@ Import 100 records →
 
 ---
 
+## AI Column Mapping Intelligence
+
+### Learned Patterns (Built-In Knowledge)
+
+The AI has been trained to recognize common loan tape column patterns:
+
+**Critical Field - sellertape_id (REQUIRED)**:
+- Recognizes: "Loan Number", "Loan ID", "Loan #", "Account Number", "Asset ID", "ID", "Number"
+- **Always maps the primary loan identifier to this field**
+- This is the unique key for each loan record
+
+**Common Mappings AI Knows**:
+- UPB, Unpaid Principal Balance → `current_balance`
+- Loan Amount, Original Balance → `original_balance`
+- Prop Type, Property Type → `property_type`
+- Loan Type, Product → `product_type`
+- Address, Street, Property Address → `street_address`
+- BPO, Seller Value, As-Is Value → `seller_asis_value`
+- ARV, After Repair Value → `seller_arv_value`
+
+**How It Learns**:
+1. AI analyzes all column names in your file
+2. Compares against known patterns and synonyms
+3. Uses semantic understanding (not just exact matches)
+4. Prioritizes critical fields like sellertape_id
+5. Returns confident mappings only
+
+**If AI Misses Something**:
+- Save the corrected mapping with `--save-mapping`
+- Reuse for future imports with `--config`
+- AI improves with explicit examples in the prompt
+
+---
+
 ## Data Validation Rules
 
 ### Automatic Conversions
@@ -389,6 +423,23 @@ Import 100 records →
 - Strips `$` and `,` characters
 - Converts to Decimal type
 - Example: `$1,234,567.89` → `1234567.89`
+
+**Interest Rate Fields** (SMART LOGIC):
+- **Applies to**: `interest_rate`, `default_rate`, `original_rate`, `mod_rate`
+- **Problem**: Different sellers format rates differently
+- **Solution**: Auto-detects format and normalizes to percent
+
+**Rate Conversion Logic**:
+- `0.055` (decimal format) → `5.5` (scaled up by 100)
+- `5.5` (percent format) → `5.5` (no change)
+- `550` (wrong scale) → `5.5` (scaled down by 100)
+- `5.5%` (with symbol) → `5.5` (% stripped, value kept)
+
+**Examples**:
+- Seller A sends: `0.0675` → Stored as: `6.75`
+- Seller B sends: `6.75` → Stored as: `6.75`
+- Seller C sends: `6.75%` → Stored as: `6.75`
+- Bad data: `675` → Auto-corrected to: `6.75`
 
 **Date Fields**:
 - Accepts multiple formats: `YYYY-MM-DD`, `MM/DD/YYYY`, `DD-MMM-YYYY`

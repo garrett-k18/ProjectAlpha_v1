@@ -54,7 +54,14 @@
       <!-- Right column: Property map -->
       <b-col lg="4" class="d-flex">
         <div class="w-100" style="height: 380px;">
-          <PropertyMap class="w-100 h-100 d-flex flex-column" :row="row" :assetId="assetId" height="100%" />
+          <PropertyMap 
+            class="w-100 h-100 d-flex flex-column" 
+            :row="row" 
+            :assetHubId="assetId" 
+            :height="380"
+            :zoom="15"
+            :showMarker="true"
+          />
         </div>
       </b-col>
       </b-row>

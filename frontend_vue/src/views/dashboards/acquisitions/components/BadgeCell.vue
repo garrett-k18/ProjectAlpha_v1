@@ -66,11 +66,14 @@ const badge = computed(() => {
       : { label: 'No', color: noColor, title: 'False' }
   }
 
-  // Enum mode: look up by string key (case-insensitive); fallback to secondary
+  // Enum mode: look up by string key (case-insensitive)
+  // WHAT: Strict enum matching - no fallbacks, no guessing
+  // WHY: If data not in backend, don't display anything (user requirement)
+  // HOW: Return null if value not found in enumMap
   if (mode === 'enum') {
     if (value === null || value === undefined || value === '') return null
     const key = String(value).trim()
-    // try exact, then case-insensitive
+    // Try exact match, then case-insensitive
     const found = enumMap[key] || enumMap[key.toLowerCase?.()] || enumMap[String(value).toLowerCase?.()]
     if (found) {
       // Normalize label/color and force 'Default' to yellow for clarity
@@ -79,20 +82,19 @@ const badge = computed(() => {
       const adjustedColor = String(label).trim().toLowerCase() === 'default' ? 'bg-warning text-dark' : color
       return { label, color: adjustedColor, title: found.title ?? key }
     }
-    // Unknown enum -> brighter neutral
-    return { label: key, color: 'bg-warning text-dark', title: key }
+    // NO FALLBACK: If enum value not in map, return null (show nothing)
+    return null
   }
 
-  // If mode is unspecified, try boolean detection first, else show simple secondary badge for strings
+  // If mode is unspecified, try boolean detection first
   const b = toBoolLike(value)
   if (b !== null) {
     return b
       ? { label: 'Yes', color: 'bg-primary', title: 'True' }
       : { label: 'No', color: 'bg-warning text-dark', title: 'False' }
   }
-  if (value === null || value === undefined || value === '') return null
-  const label = String(value)
-  // Generic string fallback -> brighter neutral
-  return { label, color: 'bg-warning text-dark', title: label }
+  
+  // NO FALLBACK: If no mode specified and not boolean, return null (show nothing)
+  return null
 })
 </script>

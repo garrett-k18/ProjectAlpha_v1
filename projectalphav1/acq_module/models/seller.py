@@ -89,6 +89,7 @@ class SellerRawData(models.Model):
         SFR = 'SFR', 'SFR'
         MANUFACTURED = 'Manufactured', 'Manufactured'
         CONDO = 'Condo', 'Condo'
+        TOWNHOUSE = 'Townhouse', 'Townhouse'
         TWO_TO_FOUR = '2-4 Family', '2-4 Family'
         LAND = 'Land', 'Land'
         MULTIFAMILY = 'Multifamily 5+', 'Multifamily 5+'
@@ -127,8 +128,14 @@ class SellerRawData(models.Model):
     )
     seller = models.ForeignKey(Seller, on_delete=models.CASCADE, related_name='seller_raw_data')
     trade = models.ForeignKey(Trade, on_delete=models.CASCADE, related_name='seller_raw_data')
-    sellertape_id = models.IntegerField()
-    sellertape_altid = models.IntegerField(null=True, blank=True)
+    # WHAT: Unique loan identifier from seller's tape (primary identifier)
+    # WHY: CharField to handle any format - numbers, letters, dashes, etc. (e.g., "ABC-123-456", "9160091924")
+    # HOW: Max 100 chars covers all seller tape ID formats
+    sellertape_id = models.CharField(max_length=100)
+    # WHAT: Alternative/secondary loan identifier from seller's tape
+    # WHY: CharField to handle any format - some sellers use alphanumeric alt IDs
+    # HOW: Max 100 chars, optional field
+    sellertape_altid = models.CharField(max_length=100, null=True, blank=True)
     asset_status = models.CharField(
         max_length=100,
         choices=AssetStatus.choices,

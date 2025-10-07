@@ -62,15 +62,36 @@
                 </button>
               </div>
               
-              <!-- Trade action buttons (open modals) -->
-              <div class="d-flex align-items-end gap-2" v-if="selectedTradeId">
-                <!-- Trade Assumptions -->
-                <button class="btn btn-sm btn-primary mb-0" @click="showTradeDetailsModal = true">
-                  <i class="mdi mdi-file-document-outline me-1"></i> Trade Assumptions
+              <!-- Trade action buttons (icon-only with tooltips) -->
+              <div class="d-flex align-items-end gap-2">
+                <!-- Trade Assumptions (Settings Icon) - Only show when trade selected -->
+                <button 
+                  v-if="selectedTradeId"
+                  class="btn btn-sm btn-primary mb-0" 
+                  @click="showTradeDetailsModal = true"
+                  title="Trade Assumptions"
+                  aria-label="Trade Assumptions"
+                >
+                  <i class="mdi mdi-cog"></i>
                 </button>
-                <!-- Trade Documents -->
-                <button class="btn btn-sm btn-outline-primary mb-0" @click="showTradeDocumentsModal = true">
-                  <i class="mdi mdi-file-document-multiple-outline me-1"></i> Trade Documents
+                <!-- Trade Documents - Only show when trade selected -->
+                <button 
+                  v-if="selectedTradeId"
+                  class="btn btn-sm btn-outline-primary mb-0" 
+                  @click="showTradeDocumentsModal = true"
+                  title="Trade Documents"
+                  aria-label="Trade Documents"
+                >
+                  <i class="mdi mdi-file-document-multiple-outline"></i>
+                </button>
+                <!-- Import Seller Tape - Always visible -->
+                <button 
+                  class="btn btn-sm btn-success mb-0" 
+                  @click="showImportModal = true"
+                  title="Import Seller Tape"
+                  aria-label="Import Seller Tape"
+                >
+                  <i class="mdi mdi-upload"></i>
                 </button>
               </div>
             </div>
@@ -240,6 +261,20 @@
         </div>
       </template>
     </BModal>
+
+    <!-- Import Seller Tape Modal -->
+    <BModal
+      v-model="showImportModal"
+      title="Import Seller Tape"
+      size="lg"
+      centered
+      hide-footer
+    >
+      <ImportSellerTapeModal 
+        @close="showImportModal = false" 
+        @success="handleImportSuccess"
+      />
+    </BModal>
   </Layout>
 </template>
 
@@ -267,6 +302,7 @@ import LoanLevelIndex from '@/views/acq_module/loanlvl/loanlvl_index.vue'
 // Trade modals
 import TradeDetailsModal from '@/views/dashboards/acquisitions/modals/TradeDetailsModal.vue'
 import TradeDocumentsModal from '@/views/dashboards/acquisitions/modals/TradeDocumentsModal.vue'
+import ImportSellerTapeModal from '@/views/dashboards/acquisitions/modals/ImportSellerTapeModal.vue'
 // Selections store + helpers
 import { useAcqSelectionsStore } from '@/stores/acqSelections'
 import { useAgGridRowsStore } from '@/stores/agGridRows'
@@ -301,6 +337,7 @@ export default {
     LoanLevelIndex,
     TradeDetailsModal,
     TradeDocumentsModal,
+    ImportSellerTapeModal,
   },
   setup() {
     // Local lists for options
@@ -350,6 +387,7 @@ export default {
     // Modal state
     const showTradeDetailsModal = ref<boolean>(false)
     const showTradeDocumentsModal = ref<boolean>(false)
+    const showImportModal = ref<boolean>(false)
     
     // Update local date models from store
     function updateLocalDateModels() {
@@ -546,6 +584,7 @@ export default {
       // Modal state
       showTradeDetailsModal,
       showTradeDocumentsModal,
+      showImportModal,
       // Date functions
       saveDateChanges,
       autosaveDateChanges,
@@ -595,6 +634,14 @@ export default {
     },
   },
   methods: {
+    /**
+     * Handle successful import - refresh data
+     */
+    handleImportSuccess(): void {
+      // Refresh sellers list after import
+      (this as any).fetchSellers?.()
+      this.showImportModal = false
+    },
     /**
      * onModalShown
      * Attach a keydown listener while modal is open to support Ctrl+Enter shortcut.

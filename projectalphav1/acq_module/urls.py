@@ -53,6 +53,7 @@ from .views.trade_assumptions_api import (
     get_trade_level_assumptions,
     update_trade_level_assumptions,
 )
+from .views.import_api import import_seller_tape
 
 # This defines the URL patterns for the acq_module app.
 urlpatterns = [
@@ -125,4 +126,6 @@ urlpatterns = [
     path('state-references/judicial/', get_judicial_states, name='api_judicial_states'),
     # Asset-scoped foreclosure timeline
     path('assets/<int:id>/fc-timeline/', AssetFCTimelineView.as_view(), name='api_asset_fc_timeline'),
+    # Import seller tape endpoint
+    path('import-seller-tape/', import_seller_tape, name='api_import_seller_tape'),
 ]

@@ -45,6 +45,7 @@ import ActionsCell from '@/views/dashboards/acquisitions/components/ActionsCell.
 import BadgeCell from '@/views/dashboards/acquisitions/components/BadgeCell.vue'
 import { useAcqSelectionsStore } from '@/stores/acqSelections'
 import { useAgGridRowsStore } from '@/stores/agGridRows'
+import { propertyTypeEnumMap, occupancyEnumMap, assetStatusEnumMap } from '@/config/badgeTokens'
 
 /* --------------------------------------------------------------------------
  * Pinned-left constant columns (order matters)
@@ -95,14 +96,7 @@ const cols: Record<string, ColDef> = {
     cellRenderer: BadgeCell as any,
     cellRendererParams: {
       mode: 'enum',
-      enumMap: {
-        'SFR': { label: 'SFR', color: 'bg-secondary', title: 'Single Family Residence' },
-        'Manufactured': { label: 'Manufactured', color: 'bg-info', title: 'Manufactured Home' },
-        'Condo': { label: 'Condo', color: 'bg-primary', title: 'Condominium' },
-        '2-4 Family': { label: '2-4 Family', color: 'bg-warning text-dark', title: '2-4 Family Property' },
-        'Land': { label: 'Land', color: 'bg-dark', title: 'Vacant Land' },
-        'Multifamily 5+': { label: 'Multifamily 5+', color: 'bg-secondary', title: 'Multifamily 5+ Units' },
-      },
+      enumMap: propertyTypeEnumMap,
     },
   },
   occupancy: {
@@ -112,11 +106,7 @@ const cols: Record<string, ColDef> = {
     cellRenderer: BadgeCell as any,
     cellRendererParams: {
       mode: 'enum',
-      enumMap: {
-        'Vacant': { label: 'Vacant', color: 'bg-danger', title: 'Property is Vacant' },
-        'Occupied': { label: 'Occupied', color: 'bg-success', title: 'Property is Occupied' },
-        'Unknown': { label: 'Unknown', color: 'bg-warning text-dark', title: 'Occupancy Status Unknown' },
-      },
+      enumMap: occupancyEnumMap,
     },
   },
   // Asset status badges (professional subdued colors)
@@ -127,12 +117,7 @@ const cols: Record<string, ColDef> = {
     cellRenderer: BadgeCell as any,
     cellRendererParams: {
       mode: 'enum',
-      enumMap: {
-        'NPL': { label: 'NPL', color: 'bg-danger', title: 'Non-Performing Loan' },
-        'REO': { label: 'REO', color: 'bg-secondary', title: 'Real Estate Owned' },
-        'PERF': { label: 'PERF', color: 'bg-success', title: 'Performing' },
-        'RPL': { label: 'RPL', color: 'bg-info', title: 'Re-Performing Loan' },
-      },
+      enumMap: assetStatusEnumMap,
     },
   },
   seller_asis_value: { headerName: 'Seller AIV', field: 'seller_asis_value', minWidth: 140, valueFormatter: currency0 },

@@ -170,14 +170,55 @@ export function resolveBadgeTokens(
 
 /**
  * Normalized lookup for property type strings to badge tone keys.
+ * WHAT: Maps all property type variations to consistent badge colors
+ * WHY: Different sellers use different naming conventions
+ * HOW: Lowercase normalized keys map to predefined tone keys
  */
 export const propertyTypeToneLookup: Record<string, BadgeToneKey> = {
+  // Single Family Residence (Blue/Primary)
   sfr: 'property-sfr',
+  'single family': 'property-sfr',
+  'single-family': 'property-sfr',
   manufactured: 'property-sfr',
+  'mobile home': 'property-sfr',
+  
+  // Condo (Cyan/Info)
   condo: 'property-condo',
+  condominium: 'property-condo',
+  
+  // Townhome (Purple/Secondary)
+  townhome: 'property-townhome',
+  townhouse: 'property-townhome',
+  'town home': 'property-townhome',
+  'town house': 'property-townhome',
+  
+  // Multifamily (Green/Success)
   '2-4 family': 'property-multifamily',
-  land: 'property-land',
+  '2-4': 'property-multifamily',
   'multifamily 5+': 'property-multifamily',
+  multifamily: 'property-multifamily',
+  'multi-family': 'property-multifamily',
+  duplex: 'property-multifamily',
+  triplex: 'property-multifamily',
+  fourplex: 'property-multifamily',
+  
+  // Land (Yellow/Warning)
+  land: 'property-land',
+  lot: 'property-land',
+  'vacant land': 'property-land',
+  
+  // Mixed Use (Purple)
+  'mixed use': 'property-mixed-use',
+  'mixed-use': 'property-mixed-use',
+  commercial: 'property-mixed-use',
+  
+  // Industrial/Storage/Other (Dark)
+  industrial: 'property-other',
+  warehouse: 'property-other',
+  storage: 'property-other',
+  'self-storage': 'property-other',
+  retail: 'property-other',
+  office: 'property-other',
 };
 
 /**
@@ -215,3 +256,63 @@ export function getDelinquencyBadgeTone(status?: string | null): BadgeToneKey {
       return 'delinquency-current';
   }
 }
+
+/**
+ * AG Grid enum map for Property Type badges
+ * WHAT: Centralized property type badge configuration for AG Grid
+ * WHY: Keeps badge styling consistent across all grids
+ * HOW: Maps property type values to label, color, and title
+ */
+export const propertyTypeEnumMap: Record<string, { label: string; color: string; title: string }> = {
+  'SFR': { label: 'SFR', color: 'bg-primary', title: 'Single Family Residence' },
+  'Manufactured': { label: 'Manufactured', color: 'bg-primary', title: 'Manufactured Home' },
+  'Condo': { label: 'Condo', color: 'bg-info', title: 'Condominium' },
+  '2-4 Family': { label: '2-4 Family', color: 'bg-success', title: '2-4 Family Property' },
+  'Land': { label: 'Land', color: 'bg-warning text-dark', title: 'Vacant Land' },
+  'Multifamily 5+': { label: 'Multifamily 5+', color: 'bg-success', title: 'Multifamily 5+ Units' },
+  'Single Family': { label: 'Single Family', color: 'bg-primary', title: 'Single Family Residence' },
+  'Multi-Family': { label: 'Multi-Family', color: 'bg-success', title: 'Multi-Family Property' },
+  'Townhouse': { label: 'Townhouse', color: 'bg-secondary', title: 'Townhouse' },
+};
+
+/**
+ * AG Grid enum map for Occupancy badges
+ * WHAT: Centralized occupancy badge configuration for AG Grid
+ * WHY: Keeps badge styling consistent across all grids
+ * HOW: Maps occupancy values to label, color, and title
+ */
+export const occupancyEnumMap: Record<string, { label: string; color: string; title: string }> = {
+  'Vacant': { label: 'Vacant', color: 'bg-danger', title: 'Property is Vacant' },
+  'Occupied': { label: 'Occupied', color: 'bg-success', title: 'Property is Occupied' },
+  'Unknown': { label: 'Unknown', color: 'bg-warning text-dark', title: 'Occupancy Status Unknown' },
+  'Owner Occupied': { label: 'Owner Occupied', color: 'bg-primary', title: 'Owner Occupied' },
+  'Non-Owner Occupied': { label: 'Non-Owner Occupied', color: 'bg-info', title: 'Non-Owner Occupied' },
+  'Investment': { label: 'Investment', color: 'bg-warning text-dark', title: 'Investment Property' },
+};
+
+/**
+ * AG Grid enum map for Asset Status badges
+ * WHAT: Centralized asset status badge configuration for AG Grid
+ * WHY: Keeps badge styling consistent across all grids
+ * HOW: Maps asset status values to label, color, and title
+ */
+export const assetStatusEnumMap: Record<string, { label: string; color: string; title: string }> = {
+  'NPL': { label: 'NPL', color: 'bg-danger', title: 'Non-Performing Loan' },
+  'REO': { label: 'REO', color: 'bg-secondary', title: 'Real Estate Owned' },
+  'PERF': { label: 'PERF', color: 'bg-success', title: 'Performing' },
+  'RPL': { label: 'RPL', color: 'bg-info', title: 'Re-Performing Loan' },
+};
+
+/**
+ * AG Grid enum map for Product Type badges
+ * WHAT: Centralized product type badge configuration for AG Grid
+ * WHY: Keeps badge styling consistent across all grids
+ * HOW: Maps product type values to label, color, and title
+ */
+export const productTypeEnumMap: Record<string, { label: string; color: string; title: string }> = {
+  'BPL': { label: 'BPL', color: 'bg-primary', title: 'Business Purpose Loan' },
+  'FRM': { label: 'FRM', color: 'bg-success', title: 'Fixed Rate Mortgage' },
+  'ARM': { label: 'ARM', color: 'bg-info', title: 'Adjustable Rate Mortgage' },
+  'HELOC': { label: 'HELOC', color: 'bg-warning text-dark', title: 'Home Equity Line of Credit' },
+  'Other': { label: 'Other', color: 'bg-secondary', title: 'Other Product Type' },
+};

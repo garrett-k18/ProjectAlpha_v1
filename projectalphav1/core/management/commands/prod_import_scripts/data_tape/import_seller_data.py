@@ -52,7 +52,10 @@ import numpy as np
 import anthropic
 
 # Import our models - ALWAYS import at top level per user preference
-from acq_module.models import SellerRawData, Seller, Trade
+# WHAT: Import models from their specific module files (not __init__.py)
+# WHY: acq_module.models.__init__.py doesn't export models, so we import directly from files
+# HOW: Use dot notation to access the specific model files within the models package
+from acq_module.models.seller import SellerRawData, Seller, Trade
 from core.models import AssetIdHub
 
 
@@ -189,28 +192,28 @@ class Command(BaseCommand):
             file_path=file_path
         )
 
-        self.stdout.write(self.style.SUCCESS(f'\n📊 Starting ETL Process'))
+        self.stdout.write(self.style.SUCCESS(f'\n=== Starting ETL Process ==='))
         self.stdout.write(f'   File: {file_path}')
         self.stdout.write(f'   Seller: {seller.name} (ID: {seller.id})')
         self.stdout.write(f'   Trade: {trade.trade_name} (ID: {trade.id})')
         self.stdout.write(f'   Mode: {"DRY RUN" if dry_run else "LIVE IMPORT"}\n')
 
         # STEP 1: Read the file using pandas
-        self.stdout.write('📂 Reading file...')
+        self.stdout.write('Reading file...')
         df = self._read_file(file_path, sheet, skip_rows)
-        self.stdout.write(self.style.SUCCESS(f'   ✓ Loaded {len(df)} rows, {len(df.columns)} columns\n'))
+        self.stdout.write(self.style.SUCCESS(f'   [OK] Loaded {len(df)} rows, {len(df.columns)} columns\n'))
 
         # STEP 2: Get or generate column mapping
-        self.stdout.write('🔍 Mapping columns...')
+        self.stdout.write('Mapping columns...')
         if config_path:
             column_mapping = self._load_mapping_config(config_path)
-            self.stdout.write(self.style.SUCCESS(f'   ✓ Loaded mapping from config: {config_path}\n'))
+            self.stdout.write(self.style.SUCCESS(f'   [OK] Loaded mapping from config: {config_path}\n'))
         elif no_ai:
             column_mapping = self._exact_column_mapping(df.columns)
-            self.stdout.write(self.style.SUCCESS(f'   ✓ Using exact column name matching\n'))
+            self.stdout.write(self.style.SUCCESS(f'   [OK] Using exact column name matching\n'))
         else:
             column_mapping = self._ai_column_mapping(df.columns)
-            self.stdout.write(self.style.SUCCESS(f'   ✓ AI-generated column mapping\n'))
+            self.stdout.write(self.style.SUCCESS(f'   [OK] AI-generated column mapping\n'))
 
         # Display mapping
         self._display_mapping(column_mapping)
@@ -218,15 +221,15 @@ class Command(BaseCommand):
         # Optionally save mapping for future use
         if save_mapping_path:
             self._save_mapping_config(column_mapping, save_mapping_path)
-            self.stdout.write(self.style.SUCCESS(f'   ✓ Saved mapping to: {save_mapping_path}\n'))
+            self.stdout.write(self.style.SUCCESS(f'   [OK] Saved mapping to: {save_mapping_path}\n'))
 
         # STEP 3: Transform and validate data
-        self.stdout.write('🔄 Transforming and validating data...')
+        self.stdout.write('Transforming and validating data...')
         records, errors = self._transform_data(df, column_mapping, seller, trade)
         
-        self.stdout.write(self.style.SUCCESS(f'   ✓ Valid records: {len(records)}'))
+        self.stdout.write(self.style.SUCCESS(f'   [OK] Valid records: {len(records)}'))
         if errors:
-            self.stdout.write(self.style.WARNING(f'   ⚠ Errors: {len(errors)}'))
+            self.stdout.write(self.style.WARNING(f'   [WARNING] Errors: {len(errors)}'))
             for idx, error_msg in errors[:5]:  # Show first 5 errors
                 self.stdout.write(self.style.ERROR(f'      Row {idx}: {error_msg}'))
             if len(errors) > 5:
@@ -235,7 +238,7 @@ class Command(BaseCommand):
 
         # STEP 4: Save to database (or preview in dry-run mode)
         if dry_run:
-            self.stdout.write(self.style.WARNING('🔎 DRY RUN - Previewing first 5 records:\n'))
+            self.stdout.write(self.style.WARNING('[DRY RUN] Previewing first 5 records:\n'))
             for idx, record in enumerate(records[:5], 1):
                 self.stdout.write(f'   Record {idx}:')
                 self.stdout.write(f'      sellertape_id: {record.get("sellertape_id")}')
@@ -243,17 +246,17 @@ class Command(BaseCommand):
                 self.stdout.write(f'      city: {record.get("city")}, state: {record.get("state")}')
                 self.stdout.write(f'      current_balance: {record.get("current_balance")}')
                 self.stdout.write('')
-            self.stdout.write(self.style.SUCCESS(f'✓ DRY RUN COMPLETE - {len(records)} records ready to import\n'))
+            self.stdout.write(self.style.SUCCESS(f'[OK] DRY RUN COMPLETE - {len(records)} records ready to import\n'))
         else:
-            self.stdout.write('💾 Saving to database...')
+            self.stdout.write('Saving to database...')
             saved_count, updated_count, skipped_count = self._save_records(
                 records, batch_size, update_existing
             )
-            self.stdout.write(self.style.SUCCESS(f'   ✓ Created: {saved_count}'))
+            self.stdout.write(self.style.SUCCESS(f'   [OK] Created: {saved_count}'))
             if update_existing:
-                self.stdout.write(self.style.SUCCESS(f'   ✓ Updated: {updated_count}'))
-            self.stdout.write(self.style.SUCCESS(f'   ✓ Skipped: {skipped_count}'))
-            self.stdout.write(self.style.SUCCESS(f'\n✅ ETL COMPLETE - Processed {len(records)} records\n'))
+                self.stdout.write(self.style.SUCCESS(f'   [OK] Updated: {updated_count}'))
+            self.stdout.write(self.style.SUCCESS(f'   [OK] Skipped: {skipped_count}'))
+            self.stdout.write(self.style.SUCCESS(f'\n[SUCCESS] ETL COMPLETE - Processed {len(records)} records\n'))
 
     def _get_or_create_seller_trade(
         self,
@@ -274,7 +277,7 @@ class Command(BaseCommand):
             try:
                 seller = Seller.objects.get(pk=seller_id)
                 trade = Trade.objects.get(pk=trade_id)
-                self.stdout.write(self.style.SUCCESS(f'✓ Using existing Seller (ID: {seller_id}) and Trade (ID: {trade_id})'))
+                self.stdout.write(self.style.SUCCESS(f'[OK] Using existing Seller (ID: {seller_id}) and Trade (ID: {trade_id})'))
                 return seller, trade
             except Seller.DoesNotExist:
                 raise CommandError(f'Seller with ID {seller_id} does not exist')
@@ -297,14 +300,14 @@ class Command(BaseCommand):
             )
             
             if seller_created:
-                self.stdout.write(self.style.SUCCESS(f'✓ Created new Seller: {seller.name} (ID: {seller.id})'))
+                self.stdout.write(self.style.SUCCESS(f'[OK] Created new Seller: {seller.name} (ID: {seller.id})'))
             else:
-                self.stdout.write(self.style.SUCCESS(f'✓ Using existing Seller: {seller.name} (ID: {seller.id})'))
+                self.stdout.write(self.style.SUCCESS(f'[OK] Using existing Seller: {seller.name} (ID: {seller.id})'))
             
             # Create trade (always create new trade for each import)
             trade = Trade.objects.create(seller=seller)
             # Trade name is auto-generated by model's save() method
-            self.stdout.write(self.style.SUCCESS(f'✓ Created new Trade: {trade.trade_name} (ID: {trade.id})'))
+            self.stdout.write(self.style.SUCCESS(f'[OK] Created new Trade: {trade.trade_name} (ID: {trade.id})'))
             
             return seller, trade
         
@@ -315,7 +318,7 @@ class Command(BaseCommand):
                 # Get most recent trade for this seller
                 trade = seller.trades.latest('created_at')
                 self.stdout.write(self.style.SUCCESS(
-                    f'✓ Found Seller: {seller.name} (ID: {seller.id}), using latest Trade: {trade.trade_name}'
+                    f'[OK] Found Seller: {seller.name} (ID: {seller.id}), using latest Trade: {trade.trade_name}'
                 ))
                 return seller, trade
             except Seller.DoesNotExist:
@@ -464,12 +467,30 @@ INSTRUCTIONS:
   "another_source": "another_target"
 }}
 
+CRITICAL MAPPING RULES (ALWAYS FOLLOW):
+- **sellertape_id** (REQUIRED): Map ANY unique loan identifier to this field
+  Common names: "Loan Number", "Loan ID", "Loan #", "Account Number", "Asset ID", "ID", "Number"
+  This is the PRIMARY identifier - always map the main loan ID column to sellertape_id
+  
+- **current_balance**: Unpaid Principal Balance (UPB), Current Balance, Principal Balance
+- **original_balance**: Original Balance, Loan Amount, Original UPB, Orig Balance
+- **property_type**: Property Type, Prop Type, Type (SFR, Condo, Townhouse, etc.)
+- **product_type**: Product Type, Loan Type, Product (FRM, ARM, etc.)
+- **street_address**: Property Address, Street Address, Address, Street
+- **city**: City
+- **state**: State, ST
+- **zip**: Zip, Zip Code, Postal Code
+
 EXAMPLES OF GOOD MAPPINGS:
-- "Loan Balance" → "current_balance"
-- "Prop Type" → "property_type"
-- "Addr" → "street_address"
-- "UPB" → "current_balance" (Unpaid Principal Balance)
-- "Seller BPO" → "seller_asis_value"
+- "Loan Number" -> "sellertape_id" (CRITICAL - unique identifier)
+- "Loan ID" -> "sellertape_id" (CRITICAL - unique identifier)
+- "Account Number" -> "sellertape_id" (CRITICAL - unique identifier)
+- "ID" -> "sellertape_id" (if it's the main loan identifier)
+- "Loan Balance" -> "current_balance"
+- "UPB" -> "current_balance" (Unpaid Principal Balance)
+- "Prop Type" -> "property_type"
+- "Addr" -> "street_address"
+- "Seller BPO" -> "seller_asis_value"
 
 Return only the JSON mapping, no explanations."""
 
@@ -478,10 +499,13 @@ Return only the JSON mapping, no explanations."""
             
             # Use Claude to generate intelligent mapping
             # Docs: https://docs.anthropic.com/en/api/messages
+            # WHAT: Call Claude API for intelligent column mapping
+            # WHY: Claude 4.0 (Opus) provides superior reasoning for complex mappings
+            # HOW: Send prompt with columns and field definitions, get JSON mapping back
             message = client.messages.create(
-                model="claude-3-5-sonnet-20241022",  # Latest Sonnet model for best reasoning
+                model="claude-opus-4-20250514",  # Claude 4.0 Opus - best reasoning and accuracy
                 max_tokens=2000,
-                temperature=0,  # Deterministic output
+                temperature=0,  # Deterministic output for consistent mappings
                 messages=[{
                     "role": "user",
                     "content": prompt
@@ -552,7 +576,7 @@ Return only the JSON mapping, no explanations."""
         """
         self.stdout.write('   Column Mapping:')
         for source, target in sorted(mapping.items()):
-            self.stdout.write(f'      {source} → {target}')
+            self.stdout.write(f'      {source} -> {target}')
         self.stdout.write('')
 
     def _transform_data(
@@ -646,11 +670,32 @@ Return only the JSON mapping, no explanations."""
         
         # Decimal fields (currency, rates, etc.)
         if field_type == 'DecimalField':
-            # Remove common currency formatting: $, commas
+            # WHAT: Handle decimal fields with special logic for interest rates
+            # WHY: Different sellers format rates differently (5.5 vs 0.055 vs 5.5%)
+            # HOW: Detect format and normalize to decimal (e.g., 5.5% -> 5.5)
+            
+            # Remove common currency formatting: $, commas, %
             if isinstance(value, str):
-                value = value.replace('$', '').replace(',', '').strip()
+                value = value.replace('$', '').replace(',', '').replace('%', '').strip()
+            
             try:
-                return Decimal(str(value))
+                decimal_value = Decimal(str(value))
+                
+                # SMART LOGIC: Detect if interest/default rate needs scaling
+                # WHAT: Normalize interest_rate and default_rate fields
+                # WHY: Some tapes show "5.5" (percent), others show "0.055" (decimal)
+                # HOW: If value > 1, assume it's already a percent. If < 1, scale up by 100
+                field_name = field.name if hasattr(field, 'name') else ''
+                if field_name in ['interest_rate', 'default_rate', 'original_rate', 'mod_rate']:
+                    # If value is between 0 and 1, it's likely decimal format (0.055) -> scale to percent (5.5)
+                    if 0 < decimal_value < 1:
+                        decimal_value = decimal_value * 100
+                    # If value is > 100, it's likely already scaled wrong (550) -> scale down (5.5)
+                    elif decimal_value > 100:
+                        decimal_value = decimal_value / 100
+                    # Otherwise (1-100 range), assume it's correct percent format
+                
+                return decimal_value
             except (InvalidOperation, ValueError):
                 return None
         
@@ -722,48 +767,59 @@ Return only the JSON mapping, no explanations."""
             
             self.stdout.write(f'   Processing batch {batch_num}/{total_batches} ({len(batch)} records)...')
             
-            with transaction.atomic():
-                for record_data in batch:
-                    sellertape_id = record_data.get('sellertape_id')
+            # CRITICAL FIX: Process each record individually with its own transaction
+            # WHY: If we create AssetIdHub inside a batch transaction and SellerRawData fails,
+            #      the entire transaction rolls back, deleting the hub but keeping the reference
+            for record_data in batch:
+                sellertape_id = record_data.get('sellertape_id')
+                
+                try:
+                    # Check if record already exists based on sellertape_id
+                    existing = SellerRawData.objects.filter(
+                        seller=record_data['seller'],
+                        trade=record_data['trade'],
+                        sellertape_id=sellertape_id
+                    ).first()
                     
-                    try:
-                        # Check if record already exists based on sellertape_id
-                        existing = SellerRawData.objects.filter(
-                            seller=record_data['seller'],
-                            trade=record_data['trade'],
-                            sellertape_id=sellertape_id
-                        ).first()
-                        
-                        if existing:
-                            if update_existing:
-                                # Update existing record (asset_hub already exists)
+                    if existing:
+                        if update_existing:
+                            # Update existing record (asset_hub already exists)
+                            with transaction.atomic():
                                 for field, value in record_data.items():
                                     if field not in ['asset_hub', 'seller', 'trade']:
                                         setattr(existing, field, value)
                                 existing.save()
-                                updated_count += 1
-                            else:
-                                # Skip existing record
-                                skipped_count += 1
+                            updated_count += 1
                         else:
-                            # STEP 1: Create AssetIdHub first (required for 1:1 relationship)
-                            # WHAT: Master asset identifier used across all asset-related tables
-                            # WHY: SellerRawData.asset_hub is primary_key=True (1:1 with hub)
-                            asset_hub = AssetIdHub.objects.create()
-                            hub_created_count += 1
-                            
-                            # STEP 2: Create SellerRawData record with asset_hub as PK
-                            record_data['asset_hub'] = asset_hub
-                            SellerRawData.objects.create(**record_data)
+                            # Skip existing record
+                            skipped_count += 1
+                    else:
+                        # STEP 1: Create AssetIdHub OUTSIDE transaction (must persist even if insert fails)
+                        # WHAT: Master asset identifier used across all asset-related tables
+                        # WHY: SellerRawData.asset_hub is primary_key=True (1:1 with hub)
+                        # HOW: Create hub first, then insert SellerRawData in separate transaction
+                        asset_hub = AssetIdHub.objects.create()
+                        hub_created_count += 1
+                        
+                        # STEP 2: Create SellerRawData record with asset_hub as PK (in transaction)
+                        try:
+                            with transaction.atomic():
+                                record_data['asset_hub'] = asset_hub
+                                SellerRawData.objects.create(**record_data)
                             saved_count += 1
-                            
-                    except Exception as e:
-                        logger.error(f'Error saving record {sellertape_id}: {e}')
-                        self.stdout.write(self.style.ERROR(f'      Failed: {sellertape_id} - {str(e)[:100]}'))
-                        skipped_count += 1
+                        except Exception as insert_error:
+                            # If insert fails, hub is orphaned but that's better than FK constraint error
+                            logger.error(f'Error inserting SellerRawData for {sellertape_id}: {insert_error}')
+                            self.stdout.write(self.style.ERROR(f'      Failed: {sellertape_id} - {str(insert_error)[:100]}'))
+                            skipped_count += 1
+                        
+                except Exception as e:
+                    logger.error(f'Error processing record {sellertape_id}: {e}')
+                    self.stdout.write(self.style.ERROR(f'      Failed: {sellertape_id} - {str(e)[:100]}'))
+                    skipped_count += 1
         
         # Log AssetIdHub creation summary
         if hub_created_count > 0:
-            self.stdout.write(self.style.SUCCESS(f'   ✓ Created {hub_created_count} AssetIdHub records (1:1 with SellerRawData)'))
+            self.stdout.write(self.style.SUCCESS(f'   [OK] Created {hub_created_count} AssetIdHub records (1:1 with SellerRawData)'))
         
         return saved_count, updated_count, skipped_count
