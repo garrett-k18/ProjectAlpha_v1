@@ -280,7 +280,7 @@ CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript to read cookie (needed for CSRF
 
 # Session Cookie Settings for Cross-Origin
 SESSION_COOKIE_SAMESITE = 'None'
-SESSION_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_SECURE = True  # Always require HTTPS for session cookies
 
 # Media files
 MEDIA_URL = '/media/'
