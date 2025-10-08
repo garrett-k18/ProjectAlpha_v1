@@ -271,6 +271,17 @@ o.strip() for o in os.getenv(
 ).split(',') if o.strip()
 ]
 
+# CSRF Cookie Settings for Cross-Origin Requests
+# Required for frontend on different domain to send CSRF token
+# Docs: https://docs.djangoproject.com/en/5.2/ref/settings/#csrf-cookie-samesite
+CSRF_COOKIE_SAMESITE = 'None'  # Allow cross-origin cookies
+CSRF_COOKIE_SECURE = not DEBUG  # Require HTTPS in production
+CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript to read cookie (needed for CSRF token)
+
+# Session Cookie Settings for Cross-Origin
+SESSION_COOKIE_SAMESITE = 'None'
+SESSION_COOKIE_SECURE = not DEBUG
+
 # Media files
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
