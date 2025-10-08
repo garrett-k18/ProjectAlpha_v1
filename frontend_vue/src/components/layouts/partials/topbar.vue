@@ -311,15 +311,15 @@
             <div class="nav-link arrow-none nav-user px-2">
               <span class="account-user-avatar">
                 <img
-                    src="@/assets/images/users/avatar-1.jpg"
+                    :src="avatarSrc"
                     alt="user-image"
                     width="32"
                     class="rounded-circle"
                 />
               </span>
               <span class="d-lg-flex flex-column gap-1 d-none">
-                <h5 class="my-0">Garrett Knobf</h5>
-                <h6 class="my-0 fw-normal text-start">Admin</h6>
+                <h5 class="my-0">{{ displayName }}</h5>
+                <h6 class="my-0 fw-normal text-start">{{ displayRole }}</h6>
               </span>
             </div>
           </template>
@@ -361,6 +361,8 @@
 <script lang="ts">
 import simplebar from 'simplebar-vue'
 import {useLayoutStore} from "@/stores/layout";
+import { useDjangoAuthStore } from '@/stores/djangoAuth'
+import defaultAvatar from '@/assets/images/users/avatar-1.jpg'
 import avatar2 from '@/assets/images/users/avatar-2.jpg'
 import avatar4 from '@/assets/images/users/avatar-4.jpg'
 
@@ -370,6 +372,8 @@ export default {
     let useLayout = useLayoutStore()
     return {
       useLayout,
+      // Pinia Django auth store instance (initialized in src/main.ts)
+      auth: useDjangoAuthStore(),
       notificationItems: [
         {
           id: 1,
@@ -413,6 +417,29 @@ export default {
         },
       ],
     }
+  },
+  computed: {
+    // Current authenticated user from the Django auth store
+    currentUser(): any {
+      return this.auth?.user
+    },
+    // Safe avatar source: user's profile picture or the default avatar
+    avatarSrc(): string {
+      return this.currentUser?.profile_picture || defaultAvatar
+    },
+    // Friendly display name using first/last/username/email fallbacks
+    displayName(): string {
+      const u = this.currentUser
+      if (!u) return 'User'
+      const full = [u.first_name, u.last_name].filter(Boolean).join(' ').trim()
+      return full || u.username || u.email || 'User'
+    },
+    // Simple role mapping from Django flags; fallback to Member
+    displayRole(): string {
+      const u = this.currentUser
+      if (!u) return 'Member'
+      return u.is_superuser || u.is_staff ? 'Admin' : 'Member'
+    },
   },
   methods: {
     toggleRightSidebar() {
