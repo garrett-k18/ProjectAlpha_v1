@@ -66,6 +66,9 @@ h.strip() for h in os.getenv('DJANGO_ALLOWED_HOSTS', '').split(',') if h.strip()
 # Application definition
 
 INSTALLED_APPS = [
+# Admin interface must be before django.contrib.admin
+'admin_interface',
+'colorfield',
 'django.contrib.admin',
 'django.contrib.auth',
 'django.contrib.contenttypes',
