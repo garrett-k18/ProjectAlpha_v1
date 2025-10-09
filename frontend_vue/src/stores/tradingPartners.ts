@@ -1,5 +1,6 @@
 // src/stores/tradingPartners.ts
-// Pinia store for listing and managing TradingPartnerCRM directory entries.
+// Pinia store for listing and managing MasterCRM entries (trading partners).
+// Uses unified MasterCRM model fields: firm, contact_name (as 'name'), email, phone, city, state
 // Docs reviewed:
 // - Pinia: https://pinia.vuejs.org/core-concepts/
 // - Axios Instances: https://axios-http.com/docs/instance
@@ -8,19 +9,16 @@
 import { defineStore } from 'pinia'
 import http from '@/lib/http'
 
-// Types for TradingPartnerCRM list entries returned by the API
+// Types for MasterCRM entries returned by the API (trading_partner tag)
 export interface TradingPartnerItem {
   id: number
-  firm: string
-  name: string | null
-  email: string | null
-  phone: string | null
-  altname: string | null
-  altemail: string | null
-  alt_phone: string | null
-  nda_flag: boolean
-  nda_signed: string | null // ISO date string YYYY-MM-DD
-  created_at: string | null // ISO8601 datetime string
+  firm: string | null          // Maps to MasterCRM.firm
+  name: string | null          // Maps to MasterCRM.contact_name
+  email: string | null         // Maps to MasterCRM.email
+  phone: string | null         // Maps to MasterCRM.phone
+  nda_flag: boolean            // Maps to MasterCRM.nda_flag
+  nda_signed: string | null    // Maps to MasterCRM.nda_signed (ISO date)
+  created_at: string | null    // ISO8601 datetime string
 }
 
 export interface TradingPartnersState {
@@ -61,11 +59,13 @@ export const useTradingPartnersStore = defineStore('tradingPartners', {
       this.loading = true
       this.error = null
       try {
-        const resp = await http.get('/acq/trading-partners/', {
+        // Use same endpoint as brokers - it filters by tag parameter
+        const resp = await http.get('/acq/brokers/', {
           params: {
             page: this.page,
             page_size: this.pageSize,
             q: this.q || undefined,
+            tag: 'trading_partner',  // Only fetch trading_partner-tagged MasterCRM entries
           },
         })
         const data = resp.data as { count: number; page: number; page_size: number; results: TradingPartnerItem[] }
@@ -90,11 +90,11 @@ export const useTradingPartnersStore = defineStore('tradingPartners', {
       await this.fetchPartners({ page: 1 })
     },
 
-    // Create a new TradingPartnerCRM entry via POST /acq/trading-partners/
+    // Create a new MasterCRM entry (trading partner) via POST /acq/brokers/
     async createPartner(payload: Partial<Omit<TradingPartnerItem, 'id' | 'created_at'>>) {
       this.error = null
       try {
-        await http.post('/acq/trading-partners/', payload)
+        await http.post('/acq/brokers/', payload)
         await this.fetchPartners({ page: 1 })
         return true
       } catch (e: any) {
@@ -105,11 +105,11 @@ export const useTradingPartnersStore = defineStore('tradingPartners', {
       }
     },
 
-    // Update an existing TradingPartnerCRM entry via PATCH /acq/trading-partners/:id/
+    // Update an existing MasterCRM entry (trading partner) via PATCH /acq/brokers/:id/
     async updatePartner(id: number, payload: Partial<Omit<TradingPartnerItem, 'id' | 'created_at'>>) {
       this.error = null
       try {
-        await http.patch(`/acq/trading-partners/${id}/`, payload)
+        await http.patch(`/acq/brokers/${id}/`, payload)
         await this.fetchPartners({ page: this.page })
         return true
       } catch (e: any) {

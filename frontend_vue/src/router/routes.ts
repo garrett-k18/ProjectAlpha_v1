@@ -196,7 +196,7 @@ const crmAppsRoutes = [
             {
                 path: 'brokers',
                 name: 'Brokers',
-                component: () => import('@/views/apps/crm/brokers/index.vue')
+                component: () => import('@/views/apps/crm/brokers/index_new.vue')
             },
             // Legacy path redirect: keep old bookmarks working
             {
@@ -204,14 +204,14 @@ const crmAppsRoutes = [
                 redirect: '/apps/crm/brokers'
             },
             {
-                path: 'clients',
-                name: 'Clients',
-                component: () => import('@/views/apps/crm/clients/index.vue')
-            },
-            {
                 path: 'tradingpartners',
                 name: 'Trading Partners',
-                component: () => import('@/views/apps/crm/tradingpartners/index.vue')
+                component: () => import('@/views/apps/crm/tradingpartners/index_num2.vue')
+            },
+            {
+                path: 'investors',
+                name: 'Investors',
+                component: () => import('@/views/apps/crm/investors/index.vue')
             },
             {
                 path: 'management',

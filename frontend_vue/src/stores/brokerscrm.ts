@@ -1,5 +1,6 @@
 // src/stores/brokerscrm.ts
-// Pinia store for listing Brokercrm directory entries from the backend API.
+// Pinia store for listing MasterCRM entries (brokers) from the backend API.
+// Uses unified MasterCRM model fields: firm, contact_name (as 'name'), email, phone, city, state
 // Docs reviewed:
 // - Pinia: https://pinia.vuejs.org/core-concepts/
 // - Axios Instances: https://axios-http.com/docs/instance
@@ -8,16 +9,16 @@
 import { defineStore } from 'pinia'
 import http from '@/lib/http'
 
-// Types for the Brokercrm list entries returned by the API
+// Types for MasterCRM entries returned by the API (broker tag)
 export interface BrokerCrmItem {
   id: number
-  broker_name: string | null
-  broker_email: string | null
-  broker_phone: string | null
-  broker_firm: string | null
-  broker_city: string | null
-  broker_state: string | null
-  created_at: string | null // ISO8601 string
+  name: string | null          // Maps to MasterCRM.contact_name
+  email: string | null         // Maps to MasterCRM.email
+  phone: string | null         // Maps to MasterCRM.phone
+  firm: string | null          // Maps to MasterCRM.firm
+  city: string | null          // Maps to MasterCRM.city
+  state: string | null         // Maps to MasterCRM.state
+  created_at: string | null    // ISO8601 string
 }
 
 export interface BrokersCrmState {
@@ -69,6 +70,7 @@ export const useBrokersCrmStore = defineStore('brokerscrm', {
             page_size: this.pageSize,
             q: this.q || undefined,
             state: this.stateFilter || undefined,
+            tag: 'broker',  // Only fetch broker-tagged MasterCRM entries
           },
         })
         // Expected response shape: { count, page, page_size, results }
@@ -96,14 +98,15 @@ export const useBrokersCrmStore = defineStore('brokerscrm', {
       await this.fetchBrokers({ page: 1 })
     },
 
-    // Create a new Brokercrm entry via POST /acq/brokers/
+    // Create a new MasterCRM entry (broker) via POST /acq/brokers/
     // Accepts partial fields; server handles normalization of state and timestamps.
     async createBroker(payload: {
-      broker_name?: string | null
-      broker_email?: string | null
-      broker_firm?: string | null
-      broker_city?: string | null
-      broker_state?: string | null
+      name?: string | null
+      email?: string | null
+      firm?: string | null
+      city?: string | null
+      state?: string | null
+      phone?: string | null
     }) {
       this.error = null
       try {
@@ -119,15 +122,15 @@ export const useBrokersCrmStore = defineStore('brokerscrm', {
       }
     },
 
-    // Update an existing Brokercrm entry via PATCH /acq/brokers/:id/
+    // Update an existing MasterCRM entry (broker) via PATCH /acq/brokers/:id/
     // Accepts partial fields to update only what changed.
     async updateBroker(id: number, payload: {
-      broker_name?: string | null
-      broker_email?: string | null
-      broker_phone?: string | null
-      broker_firm?: string | null
-      broker_city?: string | null
-      broker_state?: string | null
+      name?: string | null
+      email?: string | null
+      phone?: string | null
+      firm?: string | null
+      city?: string | null
+      state?: string | null
     }) {
       this.error = null
       try {

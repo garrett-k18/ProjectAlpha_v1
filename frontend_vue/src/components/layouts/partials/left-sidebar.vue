@@ -114,10 +114,10 @@
                 <router-link to="/apps/crm/brokers" class="side-nav-link-ref">Brokers</router-link>
               </li>
               <li>
-                <router-link to="/apps/crm/clients" class="side-nav-link-ref">Clients</router-link>
+                <router-link to="/apps/crm/tradingpartners" class="side-nav-link-ref">Trading Partners</router-link>
               </li>
               <li>
-                <router-link to="/apps/crm/tradingpartners" class="side-nav-link-ref">Trading Partners</router-link>
+                <router-link to="/apps/crm/investors" class="side-nav-link-ref">Investors</router-link>
               </li>
               <li>
                 <router-link to="/apps/crm/management" class="side-nav-link-ref">Management</router-link>
