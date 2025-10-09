@@ -194,11 +194,6 @@ const crmAppsRoutes = [
 
         children: [
             {
-                path: 'projects',
-                name: 'CRM Projects',
-                component: () => import('@/views/apps/crm/projects/index.vue')
-            },
-            {
                 path: 'brokers',
                 name: 'Brokers',
                 component: () => import('@/views/apps/crm/brokers/index.vue')
@@ -381,7 +376,7 @@ const fileManagerAppsRoutes = [
         path: '/apps/file-manager',
         name: 'File Manager',
         icon: 'uil-folder-plus',
-        component: () => import('@/views/apps/file-manager/index.vue'),
+        component: () => import('@/views/apps/file-manager/index_document_manager.vue'),
         meta: {authRequired: true},
     }
 ];

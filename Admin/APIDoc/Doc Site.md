@@ -19,4 +19,8 @@ Geocod.io: [text](https://www.geocod.io/docs/?python#introduction)
 
 NinjaAPI: [text](https://api-ninjas.com/docs/interestrate)
 
+FRED API: [text](https://fred.stlouisfed.org/docs/api/fred/)
+
+Egnyte API: [text](https://developers.egnyte.com/docs)
+
 FRED: [text](https://fred.stlouisfed.org/docs/api/fred/#General_Documentation)

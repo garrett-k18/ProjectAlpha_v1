@@ -95,6 +95,13 @@
           </router-link>
         </li>
 
+        <li class="side-nav-item">
+          <router-link to="/apps/file-manager" class="side-nav-link side-nav-link-ref">
+            <i class="uil-folder-plus"></i>
+            <span> Documents </span>
+          </router-link>
+        </li>
+
         <li class="side-nav-item" role="button">
           <a v-b-toggle.sidebarCrm class="side-nav-link">
             <i class="uil uil-tachometer-fast"></i>
@@ -103,9 +110,6 @@
           </a>
           <b-collapse id="sidebarCrm">
             <ul class="side-nav-second-level">
-              <li>
-                <router-link to="/apps/crm/projects" class="side-nav-link-ref">Projects</router-link>
-              </li>
               <li>
                 <router-link to="/apps/crm/brokers" class="side-nav-link-ref">Brokers</router-link>
               </li>
@@ -229,13 +233,6 @@
               </li>
             </ul>
           </b-collapse>
-        </li>
-
-        <li class="side-nav-item">
-          <router-link to="/apps/file-manager" class="side-nav-link side-nav-link-ref">
-            <i class="uil-folder-plus"></i>
-            <span> File Manager </span>
-          </router-link>
         </li>
 
         <li class="side-nav-title">Custom</li>
