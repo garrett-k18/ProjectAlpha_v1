@@ -16,3 +16,7 @@ Vue CLI: [text](https://cli.vuejs.org/introduction.html)
 Vue Test Utils: [text](https://vue-test-utils.vuejs.org/introduction.html)
 
 Geocod.io: [text](https://www.geocod.io/docs/?python#introduction)    
+
+NinjaAPI: [text](https://api-ninjas.com/docs/interestrate)
+
+FRED: [text](https://fred.stlouisfed.org/docs/api/fred/#General_Documentation)

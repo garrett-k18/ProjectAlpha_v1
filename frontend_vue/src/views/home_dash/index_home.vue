@@ -12,96 +12,32 @@
     -->
     <b-row>
       <b-col class="col-12">
-        <div class="page-title-box d-flex justify-content-between align-items-center">
-          <!-- Left: Page Title -->
+        <div class="page-title-box">
           <h4 class="page-title mb-0">Dashboard</h4>
-          <!-- Right: Optional actions (placeholders for now) -->
-          <div class="d-none d-md-flex gap-2">
-            <!-- These buttons are placeholders to demonstrate layout; wire to real actions later -->
-            <button class="btn btn-sm btn-outline-secondary" type="button">
-              <i class="mdi mdi-refresh"></i>
-              Refresh
-            </button>
-            <button class="btn btn-sm btn-primary" type="button">
-              <i class="mdi mdi-plus"></i>
-              New
-            </button>
-          </div>
         </div>
       </b-col>
     </b-row>
 
-    <!-- Condensed Calendar & External Events Widget (reuses FullCalendar stack) -->
-    <b-row class="mt-1">
+    <!-- Quick Links - Compact navigation buttons -->
+    <b-row class="mt-2 mb-2">
       <b-col cols="12">
+        <QuickLinksWidget />
+      </b-col>
+    </b-row>
+
+    <!-- Stats Row - Key metrics tiles -->
+    <StatsWidget />
+
+    <!-- Condensed Calendar & Macro Rates Row -->
+    <b-row class="mt-1">
+      <!-- Calendar Widget -->
+      <b-col cols="12" lg="8">
         <HomeCalendarWidget />
       </b-col>
-    </b-row>
-
-    <!--
-      Stats Row
-      - Four lightweight tiles with key metrics
-      - Data currently placeholder; replace with real store-driven values later
-      - Using bg-light cards to match Hyper's tile style (low chrome)
-    -->
-    <b-row class="mt-2">
-      <b-col v-for="(stat, idx) in stats" :key="`stat-${idx}`" cols="12" md="6" xl="3" class="mb-3">
-        <div class="card bg-light border-0 h-100">
-          <div class="card-body d-flex align-items-center">
-            <!-- Icon circle -->
-            <div class="me-3 flex-shrink-0">
-              <div class="avatar-sm">
-                <span class="avatar-title rounded bg-primary text-white">
-                  <i :class="stat.icon"></i>
-                </span>
-              </div>
-            </div>
-            <!-- Metric content -->
-            <div class="flex-grow-1">
-              <h6 class="text-muted text-uppercase fs-12 mb-1">{{ stat.label }}</h6>
-              <h4 class="mb-0">{{ stat.value }}</h4>
-              <small class="text-muted">{{ stat.subtext }}</small>
-            </div>
-          </div>
-        </div>
-      </b-col>
-    </b-row>
-
-    <!--
-      Quick Links Row
-      - Cards that link to primary app areas (Acquisitions, Asset Mgmt, CRM, Calendar)
-      - Uses <router-link> to internal routes defined in src/router/routes.ts
-    -->
-    <b-row class="mt-1">
-      <b-col cols="12">
-        <div class="card">
-          <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">Quick Links</h5>
-            <!-- Optional "View All" could go to a site map; hidden for now -->
-          </div>
-          <div class="card-body">
-            <div class="row g-3">
-              <!-- Each quick link tile -->
-              <div v-for="(item, idx) in quickLinks" :key="`ql-${idx}`" class="col-12 col-md-6 col-xl-3">
-                <router-link :to="item.to" class="text-decoration-none">
-                  <div class="card h-100 border shadow-none hover-shadow">
-                    <div class="card-body d-flex align-items-start gap-3">
-                      <div class="avatar-sm flex-shrink-0">
-                        <span class="avatar-title rounded-circle bg-secondary text-white">
-                          <i :class="item.icon"></i>
-                        </span>
-                      </div>
-                      <div class="flex-grow-1">
-                        <h6 class="mb-1">{{ item.title }}</h6>
-                        <p class="text-muted mb-0">{{ item.desc }}</p>
-                      </div>
-                    </div>
-                  </div>
-                </router-link>
-              </div>
-            </div>
-          </div>
-        </div>
+      
+      <!-- Macro Rates Widget -->
+      <b-col cols="12" lg="4">
+        <MacroRatesWidget />
       </b-col>
     </b-row>
 
@@ -161,6 +97,12 @@
 import Layout from "@/components/layouts/layout.vue";
 // Condensed calendar widget for homepage (modular, reusable)
 import HomeCalendarWidget from '@/components/widgets/HomeCalendarWidget.vue'
+// Macro rates widget - displays economic indicators from FRED API
+import MacroRatesWidget from './components/MacroRatesWidget.vue'
+// Quick links widget - navigation tiles to primary app areas
+import QuickLinksWidget from './components/QuickLinksWidget.vue'
+// Stats widget - key metrics tiles (Assets, Tasks, Brokers, Docs)
+import StatsWidget from './components/StatsWidget.vue'
 
 export default {
   // Explicit component name for devtools and tracing
@@ -169,28 +111,13 @@ export default {
   components: {
     Layout,
     HomeCalendarWidget,
+    MacroRatesWidget,
+    QuickLinksWidget,
+    StatsWidget,
   },
   // Options API state for simplicity and broad compatibility across the app
   data() {
     return {
-      // stats: array of metric tiles shown at the top of the dashboard
-      // Each object includes: label (string), value (string/number), subtext (string), icon (mdi class)
-      stats: [
-        { label: "Assets", value: "1,248", subtext: "Across all modules", icon: "mdi mdi-home-city" },
-        { label: "Open Tasks", value: "32", subtext: "Due this week", icon: "mdi mdi-clipboard-text" },
-        { label: "Brokers", value: "87", subtext: "Active contacts", icon: "mdi mdi-account-tie" },
-        { label: "Docs", value: "542", subtext: "Uploaded this quarter", icon: "mdi mdi-file-document" },
-      ],
-
-      // quickLinks: primary navigation tiles for the most-used app areas
-      // "to" values map to absolute paths defined in src/router/routes.ts
-      quickLinks: [
-        { title: "Acquisitions", to: "/acquisitions", icon: "mdi mdi-finance", desc: "Seller data tape, stratifications, loan-level" },
-        { title: "Asset Mgmt", to: "/asset-mgmt", icon: "mdi mdi-domain", desc: "Active portfolio and monitoring" },
-        { title: "CRM", to: "/crm", icon: "mdi mdi-account-group", desc: "Brokers, clients, trading partners" },
-        { title: "Calendar", to: "/apps/calendar", icon: "mdi mdi-calendar-month", desc: "Events & reminders" },
-      ],
-
       // recentActivity: placeholder list of recent events; replace with real data later
       recentActivity: [
         { title: "Uploaded new Seller Data Tape (Q4)", when: "2 hours ago" },

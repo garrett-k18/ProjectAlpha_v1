@@ -46,14 +46,14 @@
 
         <li class="side-nav-title">Navigation</li>
 
-        <li class="side-nav-item">
+        <li class="side-nav-item menuitem-active">
           <router-link to="/home" class="side-nav-link side-nav-link-ref">
             <i class="uil-home-alt"></i>
             <b-badge class="float-end" variant="success">5</b-badge>
             <span> Home </span>
           </router-link>
-          <!-- Indent the dashboard sub-links under Home -->
-          <ul class="side-nav-second-level ps-3 ms-3">
+          <!-- Indent the dashboard sub-links under Home - always visible -->
+          <ul class="side-nav-second-level" style="display: block; padding-left: 3.5rem;">
             <li>
               <router-link to="/acquisitions" class="side-nav-link-ref">Acquisitions</router-link>
             </li>

@@ -1,18 +1,41 @@
 from django.contrib import admin
 from django.db.models import Exists, OuterRef
-from django.urls import reverse
 from django.utils.html import format_html
 from urllib.parse import quote
 from .models.capital import DebtFacility
 from .models.crm import MasterCRM
-from .models.assumptions import Servicer, StateReference, FCStatus, FCTimelines, CommercialUnits
-from .models.asset_id_hub import AssetIdHub
-from .models.valuations import Valuation
-from .models.attachments import Photo, Document
-from .models.transactions import LLTransactionSummary, LLCashFlowSeries
-from .models.commercial import UnitMix, RentRoll
-from .models.valuations import ComparableProperty, SalesComparable, LeaseComparable, LeaseComparableUnitMix, LeaseComparableRentRoll
-from .models.propertycfs import HistoricalPropertyCashFlow
+from .models.assumptions import (
+    Servicer,
+    StateReference,
+    FCStatus,
+    FCTimelines,
+    CommercialUnits,
+)
+from core.models import (
+    DebtFacility,
+    MasterCRM,
+    AssetIdHub,
+    Servicer,
+    StateReference,
+    FCStatus,
+    FCTimelines,
+    CommercialUnits,
+    LlDataEnrichment,
+    Valuation,
+    Photo,
+    Document,
+    LLTransactionSummary,
+    LLCashFlowSeries,
+    UnitMix,
+    RentRoll,
+    ComparableProperty,
+    SalesComparable,
+    LeaseComparable,
+    LeaseComparableUnitMix,
+    LeaseComparableRentRoll,
+    HistoricalPropertyCashFlow,
+    CalendarEvent,
+)
 
 # Cross-app children that reference AssetIdHub
 from acq_module.models.seller import SellerRawData

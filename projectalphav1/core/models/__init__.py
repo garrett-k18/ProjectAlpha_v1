@@ -10,6 +10,7 @@ from .transactions import LLTransactionSummary, LLCashFlowSeries
 from .commercial import UnitMix, RentRoll
 from .valuations import ComparableProperty, SalesComparable, LeaseComparable, LeaseComparableUnitMix, LeaseComparableRentRoll
 from .propertycfs import HistoricalPropertyCashFlow
+from .calendar_events import CalendarEvent
 
 __all__ = [
     'DebtFacility',
@@ -34,4 +35,5 @@ __all__ = [
     'LeaseComparableUnitMix',
     'LeaseComparableRentRoll',
     'HistoricalPropertyCashFlow',
+    'CalendarEvent',
 ]

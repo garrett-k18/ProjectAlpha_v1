@@ -485,8 +485,8 @@ export default {
           const eventBandsHtml = eventsOnDate.slice(0, 3).map(event => {
             // Get background color class from category
             const colorClass = event.category.replace('bg-', '');
-            // Truncate title if too long
-            const truncatedTitle = event.title.length > 15 ? event.title.substring(0, 12) + '...' : event.title;
+            // Truncate title if too long (slightly longer now with bigger text)
+            const truncatedTitle = event.title.length > 18 ? event.title.substring(0, 15) + '...' : event.title;
             return `<div class="event-band event-band-${colorClass}" title="${event.title}">${truncatedTitle}</div>`;
           }).join('');
           
@@ -537,7 +537,7 @@ export default {
 };
 </script>
 
-<style scoped>
+<style>
 /* Cursor pointer for clickable event items */
 .cursor-pointer {
   cursor: pointer;
@@ -552,36 +552,39 @@ export default {
   box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
 }
 
-/* Calendar day cell customization for dates with events */
-:deep(.datepicker .datepicker-days td.has-events) {
-  position: relative;
-  vertical-align: top;
-  padding: 4px 2px;
+/* Make ALL calendar day cells the same height and alignment */
+.calendar-widget .datepicker-days td {
+  vertical-align: top !important;
+  padding: 3px 2px !important;
+  height: 60px !important;
 }
 
-/* Day content wrapper */
-:deep(.datepicker .day-content) {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 100%;
-  height: 100%;
+
+/* Day content wrapper - simple flex column */
+.calendar-widget .day-content {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  width: 100% !important;
+  height: 100% !important;
 }
 
-/* Day number styling */
-:deep(.datepicker .day-number) {
-  display: block;
-  font-weight: 600;
-  font-size: 14px;
-  margin-bottom: 3px;
+/* Day number styling - stays at top */
+.calendar-widget .day-number {
+  display: block !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  margin-bottom: 3px !important;
+  flex-shrink: 0 !important;
 }
 
-/* Event bands container */
-:deep(.datepicker .event-bands) {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  width: 100%;
+/* Event bands container - flows below day number */
+.calendar-widget .event-bands {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 1px !important;
+  width: 100% !important;
+  flex-grow: 0 !important;
 }
 
 /* Individual event band - colored bar with title */

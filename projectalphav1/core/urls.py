@@ -25,6 +25,14 @@ from core.views.commercial_api import (
     RentRollListView,
     HistoricalPropertyCashFlowListView
 )
+from core.views.calendar_api import get_calendar_events, CustomCalendarEventViewSet
+from core.views.macro_metrics_api_new import (
+    get_mortgage_30_year_api,
+    get_10_year_treasury_api,
+    get_fed_funds_rate_api,
+    get_sofr_api,
+    get_cpi_api
+)
 
 # Create a router and register our viewsets
 router = DefaultRouter()
@@ -36,9 +44,22 @@ router.register(r'fc-statuses', FCStatusViewSet, basename='fc-statuses')
 router.register(r'commercial-units', CommercialUnitsViewSet, basename='commercial-units')
 router.register(r'servicers', ServicerViewSet, basename='servicers')
 
+# Register calendar viewset for custom events (CRUD operations)
+router.register(r'calendar/events/custom', CustomCalendarEventViewSet, basename='calendar-custom-events')
+
 # The API URLs are now determined automatically by the router
 urlpatterns = [
     path('', include(router.urls)),
+    
+    # Calendar events endpoint - aggregates dates from various models
+    path('calendar/events/', get_calendar_events, name='calendar-events'),
+    
+    # Macro Metrics endpoints - FRED API economic indicators
+    path('macro/mortgage-rates/30-year/', get_mortgage_30_year_api, name='macro-mortgage-30'),
+    path('macro/10-year-treasury/', get_10_year_treasury_api, name='macro-10yr-treasury'),
+    path('macro/fed-funds-rate/', get_fed_funds_rate_api, name='macro-fed-funds'),
+    path('macro/sofr/', get_sofr_api, name='macro-sofr'),
+    path('macro/cpi/', get_cpi_api, name='macro-cpi'),
     
     # Commercial analysis endpoints (match paths expected by frontend CommercialAnalysisTab)
     path('unit-mix/<int:asset_hub_id>/', UnitMixListView.as_view(), name='unit-mix-list'),
