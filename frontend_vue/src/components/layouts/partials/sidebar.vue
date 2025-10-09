@@ -28,7 +28,7 @@
       </div>
       <a
           v-else
-          href="/"
+          href="/home"
           class="logo text-center"
       >
         <span class="logo-lg">
@@ -90,7 +90,7 @@
 
       <a
           v-else
-          href="/"
+          href="/home"
           class="logo text-center"
       >
         <span class="logo-lg">

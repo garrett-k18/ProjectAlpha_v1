@@ -2,9 +2,11 @@ import type { RouteRecordRaw } from 'vue-router'
 // home
 const homeRoute = [
     {
-        path: "/",
+        path: "/home",
         name: "home",
-        component: () => import("@/1_global/structure/home.vue"),
+        // Require auth on homepage so logged-out users are redirected to login
+        meta: { authRequired: true },
+        component: () => import("@/views/home_dash/index_home.vue"),
     },
 ];
 
@@ -13,6 +15,11 @@ const legacyRedirects: RouteRecordRaw[] = [
     {
         path: '/ecommerce',
         redirect: '/asset-mgmt',
+    },
+    // Root now redirects to /home to make the homepage explicit
+    {
+        path: '/',
+        redirect: '/home',
     },
 ];
 

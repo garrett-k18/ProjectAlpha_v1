@@ -6,7 +6,7 @@
         <!-- Topbar Brand Logo -->
         <div class="logo-topbar">
           <!-- Logo light -->
-          <router-link to="/" class="logo-light">
+          <router-link to="/home" class="logo-light">
                     <span class="logo-lg">
                         <img src="@/assets/images/logo.svg" alt="projectalpha" height="62">
                     </span>
@@ -16,7 +16,7 @@
           </router-link>
 
           <!-- Logo Dark -->
-          <router-link to="/" class="logo-dark">
+          <router-link to="/home" class="logo-dark">
                     <span class="logo-lg">
                         <img src="@/assets/images/logo.svg" alt="projectalpha" height="62">
                     </span>

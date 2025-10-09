@@ -2,7 +2,7 @@
   <div class="leftside-menu">
 
     <!-- Brand Logo Light -->
-    <router-link to="/" class="logo logo-light">
+    <router-link to="/home" class="logo logo-light">
         <span class="logo-lg">
             <img src="@/assets/images/logo.svg" alt="projectalpha" height="93">
         </span>
@@ -12,7 +12,7 @@
     </router-link>
 
     <!-- Brand Logo Dark -->
-    <router-link to="/" class="logo logo-dark">
+    <router-link to="/home" class="logo logo-dark">
         <span class="logo-lg">
             <img src="@/assets/images/logo.svg" alt="projectalpha" height="93">
         </span>
@@ -46,31 +46,30 @@
 
         <li class="side-nav-title">Navigation</li>
 
-        <li class="side-nav-item cursor-pointer" role="button">
-          <a v-b-toggle.sidebarDashboards href="#" class="side-nav-link">
+        <li class="side-nav-item">
+          <router-link to="/home" class="side-nav-link side-nav-link-ref">
             <i class="uil-home-alt"></i>
             <b-badge class="float-end" variant="success">5</b-badge>
-            <span> Dashboards </span>
-          </a>
-          <b-collapse id="sidebarDashboards" class="b-collapse">
-            <ul class="side-nav-second-level">
-              <li>
-                <router-link to="/acquisitions" class="side-nav-link-ref">Acquisitions</router-link>
-              </li>
-              <li>
-                <router-link to="/asset-mgmt" class="side-nav-link-ref">Asset Management</router-link>
-              </li>
-              <li>
-                <router-link to="/projects" class="side-nav-link-ref">Projects</router-link>
-              </li>
-              <li>
-                <router-link to="/crm" class="side-nav-link-ref">CRM</router-link>
-              </li>
-              <li>
-                <router-link to="/e-wallet" class="side-nav-link-ref">E-Wallet</router-link>
-              </li>
-            </ul>
-          </b-collapse>
+            <span> Home </span>
+          </router-link>
+          <!-- Indent the dashboard sub-links under Home -->
+          <ul class="side-nav-second-level ps-3 ms-3">
+            <li>
+              <router-link to="/acquisitions" class="side-nav-link-ref">Acquisitions</router-link>
+            </li>
+            <li>
+              <router-link to="/asset-mgmt" class="side-nav-link-ref">Asset Management</router-link>
+            </li>
+            <li>
+              <router-link to="/projects" class="side-nav-link-ref">Projects</router-link>
+            </li>
+            <li>
+              <router-link to="/crm" class="side-nav-link-ref">CRM</router-link>
+            </li>
+            <li>
+              <router-link to="/e-wallet" class="side-nav-link-ref">E-Wallet</router-link>
+            </li>
+          </ul>
         </li>
 
         <li class="side-nav-item">

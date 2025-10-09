@@ -1,13 +1,23 @@
 <template>
-  <Vertical v-if="useLayout.config.layoutType === 'vertical'">
+  <!--
+    Render the appropriate layout based on the current layoutType.
+    If an unexpected layoutType is persisted in storage, fall back to Vertical
+    to avoid rendering a blank page.
+  -->
+  <Vertical v-if="layoutType === 'vertical'">
     <slot/>
   </Vertical>
-  <Horizontal v-if="useLayout.config.layoutType === 'horizontal'">
+  <Horizontal v-else-if="layoutType === 'horizontal'">
     <slot/>
   </Horizontal>
-  <Detached v-if="useLayout.config.layoutType === 'detached'">
+  <Detached v-else-if="layoutType === 'detached'">
     <slot/>
   </Detached>
+  <!-- Safe fallback: default to Vertical -->
+  <Vertical v-else>
+    <slot/>
+  </Vertical>
+  
 </template>
 
 <script lang="ts">
@@ -22,6 +32,13 @@ export default {
   data() {
     return {
       useLayout: useLayoutStore()
+    }
+  },
+  computed: {
+    // Normalize layoutType to one of the supported values
+    layoutType(): string {
+      const t: any = this.useLayout?.config?.layoutType
+      return ['vertical', 'horizontal', 'detached'].includes(t) ? t : 'vertical'
     }
   },
 }

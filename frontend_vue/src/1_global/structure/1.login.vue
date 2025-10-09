@@ -7,10 +7,10 @@
 
                 <!-- Logo -->
                 <div class="auth-brand text-center text-lg-start">
-                    <router-link to="/" class="logo-dark">
+                    <router-link to="/home" class="logo-dark">
                         <span><img src="@/assets/images/logo-dark.png" alt="dark logo" height="22"></span>
                     </router-link>
-                    <router-link to="/" class="logo-light">
+                    <router-link to="/home" class="logo-light">
                         <span><img src="@/assets/images/logo.png" alt="logo" height="22"></span>
                     </router-link>
                 </div>
@@ -113,26 +113,28 @@ export default defineComponent({
             checked: false,
             djangoAuth: useDjangoAuthStore(),
             error: false,
-            errorMessage: '',
             loading: false
         }
     },
     methods: {
         async logIn() {
-            this.error = false;
-            this.errorMessage = '';
-            this.loading = true;
-            
-            try {
-                // Use our Django auth store to log in
-                await this.djangoAuth.logIn(this.email, this.password);
-                this.loading = false;
-                return router.push('/');
-            } catch (error) {
-                this.error = true;
-                this.errorMessage = this.djangoAuth.error || 'Login failed';
-                this.loading = false;
-            }
+          this.error = false;
+          this.errorMessage = '';
+          this.loading = true;
+          
+          try {
+            // Use our Django auth store to log in
+            await this.djangoAuth.logIn(this.email, this.password);
+            this.loading = false;
+            // After successful login, prefer an explicit redirectFrom target (set by router guard)
+            // and fall back to the main homepage dashboard ('/home') as the default.
+            const redirectTarget = (this.$route.query.redirectFrom as string) || '/home';
+            return router.push(redirectTarget);
+          } catch (error) {
+            this.error = true;
+            this.errorMessage = this.djangoAuth.error || 'Login failed';
+            this.loading = false;
+          }
         }
     }
 });
