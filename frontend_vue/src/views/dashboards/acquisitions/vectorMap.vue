@@ -58,29 +58,24 @@ export default {
   },
   data() {
     return {
-      // jsVectorMap options for World map (focused on US)
+      // jsVectorMap options for US map (includes all 50 states with AK/HI insets)
       mapOptions: {
-        map: 'world',
-        // Attempt to focus the viewport on the US region (AK/HI/PR are included in world map geometry)
-        // BaseVectorMap will call setFocus(opts.focusOn) when present
-        focusOn: { regions: ['US'], animate: false },
+        map: 'us_mill_en',
         normalizeFunction: 'polynomial',
         hoverOpacity: 0.7,
         hoverColor: false,
         regionStyle: {
           initial: {
-            // Hide non-US regions by default
-            fill: 'transparent',
-            stroke: 'transparent'
-          },
-          selected: {
-            // Fill color for the highlighted US region
+            // Light gray-blue for all states
             fill: '#91a6bd40',
-            stroke: 'transparent'
+            stroke: '#ffffff',
+            'stroke-width': 1
+          },
+          hover: {
+            fill: '#91a6bd80',
+            'stroke-width': 1
           }
         },
-        // Highlight only the US region so the map effectively shows the 50 states
-        selectedRegions: ['US'],
         // High-visibility marker styling
         markerStyle: {
           initial: {

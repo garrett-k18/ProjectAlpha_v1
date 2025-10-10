@@ -6,8 +6,10 @@
 // Modern replacement: jsVectorMap (no jQuery dependency)
 // Docs: https://github.com/themustafaomar/jsvectormap
 import jsVectorMap from 'jsvectormap'
-// Import the US mercator map asset used by Acquisitions dashboard
+// Import map assets
 import 'jsvectormap/dist/maps/world.js'
+// Import custom US map (downloaded separately and stored in assets)
+import '@/assets/maps/us-mill-en.js'
 
 export default {
   props: {

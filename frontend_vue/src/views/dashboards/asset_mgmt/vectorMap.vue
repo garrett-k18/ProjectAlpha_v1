@@ -67,8 +67,8 @@ export default defineComponent({
     // jVectorMap options for US map with markers
     mapOptions() {
       return {
-        // Use US mercator map that includes HI and AK
-        map: 'us_merc_en',
+        // Use US Miller map that includes HI and AK
+        map: 'us_mill_en',
         normalizeFunction: 'polynomial',
         hoverOpacity: 0.7,
         hoverColor: false,
