@@ -1,20 +1,20 @@
 <template>
   <!--
-    Investors CRM Page
-    Uses master CRMListView component with investor-specific configuration
-    Component path: frontend_vue/src/views/apps/crm/investors/index.vue
+    Brokers CRM Page
+    Uses master CRMListView component with broker-specific configuration
+    Component path: frontend_vue/src/views/apps/crm/brokers/index_brokercrm.vue
   -->
   <Layout>
     <Breadcrumb :title="title" :items="breadcrumbItems"/>
     
     <CRMListView
-      entity-type="Investor"
-      :columns="investorColumns"
-      :filters="investorFilters"
+      entity-type="Broker"
+      :columns="brokerColumns"
+      :filters="brokerFilters"
       :data="store.results"
       :loading="store.loading"
       :error="store.error"
-      add-button-text="Add Investor"
+      add-button-text="Add Broker"
       @search="onSearch"
       @filter="onFilter"
       @create="onCreate"
@@ -29,10 +29,10 @@ import { defineComponent } from 'vue';
 import Layout from "@/components/layouts/layout.vue";
 import Breadcrumb from "@/components/breadcrumb.vue";
 import CRMListView from "@/views/apps/crm/components/index_mastercrm.vue";
-import { useInvestorsStore } from '@/stores/investors';
+import { useBrokersCrmStore } from '@/stores/brokerscrm';
 
 export default defineComponent({
-  name: 'InvestorsPage',
+  name: 'BrokersPage',
   
   components: {
     Layout,
@@ -42,45 +42,75 @@ export default defineComponent({
 
   data() {
     return {
-      title: 'Investors',
+      title: 'Brokers',
       breadcrumbItems: [
         { text: 'Hyper', href: '/' },
         { text: 'CRM', href: '/' },
-        { text: 'Investors', active: true },
+        { text: 'Brokers', active: true },
       ],
-      store: useInvestorsStore(),
+      store: useBrokersCrmStore(),
     };
   },
 
   computed: {
     /**
-     * Column configuration for investors
+     * Column configuration for brokers
      */
-    investorColumns() {
+    brokerColumns() {
       return [
         {
           field: 'firm',
-          header: 'Firm',
+          header: 'Brokerage',
           editable: true,
-          placeholder: 'Alpha Capital Partners',
-          component: 'router-link',
-          componentProps: (row: any) => ({
-            to: `/acq/investors/${row.id}`,
-            class: 'text-body fw-bold',
-          }),
+          placeholder: 'ABC Realty',
         },
         {
           field: 'name',
-          header: 'Contact Name',
+          header: 'Broker Name',
           editable: true,
-          placeholder: 'Sarah Johnson',
+          placeholder: 'Jane Doe',
+          component: 'router-link',
+          componentProps: (row: any) => ({
+            to: `/acq/brokers/${row.id}`,
+            class: 'text-body fw-bold',
+          }),
+        },
+          
+        {
+          field: 'locale',
+          header: 'MSA',
+          formatter: (row: any) => {
+            const city = row.city || '';
+            const state = row.state || '';
+            if (city && state) return `${city}, ${state}`;
+            return city || state || '—';
+          },
         },
         {
+          field: 'state',
+          header: 'State',
+          editable: true,
+          placeholder: 'TX',
+          maxlength: 2,
+          transform: (val: string) => (val || '').toUpperCase().slice(0, 2),
+          cols: 4,
+          md: 3,
+        },
+         {
           field: 'email',
           header: 'Email',
           editable: true,
           inputType: 'email',
-          placeholder: 'sarah@example.com',
+          placeholder: 'jane@example.com',
+          formatter: (row: any) => {
+            if (!row.email) return '—';
+            return row.email;
+          },
+          component: 'a',
+          componentProps: (row: any) => ({
+            href: `mailto:${row.email}`,
+            class: 'text-primary text-decoration-underline',
+          }),
         },
         {
           field: 'phone',
@@ -89,32 +119,23 @@ export default defineComponent({
           inputType: 'tel',
           placeholder: '(555) 123-4567',
           formatter: (row: any) => this.formatPhone(row.phone),
-        },
-        {
-          field: 'city',
-          header: 'City',
-          editable: true,
-          placeholder: 'New York',
-        },
-        {
-          field: 'state',
-          header: 'State',
-          editable: true,
-          placeholder: 'NY',
-          maxlength: 2,
-          transform: (val: string) => (val || '').toUpperCase().slice(0, 2),
+          component: 'a',
+          componentProps: (row: any) => ({
+            href: `tel:${row.phone}`,
+            class: 'text-primary text-decoration-underline',
+          }),
         },
       ];
     },
 
     /**
-     * Filter configuration for investors
+     * Filter configuration for brokers
      */
-    investorFilters() {
+    brokerFilters() {
       // Build unique states from current results
       const states = new Set<string>();
-      this.store.results.forEach((investor: any) => {
-        if (investor.state) states.add(investor.state);
+      this.store.results.forEach((broker: any) => {
+        if (broker.state) states.add(broker.state);
       });
 
       return [
@@ -146,7 +167,8 @@ export default defineComponent({
      * Handle search
      */
     onSearch(query: string) {
-      this.store.fetchInvestors({ page: 1, q: query });
+      console.log('Search:', query);
+      // Implement search logic with store
     },
 
     /**
@@ -155,56 +177,55 @@ export default defineComponent({
     onFilter(filters: Record<string, string>) {
       console.log('Filters:', filters);
       if (filters.state) {
-        // TODO: Add state filter to API when available
-        this.store.fetchInvestors({ page: 1 });
+        this.store.fetchBrokers({ page: 1, state: filters.state });
       } else {
-        this.store.fetchInvestors({ page: 1 });
+        this.store.fetchBrokers({ page: 1 });
       }
     },
 
     /**
-     * Handle create investor
+     * Handle create broker
      */
     async onCreate(data: any) {
       const payload = {
-        firm: data.firm || null,
         name: data.name || null,
         email: data.email || null,
         phone: data.phone || null,
+        firm: data.firm || null,
         city: data.city || null,
         state: data.state || null,
-        tag: 'investor',  // Set MasterCRM tag to investor
+        tag: 'broker',  // Set MasterCRM tag to broker
       };
-      await this.store.createInvestor(payload);
+      await this.store.createBroker(payload);
     },
 
     /**
-     * Handle update investor
+     * Handle update broker
      */
     async onUpdate(payload: { id: number; data: any }) {
       const data = {
-        firm: payload.data.firm || null,
         name: payload.data.name || null,
         email: payload.data.email || null,
         phone: payload.data.phone || null,
+        firm: payload.data.firm || null,
         city: payload.data.city || null,
         state: payload.data.state || null,
       };
-      await this.store.updateInvestor(payload.id, data);
+      await this.store.updateBroker(payload.id, data);
     },
 
     /**
      * Handle export
      */
     onExport() {
-      console.log('Export investors');
+      console.log('Export brokers');
       // Implement export logic
     },
   },
 
   mounted() {
-    // Fetch investors on mount
-    this.store.fetchInvestors({ page: 1 });
+    // Fetch brokers on mount
+    this.store.fetchBrokers({ page: 1 });
   },
 });
 </script>

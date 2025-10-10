@@ -1,13 +1,13 @@
-// src/stores/investors.ts
-// Pinia store for listing and managing MasterCRM entries (investors).
+// src/stores/legal.ts
+// Pinia store for listing and managing MasterCRM entries (legal contacts).
 // Uses unified MasterCRM model fields: firm, contact_name (as 'name'), email, phone, city, state
-// Connected to backend API: /api/core/crm/investors/ (InvestorViewSet)
+// Connected to backend API: /api/core/crm/legal/ (LegalViewSet)
 
 import { defineStore } from 'pinia'
 import http from '@/lib/http'
 
-// Types for MasterCRM entries (investor tag)
-export interface InvestorItem {
+// Types for MasterCRM entries (legal tag)
+export interface LegalItem {
   id: number
   firm: string | null          // Maps to MasterCRM.firm
   name: string | null          // Maps to MasterCRM.contact_name
@@ -18,8 +18,8 @@ export interface InvestorItem {
   created_at: string | null
 }
 
-export interface InvestorsState {
-  results: InvestorItem[]
+export interface LegalState {
+  results: LegalItem[]
   count: number
   page: number
   pageSize: number
@@ -28,8 +28,8 @@ export interface InvestorsState {
   error: string | null
 }
 
-export const useInvestorsStore = defineStore('investors', {
-  state: (): InvestorsState => ({
+export const useLegalStore = defineStore('legal', {
+  state: (): LegalState => ({
     results: [],
     count: 0,
     page: 1,
@@ -47,8 +47,8 @@ export const useInvestorsStore = defineStore('investors', {
   },
 
   actions: {
-    // Fetch investors with current filters and pagination
-    async fetchInvestors(params?: { page?: number; pageSize?: number; q?: string }) {
+    // Fetch legal contacts with current filters and pagination
+    async fetchLegal(params?: { page?: number; pageSize?: number; q?: string }) {
       if (params?.page !== undefined) this.page = params.page
       if (params?.pageSize !== undefined) this.pageSize = params.pageSize
       if (params?.q !== undefined) this.q = params.q
@@ -56,9 +56,9 @@ export const useInvestorsStore = defineStore('investors', {
       this.loading = true
       this.error = null
       try {
-        // Call the real API endpoint for investors
-        // Backend automatically filters by tag='investor'
-        const resp = await http.get('/core/crm/investors/', {
+        // Call the real API endpoint for legal contacts
+        // Backend automatically filters by tag='legal'
+        const resp = await http.get('/core/crm/legal/', {
           params: {
             page: this.page,
             page_size: this.pageSize,
@@ -81,8 +81,8 @@ export const useInvestorsStore = defineStore('investors', {
         }))
         this.count = data.count || 0
       } catch (e: any) {
-        console.error('[investors] fetchInvestors failed:', e)
-        this.error = e?.response?.data?.detail || 'Failed to load investors.'
+        console.error('[legal] fetchLegal failed:', e)
+        this.error = e?.response?.data?.detail || 'Failed to load legal contacts.'
         this.results = []
         this.count = 0
       } finally {
@@ -90,8 +90,8 @@ export const useInvestorsStore = defineStore('investors', {
       }
     },
 
-    // Create a new MasterCRM entry (investor)
-    async createInvestor(payload: Partial<Omit<InvestorItem, 'id' | 'created_at'>>) {
+    // Create a new MasterCRM entry (legal)
+    async createLegal(payload: Partial<Omit<LegalItem, 'id' | 'created_at'>>) {
       this.error = null
       try {
         // Map frontend field names to backend field names
@@ -102,21 +102,21 @@ export const useInvestorsStore = defineStore('investors', {
           phone: payload.phone,
           city: payload.city,
           state: payload.state,
-          // tag is automatically set to 'investor' by InvestorSerializer
+          // tag is automatically set to 'legal' by LegalSerializer
         }
         
-        await http.post('/core/crm/investors/', backendPayload)
-        await this.fetchInvestors({ page: 1 })
+        await http.post('/core/crm/legal/', backendPayload)
+        await this.fetchLegal({ page: 1 })
         return true
       } catch (e: any) {
-        console.error('[investors] createInvestor failed:', e)
-        this.error = e?.response?.data?.detail || 'Failed to create investor.'
+        console.error('[legal] createLegal failed:', e)
+        this.error = e?.response?.data?.detail || 'Failed to create legal contact.'
         return false
       }
     },
 
-    // Update an existing MasterCRM entry (investor)
-    async updateInvestor(id: number, payload: Partial<Omit<InvestorItem, 'id' | 'created_at'>>) {
+    // Update an existing MasterCRM entry (legal)
+    async updateLegal(id: number, payload: Partial<Omit<LegalItem, 'id' | 'created_at'>>) {
       this.error = null
       try {
         // Map frontend field names to backend field names
@@ -129,12 +129,12 @@ export const useInvestorsStore = defineStore('investors', {
           state: payload.state,
         }
         
-        await http.patch(`/core/crm/investors/${id}/`, backendPayload)
-        await this.fetchInvestors({ page: this.page })
+        await http.patch(`/core/crm/legal/${id}/`, backendPayload)
+        await this.fetchLegal({ page: this.page })
         return true
       } catch (e: any) {
-        console.error('[investors] updateInvestor failed:', e)
-        this.error = e?.response?.data?.detail || 'Failed to update investor.'
+        console.error('[legal] updateLegal failed:', e)
+        this.error = e?.response?.data?.detail || 'Failed to update legal contact.'
         return false
       }
     },

@@ -2,7 +2,7 @@
   <!--
     Trading Partners CRM Page
     Uses master CRMListView component with trading partner-specific configuration
-    Component path: frontend_vue/src/views/apps/crm/tradingpartners/index_num2.vue
+    Component path: frontend_vue/src/views/apps/crm/tradingpartners/index_tradinpartnercrm.vue
   -->
   <Layout>
     <Breadcrumb :title="title" :items="breadcrumbItems"/>
@@ -40,7 +40,6 @@ export default defineComponent({
     Breadcrumb,
     CRMListView,
   },
-
   data() {
     return {
       title: 'Trading Partners',
@@ -82,6 +81,11 @@ export default defineComponent({
           editable: true,
           inputType: 'email',
           placeholder: 'john@example.com',
+          component: 'a',
+          componentProps: (row: any) => ({
+            href: `mailto:${row.email}`,
+            class: 'text-primary text-decoration-underline',
+          }),
         },
         {
           field: 'phone',
@@ -90,6 +94,11 @@ export default defineComponent({
           inputType: 'tel',
           placeholder: '(555) 123-4567',
           formatter: (row: any) => this.formatPhone(row.phone),
+          component: 'a',
+          componentProps: (row: any) => ({
+            href: `tel:${row.phone}`,
+            class: 'text-primary text-decoration-underline',
+          }),
         },
         {
           field: 'nda_flag',

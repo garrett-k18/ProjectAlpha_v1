@@ -860,9 +860,11 @@ class REOData(models.Model):
         errors = {}
 
         # crm must be vendor-tagged when present
+        # Import MasterCRM to access the ContactTag enum for type-safe comparison
+        from core.models.crm import MasterCRM
         if getattr(self, 'crm_id', None):
             tag = getattr(self.crm, 'tag', None)
-            if tag != 'vendor':
+            if tag != MasterCRM.ContactTag.VENDOR:
                 errors['crm'] = 'Selected CRM must have tag "vendor".'
 
         # REO task linkage integrity

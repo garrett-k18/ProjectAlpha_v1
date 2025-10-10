@@ -108,7 +108,7 @@
             <b-badge class="text-white float-end" variant="danger">New</b-badge>
             <span> CRM </span>
           </a>
-          <b-collapse id="sidebarCrm">
+          <b-collapse id="sidebarCrm" visible>
             <ul class="side-nav-second-level">
               <li>
                 <router-link to="/apps/crm/brokers" class="side-nav-link-ref">Brokers</router-link>
@@ -118,6 +118,9 @@
               </li>
               <li>
                 <router-link to="/apps/crm/investors" class="side-nav-link-ref">Investors</router-link>
+              </li>
+              <li>
+                <router-link to="/apps/crm/legal" class="side-nav-link-ref">Legal</router-link>
               </li>
               <li>
                 <router-link to="/apps/crm/management" class="side-nav-link-ref">Management</router-link>
@@ -779,9 +782,62 @@ import simplebar from "simplebar-vue"
 
 export default {
   components: {simplebar},
+  
+  /**
+   * PROBLEM: CRM pages (and all app pages) wrap their content in <Layout>, which includes
+   * this sidebar component. When navigating between CRM pages (e.g., Brokers → Trading Partners),
+   * Vue destroys the old page's Layout and creates a new one, causing the sidebar to:
+   * 1. Unmount (destroy) completely
+   * 2. Remount (recreate) from scratch
+   * 3. Reset scroll position to top (default behavior)
+   * 
+   * WHY THIS HAPPENS:
+   * - Each route component (Brokers, Trading Partners, etc.) imports and renders <Layout>
+   * - Vue treats each navigation as a new component instance
+   * - Component data() resets on every mount, so we can't store scroll position there
+   * 
+   * SOLUTION: sessionStorage
+   * - sessionStorage is browser storage that persists across component remounts
+   * - It survives component destruction but clears when the browser tab closes
+   * - We save scroll position before unmount and restore it after mount
+   * 
+   * HOW IT WORKS:
+   * 1. beforeUnmount(): Captures current scroll position and saves to sessionStorage
+   * 2. mounted(): Reads saved position from sessionStorage and restores it
+   * 3. $nextTick(): Ensures DOM is fully rendered before setting scroll position
+   */
+  
+  beforeUnmount() {
+    // Save scroll position to sessionStorage before sidebar unmounts
+    // This runs when navigating away from current page
+    const scrollContainer = document.querySelector('#leftside-menu-container .simplebar-content-wrapper')
+    if (scrollContainer) {
+      // Always save position - we'll check on mount whether to restore it
+      sessionStorage.setItem('sidebar-scroll-position', scrollContainer.scrollTop.toString())
+    }
+  },
+  
   mounted() {
     this.activateMenuItems()
     this.initSidenav()
+    
+    // Restore scroll position after sidebar remounts
+    // Only restore if we're on a CRM page, otherwise clear it to free memory
+    this.$nextTick(() => {
+      const currentPath = window.location.pathname
+      const scrollContainer = document.querySelector('#leftside-menu-container .simplebar-content-wrapper')
+      const savedPosition = sessionStorage.getItem('sidebar-scroll-position')
+      
+      if (currentPath.startsWith('/apps/crm/')) {
+        // We're on a CRM page - restore scroll position
+        if (scrollContainer && savedPosition) {
+          scrollContainer.scrollTop = parseInt(savedPosition, 10)
+        }
+      } else {
+        // We're NOT on a CRM page - clear the saved position to free memory
+        sessionStorage.removeItem('sidebar-scroll-position')
+      }
+    })
   },
   methods: {
     /**

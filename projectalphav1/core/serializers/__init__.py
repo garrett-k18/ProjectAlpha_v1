@@ -11,9 +11,21 @@ from .commercial_serializers import (
     LeaseComparableUnitMixSerializer,
     LeaseComparableRentRollSerializer
 )
+from .crm_serializers import (
+    MasterCRMSerializer,
+    InvestorSerializer,
+    BrokerSerializer,
+    TradingPartnerSerializer,
+    LegalSerializer,
+)
 
 __all__ = [
     'UnitMixSerializer',
     'LeaseComparableUnitMixSerializer',
     'LeaseComparableRentRollSerializer',
+    'MasterCRMSerializer',
+    'InvestorSerializer',
+    'BrokerSerializer',
+    'TradingPartnerSerializer',
+    'LegalSerializer',
 ]

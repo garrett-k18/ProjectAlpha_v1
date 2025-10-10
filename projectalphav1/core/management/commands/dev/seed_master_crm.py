@@ -166,8 +166,9 @@ class Command(BaseCommand):
         dry_run: bool = options["dry_run"]
         reset: bool = options["reset"]
 
-        # Collect all tag constants/labels from the model.
-        tag_choices: List[Tuple[str, str]] = list(MasterCRM.TAG_CHOICES)
+        # Collect all tag constants/labels from the model using the new TextChoices enum
+        # MasterCRM.ContactTag.choices returns a list of (value, label) tuples
+        tag_choices: List[Tuple[str, str]] = list(MasterCRM.ContactTag.choices)
         tags_only: List[str] = [t for (t, _label) in tag_choices]
 
         # Print plan summary header.

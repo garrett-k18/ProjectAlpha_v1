@@ -10,6 +10,17 @@ class MasterCRM(models.Model):
     `user_admin` and are linked via optional FKs here.
     Docs: https://docs.djangoproject.com/en/stable/ref/models/fields/
     """
+    
+    # Contact type tag using Django 3.0+ TextChoices enum
+    # This provides better type safety and cleaner code compared to old tuple-based choices
+    class ContactTag(models.TextChoices):
+        """Enum for contact type categorization in the Master CRM"""
+        BROKER = "broker", "Broker"
+        TRADING_PARTNER = "trading_partner", "Trading Partner"
+        INVESTOR = "investor", "Investor"
+        LEGAL = "legal", "Legal"
+        VENDOR = "vendor", "Vendor"
+    
     firm = models.CharField(max_length=255, blank=True, null=True)
     contact_name = models.CharField(max_length=255, blank=True, null=True)
     state = models.CharField(max_length=2, blank=True, null=True)
@@ -17,24 +28,14 @@ class MasterCRM(models.Model):
     email = models.EmailField(blank=True, null=True)
     phone = models.CharField(max_length=255, blank=True, null=True)
 
-    # Contact type tag (for simple categorization)
-    TAG_BROKER = "broker"
-    TAG_TRADING = "trading_partner"
-    TAG_LEGAL = "legal"
-    TAG_VENDOR = "vendor"
-    TAG_CHOICES = (
-        (TAG_BROKER, "Broker"),
-        (TAG_TRADING, "Trading Partner"),
-        (TAG_LEGAL, "Legal"),
-        (TAG_VENDOR, "Vendor"),
-    )
+    # Contact type tag field using the TextChoices enum
     tag = models.CharField(
         max_length=32,
-        choices=TAG_CHOICES,
+        choices=ContactTag.choices,
         null=True,
         blank=True,
         db_index=True,
-        help_text="Simple type tag for this contact (Broker, Trading Partner, Legal, Vendor).",
+        help_text="Contact type: Broker, Trading Partner, Investor, Legal, or Vendor",
     )
     
 

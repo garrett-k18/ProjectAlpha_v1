@@ -33,6 +33,12 @@ from core.views.macro_metrics_api_new import (
     get_sofr_api,
     get_cpi_api
 )
+from core.views.crm_api import (
+    InvestorViewSet,
+    BrokerViewSet,
+    TradingPartnerViewSet,
+    LegalViewSet,
+)
 
 # Create a router and register our viewsets
 router = DefaultRouter()
@@ -46,6 +52,13 @@ router.register(r'servicers', ServicerViewSet, basename='servicers')
 
 # Register calendar viewset for custom events (CRUD operations)
 router.register(r'calendar/events/custom', CustomCalendarEventViewSet, basename='calendar-custom-events')
+
+# Register CRM viewsets for Investors, Brokers, Trading Partners, Legal
+# These provide tag-filtered views of the MasterCRM model
+router.register(r'crm/investors', InvestorViewSet, basename='crm-investors')
+router.register(r'crm/brokers', BrokerViewSet, basename='crm-brokers')
+router.register(r'crm/trading-partners', TradingPartnerViewSet, basename='crm-trading-partners')
+router.register(r'crm/legal', LegalViewSet, basename='crm-legal')
 
 # The API URLs are now determined automatically by the router
 urlpatterns = [

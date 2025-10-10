@@ -81,20 +81,21 @@
             <b-form @submit.prevent="onSubmit">
               <b-row class="g-2">
                 <b-col 
-                  v-for="column in editableColumns" 
+                  v-for="column in editableColumns"
                   :key="column.field"
                   :cols="column.cols || 12"
                   :md="column.md || 6"
                 >
                   <label class="form-label">{{ column.header }}</label>
-                  <b-form-input 
+                  <input
+                    class="form-control"
                     v-model="form[column.field]"
                     :type="column.inputType || 'text'"
                     :placeholder="column.placeholder || ''"
                     :maxlength="column.maxlength"
-                    @input="column.transform ? form[column.field] = column.transform(form[column.field]) : null"
-                  ></b-form-input>
-                </b-col>
+                    @input="(e: Event) => column.transform ? form[column.field] = column.transform((e.target as HTMLInputElement).value) : null"
+                  />
+                  </b-col>
               </b-row>
 
               <div class="d-flex justify-content-end mt-3">
@@ -204,12 +205,13 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, PropType } from 'vue';
+import { defineComponent } from 'vue';
+import type { PropType } from 'vue';
 
 /**
  * Column configuration interface
  */
-interface CRMColumn {
+export interface CRMColumn {
   field: string;              // Data field name
   header: string;             // Column header text
   width?: string;             // Optional column width
@@ -228,7 +230,7 @@ interface CRMColumn {
 /**
  * Filter configuration interface
  */
-interface CRMFilter {
+export interface CRMFilter {
   field: string;              // Field to filter on
   label: string;              // Filter label
   options: string[];          // Filter options
@@ -250,13 +252,11 @@ export default defineComponent({
       required: true,
     },
 
-    // Filter configuration
+    // Filters configuration
     filters: {
       type: Array as PropType<CRMFilter[]>,
       default: () => [],
     },
-
-    // Add button text
     addButtonText: {
       type: String,
       default: 'Add New',
@@ -276,7 +276,7 @@ export default defineComponent({
 
     // Error message
     error: {
-      type: String,
+      type: Object as PropType<string | null>,
       default: null,
     },
   },
@@ -307,7 +307,7 @@ export default defineComponent({
      * Columns to show in edit modal
      */
     editableColumns(): CRMColumn[] {
-      return this.columns.filter(col => col.editable !== false);
+      return this.columns.filter((col: CRMColumn) => col.editable !== false);
     },
   },
 

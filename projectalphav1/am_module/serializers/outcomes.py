@@ -198,7 +198,8 @@ class REOScopeSerializer(serializers.ModelSerializer):
         reo_task = attrs.get('reo_task')
         scope_kind = attrs.get('scope_kind')
         crm = attrs.get('crm')
-        if crm and getattr(crm, 'tag', None) != 'vendor':
+        # Use the ContactTag enum for type-safe comparison
+        if crm and getattr(crm, 'tag', None) != MasterCRM.ContactTag.VENDOR:
             raise serializers.ValidationError('Selected CRM must have tag "vendor".')
         if reo_task and hub and reo_task.asset_hub_id != hub.id:
             raise serializers.ValidationError('Linked REO task must reference the same AssetIdHub.')
