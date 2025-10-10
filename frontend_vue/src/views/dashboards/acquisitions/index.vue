@@ -112,11 +112,13 @@
     <!-- Top metrics widgets rendered by a dedicated component -->
     <Widgets />
 
-    <!-- Tasking summary grid directly beneath selectors -->
-   
+    <!-- Tasking summary: Using Option 1 (Progress Card) layout -->
+    <!-- Other layout options available: TaskingGridOption2, TaskingGridOption3 -->
+    <b-row class="mt-2">
       <b-col class="col-12">
-        <TaskingGrid />
+        <TaskingGridOption1 />
       </b-col>
+    </b-row>
     
     
     <!-- Seller Data Tape card (AG Grid) moved directly under top metrics -->
@@ -291,6 +293,10 @@ import StratsDelinquency from "@/views/dashboards/acquisitions/strats/strats-del
 import VectorMap from "@/views/dashboards/acquisitions/vectorMap.vue";
 import Widgets from "@/views/dashboards/acquisitions/widgets.vue";
 import TaskingGrid from "@/views/dashboards/acquisitions/components/TaskingGrid.vue";
+// Import all 3 tasking layout options for comparison
+import TaskingGridOption1 from "@/views/dashboards/acquisitions/components/TaskingGridOption1.vue";
+import TaskingGridOption2 from "@/views/dashboards/acquisitions/components/TaskingGridOption2.vue";
+import TaskingGridOption3 from "@/views/dashboards/acquisitions/components/TaskingGridOption3.vue";
 // Local type for document items used by TradeDocumentsModal
 // Exported to fix TypeScript module inference when this component is imported elsewhere
 export interface DocumentItem { id: string; name: string; type: string; sizeBytes: number; previewUrl: string; downloadUrl: string }
@@ -330,6 +336,9 @@ export default {
     StratsDelinquency,
     Widgets,
     TaskingGrid,
+    TaskingGridOption1,
+    TaskingGridOption2,
+    TaskingGridOption3,
     // Register simplified AG Grid component for testing
     AcqGrid,
     Layout,
