@@ -242,6 +242,34 @@ class SellerRawData(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
+    # Drop/restore tracking fields
+    # WHAT: Track assets removed from active bidding
+    # WHY: Allow users to temporarily remove assets without deleting them
+    # HOW: Boolean flag + metadata fields for audit trail
+    is_dropped = models.BooleanField(
+        default=False,
+        help_text='Asset dropped from active bidding list'
+    )
+    drop_reason = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text='Reason for dropping asset'
+    )
+    drop_date = models.DateTimeField(
+        blank=True,
+        null=True,
+        help_text='When asset was dropped'
+    )
+    dropped_by = models.ForeignKey(
+        'auth.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='dropped_acq_assets',
+        help_text='User who dropped the asset'
+    )
+    
     class Meta:
         verbose_name = "Seller Raw Data"
         verbose_name_plural = "Seller Raw Data"
@@ -296,7 +324,7 @@ class SellerRawData(models.Model):
             return 0
             
         return month_diff
-    
+
     def save(self, *args, **kwargs):
         """Override save method to normalize fields and calculate derived values
 

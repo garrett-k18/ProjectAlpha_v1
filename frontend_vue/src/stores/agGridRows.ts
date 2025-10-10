@@ -40,9 +40,9 @@ export const useAgGridRowsStore = defineStore('agGridRows', () => {
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
-  // keyFor: builds a stable cache key for a sellerId + tradeId
-  function keyFor(sellerId: number, tradeId: number): string {
-    return `${sellerId}:${tradeId}`
+  // keyFor: builds a stable cache key for a sellerId + tradeId + view
+  function keyFor(sellerId: number, tradeId: number, view: string = 'snapshot'): string {
+    return `${sellerId}:${tradeId}:${view}`
   }
 
   // setRows: atomically update current rows and remember the key we loaded
@@ -56,19 +56,20 @@ export const useAgGridRowsStore = defineStore('agGridRows', () => {
   // ---------------------------------------------------------------------------
   /**
    * fetchRows
-   * Loads grid rows for a given sellerId and tradeId.
+   * Loads grid rows for a given sellerId, tradeId, and view.
    * - Uses Axios instance with baseURL (e.g., "/api").
    * - Returns cached data immediately when available.
    * - Sets loading and error flags appropriately.
+   * - Passes view parameter to backend for drop status filtering
    */
-  async function fetchRows(sellerId: number, tradeId: number): Promise<void> {
+  async function fetchRows(sellerId: number, tradeId: number, view: string = 'snapshot'): Promise<void> {
     // Defensive: require both IDs
     if (!sellerId || !tradeId) {
       resetRows()
       return
     }
 
-    const key = keyFor(sellerId, tradeId)
+    const key = keyFor(sellerId, tradeId, view)
 
     // Serve from cache if available
     const cached = cache.value.get(key)
@@ -93,9 +94,11 @@ export const useAgGridRowsStore = defineStore('agGridRows', () => {
       currentController = new AbortController()
       inFlightKey = key
       // Use a leading slash so Axios baseURL (e.g., '/api') joins correctly.
-      // Endpoint implemented by Django: GET /api/acq/raw-data/<sellerId>/<tradeId>/
+      // Endpoint implemented by Django: GET /api/acq/raw-data/<sellerId>/<tradeId>/?view=<view>
       // Now returns paginated DRF response: { results: [...], count, next, previous }
+      // Pass view parameter to filter by drop status
       const resp = await http.get<{ results: GridRow[]; count: number; next: string | null; previous: string | null }>(`/acq/raw-data/${sellerId}/${tradeId}/`, {
+        params: { view },
         signal: currentController.signal as any,
         timeout: 20000,
       })

@@ -54,9 +54,13 @@ from .views.trade_assumptions_api import (
     update_trade_level_assumptions,
 )
 from .views.import_api import import_seller_tape
+from .views.asset_actions_api import drop_asset, restore_asset
 
 # This defines the URL patterns for the acq_module app.
 urlpatterns = [
+    # Asset actions (drop/restore)
+    path('assets/<int:asset_id>/drop/', drop_asset, name='api_drop_asset'),
+    path('assets/<int:asset_id>/restore/', restore_asset, name='api_restore_asset'),
     # Get data for a specific seller and trade
     re_path(r'^raw-data/(?P<seller_id>\d+)/(?P<trade_id>\d+)/$', get_seller_trade_data, name='api_get_seller_trade_data'),
     # Get all trades for a specific seller

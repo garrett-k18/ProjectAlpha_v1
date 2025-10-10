@@ -1,9 +1,15 @@
 <template>
   <!--
-    Actions cell: provides a row-select checkbox and four action buttons.
+    Actions cell: provides a row-select checkbox and action buttons.
+    - View: Opens loan-level details modal
+    - Edit: Opens edit modal (future implementation)
+    - Notes: Opens notes modal (future implementation)
+    - Drop: Moves asset to "Drops" view (removed from active bidding list)
+    - Restore: Restores dropped asset back to active bidding (only in Drops view)
+    
     Buttons emit an action back to the parent via the onAction callback passed
     through cellRendererParams. Styling uses Bootstrap 5 utility classes for
-    consistency with the template. Replace classes with Hyper UI classes if desired.
+    consistency with the template.
   -->
   <div class="actions-cell d-flex align-items-center gap-2 h-100">
     <!-- Row selection checkbox tied to AG Grid selection state -->
@@ -15,7 +21,7 @@
       :aria-label="`Select row ${rowId}`"
     />
 
-    <!-- Compact action buttons. Replace icons/labels per your needs. -->
+    <!-- Compact action buttons. Show different buttons based on drop status. -->
     <div class="btn-group btn-group-sm" role="group" aria-label="Row actions">
       <button type="button" class="btn btn-outline-primary" @click="emitAction('view')" title="View">
         <i class="mdi mdi-eye"></i>
@@ -26,8 +32,24 @@
       <button type="button" class="btn btn-outline-info" @click="emitAction('notes')" title="Notes">
         <i class="mdi mdi-note-text"></i>
       </button>
-      <button type="button" class="btn btn-outline-danger" @click="emitAction('delete')" title="Delete">
-        <i class="mdi mdi-delete"></i>
+      <!-- Show Add to Population button if asset is dropped, otherwise show Drop button -->
+      <button 
+        v-if="isDropped" 
+        type="button" 
+        class="btn btn-outline-success" 
+        @click="emitAction('restore')" 
+        title="Add to Population"
+      >
+        <i class="mdi mdi-plus-circle"></i>
+      </button>
+      <button 
+        v-else
+        type="button" 
+        class="btn btn-outline-warning" 
+        @click="emitAction('drop')" 
+        title="Drop from List"
+      >
+        <i class="mdi mdi-arrow-down-circle"></i>
       </button>
     </div>
   </div>
@@ -51,6 +73,10 @@ const isSelected = computed<boolean>(() => {
   return node.isSelected() === true
 })
 const rowId = computed(() => props.params.node.id)
+const isDropped = computed<boolean>(() => {
+  // Check if asset is dropped (backend sets is_dropped field)
+  return props.params.data?.is_dropped === true
+})
 
 /**
  * Toggle selection using AG Grid API so the grid stays in sync.

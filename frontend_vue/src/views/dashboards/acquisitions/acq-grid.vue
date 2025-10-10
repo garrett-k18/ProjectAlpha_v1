@@ -10,6 +10,7 @@
           <option value="snapshot">Snapshot</option>
           <option value="all">All</option>
           <option value="valuations">Valuations</option>
+          <option value="drops">Drops</option>
         </select>
         <!-- Fullscreen toggle -->
         <button class="btn btn-sm btn-light" :title="isFullscreen ? 'Exit Full Page' : 'Full Page'" @click="toggleFullscreen">
@@ -33,6 +34,48 @@
       />
     </div>
   </div>
+
+  <!-- Drop Confirmation Modal -->
+  <BModal
+    v-model="showDropModal"
+    title="Drop Asset from List"
+    centered
+    hide-header-close
+  >
+    <p v-if="assetToDrop" class="mb-0 text-center">
+      Are you sure you want to drop:<br>
+      <strong>{{ assetToDrop.id }} - {{ getAssetAddress(assetToDrop) }}</strong>?
+    </p>
+    <template #footer>
+      <div class="d-flex justify-content-end w-100 gap-2">
+        <button class="btn btn-secondary" @click="showDropModal = false">Cancel</button>
+        <button class="btn btn-warning" @click="confirmDrop">
+          <i class="mdi mdi-arrow-down-circle me-1"></i>Drop Asset
+        </button>
+      </div>
+    </template>
+  </BModal>
+
+  <!-- Add Back to Population Modal -->
+  <BModal
+    v-model="showRestoreModal"
+    title="Add Back to Population"
+    centered
+    hide-header-close
+  >
+    <p v-if="assetToRestore" class="mb-0 text-center">
+      Are you sure you want to add back:<br>
+      <strong>{{ assetToRestore.id }} - {{ getAssetAddress(assetToRestore) }}</strong>?
+    </p>
+    <template #footer>
+      <div class="d-flex justify-content-end w-100 gap-2">
+        <button class="btn btn-secondary" @click="showRestoreModal = false">Cancel</button>
+        <button class="btn btn-success" @click="confirmRestore">
+          <i class="mdi mdi-plus-circle me-1"></i>Add to Population
+        </button>
+      </div>
+    </template>
+  </BModal>
 </template>
 
 <script setup lang="ts">
@@ -41,6 +84,8 @@ import { themeQuartz } from 'ag-grid-community'
 import type { ColDef, GridReadyEvent, GridApi } from 'ag-grid-community'
 import { ref, computed, nextTick, watch } from 'vue'
 import { storeToRefs } from 'pinia'
+import { BModal } from 'bootstrap-vue-next'
+import http from '@/lib/http'
 import ActionsCell from '@/views/dashboards/acquisitions/components/ActionsCell.vue'
 import BadgeCell from '@/views/dashboards/acquisitions/components/BadgeCell.vue'
 import { useAcqSelectionsStore } from '@/stores/acqSelections'
@@ -165,7 +210,7 @@ const cols: Record<string, ColDef> = {
 /* --------------------------------------------------------------------------
  * View presets – simple arrays of keys from cols map
  * -------------------------------------------------------------------------- */
-const presets: Record<'snapshot' | 'all' | 'valuations', ColDef[]> = {
+const presets: Record<'snapshot' | 'all' | 'valuations' | 'drops', ColDef[]> = {
   snapshot: [
     cols.asset_status,
     cols.property_type,
@@ -196,16 +241,29 @@ const presets: Record<'snapshot' | 'all' | 'valuations', ColDef[]> = {
     // Context columns for this view
     
   ],
+  drops: [
+    // Drops view: assets removed from active bidding
+    cols.property_type,
+    cols.occupancy,
+    cols.current_balance,
+    cols.total_debt,
+    cols.seller_asis_value,
+    cols.months_dlq,
+    cols.fc_flag,
+    cols.bk_flag,
+    // TODO: Add drop_reason, drop_date columns when backend model is updated
+  ],
   all: Object.values(cols),
 }
 
 /* -------------------------------------------------------------------------- */
-const activeView = ref<'snapshot' | 'all' | 'valuations'>('snapshot')
+const activeView = ref<'snapshot' | 'all' | 'valuations' | 'drops'>('snapshot')
 const viewTitle = computed(() => {
   const titles: Record<typeof activeView.value, string> = {
     snapshot: 'Snapshot',
     all: 'All Properties',
-    valuations: 'Valuations'
+    valuations: 'Valuations',
+    drops: 'Drops'
   }
   return titles[activeView.value]
 })
@@ -223,24 +281,28 @@ function applyView(): void {
 const gridApi = ref<GridApi | null>(null)
 // Rows store (provides rows + fetchRows action)
 const gridRowsStore = useAgGridRowsStore()
-const { rows: rowData } = storeToRefs(gridRowsStore)
+const { rows: rawRows } = storeToRefs(gridRowsStore)
 // Selections store (provides currently selected seller/trade)
 const acqSelStore = useAcqSelectionsStore()
 const { selectedSellerId, selectedTradeId } = storeToRefs(acqSelStore)
+
+// Row data comes directly from store (backend now handles filtering by drop status)
+const rowData = computed(() => rawRows.value)
 
 function maybeFetchRows(): void {
   const sid = Number(selectedSellerId.value)
   const tid = Number(selectedTradeId.value)
   if (Number.isFinite(sid) && sid > 0 && Number.isFinite(tid) && tid > 0) {
-    gridRowsStore.fetchRows(sid, tid)
+    // Pass current view to fetch rows filtered by backend
+    gridRowsStore.fetchRows(sid, tid, activeView.value)
   } else {
     // When selections are incomplete, ensure grid shows empty state
     // (gridRowsStore.resetRows() would also be acceptable)
   }
 }
 
-// React to selection changes and load rows
-watch([selectedSellerId, selectedTradeId], () => {
+// React to selection changes and view changes to load rows
+watch([selectedSellerId, selectedTradeId, activeView], () => {
   maybeFetchRows()
 })
 
@@ -270,7 +332,7 @@ function dateFmt(p: any): string {
 
 function onRowAction(action: string, row: any): void {
   // NOTE: Actions originate from `ActionsCell.vue` via cellRendererParams.onAction
-  // We promote only the 'view' action to the parent so it can open the Loan modal.
+  // We promote 'view' and 'drop' actions to the parent.
   // Other actions remain logged for now to avoid surprising side-effects.
   if (action === 'view') {
     // Build a friendly address string for modal header consistency
@@ -288,7 +350,98 @@ function onRowAction(action: string, row: any): void {
     emit('open-loan', { id, row, addr })
     return
   }
+  
+  if (action === 'drop') {
+    // Drop action: show confirmation modal
+    assetToDrop.value = row
+    showDropModal.value = true
+    return
+  }
+  
+  if (action === 'restore') {
+    // Restore action: show confirmation modal
+    assetToRestore.value = row
+    showRestoreModal.value = true
+    return
+  }
+  
   console.log('[AcqGrid] action', action, row)
+}
+
+// Drop modal state
+const showDropModal = ref(false)
+const assetToDrop = ref<any>(null)
+
+// Restore modal state
+const showRestoreModal = ref(false)
+const assetToRestore = ref<any>(null)
+
+// Helper to build address string from row data
+function getAssetAddress(row: any): string {
+  const street = String(row?.street_address ?? '').trim()
+  const city = String(row?.city ?? '').trim()
+  const state = String(row?.state ?? '').trim()
+  return [street, [city, state].filter(Boolean).join(', ')].filter(Boolean).join(', ') || 'N/A'
+}
+
+// Confirm drop action
+async function confirmDrop(): Promise<void> {
+  if (!assetToDrop.value) return
+  
+  const assetId = assetToDrop.value?.id ?? assetToDrop.value?.asset_hub_id
+  console.log('[AcqGrid] Dropping asset:', assetId, assetToDrop.value)
+  
+  try {
+    // Call backend API to mark asset as dropped
+    await http.post(`/acq/assets/${assetId}/drop/`, {
+      reason: 'Dropped from grid by user'
+    })
+    
+    // Close modal
+    showDropModal.value = false
+    assetToDrop.value = null
+    
+    // Clear cache to force fresh data
+    gridRowsStore.clearCache()
+    
+    // Refresh current view first to remove the dropped asset
+    await maybeFetchRows()
+    
+    // Then switch to Drops view to show user where it went
+    activeView.value = 'drops'
+    applyView()
+    
+  } catch (error: any) {
+    console.error('[AcqGrid] Failed to drop asset:', error)
+    alert(`Failed to drop asset: ${error?.response?.data?.error || error?.message || 'Unknown error'}`)
+  }
+}
+
+// Confirm restore action (add back to population)
+async function confirmRestore(): Promise<void> {
+  if (!assetToRestore.value) return
+  
+  const assetId = assetToRestore.value?.id ?? assetToRestore.value?.asset_hub_id
+  console.log('[AcqGrid] Adding asset back to population:', assetId, assetToRestore.value)
+  
+  try {
+    // Call backend API to restore asset
+    await http.post(`/acq/assets/${assetId}/restore/`)
+    
+    // Close modal
+    showRestoreModal.value = false
+    assetToRestore.value = null
+    
+    // Clear cache to force fresh data
+    gridRowsStore.clearCache()
+    
+    // Refresh Drops view to remove the restored asset
+    await maybeFetchRows()
+    
+  } catch (error: any) {
+    console.error('[AcqGrid] Failed to add asset back to population:', error)
+    alert(`Failed to add asset back: ${error?.response?.data?.error || error?.message || 'Unknown error'}`)
+  }
 }
 
 /* --------------------------------------------------------------------------
@@ -360,5 +513,18 @@ const emit = defineEmits<{
   align-items: center;
   justify-content: center;
   text-align: center;
+}
+
+/* Force left-alignment for address column */
+:deep(.acq-grid [col-id="address"]),
+:deep(.acq-grid .ag-header-cell[col-id="address"]) {
+  text-align: left !important;
+}
+:deep(.acq-grid .ag-cell[col-id="address"]) {
+  justify-content: flex-start !important;
+  text-align: left !important;
+}
+:deep(.acq-grid .ag-cell[col-id="address"] .ag-cell-wrapper) {
+  justify-content: flex-start !important;
 }
 </style>

@@ -96,6 +96,10 @@ def get_seller_trade_data(request, seller_id, trade_id=None):
         return Response({'results': [], 'count': 0, 'next': None, 'previous': None})
 
     try:
+        # Get view parameter from query string (default to 'snapshot')
+        # Used to filter by drop status: 'drops' shows dropped assets, others show active
+        view = request.GET.get('view', 'snapshot')
+        
         # Build queryset using service layer with NO server-side filters/sorting.
         # All filtering will be handled client-side by AG Grid.
         qs = build_queryset(
@@ -104,6 +108,7 @@ def get_seller_trade_data(request, seller_id, trade_id=None):
             q=None,
             filters=None,
             ordering=None,
+            view=view,
         )
 
         # Apply pagination

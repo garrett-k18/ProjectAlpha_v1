@@ -163,6 +163,11 @@ class SellerRawDataRowSerializer(serializers.Serializer):
     mod_rate = serializers.DecimalField(max_digits=6, decimal_places=4, allow_null=True)
     mod_initial_balance = serializers.DecimalField(max_digits=15, decimal_places=2, allow_null=True)
 
+    # Drop/restore tracking
+    is_dropped = serializers.BooleanField(required=False, default=False)
+    drop_reason = serializers.CharField(allow_null=True, allow_blank=True, required=False)
+    drop_date = serializers.DateTimeField(allow_null=True, required=False)
+
     # Unified valuation fields (from core.Valuation model)
     # Broker valuations (source='broker')
     broker_asis_value = serializers.SerializerMethodField()

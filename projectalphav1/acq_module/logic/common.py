@@ -28,23 +28,36 @@ from django.db.models.functions import Upper, Substr, Coalesce
 from ..models.seller import SellerRawData
 
 
-def sellertrade_qs(seller_id: int, trade_id: int) -> QuerySet[SellerRawData]:
+def sellertrade_qs(seller_id: int, trade_id: int, view: str = 'snapshot') -> QuerySet[SellerRawData]:
     """Build the base queryset for a specific seller + trade pair.
 
     Args:
         seller_id: Seller primary key to filter by.
         trade_id: Trade primary key to filter by.
+        view: View filter ('snapshot', 'all', 'valuations', 'drops').
+              - 'drops': Show only dropped assets (is_dropped=True)
+              - All others: Show only active assets (is_dropped=False)
 
     Returns:
-        QuerySet[SellerRawData]: Base queryset for the exact seller+trade pair.
+        QuerySet[SellerRawData]: Base queryset for the exact seller+trade pair,
+                                 filtered by drop status based on view.
 
     Notes:
         - Intentionally minimal. Do not exclude/annotate here so this can be
           reused by multiple callsites (raw rows, aggregates, etc.).
     """
     # Filter strictly by the seller and trade foreign keys
-    # Keeping it simple makes this helper widely reusable.
-    return SellerRawData.objects.filter(seller_id=seller_id, trade_id=trade_id)
+    qs = SellerRawData.objects.filter(seller_id=seller_id, trade_id=trade_id)
+    
+    # Filter by drop status based on view
+    if view == 'drops':
+        # Drops view: show only dropped assets
+        qs = qs.filter(is_dropped=True)
+    else:
+        # All other views: exclude dropped assets
+        qs = qs.filter(is_dropped=False)
+    
+    return qs
 
 
 def aggregates_by_state(seller_id: int, trade_id: int) -> QuerySet[Dict[str, object]]:

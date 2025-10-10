@@ -34,6 +34,7 @@ def build_queryset(
     q: Optional[str] = None,
     filters: Optional[dict] = None,
     ordering: Optional[str] = None,
+    view: str = 'snapshot',
 ) -> QuerySet[SellerRawData]:
     """
     Return a QuerySet of SellerRawData for the given seller and trade.
@@ -46,6 +47,9 @@ def build_queryset(
         q: Optional quick filter text across common fields
         filters: Optional dict of exact-match filters
         ordering: Optional comma-separated ordering fields (supports -prefix for desc)
+        view: View filter ('snapshot', 'all', 'valuations', 'drops')
+              - 'drops': Show only dropped assets (is_dropped=True)
+              - All others: Show only active assets (is_dropped=False)
     
     Returns:
         QuerySet of SellerRawData with proper joins for valuation access
@@ -61,6 +65,14 @@ def build_queryset(
         .select_related('seller', 'trade', 'asset_hub')  # Optimize joins for serializer access
         .prefetch_related('asset_hub__valuations')  # Bring valuations into memory for serializer
     )
+    
+    # Filter by drop status based on view
+    if view == 'drops':
+        # Drops view: show only dropped assets
+        qs = qs.filter(is_dropped=True)
+    else:
+        # All other views: exclude dropped assets
+        qs = qs.filter(is_dropped=False)
     
     # Apply quick filter across text fields
     if q:
