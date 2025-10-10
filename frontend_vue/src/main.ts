@@ -20,6 +20,7 @@ import 'simplebar'
 import 'bootstrap-vue-next/dist/bootstrap-vue-next.css'
 // Removed admin-resources import for Railway deployment (no longer exists in package.json)
 // import 'admin-resources/jquery.vectormap/jquery-jvectormap-1.2.2.css'
+import 'jsvectormap/dist/jsvectormap.css'
 import 'daterangepicker/daterangepicker.css'
 import 'vue-multiselect/dist/vue-multiselect.css'
 import 'jquery-toast-plugin/dist/jquery.toast.min.css'

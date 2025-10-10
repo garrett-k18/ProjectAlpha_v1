@@ -101,8 +101,12 @@ export const useStratsStore = defineStore('strats', () => {
   // - Axios: https://axios-http.com/docs/api_intro
   async function fetchBandsDelinquency(sellerId: number, tradeId: number): Promise<StratBand[]> {
     const key = `${sellerId}:${tradeId}`
-    // Serve from cache when available
-    if (delinquencyBandsByKey.value[key]) return delinquencyBandsByKey.value[key]
+    // Serve from cache only when non-empty to avoid pinning stale empty results
+    // Rationale: initial fetches can return [] due to backend fixes or transient errors.
+    {
+      const cached = delinquencyBandsByKey.value[key]
+      if (Array.isArray(cached) && cached.length > 0) return cached
+    }
     // Cancel any previous request for this endpoint
     try { ctrlDel.value?.abort() } catch {}
     ctrlDel.value = new AbortController()
@@ -128,7 +132,10 @@ export const useStratsStore = defineStore('strats', () => {
   async function fetchBands(sellerId: number, tradeId: number): Promise<StratBand[]> {
     const key = `${sellerId}:${tradeId}`
     // Return cached if available
-    if (bandsByKey.value[key]) return bandsByKey.value[key]
+    {
+      const cached = bandsByKey.value[key]
+      if (Array.isArray(cached) && cached.length > 0) return cached
+    }
     try { ctrlCB.value?.abort() } catch {}
     ctrlCB.value = new AbortController()
     loading.value = true
@@ -154,7 +161,10 @@ export const useStratsStore = defineStore('strats', () => {
   // Fetch Total Debt stratification bands for a selection
   async function fetchBandsTotalDebt(sellerId: number, tradeId: number): Promise<StratBand[]> {
     const key = `${sellerId}:${tradeId}`
-    if (debtBandsByKey.value[key]) return debtBandsByKey.value[key]
+    {
+      const cached = debtBandsByKey.value[key]
+      if (Array.isArray(cached) && cached.length > 0) return cached
+    }
     try { ctrlTD.value?.abort() } catch {}
     ctrlTD.value = new AbortController()
     loadingTD.value = true
@@ -179,7 +189,10 @@ export const useStratsStore = defineStore('strats', () => {
   // Fetch Seller As-Is Value stratification bands for a selection
   async function fetchBandsSellerAsIs(sellerId: number, tradeId: number): Promise<StratBand[]> {
     const key = `${sellerId}:${tradeId}`
-    if (asisBandsByKey.value[key]) return asisBandsByKey.value[key]
+    {
+      const cached = asisBandsByKey.value[key]
+      if (Array.isArray(cached) && cached.length > 0) return cached
+    }
     try { ctrlAsis.value?.abort() } catch {}
     ctrlAsis.value = new AbortController()
     loadingAsis.value = true
@@ -205,7 +218,10 @@ export const useStratsStore = defineStore('strats', () => {
   async function fetchBandsWac(sellerId: number, tradeId: number): Promise<StratBand[]> {
     const key = `${sellerId}:${tradeId}`
     // Use cached payload if already fetched for this selection
-    if (wacBandsByKey.value[key]) return wacBandsByKey.value[key]
+    {
+      const cached = wacBandsByKey.value[key]
+      if (Array.isArray(cached) && cached.length > 0) return cached
+    }
     try { ctrlWac.value?.abort() } catch {}
     ctrlWac.value = new AbortController()
     loadingWac.value = true
@@ -235,8 +251,11 @@ export const useStratsStore = defineStore('strats', () => {
   // - Axios: https://axios-http.com/docs/api_intro
   async function fetchBandsPropertyType(sellerId: number, tradeId: number): Promise<StratBand[]> {
     const key = `${sellerId}:${tradeId}`
-    // Serve from cache when available
-    if (propertyTypeBandsByKey.value[key]) return propertyTypeBandsByKey.value[key]
+    // Serve from cache only when non-empty
+    {
+      const cached = propertyTypeBandsByKey.value[key]
+      if (Array.isArray(cached) && cached.length > 0) return cached
+    }
     try { ctrlProp.value?.abort() } catch {}
     ctrlProp.value = new AbortController()
     loadingPropertyType.value = true
@@ -264,8 +283,11 @@ export const useStratsStore = defineStore('strats', () => {
   // - Axios: https://axios-http.com/docs/api_intro
   async function fetchBandsOccupancy(sellerId: number, tradeId: number): Promise<StratBand[]> {
     const key = `${sellerId}:${tradeId}`
-    // Serve from cache when available
-    if (occupancyBandsByKey.value[key]) return occupancyBandsByKey.value[key]
+    // Serve from cache only when non-empty
+    {
+      const cached = occupancyBandsByKey.value[key]
+      if (Array.isArray(cached) && cached.length > 0) return cached
+    }
     try { ctrlOcc.value?.abort() } catch {}
     ctrlOcc.value = new AbortController()
     loadingOccupancy.value = true

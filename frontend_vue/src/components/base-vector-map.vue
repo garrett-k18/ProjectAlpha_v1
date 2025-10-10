@@ -3,21 +3,11 @@
 </template>
 
 <script lang="ts">
-import $ from 'jquery'
-// TODO: Replace admin-resources with npm jsvectormap package or vendor assets
-// Removed for Railway deployment - component will not render maps until replaced
-// import "admin-resources/jquery.vectormap/jquery-jvectormap-1.2.2.min.js";
-// import "admin-resources/jquery.vectormap/maps/jquery-jvectormap-world-mill-en.js";
-// import "admin-resources/jquery.vectormap/maps/jquery-jvectormap-us-merc-en.js";
-// import "admin-resources/jquery.vectormap/maps/jquery-jvectormap-in-mill-en.js";
-// import "admin-resources/jquery.vectormap/maps/jquery-jvectormap-au-mill-en.js";
-// import "admin-resources/jquery.vectormap/maps/jquery-jvectormap-uk-mill-en.js";
-// import "admin-resources/jquery.vectormap/maps/jquery-jvectormap-us-il-chicago-mill-en.js";
-// import "admin-resources/jquery.vectormap/maps/jquery-jvectormap-ca-lcc-en.js";
-// import "admin-resources/jquery.vectormap/maps/jquery-jvectormap-europe-mill-en.js";
-// import "admin-resources/jquery.vectormap/maps/jquery-jvectormap-fr-merc-en.js";
-// import "admin-resources/jquery.vectormap/maps/jquery-jvectormap-es-merc.js";
-// import "admin-resources/jquery.vectormap/maps/jquery-jvectormap-es-mill.js";
+// Modern replacement: jsVectorMap (no jQuery dependency)
+// Docs: https://github.com/themustafaomar/jsvectormap
+import jsVectorMap from 'jsvectormap'
+// Import the US mercator map asset used by Acquisitions dashboard
+import 'jsvectormap/dist/maps/world.js'
 
 export default {
   props: {
@@ -40,20 +30,23 @@ export default {
       default: () => []
     }
   },
+  data() {
+    return {
+      mapInstance: null as any,
+    }
+  },
   mounted() {
     if (this.id) {
       this.renderMap()
     }
   },
   beforeUnmount() {
-    // Clean up any existing jVectorMap instance to avoid memory leaks
+    // Clean up any existing jsVectorMap instance to avoid memory leaks
     try {
-      const $el = $("#" + this.id)
-      const existing = ($el as any).data('mapObject')
-      if (existing && typeof existing.remove === 'function') {
-        existing.remove()
+      if (this.mapInstance && typeof this.mapInstance.destroy === 'function') {
+        this.mapInstance.destroy()
       }
-      $el.empty()
+      this.mapInstance = null
     } catch (e) {
       console.debug('[BaseVectorMap] beforeUnmount cleanup failed (non-fatal)', e)
     }
@@ -75,36 +68,68 @@ export default {
   },
   methods: {
     renderMap() {
-      const el = `#${this.id}`
+      const selector = `#${this.id}`
       const base = this.options || {}
-      // Merge markers into options without mutating parent object
-      const opts = { ...base, markers: this.markers }
+      // Normalize markers to jsVectorMap shape: { name, coords: [lat, lng] }
+      const raw = Array.isArray(this.markers) ? this.markers as any[] : []
+      const normalized = raw
+        .map((m: any) => {
+          const coords = Array.isArray(m?.coords) ? m.coords : m?.latLng
+          const lat = Array.isArray(coords) ? Number(coords[0]) : NaN
+          const lng = Array.isArray(coords) ? Number(coords[1]) : NaN
+          if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
+          return { name: m?.name, coords: [lat, lng], id: m?.id }
+        })
+        .filter(Boolean)
+      // Merge into options without mutating parent
+      const opts: any = { ...base, markers: normalized }
 
-      const $el = $(el)
-      // Try to remove any existing map instance first (per jVectorMap API)
-      // Docs: https://jvectormap.com/documentation/javascript-api/#destroy
+      // Destroy previous instance if any
       try {
-        const existing = ($el as any).data('mapObject')
-        if (existing && typeof existing.remove === 'function') {
-          existing.remove()
+        if (this.mapInstance && typeof this.mapInstance.destroy === 'function') {
+          this.mapInstance.destroy()
         }
+        this.mapInstance = null
       } catch (e) {
-        // Non-fatal cleanup failure
-        console.warn('[BaseVectorMap] previous map remove failed', e)
+        console.warn('[BaseVectorMap] previous map destroy failed', e)
       }
 
-      // Clear container then initialize
-      $el.empty()
+      // Initialize jsVectorMap
       try {
         console.debug('[BaseVectorMap] render', {
           id: this.id,
-          map: (opts as any)?.map,
+          map: opts?.map,
           markersCount: Array.isArray(this.markers) ? this.markers.length : 0,
           firstMarker: Array.isArray(this.markers) ? this.markers[0] : null,
         })
-        ;($el as any).vectorMap(opts)
+        this.mapInstance = new jsVectorMap({
+          selector,
+          ...opts,
+        })
+        // Optional focus handling to zoom into regions (e.g., US) when using world map
+        if (opts && (opts as any).focusOn && this.mapInstance && typeof this.mapInstance.setFocus === 'function') {
+          try {
+            this.mapInstance.setFocus((opts as any).focusOn)
+          } catch (err) {
+            console.warn('[BaseVectorMap] setFocus failed', err)
+          }
+        }
+        // Optional pre-selected regions (e.g., highlight only US)
+        const preSel = (opts as any)?.selectedRegions
+        if (preSel && Array.isArray(preSel)) {
+          try {
+            // Try common APIs supported by jsVectorMap versions
+            if (typeof (this.mapInstance as any).setSelectedRegions === 'function') {
+              ;(this.mapInstance as any).setSelectedRegions(preSel)
+            } else if (typeof (this.mapInstance as any).setSelected === 'function') {
+              ;(this.mapInstance as any).setSelected('regions', preSel)
+            }
+          } catch (err) {
+            console.warn('[BaseVectorMap] setSelectedRegions failed', err)
+          }
+        }
       } catch (e) {
-        console.error('[BaseVectorMap] vectorMap init failed', e, opts)
+        console.error('[BaseVectorMap] jsVectorMap init failed', e, opts)
       }
     }
   }

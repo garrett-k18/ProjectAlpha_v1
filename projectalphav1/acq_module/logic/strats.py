@@ -415,7 +415,7 @@ def property_type_stratification_categorical(
     rows = (
         qs.values("property_type")
         .annotate(
-            count=Count("id"),
+            count=Count("pk"),  # Use pk since SellerRawData primary key is asset_hub (no 'id' field)
             sum_current_balance=Coalesce(Sum("current_balance"), zero_dec),
             sum_total_debt=Coalesce(Sum("total_debt"), zero_dec),
             sum_seller_asis_value=Coalesce(Sum("seller_asis_value"), zero_dec),
@@ -525,7 +525,7 @@ def occupancy_stratification_categorical(
     rows = (
         qs.values("occupancy")
         .annotate(
-            count=Count("id"),
+            count=Count("pk"),  # Use pk since SellerRawData primary key is asset_hub (no 'id' field)
             sum_current_balance=Coalesce(Sum("current_balance"), zero_dec),
             sum_total_debt=Coalesce(Sum("total_debt"), zero_dec),
             sum_seller_asis_value=Coalesce(Sum("seller_asis_value"), zero_dec),
@@ -820,7 +820,7 @@ def judicial_stratification_dynamic(
     
     # Aggregate by state first
     states_data = qs.values('state').annotate(
-        count=Count('id'),
+        count=Count('pk'),  # Use pk since SellerRawData primary key is asset_hub (no 'id' field)
         sum_current_balance=Coalesce(Sum('current_balance'), Value(Decimal("0.00")), output_field=DecimalField()),
         sum_total_debt=Coalesce(Sum('total_debt'), Value(Decimal("0.00")), output_field=DecimalField()),
         sum_seller_asis_value=Coalesce(Sum('seller_asis_value'), Value(Decimal("0.00")), output_field=DecimalField()),

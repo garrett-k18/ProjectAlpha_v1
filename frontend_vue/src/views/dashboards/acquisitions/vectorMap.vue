@@ -58,17 +58,29 @@ export default {
   },
   data() {
     return {
-      // jVectorMap options for US mercator map with visible markers
+      // jsVectorMap options for World map (focused on US)
       mapOptions: {
-        map: 'us_merc_en',
+        map: 'world',
+        // Attempt to focus the viewport on the US region (AK/HI/PR are included in world map geometry)
+        // BaseVectorMap will call setFocus(opts.focusOn) when present
+        focusOn: { regions: ['US'], animate: false },
         normalizeFunction: 'polynomial',
         hoverOpacity: 0.7,
         hoverColor: false,
         regionStyle: {
           initial: {
-            fill: '#91a6bd40'
+            // Hide non-US regions by default
+            fill: 'transparent',
+            stroke: 'transparent'
+          },
+          selected: {
+            // Fill color for the highlighted US region
+            fill: '#91a6bd40',
+            stroke: 'transparent'
           }
         },
+        // Highlight only the US region so the map effectively shows the 50 states
+        selectedRegions: ['US'],
         // High-visibility marker styling
         markerStyle: {
           initial: {

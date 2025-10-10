@@ -8,3 +8,7 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+
+// Ambient module declarations for libraries without TypeScript types
+declare module 'jsvectormap';
+declare module 'jsvectormap/dist/maps/world.js';

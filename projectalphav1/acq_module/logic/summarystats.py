@@ -231,7 +231,13 @@ def count_by_state(seller_id: int, trade_id: int) -> List[Dict[str, object]]:
         .exclude(state__exact="")
     )
     # Group by state and compute a row count per group
-    aggregated = qs.values("state").annotate(count=Count("id")).order_by("-count")
+    aggregated = (
+        qs.values("state")
+        .annotate(
+            count=Count("pk"),  # Use pk since SellerRawData primary key is asset_hub (no 'id' field)
+        )
+        .order_by("-count")
+    )
     # Return as a list of dicts, ready for JSON serialization
     return list(aggregated)
 
