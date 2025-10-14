@@ -66,7 +66,7 @@ export default defineComponent({
           component: 'router-link',
           componentProps: (row: any) => ({
             to: `/acq/investors/${row.id}`,
-            class: 'text-body fw-bold',
+            class: 'text-body',
           }),
         },
         {

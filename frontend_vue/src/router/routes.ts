@@ -381,7 +381,7 @@ const fileManagerAppsRoutes = [
         path: '/apps/file-manager',
         name: 'File Manager',
         icon: 'uil-folder-plus',
-        component: () => import('@/views/apps/file-manager/index_document_manager.vue'),
+        component: () => import('@/views/apps/document_manager/index_document_manager.vue'),
         meta: {authRequired: true},
     }
 ];

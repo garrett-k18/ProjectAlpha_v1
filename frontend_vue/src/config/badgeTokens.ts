@@ -21,6 +21,50 @@ export interface BadgeVisualConfig {
 }
 
 /**
+ * Map occupancy values to badge tones.
+ */
+export function getOccupancyBadgeTone(occupancy?: string | null): BadgeToneKey {
+  const v = (occupancy ?? '').toString().toLowerCase();
+  if (v === 'occupied') return 'success';
+  if (v === 'vacant') return 'danger';
+  if (v === 'unknown') return 'warning';
+  return 'secondary';
+}
+
+/**
+ * Map asset status (NPL/REO/PERF/RPL) to badge tones.
+ */
+export function getAssetStatusBadgeTone(status?: string | null): BadgeToneKey {
+  const v = (status ?? '').toString().toUpperCase();
+  if (v === 'NPL') return 'danger';
+  if (v === 'REO') return 'secondary';
+  if (v === 'PERF') return 'success';
+  if (v === 'RPL') return 'info';
+  return 'secondary';
+}
+
+/**
+ * Map product type strings to badge tones.
+ */
+export function getProductTypeBadgeTone(productType?: string | null): BadgeToneKey {
+  const v = (productType ?? '').toString().toLowerCase();
+  switch (v) {
+    case 'bpl':
+      return 'primary';
+    case 'hecm':
+      return 'info';
+    case 'va':
+      return 'success';
+    case 'conv':
+      return 'dark';
+    case 'commercial':
+      return 'secondary';
+    default:
+      return 'secondary';
+  }
+}
+
+/**
  * Shared size presets. Combine with `badgeToneMap` entries to create consistent pills.
  */
 export const badgeSizeMap: Record<BadgeSizeKey, BadgeVisualConfig> = {
@@ -284,7 +328,7 @@ export const propertyTypeEnumMap: Record<string, { label: string; color: string;
 export const occupancyEnumMap: Record<string, { label: string; color: string; title: string }> = {
   'Vacant': { label: 'Vacant', color: 'bg-danger', title: 'Property is Vacant' },
   'Occupied': { label: 'Occupied', color: 'bg-success', title: 'Property is Occupied' },
-  'Unknown': { label: 'Unknown', color: 'bg-warning text-dark', title: 'Occupancy Status Unknown' },
+  'Unknown': { label: 'Occ. Unknown', color: 'bg-warning text-dark', title: 'Occupancy Status Unknown' },
   'Owner Occupied': { label: 'Owner Occupied', color: 'bg-primary', title: 'Owner Occupied' },
   'Non-Owner Occupied': { label: 'Non-Owner Occupied', color: 'bg-info', title: 'Non-Owner Occupied' },
   'Investment': { label: 'Investment', color: 'bg-warning text-dark', title: 'Investment Property' },
@@ -315,4 +359,59 @@ export const productTypeEnumMap: Record<string, { label: string; color: string; 
   'ARM': { label: 'ARM', color: 'bg-info', title: 'Adjustable Rate Mortgage' },
   'HELOC': { label: 'HELOC', color: 'bg-warning text-dark', title: 'Home Equity Line of Credit' },
   'Other': { label: 'Other', color: 'bg-secondary', title: 'Other Product Type' },
+};
+
+/**
+ * Utility: normalize various boolean-ish values into Yes/No/— labels.
+ */
+export function toYesNoLabel(v: any): string {
+  if (v === true || v === 'true' || v === 'True' || v === 'YES' || v === 'Yes' || v === 'Y' || v === 1) return 'Yes';
+  if (v === false || v === 'false' || v === 'False' || v === 'NO' || v === 'No' || v === 'N' || v === 0) return 'No';
+  return '—';
+}
+
+/**
+ * Flag badge tone helpers (standardize FC/BK/Mod visuals across app).
+ * Aligns with AG Grid-like red for risk flags, green for clear, info for mod present.
+ */
+export function getFcFlagBadgeTone(flag?: any): BadgeToneKey {
+  const lbl = toYesNoLabel(flag);
+  if (lbl === 'Yes') return 'danger';
+  if (lbl === 'No') return 'secondary';
+  return 'secondary';
+}
+
+export function getBkFlagBadgeTone(flag?: any): BadgeToneKey {
+  const lbl = toYesNoLabel(flag);
+  if (lbl === 'Yes') return 'danger';
+  if (lbl === 'No') return 'secondary';
+  return 'secondary';
+}
+
+export function getModFlagBadgeTone(flag?: any): BadgeToneKey {
+  const lbl = toYesNoLabel(flag);
+  if (lbl === 'Yes') return 'info';
+  if (lbl === 'No') return 'secondary';
+  return 'secondary';
+}
+
+/**
+ * AG Grid enum maps for FC/BK/Mod flags to keep grid pills consistent with components.
+ */
+export const foreclosureFlagEnumMap: Record<string, { label: string; color: string; title: string }> = {
+  'Yes': { label: 'Yes', color: 'bg-danger text-white', title: 'Foreclosure Flag' },
+  'No': { label: 'No', color: 'bg-secondary text-white', title: 'Foreclosure Flag' },
+  '—': { label: '—', color: 'bg-secondary text-white', title: 'Foreclosure Flag' },
+};
+
+export const bankruptcyFlagEnumMap: Record<string, { label: string; color: string; title: string }> = {
+  'Yes': { label: 'Yes', color: 'bg-danger text-white', title: 'Bankruptcy Flag' },
+  'No': { label: 'No', color: 'bg-secondary text-white', title: 'Bankruptcy Flag' },
+  '—': { label: '—', color: 'bg-secondary text-white', title: 'Bankruptcy Flag' },
+};
+
+export const modificationFlagEnumMap: Record<string, { label: string; color: string; title: string }> = {
+  'Yes': { label: 'Yes', color: 'bg-info text-white', title: 'Modification Flag' },
+  'No': { label: 'No', color: 'bg-secondary text-white', title: 'Modification Flag' },
+  '—': { label: '—', color: 'bg-secondary text-white', title: 'Modification Flag' },
 };

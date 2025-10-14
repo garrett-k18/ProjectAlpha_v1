@@ -14,6 +14,7 @@
       <b-row>
         <b-col lg="8">
           <BaseVectorMap
+            :key="mapKey"
             id="acq-vector-map"
             class="mt-3 mb-3"
             :map-height="300"
@@ -142,6 +143,15 @@ export default {
         .filter((mk: any) => Number.isFinite(mk.latLng?.[0]) && Number.isFinite(mk.latLng?.[1]))
       console.debug('[VectorMap] markersForMap', { rawCount: safe.length, count: out.length, first: out[0] })
       return out
+    },
+    /**
+     * mapKey
+     * Force remount of BaseVectorMap whenever the selection or marker count changes.
+     * Prevents duplicate SVGs by ensuring a fresh component instance.
+     */
+    mapKey(): string {
+      const count = Array.isArray(this.markersForMap) ? this.markersForMap.length : 0
+      return `${this.selectionKey}:${count}`
     },
     
   },

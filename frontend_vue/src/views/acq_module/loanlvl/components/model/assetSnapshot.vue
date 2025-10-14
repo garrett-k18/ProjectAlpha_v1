@@ -20,7 +20,7 @@
             <!-- Product Type -->
             <UiBadge :tone="productTypeTone" size="md" :label="row?.product_type ?? '—'" ariaLabel="Product Type" />
             <!-- Occupancy -->
-            <UiBadge :tone="occupancyTone" size="md" :label="row?.occupancy ?? '—'" ariaLabel="Occupancy" />
+            <UiBadge :tone="occupancyTone" size="md" :label="occupancyLabel" ariaLabel="Occupancy" />
           </div>
         </div>
         
@@ -89,7 +89,7 @@ import { computed } from 'vue'
 // Reusable badge UI + centralized tone tokens
 import UiBadge from '@/components/ui/UiBadge.vue'
 import type { BadgeToneKey } from '@/config/badgeTokens'
-import { getPropertyTypeBadgeTone } from '@/config/badgeTokens'
+import { getPropertyTypeBadgeTone, getOccupancyBadgeTone, getAssetStatusBadgeTone, getProductTypeBadgeTone } from '@/config/badgeTokens'
 
 // Props - row object containing asset data
 const props = defineProps<{
@@ -210,34 +210,16 @@ function formatValuationRange(asisValue: any, arvValue: any): string {
  */
 const propertyTypeTone = computed<BadgeToneKey>(() => getPropertyTypeBadgeTone(props.row?.property_type))
 
-const occupancyTone = computed<BadgeToneKey>(() => {
-  const v = (props.row?.occupancy ?? '').toString().toLowerCase()
-  if (v === 'occupied') return 'success'
-  if (v === 'vacant') return 'danger'
-  if (v === 'unknown') return 'warning'
-  return 'secondary'
+const occupancyTone = computed<BadgeToneKey>(() => getOccupancyBadgeTone(props.row?.occupancy))
+const occupancyLabel = computed<string>(() => {
+  const v = (props.row?.occupancy ?? '').toString()
+  if (!v) return '—'
+  return v.toLowerCase() === 'unknown' ? 'Occ. Unknown' : v
 })
 
-const assetStatusTone = computed<BadgeToneKey>(() => {
-  const v = (props.row?.asset_status ?? '').toString().toUpperCase()
-  if (v === 'NPL') return 'danger'
-  if (v === 'REO') return 'secondary'
-  if (v === 'PERF') return 'success'
-  if (v === 'RPL') return 'info'
-  return 'secondary'
-})
+const assetStatusTone = computed<BadgeToneKey>(() => getAssetStatusBadgeTone(props.row?.asset_status))
 
-const productTypeTone = computed<BadgeToneKey>(() => {
-  const v = (props.row?.product_type ?? '').toString().toLowerCase()
-  switch (v) {
-    case 'bpl': return 'primary'
-    case 'hecm': return 'info'
-    case 'va': return 'success'
-    case 'conv': return 'dark'
-    case 'commercial': return 'secondary'
-    default: return 'secondary'
-  }
-})
+const productTypeTone = computed<BadgeToneKey>(() => getProductTypeBadgeTone(props.row?.product_type))
 </script>
 
 <style scoped>

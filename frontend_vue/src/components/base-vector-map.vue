@@ -96,6 +96,14 @@ export default {
         console.warn('[BaseVectorMap] previous map destroy failed', e)
       }
 
+      // Clear any leftover DOM inside the target container to avoid duplicate SVGs
+      try {
+        const el = document.querySelector(selector) as HTMLElement | null
+        if (el) el.innerHTML = ''
+      } catch (e) {
+        console.debug('[BaseVectorMap] container clear non-fatal', e)
+      }
+
       // Initialize jsVectorMap
       try {
         console.debug('[BaseVectorMap] render', {

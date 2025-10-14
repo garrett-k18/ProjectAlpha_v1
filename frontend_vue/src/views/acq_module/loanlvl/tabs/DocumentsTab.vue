@@ -1,63 +1,42 @@
 <template>
-  <!-- Full documents list using the reusable quick view widget -->
+  <!-- Documents tab now composes the full Document Manager panel for reuse -->
   <b-row class="g-3 g-lg-4 px-3 px-lg-4">
     <b-col lg="12" class="d-flex">
       <div class="w-100 h-100">
-        <DocumentsQuickView
-          title="All Documents"
-          :docs="docItems"
-          :maxItems="0"
-          :showViewAll="false"
+        <DocumentManagerPanel
+          :row="row"
+          :assetId="assetId ?? undefined"
+          :module="module"
+          :viewModesInput="viewModesNoTrade"
+          initialViewId="by-type"
         />
       </div>
     </b-col>
   </b-row>
-  
+
   <!-- Slot for future document viewer/details area if needed -->
   <slot />
 </template>
 
 <script setup lang="ts">
-// Documents tab: renders the full document list using the reusable widget
-// Uses BootstrapVue Next grid for layout and Hyper UI card styles from the component
-import { withDefaults, defineProps, computed } from 'vue'
-import DocumentsQuickView from '@/components/DocumentsQuickView.vue'
-import type { DocumentItem } from '@/components/DocumentsQuickView.vue'
+// Documents tab: now composes the reusable DocumentManagerPanel
+import { withDefaults, defineProps } from 'vue'
+import DocumentManagerPanel from '@/components/document_components/DocumentManagerPanel.vue'
+import type { ViewMode } from '@/components/document_components/types'
 
 withDefaults(defineProps<{
   row?: Record<string, any> | null
-  assetId?: string | number | null
+  assetId?: string | number
+  module?: 'acq' | 'am'
 }>(), {
   row: null,
-  assetId: null,
+  module: 'acq',
 })
 
-// Demo dataset renamed per request
-// Replace with API-backed mapping once available
-const docItems = computed<DocumentItem[]>(() => [
-  {
-    id: 'pdf-bpo',
-    name: 'BPO.pdf',
-    type: 'application/pdf',
-    sizeBytes: Math.round(2.3 * 1024 * 1024),
-    previewUrl: '#',
-    downloadUrl: '#',
-  },
-  {
-    id: 'pdf-appraisal',
-    name: 'Appraisal.pdf',
-    type: 'application/pdf',
-    sizeBytes: Math.round(3.25 * 1024 * 1024),
-    previewUrl: '#',
-    downloadUrl: '#',
-  },
-  {
-    id: 'doc-memo',
-    name: 'Memo.docx',
-    type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    sizeBytes: Math.round(7.05 * 1024 * 1024),
-    previewUrl: '#',
-    downloadUrl: '#',
-  },
-])
+// View modes for Documents tab (no 'by-trade')
+const viewModesNoTrade: ViewMode[] = [
+  { id: 'by-type', label: 'By Document Type', icon: 'mdi mdi-file-document', description: 'Group by document category' },
+  { id: 'by-status', label: 'By Status', icon: 'mdi mdi-check-circle', description: 'Active, Archived, etc.' },
+  { id: 'recent', label: 'Recent', icon: 'mdi mdi-clock-outline', description: 'Recently uploaded' },
+]
 </script>

@@ -65,28 +65,27 @@
         </div>
       </b-col>
       </b-row>
-    <!-- Documents + Valuation + Summary row (match standard gutters). Place Valuation left of Documents. -->
-    <!-- Standard gutters to match other tabs -->
-    <b-row class="g-3 mt-1 align-items-stretch">
-        <!-- Valuation Matrix (component renders its own card now) -->
-        <b-col lg="9" class="d-flex">
-          <div class="w-100 h-100">
-            <ValuationMatrix class="h-100 d-flex flex-column" :row="row" :assetId="assetId" :module="module" />
-          </div>
-        </b-col>
+    <!-- Valuation Matrix and Documents row -->
+    <b-row class="g-3 mt-3 align-items-stretch">
+      <!-- Valuation Matrix (Comparison Grid) -->
+      <b-col lg="9" class="d-flex">
+        <div class="w-100 h-100">
+          <ValuationMatrixOption2 :row="row" :assetId="assetId" />
+        </div>
+      </b-col>
 
-        <!-- Documents quick view card (right) -->
-        <b-col lg="3" class="d-flex">
-          <div class="w-100 h-100">
-            <DocumentsQuickView
-              title="Document Quick View"
-              :docs="docItems"
-              :maxItems="5"
-              :showViewAll="false"
-            />
-          </div>
-        </b-col>
-      </b-row>
+      <!-- Documents quick view card (right) -->
+      <b-col lg="3" class="d-flex">
+        <div class="w-100 h-100">
+          <DocumentsQuickView
+            title="Document Quick View"
+            :docs="docItems"
+            :maxItems="5"
+            :showViewAll="false"
+          />
+        </div>
+      </b-col>
+    </b-row>
     </div>
 </template>
 
@@ -108,6 +107,9 @@ import type { DocumentItem } from '@/components/DocumentsQuickView.vue'
 import QuickSummary from '@/components/QuickSummary.vue'
 // Modular pricing/stock grid card extracted from inline markup
 import ValuationMatrix from '@/views/acq_module/loanlvl/components/valuationMatrix.vue'
+// Valuation matrix design options for review
+import ValuationMatrixOption1 from '@/views/acq_module/loanlvl/components/valuationMatrix_Option1.vue'
+import ValuationMatrixOption2 from '@/views/acq_module/loanlvl/components/valuationMatrix_Option2.vue'
 // Hyper UI widget: simple stat with icon
 import LoanlvlWidgets from '@/components/widgets/loanlvl-widgets.vue'
 
