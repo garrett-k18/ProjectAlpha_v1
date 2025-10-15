@@ -30,6 +30,7 @@ import Layout from "@/components/layouts/layout.vue";
 import Breadcrumb from "@/components/breadcrumb.vue";
 import CRMListView from "@/views/apps/crm/components/index_mastercrm.vue";
 import { useLegalStore } from '@/stores/legal';
+import http from '@/lib/http';
 
 export default defineComponent({
   name: 'LegalPage',
@@ -49,6 +50,7 @@ export default defineComponent({
         { text: 'Legal', active: true },
       ],
       store: useLegalStore(),
+      statesOptions: [] as Array<{ value: string; label: string }>,
     };
   },
 
@@ -72,6 +74,15 @@ export default defineComponent({
           header: 'Contact Name',
           editable: true,
           placeholder: 'John Smith',
+        },
+        {
+          field: 'states',
+          header: 'States',
+          editable: true,
+          cols: 6,
+          md: 6,
+          options: this.statesOptions,
+          multiple: true,
         },
         {
           field: 'email',
@@ -101,12 +112,7 @@ export default defineComponent({
           editable: true,
           placeholder: 'New York',
         },
-        {
-          field: 'state',
-          header: 'State',
-          editable: true,
-          placeholder: 'NY',
-        },
+        // No legacy single-state column; use multi-select states only
       ];
     },
 
@@ -120,7 +126,7 @@ export default defineComponent({
       // Extract unique states from loaded legal contacts
       const states = new Set<string>();
       this.store.results.forEach((legal: any) => {
-        if (legal.state) states.add(legal.state);
+        if (Array.isArray(legal.states)) legal.states.forEach((s: string) => states.add(s));
       });
 
       return [
@@ -166,13 +172,16 @@ export default defineComponent({
      * Why: Allow users to add new legal contacts to CRM
      * How: Calls store.createLegal with form data
      */
-    onCreate(data: any) {
-      console.log('Create legal contact:', data);
-      this.store.createLegal(data).then((success) => {
-        if (success) {
-          console.log('Legal contact created successfully');
-        }
-      });
+    async onCreate(data: any) {
+      const payload = {
+        firm: data.firm || null,
+        name: data.name || null,
+        email: data.email || null,
+        phone: data.phone || null,
+        city: data.city || null,
+        states: Array.isArray(data.states) ? data.states : undefined,
+      };
+      await this.store.createLegal(payload);
     },
 
     /**
@@ -181,13 +190,17 @@ export default defineComponent({
      * Why: Allow users to modify legal contact information
      * How: Calls store.updateLegal with updated data
      */
-    onUpdate(id: number, data: any) {
-      console.log('Update legal contact:', id, data);
-      this.store.updateLegal(id, data).then((success) => {
-        if (success) {
-          console.log('Legal contact updated successfully');
-        }
-      });
+    async onUpdate(payload: { id: number; data: any }) {
+      const data = payload.data || {};
+      const body = {
+        firm: data.firm || null,
+        name: data.name || null,
+        email: data.email || null,
+        phone: data.phone || null,
+        city: data.city || null,
+        states: Array.isArray(data.states) ? data.states : undefined,
+      };
+      await this.store.updateLegal(payload.id, body);
     },
 
     /**
@@ -199,9 +212,10 @@ export default defineComponent({
     onExport() {
       console.log('Export legal contacts');
       // TODO: Implement export functionality
-      const csv = this.store.results.map(item => 
-        `${item.firm},${item.name},${item.email},${item.phone},${item.city},${item.state}`
-      ).join('\n');
+      const csv = this.store.results.map(item => {
+        const states = Array.isArray(item.states) ? item.states.join('|') : '';
+        return `${item.firm},${item.name},${item.email},${item.phone},${item.city},${states}`
+      }).join('\n');
       
       const blob = new Blob([csv], { type: 'text/csv' });
       const url = window.URL.createObjectURL(blob);
@@ -218,6 +232,13 @@ export default defineComponent({
     // Why: Display legal contacts immediately when user navigates to page
     // How: Calls store.fetchLegal with page 1
     this.store.fetchLegal({ page: 1 });
+    // Load state options from core API
+    http.get('/core/state-assumptions/all/').then((resp) => {
+      const results = resp.data?.results || resp.data || [];
+      this.statesOptions = (results || []).map((s: any) => ({ value: s.code || s.state_code, label: s.name || s.state_name })).sort((a: any, b: any) => a.label.localeCompare(b.label));
+    }).catch(() => {
+      this.statesOptions = [];
+    });
   },
 });
 </script>

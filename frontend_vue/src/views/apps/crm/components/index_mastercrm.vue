@@ -87,7 +87,38 @@
                   :md="column.md || 6"
                 >
                   <label class="form-label">{{ column.header }}</label>
+                  <!-- If options provided and multiple, render checkbox group for better UX -->
+                  <div v-if="column.options && column.options.length && column.multiple" class="border rounded p-2" style="max-height: 220px; overflow: auto;">
+                    <div class="d-flex justify-content-end mb-2 gap-2">
+                      <button type="button" class="btn btn-sm btn-light" @click="form[column.field] = column.options.map(o => o.value)">Select all</button>
+                      <button type="button" class="btn btn-sm btn-light" @click="form[column.field] = []">Clear</button>
+                    </div>
+                    <div class="d-flex flex-column gap-1">
+                      <div class="form-check" v-for="opt in column.options" :key="opt.value">
+                        <input
+                          class="form-check-input"
+                          type="checkbox"
+                          :id="`${column.field}-${opt.value}`"
+                          :value="opt.value"
+                          v-model="form[column.field]"
+                        />
+                        <label class="form-check-label" :for="`${column.field}-${opt.value}`">{{ opt.label }}</label>
+                      </div>
+                    </div>
+                  </div>
+                  <!-- If options provided (single select), render select -->
+                  <select
+                    v-else-if="column.options && column.options.length"
+                    class="form-select"
+                    v-model="form[column.field]"
+                  >
+                    <option v-for="opt in column.options" :key="opt.value" :value="opt.value">
+                      {{ opt.label }}
+                    </option>
+                  </select>
+                  <!-- Fallback: standard input -->
                   <input
+                    v-else
                     class="form-control"
                     v-model="form[column.field]"
                     :type="column.inputType || 'text'"
@@ -169,6 +200,19 @@
                       >
                       <label class="form-check-label" :for="`nda-${row.id}`">&nbsp;</label>
                     </div>
+                    <!-- Array-as-chips rendering for better readability (e.g., states) -->
+                    <div v-else-if="Array.isArray(row[column.field])">
+                      <span v-if="row[column.field].length === 0" class="text-muted">—</span>
+                      <span v-else>
+                        <span
+                          v-for="(val, idx) in row[column.field]"
+                          :key="idx + '-' + val"
+                          class="badge bg-light text-dark border me-1"
+                        >
+                          {{ val }}
+                        </span>
+                      </span>
+                    </div>
                     <!-- Standard cell rendering -->
                     <component 
                       v-else
@@ -225,6 +269,10 @@ export interface CRMColumn {
   componentProps?: (row: any) => any;  // Props for custom component
   cols?: number;              // Bootstrap cols for modal
   md?: number;                // Bootstrap md cols for modal
+  // Optional: select options for this field in the modal; if provided, a select is rendered
+  options?: Array<{ value: string; label: string }>;
+  // Optional: when using select, allow multiple selection
+  multiple?: boolean;
 }
 
 /**
@@ -276,7 +324,7 @@ export default defineComponent({
 
     // Error message
     error: {
-      type: Object as PropType<string | null>,
+      type: String as PropType<string | null>,
       default: null,
     },
   },
@@ -339,7 +387,8 @@ export default defineComponent({
     resetForm() {
       this.form = {};
       this.editableColumns.forEach(col => {
-        this.form[col.field] = '';
+        // Initialize array for multi-select fields, else empty string
+        this.form[col.field] = col.multiple ? [] : '';
       });
     },
 
@@ -384,7 +433,12 @@ export default defineComponent({
       this.editId = row.id;
       
       this.editableColumns.forEach(col => {
-        this.form[col.field] = row[col.field] || '';
+        // Preserve arrays when multi-select, else map to string value
+        if (col.multiple) {
+          this.form[col.field] = Array.isArray(row[col.field]) ? [...row[col.field]] : [];
+        } else {
+          this.form[col.field] = row[col.field] || '';
+        }
       });
 
       this.showModal = true;

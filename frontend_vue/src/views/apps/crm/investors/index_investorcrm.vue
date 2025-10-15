@@ -30,6 +30,7 @@ import Layout from "@/components/layouts/layout.vue";
 import Breadcrumb from "@/components/breadcrumb.vue";
 import CRMListView from "@/views/apps/crm/components/index_mastercrm.vue";
 import { useInvestorsStore } from '@/stores/investors';
+// No state options needed for investors
 
 export default defineComponent({
   name: 'InvestorsPage',
@@ -107,19 +108,7 @@ export default defineComponent({
      * Filter configuration for investors
      */
     investorFilters() {
-      // Build unique states from current results
-      const states = new Set<string>();
-      this.store.results.forEach((investor: any) => {
-        if (investor.state) states.add(investor.state);
-      });
-
-      return [
-        {
-          field: 'state',
-          label: 'State',
-          options: Array.from(states).sort(),
-        },
-      ];
+      return [];
     },
   },
 
@@ -168,7 +157,6 @@ export default defineComponent({
         email: data.email || null,
         phone: data.phone || null,
         city: data.city || null,
-        state: data.state || null,
         tag: 'investor',  // Set MasterCRM tag to investor
       };
       await this.store.createInvestor(payload);
@@ -184,7 +172,6 @@ export default defineComponent({
         email: payload.data.email || null,
         phone: payload.data.phone || null,
         city: payload.data.city || null,
-        state: payload.data.state || null,
       };
       await this.store.updateInvestor(payload.id, data);
     },

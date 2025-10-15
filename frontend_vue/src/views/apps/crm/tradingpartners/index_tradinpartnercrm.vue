@@ -31,6 +31,7 @@ import Layout from "@/components/layouts/layout.vue";
 import Breadcrumb from "@/components/breadcrumb.vue";
 import CRMListView from "@/views/apps/crm/components/index_mastercrm.vue";
 import { useTradingPartnersStore } from '@/stores/tradingPartners';
+import http from '@/lib/http';
 
 export default defineComponent({
   name: 'TradingPartnersPage',
@@ -49,6 +50,7 @@ export default defineComponent({
         { text: 'Trading Partners', active: true },
       ],
       store: useTradingPartnersStore(),
+      statesOptions: [] as Array<{ value: string; label: string }>,
     };
   },
 
@@ -74,6 +76,15 @@ export default defineComponent({
           header: 'Primary Contact',
           editable: true,
           placeholder: 'John Smith',
+        },
+        {
+          field: 'states',
+          header: 'States',
+          editable: true,
+          cols: 6,
+          md: 6,
+          options: this.statesOptions,
+          multiple: true,
         },
         {
           field: 'email',
@@ -192,6 +203,7 @@ export default defineComponent({
         name: data.name || null,
         email: data.email || null,
         phone: data.phone || null,
+        states: Array.isArray(data.states) ? data.states : undefined,
         tag: 'trading_partner',  // Set MasterCRM tag to trading_partner
       };
       await this.store.createPartner(payload);
@@ -206,6 +218,7 @@ export default defineComponent({
         name: payload.data.name || null,
         email: payload.data.email || null,
         phone: payload.data.phone || null,
+        states: Array.isArray(payload.data.states) ? payload.data.states : undefined,
       };
       await this.store.updatePartner(payload.id, data);
     },
@@ -246,6 +259,13 @@ export default defineComponent({
   mounted() {
     // Fetch trading partners on mount
     this.store.fetchPartners({ page: 1 });
+    // Load state options from core API
+    http.get('/core/state-assumptions/all/').then((resp) => {
+      const results = resp.data?.results || resp.data || [];
+      this.statesOptions = (results || []).map((s: any) => ({ value: s.code || s.state_code, label: s.name || s.state_name })).sort((a: any, b: any) => a.label.localeCompare(b.label));
+    }).catch(() => {
+      this.statesOptions = [];
+    });
   },
 });
 </script>

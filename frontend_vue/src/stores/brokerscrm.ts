@@ -17,7 +17,7 @@ export interface BrokerCrmItem {
   phone: string | null         // Maps to MasterCRM.phone
   firm: string | null          // Maps to MasterCRM.firm
   city: string | null          // Maps to MasterCRM.city
-  state: string | null         // Maps to MasterCRM.state
+  states?: string[]            // Multi-select (MasterCRM.states m2m codes)
   created_at: string | null    // ISO8601 string
 }
 
@@ -74,11 +74,17 @@ export const useBrokersCrmStore = defineStore('brokerscrm', {
           },
         })
         // Expected response shape: { count, page, page_size, results }
-        const data = resp.data as { count: number; page: number; page_size: number; results: BrokerCrmItem[] }
+        const data = resp.data as { count: number; page: number; page_size: number; results: any[] }
         this.count = data.count
         this.page = data.page
         this.pageSize = data.page_size
-        this.results = Array.isArray(data.results) ? data.results : []
+        // Map results to ensure states array is present
+        this.results = Array.isArray(data.results)
+          ? data.results.map((r: any) => ({
+              ...r,
+              states: Array.isArray(r.states) ? r.states : [],
+            }))
+          : []
       } catch (e: any) {
         // Provide a user-friendly error message while keeping console details
         console.error('[brokerscrm] fetchBrokers failed:', e)
@@ -105,7 +111,7 @@ export const useBrokersCrmStore = defineStore('brokerscrm', {
       email?: string | null
       firm?: string | null
       city?: string | null
-      state?: string | null
+      states?: string[]
       phone?: string | null
     }) {
       this.error = null
@@ -130,7 +136,7 @@ export const useBrokersCrmStore = defineStore('brokerscrm', {
       phone?: string | null
       firm?: string | null
       city?: string | null
-      state?: string | null
+      states?: string[]
     }) {
       this.error = null
       try {

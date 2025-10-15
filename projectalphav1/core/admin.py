@@ -62,11 +62,11 @@ class DebtFacilityAdmin(admin.ModelAdmin):
 class MasterCRMAdmin(admin.ModelAdmin):
     """Admin configuration for unified Master CRM (Brokercrm) model."""
     list_display = (
-        'contact_name', 'firm', 'email', 'state', 'city', 'tag',
+        'contact_name', 'firm', 'email', 'states_list', 'city', 'tag',
         'alt_contact_name', 'nda_flag', 'nda_signed', 'created_at'
     )
     list_filter = (
-        'state', 'tag', 'nda_flag'
+        'states', 'tag', 'nda_flag'
     )
     search_fields = (
         'contact_name', 'email', 'firm', 'city',
@@ -74,6 +74,10 @@ class MasterCRMAdmin(admin.ModelAdmin):
     )
     readonly_fields = ('created_at', 'updated_at')
     # No fieldsets: show all fields by default
+
+    def states_list(self, obj):
+        return ", ".join(sorted([s.state_code for s in obj.states.all()])) or '—'
+    states_list.short_description = 'States'
 
 
 

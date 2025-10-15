@@ -30,6 +30,7 @@ import Layout from "@/components/layouts/layout.vue";
 import Breadcrumb from "@/components/breadcrumb.vue";
 import CRMListView from "@/views/apps/crm/components/index_mastercrm.vue";
 import { useBrokersCrmStore } from '@/stores/brokerscrm';
+import http from '@/lib/http';
 
 export default defineComponent({
   name: 'BrokersPage',
@@ -49,6 +50,7 @@ export default defineComponent({
         { text: 'Brokers', active: true },
       ],
       store: useBrokersCrmStore(),
+      statesOptions: [] as Array<{ value: string; label: string }>,
     };
   },
 
@@ -81,20 +83,19 @@ export default defineComponent({
           header: 'MSA',
           formatter: (row: any) => {
             const city = row.city || '';
-            const state = row.state || '';
+            const state = Array.isArray(row.states) && row.states.length ? row.states[0] : '';
             if (city && state) return `${city}, ${state}`;
             return city || state || '—';
           },
         },
         {
-          field: 'state',
-          header: 'State',
+          field: 'states',
+          header: 'States',
           editable: true,
-          placeholder: 'TX',
-          maxlength: 2,
-          transform: (val: string) => (val || '').toUpperCase().slice(0, 2),
-          cols: 4,
-          md: 3,
+          cols: 6,
+          md: 6,
+          options: this.statesOptions,
+          multiple: true,
         },
          {
           field: 'email',
@@ -135,7 +136,7 @@ export default defineComponent({
       // Build unique states from current results
       const states = new Set<string>();
       this.store.results.forEach((broker: any) => {
-        if (broker.state) states.add(broker.state);
+        if (Array.isArray(broker.states)) broker.states.forEach((s: string) => states.add(s));
       });
 
       return [
@@ -193,7 +194,7 @@ export default defineComponent({
         phone: data.phone || null,
         firm: data.firm || null,
         city: data.city || null,
-        state: data.state || null,
+        states: Array.isArray(data.states) ? data.states : undefined,
         tag: 'broker',  // Set MasterCRM tag to broker
       };
       await this.store.createBroker(payload);
@@ -209,7 +210,7 @@ export default defineComponent({
         phone: payload.data.phone || null,
         firm: payload.data.firm || null,
         city: payload.data.city || null,
-        state: payload.data.state || null,
+        states: Array.isArray(payload.data.states) ? payload.data.states : undefined,
       };
       await this.store.updateBroker(payload.id, data);
     },
@@ -226,6 +227,13 @@ export default defineComponent({
   mounted() {
     // Fetch brokers on mount
     this.store.fetchBrokers({ page: 1 });
+    // Load state options from core API
+    http.get('/core/state-assumptions/all/').then((resp) => {
+      const results = resp.data?.results || resp.data || [];
+      this.statesOptions = (results || []).map((s: any) => ({ value: s.code || s.state_code, label: s.name || s.state_name })).sort((a: any, b: any) => a.label.localeCompare(b.label));
+    }).catch(() => {
+      this.statesOptions = [];
+    });
   },
 });
 </script>

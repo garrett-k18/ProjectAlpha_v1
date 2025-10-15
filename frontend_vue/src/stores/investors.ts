@@ -14,7 +14,7 @@ export interface InvestorItem {
   email: string | null         // Maps to MasterCRM.email
   phone: string | null         // Maps to MasterCRM.phone
   city: string | null          // Maps to MasterCRM.city
-  state: string | null         // Maps to MasterCRM.state
+  states?: string[]             // New multi-select (MasterCRM.states m2m codes)
   created_at: string | null
 }
 
@@ -76,7 +76,7 @@ export const useInvestorsStore = defineStore('investors', {
           email: item.email,
           phone: item.phone,
           city: item.city,
-          state: item.state,
+          states: Array.isArray(item.states) ? item.states : [],
           created_at: item.created_at,
         }))
         this.count = data.count || 0
@@ -101,7 +101,7 @@ export const useInvestorsStore = defineStore('investors', {
           email: payload.email,
           phone: payload.phone,
           city: payload.city,
-          state: payload.state,
+          states: payload as any && (payload as any).states ? (payload as any).states : undefined,
           // tag is automatically set to 'investor' by InvestorSerializer
         }
         
@@ -126,7 +126,7 @@ export const useInvestorsStore = defineStore('investors', {
           email: payload.email,
           phone: payload.phone,
           city: payload.city,
-          state: payload.state,
+          states: (payload as any).states,
         }
         
         await http.patch(`/core/crm/investors/${id}/`, backendPayload)
