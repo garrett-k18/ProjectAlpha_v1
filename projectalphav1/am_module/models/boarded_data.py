@@ -7,6 +7,14 @@ import re
 # It contains all relevant data points from SellerRawData, along with trade information, 
 # including trade name, trade ID, and seller name.
 
+# DEPRECATION NOTICE:
+# - This model is deprecated and will be removed in the next overhaul.
+# - Canonical source of truth for acquisition fields is `acq_module.models.seller.SellerRawData`.
+# - During the transition, prefer a thin AM metadata table and/or DB view composed with
+#   `SellerRawData` instead of duplicating fields here.
+# Docs reviewed: Django project structure and unmanaged models (views):
+#   https://docs.djangoproject.com/en/stable/topics/db/models/
+
 class SellerBoardedData(models.Model):
     """
     WHAT: Model for boarded seller data transferred from acq_module
@@ -67,6 +75,7 @@ class SellerBoardedData(models.Model):
         TWO_TO_FOUR_FAMILY = '2-4 Family', '2-4 Family'
         LAND = 'Land', 'Land'
         MULTIFAMILY = 'Multifamily 5+', 'Multifamily 5+'
+        HEALTHCARE = 'Healthcare', 'Healthcare'
 
     property_type = models.CharField(
         max_length=100,

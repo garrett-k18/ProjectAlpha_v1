@@ -30,8 +30,7 @@ class Trade(models.Model):
     seller = models.ForeignKey(Seller, on_delete=models.CASCADE, related_name='trades')
     trade_name = models.CharField(
         max_length=100,
-        blank=True,
-        editable=False,  # Always generated internally; not editable via admin/forms
+        blank=True,  # Editable; if left blank we'll auto-generate on save
     )
     # Timestamps for trade lifecycle
     # Note: Per Django docs, auto_now/auto_now_add cannot be combined with default
@@ -43,18 +42,17 @@ class Trade(models.Model):
         return f"Trade for {self.seller.name}"
 
     def save(self, *args, **kwargs):
-        """Override save to auto-generate trade_name on create
+        """Auto-generate `trade_name` only when it is left blank.
 
         Behavior:
-        - Always generates '<SellerNameNoSpecials> - MM.DD.YY' on initial create.
-        - SellerNameNoSpecials removes all non-alphanumeric characters (including spaces).
-        - Date uses local date at creation time.
+        - If `trade_name` is empty on save, generate '<SellerNameNoSpecials> - MM.DD.YY' (with sequence if needed).
+        - If a value is provided (via admin/API), keep the user-provided value.
+        - Uses local date at save time for the default naming scheme.
         """
-        # Always generate internally on create, regardless of any provided value
-        if self.pk is None:
+        if not self.trade_name:
             # Remove all non-alphanumeric characters from the seller's name (keep case)
             base_name = re.sub(r"[^A-Za-z0-9]", "", self.seller.name or "")
-            # Use local date at creation time in MM.DD.YY format
+            # Use local date in MM.DD.%y format
             date_str = timezone.localdate().strftime("%m.%d.%y")
             base_prefix = f"{base_name} - {date_str}"
 
@@ -96,6 +94,7 @@ class SellerRawData(models.Model):
         INDUSTRIAL = 'Industrial', 'Industrial'
         MIXED_USE = 'Mixed Use', 'Mixed Use'
         STORAGE = 'Storage', 'Storage'
+        HEALTHCARE = 'Healthcare', 'Healthcare'
 
     class ProductType(models.TextChoices):
         BPL = 'BPL', 'BPL'

@@ -64,10 +64,12 @@ class SellerAdmin(admin.ModelAdmin):
 @admin.register(Trade)
 class TradeAdmin(admin.ModelAdmin):
     """Admin configuration for Trade model"""
-    list_display = ('trade_name', 'seller')
+    list_display = ('id', 'trade_name', 'seller', 'created_at', 'updated_at')
     list_filter = ('seller',)
     search_fields = ('trade_name', 'seller__name')
     autocomplete_fields = ['seller']
+    readonly_fields = ('id', 'created_at', 'updated_at')
+    list_select_related = ('seller',)
     inlines = [SellerRawDataInline]
 
 @admin.register(SellerRawData)
