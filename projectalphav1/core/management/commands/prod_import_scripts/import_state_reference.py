@@ -3,22 +3,26 @@ from django.db import transaction
 from decimal import Decimal, InvalidOperation
 import csv
 import os
+from pathlib import Path
+from django.conf import settings
 
 from core.models.assumptions import StateReference
 
 
 class Command(BaseCommand):
     help = (
-        "Import or update StateReference rows from Admin/DataUploads/state_ref.csv. "
+        "Import or update StateReference rows from DataUploads/state_ref.csv. "
         "Upserts on state_code (State Abbr)."
     )
 
     def add_arguments(self, parser):
+        # Default CSV at project-level DataUploads/state_ref.csv
+        default_csv = str((Path(settings.BASE_DIR) / "DataUploads" / "state_ref.csv").resolve())
         parser.add_argument(
             "--csv",
             dest="csv_path",
-            default=os.path.join("..", "Admin", "DataUploads", "state_ref.csv"),
-            help="Path to the CSV file (defaults to ../Admin/DataUploads/state_ref.csv)",
+            default=default_csv,
+            help="Path to the CSV file (defaults to DataUploads/state_ref.csv)",
         )
         parser.add_argument(
             "--dry-run",
@@ -30,19 +34,26 @@ class Command(BaseCommand):
             action="store_true",
             help="Delete all existing StateReference records before importing.",
         )
+        parser.add_argument(
+            "--database",
+            dest="database",
+            default="default",
+            help="Database alias to use (e.g., 'default').",
+        )
 
     def handle(self, *args, **options):
         csv_path = options["csv_path"]
         dry_run = options["dry_run"]
         purge = options["purge"]
+        db_alias = options["database"]
 
         if not os.path.exists(csv_path):
             raise CommandError(f"CSV not found at: {csv_path}")
 
         # Purge existing data if requested
         if purge and not dry_run:
-            count = StateReference.objects.count()
-            StateReference.objects.all().delete()
+            count = StateReference.objects.using(db_alias).count()
+            StateReference.objects.using(db_alias).all().delete()
             self.stdout.write(
                 self.style.WARNING(f"Purged {count} existing StateReference records")
             )
@@ -106,7 +117,7 @@ class Command(BaseCommand):
                 )
 
             # Use a transaction so either all rows apply or none if not dry-run
-            ctx = transaction.atomic() if not dry_run else nullcontext()
+            ctx = transaction.atomic(using=db_alias) if not dry_run else nullcontext()
             try:
                 if not dry_run:
                     ctx.__enter__()
@@ -161,7 +172,7 @@ class Command(BaseCommand):
                             _ = StateReference(state_code=state_code, **defaults)
                             updated += 1  # count as processed
                         else:
-                            obj, created_flag = StateReference.objects.update_or_create(
+                            obj, created_flag = StateReference.objects.using(db_alias).update_or_create(
                                 state_code=state_code, defaults=defaults
                             )
                             if created_flag:
