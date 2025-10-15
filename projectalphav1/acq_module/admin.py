@@ -20,6 +20,23 @@ avoid duplicate registrations across apps.
 from core.models.attachments import Document
 from core.models.enrichment import LlDataEnrichment
 
+# Helper to build list_display with all concrete fields
+def all_concrete_field_names(model):
+    """Return names of all concrete, non-relation-reverse fields for list_display.
+    Includes ForeignKey raw ID fields (e.g., seller_id) automatically via model._meta.
+    Excludes many-to-many and reverse relations which are not valid list_display entries.
+    """
+    names = []
+    for f in model._meta.get_fields():
+        # Exclude reverse relations and M2M
+        if f.auto_created and not f.concrete:
+            continue
+        if f.many_to_many:
+            continue
+        if f.concrete:
+            names.append(f.name)
+    return tuple(names)
+
 # Inline admin classes for related models
 class TradeInline(admin.TabularInline):
     """Inline admin for Trade model to display in Seller admin"""
@@ -57,14 +74,16 @@ class LlDataEnrichmentInline(admin.StackedInline):
 @admin.register(Seller)
 class SellerAdmin(admin.ModelAdmin):
     """Admin configuration for Seller model"""
-    list_display = ('name', 'broker', 'email', 'poc')
+    # Show all concrete fields including primary key id
+    list_display = all_concrete_field_names(Seller)
     search_fields = ('name', 'broker', 'email')
     inlines = [TradeInline]
 
 @admin.register(Trade)
 class TradeAdmin(admin.ModelAdmin):
     """Admin configuration for Trade model"""
-    list_display = ('id', 'trade_name', 'seller', 'created_at', 'updated_at')
+    # Show all concrete fields including id and FK raw ids (seller_id)
+    list_display = all_concrete_field_names(Trade)
     list_filter = ('seller',)
     search_fields = ('trade_name', 'seller__name')
     autocomplete_fields = ['seller']
@@ -75,8 +94,8 @@ class TradeAdmin(admin.ModelAdmin):
 @admin.register(SellerRawData)
 class SellerRawDataAdmin(admin.ModelAdmin):
     """Admin configuration for SellerRawData model"""
-    # Include the Asset Hub ID for quick reference (asset_hub is now the PK)
-    list_display = ('asset_hub', 'seller', 'trade', 'asset_status', 'state', 'current_balance', 'months_dlq')
+    # Show all concrete fields (this is a wide list view)
+    list_display = all_concrete_field_names(SellerRawData)
     # Optimize FK lookups for list view performance
     list_select_related = ('seller', 'trade')
     list_filter = ('asset_status', 'state', 'seller', 'trade', 'property_type', 'product_type', 'occupancy')
