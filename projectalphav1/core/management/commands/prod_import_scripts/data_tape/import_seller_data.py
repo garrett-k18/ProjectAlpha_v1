@@ -223,6 +223,20 @@ class Command(BaseCommand):
             self._save_mapping_config(column_mapping, save_mapping_path)
             self.stdout.write(self.style.SUCCESS(f'   [OK] Saved mapping to: {save_mapping_path}\n'))
 
+        # Detect per-row seller/trade columns (case-insensitive exact match)
+        lower_cols = {c.lower().strip(): c for c in df.columns}
+        # Column handles preserved with original casing for row access
+        self._col_seller_id = lower_cols.get('seller_id')
+        self._col_trade_id = lower_cols.get('trade_id')
+        self._col_seller_name = lower_cols.get('seller_name')
+        self._col_trade_name = lower_cols.get('trade_name')
+        self._per_row_fk = any([
+            self._col_seller_id, self._col_trade_id, self._col_seller_name, self._col_trade_name
+        ])
+        # Simple in-memory caches to avoid repeated DB lookups
+        self._seller_cache = {}
+        self._trade_cache = {}
+
         # STEP 3: Transform and validate data
         self.stdout.write('Transforming and validating data...')
         records, errors = self._transform_data(df, column_mapping, seller, trade)
@@ -616,9 +630,19 @@ Return only the JSON mapping, no explanations."""
         WHY: Applies type conversions, validations, and default values.
         HOW: Maps columns, converts types, and validates required fields.
         """
+        # Resolve per-row Seller/Trade if CSV provides IDs or names; else use defaults
+        if getattr(self, '_per_row_fk', False):
+            resolved_seller, resolved_trade = self._resolve_seller_trade_from_row(
+                row,
+                default_seller=seller,
+                default_trade=trade,
+            )
+        else:
+            resolved_seller, resolved_trade = seller, trade
+
         record = {
-            'seller': seller,
-            'trade': trade
+            'seller': resolved_seller,
+            'trade': resolved_trade
         }
         
         # Apply column mapping and type conversion
@@ -649,6 +673,84 @@ Return only the JSON mapping, no explanations."""
             raise ValueError('Missing required field: sellertape_id')
         
         return record
+
+    def _resolve_seller_trade_from_row(
+        self,
+        row: pd.Series,
+        default_seller: Seller,
+        default_trade: Trade,
+    ) -> tuple[Seller, Trade]:
+        """Resolve Seller/Trade for a single row using optional columns:
+        - seller_id (int)
+        - trade_id (int)
+        - seller_name (str)
+        - trade_name (str)
+
+        Fallback order:
+        1) Use seller_id if present; else seller_name; else default_seller.
+        2) Use trade_id if present; else trade_name under resolved seller; else default_trade.
+        Validates that a resolved trade belongs to the resolved seller; if mismatch, fall back to default_trade.
+        Caches lookups for performance.
+        """
+        # Helper to coerce int ids from cell
+        def _to_int(val):
+            try:
+                if pd.isna(val) or val == '':
+                    return None
+                return int(str(val).replace(',', '').strip())
+            except Exception:
+                return None
+
+        seller = default_seller
+        trade = default_trade
+
+        # Resolve seller by id or name
+        if getattr(self, '_col_seller_id', None) and self._col_seller_id in row:
+            sid = _to_int(row[self._col_seller_id])
+            if sid:
+                seller = self._seller_cache.get(sid) or Seller.objects.filter(pk=sid).first() or seller
+                if seller and seller.id == sid:
+                    self._seller_cache[sid] = seller
+        elif getattr(self, '_col_seller_name', None) and self._col_seller_name in row:
+            sname = str(row[self._col_seller_name]).strip() if not pd.isna(row[self._col_seller_name]) else ''
+            if sname:
+                cache_key = f"name::{sname}"
+                seller = self._seller_cache.get(cache_key) or Seller.objects.filter(name=sname).first() or seller
+                if seller and seller.name == sname:
+                    self._seller_cache[cache_key] = seller
+
+        # Resolve trade by id or name (prefer id). Ensure linkage to seller when possible.
+        if getattr(self, '_col_trade_id', None) and self._col_trade_id in row:
+            tid = _to_int(row[self._col_trade_id])
+            if tid:
+                t_cached = self._trade_cache.get(tid)
+                if t_cached is None:
+                    t_cached = Trade.objects.filter(pk=tid).select_related('seller').first()
+                    if t_cached:
+                        self._trade_cache[tid] = t_cached
+                if t_cached:
+                    # If seller also resolved and mismatched, keep seller but prefer trade's own seller
+                    if seller and t_cached.seller_id != seller.id:
+                        # Prefer consistency: align seller to trade's seller
+                        seller = t_cached.seller
+                    trade = t_cached
+        elif getattr(self, '_col_trade_name', None) and self._col_trade_name in row:
+            tname = str(row[self._col_trade_name]).strip() if not pd.isna(row[self._col_trade_name]) else ''
+            if tname:
+                cache_key = f"t::{seller.id if seller else 0}::{tname}"
+                t_cached = self._trade_cache.get(cache_key)
+                if t_cached is None and seller:
+                    t_cached = Trade.objects.filter(seller=seller, trade_name=tname).first()
+                    if t_cached:
+                        self._trade_cache[cache_key] = t_cached
+                if t_cached:
+                    trade = t_cached
+
+        # Final sanity: if trade belongs to a different seller and we resolved both, align seller to trade
+        if trade and seller and trade.seller_id != seller.id:
+            seller = trade.seller
+
+        return seller or default_seller, trade or default_trade
 
     def _convert_value(self, value: Any, field) -> Any:
         """
