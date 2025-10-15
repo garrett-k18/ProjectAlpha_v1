@@ -1,8 +1,3 @@
-from __future__ import annotations
-"""
-File to track capital commits and paydowns
-"""
-
 """
 core.models.capital
 - Shared capital-structure models used across apps (AM, ACQ, Treasury, Reporting).
