@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from .assumptions import StateReference
 
 class MasterCRM(models.Model):
     """Unified Master CRM directory entry (broker-first, now generalized).
@@ -82,6 +83,11 @@ class MasterCRM(models.Model):
         choices=USState.choices,
         blank=True,
         null=True,
+    )
+    states = models.ManyToManyField(
+        StateReference,
+        blank=True,
+        related_name='crm_contacts',
     )
     city = models.CharField(max_length=255, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
