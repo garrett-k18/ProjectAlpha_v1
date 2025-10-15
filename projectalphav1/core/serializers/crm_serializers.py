@@ -13,6 +13,7 @@ Docs Reviewed
 
 from rest_framework import serializers
 from core.models.crm import MasterCRM
+from core.models.assumptions import StateReference
 
 
 class MasterCRMSerializer(serializers.ModelSerializer):
@@ -27,6 +28,13 @@ class MasterCRMSerializer(serializers.ModelSerializer):
     
     # Display the human-readable label for the tag field in responses
     tag_display = serializers.CharField(source='get_tag_display', read_only=True)
+    # Many-to-many states as list of state codes (e.g., ["CA","AZ"]) for clean frontend binding
+    states = serializers.SlugRelatedField(
+        many=True,
+        slug_field='state_code',
+        queryset=StateReference.objects.all(),
+        required=False,
+    )
     
     class Meta:
         model = MasterCRM
@@ -34,7 +42,7 @@ class MasterCRMSerializer(serializers.ModelSerializer):
             'id',
             'firm',
             'contact_name',
-            'state',
+            'states',
             'city',
             'email',
             'phone',

@@ -32,6 +32,7 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from core.models.crm import MasterCRM
+from core.models import StateReference
 from ...services.brokers import (
     get_broker_stats_dict,
     list_assigned_loan_entries,
@@ -62,8 +63,10 @@ def broker_detail(request, broker_id: int):
         phone = payload.get("phone")
         firm = payload.get("firm")
         city = payload.get("city")
-        state_in = payload.get("state")
         tag_in = payload.get("tag")
+        states_in = payload.get("states")  # list of state codes
+        # Back-compat: allow single 'state' to be mapped into M2M states
+        single_state = payload.get("state")
 
         if name is not None:
             broker.contact_name = norm(name)
@@ -75,15 +78,28 @@ def broker_detail(request, broker_id: int):
             broker.firm = norm(firm)
         if city is not None:
             broker.city = norm(city)
-        if state_in is not None:
-            state_val = norm(state_in)
-            if state_val and len(state_val.upper()) != 2:
-                return Response({"detail": "state must be a 2-letter code."}, status=status.HTTP_400_BAD_REQUEST)
-            broker.state = state_val.upper() if state_val else None
         if tag_in is not None:
             tag_val = norm(tag_in)
             if tag_val:
                 broker.tag = tag_val.lower()
+
+        # Update M2M states from either 'states' list or single 'state'
+        codes: list[str] = []
+        if isinstance(states_in, (list, tuple)):
+            codes.extend([str(c).strip().upper() for c in states_in if str(c).strip()])
+        if single_state:
+            ss = str(single_state).strip().upper()
+            if ss:
+                codes.append(ss)
+        # Apply unique codes to M2M
+        codes = sorted(set([c for c in codes if len(c) == 2]))
+        if codes:
+            qs = StateReference.objects.filter(state_code__in=codes)
+            broker.save()  # ensure broker has PK before M2M ops
+            broker.states.set(qs)
+        elif states_in is not None or single_state is not None:
+            # If explicitly provided empty list or blank single state, clear
+            broker.states.clear()
 
         broker.save()
 
@@ -94,7 +110,7 @@ def broker_detail(request, broker_id: int):
             "phone": broker.phone,
             "firm": broker.firm,
             "city": broker.city,
-            "state": broker.state,
+            "states": list(broker.states.values_list("state_code", flat=True)),
             "created_at": broker.created_at.isoformat() if broker.created_at else None,
         }
         return Response(updated, status=status.HTTP_200_OK)
@@ -109,7 +125,7 @@ def broker_detail(request, broker_id: int):
         "phone": broker.phone,
         "firm": broker.firm,
         "city": broker.city,
-        "state": broker.state,
+        "states": list(broker.states.values_list("state_code", flat=True)),
         "stats": stats,
     }
     return Response(data, status=status.HTTP_200_OK)
@@ -141,7 +157,7 @@ def list_brokers(request):
 
     GET query params:
       - q: case-insensitive search across name, email, firm, city
-      - state: 2-letter state code to filter (case-insensitive)
+      - state: 2-letter state code to filter (case-insensitive) [M2M]
       - tag: filter by contact type tag (broker, legal, trading_partner)
       - page: 1-based page number (default 1)
       - page_size: items per page (default 25, max 100)
@@ -152,7 +168,8 @@ def list_brokers(request):
       - phone: string
       - firm: string
       - city: string
-      - state: 2-letter code (uppercase)
+      - state: 2-letter code (uppercase) [mapped into M2M]
+      - states: ["CA","AZ"] (optional list of 2-letter codes for M2M)
 
     Returns:
       - GET: a paginated shape compatible with simple list UIs.
@@ -172,12 +189,9 @@ def list_brokers(request):
         phone = (payload.get("phone") or "").strip() or None
         firm = (payload.get("firm") or "").strip() or None
         city = (payload.get("city") or "").strip() or None
-        state_in = (payload.get("state") or "").strip().upper() or None
         tag_in = (payload.get("tag") or "").strip().lower() or None
-
-        # Basic format checks
-        if state_in and len(state_in) != 2:
-            return Response({"detail": "state must be a 2-letter code."}, status=status.HTTP_400_BAD_REQUEST)
+        states_in = payload.get("states")  # optional list of codes
+        single_state_in = (payload.get("state") or "").strip().upper() or None
 
         broker = MasterCRM.objects.create(
             contact_name=name,
@@ -185,8 +199,20 @@ def list_brokers(request):
             phone=phone,
             firm=firm,
             city=city,
-            state=state_in,
         )
+        # Attach M2M states if provided (including single 'state')
+        codes: list[str] = []
+        if isinstance(states_in, (list, tuple)):
+            codes.extend([str(c).strip().upper() for c in states_in if str(c).strip()])
+        if single_state_in:
+            if len(single_state_in) == 2:
+                codes.append(single_state_in)
+            else:
+                return Response({"detail": "state must be a 2-letter code."}, status=status.HTTP_400_BAD_REQUEST)
+        codes = sorted(set([c for c in codes if len(c) == 2]))
+        if codes:
+            broker.states.set(StateReference.objects.filter(state_code__in=codes))
+
         if tag_in:
             broker.tag = tag_in
             broker.save(update_fields=["tag"])
@@ -197,7 +223,7 @@ def list_brokers(request):
             "phone": broker.phone,
             "firm": broker.firm,
             "city": broker.city,
-            "state": broker.state,
+            "states": list(broker.states.values_list("state_code", flat=True)),
             "created_at": broker.created_at.isoformat() if broker.created_at else None,
         }
         return Response(item, status=status.HTTP_201_CREATED)
@@ -205,6 +231,7 @@ def list_brokers(request):
     # GET flow
     q = (request.query_params.get("q") or "").strip()
     state = (request.query_params.get("state") or "").strip().upper()
+    states_param = (request.query_params.get("states") or "").strip()
     tag = (request.query_params.get("tag") or "").strip().lower()
     try:
         page = max(1, int(request.query_params.get("page", 1)))
@@ -216,7 +243,7 @@ def list_brokers(request):
         page_size = 25
     page_size = max(1, min(page_size, 100))
 
-    qs = MasterCRM.objects.all().order_by("-created_at")
+    qs = MasterCRM.objects.all().prefetch_related("states").order_by("-created_at")
 
     if q:
         qs = qs.filter(
@@ -226,25 +253,31 @@ def list_brokers(request):
             | Q(city__icontains=q)
         )
     if state:
-        qs = qs.filter(state=state)
+        qs = qs.filter(Q(states__state_code=state)).distinct()
+    if states_param:
+        codes = [s.strip().upper() for s in states_param.split(',') if s.strip()]
+        if codes:
+            qs = qs.filter(states__state_code__in=codes).distinct()
     if tag:
         qs = qs.filter(tag=tag)
 
     total = qs.count()
     start = (page - 1) * page_size
     end = start + page_size
-    items = list(
-        qs.values(
-            "id",
-            "contact_name",
-            "email",
-            "phone",
-            "firm",
-            "city",
-            "state",
-            "created_at",
-        )[start:end]
-    )
+    # Slice then serialize including M2M states
+    rows = list(qs[start:end])
+    items = []
+    for broker in rows:
+        items.append({
+            "id": broker.id,
+            "contact_name": broker.contact_name,
+            "email": broker.email,
+            "phone": broker.phone,
+            "firm": broker.firm,
+            "city": broker.city,
+            "states": list(broker.states.values_list("state_code", flat=True)),
+            "created_at": broker.created_at,
+        })
 
     # Convert datetimes to ISO 8601 strings
     for it in items:

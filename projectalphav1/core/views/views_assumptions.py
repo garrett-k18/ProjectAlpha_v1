@@ -86,6 +86,19 @@ class StateReferenceViewSet(DevAuthBypassMixin, viewsets.ModelViewSet):
 
         return queryset
 
+    @action(detail=False, methods=["get"], url_path="all")
+    def list_all(self, request):
+        """
+        Return all states without pagination for UI option lists.
+
+        Why: UI multi-selects need the complete list (≈51 including PR) without
+        dealing with pagination. Keeping this separate avoids changing default
+        pagination for the standard list endpoint.
+        """
+        states = self.get_queryset()
+        serializer = StateReferenceSerializer(states, many=True)
+        return Response(serializer.data)
+
     @action(detail=False, methods=["post"])
     def bulk_update(self, request):
         """

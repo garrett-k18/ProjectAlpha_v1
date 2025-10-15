@@ -38,11 +38,11 @@ class MasterCRMViewSet(viewsets.ModelViewSet):
     How: Filters by tag, supports search across firm/name/email, paginated results
     """
     
-    queryset = MasterCRM.objects.all().order_by('-created_at')
+    queryset = MasterCRM.objects.all().prefetch_related('states').order_by('-created_at')
     serializer_class = MasterCRMSerializer
     permission_classes = [AllowAny]  # Match project pattern - authentication bypassed in dev
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['firm', 'contact_name', 'email', 'phone', 'city', 'state']
+    search_fields = ['firm', 'contact_name', 'email', 'phone', 'city', 'states__state_code', 'states__state_name']
     ordering_fields = ['firm', 'contact_name', 'created_at', 'updated_at']
     ordering = ['-created_at']
     
@@ -70,8 +70,23 @@ class MasterCRMViewSet(viewsets.ModelViewSet):
                 Q(email__icontains=q) |
                 Q(phone__icontains=q) |
                 Q(city__icontains=q) |
-                Q(state__icontains=q)
-            )
+                Q(states__state_code__icontains=q) |
+                Q(states__state_name__icontains=q)
+            ).distinct()
+
+        # Optional filter by single state code (M2M only)
+        state_code = self.request.query_params.get('state', None)
+        if state_code:
+            queryset = queryset.filter(
+                Q(states__state_code__iexact=state_code)
+            ).distinct()
+
+        # Optional filter by multiple state codes: states=CA,AZ,TX
+        multi_states = self.request.query_params.get('states', None)
+        if multi_states:
+            codes = [s.strip().upper() for s in multi_states.split(',') if s.strip()]
+            if codes:
+                queryset = queryset.filter(states__state_code__in=codes).distinct()
         
         return queryset
 

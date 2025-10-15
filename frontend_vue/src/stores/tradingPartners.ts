@@ -68,11 +68,16 @@ export const useTradingPartnersStore = defineStore('tradingPartners', {
             tag: 'trading_partner',  // Only fetch trading_partner-tagged MasterCRM entries
           },
         })
-        const data = resp.data as { count: number; page: number; page_size: number; results: TradingPartnerItem[] }
+        const data = resp.data as { count: number; page: number; page_size: number; results: any[] }
         this.count = data.count
         this.page = data.page
         this.pageSize = data.page_size
-        this.results = Array.isArray(data.results) ? data.results : []
+        this.results = Array.isArray(data.results)
+          ? data.results.map((r: any) => ({
+              ...r,
+              states: Array.isArray(r.states) ? r.states : [],
+            }))
+          : []
       } catch (e: any) {
         console.error('[tradingPartners] fetchPartners failed:', e)
         this.error = e?.response?.data?.detail || 'Failed to load trading partners.'
@@ -91,7 +96,7 @@ export const useTradingPartnersStore = defineStore('tradingPartners', {
     },
 
     // Create a new MasterCRM entry (trading partner) via POST /acq/brokers/
-    async createPartner(payload: Partial<Omit<TradingPartnerItem, 'id' | 'created_at'>>) {
+    async createPartner(payload: Partial<Omit<TradingPartnerItem, 'id' | 'created_at'>> & { states?: string[]; state?: string | null }) {
       this.error = null
       try {
         await http.post('/acq/brokers/', payload)
@@ -106,7 +111,7 @@ export const useTradingPartnersStore = defineStore('tradingPartners', {
     },
 
     // Update an existing MasterCRM entry (trading partner) via PATCH /acq/brokers/:id/
-    async updatePartner(id: number, payload: Partial<Omit<TradingPartnerItem, 'id' | 'created_at'>>) {
+    async updatePartner(id: number, payload: Partial<Omit<TradingPartnerItem, 'id' | 'created_at'>> & { states?: string[]; state?: string | null }) {
       this.error = null
       try {
         await http.patch(`/acq/brokers/${id}/`, payload)
