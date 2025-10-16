@@ -6,7 +6,11 @@ import { Loader } from '@googlemaps/js-api-loader'
 
 // Read from Vite env
 const apiKey = (import.meta as any).env.VITE_GOOGLE_MAPS_API_KEY as string | undefined
-if (!apiKey) {
+
+// Determine whether the environment actually supplied a key; trim to catch whitespace-only entries.
+const hasApiKey = typeof apiKey === 'string' && apiKey.trim().length > 0
+
+if (!hasApiKey) {
   // eslint-disable-next-line no-console
   console.warn('[googleMapsLoader] Missing VITE_GOOGLE_MAPS_API_KEY; Google Maps features will be disabled.')
 }
@@ -19,12 +23,15 @@ const libraries = libsEnv
   .filter(Boolean) as string[]
 
 // Optional: you can set language/region by adding more loader options if needed
-const loader = new Loader({
-  apiKey: apiKey || '',
-  version: 'weekly',
-  libraries: libraries as any,
-  id: 'gmap-script',
-})
+const loader = hasApiKey
+  ? new Loader({
+      apiKey: apiKey!.trim(),
+      version: 'weekly',
+      libraries: libraries as any,
+      id: 'gmap-script',
+    })
+  : null
 
-// Expose a single promise for the app to reuse
-export const googleApiPromise: Promise<any> = loader.load()
+// Expose a single promise for the app to reuse. When the API key is missing, resolve immediately so
+// downstream consumers can branch on a falsy value without the loader throwing an exception.
+export const googleApiPromise: Promise<any> = loader ? loader.load() : Promise.resolve(null)
