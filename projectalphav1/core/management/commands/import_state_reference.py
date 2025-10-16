@@ -8,10 +8,6 @@ WHERE: Command lives directly under `core/management/commands/` so Django can
 HOW:  Stream a CSV via Python's `csv.DictReader`, validate, and perform
       `update_or_create` calls with transaction safety and multi-database support.
 
-Documentation reviewed prior to implementation:
-* Django custom commands: https://docs.djangoproject.com/en/5.2/howto/custom-management-commands/
-* Django multi-database routing: https://docs.djangoproject.com/en/5.2/topics/db/multi-db/
-* Decimal usage: https://docs.python.org/3/library/decimal.html
 """
 
 from decimal import Decimal, InvalidOperation
