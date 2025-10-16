@@ -163,8 +163,10 @@ class SellerRawDataRowSerializer(serializers.Serializer):
     mod_rate = serializers.DecimalField(max_digits=6, decimal_places=4, allow_null=True)
     mod_initial_balance = serializers.DecimalField(max_digits=15, decimal_places=2, allow_null=True)
 
+    # Acquisition lifecycle status (Pass/DD/Drop/Awarded/Board) propagated to grid rows
+    acq_status = serializers.CharField()
     # Drop/restore tracking
-    is_dropped = serializers.BooleanField(required=False, default=False)
+    is_dropped = serializers.SerializerMethodField()
     drop_reason = serializers.CharField(allow_null=True, allow_blank=True, required=False)
     drop_date = serializers.DateTimeField(allow_null=True, required=False)
 
@@ -240,6 +242,11 @@ class SellerRawDataRowSerializer(serializers.Serializer):
         v = self._latest_val_by_source(obj, 'internalInitialUW')
         return getattr(v, 'value_date', None) if v else None
 
+    def get_is_dropped(self, obj):
+        """Return True when acquisition status indicates a dropped asset."""
+        status = getattr(obj, 'acq_status', None)
+        return status == getattr(SellerRawData, 'AcquisitionStatus', None).DROP if status else False
+
 
 class SellerOptionSerializer(serializers.ModelSerializer):
     """Serializer for seller dropdown options."""
@@ -271,6 +278,7 @@ class SellerRawDataDetailSerializer(serializers.ModelSerializer):
         fields = [
             # Identity
             'id', 'sellertape_id', 'asset_status', 'as_of_date', 'is_commercial',
+            'acq_status',
             # Address / property
             'street_address', 'city', 'state', 'zip', 'property_type', 'product_type', 'occupancy', 
             'year_built', 'sq_ft', 'lot_size', 'beds', 'baths',

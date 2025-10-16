@@ -115,6 +115,13 @@ class SellerRawData(models.Model):
         REO = 'REO', 'REO'       # Real Estate Owned
         PERF = 'PERF', 'PERF'    # Performing
         RPL = 'RPL', 'RPL'       # Re-Performing Loan
+
+    class AcquisitionStatus(models.TextChoices):
+        PASS = 'PASS', 'Pass'
+        DD = 'DD', 'Due Diligence'
+        DROP = 'DROP', 'Drop'
+        AWARDED = 'AWARDED', 'Awarded'
+        BOARD = 'BOARD', 'Boarded'
     # WHAT: Hub-owned primary key - strict 1:1 with core.AssetIdHub
     # WHY: Aligns with hub-first architecture so this model's PK equals the hub ID
     # HOW: OneToOneField with primary_key=True (same pattern as BlendedOutcomeModel)
@@ -140,6 +147,13 @@ class SellerRawData(models.Model):
         choices=AssetStatus.choices,
         null=True,
         blank=True,
+    )
+    acq_status = models.CharField(
+        max_length=20,
+        choices=AcquisitionStatus.choices,
+        default=AcquisitionStatus.PASS,
+        db_index=True,
+        help_text='Acquisition lifecycle status (Pass, DD, Drop, Awarded, Board).'
     )
     as_of_date = models.DateField(null=True, blank=True)
     
@@ -244,11 +258,7 @@ class SellerRawData(models.Model):
     # Drop/restore tracking fields
     # WHAT: Track assets removed from active bidding
     # WHY: Allow users to temporarily remove assets without deleting them
-    # HOW: Boolean flag + metadata fields for audit trail
-    is_dropped = models.BooleanField(
-        default=False,
-        help_text='Asset dropped from active bidding list'
-    )
+    # HOW: Metadata fields for audit trail (status stored in acq_status)
     drop_reason = models.CharField(
         max_length=255,
         blank=True,
@@ -268,13 +278,19 @@ class SellerRawData(models.Model):
         related_name='dropped_acq_assets',
         help_text='User who dropped the asset'
     )
-    
+
+    @property
+    def is_dropped(self) -> bool:
+        """Return True when acquisition status is Drop for backward compatibility."""
+        return self.acq_status == self.AcquisitionStatus.DROP
+
     class Meta:
         verbose_name = "Seller Raw Data"
         verbose_name_plural = "Seller Raw Data"
         indexes = [
             models.Index(fields=['asset_hub']),  # Primary key index (now asset_hub)
             models.Index(fields=['asset_status']),
+            models.Index(fields=['acq_status']),
             models.Index(fields=['seller']),
             models.Index(fields=['trade']),
             models.Index(fields=['state']),

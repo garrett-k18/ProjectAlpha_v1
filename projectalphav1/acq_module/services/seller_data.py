@@ -66,13 +66,11 @@ def build_queryset(
         .prefetch_related('asset_hub__valuations')  # Bring valuations into memory for serializer
     )
     
-    # Filter by drop status based on view
+    # Filter by acquisition status based on view
     if view == 'drops':
-        # Drops view: show only dropped assets
-        qs = qs.filter(is_dropped=True)
+        qs = qs.filter(acq_status=SellerRawData.AcquisitionStatus.DROP)
     else:
-        # All other views: exclude dropped assets
-        qs = qs.filter(is_dropped=False)
+        qs = qs.exclude(acq_status=SellerRawData.AcquisitionStatus.DROP)
     
     # Apply quick filter across text fields
     if q:

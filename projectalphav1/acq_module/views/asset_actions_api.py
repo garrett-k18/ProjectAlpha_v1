@@ -48,7 +48,7 @@ def drop_asset(request, asset_id):
         asset = SellerRawData.objects.get(asset_hub_id=asset_id)
         
         # Mark as dropped with metadata
-        asset.is_dropped = True
+        asset.acq_status = SellerRawData.AcquisitionStatus.DROP
         asset.drop_reason = request.data.get('reason', 'Dropped from grid')
         asset.drop_date = timezone.now()
         asset.dropped_by = request.user if request.user.is_authenticated else None
@@ -91,8 +91,8 @@ def restore_asset(request, asset_id):
         # Find asset by asset_hub primary key
         asset = SellerRawData.objects.get(asset_hub_id=asset_id)
         
-        # Clear drop metadata
-        asset.is_dropped = False
+        # Clear drop metadata and return to default acquisition status
+        asset.acq_status = SellerRawData.AcquisitionStatus.PASS
         asset.drop_reason = None
         asset.drop_date = None
         asset.dropped_by = None

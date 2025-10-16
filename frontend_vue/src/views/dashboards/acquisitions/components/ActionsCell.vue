@@ -73,9 +73,15 @@ const isSelected = computed<boolean>(() => {
   return node.isSelected() === true
 })
 const rowId = computed(() => props.params.node.id)
+const acqStatus = computed<string>(() => {
+  // Surface the acquisition lifecycle status string from backend row data
+  const status = props.params.data?.acq_status
+  return typeof status === 'string' ? status : ''
+})
+
 const isDropped = computed<boolean>(() => {
-  // Check if asset is dropped (backend sets is_dropped field)
-  return props.params.data?.is_dropped === true
+  // Treat rows with acquisition status DROP as removed from active bidding
+  return acqStatus.value === 'DROP'
 })
 
 /**
