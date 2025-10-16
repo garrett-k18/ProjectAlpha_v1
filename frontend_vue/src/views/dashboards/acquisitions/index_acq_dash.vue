@@ -61,30 +61,8 @@
                   <i class="mdi mdi-refresh me-1"></i> Reset
                 </button>
               </div>
-              
-              <!-- Trade action buttons (icon-only with tooltips) -->
-              <div class="d-flex align-items-end gap-2">
-                <!-- Trade Assumptions (Settings Icon) - Only show when trade selected -->
-                <button 
-                  v-if="selectedTradeId"
-                  class="btn btn-sm btn-primary mb-0" 
-                  @click="showTradeDetailsModal = true"
-                  title="Trade Assumptions"
-                  aria-label="Trade Assumptions"
-                >
-                  <i class="mdi mdi-cog"></i>
-                </button>
-                <!-- Trade Documents - Only show when trade selected -->
-                <button 
-                  v-if="selectedTradeId"
-                  class="btn btn-sm btn-outline-primary mb-0" 
-                  @click="showTradeDocumentsModal = true"
-                  title="Trade Documents"
-                  aria-label="Trade Documents"
-                >
-                  <i class="mdi mdi-file-document-multiple-outline"></i>
-                </button>
-                <!-- Import Seller Tape - Always visible -->
+              <!-- Import Seller Tape - Always visible -->
+              <div class="d-flex align-items-end">
                 <button 
                   class="btn btn-sm btn-success mb-0" 
                   @click="showImportModal = true"
@@ -94,6 +72,7 @@
                   <i class="mdi mdi-upload"></i>
                 </button>
               </div>
+              
             </div>
 
             <!-- Helper text below toolbar -->
@@ -109,20 +88,31 @@
     </b-row>
 
 
-    <!-- Top metrics widgets rendered by a dedicated component -->
-    <Widgets />
+    <!-- Top metrics widgets rendered directly to minimize vertical padding -->
+    <div class="mb-0">
+      <Widgets />
+    </div>
 
-    <!-- Tasking summary: Using Option 1 (Progress Card) layout -->
-    <!-- Other layout options available: TaskingGridOption2, TaskingGridOption3 -->
-    <b-row class="mt-2">
-      <b-col class="col-12">
-        <TaskingGridOption1 />
+    <!-- Trade control action dock paired with tasking tracker so stakeholders evaluate workflow coverage together -->
+    <b-row class="g-2 mt-1 mb-2">
+      <b-col xl="6" lg="12">
+        <TradeActionDock
+          :seller-name="selectedSellerLabel"
+          :trade-name="selectedTradeLabel"
+          :status-label="tradeActionDockStatusLabel"
+          :status-variant="tradeActionDockStatusVariant"
+          :action-items="tradeActionDockActions"
+          @trigger="handleOptionTrigger"
+        />
+      </b-col>
+      <b-col xl="6" lg="12">
+        <TradeTasking />
       </b-col>
     </b-row>
     
     
     <!-- Seller Data Tape card (AG Grid) moved directly under top metrics -->
-    <b-row class="mt-1">
+    <b-row class="mt-3">
       <b-col class="col-12">
         <!-- Temporary: Use simplified AcqGrid for testing -->
         <!-- Wire AcqGrid's View action to open the loan modal in this page -->
@@ -256,7 +246,11 @@
       size="xl"
       centered
     >
-      <TradeDocumentsModal :docs="docItems" />
+      <!-- Trade-specific document manager composed with shared components -->
+      <TradeDocumentsModal
+        :row="tradeDocumentContext"
+        :tradeId="selectedTradeId ?? null"
+      />
       <template #footer>
         <div class="d-flex justify-content-end w-100 gap-2">
           <button class="btn btn-primary" @click="showTradeDocumentsModal = false">Close</button>
@@ -292,11 +286,7 @@ import StratsJudVsNon from "@/views/dashboards/acquisitions/strats/strats-judvsn
 import StratsDelinquency from "@/views/dashboards/acquisitions/strats/strats-delinquency.vue";
 import VectorMap from "@/views/dashboards/acquisitions/vectorMap.vue";
 import Widgets from "@/views/dashboards/acquisitions/widgets.vue";
-import TaskingGrid from "@/views/dashboards/acquisitions/components/TaskingGrid.vue";
-// Import all 3 tasking layout options for comparison
-import TaskingGridOption1 from "@/views/dashboards/acquisitions/components/TaskingGridOption1.vue";
-import TaskingGridOption2 from "@/views/dashboards/acquisitions/components/TaskingGridOption2.vue";
-import TaskingGridOption3 from "@/views/dashboards/acquisitions/components/TaskingGridOption3.vue";
+import TradeTasking from '@/views/dashboards/acquisitions/components/TradeTasking.vue';
 // Local type for document items used by TradeDocumentsModal
 // Exported to fix TypeScript module inference when this component is imported elsewhere
 export interface DocumentItem { id: string; name: string; type: string; sizeBytes: number; previewUrl: string; downloadUrl: string }
@@ -310,6 +300,9 @@ import LoanLevelIndex from '@/views/acq_module/loanlvl/loanlvl_index.vue'
 import TradeDetailsModal from '@/views/dashboards/acquisitions/modals/TradeDetailsModal.vue'
 import TradeDocumentsModal from '@/views/dashboards/acquisitions/modals/TradeDocumentsModal.vue'
 import ImportSellerTapeModal from '@/views/dashboards/acquisitions/modals/ImportSellerTapeModal.vue'
+// Trade control prototype Option 1 (Action Dock)
+import TradeActionDock from '@/views/dashboards/acquisitions/components/TradeActionDock.vue';
+// Trade control prototype Option 2 (Tabbed Control Center)
 // Selections store + helpers
 import { useAcqSelectionsStore } from '@/stores/acqSelections'
 import { useAgGridRowsStore } from '@/stores/agGridRows'
@@ -335,10 +328,7 @@ export default {
     StratsOccupancy,
     StratsDelinquency,
     Widgets,
-    TaskingGrid,
-    TaskingGridOption1,
-    TaskingGridOption2,
-    TaskingGridOption3,
+    TradeTasking,
     // Register simplified AG Grid component for testing
     AcqGrid,
     Layout,
@@ -348,6 +338,7 @@ export default {
     TradeDetailsModal,
     TradeDocumentsModal,
     ImportSellerTapeModal,
+    TradeActionDock,
   },
   setup() {
     // Local lists for options
@@ -397,8 +388,79 @@ export default {
     // Modal state
     const showTradeDetailsModal = ref<boolean>(false)
     const showTradeDocumentsModal = ref<boolean>(false)
-    const showImportModal = ref<boolean>(false)
-    
+    const showImportModal = ref<boolean>(false) // Controls visibility of the import seller tape modal
+
+    // selectedSellerLabel resolves the human-readable seller name for the trade control prototypes
+    const selectedSellerLabel = computed<string>(() => {
+      const match = sellers.value.find((s) => s.id === (selectedSellerId.value ?? -1)) // Look up seller in current list
+      return match ? match.name : 'No seller selected' // Return seller name or fallback placeholder
+    })
+
+    // selectedTradeLabel resolves the human-readable trade name for the trade control prototypes
+    const selectedTradeLabel = computed<string>(() => {
+      const match = trades.value.find((t) => t.id === (selectedTradeId.value ?? -1)) // Look up trade in current list
+      return match ? match.trade_name : 'No trade selected' // Return trade name or fallback placeholder
+    })
+
+    // option1StatusLabel supplies badge copy for Option 1 (Action Dock) header
+    const tradeActionDockStatusLabel = computed<string>(() => (selectedTradeId.value ? 'In Review' : 'No status'))
+
+    // tradeActionDockStatusVariant selects badge color for the action dock depending on whether a trade is active
+    const tradeActionDockStatusVariant = computed(() => (selectedTradeId.value ? 'warning' : 'secondary'))
+
+    // tradeActionDockActions describes the vertical button stack rendered inside the action dock
+    const tradeActionDockActions = computed(() => {
+      return [
+        {
+          id: 'trade-assumptions',
+          label: 'Trade Assumptions',
+          description: 'Open trade assumptions modal to edit bid and settlement dates.',
+          icon: 'mdi mdi-cog-outline',
+          buttonClasses: 'btn btn-light border',
+          badge: selectedTradeId.value ? 'Auto-Save' : null,
+          badgeClasses: selectedTradeId.value ? 'bg-info-subtle text-info-emphasis' : null,
+        },
+        {
+          id: 'trade-documents',
+          label: 'Document Vault',
+          description: 'Navigate diligence uploads and manage share permissions.',
+          icon: 'mdi mdi-folder-eye-outline',
+          buttonClasses: 'btn btn-light border',
+          badge: '8 files',
+          badgeClasses: 'bg-primary text-white',
+        },
+        {
+          id: 'trade-approvals',
+          label: 'Approval Center',
+          description: 'Review approvals and award asset identifiers.',
+          icon: 'mdi mdi-shield-check-outline',
+          buttonClasses: 'btn btn-light border',
+          badge: selectedTradeId.value ? '2 pending' : null,
+          badgeClasses: selectedTradeId.value ? 'bg-warning text-dark' : null,
+        },
+      ]
+    })
+
+    // Context payload forwarded into TradeDocumentsModal for shared document components
+    const tradeDocumentContext = computed(() => {
+      const seller = sellers.value.find((s) => s.id === (selectedSellerId.value ?? -1)) || null
+      const trade = trades.value.find((t) => t.id === (selectedTradeId.value ?? -1)) || null
+      if (!seller && !trade) {
+        return {
+          seller: null,
+          trade: null,
+          sellerId: null,
+          tradeId: null,
+        }
+      }
+      return {
+        seller,
+        trade,
+        sellerId: seller?.id ?? null,
+        tradeId: trade?.id ?? null,
+      }
+    })
+
     // Update local date models from store
     function updateLocalDateModels() {
       const assumptions = tradeAssumptionsStore.assumptions
@@ -595,6 +657,12 @@ export default {
       showTradeDetailsModal,
       showTradeDocumentsModal,
       showImportModal,
+      selectedSellerLabel,
+      selectedTradeLabel,
+      tradeActionDockStatusLabel,
+      tradeActionDockStatusVariant,
+      tradeActionDockActions,
+      tradeDocumentContext,
       // Date functions
       saveDateChanges,
       autosaveDateChanges,
@@ -703,6 +771,22 @@ export default {
       this.selectedId = null
       this.selectedRow = null
       this.selectedAddr = null
+    },
+    /**
+     * handleOptionTrigger
+     * Responds to preview interactions from the Option prototypes and opens linked modals.
+     */
+    handleOptionTrigger(actionId: string): void {
+      console.log('[Acquisitions] Prototype trigger ->', actionId)
+      if (actionId === 'trade-assumptions' || actionId === 'settings-assumptions') {
+        this.showTradeDetailsModal = true
+      }
+      if (actionId === 'trade-documents' || actionId === 'documents-room') {
+        this.showTradeDocumentsModal = true
+      }
+      if (actionId === 'trade-approvals' || actionId === 'approvals-checklist') {
+        console.log('[Acquisitions] Approvals prototype selected')
+      }
     },
   },
   mounted() {

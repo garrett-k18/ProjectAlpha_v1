@@ -1,13 +1,13 @@
 <template>
   <!-- Option 1: Status Card with Progress Bars -->
-  <div class="card" data-testid="tasking-option1">
+  <div class="card h-100 d-flex flex-column" data-testid="tasking-option1">
     <!-- Header -->
     <div class="d-flex card-header justify-content-between align-items-center">
       <h4 class="header-title mb-0">Trade Tracker</h4>
     </div>
 
     <!-- Body -->
-    <div class="card-body pt-0">
+    <div class="card-body pt-0 flex-grow-1 d-flex flex-column">
       <!-- Loading state -->
       <div v-if="isLoading" class="text-muted small py-3 d-flex align-items-center justify-content-center text-center">
         <i class="mdi mdi-loading mdi-spin me-1"></i> Loading...

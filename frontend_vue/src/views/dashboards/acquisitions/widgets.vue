@@ -11,11 +11,11 @@
     - Shows a lightweight loading state per tile while fetching.
     - Component is modular so other widget groups can be added later.
   -->
-  <b-row class="g-3">
+  <b-row class="g-2 mb-1">
     <!-- Assets count tile -->
     <b-col xl="3" lg="6">
-      <div class="card tilebox-one">
-        <div class="card-body">
+      <div class="card tilebox-one mb-0">
+        <div class="card-body py-1 px-2">
           <!-- Grid of items icon to suggest count of assets -->
           <i class="uil uil-apps float-end" aria-hidden="true"></i>
           <h6 class="text-uppercase mt-0">Assets</h6>
@@ -29,8 +29,8 @@
 
     <!-- Current Balance tile -->
     <b-col xl="3" lg="6">
-      <div class="card tilebox-one">
-        <div class="card-body">
+      <div class="card tilebox-one mb-0">
+        <div class="card-body py-1 px-2">
           <i class="uil uil-dollar-sign float-end" aria-hidden="true"></i>
           <h6 class="text-uppercase mt-0">Current Balance</h6>
           <h2 class="my-2 d-flex align-items-baseline" id="current-balance">
@@ -47,8 +47,8 @@
 
     <!-- Total Debt tile -->
     <b-col xl="3" lg="6">
-      <div class="card tilebox-one">
-        <div class="card-body">
+      <div class="card tilebox-one mb-0">
+        <div class="card-body py-1 px-2">
           <i class="uil uil-chart-line float-end" aria-hidden="true"></i>
           <h6 class="text-uppercase mt-0">Total Debt</h6>
           <h2 class="my-2 d-flex align-items-baseline" id="total-debt">
@@ -65,8 +65,8 @@
 
     <!-- Seller As-is Value tile -->
     <b-col xl="3" lg="6">
-      <div class="card tilebox-one">
-        <div class="card-body">
+      <div class="card tilebox-one mb-0">
+        <div class="card-body py-1 px-2">
           <i class="uil uil-home float-end" aria-hidden="true"></i>
           <h6 class="text-uppercase mt-0">Seller As-is Value</h6>
           <h2 class="my-2" id="seller-asis-value">

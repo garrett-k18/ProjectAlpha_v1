@@ -128,7 +128,7 @@ const dashboardRoutes = [
                 name: 'Acquisitions',
                 path: 'acquisitions',
                 meta: {authRequired: true},
-                component: () => import('@/views/dashboards/acquisitions/index.vue'),
+                component: () => import('@/views/dashboards/acquisitions/index_acq_dash.vue'),
             },
             {
                 name: 'Asset Mgmt',
