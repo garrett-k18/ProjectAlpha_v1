@@ -5,7 +5,7 @@
 <script lang="ts">
 // Replaced missing ecommerce dashboard with acquisitions for Railway build
 // @ts-ignore - Type inference issue with Vue component exports
-import Acquisitions from "@/views/dashboards/acquisitions/index.vue";
+import Acquisitions from "@/views/dashboards/acquisitions/index_acq_dash.vue";
 import {useLayoutStore} from "@/stores/layout";
 
 export default {
