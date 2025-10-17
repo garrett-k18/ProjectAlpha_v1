@@ -53,6 +53,10 @@ from .views.trade_assumptions_api import (
     get_trade_level_assumptions,
     update_trade_level_assumptions,
 )
+from .views.trade_status_api import (
+    get_trade_status,
+    update_trade_status,
+)
 from .views.import_api import import_seller_tape
 from .views.asset_actions_api import drop_asset, restore_asset
 
@@ -98,6 +102,9 @@ urlpatterns = [
     # Trade level assumptions endpoints
     path('trade-assumptions/<int:trade_id>/', get_trade_level_assumptions, name='api_get_trade_assumptions'),  # GET
     path('trade-assumptions/<int:trade_id>/update/', update_trade_level_assumptions, name='api_update_trade_assumptions'),  # POST, PUT
+    # Trade status endpoints
+    path('trades/<int:trade_id>/status/', get_trade_status, name='api_get_trade_status'),  # GET
+    path('trades/<int:trade_id>/status/update/', update_trade_status, name='api_update_trade_status'),  # POST, PUT
     # State summary endpoints (per-seller, per-trade)
     path('summary/state/list/<int:seller_id>/<int:trade_id>/', get_states_for_selection, name='api_states_for_selection'),
     path('summary/state/count/<int:seller_id>/<int:trade_id>/', get_state_count_for_selection, name='api_state_count_for_selection'),

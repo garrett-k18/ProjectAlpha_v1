@@ -51,6 +51,14 @@ export const useAcqSelectionsStore = defineStore('acqSelections', () => {
   let currentController: AbortController | null = null
   let inFlightKey: string | null = null
 
+  // ---------------------------------------------------------------------------
+  // Trade status state fetched from backend for the selected trade
+  // ---------------------------------------------------------------------------
+  const tradeStatusValue = ref<string | null>(null)
+  const tradeStatusOptions = ref<Array<{ value: string; label: string }>>([])
+  const tradeStatusLoading = ref<boolean>(false)
+  const tradeStatusError = ref<string | null>(null)
+
   // Derived: whether we have both ids selected
   const hasBothSelections = computed<boolean>(() => !!selectedSellerId.value && !!selectedTradeId.value)
 
@@ -72,6 +80,49 @@ export const useAcqSelectionsStore = defineStore('acqSelections', () => {
     if (changed) {
       selectedTradeId.value = null
       resetMarkers()
+      resetTradeStatus() // ensure trade status UI clears when seller context changes
+    }
+  }
+
+  async function fetchTradeStatus(): Promise<void> {
+    if (!selectedTradeId.value) {
+      resetTradeStatus()
+      return
+    }
+    tradeStatusLoading.value = true
+    tradeStatusError.value = null
+    try {
+      const tradeId = selectedTradeId.value as number
+      const resp = await http.get(`/acq/trades/${tradeId}/status/`, { timeout: 10000 })
+      tradeStatusValue.value = resp.data?.status ?? null
+      tradeStatusOptions.value = Array.isArray(resp.data?.options) ? resp.data.options : []
+    } catch (e: any) {
+      console.error('[acqSelections] fetchTradeStatus failed', e)
+      tradeStatusError.value = e?.message || 'Failed to load trade status'
+      tradeStatusOptions.value = []
+    } finally {
+      tradeStatusLoading.value = false
+    }
+  }
+
+  async function updateTradeStatus(nextStatus: string): Promise<boolean> {
+    if (!selectedTradeId.value) {
+      return false
+    }
+    tradeStatusLoading.value = true
+    tradeStatusError.value = null
+    try {
+      const tradeId = selectedTradeId.value as number
+      const resp = await http.post(`/acq/trades/${tradeId}/status/update/`, { status: nextStatus }, { timeout: 10000 })
+      tradeStatusValue.value = resp.data?.status ?? nextStatus
+      tradeStatusOptions.value = Array.isArray(resp.data?.options) ? resp.data.options : tradeStatusOptions.value
+      return true
+    } catch (e: any) {
+      console.error('[acqSelections] updateTradeStatus failed', e)
+      tradeStatusError.value = e?.message || 'Failed to update trade status'
+      return false
+    } finally {
+      tradeStatusLoading.value = false
     }
   }
 
@@ -79,6 +130,9 @@ export const useAcqSelectionsStore = defineStore('acqSelections', () => {
     selectedTradeId.value = id
     if (id === null) {
       resetMarkers()
+      resetTradeStatus() // reset lifecycle selector when trade deselected
+    } else {
+      tradeStatusValue.value = null // prime status value so loading states show correctly while fetching
     }
   }
 
@@ -89,6 +143,13 @@ export const useAcqSelectionsStore = defineStore('acqSelections', () => {
     lastKey.value = null
   }
 
+  function resetTradeStatus(): void {
+    tradeStatusValue.value = null
+    tradeStatusOptions.value = []
+    tradeStatusLoading.value = false
+    tradeStatusError.value = null
+  }
+
   // ---------------------------------------------------------------------------
   // Network: fetch geocoded markers for the current selection
   // GET /acq/geocode/markers/<seller_id>/<trade_id>/ (baseURL handled by http)
@@ -97,6 +158,7 @@ export const useAcqSelectionsStore = defineStore('acqSelections', () => {
     // require both selections
     if (!hasBothSelections.value) {
       resetMarkers()
+      resetTradeStatus()
       return
     }
 
@@ -161,6 +223,10 @@ export const useAcqSelectionsStore = defineStore('acqSelections', () => {
     loadingMarkers,
     errorMarkers,
     lastKey,
+    tradeStatusValue,
+    tradeStatusOptions,
+    tradeStatusLoading,
+    tradeStatusError,
     // getters
     hasBothSelections,
     selectionKey,
@@ -169,6 +235,9 @@ export const useAcqSelectionsStore = defineStore('acqSelections', () => {
     setSeller,
     setTrade,
     resetMarkers,
+    resetTradeStatus,
     fetchMarkers,
+    fetchTradeStatus,
+    updateTradeStatus,
   }
 })

@@ -99,9 +99,12 @@
         <TradeActionDock
           :seller-name="selectedSellerLabel"
           :trade-name="selectedTradeLabel"
-          :status-label="tradeActionDockStatusLabel"
-          :status-variant="tradeActionDockStatusVariant"
-          :action-items="tradeActionDockActions"
+          :has-active-trade="Boolean(selectedTradeId)"
+          :status-value="tradeStatusValue"
+          :status-options="tradeStatusOptions"
+          :saving-status="tradeStatusLoading"
+          :on-update-status="handleTradeStatusUpdate"
+          :on-refresh-status="handleTradeStatusRefresh"
           @trigger="handleOptionTrigger"
         />
       </b-col>
@@ -363,6 +366,7 @@ export default {
     // Shared selection state via Pinia stores
     const acqStore = useAcqSelectionsStore()
     const tradeAssumptionsStore = useTradeAssumptionsStore()
+    const { tradeStatusValue, tradeStatusOptions, tradeStatusLoading } = storeToRefs(acqStore)
     // Use computed accessors that delegate to store actions to avoid
     // duplicating reset logic across components
     const selectedSellerId = computed<number | null>({
@@ -400,45 +404,6 @@ export default {
     const selectedTradeLabel = computed<string>(() => {
       const match = trades.value.find((t) => t.id === (selectedTradeId.value ?? -1)) // Look up trade in current list
       return match ? match.trade_name : 'No trade selected' // Return trade name or fallback placeholder
-    })
-
-    // option1StatusLabel supplies badge copy for Option 1 (Action Dock) header
-    const tradeActionDockStatusLabel = computed<string>(() => (selectedTradeId.value ? 'In Review' : 'No status'))
-
-    // tradeActionDockStatusVariant selects badge color for the action dock depending on whether a trade is active
-    const tradeActionDockStatusVariant = computed(() => (selectedTradeId.value ? 'warning' : 'secondary'))
-
-    // tradeActionDockActions describes the vertical button stack rendered inside the action dock
-    const tradeActionDockActions = computed(() => {
-      return [
-        {
-          id: 'trade-assumptions',
-          label: 'Trade Assumptions',
-          description: 'Open trade assumptions modal to edit bid and settlement dates.',
-          icon: 'mdi mdi-cog-outline',
-          buttonClasses: 'btn btn-light border',
-          badge: selectedTradeId.value ? 'Auto-Save' : null,
-          badgeClasses: selectedTradeId.value ? 'bg-info-subtle text-info-emphasis' : null,
-        },
-        {
-          id: 'trade-documents',
-          label: 'Document Vault',
-          description: 'Navigate diligence uploads and manage share permissions.',
-          icon: 'mdi mdi-folder-eye-outline',
-          buttonClasses: 'btn btn-light border',
-          badge: '8 files',
-          badgeClasses: 'bg-primary text-white',
-        },
-        {
-          id: 'trade-approvals',
-          label: 'Approval Center',
-          description: 'Review approvals and award asset identifiers.',
-          icon: 'mdi mdi-shield-check-outline',
-          buttonClasses: 'btn btn-light border',
-          badge: selectedTradeId.value ? '2 pending' : null,
-          badgeClasses: selectedTradeId.value ? 'bg-warning text-dark' : null,
-        },
-      ]
     })
 
     // Context payload forwarded into TradeDocumentsModal for shared document components
@@ -574,10 +539,12 @@ export default {
         // Fetch trade assumptions when trade is selected
         dateFieldsLoading.value = true
         await tradeAssumptionsStore.fetchAssumptions(newTradeId)
+        await acqStore.fetchTradeStatus()
         updateLocalDateModels()
         dateFieldsLoading.value = false
       } else {
         resetLocalDateModels()
+        acqStore.resetTradeStatus()
       }
     })
 
@@ -586,6 +553,9 @@ export default {
       // If a seller already selected (e.g., persisted), load trades
       if (selectedSellerId.value) {
         await fetchTrades(selectedSellerId.value)
+      }
+      if (selectedTradeId.value) {
+        await acqStore.fetchTradeStatus()
       }
     })
 
@@ -638,6 +608,14 @@ export default {
       return !!(selectedSellerId.value && selectedTradeId.value) && !gridLoadingRows.value && Array.isArray(gridRows.value) && gridRows.value.length > 0
     })
 
+    async function handleTradeStatusUpdate(value: string) {
+      await acqStore.updateTradeStatus(value)
+    }
+
+    async function handleTradeStatusRefresh() {
+      await acqStore.fetchTradeStatus()
+    }
+
     return {
       sellers,
       trades,
@@ -646,6 +624,11 @@ export default {
       selectedSellerId,
       selectedTradeId,
       resetSelections,
+      tradeStatusValue,
+      tradeStatusOptions,
+      tradeStatusLoading,
+      handleTradeStatusUpdate,
+      handleTradeStatusRefresh,
       docItems,
       gridRowsLoaded,
       // Date fields
@@ -659,9 +642,6 @@ export default {
       showImportModal,
       selectedSellerLabel,
       selectedTradeLabel,
-      tradeActionDockStatusLabel,
-      tradeActionDockStatusVariant,
-      tradeActionDockActions,
       tradeDocumentContext,
       // Date functions
       saveDateChanges,

@@ -32,10 +32,22 @@ class Trade(models.Model):
         max_length=100,
         blank=True,  # Editable; if left blank we'll auto-generate on save
     )
+    class Status(models.TextChoices):
+        PASS = 'PASS', 'Pass'
+        DD = 'DD', 'Due Diligence'
+        AWARDED = 'AWARDED', 'Awarded'
+        BOARD = 'BOARD', 'Boarded'
+        ARCHIVE = 'ARCHIVE', 'Archive'
     # Timestamps for trade lifecycle
     # Note: Per Django docs, auto_now/auto_now_add cannot be combined with default
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.DD,
+        db_index=True,
+    )
    
     
     def __str__(self):
@@ -78,6 +90,27 @@ class Trade(models.Model):
         indexes = [
             models.Index(fields=['seller']),
         ]
+
+    def refresh_status_from_assets(self, commit: bool = True):
+        asset_statuses = set(self.seller_raw_data.values_list('acq_status', flat=True))
+        if self.status == self.Status.ARCHIVE and asset_statuses != {SellerRawData.AcquisitionStatus.DROP}:
+            return
+        if not asset_statuses:
+            computed = self.Status.DD
+        elif asset_statuses == {SellerRawData.AcquisitionStatus.BOARD}:
+            computed = self.Status.BOARD
+        elif asset_statuses <= {SellerRawData.AcquisitionStatus.AWARDED, SellerRawData.AcquisitionStatus.BOARD}:
+            computed = self.Status.AWARDED
+        elif asset_statuses == {SellerRawData.AcquisitionStatus.PASS}:
+            computed = self.Status.PASS
+        elif asset_statuses == {SellerRawData.AcquisitionStatus.DROP}:
+            computed = self.Status.ARCHIVE
+        else:
+            computed = self.Status.DD
+        if self.status != computed:
+            self.status = computed
+            if commit:
+                self.save(update_fields=['status'])
 
 
 class SellerRawData(models.Model):
@@ -363,8 +396,16 @@ class SellerRawData(models.Model):
         # If months_dlq is not provided, calculate it
         if self.months_dlq is None:
             self.months_dlq = self.calculate_months_dlq()
-            
+
         super().save(*args, **kwargs)
-    
+        if self.trade_id:
+            self.trade.refresh_status_from_assets()
+
+    def delete(self, *args, **kwargs):
+        trade = self.trade if self.trade_id else None
+        super().delete(*args, **kwargs)
+        if trade:
+            trade.refresh_status_from_assets()
+
     def __str__(self):
         return f"Seller Raw Data {self.pk} - {self.seller.name} - {self.trade.trade_name}"
