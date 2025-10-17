@@ -186,7 +186,21 @@ def get_seller_rawdata_field_names(request):
 def list_sellers(request):
     """Return a minimal list of sellers (id, name) using DRF serializers."""
     try:
-        sellers = Seller.objects.all().order_by('name')
+        # WHAT: limit seller list to those with at least one trade still in an "active" lifecycle
+        # WHY: sellers should disappear from the selector when every trade has been passed or boarded
+        # WHERE: active statuses cover trades still in acquisition pipelines (INDICATIVE, DD, AWARDED)
+        # HOW: filter via related Trade queryset per Django ORM docs (https://docs.djangoproject.com/en/5.2/topics/db/queries/)
+        active_statuses = [
+            Trade.Status.INDICATIVE,
+            Trade.Status.DD,
+            Trade.Status.AWARDED,
+        ]
+        sellers = (
+            Seller.objects
+            .filter(trades__status__in=active_statuses)
+            .distinct()
+            .order_by('name')
+        )
         serializer = SellerOptionSerializer(sellers, many=True)
         return Response(serializer.data)
     except Exception as e:
@@ -204,8 +218,16 @@ def list_trades_by_seller(request, seller_id: int):
     try:
         if not seller_id:
             return Response([])
-        
-        trades = Trade.objects.filter(seller_id=seller_id).order_by('-created_at')
+        # WHAT: omit trades that are already passed or boarded from dropdown results
+        # WHY: UI should only display trades still requiring acquisition work
+        # WHERE: same active status set as list_sellers keeps UX consistent across selectors
+        # HOW: exclude PASS/BOARD using queryset filter per Django docs
+        trades = (
+            Trade.objects
+            .filter(seller_id=seller_id)
+            .exclude(status__in=[Trade.Status.PASS, Trade.Status.BOARD])
+            .order_by('-created_at')
+        )
         serializer = TradeOptionSerializer(trades, many=True)
         return Response(serializer.data)
     except Exception as e:

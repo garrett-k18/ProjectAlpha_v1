@@ -20,11 +20,16 @@ class SellerBoardedData(models.Model):
     WHAT: Model for boarded seller data transferred from acq_module
     WHY: Contains all data points from SellerRawData plus trade name, trade_id, seller name
     HOW: Uses asset_hub as primary key for 1:1 relationship with AssetIdHub
-    
+
     Architecture:
     - Uses asset_hub as primary key (no separate id field)
     - This ensures SellerBoardedData.pk == AssetIdHub.pk
     - Eliminates ID mapping confusion between tables
+
+    DEPRECATION:
+    - WHAT: This model is now deprecated in favor of `acq_module.models.seller.SellerRawData`
+    - WHY: Asset Management now consumes `SellerRawData` rows flagged with Trade.Status.BOARD
+    - HOW: Serializers/queries should migrate to `SellerRawData` and treat this model as read-only legacy storage.
     """
     
     # WHAT: Hub-owned primary key - strict 1:1 with core.AssetIdHub

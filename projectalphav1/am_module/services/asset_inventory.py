@@ -10,8 +10,8 @@ This module isolates data-join logic so views remain thin.
 from __future__ import annotations
 
 from typing import Iterable, Optional
-from django.db.models import QuerySet, Q
-from am_module.models.boarded_data import SellerBoardedData
+from django.db.models import QuerySet, Q, F
+from acq_module.models.seller import SellerRawData  # WHAT: Post-refactor boarded dataset source per docs (https://docs.djangoproject.com/en/stable/topics/db/models/)
 
 # Fields used by quick filter 'q'
 QUICK_FILTER_FIELDS = (
@@ -19,8 +19,8 @@ QUICK_FILTER_FIELDS = (
     "city",
     "state",
     "zip",
-    "seller_name",
-    "trade_name",
+    "seller__name",  # WHAT: Map friendly seller_name search to SellerRawData->Seller join
+    "trade__trade_name",  # WHAT: Surfaced trade name via ForeignKey per Django join docs
 )
 
 # NOTE on ordering:
@@ -41,7 +41,7 @@ def build_queryset(
     q: Optional[str] = None,
     filters: Optional[dict] = None,
     ordering: Optional[str] = None,
-) -> QuerySet[SellerBoardedData]:
+) -> QuerySet[SellerRawData]:
     """
     Return a QuerySet of SellerBoardedData with metrics joined via AssetIdHub.
     - Applies quick filter across common text fields when q is provided
@@ -49,23 +49,38 @@ def build_queryset(
     - Applies ordering when provided (supports -prefix for desc)
     """
     qs = (
-        SellerBoardedData.objects
-        .select_related("asset_hub__am_metrics")  # hub-keyed AssetMetrics
-        .select_related("asset_hub__blended_outcome_model")  # hub-keyed BlendedOutcomeModel
+        SellerRawData.objects
+        .filter(acq_status=SellerRawData.AcquisitionStatus.BOARD)  # WHAT: Limit to assets promoted into AM module
+        .select_related("asset_hub__am_metrics")  # WHY: retain existing hub-metric joins for hold days (docs: https://docs.djangoproject.com/en/stable/ref/models/querysets/#select-related)
+        .select_related("asset_hub__blended_outcome_model")
+        .select_related("seller", "trade")  # HOW: ensure seller/trade names resolve without extra queries
+        .annotate(
+            seller_name=F("seller__name"),  # WHAT: Expose friendly name aliases to match legacy serializer fields
+            trade_name=F("trade__trade_name"),
+        )
     )
 
     if q:
         q_obj = Q()
         for f in QUICK_FILTER_FIELDS:
             q_obj |= Q(**{f"{f}__icontains": q})
-        # Also try to match numeric sellertape_id if q is digits
+        # Also try to match numeric sellertape_id if q is digits per legacy UX contract
         if q.isdigit():
-            q_obj |= Q(sellertape_id=int(q))
+            q_obj |= Q(sellertape_id__icontains=q)
         qs = qs.filter(q_obj)
 
     if filters:
         # Shallow equality filters; extend as needed
-        allowed = {k: v for k, v in filters.items() if v not in (None, "")}
+        allowed = {}
+        for key, value in filters.items():
+            if value in (None, ""):
+                continue
+            if key == "seller_name":
+                allowed["seller__name"] = value
+            elif key == "trade_name":
+                allowed["trade__trade_name"] = value
+            else:
+                allowed[key] = value
         if allowed:
             qs = qs.filter(**allowed)
 

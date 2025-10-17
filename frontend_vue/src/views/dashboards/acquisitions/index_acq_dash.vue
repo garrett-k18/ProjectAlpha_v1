@@ -104,7 +104,6 @@
           :status-options="tradeStatusOptions"
           :saving-status="tradeStatusLoading"
           :on-update-status="handleTradeStatusUpdate"
-          :on-refresh-status="handleTradeStatusRefresh"
           @trigger="handleOptionTrigger"
         />
       </b-col>
@@ -609,11 +608,43 @@ export default {
     })
 
     async function handleTradeStatusUpdate(value: string) {
-      await acqStore.updateTradeStatus(value)
-    }
+      // WHAT: persist status change via Pinia action so backend updates immediately
+      const sellerIdBeforeChange = selectedSellerId.value // Capture seller id before any resets
+      const tradeIdBeforeChange = selectedTradeId.value // Capture trade id before any resets
+      const success = await acqStore.updateTradeStatus(value) // WHY: upstream handles API call and store synchronization
+      if (!success) {
+        return // Early exit when backend rejects the update so UI stays unchanged
+      }
 
-    async function handleTradeStatusRefresh() {
-      await acqStore.fetchTradeStatus()
+      // WHAT: When a trade is Passed or Boarded it should disappear from selectors
+      const isTerminalStatus = value === 'PASS' || value === 'BOARD'
+      if (!isTerminalStatus) {
+        return // Non-terminal updates (e.g., DD/AWARDED) keep selectors as-is
+      }
+
+      // WHAT: Clear trade selection so dependent widgets reset immediately
+      if (tradeIdBeforeChange !== null) {
+        acqStore.setTrade(null) // WHY: ensures grid + status UI reset in tandem with dropdown state
+      }
+
+      // WHAT: Remove trade locally so dropdown updates without waiting on network
+      if (tradeIdBeforeChange !== null) {
+        trades.value = trades.value.filter((trade) => trade.id !== tradeIdBeforeChange)
+      }
+
+      // WHAT: Refresh trade list from backend to ensure alignment with server filters
+      if (sellerIdBeforeChange !== null) {
+        await fetchTrades(sellerIdBeforeChange) // WHY: backend now excludes PASS/BOARD so dropdown stays authoritative
+      }
+
+      // WHAT: If no trades remain for the seller, drop the seller entry and clear selection
+      if (sellerIdBeforeChange !== null && trades.value.length === 0) {
+        sellers.value = sellers.value.filter((seller) => seller.id !== sellerIdBeforeChange) // Remove seller from local options
+        acqStore.setSeller(null) // Reset seller selection so watchers clear downstream state
+      }
+
+      // WHAT: Always refresh sellers list so new backend filtering (active trades only) is reflected globally
+      await fetchSellers()
     }
 
     return {
@@ -628,7 +659,6 @@ export default {
       tradeStatusOptions,
       tradeStatusLoading,
       handleTradeStatusUpdate,
-      handleTradeStatusRefresh,
       docItems,
       gridRowsLoaded,
       // Date fields

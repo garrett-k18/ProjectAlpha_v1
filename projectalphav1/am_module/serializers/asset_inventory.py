@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from am_module.models.boarded_data import SellerBoardedData
+from acq_module.models.seller import SellerRawData  # WHAT: Post-refactor source of truth for boarded assets
 from am_module.models.asset_metrics import AssetMetrics
 from am_module.models.am_data import AMMetrics
 from am_module.models.servicers import ServicerLoanData
@@ -12,10 +12,11 @@ class AssetInventoryRowSerializer(serializers.Serializer):
     WHY: Compose data from multiple sources for asset inventory display
     HOW: Detached from specific model to freely compose fields
     
-    NOTE: After migration, SellerBoardedData.pk == asset_hub_id
-    So 'id' field now returns asset_hub_id (not old SellerBoardedData id)
+    NOTE: Following the AM refactor, this serializer now consumes `SellerRawData`
+    objects filtered to `Trade.Status.BOARD`. Their primary key is `asset_hub_id`,
+    so `id`/`asset_hub_id` always resolve to the shared hub identifier.
     """
-    id = serializers.IntegerField(read_only=True, help_text='Asset Hub ID (SellerBoardedData.pk)')
+    id = serializers.IntegerField(read_only=True, help_text='Asset Hub ID (SellerRawData.pk)')
     # Expose the hub id explicitly so the frontend can validate nested records
     asset_hub_id = serializers.IntegerField(read_only=True, help_text='Asset Hub ID (same as id)')
     asset_id = serializers.SerializerMethodField()
@@ -26,6 +27,8 @@ class AssetInventoryRowSerializer(serializers.Serializer):
     state = serializers.CharField()
     property_type = serializers.CharField(allow_null=True)
     occupancy = serializers.CharField(allow_null=True)
+    seller_name = serializers.SerializerMethodField()
+    trade_name = serializers.SerializerMethodField()
 
     trade_name = serializers.CharField()
 
@@ -114,6 +117,23 @@ class AssetInventoryRowSerializer(serializers.Serializer):
     expected_moic = serializers.DecimalField(max_digits=6, decimal_places=5, required=False, allow_null=True, source='asset_hub.blended_outcome_model.expected_moic')
     expected_npv = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True, source='asset_hub.blended_outcome_model.expected_npv')
 
+    # WHAT: Set of Valuation.source strings requested by this serializer
+    # WHY: Prevent repeated DB lookups by constraining cached queryset
+    # HOW: Used by `_latest_val_by_source` to filter Valuation records once per asset
+    _VALUATION_SOURCES = {
+        'internal',
+        'broker',
+        'internalInitialUW',
+        'seller',
+    }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # WHAT: Per-instance cache mapping asset hub id -> {source: Valuation}
+        # WHY: Reusing the latest valuation per source avoids N x sources queries (Docs: https://docs.djangoproject.com/en/stable/topics/db/performance/)
+        # HOW: Populated lazily on first valuation lookup for an asset
+        self._valuation_cache: dict[int | str, dict[str, Valuation]] = {}
+
     def get_asset_id(self, obj):
         stid = getattr(obj, "sellertape_id", None)
         return stid if stid is not None else getattr(obj, "pk", None)
@@ -127,8 +147,8 @@ class AssetInventoryRowSerializer(serializers.Serializer):
         data arrives so that this field stays in sync.
         """
 
-        # Resolve hub from the row; this serializer is usually fed a
-        # `SellerBoardedData` instance so we can jump through `asset_hub`.
+        # Resolve hub from the row; this serializer now receives `SellerRawData`
+        # instances so we still jump through `asset_hub` for hub-scoped metrics.
         hub = getattr(obj, 'asset_hub', None)
         if not hub:
             return None
@@ -146,6 +166,22 @@ class AssetInventoryRowSerializer(serializers.Serializer):
             metrics = metrics_manager.order_by('-updated_at').first()
 
         return getattr(metrics, 'delinquency_status', None)
+
+    def get_seller_name(self, obj):
+        """Return seller display name from annotation or FK fallback (Docs: https://docs.djangoproject.com/en/stable/ref/models/instances/#django.db.models.Model.refresh_from_db)."""
+        annotated = getattr(obj, 'seller_name', None)
+        if annotated:
+            return annotated
+        seller = getattr(obj, 'seller', None)
+        return getattr(seller, 'name', None)
+
+    def get_trade_name(self, obj):
+        """Return trade display name from annotation or FK fallback."""
+        annotated = getattr(obj, 'trade_name', None)
+        if annotated:
+            return annotated
+        trade = getattr(obj, 'trade', None)
+        return getattr(trade, 'trade_name', None)
 
     def get_address(self, obj):
         parts = [
@@ -177,13 +213,28 @@ class AssetInventoryRowSerializer(serializers.Serializer):
         """
         hub = getattr(obj, 'asset_hub', None)
         if hub is None:
-            return None
-        return (
-            Valuation.objects
-            .filter(asset_hub=hub, source=source)
-            .order_by('-value_date', '-created_at')
-            .first()
-        )
+            return None  # WHAT: No hub means no valuations, short-circuit to prevent unnecessary work
+
+        cache_key = getattr(hub, 'id', None) or getattr(obj, 'pk', None)
+        if cache_key is None:
+            return None  # WHAT: Without a stable id we cannot cache, so we cannot safely proceed
+
+        asset_cache = self._valuation_cache.get(cache_key)
+        if asset_cache is None:
+            # WHAT: Batch-fetch all valuations for this asset across required sources once
+            # WHY: Eliminates per-field database round-trips that caused pagination latency (~10s)
+            # HOW: Order ensures first occurrence per source is the latest record (Docs: https://docs.djangoproject.com/en/stable/ref/models/querysets/#order-by)
+            queryset = (
+                Valuation.objects
+                .filter(asset_hub=hub, source__in=self._VALUATION_SOURCES)
+                .order_by('-value_date', '-created_at')
+            )
+            asset_cache = {}
+            for valuation in queryset:
+                asset_cache.setdefault(valuation.source, valuation)
+            self._valuation_cache[cache_key] = asset_cache
+
+        return asset_cache.get(source)
 
     # ----------------- Servicer getters -----------------
     def get_servicer_loan_data(self, obj):
@@ -423,8 +474,9 @@ class AssetInventoryRowSerializer(serializers.Serializer):
 
 class AssetDetailSerializer(serializers.ModelSerializer):
     """
-    Detailed serializer for a single SellerBoardedData asset record.
-    Exposes fields used by the loan-level modal tabs (Snapshot, Property, Loan, etc.).
+    Detailed serializer for a single `SellerRawData` asset promoted to Asset Management.
+    Mirrors the legacy `SellerBoardedData` payload while sourcing data directly from the
+    acquisition table and hub-related models.
 
     Docs:
     - DRF ModelSerializer: https://www.django-rest-framework.org/api-guide/serializers/#modelserializer
@@ -432,13 +484,34 @@ class AssetDetailSerializer(serializers.ModelSerializer):
 
     # Expose hub id explicitly for downstream API calls (e.g., outcomes ensure-create)
     asset_hub_id = serializers.SerializerMethodField()
+    seller_name = serializers.SerializerMethodField()
+    trade_name = serializers.SerializerMethodField()
+    boarded_at = serializers.SerializerMethodField()
+    boarded_by = serializers.SerializerMethodField()
 
     def get_asset_hub_id(self, obj):
         hub = getattr(obj, 'asset_hub', None)
         return getattr(hub, 'id', None)
 
+    def get_seller_name(self, obj):
+        seller = getattr(obj, 'seller', None)
+        return getattr(seller, 'name', None)
+
+    def get_trade_name(self, obj):
+        trade = getattr(obj, 'trade', None)
+        return getattr(trade, 'trade_name', None)
+
+    def get_boarded_at(self, obj):
+        """Placeholder for legacy field; AM now treats trade `updated_at` as proxy."""
+        trade = getattr(obj, 'trade', None)
+        return getattr(trade, 'updated_at', None)
+
+    def get_boarded_by(self, obj):
+        """Boarding user tracking was never persisted on SellerRawData; return None."""
+        return None
+
     class Meta:
-        model = SellerBoardedData
+        model = SellerRawData
         # Explicitly list fields for stability and to avoid over-exposing internals
         fields = [
             # Identity

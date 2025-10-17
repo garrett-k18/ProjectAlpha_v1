@@ -34,10 +34,11 @@ class Trade(models.Model):
     )
     class Status(models.TextChoices):
         PASS = 'PASS', 'Pass'
+        INDICATIVE = 'INDICATIVE', 'Indicative'
         DD = 'DD', 'Due Diligence'
         AWARDED = 'AWARDED', 'Awarded'
         BOARD = 'BOARD', 'Boarded'
-        ARCHIVE = 'ARCHIVE', 'Archive'
+      
     # Timestamps for trade lifecycle
     # Note: Per Django docs, auto_now/auto_now_add cannot be combined with default
     created_at = models.DateTimeField(auto_now_add=True)
@@ -45,7 +46,7 @@ class Trade(models.Model):
     status = models.CharField(
         max_length=20,
         choices=Status.choices,
-        default=Status.DD,
+        default=Status.INDICATIVE,
         db_index=True,
     )
    
@@ -93,7 +94,8 @@ class Trade(models.Model):
 
     def refresh_status_from_assets(self, commit: bool = True):
         asset_statuses = set(self.seller_raw_data.values_list('acq_status', flat=True))
-        if self.status == self.Status.ARCHIVE and asset_statuses != {SellerRawData.AcquisitionStatus.DROP}:
+        if self.status == self.Status.PASS and asset_statuses != {SellerRawData.AcquisitionStatus.DROP}:
+            # WHAT: keep trades manually flagged as PASS (archive) from reverting when asset statuses fluctuate
             return
         if not asset_statuses:
             computed = self.Status.DD
@@ -104,7 +106,7 @@ class Trade(models.Model):
         elif asset_statuses == {SellerRawData.AcquisitionStatus.PASS}:
             computed = self.Status.PASS
         elif asset_statuses == {SellerRawData.AcquisitionStatus.DROP}:
-            computed = self.Status.ARCHIVE
+            computed = self.Status.PASS
         else:
             computed = self.Status.DD
         if self.status != computed:

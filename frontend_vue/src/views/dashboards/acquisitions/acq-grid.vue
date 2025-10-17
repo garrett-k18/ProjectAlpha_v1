@@ -296,8 +296,11 @@ function maybeFetchRows(): void {
     // Pass current view to fetch rows filtered by backend
     gridRowsStore.fetchRows(sid, tid, activeView.value)
   } else {
-    // When selections are incomplete, ensure grid shows empty state
-    // (gridRowsStore.resetRows() would also be acceptable)
+    // WHAT: when either selection is missing the grid should display empty state immediately
+    // WHY: stale acquisition rows confuse users after trades are archived/boarded
+    // WHERE: Pinia action resetRows (Docs: https://pinia.vuejs.org/core-concepts/state.html#resetting-the-state ) clears dataset reactively
+    // HOW: call resetRows and keep cache intact so future selections remain performant
+    gridRowsStore.resetRows()
   }
 }
 

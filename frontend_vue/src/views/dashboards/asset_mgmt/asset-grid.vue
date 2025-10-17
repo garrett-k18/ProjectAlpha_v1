@@ -4,7 +4,7 @@
     Purpose: Reusable AG Grid card for the Asset Management module.
     Visuals: Matches acquisitions grid (card header, Quartz theme, spacing).
   -->
-  <div class="card" ref="cardRef" :class="{ 'fullscreen-card': isFullscreen }">
+  <div class="card" ref="cardRef" :class="{ 'fullwindow-card': isFullWindow }">
     <div class="d-flex card-header justify-content-between align-items-center">
       <h4 class="header-title">Asset Inventory</h4>
       <div class="d-flex align-items-center gap-2">
@@ -12,12 +12,12 @@
         <button
           class="btn btn-sm btn-light"
           type="button"
-          :title="isFullscreen ? 'Exit Full Page' : 'Full Page'"
-          :aria-pressed="isFullscreen ? 'true' : 'false'"
-          aria-label="Toggle full page view"
-          @click="toggleFullscreen"
+          :title="isFullWindow ? 'Exit Full Window' : 'Full Window'"
+          :aria-pressed="isFullWindow ? 'true' : 'false'"
+          aria-label="Toggle full window view"
+          @click="toggleFullWindow"
         >
-          <i class="mdi" :class="isFullscreen ? 'mdi-fullscreen-exit' : 'mdi-fullscreen'"></i>
+          <i class="mdi" :class="isFullWindow ? 'mdi-fullscreen-exit' : 'mdi-fullscreen'"></i>
         </button>
       </div>
     </div>
@@ -146,7 +146,7 @@
 import { AgGridVue } from 'ag-grid-vue3'
 import { themeQuartz } from 'ag-grid-community'
 import type { GridApi, GridReadyEvent, ColDef, ValueFormatterParams } from 'ag-grid-community'
-import { ref, computed, nextTick, watch } from 'vue'
+import { ref, computed, nextTick, watch, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { BModal } from 'bootstrap-vue-next'
 import LoanLevelIndex from '@/views/am_module/loanlvl_index.vue'
@@ -469,15 +469,16 @@ function moicFormatter(params: ValueFormatterParams): string {
 const gridRef = ref<any>(null)
 const gridApi = ref<GridApi | null>(null)
 
-// Fullscreen state for the card
+// Full window state for the card wrapper + scroll locking metadata
 const cardRef = ref<HTMLElement | null>(null)
-const isFullscreen = ref<boolean>(false)
+const isFullWindow = ref<boolean>(false) // WHAT: Reactive flag that drives CSS-based full-window layout
+const bodyOverflowStack = ref<number>(0) // WHAT: Counter to manage document body overflow stacking when multiple components toggle
 
 // Grid area size
 const gridStyle = computed(() => (
-  isFullscreen.value
-    ? { width: '100%', height: '100%' }
-    : { width: '100%', height: '420px' }
+  isFullWindow.value
+    ? { width: '100%', height: '100%' } // WHAT: Stretch grid to fill available space when in full window mode
+    : { width: '100%', height: '420px' } // WHAT: Default fixed height inside dashboard layout
 ))
 
 function updateGridSize(): void {
@@ -486,7 +487,7 @@ function updateGridSize(): void {
       const api = gridApi.value as any
       if (!api) return
       // In fullscreen, autosize to content; allow horizontal scroll otherwise
-      if (isFullscreen.value || document.fullscreenElement) {
+      if (isFullWindow.value) {
         api.autoSizeAllColumns?.() || api.columnApi?.autoSizeAllColumns?.()
       } else {
         // Do not call sizeColumnsToFit so columns can exceed width and enable horizontal scroll
@@ -501,30 +502,37 @@ function onGridReady(e: GridReadyEvent) {
   fetchRows()
 }
 
-async function enterFullscreen(): Promise<void> {
-  const el = cardRef.value as any
-  try {
-    if (el?.requestFullscreen) await el.requestFullscreen()
-    else isFullscreen.value = true
-  } finally {
-    updateGridSize()
+function toggleFullWindow(): void {
+  const next = !isFullWindow.value // WHAT: Determine the next full-window state
+  isFullWindow.value = next // WHAT: Flip reactive flag so template updates
+  manageDocumentOverflow(next) // WHAT: Synchronize body scroll locking so background content does not scroll
+  nextTick(() => updateGridSize()) // WHAT: Recalculate grid layout once DOM applies new classes
+}
+
+function manageDocumentOverflow(lock: boolean): void {
+  const body = document.body // WHAT: Direct reference to the document body element we need to mutate
+  if (!body) return // WHAT: Guard for SSR/testing environments
+  if (lock) {
+    bodyOverflowStack.value += 1 // WHAT: Increment stack counter so nested locks keep state consistent
+    if (bodyOverflowStack.value === 1) {
+      body.dataset.assetGridOverflow = body.style.overflow || '' // WHAT: Preserve prior overflow so we can restore precisely
+      body.style.overflow = 'hidden' // WHAT: Prevent background scrolling while full window is active
+    }
+  } else {
+    bodyOverflowStack.value = Math.max(0, bodyOverflowStack.value - 1) // WHAT: Decrease counter without falling below zero
+    if (bodyOverflowStack.value === 0) {
+      const prev = body.dataset.assetGridOverflow ?? '' // WHAT: Retrieve original overflow value from data attribute
+      body.style.overflow = prev // WHAT: Restore previous overflow state
+      delete body.dataset.assetGridOverflow // WHAT: Clean attribute to avoid leaks
+    }
   }
 }
 
-async function exitFullscreen(): Promise<void> {
-  try {
-    if (document.fullscreenElement) await document.exitFullscreen()
-    else isFullscreen.value = false
-  } finally {
-    isFullscreen.value = false
-    updateGridSize()
+onBeforeUnmount(() => {
+  if (isFullWindow.value) {
+    manageDocumentOverflow(false) // WHAT: Ensure body overflow resets if component unmounts while in full window mode
   }
-}
-
-function toggleFullscreen(): void {
-  if (isFullscreen.value || document.fullscreenElement) exitFullscreen()
-  else enterFullscreen()
-}
+})
 
 // Fetch rows from backend with q and sort
 async function fetchRows(): Promise<void> {
@@ -608,7 +616,7 @@ function onPageSizeChange(): void {
 }
 
 function prevPage(): void {
-  if (loading.value || viewAll.value) return
+  if (loading.value || viewAll.value) return // WHAT: Do nothing while loading or when all rows already loaded
   if (page.value > 1) {
     page.value -= 1
     fetchRows()
@@ -616,7 +624,7 @@ function prevPage(): void {
 }
 
 function nextPage(): void {
-  if (loading.value || viewAll.value) return
+  if (loading.value || viewAll.value) return // WHAT: Block next-page when data still loading or view-all active
   const tp = totalPages.value || 1
   if (page.value < tp) {
     page.value += 1
@@ -653,11 +661,25 @@ function onSortChanged(): void {
 </script>
 
 <style scoped>
-.fullscreen-card {
+.fullwindow-card {
   position: fixed;
   inset: 0;
-  z-index: 1050; /* above app chrome */
+  z-index: 1050; /* WHAT: Elevate above dashboard chrome so overlay feels native */
   border-radius: 0 !important;
+  display: flex;
+  flex-direction: column;
+}
+
+.fullwindow-card > .card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0; /* WHAT: Allow nested grid to stretch without forcing overflow */
+}
+
+.fullwindow-card :deep(.asset-grid) {
+  flex: 1;
+  height: 100% !important; /* WHAT: Ensure AG Grid surface consumes available vertical space */
 }
 
 /* Center AG Grid header text and cell contents (Quartz theme uses flex wrappers) */

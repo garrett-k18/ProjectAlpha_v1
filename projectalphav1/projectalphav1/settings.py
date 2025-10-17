@@ -98,6 +98,16 @@ MIDDLEWARE = [
 'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+# WHAT: Inject development-only CSRF bypass middleware at the top of the stack when DEBUG is true
+# WHY: Allows local Vue dev server POSTs without CSRF token friction while keeping production secure
+# WHERE: Placed before SecurityMiddleware so request flag is set ahead of CSRF processing
+# HOW: Uses documented request attribute `_dont_enforce_csrf_checks`
+if DEBUG:
+    MIDDLEWARE.insert(
+        0,
+        'projectalphav1.middleware.dev_csrf_bypass.DevCSRFBuypassMiddleware',
+    )
+
 ROOT_URLCONF = 'projectalphav1.urls'
 
 TEMPLATES = [

@@ -14,10 +14,9 @@ from am_module.serializers.asset_inventory import (
 from am_module.serializers.am_note import AMNoteSerializer
 from am_module.serializers.servicer_loan_data import ServicerLoanDataSerializer
 from am_module.models.servicers import ServicerLoanData
-from am_module.models.boarded_data import SellerBoardedData
 
 # Import acquisitions models to surface photos linked to SellerRawData (via sellertape_id)
-from acq_module.models.seller import SellerRawData
+from acq_module.models.seller import SellerRawData, Trade
 from core.models.attachments import Photo
 from rest_framework import serializers, status
 from rest_framework.permissions import IsAuthenticatedOrReadOnly, AllowAny
@@ -45,21 +44,34 @@ class AssetInventoryViewSet(ViewSet):
 
         qs = build_queryset(q=q, filters=filters, ordering=ordering)
 
+        # WHAT: Support "ALL" page size to mirror frontend view-all option (Docs: https://www.django-rest-framework.org/api-guide/pagination/)
+        # WHY: Asset management grid expects a single response containing all rows when the user selects the All option.
+        page_size_param = request.query_params.get('page_size')
+        if isinstance(page_size_param, str) and page_size_param.strip().upper() == 'ALL':
+            rows = list(qs)
+            serialized = AssetInventoryRowSerializer(rows, many=True).data
+            return Response({
+                "count": len(serialized),
+                "next": None,
+                "previous": None,
+                "results": serialized,
+            })
+
         paginator = self.pagination_class()
         page = paginator.paginate_queryset(qs, request)
         ser = AssetInventoryRowSerializer(page, many=True)
         return paginator.get_paginated_response(ser.data)
 
     def retrieve(self, request: Request, pk: int | str | None = None):
-        """Return detailed SellerBoardedData by AM asset id.
+        """Return detailed boarded asset (now backed by SellerRawData).
 
         URL: /api/am/assets/<id>/
         Response: AssetDetailSerializer
         """
-        # Join via hub-keyed metrics (AssetMetrics keyed by core.AssetIdHub)
         asset = get_object_or_404(
-            SellerBoardedData.objects.select_related("asset_hub__am_metrics"),
+            SellerRawData.objects.select_related("asset_hub__am_metrics", "seller", "trade"),
             pk=pk,
+            acq_status=Trade.Status.BOARD,
         )
         ser = AssetDetailSerializer(asset)
         return Response(ser.data)
@@ -71,7 +83,11 @@ class AssetInventoryViewSet(ViewSet):
         URL: /api/am/assets/<id>/servicing/
         Response: ServicerLoanDataSerializer
         """
-        asset = get_object_or_404(SellerBoardedData.objects.select_related("asset_hub"), pk=pk)
+        asset = get_object_or_404(
+            SellerRawData.objects.select_related("asset_hub"),
+            pk=pk,
+            acq_status=Trade.Status.BOARD,
+        )
         hub = getattr(asset, 'asset_hub', None)
         if hub is None:
             return Response({}, status=status.HTTP_200_OK)
@@ -95,8 +111,12 @@ class AssetInventoryViewSet(ViewSet):
 
         URL: /api/am/assets/<id>/notes/
         """
-        # Resolve the SellerBoardedData and the associated hub id
-        asset = get_object_or_404(SellerBoardedData.objects.select_related("asset_hub"), pk=pk)
+        # WHAT: Resolve boarded asset via SellerRawData rows flagged BOARD (legacy SellerBoardedData deprecated)
+        asset = get_object_or_404(
+            SellerRawData.objects.select_related("asset_hub"),
+            pk=pk,
+            acq_status=Trade.Status.BOARD,
+        )
         hub = getattr(asset, 'asset_hub', None)
         if hub is None:
             return Response({"detail": "Asset has no hub assigned."}, status=status.HTTP_400_BAD_REQUEST)
@@ -158,13 +178,12 @@ class AssetInventoryViewSet(ViewSet):
             thumb = serializers.CharField(required=False, allow_blank=True)
             type = serializers.CharField(required=False, allow_blank=True)
 
-        asset = get_object_or_404(SellerBoardedData, pk=pk)
-        raw_id = getattr(asset, 'sellertape_id', None)
-        if raw_id is None:
-            return Response([], status=status.HTTP_200_OK)
-
-        # 404 if raw row missing to signal potential data integrity issue
-        raw = get_object_or_404(SellerRawData, pk=raw_id)
+        asset = get_object_or_404(
+            SellerRawData.objects.select_related("asset_hub"),
+            pk=pk,
+            acq_status=Trade.Status.BOARD,
+        )
+        raw = asset  # WHAT: SellerRawData already contains the acquisition row; no extra lookup needed
 
         def abs_url(rel_url: str) -> str:
             return request.build_absolute_uri(rel_url)
