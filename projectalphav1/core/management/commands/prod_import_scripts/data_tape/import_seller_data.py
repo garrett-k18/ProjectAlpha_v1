@@ -899,8 +899,8 @@ Return only the JSON mapping, no explanations."""
                         # STEP 1: Create AssetIdHub OUTSIDE transaction (must persist even if insert fails)
                         # WHAT: Master asset identifier used across all asset-related tables
                         # WHY: SellerRawData.asset_hub is primary_key=True (1:1 with hub)
-                        # HOW: Create hub first, then insert SellerRawData in separate transaction
-                        asset_hub = AssetIdHub.objects.create()
+                        # HOW: Create hub first with sellertape_id for cross-referencing, then insert SellerRawData
+                        asset_hub = AssetIdHub.objects.create(sellertape_id=sellertape_id)
                         hub_created_count += 1
                         
                         # STEP 2: Create SellerRawData record with asset_hub as PK (in transaction)
