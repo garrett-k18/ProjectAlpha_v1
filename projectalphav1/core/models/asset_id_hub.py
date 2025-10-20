@@ -9,6 +9,10 @@ class AssetIdHub(models.Model):
     Snapshots store useful source identifiers for traceability and backfill logic.
     """
 
+    class AssetStatus(models.TextChoices):
+        ACTIVE = 'ACTIVE', 'Active'  # WHAT: Flag assets currently in portfolio workflows (default state)
+        LIQUIDATED = 'LIQUIDATED', 'Liquidated'  # WHAT: Represents assets sold/resolved and no longer actively managed
+
     # Optional source snapshot for backfill/traceability (indexed)
     # - sellertape_id -> acq_module.models.seller.SellerRawData.sellertape_id (external tape key)
     #   Kept to assist ETL joins and admin lookups. Authoritative relations live on spoke tables via 1:1/1:n FKs.
@@ -22,6 +26,14 @@ class AssetIdHub(models.Model):
         null=True,
         blank=True,
         help_text="Simple tag: True for commercial assets, False for residential. If blank, inferred at save time."
+    )
+
+    asset_status = models.CharField(
+        max_length=32,  # WHAT: Provides headroom for future lifecycle labels beyond the current Active/Liquidated pair
+        choices=AssetStatus.choices,  # WHAT: Restricts persisted values to the canonical AssetStatus enumeration
+        default=AssetStatus.ACTIVE,  # WHY: Maintain backward compatibility by treating existing hubs as Active unless explicitly updated
+        db_index=True,  # WHY: Enable fast filtering/grouping by lifecycle status across dashboards and reports
+        help_text='Canonical lifecycle status for this asset hub (drives UI dropdown and module coordination).',  # WHAT: Document downstream usage for administrators
     )
 
     # Audit

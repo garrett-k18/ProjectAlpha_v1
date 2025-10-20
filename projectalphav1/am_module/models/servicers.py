@@ -7,7 +7,7 @@ from django.utils import timezone
 
 class ServicerLoanData(models.Model):
     """Model to manage loan data for servicers.
-    
+    This is a merged DB of all different servicers
     This model stores loan data, balance information, and origination details
     for assets managed by loan servicers. Each record is linked to an AssetIdHub via
     a ForeignKey relationship, allowing multiple records per asset over time (monthly snapshots).
@@ -21,6 +21,14 @@ class ServicerLoanData(models.Model):
         blank=True,
         related_name='servicer_loan_data',
         help_text='Link to hub; multiple loan data records per asset over time.',
+    )
+    raw_source_snapshot = models.ForeignKey(  # WHAT: Audit trail linking cleaned record to the specific raw daily snapshot it was derived from (docs reviewed: https://docs.djangoproject.com/en/5.0/ref/models/fields/#foreignkey).
+        'am_module.SBDailyLoanData',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='cleaned_records',
+        help_text='Links to the specific SBDailyLoanData snapshot this cleaned record was derived from for provenance tracking.',
     )
     
     # Reporting period
@@ -47,6 +55,11 @@ class ServicerLoanData(models.Model):
             (11, 'November'),
             (12, 'December'),
         ],
+    )
+    reporting_day = models.PositiveSmallIntegerField(
+        help_text='Day of this loan data snapshot (1-31).',
+        null=True,
+        blank=True,
     )
 
     # Current Loan Data
@@ -312,7 +325,7 @@ class ServicerLoanData(models.Model):
             models.UniqueConstraint(
                 fields=['asset_hub', 'reporting_year', 'reporting_month'],
                 name='unique_asset_reporting_period'
-            )
+            ),
         ]
 
     def __str__(self):
@@ -320,3 +333,6 @@ class ServicerLoanData(models.Model):
         hub_id = self.asset_hub.id if self.asset_hub else 'No Hub'
         period = f"{self.reporting_month}/{self.reporting_year}" if self.reporting_month and self.reporting_year else 'Unknown Period'
         return f"Loan Data for Hub #{hub_id} - {period}"
+
+    def save(self, *args, **kwargs) -> None:  
+        super().save(*args, **kwargs)

@@ -31,7 +31,7 @@
       </b-col>
 
       <b-col lg="4">
-        <RevenueByLoc/>
+        <AssetDispersion/>
       </b-col>
     </b-row>
 
@@ -61,7 +61,7 @@ import Sales from "@/views/dashboards/asset_mgmt/sales.vue";
 import Revenue from "@/views/dashboards/asset_mgmt/revenue.vue";
 import Projection from "@/views/dashboards/asset_mgmt/projection.vue";
 import Stats from "@/views/dashboards/asset_mgmt/stats.vue";
-import RevenueByLoc from "@/views/dashboards/asset_mgmt/revenue-by-loc.vue";
+import AssetDispersion from "@/views/dashboards/asset_mgmt/assetdispersion/assetdispersion.vue";
 import AssetGrid from "@/views/dashboards/asset_mgmt/asset-grid.vue";
 import DateRangePicker from "@/components/custom/date-range-picker.vue";
 
@@ -75,7 +75,7 @@ export default defineComponent({
     Revenue,
     Projection,
     Stats,
-    RevenueByLoc,
+    AssetDispersion,
     AssetGrid,
     DateRangePicker
   },

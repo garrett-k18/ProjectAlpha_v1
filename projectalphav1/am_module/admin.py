@@ -2,6 +2,7 @@ from django.contrib import admin
 from am_module.models.boarded_data import SellerBoardedData, BlendedOutcomeModel
 from am_module.models.asset_metrics import AssetMetrics
 from am_module.models.servicers import ServicerLoanData
+from am_module.models.statebridgeservicing import SBDailyLoanData
 from am_module.models.am_data import (
     AMMetrics, AMMetricsChange, AuditLog,
     AMNote, REOData, FCSale, DIL, ShortSale, Modification,
@@ -168,6 +169,12 @@ class ServicerLoanDataAdmin(admin.ModelAdmin):
         return "N/A"
     
     reporting_period.short_description = "Period"
+
+
+@admin.register(SBDailyLoanData)
+class SBDailyLoanDataAdmin(admin.ModelAdmin):
+    list_display = tuple(field.name for field in SBDailyLoanData._meta.fields)
+    readonly_fields = ("created_at", "updated_at")
 
 
 @admin.register(REOtask)

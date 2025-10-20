@@ -203,6 +203,7 @@ const cols: Record<string, ColDef> = {
   propertyType: { headerName: 'Property Type', field: 'property_type', minWidth: 140 },
   occupancy: { headerName: 'Occupancy', field: 'occupancy', minWidth: 130 },
   trade: { headerName: 'Trade', field: 'trade_name', minWidth: 160, cellClass: 'text-start' },
+  lifecycleStatus: { headerName: 'Lifecycle Status', field: 'lifecycle_status', minWidth: 150 },
   arvSeller: { headerName: 'ARV (Seller)', field: 'seller_arv_value', valueFormatter: currencyFormatter, minWidth: 140 },
   asIsSeller: { headerName: 'As-Is (Seller)', field: 'seller_asis_value', valueFormatter: currencyFormatter, minWidth: 140 },
   acqCost: { headerName: 'Acq Cost', field: 'acq_cost', valueFormatter: currencyFormatter, minWidth: 130 },

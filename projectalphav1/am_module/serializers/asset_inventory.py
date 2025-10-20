@@ -21,6 +21,7 @@ class AssetInventoryRowSerializer(serializers.Serializer):
     asset_hub_id = serializers.IntegerField(read_only=True, help_text='Asset Hub ID (same as id)')
     asset_id = serializers.SerializerMethodField()
     asset_status = serializers.CharField(allow_null=True)
+    lifecycle_status = serializers.SerializerMethodField()
     delinquency_status = serializers.SerializerMethodField()
     street_address = serializers.CharField()
     city = serializers.CharField()
@@ -133,6 +134,20 @@ class AssetInventoryRowSerializer(serializers.Serializer):
         # WHY: Reusing the latest valuation per source avoids N x sources queries (Docs: https://docs.djangoproject.com/en/stable/topics/db/performance/)
         # HOW: Populated lazily on first valuation lookup for an asset
         self._valuation_cache: dict[int | str, dict[str, Valuation]] = {}
+
+    def get_lifecycle_status(self, obj):
+        """Return the canonical lifecycle status stored on `AssetIdHub`.
+
+        WHAT: Provide a friendly accessor for UI dropdowns that edit lifecycle state.
+        WHY: Asset status now lives on the hub so acquisitions/AM modules stay in sync.
+        HOW: Prefer the explicit hub field; fallback to legacy `asset_status` column for transitional data sets.
+        """
+        hub = getattr(obj, 'asset_hub', None)
+        if hub is not None:
+            value = getattr(hub, 'asset_status', None)
+            if value:
+                return value
+        return getattr(obj, 'asset_status', None)
 
     def get_asset_id(self, obj):
         stid = getattr(obj, "sellertape_id", None)

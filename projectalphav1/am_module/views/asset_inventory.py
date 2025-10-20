@@ -1,7 +1,7 @@
 from rest_framework.viewsets import ViewSet
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view
 from rest_framework.request import Request
 from django.shortcuts import get_object_or_404
 
@@ -18,7 +18,9 @@ from am_module.models.servicers import ServicerLoanData
 # Import acquisitions models to surface photos linked to SellerRawData (via sellertape_id)
 from acq_module.models.seller import SellerRawData, Trade
 from core.models.attachments import Photo
+from core.models import AssetIdHub
 from rest_framework import serializers, status
+from django.db.models import Q
 from rest_framework.permissions import IsAuthenticatedOrReadOnly, AllowAny
 from rest_framework.authentication import SessionAuthentication
 from am_module.models.am_data import AMNote
@@ -37,7 +39,7 @@ class AssetInventoryViewSet(ViewSet):
         ordering = request.query_params.get('sort')
         # Collect simple filters (extend allow-list as needed)
         filters = {}
-        for k in ['state', 'asset_status', 'seller_name', 'trade_name']:
+        for k in ['state', 'asset_status', 'seller_name', 'trade_name', 'lifecycle_status']:
             v = request.query_params.get(k)
             if v:
                 filters[k] = v
@@ -214,3 +216,84 @@ class AssetInventoryViewSet(ViewSet):
 
         data = OutputPhotoSerializer(items, many=True).data
         return Response(data)
+
+
+@api_view(['GET'])
+def asset_dashboard_stats(request):
+    active_assets_count = (
+        SellerRawData.objects
+        .filter(
+            acq_status=SellerRawData.AcquisitionStatus.BOARD,
+            asset_hub__asset_status=AssetIdHub.AssetStatus.ACTIVE,
+        )
+        .count()
+    )
+    liquidated_assets_count = (
+        SellerRawData.objects
+        .filter(
+            acq_status=SellerRawData.AcquisitionStatus.BOARD,
+            asset_hub__asset_status=AssetIdHub.AssetStatus.LIQUIDATED,
+        )
+        .count()
+    )
+    payload = {
+        "active_assets": active_assets_count,
+        "liquidated_assets": liquidated_assets_count,
+    }
+    return Response(payload)
+
+
+@api_view(['GET'])
+def asset_geo_markers(request: Request):
+    """Return clustered geocode markers for active Asset Management inventory.
+
+    WHAT: Builds a list of map markers representing active boarded assets.
+    WHY: The Asset Dispersion card needs to plot one marker per unique lat/lng,
+    bundling multiple assets at identical coordinates so marker size can scale
+    with density.
+    HOW: Reuse the existing `build_queryset()` helper so filter semantics remain
+    identical to the AG Grid, then aggregate over persisted geocode data stored
+    on `LlDataEnrichment`.
+    Docs reviewed: https://docs.djangoproject.com/en/stable/topics/db/queries/
+    """
+    # WHAT: Accept optional quick filter search via `q` parameter so the map can mirror
+    # the AG Grid quick search results when the user types into the dashboard filter.
+    q = request.query_params.get('q')
+    # WHY: Mirror AG Grid column filters (state, lifecycle status, etc.) so markers remain
+    # perfectly in sync with the grid selection; initialize a typed dict to accumulate them.
+    filters: dict[str, str] = {}
+    for key in ['state', 'asset_status', 'seller_name', 'trade_name', 'lifecycle_status']:
+        value = request.query_params.get(key)
+        if value:
+            filters[key] = value
+    # HOW: Build the base queryset using shared service function to ensure identical joins
+    # and annotations, then constrain to assets flagged ACTIVE in the hub lifecycle enum.
+    qs = build_queryset(q=q, filters=filters, ordering=None)
+    qs = qs.filter(asset_hub__asset_status=AssetIdHub.AssetStatus.ACTIVE)
+    # WHAT: Pull related enrichment + metadata up front to avoid N+1 lookups while iterating.
+    qs = qs.select_related('enrichment', 'asset_hub', 'seller', 'trade')
+    # WHY: Emit one marker per asset record so the frontend renders individual pins rather than clustered aggregates.
+    markers = []
+    for row in qs:
+        enrichment = getattr(row, 'enrichment', None)
+        lat = getattr(enrichment, 'geocode_lat', None)
+        lng = getattr(enrichment, 'geocode_lng', None)
+        if lat is None or lng is None:
+            continue  # WHAT: Skip assets without geocode coordinates to avoid invalid map points.
+        lat_f = float(lat)
+        lng_f = float(lng)
+        label = getattr(enrichment, 'geocode_display_address', '') or \
+            ", ".join(filter(None, [str(row.city or '').strip(), str(row.state or '').strip()]))
+        markers.append({
+            "lat": round(lat_f, 6),  # WHAT: Round latitude for consistency while preserving precision.
+            "lng": round(lng_f, 6),  # WHAT: Round longitude to align with latitude precision.
+            "asset_hub_id": row.asset_hub_id,  # WHAT: Surface the unique asset identifier for drill-downs and tooltips.
+            "label": label,  # WHAT: Provide human-readable location text when available.
+            "count": 1,  # WHAT: Maintain count attribute for backwards compatibility with existing UI expectations.
+            "state": (row.state or "").strip(),  # WHAT: Include state abbreviation for frontend aggregation (docs reviewed: https://docs.djangoproject.com/en/5.0/ref/models/instances/#field-access for safe field access).
+        })
+    payload = {
+        "markers": markers,
+        "count": len(markers),
+    }
+    return Response(payload)

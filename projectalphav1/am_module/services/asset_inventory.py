@@ -51,6 +51,7 @@ def build_queryset(
     qs = (
         SellerRawData.objects
         .filter(acq_status=SellerRawData.AcquisitionStatus.BOARD)  # WHAT: Limit to assets promoted into AM module
+        .select_related("asset_hub")
         .select_related("asset_hub__am_metrics")  # WHY: retain existing hub-metric joins for hold days (docs: https://docs.djangoproject.com/en/stable/ref/models/querysets/#select-related)
         .select_related("asset_hub__blended_outcome_model")
         .select_related("seller", "trade")  # HOW: ensure seller/trade names resolve without extra queries
@@ -79,6 +80,8 @@ def build_queryset(
                 allowed["seller__name"] = value
             elif key == "trade_name":
                 allowed["trade__trade_name"] = value
+            elif key == "lifecycle_status":
+                allowed["asset_hub__asset_status"] = value
             else:
                 allowed[key] = value
         if allowed:
