@@ -14,9 +14,7 @@
               <template #default>
                 <router-link to="/acquisitions" class="dropdown-item side-nav-link-ref">Acquisitions</router-link>
                 <router-link to="/asset-mgmt" class="dropdown-item side-nav-link-ref">Asset Mgmt</router-link>
-                <router-link to="/projects" class="dropdown-item side-nav-link-ref">Projects</router-link>
-                <router-link to="/crm" class="dropdown-item side-nav-link-ref">CRM</router-link>
-                <router-link to="/e-wallet" class="dropdown-item side-nav-link-ref">E-Wallet</router-link>
+                <router-link to="/projects" class="dropdown-item side-nav-link-ref">Tasking</router-link>
               </template>
 
             </b-dropdown>
@@ -30,21 +28,6 @@
               <div class="dropdown-menu" aria-labelledby="topnav-apps">
                 <router-link to="/apps/calendar" class="dropdown-item side-nav-link-ref">Calendar</router-link>
                 <router-link to="/apps/chat" class="dropdown-item side-nav-link-ref">Chat</router-link>
-                <div class="dropdown">
-                  <a class="dropdown-item dropdown-toggle arrow-none" href="#" id="topnav-crm" role="button"
-                     data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                    CRM
-                    <div class="arrow-down"></div>
-                  </a>
-                  <div class="dropdown-menu" aria-labelledby="topnav-crm">
-                    <router-link to="/apps/crm/projects" class="dropdown-item side-nav-link-ref">Project</router-link>
-                    <router-link to="/apps/crm/brokers" class="dropdown-item side-nav-link-ref">Brokers
-                    </router-link>
-                    <router-link to="/apps/crm/clients" class="dropdown-item side-nav-link-ref">Clients</router-link>
-                    <router-link to="/apps/crm/management" class="dropdown-item side-nav-link-ref">Management
-                    </router-link>
-                  </div>
-                </div>
                 <div class="dropdown">
                   <a class="dropdown-item dropdown-toggle arrow-none" href="#" id="topnav-ecommerce" role="button"
                      data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">

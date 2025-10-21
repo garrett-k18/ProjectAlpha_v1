@@ -61,13 +61,7 @@
               <router-link to="/asset-mgmt" class="side-nav-link-ref">Asset Management</router-link>
             </li>
             <li>
-              <router-link to="/projects" class="side-nav-link-ref">Projects</router-link>
-            </li>
-            <li>
-              <router-link to="/crm" class="side-nav-link-ref">CRM</router-link>
-            </li>
-            <li>
-              <router-link to="/e-wallet" class="side-nav-link-ref">E-Wallet</router-link>
+              <router-link to="/projects" class="side-nav-link-ref">Tasking</router-link>
             </li>
           </ul>
         </li>
@@ -102,31 +96,11 @@
           </router-link>
         </li>
 
-        <li class="side-nav-item" role="button">
-          <a v-b-toggle.sidebarCrm class="side-nav-link">
-            <i class="uil uil-tachometer-fast"></i>
-            <b-badge class="text-white float-end" variant="danger">New</b-badge>
-            <span> CRM </span>
-          </a>
-          <b-collapse id="sidebarCrm" visible>
-            <ul class="side-nav-second-level">
-              <li>
-                <router-link to="/apps/crm/brokers" class="side-nav-link-ref">Brokers</router-link>
-              </li>
-              <li>
-                <router-link to="/apps/crm/tradingpartners" class="side-nav-link-ref">Trading Partners</router-link>
-              </li>
-              <li>
-                <router-link to="/apps/crm/investors" class="side-nav-link-ref">Investors</router-link>
-              </li>
-              <li>
-                <router-link to="/apps/crm/legal" class="side-nav-link-ref">Legal</router-link>
-              </li>
-              <li>
-                <router-link to="/apps/crm/management" class="side-nav-link-ref">Management</router-link>
-              </li>
-            </ul>
-          </b-collapse>
+        <li class="side-nav-item">
+          <router-link to="/apps/crm" class="side-nav-link side-nav-link-ref">
+            <i class="uil-tachometer-fast"></i>
+            <span> CRMs </span>
+          </router-link>
         </li>
 
         <li class="side-nav-item" role="button">

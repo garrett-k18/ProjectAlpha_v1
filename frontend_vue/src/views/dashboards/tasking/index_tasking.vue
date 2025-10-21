@@ -35,21 +35,22 @@
 </Layout>
 </template>
 
+<!-- @ts-nocheck -->
 <script lang="ts">
 import Layout from "@/components/layouts/layout.vue";
 import Breadcrumb from "@/components/breadcrumb.vue";
-import Activity from "@/views/dashboards/projects/activity.vue";
-import TasksOverview from "@/views/dashboards/projects/tasks-overview.vue";
-import Calendar from "@/views/dashboards/projects/calendar.vue";
-import Status from "@/views/dashboards/projects/status.vue";
-import Stats from "@/views/dashboards/projects/stats.vue";
-import Tasks from "@/views/dashboards/projects/tasks.vue";
+import Activity from "@/views/dashboards/tasking/activity.vue";
+import TasksOverview from "@/views/dashboards/tasking/tasks-overview.vue";
+import Calendar from "@/views/dashboards/tasking/calendar.vue";
+import Status from "@/views/dashboards/tasking/status.vue";
+import Stats from "@/views/dashboards/tasking/stats.vue";
+import Tasks from "@/views/dashboards/tasking/tasks.vue";
 
 export default {
   components: {Tasks, Stats, Status, Calendar, TasksOverview, Activity, Breadcrumb, Layout},
   data(){
     return{
-      title: 'Projects',
+      title: 'Tasking',
       items: [
         {
           text: 'Hyper',
@@ -60,7 +61,7 @@ export default {
           href: '/',
         },
         {
-          text: 'Projects',
+          text: 'Tasking',
           active: true,
         },
       ],

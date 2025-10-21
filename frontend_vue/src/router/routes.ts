@@ -138,7 +138,7 @@ const dashboardRoutes = [
                 component: () => import('@/views/dashboards/asset_mgmt/index.vue'),
             },
             {
-                name: 'Projects',
+                name: 'Tasking',
                 path: 'projects',
                 meta: {authRequired: true},
                 component: () => import('@/views/dashboards/projects/index.vue'),
@@ -184,46 +184,14 @@ const chatAppsRoutes = [
     }
 ];
 
-// apps crm
+// apps crm - consolidated single view with sidebar switcher
 const crmAppsRoutes = [
     {
         path: '/apps/crm',
-        name: 'CRM',
+        name: 'CRMs',
         icon: 'uil-tachometer-fast',
         meta: {authRequired: true},
-
-        children: [
-            {
-                path: 'brokers',
-                name: 'Brokers',
-                component: () => import('@/views/apps/crm/brokers/index_brokercrm.vue')
-            },
-            // Legacy path redirect: keep old bookmarks working
-            {
-                path: 'orders-list',
-                redirect: '/apps/crm/brokers'
-            },
-            {
-                path: 'tradingpartners',
-                name: 'Trading Partners',
-                component: () => import('@/views/apps/crm/tradingpartners/index_tradinpartnercrm.vue')
-            },
-            {
-                path: 'investors',
-                name: 'Investors',
-                component: () => import('@/views/apps/crm/investors/index_investorcrm.vue')
-            },
-            {
-                path: 'legal',
-                name: 'Legal',
-                component: () => import('@/views/apps/crm/legal/index_legalcrm.vue')
-            },
-            {
-                path: 'management',
-                name: 'Management',
-                component: () => import('@/views/apps/crm/management/index.vue')
-            }
-        ]
+        component: () => import('@/views/apps/crm/index_crmmain.vue'),
     }
 ];
 

@@ -4,8 +4,8 @@
     Uses master CRMListView component with broker-specific configuration
     Component path: frontend_vue/src/views/apps/crm/brokers/index_brokercrm.vue
   -->
-  <Layout>
-    <Breadcrumb :title="title" :items="breadcrumbItems"/>
+  <component :is="standalone ? layoutComponent : 'div'" class="h-100">
+    <Breadcrumb v-if="standalone" :title="title" :items="breadcrumbItems"/>
     
     <CRMListView
       entity-type="Broker"
@@ -21,7 +21,7 @@
       @update="onUpdate"
       @export="onExport"
     />
-  </Layout>
+  </component>
 </template>
 
 <script lang="ts">
@@ -41,6 +41,13 @@ export default defineComponent({
     CRMListView,
   },
 
+  props: {
+    standalone: {
+      type: Boolean,
+      default: true,
+    },
+  },
+
   data() {
     return {
       title: 'Brokers',
@@ -51,6 +58,7 @@ export default defineComponent({
       ],
       store: useBrokersCrmStore(),
       statesOptions: [] as Array<{ value: string; label: string }>,
+      layoutComponent: Layout,
     };
   },
 
