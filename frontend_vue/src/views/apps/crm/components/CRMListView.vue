@@ -1,8 +1,8 @@
 <template>
   <!--
-    Master CRM List View Component
-    Reusable component for Brokers, Clients, Trading Partners, etc.
-    Component path: frontend_vue/src/components/crm/CRMListView.vue
+    CRM List View Component
+    Reusable component for displaying CRM lists (Brokers, Trading Partners, Investors, etc.)
+    Component path: frontend_vue/src/views/apps/crm/components/CRMListView.vue
   -->
   <b-row>
     <b-col cols="12">
@@ -403,60 +403,41 @@ export default defineComponent({
     },
 
     /**
-     * Handle form submit (create or update)
-     */
-    async onSubmit() {
-      this.submitting = true;
-
-      if (this.isEditing && this.editId != null) {
-        this.$emit('update', { id: this.editId, data: this.form });
-      } else {
-        this.$emit('create', this.form);
-      }
-
-      // Parent component should handle the actual API call and close modal
-      // For now, we'll close after a short delay
-      setTimeout(() => {
-        this.submitting = false;
-        this.showModal = false;
-        this.resetForm();
-        this.isEditing = false;
-        this.editId = null;
-      }, 500);
-    },
-
-    /**
-     * Populate form and open modal in editing mode
+     * Handle edit button click
      */
     onEdit(row: any) {
       this.isEditing = true;
       this.editId = row.id;
+      this.resetForm();
       
+      // Populate form with row data
       this.editableColumns.forEach(col => {
-        // Preserve arrays when multi-select, else map to string value
-        if (col.multiple) {
-          this.form[col.field] = Array.isArray(row[col.field]) ? [...row[col.field]] : [];
-        } else {
-          this.form[col.field] = row[col.field] || '';
-        }
+        this.form[col.field] = row[col.field] !== undefined ? row[col.field] : (col.multiple ? [] : '');
       });
-
+      
       this.showModal = true;
     },
-  },
 
-  mounted() {
-    this.resetForm();
+    /**
+     * Handle form submit
+     */
+    async onSubmit() {
+      this.submitting = true;
+      
+      try {
+        if (this.isEditing && this.editId) {
+          await this.$emit('update', { id: this.editId, data: this.form });
+        } else {
+          await this.$emit('create', this.form);
+        }
+        
+        this.onCancel();
+      } catch (error) {
+        console.error('Form submission error:', error);
+      } finally {
+        this.submitting = false;
+      }
+    },
   },
 });
 </script>
-
-<style scoped>
-/* Keep row height compact */
-.crm-table td,
-.crm-table th {
-  padding-top: 0.35rem;
-  padding-bottom: 0.35rem;
-  vertical-align: middle;
-}
-</style>

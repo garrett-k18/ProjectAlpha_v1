@@ -141,7 +141,7 @@ const dashboardRoutes = [
                 name: 'Tasking',
                 path: 'projects',
                 meta: {authRequired: true},
-                component: () => import('@/views/dashboards/projects/index.vue'),
+                component: () => import('@/views/dashboards/tasking/index_tasking.vue'),
             },
             {
                 name: 'Dashboard CRM',

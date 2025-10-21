@@ -400,10 +400,16 @@ async function loadStateAssumptions() {
     }
 
     const data = await response.json()
-    stateData.value = data
+    const normalizedStates = Array.isArray(data)
+      ? data
+      : Array.isArray(data?.results)
+        ? data.results
+        : []
+
+    stateData.value = normalizedStates
     
-    console.log(`Loaded ${data.length} states from backend`)
-    console.log('Sample state data:', data[0])
+    console.log(`Loaded ${normalizedStates.length} states from backend`)
+    console.log('Sample state data:', normalizedStates[0])
   } catch (error) {
     console.error('Error loading state assumptions:', error)
     // Fallback to mock data if API fails (for development)
