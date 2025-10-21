@@ -119,10 +119,7 @@ ROOT_URLCONF = 'projectalphav1.urls'
 TEMPLATES = [
 {
 'BACKEND': 'django.template.backends.django.DjangoTemplates',
-'DIRS': [
-    BASE_DIR / 'templates',
-    BASE_DIR / 'static',  # Allow serving index.html from static build output
-],
+'DIRS': [BASE_DIR.parent / 'frontend_vue' / 'dist'],
 'APP_DIRS': True,
 'OPTIONS': {
 'context_processors': [
@@ -243,7 +240,7 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [
-    BASE_DIR / 'static',
+    BASE_DIR.parent / 'frontend_vue' / 'dist',
 ]
 
 # WhiteNoise configuration for serving static files in production
