@@ -45,16 +45,16 @@
 import { withDefaults, defineProps, computed, ref, watch } from 'vue'
 import http from '@/lib/http'
 // Use AM-specific cards (can diverge field names freely)
-import LoanDetails from '@/views/am_module/loanlvl/components/loandetails.vue'
-import TotalDebt from '@/views/am_module/loanlvl/components/totaldebt.vue'
-import Origination from '@/views/am_module/loanlvl/components/origination.vue'
-import Borrower from '@/views/am_module/loanlvl/components/borrower.vue'
-import Foreclosure from '@/views/am_module/loanlvl/components/foreclosure.vue'
-import Bankruptcy from '@/views/am_module/loanlvl/components/bankruptcy.vue'
-import LossMitigation from '@/views/am_module/loanlvl/components/lossmitigation.vue'
-import RehabHoldbacks from '@/views/am_module/loanlvl/components/rehabholdbacks.vue'
-import ServicingNotes from '@/views/am_module/loanlvl/components/servicingnotes.vue'
-import T12CashFlow from '@/views/am_module/loanlvl/components/t12cashflow.vue'
+import LoanDetails from '@/views/am_module/loanlvl/servicing/loandetails.vue'
+import TotalDebt from '@/views/am_module/loanlvl/servicing/totaldebt.vue'
+import Origination from '@/views/am_module/loanlvl/servicing/origination.vue'
+import Borrower from '@/views/am_module/loanlvl/servicing/borrower.vue'
+import Foreclosure from '@/views/am_module/loanlvl/servicing/foreclosure.vue'
+import Bankruptcy from '@/views/am_module/loanlvl/servicing/bankruptcy.vue'
+import LossMitigation from '@/views/am_module/loanlvl/servicing/lossmitigation.vue'
+import RehabHoldbacks from '@/views/am_module/loanlvl/servicing/rehabholdbacks.vue'
+import ServicingNotes from '@/views/am_module/loanlvl/servicing/servicingnotes.vue'
+import T12CashFlow from '@/views/am_module/loanlvl/servicing/t12cashflow.vue'
 
 // Single defineProps with defaults (avoid duplicate defineProps error)
 const props = withDefaults(defineProps<{ row?: Record<string, any> | null; assetHubId?: string | number | null }>(), {

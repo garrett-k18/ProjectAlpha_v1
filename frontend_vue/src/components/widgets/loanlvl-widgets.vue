@@ -11,12 +11,12 @@
           </div>
           <h5 class="text-muted fw-normal mt-0 small" title="Asset Status">Asset Status</h5>
           <div class="value-row d-flex flex-wrap align-items-center gap-2">
-            <UiBadge v-if="assetStatusStr !== '—'" :tone="assetStatusTone" size="md" :label="assetStatusStr" ariaLabel="Asset Status" />
+            <UiBadge v-if="assetStatusStr !== '—'" :tone="assetStatusTone" size="sm" :label="assetStatusStr" ariaLabel="Asset Status" />
             <span v-else>—</span>
             <!-- Additional categorical badges -->
-            <UiBadge v-if="propertyTypeStr !== '—'" :tone="propertyTypeTone" size="md" :label="propertyTypeStr" ariaLabel="Property Type" />
-            <UiBadge v-if="productTypeStr !== '—'" :tone="productTypeTone" size="md" :label="productTypeStr" ariaLabel="Product Type" />
-            <UiBadge v-if="occupancyStr !== '—'" :tone="occupancyTone" size="md" :label="occupancyDisplayStr" ariaLabel="Occupancy" />
+            <UiBadge v-if="propertyTypeStr !== '—'" :tone="propertyTypeTone" size="sm" :label="propertyTypeStr" ariaLabel="Property Type" />
+            <UiBadge v-if="productTypeStr !== '—'" :tone="productTypeTone" size="sm" :label="productTypeStr" ariaLabel="Product Type" />
+            <UiBadge v-if="occupancyStr !== '—'" :tone="occupancyTone" size="sm" :label="occupancyDisplayStr" ariaLabel="Occupancy" />
           </div>
         </div>
       </div>
@@ -103,9 +103,9 @@
           </div>
           <h5 class="text-muted fw-normal mt-0 small" title="Flags (FC / BK / Mod)">Flags (FC / BK / Mod)</h5>
           <div class="value-row d-flex flex-wrap align-items-center gap-2">
-            <UiBadge :tone="fcFlagTone" size="md" :label="`FC: ${fcFlagLabel}`" ariaLabel="FC Flag" />
-            <UiBadge :tone="bkFlagTone" size="md" :label="`BK: ${bkFlagLabel}`" ariaLabel="BK Flag" />
-            <UiBadge :tone="modFlagTone" size="md" :label="`Mod: ${modFlagLabel}`" ariaLabel="Modification Flag" />
+            <UiBadge :tone="fcFlagTone" size="sm" :label="`FC: ${fcFlagLabel}`" ariaLabel="FC Flag" />
+            <UiBadge :tone="bkFlagTone" size="sm" :label="`BK: ${bkFlagLabel}`" ariaLabel="BK Flag" />
+            <UiBadge :tone="modFlagTone" size="sm" :label="`Mod: ${modFlagLabel}`" ariaLabel="Modification Flag" />
           </div>
         </div>
       </div>

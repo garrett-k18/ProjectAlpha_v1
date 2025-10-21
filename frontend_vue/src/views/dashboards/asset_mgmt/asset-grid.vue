@@ -151,7 +151,9 @@ import { useRouter } from 'vue-router'
 import { BModal } from 'bootstrap-vue-next'
 import LoanLevelIndex from '@/views/am_module/loanlvl_index.vue'
 import ActionsCell from '@/views/dashboards/acquisitions/components/ActionsCell.vue'
+import BadgeCell from '@/views/dashboards/acquisitions/components/BadgeCell.vue'
 import http from '@/lib/http'
+import { propertyTypeEnumMap, occupancyEnumMap, assetStatusEnumMap } from '@/config/badgeTokens'
 
 // Constant columns (always shown, pinned left first)
 const constantColumns: ColDef[] = [
@@ -176,7 +178,17 @@ const constantColumns: ColDef[] = [
     // Display the canonical AssetIdHub primary key when available; fallback to legacy asset_id
     valueGetter: (p: any) => p.data?.asset_hub_id ?? p.data?.asset_id ?? p.data?.id ?? ''
   },
-  { headerName: 'Status', field: 'asset_status', minWidth: 120, pinned: 'left' },
+  {
+    headerName: 'Status',
+    field: 'asset_status',
+    minWidth: 120,
+    pinned: 'left',
+    cellRenderer: BadgeCell as any,
+    cellRendererParams: {
+      mode: 'enum',
+      enumMap: assetStatusEnumMap,
+    },
+  },
   {
     headerName: 'Property Address',
     colId: 'address',
@@ -200,8 +212,26 @@ const constantColumns: ColDef[] = [
 // Each key is a stable identifier used by presets below.
 const cols: Record<string, ColDef> = {
   // ZIP intentionally omitted per latest serializer change
-  propertyType: { headerName: 'Property Type', field: 'property_type', minWidth: 140 },
-  occupancy: { headerName: 'Occupancy', field: 'occupancy', minWidth: 130 },
+  propertyType: {
+    headerName: 'Property Type',
+    field: 'property_type',
+    minWidth: 140,
+    cellRenderer: BadgeCell as any,
+    cellRendererParams: {
+      mode: 'enum',
+      enumMap: propertyTypeEnumMap,
+    },
+  },
+  occupancy: {
+    headerName: 'Occupancy',
+    field: 'occupancy',
+    minWidth: 130,
+    cellRenderer: BadgeCell as any,
+    cellRendererParams: {
+      mode: 'enum',
+      enumMap: occupancyEnumMap,
+    },
+  },
   trade: { headerName: 'Trade', field: 'trade_name', minWidth: 160, cellClass: 'text-start' },
   lifecycleStatus: { headerName: 'Lifecycle Status', field: 'lifecycle_status', minWidth: 150 },
   arvSeller: { headerName: 'ARV (Seller)', field: 'seller_arv_value', valueFormatter: currencyFormatter, minWidth: 140 },

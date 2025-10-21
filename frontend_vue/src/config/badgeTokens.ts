@@ -73,7 +73,7 @@ export const badgeSizeMap: Record<BadgeSizeKey, BadgeVisualConfig> = {
     ariaLabel: undefined,
   },
   sm: {
-    classes: 'badge rounded-pill px-2.5 py-1 text-sm fw-semibold',
+    classes: 'badge rounded-pill px-2 py-1 text-sm fw-semibold d-inline-flex align-items-center justify-content-center lh-base',
     ariaLabel: undefined,
   },
   md: {
