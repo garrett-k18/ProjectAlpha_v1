@@ -1,3 +1,9 @@
+# Maximum number of fields allowed in a single Django form submission
+# Docs reviewed: https://docs.djangoproject.com/en/5.2/ref/settings/#data-upload-max-number-fields
+DATA_UPLOAD_MAX_NUMBER_FIELDS = int(
+    os.getenv('DJANGO_DATA_UPLOAD_MAX_NUMBER_FIELDS', '20000')
+)
+
 """
 Django settings for projectalphav1 project.
 
