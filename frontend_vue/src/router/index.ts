@@ -13,16 +13,16 @@ const isDevelopment = import.meta.env.DEV; // DEV is a boolean that's true in de
 
 
 const router = createRouter({
-  // Use empty string as base URL for development
-  // In Vite, we use import.meta.env instead of process.env
-  history: createWebHistory(import.meta.env.BASE_URL || ''),  // BASE_URL is defined in Vite
+  // Always use root path for routes, even when static assets are served from /static/
+  // This ensures routes are /home, not /static/home
+  history: createWebHistory('/'),
   routes: allRoutes,
 
   scrollBehavior(to, from, savedPosition) {
     if (savedPosition) {
       return savedPosition
     } else {
-      return { x: 0, y: 0 }
+      return { left: 0, top: 0 }
     }
   },
 })
