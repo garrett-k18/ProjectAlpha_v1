@@ -12,7 +12,9 @@ from django.db import transaction
 from decimal import Decimal, InvalidOperation
 from datetime import datetime
 from typing import Optional, Tuple
+import inspect
 import logging
+import re
 
 from am_module.models.statebridgeservicing import SBDailyLoanData
 from am_module.models.servicers import ServicerLoanData
@@ -141,7 +143,6 @@ class Command(BaseCommand):
             'city': self._clean(raw.property_city),
             'state': self._clean(raw.property_state),
             'zip_code': self._clean(raw.property_zip),
-            'property_county': self._clean(raw.property_county),
             'property_type': self._clean(raw.property_type),
             
             # Valuation
@@ -151,28 +152,19 @@ class Command(BaseCommand):
             'bpo_asis_date': self._parse_date(raw.bpo_date)[3],
             'bpo_arv_value': self._to_dec(raw.bpo_repaired_value),
             'original_appraised_value': self._to_dec(raw.original_appraisal_value),
-            'original_appraised_date': self._parse_date(raw.original_appraisal_date)[3],
             
             # Borrower
             'occupnacy': self._clean(raw.occupancy_status),
             'borrower_last_name': self._clean(raw.borrower_last_name),
             'borrower_first_name': self._clean(raw.borrower_first_name),
-            'borrower_home_phone': self._clean(raw.borrower_home_phone),
-            'borrower_count': self._to_int(raw.borrower_count),
             'current_fico': self._to_int(raw.current_fico),
             'current_fico_date': self._parse_date(raw.current_fico_date)[3],
-            'co_borrower_fico': self._to_int(raw.co_borrower_fico),
-            'co_borrower_fico_date': self._parse_date(raw.co_borrower_fico_date)[3],
             
             # Balance
             'current_balance': self._to_dec(raw.current_upb),
-            'deferred_balance': self._to_dec(raw.deferred_principal),
-            'interest_rate': self._to_dec(raw.current_interest_rate),
-            'next_due_date': self._parse_date(raw.due_date)[3],
-            'last_paid_date': self._parse_date(raw.date_last_payment_received)[3],
-            'first_due_date': self._parse_date(raw.first_due_date)[3],
             'current_pi': self._to_dec(raw.current_principal_and_interest_payment),
             'current_ti': self._to_dec(raw.current_taxes_and_insurance_payment),
+            'piti': self._to_dec(raw.current_principal_and_interest_payment),
             'term_remaining': self._to_int(raw.remaining_term),
             'maturity_date': self._parse_date(raw.maturity_date)[3],
             
@@ -210,126 +202,29 @@ class Command(BaseCommand):
             'bk_discharge_date': self._parse_date(raw.bk_discharge_date)[3],
             'bk_dismissed_date': self._parse_date(raw.bk_dismissed_date)[3],
             'bk_filed_date': self._parse_date(raw.bk_filed_date)[3],
-            'bk_plan_end_date': self._parse_date(raw.bk_plan_end_date)[3],
-            'bk_plan_length': self._to_int(raw.bk_plan_length),
-            'bk_plan_start_date': self._parse_date(raw.bk_plan_start_date)[3],
-            'bk_post_petition_due_date': self._parse_date(raw.bk_post_petition_due_date)[3],
-            'bk_case_closed_date': self._parse_date(raw.bk_case_closed_date)[3],
-            'date_motion_for_relief_filed': self._parse_date(raw.date_motion_for_relief_filed)[3],
-            'date_object_to_confirmation_filed': self._parse_date(raw.date_object_to_confirmation_filed)[3],
-            'date_of_meeting_of_creditors': self._parse_date(raw.date_of_meeting_of_creditors)[3],
-            'date_proof_of_claim_filed': self._parse_date(raw.date_proof_of_claim_filed)[3],
-            'relief_date': self._parse_date(raw.relief_date)[3],
-            'prepetition_unapplied_bal': self._to_dec(raw.prepetition_unapplied_bal),
-            'stipulation_unapplied_bal': self._to_dec(raw.stipulation_unapplied_bal),
             
             # Foreclosure
             'actual_fc_sale_date': self._parse_date(raw.actual_fc_sale_date)[3],
             'date_referred_to_fc_atty': self._parse_date(raw.date_referred_to_fc_atty)[3],
             'fc_completion_date': self._parse_date(raw.fc_completion_date)[3],
             'fc_status': self._clean(raw.fc_status),
-            'foreclosure_business_area_status_date': self._parse_date(raw.foreclosure_business_area_status_date)[3],
-            'foreclosure_business_area_status': self._clean(raw.foreclosure_business_area_status),
-            'is_a_contested_fc': self._to_bool(raw.is_a_contested_fc),
-            'reason_for_default': self._clean(raw.reason_for_default),
-            'scheduled_fc_sale_date': self._parse_date(raw.scheduled_fc_sale_date)[3],
-            'days_in_foreclosure': self._to_int(raw.days_in_foreclosure),
             
             # Loss mitigation
-            'date_breach_letter_sent': self._parse_date(raw.date_breach_letter_sent)[3],
-            'dil_completion_date': self._parse_date(raw.dil_completion_date)[3],
-            'loss_mitigation_business_area_status_date': self._parse_date(raw.loss_mitigation_business_area_status_date)[3],
-            'loss_mitigation_business_area_status': self._clean(raw.loss_mitigation_business_area_status),
-            'loss_mitigation_start_date': self._parse_date(raw.loss_mitigation_start_date)[3],
-            'loss_mitigation_status': self._clean(raw.loss_mitigation_status),
-            'workout_option': self._clean(raw.workout_option),
             
             # Modification
-            'loan_modification_date': self._parse_date(raw.loan_modification_date)[3],
-            'loan_modification_status': self._clean(raw.loan_modification_status),
-            'modification_type': self._clean(raw.modification_type),
-            'number_of_payments': self._to_int(raw.number_of_payments),
-            'post_modification_principal_balance': self._to_dec(raw.post_modification_principal_balance),
-            'pre_modification_balance': self._to_dec(raw.pre_modification_balance),
-            'post_modification_coupon': self._to_dec(raw.post_modification_coupon),
-            'post_modification_payment': self._to_dec(raw.post_modification_payment),
-            'pre_modification_coupon': self._to_dec(raw.pre_modification_coupon),
-            'pre_modification_payment': self._to_dec(raw.pre_modification_payment),
-            'convert_to_fixed_rate': self._to_bool(raw.convert_to_fixed_rate),
-            'total_capitalized_by_mod': self._to_dec(raw.total_capitalized_by_mod),
-            'forgive_amount': self._to_dec(raw.forgive_amount),
-            'balance_after_forgive': self._to_dec(raw.balance_after_forgive),
-            'mod_extended_maturity': self._parse_date(raw.mod_extended_maturity)[3],
-            'mod_forbearance': self._to_dec(raw.mod_forbearance),
-            'mod_forgiven': self._to_dec(raw.mod_forgiven),
-            'modified_first_payment_date': self._parse_date(raw.modified_first_payment_date)[3],
             
             # Repayment
-            'repayment_plan_agreement_date': self._parse_date(raw.repayment_plan_agreement_date)[3],
-            'repayment_plan_start_date': self._parse_date(raw.repayment_plan_start_date)[3],
-            'repayment_plan_status': self._clean(raw.repayment_plan_status),
-            'repay_plan_type': self._clean(raw.repay_plan_type),
             
             # Property & inspection
-            'date_inspection_completed': self._parse_date(raw.date_inspection_completed)[3],
-            'first_time_vacant_date': self._parse_date(raw.first_time_vacant_date)[3],
-            'forceplaced_flood_insurance': self._to_dec(raw.forceplaced_flood_insurance),
-            'forceplaced_hazard_insurance': self._to_dec(raw.forceplaced_hazard_insurance),
-            'is_house_for_sale': self._to_bool(raw.is_house_for_sale),
-            'neighborhood_condition': self._clean(raw.neighborhood_condition),
-            'property_condition_from_inspection': self._clean(raw.property_condition_from_inspection),
-            'follow_up_date': self._parse_date(raw.follow_up_date)[3],
             
             # Contact
-            'last_contact_outcome': self._clean(raw.last_contact_outcome),
-            'last_successful_contact_date': self._parse_date(raw.last_successful_contact_date)[3],
-            'promise_amount': self._to_dec(raw.promise_amount),
-            'promise_date': self._parse_date(raw.promise_date)[3],
-            'right_party_type': self._clean(raw.right_party_type),
-            'right_party_date': self._parse_date(raw.right_party_date)[3],
-            'single_point_of_contact': self._clean(raw.single_point_of_contact),
             
             # ARM
-            'next_arm_rate_change_date': self._parse_date(raw.next_arm_rate_change_date)[3],
-            'max_rate': self._to_dec(raw.max_rate),
-            'min_rate': self._to_dec(raw.min_rate),
-            'first_periodic_rate_cap': self._to_dec(raw.first_periodic_rate_cap),
-            'periodic_rate_cap': self._to_dec(raw.periodic_rate_cap),
-            'life_cap': self._to_dec(raw.life_cap),
-            'arm_audit_status': self._clean(raw.arm_audit_status),
-            'arm_first_rate_change_date': self._parse_date(raw.arm_first_rate_change_date)[3],
-            'is_pay_option_arm': self._to_bool(raw.is_pay_option_arm),
-            'pay_option_negative_am_factor': self._to_dec(raw.pay_option_negative_amort_factor),
-            'within_pay_option_period': self._to_bool(raw.within_pay_option_period),
             
             # MI
-            'mi_company_name': self._clean(raw.mi_company_name),
-            'mi_active_policy': self._to_bool(raw.mi_active_policy),
-            'mi_certificate_number': self._clean(raw.mi_certificate_number),
-            'mi_claim': self._to_dec(raw.mi_claim),
-            'mi_claim_status': self._clean(raw.mi_claim_status),
-            'mi_coverage': self._to_dec(raw.mi_coverage),
-            'mi_date_closed': self._parse_date(raw.mi_date_closed)[3],
-            'mi_date_paid': self._parse_date(raw.mi_date_paid)[3],
-            'mi_last_review_date': self._parse_date(raw.mi_last_review_date)[3],
-            'mi_paid_amount': self._to_dec(raw.mi_paid_amount),
-            'mi_rescind_date': self._parse_date(raw.mi_rescind_date)[3],
-            'mi_rescind_reason': self._clean(raw.mi_rescind_reason),
-            'mi_claim_filed_date': self._parse_date(raw.mi_claim_filed_date)[3],
             
             # Resolution
             'pif_date': self._parse_date(raw.pif_date)[3],
-            'pif_quote_date': self._parse_date(raw.pif_quote_date)[3],
-            'res_service_fee_paid': self._to_dec(raw.res_service_fee_paid),
-            'resolution_corporate_advance_balance': self._to_dec(raw.resolution_corporate_advance_balance),
-            'resolution_escrow_advance': self._to_dec(raw.resolution_escrow_advance),
-            'resolution_fees': self._to_dec(raw.resolution_fees),
-            'resolution_post_date': self._parse_date(raw.resolution_post_date)[3],
-            'resolution_proceeds': self._to_dec(raw.resolution_proceeds),
-            'resolution_type': self._clean(raw.resolution_type),
-            'resolution_balance': self._to_dec(raw.resolution_balance),
-            'ss_complete': self._to_bool(raw.ss_complete),
-            'deferred_advance_balance': self._to_dec(raw.deferred_advance_balance),
             
             # Additional status
             'acquired_date': self._parse_date(raw.acquired_date)[3],
@@ -377,7 +272,25 @@ class Command(BaseCommand):
             except ValueError:
                 continue
         
-        logger.warning(f"Failed to parse date: {date_str}")
+        field_label = None
+        frame = inspect.currentframe()
+        caller = frame.f_back if frame else None
+        try:
+            if caller:
+                info = inspect.getframeinfo(caller)
+                context_line = info.code_context[0].strip() if info.code_context else None
+                if context_line:
+                    match = re.search(r"raw\.([a-zA-Z0-9_]+)", context_line)
+                    if match:
+                        field_label = match.group(1)
+        finally:
+            del frame
+            del caller
+
+        if field_label:
+            logger.warning(f"Failed to parse date for {field_label}: {date_str}")
+        else:
+            logger.warning(f"Failed to parse date: {date_str}")
         return (None, None, None, None)
 
     def _to_int(self, value: str) -> Optional[int]:
