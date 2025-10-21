@@ -45,7 +45,7 @@ class CalendarEventAdmin(admin.ModelAdmin):
     
     date_hierarchy = 'date'
     
-    list_per_page = 100
+    list_per_page = 5
     
     fieldsets = (
         ('Event Details', {

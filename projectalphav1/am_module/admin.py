@@ -64,6 +64,7 @@ class SellerBoardedDataAdmin(admin.ModelAdmin):
     ordering = ("-boarded_at",)
     # Cannot inline AssetMetrics here because it is keyed to core.AssetIdHub, not this model.
     inlines = []
+    list_per_page = 5
 
 
 @admin.register(AssetMetrics)
@@ -84,6 +85,7 @@ class AssetMetricsAdmin(admin.ModelAdmin):
         "asset_hub__am_boarded__state",
     )
     ordering = ("-created_at",)
+    list_per_page = 5
 
     def time_held_days_display(self, obj: AssetMetrics) -> int:
         return obj.time_held_days
@@ -123,6 +125,7 @@ class BlendedOutcomeModelAdmin(admin.ModelAdmin):
     ordering = ("-created_at",)
     
     # No fieldsets: show all fields by default
+    list_per_page = 5
     
     def total_legal_fees(self, obj):
         """Calculate total of all legal fees."""
@@ -161,6 +164,7 @@ class ServicerLoanDataAdmin(admin.ModelAdmin):
     # No fieldsets: show all fields by default
     readonly_fields = ("created_at", "updated_at")
     ordering = ("-reporting_year", "-reporting_month", "-updated_at")
+    list_per_page = 5
     
     def reporting_period(self, obj):
         """Format the reporting period as MM/YYYY."""
@@ -175,6 +179,7 @@ class ServicerLoanDataAdmin(admin.ModelAdmin):
 class SBDailyLoanDataAdmin(admin.ModelAdmin):
     list_display = tuple(field.name for field in SBDailyLoanData._meta.fields)
     readonly_fields = ("created_at", "updated_at")
+    list_per_page = 5
 
 
 @admin.register(REOtask)
@@ -187,6 +192,7 @@ class REOtaskAdmin(admin.ModelAdmin):
     )
     ordering = ('-updated_at',)
     list_select_related = ('asset_hub', 'reo_outcome')
+    list_per_page = 5
 
 
 @admin.register(FCTask)
@@ -199,6 +205,7 @@ class FCTaskAdmin(admin.ModelAdmin):
     )
     ordering = ('-updated_at',)
     list_select_related = ('asset_hub', 'fc_sale')
+    list_per_page = 5
 
 
 @admin.register(DILTask)
@@ -211,6 +218,7 @@ class DILTaskAdmin(admin.ModelAdmin):
     )
     ordering = ('-updated_at',)
     list_select_related = ('asset_hub', 'dil')
+    list_per_page = 5
 
 
 @admin.register(ShortSaleTask)
@@ -223,6 +231,7 @@ class ShortSaleTaskAdmin(admin.ModelAdmin):
     )
     ordering = ('-updated_at',)
     list_select_related = ('asset_hub', 'short_sale')
+    list_per_page = 5
 
 
 @admin.register(ModificationTask)
@@ -235,6 +244,7 @@ class ModificationTaskAdmin(admin.ModelAdmin):
     )
     ordering = ('-updated_at',)
     list_select_related = ('asset_hub', 'modification')
+    list_per_page = 5
 
 
 @admin.register(AMMetrics)
@@ -247,6 +257,7 @@ class AMMetricsAdmin(admin.ModelAdmin):
     ordering = ('-updated_at',)
     list_select_related = ('asset_hub', 'updated_by')
     readonly_fields = ('updated_at',)
+    list_per_page = 5
 
 
 @admin.register(AMMetricsChange)
@@ -260,6 +271,7 @@ class AMMetricsChangeAdmin(admin.ModelAdmin):
     ordering = ('-changed_at',)
     list_select_related = ('record', 'asset_hub', 'changed_by')
     readonly_fields = ('changed_at',)
+    list_per_page = 5
 
 
 @admin.register(AMNote)
@@ -273,6 +285,7 @@ class AMNoteAdmin(admin.ModelAdmin):
     ordering = ('-pinned', '-updated_at')
     list_select_related = ('asset_hub', 'created_by', 'updated_by')
     readonly_fields = ('created_at', 'updated_at')
+    list_per_page = 5
     
     def body_preview(self, obj):
         return obj.body[:50] + '...' if len(obj.body) > 50 else obj.body
@@ -289,6 +302,7 @@ class REODataAdmin(admin.ModelAdmin):
     )
     ordering = ('-list_date',)
     list_select_related = ('asset_hub', 'crm')
+    list_per_page = 5
 
 
 @admin.register(REOScope)
@@ -306,6 +320,7 @@ class REOScopeAdmin(admin.ModelAdmin):
     )
     ordering = ('-created_at', '-id')
     list_select_related = ('asset_hub', 'crm', 'reo_task')
+    list_per_page = 5
 
 
 @admin.register(FCSale)
@@ -317,6 +332,7 @@ class FCSaleAdmin(admin.ModelAdmin):
     )
     ordering = ('-fc_sale_actual_date', '-fc_sale_sched_date')
     list_select_related = ('asset_hub', 'crm')
+    list_per_page = 5
 
 
 @admin.register(DIL)
@@ -328,6 +344,7 @@ class DILAdmin(admin.ModelAdmin):
     )
     ordering = ('-dil_completion_date',)
     list_select_related = ('asset_hub', 'crm')
+    list_per_page = 5
 
 
 @admin.register(ShortSale)
@@ -339,6 +356,7 @@ class ShortSaleAdmin(admin.ModelAdmin):
     )
     ordering = ('-short_sale_date',)
     list_select_related = ('asset_hub', 'crm')
+    list_per_page = 5
 
 
 @admin.register(Modification)
@@ -351,6 +369,7 @@ class ModificationAdmin(admin.ModelAdmin):
     )
     ordering = ('-modification_date',)
     list_select_related = ('asset_hub', 'crm')
+    list_per_page = 5
 
 
 @admin.register(AuditLog)
@@ -366,6 +385,7 @@ class AuditLogAdmin(admin.ModelAdmin):
     ordering = ('-changed_at',)
     list_select_related = ('content_type', 'asset_hub', 'changed_by')
     readonly_fields = ('changed_at', 'content_type', 'object_id', 'content_object')
+    list_per_page = 5
     
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('content_type', 'asset_hub', 'changed_by')

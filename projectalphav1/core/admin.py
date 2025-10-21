@@ -57,6 +57,7 @@ class DebtFacilityAdmin(admin.ModelAdmin):
     )
     list_filter = ("rate_index", "start_date", "end_date")
     search_fields = ("facility_name", "firm_name")
+    list_per_page = 5
 
 @admin.register(MasterCRM)
 class MasterCRMAdmin(admin.ModelAdmin):
@@ -73,6 +74,7 @@ class MasterCRMAdmin(admin.ModelAdmin):
         'alt_contact_name', 'alt_contact_email'
     )
     readonly_fields = ('created_at', 'updated_at')
+    list_per_page = 5
     # No fieldsets: show all fields by default
 
     def states_list(self, obj):
@@ -92,6 +94,7 @@ class ServicerAdmin(admin.ModelAdmin):
     )
     search_fields = ('servicer_name', 'contact_name', 'contact_email')
     list_filter = ()
+    list_per_page = 5
 
 
 @admin.register(Valuation)
@@ -108,6 +111,7 @@ class ValuationAdmin(admin.ModelAdmin):
     )
     # No fieldsets: show all fields by default
     readonly_fields = ('created_at', 'updated_at')
+    list_per_page = 5
 
 
 @admin.register(Photo)
@@ -122,6 +126,7 @@ class PhotoAdmin(admin.ModelAdmin):
     search_fields = (
         'asset_hub__id', 'caption'
     )
+    list_per_page = 5
 
 
 @admin.register(Document)
@@ -133,6 +138,7 @@ class DocumentAdmin(admin.ModelAdmin):
     search_fields = (
         'asset_hub__id', 'original_name'
     )
+    list_per_page = 5
 
 
 @admin.register(StateReference)
@@ -143,6 +149,7 @@ class StateReferenceAdmin(admin.ModelAdmin):
     )
     search_fields = ('state_code', 'state_name')
     list_filter = ('judicialvsnonjudicial',)
+    list_per_page = 5
 
 
 @admin.register(FCStatus)
@@ -161,6 +168,7 @@ class FCStatusAdmin(admin.ModelAdmin):
     search_fields = ('notes',)
     readonly_fields = ('created_at', 'updated_at')
     ordering = ('order', 'status')
+    list_per_page = 5
     
     # No fieldsets: show all fields by default
 
@@ -181,6 +189,7 @@ class FCTimelinesAdmin(admin.ModelAdmin):
     search_fields = ('state__state_code', 'state__state_name', 'notes')
     readonly_fields = ('created_at', 'updated_at')
     autocomplete_fields = ['state', 'fc_status']
+    list_per_page = 5
     
     # No fieldsets: show all fields by default
 
@@ -203,6 +212,7 @@ class CommercialUnitsAdmin(admin.ModelAdmin):
     readonly_fields = ('created_at', 'updated_at')
     
     # No fieldsets: show all fields by default
+    list_per_page = 5
 
 
 @admin.register(UnitMix)
@@ -224,6 +234,7 @@ class UnitMixAdmin(admin.ModelAdmin):
     ordering = ('unit_type',)
     
     # No fieldsets: show all fields by default
+    list_per_page = 5
     
     def total_sqft_display(self, obj):
         """Display total square footage for all units of this type."""
@@ -254,6 +265,7 @@ class RentRollAdmin(admin.ModelAdmin):
     list_filter = ('lease_type',)
     ordering = ('asset_hub_id', 'tenant_name')
     # No fieldsets/fields/exclude: show all fields by default
+    list_per_page = 5
 
 
 @admin.register(ComparableProperty)
@@ -275,6 +287,7 @@ class ComparablePropertyAdmin(admin.ModelAdmin):
     ordering = ('-as_of_date', 'street_address')
     readonly_fields = ('created_at', 'updated_at')
     # No fieldsets/fields/exclude: show all fields by default
+    list_per_page = 5
 
 
 @admin.register(SalesComparable)
@@ -295,6 +308,7 @@ class SalesComparableAdmin(admin.ModelAdmin):
     ordering = ('-last_sales_date',)
     readonly_fields = ('created_at', 'updated_at')
     # No fieldsets/fields/exclude: show all fields by default
+    list_per_page = 5
 
 
 @admin.register(LeaseComparable)
@@ -315,6 +329,7 @@ class LeaseComparableAdmin(admin.ModelAdmin):
     ordering = ('-lease_start_date',)
     readonly_fields = ('created_at', 'updated_at')
     # No fieldsets/fields/exclude: show all fields by default
+    list_per_page = 5
 
 
 @admin.register(LeaseComparableUnitMix)
@@ -339,6 +354,7 @@ class LeaseComparableUnitMixAdmin(admin.ModelAdmin):
     ordering = ['comparable_property', 'unit_type']
     readonly_fields = ('price_sqft', 'created_at', 'updated_at')
     # No fieldsets/fields/exclude: show all fields by default
+    list_per_page = 5
 
 
 @admin.register(LeaseComparableRentRoll)
@@ -364,6 +380,7 @@ class LeaseComparableRentRollAdmin(admin.ModelAdmin):
     ordering = ['comparable_property', 'unit_number']
     readonly_fields = ('created_at', 'updated_at')
     # No fieldsets/fields/exclude: show all fields by default
+    list_per_page = 5
 
 
 @admin.register(HistoricalPropertyCashFlow)
@@ -384,6 +401,7 @@ class HistoricalPropertyCashFlowAdmin(admin.ModelAdmin):
     ordering = ['asset_hub', '-year']
     readonly_fields = ('created_at', 'updated_at')
     # No fieldsets/fields/exclude: show all fields by default
+    list_per_page = 5
 
 
 @admin.register(LLTransactionSummary)
@@ -398,7 +416,7 @@ class LLTransactionSummaryAdmin(admin.ModelAdmin):
     )
     search_fields = ('asset_hub__id', 'asset_hub__servicer_id')
     readonly_fields = ('last_updated', 'created_at')
-    list_per_page = 100
+    list_per_page = 5
     
     # No fieldsets: show all fields by default
     
@@ -446,7 +464,7 @@ class LLCashFlowSeriesAdmin(admin.ModelAdmin):
     list_filter = ('period_number',)
     search_fields = ('asset_hub__id', 'asset_hub__servicer_id')
     readonly_fields = ('period_date', 'total_income', 'total_expenses', 'net_cash_flow', 'purchase_date')
-    list_per_page = 100
+    list_per_page = 5
     ordering = ('asset_hub', 'period_number')
     
     # No fieldsets: show all fields by default
@@ -508,7 +526,7 @@ class AssetIdHubAdmin(admin.ModelAdmin):
         'created_at',
     )
     # Show more rows per page (default is 100). Also allow larger "Show all" limit.
-    list_per_page = 500
+    list_per_page = 5
     list_max_show_all = 2000
     search_fields = (
         'servicer_id',

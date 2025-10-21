@@ -37,9 +37,10 @@ class BrokerTokenAuthAdmin(admin.ModelAdmin):
 
     # Default ordering: newest first
     ordering = ("-created_at",)
-
+    
     # Exclude token from the add/change form; it will be auto-generated on save
     exclude = ("token",)
+    list_per_page = 5
 
     def get_changeform_initial_data(self, request):
         """Provide sensible defaults on the add form.
@@ -95,6 +96,7 @@ class BrokerPortalTokenAdmin(admin.ModelAdmin):
     )
     ordering = ("-created_at",)
     exclude = ("token",)
+    list_per_page = 5
 
     def get_changeform_initial_data(self, request):
         initial = super().get_changeform_initial_data(request)

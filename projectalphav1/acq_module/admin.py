@@ -77,7 +77,8 @@ class SellerAdmin(admin.ModelAdmin):
     # Show all concrete fields including primary key id
     list_display = all_concrete_field_names(Seller)
     search_fields = ('name', 'broker', 'email')
-    inlines = [TradeInline]
+    list_per_page = 5
+    inlines = []
 
 @admin.register(Trade)
 class TradeAdmin(admin.ModelAdmin):
@@ -89,7 +90,8 @@ class TradeAdmin(admin.ModelAdmin):
     autocomplete_fields = ['seller']
     readonly_fields = ('id', 'created_at', 'updated_at')
     list_select_related = ('seller',)
-    inlines = [SellerRawDataInline]
+    list_per_page = 5
+    inlines = []
 
 @admin.register(SellerRawData)
 class SellerRawDataAdmin(admin.ModelAdmin):
@@ -107,8 +109,7 @@ class SellerRawDataAdmin(admin.ModelAdmin):
     # Expose read-only identifiers and audit fields on the form
     readonly_fields = ('asset_hub', 'created_at', 'updated_at')
     # Use Django's default add/change form, which renders ALL model fields by default.
-    # Show enrichment inline
-    inlines = [LlDataEnrichmentInline]
+    list_per_page = 5
 
 ## Servicer and StateReference have been moved to core.models.assumptions and are registered in core.admin
 
@@ -117,6 +118,7 @@ class LoanLevelAssumptionAdmin(admin.ModelAdmin):
     """Admin configuration for LoanLevelAssumption model"""
     list_display = ('seller_raw_data', 'months_to_resolution', 'probability_of_cure', 'probability_of_foreclosure')
     list_filter = ('seller_raw_data__seller', 'seller_raw_data__trade')
+    list_per_page = 5
 
 # ============================================================================
 # DEPRECATED - StaticModelAssumptions - TO BE REMOVED IN FUTURE MIGRATION
@@ -153,6 +155,7 @@ class StaticModelAssumptionsAdmin(admin.ModelAdmin):
         'mod_amort_term', 'max_mod_ltv', 'mod_io_flag', 'am_fee_pct', 'updated_at'
     )
     readonly_fields = ('id', 'created_at', 'updated_at')
+    list_per_page = 5
     
     # No fieldsets: show all fields by default
     
@@ -183,6 +186,7 @@ class TradeLevelAssumptionAdmin(admin.ModelAdmin):
     search_fields = ('trade__trade_name', 'trade__seller__name')
     readonly_fields = ('created_at', 'updated_at')
     autocomplete_fields = ['trade', 'servicer']
+    list_per_page = 5
     
     # No fieldsets: show all fields by default
 
@@ -203,3 +207,4 @@ class LlDataEnrichmentAdmin(admin.ModelAdmin):
     list_filter = (
         'seller_raw_data__seller', 'seller_raw_data__trade',
     )
+    list_per_page = 5
