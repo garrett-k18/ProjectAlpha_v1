@@ -84,8 +84,12 @@ class Command(BaseCommand):
         """Transform one raw record into ServicerLoanData."""
         
         # Convert loan_number to integer for servicer_id
+        normalized_servicer_id = self._normalize_servicer_id(raw.loan_number)
+        if normalized_servicer_id is None:
+            return 'skipped_invalid'
+
         try:
-            servicer_id_int = int(raw.loan_number) if raw.loan_number else None
+            servicer_id_int = int(normalized_servicer_id)
         except (ValueError, TypeError):
             logger.warning(f"Invalid loan_number (non-numeric): {raw.loan_number}")
             return 'skipped_invalid'
@@ -94,9 +98,9 @@ class Command(BaseCommand):
             return 'skipped_invalid'
         
         # Lookup AssetIdHub by servicer_id
-        asset_hub = AssetIdHub.objects.filter(servicer_id=raw.loan_number).first()
+        asset_hub = AssetIdHub.objects.filter(servicer_id=normalized_servicer_id).first()
         if not asset_hub:
-            logger.warning(f"No AssetIdHub for servicer_id={raw.loan_number}")
+            logger.warning(f"No AssetIdHub for servicer_id={normalized_servicer_id}")
             return 'skipped_no_asset'
         
         # Parse reporting period
@@ -412,3 +416,12 @@ class Command(BaseCommand):
             return None
         cleaned = value.strip()
         return cleaned if cleaned else None
+
+    def _normalize_servicer_id(self, loan_number: Optional[str]) -> Optional[str]:
+        if loan_number is None:
+            return None
+        normalized = str(loan_number).strip()
+        if not normalized:
+            return None
+        trimmed = normalized.lstrip('0')
+        return trimmed if trimmed else '0'
