@@ -1,9 +1,3 @@
-# Maximum number of fields allowed in a single Django form submission
-# Docs reviewed: https://docs.djangoproject.com/en/5.2/ref/settings/#data-upload-max-number-fields
-DATA_UPLOAD_MAX_NUMBER_FIELDS = int(
-    os.getenv('DJANGO_DATA_UPLOAD_MAX_NUMBER_FIELDS', '20000')
-)
-
 """
 Django settings for projectalphav1 project.
 
@@ -22,10 +16,16 @@ Docs reviewed:
 * python-dotenv: https://saurabh-kumar.com/python-dotenv/ (official docs)
 """
 
-from pathlib import Path
 import os
-from dotenv import load_dotenv
 import dj_database_url
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Maximum number of fields allowed in a single Django form submission
+# Docs reviewed: https://docs.djangoproject.com/en/5.2/ref/settings/#data-upload-max-number-fields
+DATA_UPLOAD_MAX_NUMBER_FIELDS = int(
+    os.getenv('DJANGO_DATA_UPLOAD_MAX_NUMBER_FIELDS', '20000')
+)
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
