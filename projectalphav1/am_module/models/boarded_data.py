@@ -15,7 +15,7 @@ import re
 # Docs reviewed: Django project structure and unmanaged models (views):
 #   https://docs.djangoproject.com/en/stable/topics/db/models/
 
-class SellerBoardedData(models.Model):
+class SellerBoardedData(models.Model): #deprecated delete in PRod
     """
     WHAT: Model for boarded seller data transferred from acq_module
     WHY: Contains all data points from SellerRawData plus trade name, trade_id, seller name

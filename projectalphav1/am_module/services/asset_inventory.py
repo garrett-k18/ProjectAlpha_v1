@@ -52,7 +52,6 @@ def build_queryset(
         SellerRawData.objects
         .filter(acq_status=SellerRawData.AcquisitionStatus.BOARD)  # WHAT: Limit to assets promoted into AM module
         .select_related("asset_hub")
-        .select_related("asset_hub__am_metrics")  # WHY: retain existing hub-metric joins for hold days (docs: https://docs.djangoproject.com/en/stable/ref/models/querysets/#select-related)
         .select_related("asset_hub__blended_outcome_model")
         .select_related("seller", "trade")  # HOW: ensure seller/trade names resolve without extra queries
         .annotate(
@@ -101,10 +100,8 @@ def build_queryset(
             if key == "asset_id":
                 model_field = "sellertape_id"
             elif key == "hold_days":
-                # Sort by purchase_date as a proxy for hold length
-                # Note: this is inversely correlated to hold_days; the client can
-                # choose asc/desc to match desired behavior.
-                model_field = "asset_hub__am_metrics__purchase_date"
+                # Fallback to hub created_at when legacy metrics table is unavailable
+                model_field = "asset_hub__created_at"
             else:
                 model_field = key  # pass-through for any other field
 
