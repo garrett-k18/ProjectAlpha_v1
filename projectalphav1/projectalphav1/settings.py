@@ -239,6 +239,9 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_DIRS = [
+    BASE_DIR.parent / 'frontend_vue' / 'dist',
+]
 
 # WhiteNoise configuration for serving static files in production
 STORAGES = {
