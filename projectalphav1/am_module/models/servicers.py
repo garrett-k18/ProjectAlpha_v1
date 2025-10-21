@@ -63,9 +63,24 @@ class ServicerLoanData(models.Model):
     )
 
     # Current Loan Data
-    investor_id = models.IntegerField(null=True, blank=True, help_text='Investor ID associated with the loan.')
-    servicer_id = models.IntegerField(null=True, blank=True, help_text='Servicer ID associated with the loan.')
-    previous_servicer_id = models.IntegerField(null=True, blank=True, help_text='Previous servicer ID associated with the loan.')
+    investor_id = models.CharField(
+        max_length=64,
+        null=True,
+        blank=True,
+        help_text='Investor ID associated with the loan (stored as text to preserve long identifiers).',
+    )
+    servicer_id = models.CharField(
+        max_length=64,
+        null=True,
+        blank=True,
+        help_text='Servicer ID associated with the loan (stored as text to preserve long identifiers).',
+    )
+    previous_servicer_id = models.CharField(
+        max_length=64,
+        null=True,
+        blank=True,
+        help_text='Previous servicer ID associated with the loan (stored as text to preserve long identifiers).',
+    )
     as_of_date = models.DateField(null=True, blank=True, help_text='Date this loan data was reported/effective.')
     address = models.CharField(max_length=255, null=True, blank=True, help_text='Address of the property.')
     city = models.CharField(max_length=100, null=True, blank=True, help_text='City of the property.')

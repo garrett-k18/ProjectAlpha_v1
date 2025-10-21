@@ -85,20 +85,11 @@ class Command(BaseCommand):
     def _process_record(self, raw: SBDailyLoanData, dry_run: bool) -> str:
         """Transform one raw record into ServicerLoanData."""
         
-        # Convert loan_number to integer for servicer_id
+        # Normalize servicer identifier to align with AssetIdHub while preserving long IDs as text
         normalized_servicer_id = self._normalize_servicer_id(raw.loan_number)
-        if normalized_servicer_id is None:
+        if not normalized_servicer_id:
             return 'skipped_invalid'
 
-        try:
-            servicer_id_int = int(normalized_servicer_id)
-        except (ValueError, TypeError):
-            logger.warning(f"Invalid loan_number (non-numeric): {raw.loan_number}")
-            return 'skipped_invalid'
-        
-        if not servicer_id_int:
-            return 'skipped_invalid'
-        
         # Lookup AssetIdHub by servicer_id
         asset_hub = AssetIdHub.objects.filter(servicer_id=normalized_servicer_id).first()
         if not asset_hub:
@@ -109,7 +100,7 @@ class Command(BaseCommand):
         rep_year, rep_month, rep_day, as_of = self._parse_date(raw.date)
         
         # Build cleaned data dictionary
-        cleaned_data = self._map_fields(raw, asset_hub, servicer_id_int, 
+        cleaned_data = self._map_fields(raw, asset_hub, normalized_servicer_id, 
                                         rep_year, rep_month, rep_day, as_of)
         
         if dry_run:
@@ -125,7 +116,7 @@ class Command(BaseCommand):
         
         return 'created' if created else 'updated'
 
-    def _map_fields(self, raw, asset_hub, servicer_id_int, rep_year, rep_month, rep_day, as_of):
+    def _map_fields(self, raw, asset_hub, servicer_id_value, rep_year, rep_month, rep_day, as_of):
         """Map all fields from raw to clean model."""
         return {
             # Core relationships
@@ -134,9 +125,9 @@ class Command(BaseCommand):
             'as_of_date': as_of,
             
             # IDs
-            'investor_id': self._to_int(raw.investor_id),
-            'servicer_id': servicer_id_int,
-            'previous_servicer_id': self._to_int(raw.prior_servicer_loan_number),  # TODO: Verify mapping
+            'investor_id': self._clean(raw.investor_id),
+            'servicer_id': servicer_id_value,
+            'previous_servicer_id': self._clean(raw.prior_servicer_loan_number),  # TODO: Verify mapping
             
             # Property
             'address': self._clean(raw.property_address),
