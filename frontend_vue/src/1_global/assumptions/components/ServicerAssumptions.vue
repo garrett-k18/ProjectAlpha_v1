@@ -275,7 +275,14 @@ async function loadServicers() {
       credentials: 'include'
     })
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
-    servicers.value = await resp.json()
+    const payload = await resp.json()
+    const normalizedServicers = Array.isArray(payload)
+      ? payload
+      : Array.isArray(payload?.results)
+        ? payload.results
+        : []
+
+    servicers.value = normalizedServicers
 
     // Auto-select first servicer for convenience
     if (servicers.value.length > 0) {

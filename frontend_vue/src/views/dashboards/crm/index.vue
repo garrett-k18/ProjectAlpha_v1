@@ -65,7 +65,7 @@ import Campaign from "@/views/dashboards/crm/campaign.vue";
 import Leads from "@/views/dashboards/crm/leads.vue";
 import Performing from "@/views/dashboards/crm/performing.vue";
 import Revenue from "@/views/dashboards/crm/revenue.vue";
-import Status from "@/views/dashboards/projects/status.vue";
+import Status from "@/views/dashboards/tasking/status.vue";
 import Stats from "@/views/dashboards/crm/stats.vue";
 import Todo from "@/views/dashboards/crm/todo.vue";
 
