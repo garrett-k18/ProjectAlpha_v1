@@ -52,6 +52,17 @@
         </div>
       </b-col>
     </b-row>
+
+    <!-- Asset Management quickview row sits beneath the primary snapshot cards -->
+    <b-row class="g-3 align-items-stretch mt-3">
+      <b-col lg="12" class="d-flex">
+        <AssetManagementQuickview
+          class="h-100 w-100"
+          :row="row"
+          :assetHubId="assetHubId"
+        />
+      </b-col>
+    </b-row>
   </div>
 </template>
 
@@ -61,6 +72,7 @@ import PropertyMap from '@/components/PropertyMap.vue' // Import shared map comp
 import PhotoCarousel from '@/components/PhotoCarousel.vue' // Import shared photo carousel component for asset imagery
 import type { PhotoItem } from '@/components/PhotoCarousel.vue' // Import PhotoItem type for strong typing of carousel data
 import AssetSummary from '@/views/am_module/loanlvl/components/asset_summary.vue' // Import the Asset Summary card component for Snapshot tab use
+import AssetManagementQuickview from '@/views/am_module/loanlvl/components/asset_management_quickview.vue' // Import newly added quickview card summarizing AM tasking context
 
 const props = withDefaults(defineProps<{
   row?: Record<string, any> | null // Optional row payload containing snapshot fields

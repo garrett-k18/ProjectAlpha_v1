@@ -90,6 +90,7 @@ INSTALLED_APPS = [
 'acq_module.apps.AcqModuleConfig',
 'am_module',
 'user_admin',  
+'reporting',
 ]
 
 MIDDLEWARE = [

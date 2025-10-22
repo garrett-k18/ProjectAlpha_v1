@@ -205,14 +205,14 @@ class SellerBoardedData(models.Model): #deprecated delete in PRod
 
 
 # -----------------------------------------------------------------------------------
-# Blended Outcome Model (One-to-one with SellerBoardedData)
+# Blended Outcome Model (One-to-one with AssetIdHub)
 # -----------------------------------------------------------------------------------
 class BlendedOutcomeModel(models.Model):
     """
     BlendedOutcomeModel stores the acquisition modeling snapshot for a boarded asset.
 
     Relationship:
-    - Strict 1:1 with SellerBoardedData so each boarded asset has at most one
+    - Strict 1:1 with AssetIdHub so each boarded asset has at most one
       acquisition model row. We use a OneToOneField with primary_key=True so
       this model shares the same PK as the linked asset record.
 
@@ -241,6 +241,8 @@ class BlendedOutcomeModel(models.Model):
     # ------------------------------
     # Cost / Proceeds / Timing
     # ------------------------------
+
+    outcome_blend = models.CharField(max_length=100, null=True, blank=True, help_text="The blended outcome of the asset.")
 
     # Timeline Details
     servicing_transfer_duration = models.IntegerField(null=True, blank=True, help_text="The duration in months the loan was transferred to servicing.")

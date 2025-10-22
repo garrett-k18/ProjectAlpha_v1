@@ -129,6 +129,62 @@ class BrokerValues(models.Model):
     def __str__(self):
         return f"Broker Valuation for hub {self.asset_hub_id}"
 
+
+class ValuationGradeReference(models.Model):
+    """Reference table containing allowable valuation grades."""
+
+    class GradeCode(models.TextChoices):
+        """Authoritative grade codes available for valuations."""
+
+        A_PLUS = ("A+", "A+")  # WHAT: Top-tier grade indicating exceptional valuation confidence.
+        A = ("A", "A")  # WHAT: High grade for strong valuations with minor caveats.
+        B = ("B", "B")  # WHAT: Mid-tier grade representing average valuation quality.
+        C = ("C", "C")  # WHAT: Below-average grade signaling notable concerns.
+        D = ("D", "D")  # WHAT: Low grade reserved for weak valuations.
+        F = ("F", "F")  # WHAT: Failing grade when valuation is not acceptable.
+
+    code = models.CharField(
+        max_length=2,
+        unique=True,
+        choices=GradeCode.choices,
+        help_text='Canonical grade code selected from the fixed set (A+, A, B, C, D, F).'  # HOW: Enforces enum-backed grade list to prevent ad-hoc entries.
+    )
+    label = models.CharField(
+        max_length=50,
+        help_text='Plain-language grade label for UI display.'  # WHAT: Human readable version of the grade for front-end rendering.
+    )
+    description = models.TextField(
+        blank=True,
+        null=True,
+        help_text='Extended guidance on when to use this grade.'  # WHY: Provides business context for grade selection.
+    )
+    sort_order = models.PositiveIntegerField(
+        default=0,
+        help_text='Controls ordering of grades in dropdowns.'  # HOW: Used to present grades in a fixed order regardless of code.
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text='Timestamp when this grade was created.'  # WHERE: Allows audit of grade reference lifecycle.
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        help_text='Timestamp when this grade was last updated.'  # WHERE: Tracks latest maintenance on grade definitions.
+    )
+
+    class Meta:
+        db_table = 'core_valuation_grade_reference'
+        verbose_name = 'Valuation Grade Reference'
+        verbose_name_plural = 'Valuation Grade References'
+        ordering = ['sort_order', 'code']
+        indexes = [
+            models.Index(fields=['code']),
+            models.Index(fields=['sort_order']),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.code} - {self.label}" if self.label else self.code
+
+
 class Valuation(models.Model):
     """
     Unified valuation model that combines InternalValuation and BrokerValues.
@@ -145,21 +201,43 @@ class Valuation(models.Model):
         related_name='valuations',
         help_text='Link to hub; multiple valuations per asset are supported.',
     )
-    
+    # WHAT: Optional link to Master CRM contact/broker for sourcing attribution.
+    # WHY: Lets us tie valuations back to the specific broker/contact who supplied them.
+    # WHERE: Stored directly on the unified Valuation model to cover broker and other CRM-sourced valuations.
+    # HOW: Nullable ForeignKey with SET_NULL so historical valuations persist if the CRM entry is deleted.
+    broker_contact = models.ForeignKey(
+        'core.MasterCRM',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='valuations',
+        help_text='CRM contact (usually broker) associated with this valuation.'
+    )
+    grade = models.ForeignKey(
+        'core.ValuationGradeReference',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='graded_valuations',
+        help_text='Reference grade applied to this valuation.'  # WHAT: Links valuation to a grade reference entry.
+    )
+
     # Source tracking
-    SOURCE_CHOICES = [
-        ('internalInitialUW', 'Internal Initial UW Valuation'),
-        ('internal', 'Internal Valuation'),
-        ('broker', 'Broker Valuation'),
-        ('desktop', 'Desktop Valuation'),
-        ('BPOI', 'BPOI'),
-        ('BPOE', 'BPOE'),
-        ('seller', 'Seller Provided'),
-        ('appraisal', 'Professional Appraisal'),
-    ]
+    class Source(models.TextChoices):
+        """Canonical source codes for valuation records."""
+
+        INTERNAL_INITIAL_UW = ("internalInitialUW", "Internal Initial UW Valuation")  # WHAT: Initial underwriting valuation.
+        INTERNAL = ("internal", "Internal Valuation")  # WHAT: Ongoing internal valuation.
+        BROKER = ("broker", "Broker Valuation")  # WHAT: Broker provided valuation.
+        DESKTOP = ("desktop", "Desktop Valuation")  # WHAT: Desktop valuation record.
+        BPO_INTERIOR = ("BPOI", "BPOI")  # WHAT: Broker price opinion interior.
+        BPO_EXTERIOR = ("BPOE", "BPOE")  # WHAT: Broker price opinion exterior.
+        SELLER = ("seller", "Seller Provided")  # WHAT: Seller submitted valuation.
+        APPRAISAL = ("appraisal", "Professional Appraisal")  # WHAT: Third-party professional appraisal.
+
     source = models.CharField(
         max_length=20,
-        choices=SOURCE_CHOICES,
+        choices=Source.choices,
         help_text='Source of this valuation.'
     )
     
@@ -246,6 +324,8 @@ class Valuation(models.Model):
             models.Index(fields=['asset_hub']),
             models.Index(fields=['source']),
             models.Index(fields=['value_date']),
+            models.Index(fields=['broker_contact']),
+            models.Index(fields=['grade']),
         ]
         # Allow multiple valuations per asset, but only one per source per date
         constraints = [
