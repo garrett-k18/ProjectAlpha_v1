@@ -77,13 +77,26 @@ def build_queryset(
         .filter(acq_status=SellerRawData.AcquisitionStatus.BOARD)  # WHAT: Limit to assets promoted into AM module
         .select_related("asset_hub")
         .select_related("asset_hub__blended_outcome_model")
-        .select_related("asset_hub__am_metrics")  # WHAT: Prefetch AM metrics for delinquency status (updated relation name)
         .select_related("seller", "trade")  # HOW: ensure seller/trade names resolve without extra queries
         .annotate(
             seller_name=F("seller__name"),  # WHAT: Expose friendly name aliases to match legacy serializer fields
             trade_name=F("trade__trade_name"),
         )
     )
+
+    # WHAT: Determine the correct related name for AM metrics across environments.
+    # WHY: Production still exposes AssetIdHub->AMMetrics via `ammetrics` while local envs use `am_metrics`.
+    # HOW: Introspect AssetIdHub relations and select_related only when the relation exists.
+    hub_field = SellerRawData._meta.get_field("asset_hub")
+    hub_model = hub_field.remote_field.model if hub_field.remote_field else None
+    if hub_model is not None:
+        related_names = {rel.get_accessor_name() for rel in hub_model._meta.get_fields() if rel.auto_created}
+        # Candidate related names ordered by newest naming convention first.
+        for candidate in ("am_metrics", "ammetrics"):
+            relation_path = f"asset_hub__{candidate}"
+            if candidate in related_names:
+                qs = qs.select_related(relation_path)
+                break
 
     if q:
         q_obj = Q()
