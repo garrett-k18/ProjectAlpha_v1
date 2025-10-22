@@ -32,5 +32,28 @@
     ],
     "favoritesPanel.commandsForWorkspace": [
         
+    ],
+    "sqltools.connections": [
+        {
+            "ssh": "Disabled",
+            "previewLimit": 50,
+            "server": "localhost",
+            "port": 5432,
+            "driver": "PostgreSQL",
+            "name": "Dev",
+            "database": "projectalphav1",
+            "username": "postgres"
+        },
+        {
+            "ssh": "Disabled",
+            "previewLimit": 50,
+            "server": "postgresql://postgres:uGIhhiytWLIqaQZWoPzehiyGetRLeBgL@crossover.proxy.rlwy.net:21834/railway",
+            "port": 21834,
+            "driver": "PostgreSQL",
+            "name": "Prod",
+            "database": "railway",
+            "username": "postgres",
+            "password": "uGIhhiytWLIqaQZWoPzehiyGetRLeBgL"
+        }
     ]
 }

@@ -14,6 +14,7 @@ Usage:
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
+from django.utils import timezone
 import csv
 import os
 from typing import Dict, List
@@ -194,6 +195,7 @@ class Command(BaseCommand):
         # HOW: Set field and save (unless dry-run).
         if not dry_run:
             asset_hub.servicer_id = servicer_id
+            asset_hub.updated_at = timezone.now()
             asset_hub.save(update_fields=['servicer_id', 'updated_at'])
             logger.info(f"Updated AssetIdHub(id={asset_hub.id}): servicer_id={servicer_id}")
         else:

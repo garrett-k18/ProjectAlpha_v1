@@ -7,7 +7,7 @@ This module defines serializers for:
 - Trade dropdown options
 - Field metadata for dynamic column generation
 
-Follows the same pattern as am_module.serializers.asset_inventory for consistency.
+Follows the same pattern as am_module.serializers.serial_am_assetInventory for consistency.
 
 Docs reviewed:
 - DRF Serializers: https://www.django-rest-framework.org/api-guide/serializers/

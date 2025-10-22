@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from am_module.views.asset_inventory import AssetInventoryViewSet, asset_dashboard_stats, asset_geo_markers
+from am_module.views.view_am_assetInventory import AssetInventoryViewSet, asset_dashboard_stats, asset_geo_markers
 from am_module.views.notes import AMNoteViewSet
 from am_module.views.view_performance_summary import PerformanceSummaryViewSet
 from am_module.views.views import cash_flow_series_view

@@ -12,6 +12,7 @@ from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
+import logging  # WHAT: Logging module used for debug-level runtime visibility.
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
@@ -19,6 +20,8 @@ from django.db.models import Field
 
 from am_module.models.boarded_data import BlendedOutcomeModel
 from core.models.asset_id_hub import AssetIdHub
+
+logger = logging.getLogger(__name__)  # WHAT: Module-level logger for structured logging support.
 
 
 NULL_TOKENS = {"", "na", "n/a", "null", "none", "nil"}  # WHAT: Accepted blank tokens for CSV values.
@@ -174,17 +177,23 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options) -> None:
         file_path = Path(options["file_path"])  # WHAT: Normalize string path into Path object.
+        self.stdout.write(self.style.NOTICE(f"Resolved CSV path: {file_path}"))  # WHY: Surface which file is being processed.
         if not file_path.exists():
             raise CommandError(f"CSV file '{file_path}' does not exist.")  # WHY: Fail fast when file missing.
+        self.stdout.write(self.style.NOTICE("Reading CSV rows...") )  # WHY: Inform operator that file I/O is underway.
         rows = _read_csv_rows(file_path)  # WHAT: Load CSV rows using tolerant reader.
+        self.stdout.write(self.style.NOTICE(f"Total raw rows loaded (including header): {len(rows)}"))  # WHY: Provide visibility into CSV payload size.
         if not rows:
             self.stdout.write(self.style.WARNING("CSV contained no data rows."))  # WHY: Surface empty CSV scenario.
             return
+        self.stdout.write(self.style.NOTICE("Parsing CSV rows into model payloads..."))  # WHY: Announce conversion phase start.
         parsed_rows, duplicate_counts = self._prepare_rows(rows)  # WHAT: Convert CSV payload into model-ready dicts.
+        self.stdout.write(self.style.NOTICE(f"Parsed payload count (unique assets): {len(parsed_rows)}"))  # WHY: Show resulting unique asset count.
         if not parsed_rows:
             self.stdout.write(self.style.WARNING("No rows were eligible for import."))  # WHY: No valid rows to process.
             return
         asset_ids = list(parsed_rows.keys())  # WHAT: Collect AssetIdHub IDs referenced by CSV.
+        self.stdout.write(self.style.NOTICE(f"Fetching {len(asset_ids)} asset hub records from database..."))  # WHY: Indicate database lookup step.
         asset_map = AssetIdHub.objects.in_bulk(asset_ids)  # HOW: Fetch existing hubs in one query.
         missing_assets = sorted(set(asset_ids) - set(asset_map.keys()))  # WHAT: IDs absent in DB.
         for missing in missing_assets:
@@ -193,16 +202,19 @@ class Command(BaseCommand):
         if not parsed_rows:
             self.stdout.write(self.style.WARNING("No rows left after filtering missing asset hubs."))  # WHAT: Nothing to import after filtering.
             return
+        self.stdout.write(self.style.NOTICE("Introspecting model fields for upsert configuration..."))  # WHY: Explain metadata preparation step.
         field_state = self._introspect_fields()  # WHAT: Gather editable field metadata once.
         existing_ids = set(
             BlendedOutcomeModel.objects.filter(asset_hub_id__in=parsed_rows.keys()).values_list("asset_hub_id", flat=True)
         )  # WHY: Determine create vs update split.
+        self.stdout.write(self.style.NOTICE(f"Existing records detected: {len(existing_ids)}"))  # WHY: Show how many rows will update versus create.
         instances: List[BlendedOutcomeModel] = []  # WHAT: Accumulate model instances for bulk_create.
         for asset_id, payload in parsed_rows.items():
             asset = asset_map[asset_id]  # WHAT: Resolved AssetIdHub instance.
             instances.append(BlendedOutcomeModel(asset_hub=asset, **payload))  # HOW: Instantiate model with payload.
         created_candidates = set(parsed_rows.keys()) - existing_ids  # WHAT: IDs that will insert.
         updated_candidates = set(parsed_rows.keys()) & existing_ids  # WHAT: IDs that will update.
+        self.stdout.write(self.style.NOTICE(f"Rows to create: {len(created_candidates)} | Rows to update: {len(updated_candidates)}"))  # WHY: Provide summary before persistence.
         if options.get("dry_run"):
             self.stdout.write(self.style.SUCCESS(f"Dry run complete. Rows parsed: {len(rows)}. To create: {len(created_candidates)}. To update: {len(updated_candidates)}."))  # WHY: Report dry-run summary.
             if duplicate_counts:
@@ -216,6 +228,7 @@ class Command(BaseCommand):
         with transaction.atomic():  # HOW: Ensure all-or-nothing persistence per run.
             for start in range(0, len(instances), batch_size):
                 chunk = instances[start : start + batch_size]  # WHAT: Slice chunk for bulk_create.
+                self.stdout.write(self.style.NOTICE(f"Persisting chunk starting at index {start} with {len(chunk)} records..."))  # WHY: Display chunk progress for long imports.
                 BlendedOutcomeModel.objects.bulk_create(
                     chunk,
                     batch_size=len(chunk),
@@ -224,6 +237,8 @@ class Command(BaseCommand):
                     unique_fields=["asset_hub"],
                 )  # HOW: Upsert rows keyed by asset_hub.
                 total_persisted += len(chunk)  # WHAT: Track persisted chunk size.
+                logger.debug("Chunk persisted", extra={"chunk_start": start, "chunk_size": len(chunk)})  # WHY: Provide structured debug log for deeper diagnostics.
+                self.stdout.write(self.style.NOTICE(f"Chunk persisted; total processed so far: {total_persisted}"))  # WHY: Keep operator informed on cumulative progress.
         self.stdout.write(
             self.style.SUCCESS(
                 f"Import complete. Processed rows: {len(rows)}. Created: {len(created_candidates)}. Updated: {len(updated_candidates)}. Persisted: {total_persisted}."

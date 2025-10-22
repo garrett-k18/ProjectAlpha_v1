@@ -5,11 +5,10 @@ from rest_framework.decorators import action, api_view
 from rest_framework.request import Request
 from django.shortcuts import get_object_or_404
 
-from am_module.services.asset_inventory import build_queryset
-from am_module.serializers.asset_inventory import (
+from am_module.services.serv_am_assetInventory import build_queryset, AssetInventoryEnricher
+from am_module.serializers.serial_am_assetInventory import (
     AssetInventoryRowSerializer,
     AssetInventoryColumnsSerializer,
-    AssetDetailSerializer,
 )
 from am_module.serializers.am_note import AMNoteSerializer
 from am_module.serializers.servicer_loan_data import ServicerLoanDataSerializer
@@ -35,6 +34,16 @@ class AssetInventoryViewSet(ViewSet):
     pagination_class = StandardResultsSetPagination
 
     def list(self, request: Request):
+        """
+        Return paginated list of boarded assets for AG Grid.
+
+        URL: /api/am/assets/
+        Response: Paginated AssetInventoryRowSerializer
+
+        WHAT: Build optimized queryset, enrich with computed fields, serialize for grid
+        WHY: Separate concerns - query building, business logic, and serialization
+        HOW: Use service layer for enrichment, serializer for JSON transformation
+        """
         q = request.query_params.get('q')
         ordering = request.query_params.get('sort')
         # Collect simple filters (extend allow-list as needed)
@@ -50,8 +59,10 @@ class AssetInventoryViewSet(ViewSet):
         # WHY: Asset management grid expects a single response containing all rows when the user selects the All option.
         page_size_param = request.query_params.get('page_size')
         if isinstance(page_size_param, str) and page_size_param.strip().upper() == 'ALL':
-            rows = list(qs)
-            serialized = AssetInventoryRowSerializer(rows, many=True).data
+            # WHAT: Enrich all rows with computed fields before serialization
+            enricher = AssetInventoryEnricher()
+            enriched_rows = list(enricher.enrich_queryset(qs))
+            serialized = AssetInventoryRowSerializer(enriched_rows, many=True).data
             return Response({
                 "count": len(serialized),
                 "next": None,
@@ -59,23 +70,40 @@ class AssetInventoryViewSet(ViewSet):
                 "results": serialized,
             })
 
+        # WHAT: Paginate first, then enrich only the current page for efficiency
         paginator = self.pagination_class()
         page = paginator.paginate_queryset(qs, request)
-        ser = AssetInventoryRowSerializer(page, many=True)
+
+        # WHAT: Enrich paginated results with computed fields
+        # WHY: Avoid enriching entire queryset when only showing one page
+        enricher = AssetInventoryEnricher()
+        enriched_page = [enricher.enrich(asset) for asset in page]
+
+        ser = AssetInventoryRowSerializer(enriched_page, many=True)
         return paginator.get_paginated_response(ser.data)
 
     def retrieve(self, request: Request, pk: int | str | None = None):
         """Return detailed boarded asset (now backed by SellerRawData).
 
         URL: /api/am/assets/<id>/
-        Response: AssetDetailSerializer
+        Response: AssetInventoryRowSerializer
+
+        WHAT: Use the same serializer as the grid to ensure consistent field availability
+        WHY: Loan-level views expect computed fields (purchase_cost, latest_uw_value, servicer_loan_data)
+        whether navigating from grid or accessing detail view directly
+        HOW: Fetch asset, enrich with computed fields, serialize
         """
         asset = get_object_or_404(
-            SellerRawData.objects.select_related("asset_hub__am_metrics", "seller", "trade"),
+            SellerRawData.objects.select_related("asset_hub__ammetrics", "asset_hub__blended_outcome_model", "seller", "trade"),
             pk=pk,
             acq_status=Trade.Status.BOARD,
         )
-        ser = AssetDetailSerializer(asset)
+
+        # WHAT: Enrich single asset with all computed fields
+        enricher = AssetInventoryEnricher()
+        enriched_asset = enricher.enrich(asset)
+
+        ser = AssetInventoryRowSerializer(enriched_asset)
         return Response(ser.data)
 
     @action(detail=True, methods=['get'])

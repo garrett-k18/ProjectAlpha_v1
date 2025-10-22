@@ -52,6 +52,8 @@ class Trade(models.Model):
    
     
     def __str__(self):
+        if self.trade_name:
+            return self.trade_name
         return f"Trade for {self.seller.name}"
 
     def save(self, *args, **kwargs):

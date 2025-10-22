@@ -1,4 +1,5 @@
-"""Simplified SellerRawData CSV importer with one-to-one header mappings.
+"""Simplified SellerRawData CSV importer with one-to-one header mappings. This is used to import csvs that match
+model headers for sellerrawdata
 
 Docs reviewed:
 - Django custom commands: https://docs.djangoproject.com/en/stable/howto/custom-management-commands/
@@ -387,6 +388,11 @@ class Command(BaseCommand):
 
         for start in range(0, len(records), batch_size):
             chunk = records[start : start + batch_size]
+            self.stdout.write(
+                self.style.NOTICE(
+                    f"Persisting batch {(start // batch_size) + 1} of {((len(records) - 1) // batch_size) + 1}"
+                )
+            )  # WHAT: Provide live progress feedback so Railway logs show forward movement.
             with transaction.atomic():
                 for payload in chunk:
                     sellertape_id = payload.get("sellertape_id")
@@ -403,7 +409,7 @@ class Command(BaseCommand):
                                 setattr(existing, field_name, value)
                             existing.seller = payload["seller"]
                             existing.trade = payload["trade"]
-                            existing.save(update_fields=list(payload.keys()))
+                            existing.save()  # WHAT: Allow auto_now timestamps (updated_at) to refresh automatically.
                             updated += 1
                         else:
                             skipped += 1
