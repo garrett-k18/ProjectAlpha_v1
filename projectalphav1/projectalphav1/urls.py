@@ -18,7 +18,7 @@ from django.contrib import admin
 from django.urls import path, include, re_path
 from django.conf import settings
 from django.conf.urls.static import static
-from django.views.generic import TemplateView
+from django.views.generic import TemplateView, RedirectView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -27,6 +27,10 @@ urlpatterns = [
     path('api/core/', include('core.urls')),  # Core module API endpoints (assumptions, etc.)
     # Include user_admin URLs directly (they already have the /api/auth/ prefix)
     path('', include('user_admin.urls')),
+    # WHAT: Ensure favicon requests serve the static asset instead of hitting the SPA catch-all.
+    # WHY: Without this redirect, /favicon.ico matches the catch-all and triggers TemplateDoesNotExist.
+    # HOW: Redirect to the collected static favicon served by WhiteNoise/Django.
+    path('favicon.ico', RedirectView.as_view(url=settings.STATIC_URL + 'favicon.ico', permanent=True)),
 ]
 
 # Serve Vue SPA for non-API routes in development and production
