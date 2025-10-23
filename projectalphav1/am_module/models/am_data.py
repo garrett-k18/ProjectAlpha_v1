@@ -500,67 +500,11 @@ class AuditLog(models.Model):
 
 
 # ============================================================
-# PHASE 2: MODEL REMOVED
-# AMMetricsChange model class commented out to generate deletion migration.
+# PHASE 2: MODEL DELETED
+# AMMetricsChange model has been removed from the codebase.
+# Migration 0032_delete_ammetricschange.py successfully deployed.
 # REPLACEMENT: Use AuditLog for generic audit logging
 # ============================================================
-
-# class AMMetricsChange(models.Model):
-#     """Field-level change audit log for `AMMetrics` records.
-#
-#     DEPRECATED: This model uses the old pattern. New audit models should inherit
-#     from BaseChangeAudit for consistency. Will be removed in next major overhaul.
-#     """
-#
-#     # Link back to the record that changed
-#     record = models.ForeignKey(
-#         AMMetrics,
-#         on_delete=models.CASCADE,
-#         related_name="changes",
-#         help_text="The metrics record this change belongs to.",
-#     )
-#
-#     # Denormalized direct link to hub for easy filtering/reporting
-#     asset_hub = models.ForeignKey(
-#         "core.AssetIdHub",
-#         on_delete=models.PROTECT,
-#         null=True,
-#         blank=True,
-#         related_name="ammetrics_changes",
-#         help_text="Denormalized hub reference for direct filtering.",
-#     )
-#
-#     # Name of the field that changed
-#     field_name = models.CharField(max_length=64, help_text="Field name that was updated.")
-#
-#     # Previous and new values (serialized as text for consistency)
-#     old_value = models.TextField(null=True, blank=True, help_text="Previous value (as text/JSON).")
-#     new_value = models.TextField(null=True, blank=True, help_text="New value (as text/JSON).")
-#
-#     # Who/when
-#     changed_at = models.DateTimeField(auto_now_add=True, help_text="When the change occurred.")
-#     changed_by = models.ForeignKey(
-#         settings.AUTH_USER_MODEL,
-#         null=True,
-#         blank=True,
-#         on_delete=models.SET_NULL,
-#         related_name="ammetrics_changes",
-#         help_text="User who made the change (if known).",
-#     )
-#
-#     class Meta:
-#         verbose_name = "AM Metrics Change (Deprecated)"
-#         verbose_name_plural = "AM Metrics Changes (Deprecated)"
-#         indexes = [
-#             models.Index(fields=["record", "changed_at"]),
-#             models.Index(fields=["field_name", "changed_at"]),
-#             models.Index(fields=["asset_hub", "changed_at"]),
-#         ]
-#         ordering = ["-changed_at", "-id"]
-#
-#     def __str__(self) -> str:  # pragma: no cover - trivial
-#         who = getattr(self.changed_by, "username", None) or "system"
-#         return f"Change({self.field_name} by {who} at {self.changed_at:%Y-%m-%d %H:%M:%S})"
 
 
 
