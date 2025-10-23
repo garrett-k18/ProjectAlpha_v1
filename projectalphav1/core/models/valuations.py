@@ -6,80 +6,78 @@ from decimal import Decimal
 from datetime import date
 
 # ============================================================
-# DEPRECATED MODELS - DO NOT USE
-# InternalValuation and BrokerValues are kept only for migration compatibility.
-# All code references have been removed.
-# Data can be safely deleted.
+# PHASE 2: MODEL REMOVED
+# InternalValuation model class commented out to generate deletion migration.
 # REPLACEMENT: Use Valuation model with source field
 # ============================================================
 
-class InternalValuation(models.Model):
-    """[DEPRECATED] Use `Valuation` instead.
-
-    Model to store internal and third-party valuations linked 1:1 to the AssetIdHub.
-
-    Moved from acq_module.models.valuations to core.models.valuations to align with
-    hub-first ownership. db_table is preserved for continuity.
-    """
-    asset_hub = models.ForeignKey(
-        'core.AssetIdHub',
-        on_delete=models.PROTECT,
-        null=True,
-        blank=True,
-        related_name='internal_valuations',
-        help_text='Link to hub; many valuations over asset life are supported.',
-    )
-
-    # Internal underwriting values and Rehab estimates
-    internal_asis_value = models.DecimalField(max_digits=15, decimal_places=2)
-    internal_arv_value = models.DecimalField(max_digits=15, decimal_places=2)
-    internal_value_date = models.DateField()
-    internal_rehab_est_total = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    roof_est = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    kitchen_est = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    bath_est = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    flooring_est = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    windows_est = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    appliances_est = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    plumbing_est = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    electrical_est = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    landscaping_est = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-
-    # Third-party values
-    thirdparty_asis_value = models.DecimalField(max_digits=15, decimal_places=2)
-    thirdparty_arv_value = models.DecimalField(max_digits=15, decimal_places=2)
-    thirdparty_value_date = models.DateField()
-
-    # Timestamps
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    # User tracking (who created/last updated this valuation)
-    created_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='created_internal_valuations',
-        help_text='User who created this valuation record.'
-    )
-    updated_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='updated_internal_valuations',
-        help_text='User who last updated this valuation record.'
-    )
-
-    class Meta:
-        verbose_name = "Internal Valuation"
-        verbose_name_plural = "Internal Valuations"
-        ordering = ['-created_at']
-        db_table = 'acq_internal_valuation'
-
-    def __str__(self):
-        return f"Internal Valuation for hub {self.asset_hub_id}"
+# class InternalValuation(models.Model):
+#     """[DEPRECATED] Use `Valuation` instead.
+#
+#     Model to store internal and third-party valuations linked 1:1 to the AssetIdHub.
+#
+#     Moved from acq_module.models.valuations to core.models.valuations to align with
+#     hub-first ownership. db_table is preserved for continuity.
+#     """
+#     asset_hub = models.ForeignKey(
+#         'core.AssetIdHub',
+#         on_delete=models.PROTECT,
+#         null=True,
+#         blank=True,
+#         related_name='internal_valuations',
+#         help_text='Link to hub; many valuations over asset life are supported.',
+#     )
+#
+#     # Internal underwriting values and Rehab estimates
+#     internal_asis_value = models.DecimalField(max_digits=15, decimal_places=2)
+#     internal_arv_value = models.DecimalField(max_digits=15, decimal_places=2)
+#     internal_value_date = models.DateField()
+#     internal_rehab_est_total = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+#     roof_est = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+#     kitchen_est = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+#     bath_est = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+#     flooring_est = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+#     windows_est = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+#     appliances_est = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+#     plumbing_est = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+#     electrical_est = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+#     landscaping_est = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+#
+#     # Third-party values
+#     thirdparty_asis_value = models.DecimalField(max_digits=15, decimal_places=2)
+#     thirdparty_arv_value = models.DecimalField(max_digits=15, decimal_places=2)
+#     thirdparty_value_date = models.DateField()
+#
+#     # Timestamps
+#     created_at = models.DateTimeField(auto_now_add=True)
+#     updated_at = models.DateTimeField(auto_now=True)
+#
+#     # User tracking (who created/last updated this valuation)
+#     created_by = models.ForeignKey(
+#         settings.AUTH_USER_MODEL,
+#         on_delete=models.SET_NULL,
+#         null=True,
+#         blank=True,
+#         related_name='created_internal_valuations',
+#         help_text='User who created this valuation record.'
+#     )
+#     updated_by = models.ForeignKey(
+#         settings.AUTH_USER_MODEL,
+#         on_delete=models.SET_NULL,
+#         null=True,
+#         blank=True,
+#         related_name='updated_internal_valuations',
+#         help_text='User who last updated this valuation record.'
+#     )
+#
+#     class Meta:
+#         verbose_name = "Internal Valuation"
+#         verbose_name_plural = "Internal Valuations"
+#         ordering = ['-created_at']
+#         db_table = 'acq_internal_valuation'
+#
+#     def __str__(self):
+#         return f"Internal Valuation for hub {self.asset_hub_id}"
 
 
 # ============================================================
