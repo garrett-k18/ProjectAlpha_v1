@@ -66,6 +66,12 @@ class AssetInventoryRowSerializer(serializers.Serializer):
         allow_null=True,
         help_text='Display ID (sellertape_id or pk fallback)'
     )
+    servicer_id = serializers.CharField(
+        source='asset_hub.servicer_id',
+        read_only=True,
+        allow_null=True,
+        help_text='External servicer ID from AssetIdHub'
+    )
 
     # ========== Status Fields ==========
     asset_status = serializers.CharField(

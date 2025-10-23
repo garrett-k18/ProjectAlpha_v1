@@ -350,10 +350,13 @@ const selectedAddr = ref<string | null>(null)
 
 // Build friendly header text for modal
 const modalIdText = computed<string>(() => {
-  // Prefer the canonical AssetIdHub id for display in the modal header
+  // Prefer the external servicer identifier surfaced from AssetIdHub so asset managers can reconcile against servicer systems quickly
+  const servicerId = selectedRow.value?.servicer_id ?? selectedRow.value?.asset_hub?.servicer_id
+  if (servicerId != null && servicerId !== '') return String(servicerId)
+  // Fallback to the canonical hub id so we always present a stable identifier even when servicer id is blank
   const hubId = selectedRow.value?.asset_hub_id ?? selectedRow.value?.asset_hub?.id
   if (hubId != null && hubId !== '') return String(hubId)
-  // Fallback to the selected product/row id if hub id is unavailable
+  // Final fallback: show the selected row id (equals hub pk) or generic label
   return selectedId.value != null ? String(selectedId.value) : 'Asset'
 })
 const modalTradeText = computed<string>(() => {
