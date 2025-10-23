@@ -5,6 +5,14 @@ from django.conf import settings
 from decimal import Decimal
 from datetime import date
 
+# ============================================================
+# DEPRECATED MODELS - DO NOT USE
+# InternalValuation and BrokerValues are kept only for migration compatibility.
+# All code references have been removed.
+# Data can be safely deleted.
+# REPLACEMENT: Use Valuation model with source field
+# ============================================================
+
 class InternalValuation(models.Model):
     """[DEPRECATED] Use `Valuation` instead.
 

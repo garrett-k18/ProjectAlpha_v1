@@ -499,6 +499,14 @@ class AuditLog(models.Model):
         )
 
 
+# ============================================================
+# DEPRECATED MODEL - DO NOT USE
+# AMMetricsChange is kept only for migration compatibility.
+# All code references have been removed.
+# Data can be safely deleted.
+# REPLACEMENT: Use AuditLog for generic audit logging
+# ============================================================
+
 # DEPRECATED: AMMetricsChange - Use BaseChangeAudit pattern instead
 # TODO: Remove this model in next major overhaul after data migration
 # This model is kept for backward compatibility and to avoid migration issues

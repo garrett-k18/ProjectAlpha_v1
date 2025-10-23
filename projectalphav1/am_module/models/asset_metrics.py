@@ -1,11 +1,10 @@
-# AssetMetrics model
-# Tracks performance metrics for a single boarded asset (strict 1:1 with SellerBoardedData).
-# Fields:
-# - asset: one-to-one link to SellerBoardedData (primary key, enforces exactly one metrics row per asset)
-# - purchase_date: required date the asset was purchased (cannot be null/blank)
-# - created_at / updated_at: audit timestamps
-# Computed (not stored):
-# - time_held_days: integer = today - purchase_date in days (never negative)
+# ============================================================
+# DEPRECATED MODEL - DO NOT USE
+# This model is kept only for migration compatibility.
+# All code references have been removed.
+# Data can be safely deleted.
+# REPLACEMENT: Use AMMetrics model instead (am_module.models.am_data)
+# ============================================================
 
 from django.db import models  # Django ORM base class and field types
 from django.utils import timezone  # Timezone-aware date utilities (localdate)
