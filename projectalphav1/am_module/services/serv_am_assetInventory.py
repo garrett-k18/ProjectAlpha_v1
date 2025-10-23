@@ -90,13 +90,18 @@ def build_queryset(
     hub_field = SellerRawData._meta.get_field("asset_hub")
     hub_model = hub_field.remote_field.model if hub_field.remote_field else None
     if hub_model is not None:
-        related_names = {rel.get_accessor_name() for rel in hub_model._meta.get_fields() if rel.auto_created}
-        # Candidate related names ordered by newest naming convention first.
-        for candidate in ("am_metrics", "ammetrics"):
-            relation_path = f"asset_hub__{candidate}"
-            if candidate in related_names:
+        for rel in hub_model._meta.get_fields():
+            if not rel.auto_created:
+                continue
+            accessor = rel.get_accessor_name()
+            if accessor not in {"am_metrics", "ammetrics"}:
+                continue
+            relation_path = f"asset_hub__{accessor}"
+            if getattr(rel, "one_to_one", False):
                 qs = qs.select_related(relation_path)
-                break
+            else:
+                qs = qs.prefetch_related(relation_path)
+            break
 
     if q:
         q_obj = Q()
@@ -268,7 +273,9 @@ class AssetInventoryEnricher:
         if not hub:
             return None
 
-        metrics_manager = getattr(hub, 'ammetrics', None)
+        metrics_manager = getattr(hub, 'am_metrics', None)
+        if metrics_manager is None:
+            metrics_manager = getattr(hub, 'ammetrics', None)
         if metrics_manager is None:
             return None
 
