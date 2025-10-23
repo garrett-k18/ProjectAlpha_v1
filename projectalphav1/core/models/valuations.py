@@ -82,60 +82,66 @@ class InternalValuation(models.Model):
         return f"Internal Valuation for hub {self.asset_hub_id}"
 
 
-class BrokerValues(models.Model):
-    """[DEPRECATED] Use `Valuation` instead.
+# ============================================================
+# PHASE 2: MODEL REMOVED
+# BrokerValues model class commented out to generate deletion migration.
+# REPLACEMENT: Use Valuation model with source field
+# ============================================================
 
-    Model to store broker valuations linked 1:1 to the AssetIdHub.
-
-    Moved from acq_module.models.valuations to core.models.valuations. db_table preserved.
-    """
-    asset_hub = models.OneToOneField(
-        'core.AssetIdHub',
-        on_delete=models.PROTECT,
-        null=True,
-        blank=True,
-        related_name='broker_values',
-        help_text='TEMP: nullable during staged migration; will be PK in next migration.',
-    )
-
-    # Broker values
-    broker_asis_value = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    broker_arv_value = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    broker_value_date = models.DateField(null=True, blank=True)
-    broker_rehab_est = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    broker_notes = models.TextField(blank=True, null=True)
-    broker_links = models.URLField(blank=True, null=True)
-
-    # Timestamps
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    # User tracking (who created/last updated this broker valuation)
-    created_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='created_broker_valuations',
-        help_text='User who created this broker valuation record.'
-    )
-    updated_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='updated_broker_valuations',
-        help_text='User who last updated this broker valuation record.'
-    )
-
-    class Meta:
-        verbose_name = "Broker Values"
-        verbose_name_plural = "Broker Values"
-        ordering = ['-created_at']
-        db_table = 'acq_broker_values'
-
-    def __str__(self):
-        return f"Broker Valuation for hub {self.asset_hub_id}"
+# class BrokerValues(models.Model):
+#     """[DEPRECATED] Use `Valuation` instead.
+#
+#     Model to store broker valuations linked 1:1 to the AssetIdHub.
+#
+#     Moved from acq_module.models.valuations to core.models.valuations. db_table preserved.
+#     """
+#     asset_hub = models.OneToOneField(
+#         'core.AssetIdHub',
+#         on_delete=models.PROTECT,
+#         null=True,
+#         blank=True,
+#         related_name='broker_values',
+#         help_text='TEMP: nullable during staged migration; will be PK in next migration.',
+#     )
+#
+#     # Broker values
+#     broker_asis_value = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+#     broker_arv_value = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+#     broker_value_date = models.DateField(null=True, blank=True)
+#     broker_rehab_est = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+#     broker_notes = models.TextField(blank=True, null=True)
+#     broker_links = models.URLField(blank=True, null=True)
+#
+#     # Timestamps
+#     created_at = models.DateTimeField(auto_now_add=True)
+#     updated_at = models.DateTimeField(auto_now=True)
+#
+#     # User tracking (who created/last updated this broker valuation)
+#     created_by = models.ForeignKey(
+#         settings.AUTH_USER_MODEL,
+#         on_delete=models.SET_NULL,
+#         null=True,
+#         blank=True,
+#         related_name='created_broker_valuations',
+#         help_text='User who created this broker valuation record.'
+#     )
+#     updated_by = models.ForeignKey(
+#         settings.AUTH_USER_MODEL,
+#         on_delete=models.SET_NULL,
+#         null=True,
+#         blank=True,
+#         related_name='updated_broker_valuations',
+#         help_text='User who last updated this broker valuation record.'
+#     )
+#
+#     class Meta:
+#         verbose_name = "Broker Values"
+#         verbose_name_plural = "Broker Values"
+#         ordering = ['-created_at']
+#         db_table = 'acq_broker_values'
+#
+#     def __str__(self):
+#         return f"Broker Valuation for hub {self.asset_hub_id}"
 
 
 class ValuationGradeReference(models.Model):
