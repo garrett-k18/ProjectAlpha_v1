@@ -77,13 +77,16 @@ def build_queryset(
         .filter(acq_status=SellerRawData.AcquisitionStatus.BOARD)  # WHAT: Limit to assets promoted into AM module
         .select_related("asset_hub")
         .select_related("asset_hub__blended_outcome_model")
-        .select_related("asset_hub__ammetrics")  # WHAT: Join AMMetrics for delinquency status
         .select_related("seller", "trade")  # HOW: ensure seller/trade names resolve without extra queries
         .annotate(
             seller_name=F("seller__name"),  # WHAT: Expose friendly name aliases to match legacy serializer fields
             trade_name=F("trade__trade_name"),
         )
     )
+    # NOTE: Not including asset_hub__ammetrics in select_related because:
+    # 1. AMMetrics is a ForeignKey (not OneToOne), so it may have 0 or multiple records
+    # 2. Production environment shows this relation doesn't exist on AssetIdHub yet
+    # 3. The enricher will query AMMetrics only when needed per asset
 
     if q:
         q_obj = Q()
@@ -249,21 +252,30 @@ class AssetInventoryEnricher:
         Note: Upstream nightly jobs (or manual refreshes) should call
         AMMetrics.refresh_delinquency_status() whenever new servicer data arrives
         so that this field stays in sync.
+
+        Returns None if AMMetrics relation doesn't exist in this environment.
         """
         # Resolve hub from the row
         hub = getattr(obj, 'asset_hub', None)
         if not hub:
             return None
 
-        # WHAT: Access AMMetrics (NOT deprecated AssetMetrics) via 'ammetrics' related name
-        # WHY: AMMetrics uses ForeignKey with related_name='ammetrics' (see am_module.models.am_data line 57)
-        # HOW: hub.ammetrics is a reverse ForeignKey manager; if select_related was used, access directly
+        # WHAT: Access AMMetrics via 'ammetrics' reverse relation (ForeignKey, may not exist in prod)
+        # WHY: Production may not have AMMetrics relation migrated yet
+        # HOW: Gracefully handle missing relation or missing records
         try:
-            metrics = getattr(hub, 'ammetrics', None)
+            # Check if the relation exists on this hub instance
+            if not hasattr(hub, 'ammetrics'):
+                return None
+
+            # ammetrics is a reverse ForeignKey manager, get the latest record
+            metrics = hub.ammetrics.order_by('-updated_at').first()
             if metrics is None:
                 return None
+
             return getattr(metrics, 'delinquency_status', None)
-        except AttributeError:
+        except (AttributeError, Exception):
+            # Relation doesn't exist or query failed - return None gracefully
             return None
 
     def get_seller_name(self, obj: SellerRawData) -> str | None:
