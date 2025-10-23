@@ -77,31 +77,13 @@ def build_queryset(
         .filter(acq_status=SellerRawData.AcquisitionStatus.BOARD)  # WHAT: Limit to assets promoted into AM module
         .select_related("asset_hub")
         .select_related("asset_hub__blended_outcome_model")
+        .select_related("asset_hub__ammetrics")  # WHAT: Join AMMetrics for delinquency status
         .select_related("seller", "trade")  # HOW: ensure seller/trade names resolve without extra queries
         .annotate(
             seller_name=F("seller__name"),  # WHAT: Expose friendly name aliases to match legacy serializer fields
             trade_name=F("trade__trade_name"),
         )
     )
-
-    # WHAT: Determine the correct related name for AM metrics across environments.
-    # WHY: Production still exposes AssetIdHub->AMMetrics via `ammetrics` while local envs use `am_metrics`.
-    # HOW: Introspect AssetIdHub relations and select_related only when the relation exists.
-    hub_field = SellerRawData._meta.get_field("asset_hub")
-    hub_model = hub_field.remote_field.model if hub_field.remote_field else None
-    if hub_model is not None:
-        for rel in hub_model._meta.get_fields():
-            if not rel.auto_created:
-                continue
-            accessor = rel.get_accessor_name()
-            if accessor not in {"am_metrics", "ammetrics"}:
-                continue
-            relation_path = f"asset_hub__{accessor}"
-            if getattr(rel, "one_to_one", False):
-                qs = qs.select_related(relation_path)
-            else:
-                qs = qs.prefetch_related(relation_path)
-            break
 
     if q:
         q_obj = Q()
@@ -273,21 +255,16 @@ class AssetInventoryEnricher:
         if not hub:
             return None
 
-        metrics_manager = getattr(hub, 'am_metrics', None)
-        if metrics_manager is None:
-            metrics_manager = getattr(hub, 'ammetrics', None)
-        if metrics_manager is None:
+        # WHAT: Access AMMetrics (NOT deprecated AssetMetrics) via 'ammetrics' related name
+        # WHY: AMMetrics uses ForeignKey with related_name='ammetrics' (see am_module.models.am_data line 57)
+        # HOW: hub.ammetrics is a reverse ForeignKey manager; if select_related was used, access directly
+        try:
+            metrics = getattr(hub, 'ammetrics', None)
+            if metrics is None:
+                return None
+            return getattr(metrics, 'delinquency_status', None)
+        except AttributeError:
             return None
-
-        # Related manager can return multiple rows; grab the most recently
-        # updated metric to keep the UI consistent with backend refresh jobs.
-        metrics: AMMetrics | None
-        if isinstance(metrics_manager, AMMetrics):
-            metrics = metrics_manager
-        else:
-            metrics = metrics_manager.order_by('-updated_at').first()
-
-        return getattr(metrics, 'delinquency_status', None)
 
     def get_seller_name(self, obj: SellerRawData) -> str | None:
         """
