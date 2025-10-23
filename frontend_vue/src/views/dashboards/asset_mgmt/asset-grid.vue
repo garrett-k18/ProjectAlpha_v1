@@ -172,12 +172,23 @@ const constantColumns: ColDef[] = [
     cellRenderer: ActionsCell as any,
     cellRendererParams: { onAction: onRowAction },
   },
-  { 
-    headerName: 'Asset ID', 
-    minWidth: 120, 
+  {
+    headerName: 'Servicer ID',
+    field: 'servicer_id',
+    colId: 'servicer_id',
+    minWidth: 140,
     pinned: 'left',
-    // Display the canonical AssetIdHub primary key when available; fallback to legacy asset_id
-    valueGetter: (p: any) => p.data?.asset_hub_id ?? p.data?.asset_id ?? p.data?.id ?? ''
+    // WHAT: Surface the external servicer identifier that asset managers reference daily
+    // WHY: Product guidance indicates hub PKs are rarely used operationally; servicer IDs are the primary lookup key
+    // HOW: Favor serializer field `servicer_id`, fall back to hub relationship if serializer omitted, and leave blank when no servicer id available
+    valueGetter: (p: any) => {
+      const row = p.data ?? {}
+      const explicitServicerId = row.servicer_id ?? row.servicerId
+      if (explicitServicerId != null && explicitServicerId !== '') return explicitServicerId
+      const hubServicerId = row.asset_hub?.servicer_id ?? row.asset_hub?.servicerId
+      if (hubServicerId != null && hubServicerId !== '') return hubServicerId
+      return ''
+    },
   },
   {
     headerName: 'Status',
@@ -377,11 +388,19 @@ const modalAddrText = computed<string>(() => {
   return rawAddr.replace(/,?\s*\d{5}(?:-\d{4})?$/, '')
 })
 
-// WHAT: Helper to extract asset hub id from grid row
-// WHY: After migration, asset_hub_id is the primary identifier for all related models
-// HOW: Check asset_hub_id first, then fallback to id (which equals asset_hub after migration)
-function getAssetHubIdFromRow(row: any): string | number | null {
-  const candidates = [row?.asset_hub_id, row?.id]
+// WHAT: Helper to extract the primary identifier used throughout the modal and full-page navigation
+// WHY: Servicer IDs are the operational lookup key for AM; fall back to hub IDs strictly for legacy/empty cases
+// HOW: Prefer serializer-provided servicer_id, then hub's servicer id, then hub pk/id
+function getPrimaryIdFromRow(row: any): string | number | null {
+  const candidates = [
+    row?.servicer_id,
+    row?.servicerId,
+    row?.asset_hub?.servicer_id,
+    row?.asset_hub?.servicerId,
+    row?.asset_hub_id,
+    row?.asset_id,
+    row?.id,
+  ]
   for (const c of candidates) {
     if (c !== undefined && c !== null && c !== '') return c as any
   }
@@ -400,7 +419,7 @@ function buildAddress(row: any): string {
 function onRowAction(action: string, row: any): void {
   // Normalize action; only 'view' opens modal currently
   if (action === 'view') {
-    selectedId.value = getAssetHubIdFromRow(row)
+    selectedId.value = getPrimaryIdFromRow(row)
     selectedRow.value = row
     selectedAddr.value = buildAddress(row)
     showAssetModal.value = true

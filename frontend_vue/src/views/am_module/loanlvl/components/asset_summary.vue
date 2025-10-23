@@ -45,7 +45,7 @@ import { computed, withDefaults, defineProps } from 'vue'
 import UiBadge from '@/components/ui/UiBadge.vue'
 import { getAssetStatusBadgeTone } from '@/config/badgeTokens'
 
-const dash = '—'
+const blankDisplay = '' // WHAT: Centralize blank display string so Asset Summary omits em dash placeholders per AM UX guidance
 
 const props = withDefaults(defineProps<{
   row?: Record<string, any> | null
@@ -63,28 +63,28 @@ const maybeNumber = (value: unknown): number | null => {
 
 const formatCurrency = (value: unknown): string => {
   const numeric = maybeNumber(value)
-  if (numeric === null) return dash
+  if (numeric === null) return blankDisplay // WHAT: Return empty string so cards render blank when currency fields are missing
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(numeric)
 }
 
 const formatDate = (value: unknown): string => {
-  if (!value) return dash
+  if (!value) return blankDisplay // WHAT: Avoid showing placeholder glyphs for absent dates; leave cell blank instead
   try {
     const date = new Date(String(value))
-    return Number.isNaN(date.getTime()) ? dash : date.toLocaleDateString('en-US')
+    return Number.isNaN(date.getTime()) ? blankDisplay : date.toLocaleDateString('en-US')
   } catch (error) {
-    return dash
+    return blankDisplay
   }
 }
 
 const formatString = (value: unknown): string => {
-  if (value === null || value === undefined || value === '') return dash
+  if (value === null || value === undefined || value === '') return blankDisplay // WHAT: Keep summary cells empty when textual data missing
   return String(value)
 }
 
 const assetStatus = computed(() => formatString(props.row?.asset_status))
 const assetStatusTone = computed(() => getAssetStatusBadgeTone(props.row?.asset_status))
-const showAssetStatusBadge = computed(() => assetStatus.value !== dash)
+const showAssetStatusBadge = computed(() => Boolean(assetStatus.value))
 const purchaseDate = computed(() => formatDate(props.row?.purchase_date))
 const purchaseCost = computed(() => formatCurrency(props.row?.purchase_cost))
 const currentBalance = computed(() => formatCurrency(props.row?.servicer_loan_data?.current_balance ?? props.row?.current_balance))

@@ -41,7 +41,7 @@
           <div v-if="rowActive?.beds !== null || rowActive?.baths !== null" class="mb-2">
             <small class="text-muted d-block">Bed / Bath</small>
             <span class="fw-semibold text-dark">
-              {{ rowActive?.beds || 'N/A' }} bd / {{ rowActive?.baths ? rowActive.baths.toFixed(1) : 'N/A' }} ba
+              {{ formatBeds(rowActive?.beds) }} bd / {{ formatBaths(rowActive?.baths) }} ba
             </span>
           </div>
 
@@ -88,12 +88,12 @@
             <small class="text-muted d-block">HOA</small>
             <span class="fw-semibold text-dark">
               <template v-if="rowActive != null">
-                {{ rowActive?.hoa_flag == null ? '—' : (normalizeBool(rowActive?.hoa_flag) ? 'Yes' : 'No') }}
+                {{ rowActive?.hoa_flag == null ? blankDisplay : (normalizeBool(rowActive?.hoa_flag) ? 'Yes' : 'No') }}
                 <template v-if="normalizeBool(rowActive?.hoa_flag) && rowActive?.hoa_amount != null">
                   - {{ formatMoney(rowActive.hoa_amount) }}
                 </template>
               </template>
-              <template v-else>—</template>
+              <template v-else>{{ blankDisplay }}</template>
             </span>
           </div>
 
@@ -105,7 +105,7 @@
               <template v-if="rowActive != null && rowActive.property_tax_rate != null">
                 {{ formatPercent(rowActive.property_tax_rate) }}
               </template>
-              <template v-else>—</template>
+              <template v-else>{{ blankDisplay }}</template>
             </span>
           </div>
 
@@ -117,7 +117,7 @@
               <template v-if="rowActive != null && rowActive.assessed_value != null">
                 {{ formatMoney(rowActive.assessed_value) }}
               </template>
-              <template v-else>—</template>
+              <template v-else>{{ blankDisplay }}</template>
             </span>
           </div>
 
@@ -129,7 +129,7 @@
               <template v-if="rowActive != null && rowActive.property_taxes_prev_year != null">
                 {{ formatMoney(rowActive.property_taxes_prev_year) }}
               </template>
-              <template v-else>—</template>
+              <template v-else>{{ blankDisplay }}</template>
             </span>
           </div>
         </div>
@@ -160,6 +160,8 @@ export default defineComponent({
   setup(props) {
     const fetchedRow = ref<Record<string, any> | null>(null)
     const rowActive = computed(() => props.row ?? fetchedRow.value)
+
+    const blankDisplay = '' // WHAT: Centralized blank display string so property details omit placeholder glyphs when data is unavailable
 
     const fullAddress = computed(() => {
       const r = rowActive.value as any
@@ -209,17 +211,17 @@ export default defineComponent({
       if (v != null && !isNaN(v)) {
         return new Intl.NumberFormat('en-US', { style: 'decimal', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(Number(v))
       }
-      return 'N/A'
+      return blankDisplay // WHAT: Return empty string so UI leaves cells blank when numeric value missing
     }
 
-    const formatDate = (v: any) => (v ? new Date(v).toLocaleDateString('en-US') : 'N/A')
+    const formatDate = (v: any) => (v ? new Date(v).toLocaleDateString('en-US') : blankDisplay) // WHAT: Render blank string if date absent
 
     // Format currency with USD symbol and no decimals per platform convention for most UI readouts
     const formatMoney = (v: any) => {
       if (v != null && !isNaN(v)) {
         return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(Number(v))
       }
-      return 'N/A'
+      return blankDisplay // WHAT: Keep financial fields blank when values missing per AM UX guidance
     }
 
     // Format percent from decimal input (e.g., 0.0125 -> 1.25%)
@@ -228,7 +230,20 @@ export default defineComponent({
         const pct = Number(v) * 100
         return `${pct.toFixed(2)}%`
       }
-      return 'N/A'
+      return blankDisplay // WHAT: Leave percentage cells empty when source data missing
+    }
+
+    const formatBeds = (v: any): string => {
+      if (v == null || v === '') return blankDisplay // WHAT: Provide empty string when bed count missing so snapshot card shows blank per UX request
+      const num = Number(v)
+      return Number.isFinite(num) ? String(num) : String(v)
+    }
+
+    const formatBaths = (v: any): string => {
+      if (v == null || v === '') return blankDisplay // WHAT: Mirror bed formatter for bath values while keeping decimals intact when available
+      const num = Number(v)
+      if (!Number.isFinite(num)) return String(v)
+      return num % 1 === 0 ? `${num.toFixed(0)}` : `${num.toFixed(1)}`
     }
 
     // Normalize boolean-like fields (true/'Y'/'YES' -> true)
@@ -272,7 +287,7 @@ export default defineComponent({
       return occupancyBadgeMap[key] || null
     })
 
-    return { rowActive, hasAnyData, fullAddress, formatCurrency, formatDate, formatMoney, formatPercent, normalizeBool, propertyBadge, occupancyBadge }
+    return { rowActive, hasAnyData, fullAddress, formatCurrency, formatDate, formatMoney, formatPercent, normalizeBool, propertyBadge, occupancyBadge, blankDisplay, formatBeds, formatBaths }
   },
 })
 </script>
