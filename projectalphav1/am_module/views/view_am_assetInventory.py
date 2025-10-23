@@ -315,7 +315,7 @@ def asset_geo_markers(request: Request):
         markers.append({
             "lat": round(lat_f, 6),  # WHAT: Round latitude for consistency while preserving precision.
             "lng": round(lng_f, 6),  # WHAT: Round longitude to align with latitude precision.
-            "asset_hub_id": row.asset_hub_id,  # WHAT: Surface the unique asset identifier for drill-downs and tooltips.
+            "asset_hub_id": row.pk,  # WHAT: Use row.pk since SellerRawData uses asset_hub as primary key (no .asset_hub_id attribute)
             "label": label,  # WHAT: Provide human-readable location text when available.
             "count": 1,  # WHAT: Maintain count attribute for backwards compatibility with existing UI expectations.
             "state": (row.state or "").strip(),  # WHAT: Include state abbreviation for frontend aggregation (docs reviewed: https://docs.djangoproject.com/en/5.0/ref/models/instances/#field-access for safe field access).
