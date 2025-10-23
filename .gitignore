@@ -16,6 +16,7 @@ htmlcov/
 # Django
 /media/
 /staticfiles/
+projectalphav1/z.Admin/
 
 # Virtual envs
 .venv/

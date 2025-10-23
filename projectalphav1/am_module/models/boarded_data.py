@@ -1,11 +1,15 @@
+# ============================================================
+# DEPRECATED MODEL - DO NOT USE
+# SellerBoardedData is kept only for migration compatibility.
+# All code references have been removed.
+# Data can be safely deleted.
+# REPLACEMENT: Use SellerRawData (acq_module.models.seller) with acq_status=BOARD
+# ============================================================
+
 from django.db import models
 from django.utils import timezone
 from acq_module.models.seller import SellerRawData
 import re
-
-# The SellerBoardedData model represents boarded seller data transferred from the acq_module. 
-# It contains all relevant data points from SellerRawData, along with trade information, 
-# including trade name, trade ID, and seller name.
 
 # DEPRECATION NOTICE:
 # - This model is deprecated and will be removed in the next overhaul.

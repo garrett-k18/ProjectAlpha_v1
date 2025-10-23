@@ -26,7 +26,7 @@ def get_photo_path(instance, filename):
 
 class Photo(models.Model):
     """Unified photo model for all sources (broker, document, public, internal).
-
+DEPRECATE
     Hub-first: photos belong to `AssetIdHub` and are not tied to `SellerRawData` directly.
     """
 
@@ -130,7 +130,7 @@ def get_document_path(instance, filename):
 
 class Document(models.Model):
     """Generic document model (PDFs, DOCX, XLSX, etc.) linked to an AssetIdHub.
-
+DEPRECATE
     Hub-first: many documents per asset hub.
     """
 

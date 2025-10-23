@@ -70,6 +70,7 @@
         :rowSelection="{ mode: 'multiRow', checkboxes: false, headerCheckbox: false, enableClickSelection: true }"
         :animateRows="true"
         overlayNoRowsTemplate="No assets found"
+        overlayLoadingTemplate="Loading assets…"
         @grid-ready="onGridReady"
         @sort-changed="onSortChanged"
       />
@@ -689,6 +690,33 @@ function onSortChanged(): void {
     fetchRows()
   }
 }
+
+// WHAT: Keep AG Grid overlay messaging synchronized with loading and dataset size so users see "Loading" on initial fetch
+// WHY: Prevents the default "No assets found" overlay from flashing before data arrives, improving perceived performance
+// HOW: Show loading overlay while network requests are active, fall back to no-rows overlay for empty datasets, and hide overlay when rows exist
+function syncGridOverlay(): void {
+  const api = gridApi.value
+  if (!api) return
+  if (loading.value) {
+    api.showLoadingOverlay()
+    return
+  }
+  if (rowData.value.length === 0) {
+    api.showNoRowsOverlay()
+    return
+  }
+  api.hideOverlay()
+}
+
+// WHAT: React to loading flag flips so the overlay transitions between "Loading" and "No assets found" states automatically
+watch(loading, () => {
+  syncGridOverlay()
+})
+
+// WHAT: Re-evaluate overlay once new row data arrives because empty arrays should display the no-rows overlay while populated arrays should hide overlays entirely
+watch(rowData, () => {
+  syncGridOverlay()
+})
 </script>
 
 <style scoped>

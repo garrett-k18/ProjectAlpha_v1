@@ -1,96 +1,61 @@
 from django.contrib import admin
-from am_module.models.boarded_data import SellerBoardedData, BlendedOutcomeModel
-from am_module.models.asset_metrics import AssetMetrics
+# DEPRECATED IMPORTS - Models kept for migration compatibility only
+# from am_module.models.boarded_data import SellerBoardedData, BlendedOutcomeModel
+# from am_module.models.asset_metrics import AssetMetrics
+from am_module.models.boarded_data import BlendedOutcomeModel  # Keep only BlendedOutcomeModel (not deprecated)
 from am_module.models.servicers import ServicerLoanData
 from am_module.models.statebridgeservicing import SBDailyLoanData
 from am_module.models.am_data import (
-    AMMetrics, AMMetricsChange, AuditLog,
+    AMMetrics, AuditLog,  # AMMetricsChange removed (deprecated)
     AMNote, REOData, FCSale, DIL, ShortSale, Modification,
     REOtask, FCTask, DILTask, ShortSaleTask, ModificationTask,
     REOScope,
 )
 
-class AssetMetricsInline(admin.StackedInline):
-    """
-    NOTE: AssetMetrics is keyed to core.AssetIdHub (primary key) and does NOT
-    have a ForeignKey to SellerBoardedData. Django inlines require a direct FK
-    to the parent model, so we cannot inline AssetMetrics under SellerBoardedData.
+# ============================================================
+# DEPRECATED ADMIN CLASSES - DO NOT USE
+# These models are kept only for migration compatibility.
+# Admin registrations removed to prevent usage.
+# ============================================================
 
-    Keeping this class as a placeholder for future hub-centric admin, but it is
-    not used in SellerBoardedDataAdmin.inlines.
-    """
-    model = AssetMetrics
-    can_delete = False
-    extra = 0
-    fields = (
-        "purchase_date",
-        "created_at",
-        "updated_at",
-    )
-    readonly_fields = ("created_at", "updated_at")
-# Inline note: BlendedOutcomeModel is keyed to AssetIdHub, not directly to SellerBoardedData
+# class AssetMetricsInline(admin.StackedInline):
+#     """DEPRECATED - AssetMetrics model is deprecated."""
+#     model = AssetMetrics
+#     can_delete = False
+#     extra = 0
+#     fields = ("purchase_date", "created_at", "updated_at")
+#     readonly_fields = ("created_at", "updated_at")
 
+# @admin.register(SellerBoardedData)
+# class SellerBoardedDataAdmin(admin.ModelAdmin):
+#     """DEPRECATED - Use SellerRawData with acq_status=BOARD instead."""
+#     list_display = (
+#         "asset_hub", "sellertape_id", "seller_name", "trade_name",
+#         "asset_status", "street_address", "city", "state",
+#         "property_type", "occupancy", "seller_asis_value",
+#     )
+#     list_filter = ("asset_status", "state", "property_type", "occupancy")
+#     search_fields = ("sellertape_id", "seller_name", "trade_name", "street_address", "city", "state", "zip")
+#     ordering = ("-boarded_at",)
+#     inlines = []
+#     list_per_page = 5
 
-@admin.register(SellerBoardedData)
-class SellerBoardedDataAdmin(admin.ModelAdmin):
-    list_display = (
-        "asset_hub",
-        "sellertape_id",
-        "seller_name",
-        "trade_name",
-        "asset_status",
-        "street_address",
-        "city",
-        "state",
-        "property_type",
-        "occupancy",
-        "seller_asis_value",
-    )
-    list_filter = (
-        "asset_status",
-        "state",
-        "property_type",
-        "occupancy",
-    )
-    search_fields = (
-        "sellertape_id",
-        "seller_name",
-        "trade_name",
-        "street_address",
-        "city",
-        "state",
-        "zip",
-    )
-    ordering = ("-boarded_at",)
-    # Cannot inline AssetMetrics here because it is keyed to core.AssetIdHub, not this model.
-    inlines = []
-    list_per_page = 5
-
-
-@admin.register(AssetMetrics)
-class AssetMetricsAdmin(admin.ModelAdmin):
-    list_display = (
-        "asset_hub",
-        "purchase_date",
-        "time_held_days_display",
-        "created_at",
-        "updated_at",
-    )
-    list_select_related = ("asset_hub",)
-    search_fields = (
-        # Traverse hub -> boarded record for human fields
-        "asset_hub__am_boarded__sellertape_id",
-        "asset_hub__am_boarded__street_address",
-        "asset_hub__am_boarded__city",
-        "asset_hub__am_boarded__state",
-    )
-    ordering = ("-created_at",)
-    list_per_page = 5
-
-    def time_held_days_display(self, obj: AssetMetrics) -> int:
-        return obj.time_held_days
-
-    time_held_days_display.short_description = "Days Held"
+# @admin.register(AssetMetrics)
+# class AssetMetricsAdmin(admin.ModelAdmin):
+#     """DEPRECATED - Use AMMetrics instead."""
+#     list_display = ("asset_hub", "purchase_date", "time_held_days_display", "created_at", "updated_at")
+#     list_select_related = ("asset_hub",)
+#     search_fields = (
+#         "asset_hub__am_boarded__sellertape_id",
+#         "asset_hub__am_boarded__street_address",
+#         "asset_hub__am_boarded__city",
+#         "asset_hub__am_boarded__state",
+#     )
+#     ordering = ("-created_at",)
+#     list_per_page = 5
+#     def time_held_days_display(self, obj):
+#         return obj.time_held_days
+#     time_held_days_display.short_description = "Days Held"
 
 
 @admin.register(BlendedOutcomeModel)
@@ -260,18 +225,16 @@ class AMMetricsAdmin(admin.ModelAdmin):
     list_per_page = 5
 
 
-@admin.register(AMMetricsChange)
-class AMMetricsChangeAdmin(admin.ModelAdmin):
-    list_display = ('id', 'record', 'asset_hub', 'field_name', 'changed_at', 'changed_by')
-    list_filter = ('field_name', 'changed_at')
-    search_fields = (
-        'asset_hub__am_boarded__sellertape_id',
-        'field_name',
-    )
-    ordering = ('-changed_at',)
-    list_select_related = ('record', 'asset_hub', 'changed_by')
-    readonly_fields = ('changed_at',)
-    list_per_page = 5
+# @admin.register(AMMetricsChange)
+# class AMMetricsChangeAdmin(admin.ModelAdmin):
+#     """DEPRECATED - Use AuditLog for generic audit logging instead."""
+#     list_display = ('id', 'record', 'asset_hub', 'field_name', 'changed_at', 'changed_by')
+#     list_filter = ('field_name', 'changed_at')
+#     search_fields = ('asset_hub__am_boarded__sellertape_id', 'field_name')
+#     ordering = ('-changed_at',)
+#     list_select_related = ('record', 'asset_hub', 'changed_by')
+#     readonly_fields = ('changed_at',)
+#     list_per_page = 5
 
 
 @admin.register(AMNote)

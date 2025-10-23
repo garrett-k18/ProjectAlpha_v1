@@ -29,6 +29,8 @@ QUICK_FILTER_FIELDS = (
     "zip",
     "seller__name",  # WHAT: Map friendly seller_name search to SellerRawData->Seller join
     "trade__trade_name",  # WHAT: Surfaced trade name via ForeignKey per Django join docs
+    "sellertape_id",
+    "asset_hub__asset_status",
 )
 
 # WHAT: Set of Valuation.source strings used by asset inventory

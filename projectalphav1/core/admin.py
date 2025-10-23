@@ -39,7 +39,9 @@ from core.models import (
 
 # Cross-app children that reference AssetIdHub
 from acq_module.models.seller import SellerRawData
-from am_module.models.boarded_data import SellerBoardedData, BlendedOutcomeModel
+# DEPRECATED: SellerBoardedData - use SellerRawData instead
+# from am_module.models.boarded_data import SellerBoardedData, BlendedOutcomeModel
+from am_module.models.boarded_data import BlendedOutcomeModel
 from am_module.models.servicers import ServicerLoanData
 
 @admin.register(DebtFacility)
@@ -485,7 +487,7 @@ def delete_hub_and_children(modeladmin, request, queryset):
     1) Photo, Document
     2) Valuation
     3) SellerRawData (acq)
-    4) BlendedOutcomeModel, ServicerLoanData, SellerBoardedData (AM)
+    4) BlendedOutcomeModel, ServicerLoanData (AM)
     5) Hub
     """
     deleted_hubs = 0
@@ -503,7 +505,7 @@ def delete_hub_and_children(modeladmin, request, queryset):
         # AM side
         BlendedOutcomeModel.objects.filter(asset_hub=hub).delete()
         ServicerLoanData.objects.filter(asset_hub=hub).delete()
-        SellerBoardedData.objects.filter(asset_hub=hub).delete()
+        # SellerBoardedData.objects.filter(asset_hub=hub).delete()  # DEPRECATED - no longer used
 
         # Finally, delete the hub itself
         AssetIdHub.objects.filter(pk=hub.pk).delete()
@@ -521,7 +523,7 @@ class AssetIdHubAdmin(admin.ModelAdmin):
     list_display = (
         'id', 'servicer_id', 'is_commercial', 'servicer_refs',
         # PK columns showing actual IDs of related records
-        'seller_raw_data_id', 'seller_boarded_data_id', 'blended_outcome_model_id', 
+        'seller_raw_data_id', 'blended_outcome_model_id',  # seller_boarded_data_id removed (deprecated)
         'servicer_loan_data_id', 'valuation_id', 'photo_id', 'document_id',
         'created_at',
     )
@@ -545,7 +547,7 @@ class AssetIdHubAdmin(admin.ModelAdmin):
         qs = super().get_queryset(request)
         return qs.select_related(
             'acq_raw',  # SellerRawData reverse relation
-            'am_boarded',  # SellerBoardedData reverse relation
+            # 'am_boarded',  # SellerBoardedData reverse relation - DEPRECATED
             'blended_outcome_model',  # BlendedOutcomeModel reverse relation
         )
 
@@ -580,12 +582,12 @@ class AssetIdHubAdmin(admin.ModelAdmin):
         """Display SellerRawData PK if exists"""
         return obj.acq_raw.pk if hasattr(obj, 'acq_raw') else '—'
     seller_raw_data_id.short_description = 'SellerRawData'
-    
-    def seller_boarded_data_id(self, obj: AssetIdHub):
-        """Display SellerBoardedData PK if exists"""
-        return obj.am_boarded.pk if hasattr(obj, 'am_boarded') else '—'
-    seller_boarded_data_id.short_description = 'SellerBoardedData'
-    
+
+    # def seller_boarded_data_id(self, obj: AssetIdHub):
+    #     """DEPRECATED - SellerBoardedData no longer used"""
+    #     return obj.am_boarded.pk if hasattr(obj, 'am_boarded') else '—'
+    # seller_boarded_data_id.short_description = 'SellerBoardedData'
+
     def blended_outcome_model_id(self, obj: AssetIdHub):
         """Display BlendedOutcomeModel PK if exists (PK = asset_hub_id)"""
         return obj.blended_outcome_model.pk if hasattr(obj, 'blended_outcome_model') else '—'
