@@ -57,13 +57,13 @@ const rowActive = computed(() => props.row)
 
 function formatCurrency(v: any): string {
   const num = typeof v === 'number' ? v : parseFloat(String(v))
-  if (Number.isNaN(num)) return 'N/A'
+  if (Number.isNaN(num)) return '' // WHAT: Provide empty display string when value missing so UI renders blank instead of placeholder text
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(num)
 }
 function formatPercent(v: any): string {
   const num = typeof v === 'number' ? v : parseFloat(String(v))
-  if (Number.isNaN(num)) return 'N/A'
+  if (Number.isNaN(num)) return '' // WHAT: Mirror currency formatter behavior for percent fields to keep servicing tab blank when data absent
   return `${(num * 100).toFixed(2)}%`
 }
-function formatDate(v: any): string { return v ? new Date(v).toLocaleDateString('en-US') : 'N/A' }
+function formatDate(v: any): string { return v ? new Date(v).toLocaleDateString('en-US') : '' }
 </script>

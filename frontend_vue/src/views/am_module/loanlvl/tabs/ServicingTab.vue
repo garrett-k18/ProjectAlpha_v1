@@ -79,5 +79,5 @@ watch(
   { immediate: true }
 )
 
-function formatDate(v:any): string { return v ? new Date(v).toLocaleDateString('en-US') : 'N/A' }
+function formatDate(v:any): string { return v ? new Date(v).toLocaleDateString('en-US') : '' }
 </script>

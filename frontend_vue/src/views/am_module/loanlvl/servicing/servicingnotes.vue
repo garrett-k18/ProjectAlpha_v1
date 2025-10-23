@@ -8,7 +8,7 @@
       <div v-else class="row g-3">
         <div class="col-12">
           <small class="text-muted d-block">Last Note</small>
-          <div class="fw-semibold text-dark">{{ rowActive.last_note || 'N/A' }}</div>
+          <div class="fw-semibold text-dark">{{ rowActive.last_note || '' }}</div>
         </div>
         <div class="col-md-6">
           <small class="text-muted d-block">Last Note Date</small>
@@ -23,6 +23,6 @@ import { computed } from 'vue'
 import type { PropType } from 'vue'
 const props = defineProps({ row: { type: Object as PropType<Record<string, any> | null>, default: null } })
 const rowActive = computed(() => props.row)
-/* Always show labels; fallback to N/A via formatters */
-function formatDate(v:any): string { return v? new Date(v).toLocaleDateString('en-US'):'N/A' }
+/* Always show labels; fallback to blank strings so servicing tab omits placeholder text */
+function formatDate(v:any): string { return v ? new Date(v).toLocaleDateString('en-US') : '' }
 </script>

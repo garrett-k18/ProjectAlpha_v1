@@ -31,5 +31,9 @@ import { computed } from 'vue'
 import type { PropType } from 'vue'
 const props = defineProps({ row: { type: Object as PropType<Record<string, any> | null>, default: null } })
 const rowActive = computed(() => props.row)
-function formatCurrency(v: any): string { const n = typeof v==='number'?v:parseFloat(String(v)); return Number.isNaN(n)?'N/A':new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(n) }
+function formatCurrency(v: any): string {
+  const n = typeof v === 'number' ? v : parseFloat(String(v))
+  if (Number.isNaN(n)) return '' // WHAT: Avoid showing "N/A" placeholders per AM servicing UX, leave cell blank when value missing
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
+}
 </script>

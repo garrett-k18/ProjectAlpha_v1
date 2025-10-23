@@ -8,11 +8,11 @@
       <div v-else class="row g-3">
         <div class="col-md-6">
           <small class="text-muted d-block">Borrower Name</small>
-          <span class="fw-semibold text-dark">{{ [rowActive.borrower_first_name, rowActive.borrower_last_name].filter(Boolean).join(' ') || 'N/A' }}</span>
+          <span class="fw-semibold text-dark">{{ [rowActive.borrower_first_name, rowActive.borrower_last_name].filter(Boolean).join(' ') || '' }}</span>
         </div>
         <div class="col-md-6">
           <small class="text-muted d-block">Home Phone</small>
-          <span class="fw-semibold text-dark">{{ rowActive.borrower_home_phone || 'N/A' }}</span>
+          <span class="fw-semibold text-dark">{{ rowActive.borrower_home_phone || '' }}</span>
         </div>
         <div class="col-md-6">
           <small class="text-muted d-block">Current FICO</small>
@@ -40,6 +40,12 @@ import type { PropType } from 'vue'
 const props = defineProps({ row: { type: Object as PropType<Record<string, any> | null>, default: null } })
 const rowActive = computed(() => props.row)
 
-function formatDate(v:any): string { return v ? new Date(v).toLocaleDateString('en-US') : 'N/A' }
-function formatNumber(v:any): string { const n = typeof v==='number'? v : parseFloat(String(v)); return Number.isNaN(n)? 'N/A' : new Intl.NumberFormat('en-US').format(n) }
+function formatDate(v:any): string {
+  return v ? new Date(v).toLocaleDateString('en-US') : '' // WHAT: Display blank when date missing so servicing tab omits "N/A" placeholder text
+}
+function formatNumber(v:any): string {
+  const n = typeof v === 'number' ? v : parseFloat(String(v))
+  if (Number.isNaN(n)) return '' // WHAT: Return empty string for absent numeric data to satisfy AM servicing UX request
+  return new Intl.NumberFormat('en-US').format(n)
+}
 </script>

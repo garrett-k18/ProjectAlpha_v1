@@ -35,7 +35,15 @@ import { computed } from 'vue'
 import type { PropType } from 'vue'
 const props = defineProps({ row: { type: Object as PropType<Record<string, any> | null>, default: null } })
 const rowActive = computed(() => props.row)
-function formatCurrency(v: any): string { const n = typeof v==='number'?v:parseFloat(String(v)); return Number.isNaN(n)?'N/A':new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(n) }
-function formatPercent(v: any): string { const n = typeof v==='number'?v:parseFloat(String(v)); return Number.isNaN(n)?'N/A':`${(n*100).toFixed(2)}%` }
-function formatDate(v:any): string { return v? new Date(v).toLocaleDateString('en-US'):'N/A' }
+function formatCurrency(v: any): string {
+  const n = typeof v === 'number' ? v : parseFloat(String(v))
+  if (Number.isNaN(n)) return '' // WHAT: Keep servicing tab cells blank when numeric data missing per AM UX guidance
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
+}
+function formatPercent(v: any): string {
+  const n = typeof v === 'number' ? v : parseFloat(String(v))
+  if (Number.isNaN(n)) return '' // WHAT: Match currency formatter behavior so empty rates render as blank
+  return `${(n * 100).toFixed(2)}%`
+}
+function formatDate(v:any): string { return v ? new Date(v).toLocaleDateString('en-US') : '' }
 </script>
