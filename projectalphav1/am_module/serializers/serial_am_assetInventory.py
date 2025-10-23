@@ -32,14 +32,34 @@ class AssetInventoryRowSerializer(serializers.Serializer):
     """
 
     # ========== Identity Fields ==========
-    id = serializers.IntegerField(
-        read_only=True,
+    # CRITICAL: SellerRawData uses asset_hub as primary key (OneToOneField with primary_key=True)
+    # so obj.id and obj.asset_hub_id don't exist. Must use obj.pk or SerializerMethodField.
+    id = serializers.SerializerMethodField(
         help_text='Asset Hub ID (SellerRawData.pk)'
     )
-    asset_hub_id = serializers.IntegerField(
-        read_only=True,
+    asset_hub_id = serializers.SerializerMethodField(
         help_text='Asset Hub ID (same as id, exposed explicitly for frontend validation)'
     )
+
+    def get_id(self, obj):
+        """
+        Return the primary key value.
+        
+        WHAT: Access SellerRawData primary key
+        WHY: Model uses asset_hub as PK (not standard 'id' field)
+        HOW: Use obj.pk which works regardless of PK field name
+        """
+        return obj.pk
+
+    def get_asset_hub_id(self, obj):
+        """
+        Return the asset hub ID for frontend validation.
+        
+        WHAT: Provide asset hub ID explicitly
+        WHY: Frontend expects this field name for consistency
+        HOW: Same as get_id since asset_hub IS the primary key
+        """
+        return obj.pk
     asset_id = serializers.CharField(
         source='_computed_asset_id',
         read_only=True,
