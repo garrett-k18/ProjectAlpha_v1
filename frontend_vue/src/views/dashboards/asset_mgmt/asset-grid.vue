@@ -388,17 +388,14 @@ const modalAddrText = computed<string>(() => {
   return rawAddr.replace(/,?\s*\d{5}(?:-\d{4})?$/, '')
 })
 
-// WHAT: Helper to extract the primary identifier used throughout the modal and full-page navigation
-// WHY: Servicer IDs are the operational lookup key for AM; fall back to hub IDs strictly for legacy/empty cases
-// HOW: Prefer serializer-provided servicer_id, then hub's servicer id, then hub pk/id
-function getPrimaryIdFromRow(row: any): string | number | null {
+// WHAT: Helper to extract the canonical asset hub identifier for API navigation
+// WHY: Modal components and backend routes expect the hub primary key, not the external servicer identifier
+// HOW: Prefer serializer field `asset_hub_id`, then nested hub pk/id, and finally legacy `id` fallbacks
+function getAssetHubIdFromRow(row: any): string | number | null {
   const candidates = [
-    row?.servicer_id,
-    row?.servicerId,
-    row?.asset_hub?.servicer_id,
-    row?.asset_hub?.servicerId,
     row?.asset_hub_id,
-    row?.asset_id,
+    row?.asset_hub?.id,
+    row?.asset_hub?.pk,
     row?.id,
   ]
   for (const c of candidates) {
@@ -419,7 +416,7 @@ function buildAddress(row: any): string {
 function onRowAction(action: string, row: any): void {
   // Normalize action; only 'view' opens modal currently
   if (action === 'view') {
-    selectedId.value = getPrimaryIdFromRow(row)
+    selectedId.value = getAssetHubIdFromRow(row)
     selectedRow.value = row
     selectedAddr.value = buildAddress(row)
     showAssetModal.value = true
