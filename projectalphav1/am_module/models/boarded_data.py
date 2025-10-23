@@ -11,201 +11,207 @@ from django.utils import timezone
 from acq_module.models.seller import SellerRawData
 import re
 
-# DEPRECATION NOTICE:
-# - This model is deprecated and will be removed in the next overhaul.
-# - Canonical source of truth for acquisition fields is `acq_module.models.seller.SellerRawData`.
-# - During the transition, prefer a thin AM metadata table and/or DB view composed with
-#   `SellerRawData` instead of duplicating fields here.
-# Docs reviewed: Django project structure and unmanaged models (views):
-#   https://docs.djangoproject.com/en/stable/topics/db/models/
+# ============================================================
+# PHASE 2: MODEL REMOVED
+# SellerBoardedData model class commented out to generate deletion migration.
+# REPLACEMENT: Use SellerRawData (acq_module.models.seller) with acq_status=BOARD
+# ============================================================
 
-class SellerBoardedData(models.Model): #deprecated delete in PRod
-    """
-    WHAT: Model for boarded seller data transferred from acq_module
-    WHY: Contains all data points from SellerRawData plus trade name, trade_id, seller name
-    HOW: Uses asset_hub as primary key for 1:1 relationship with AssetIdHub
-
-    Architecture:
-    - Uses asset_hub as primary key (no separate id field)
-    - This ensures SellerBoardedData.pk == AssetIdHub.pk
-    - Eliminates ID mapping confusion between tables
-
-    DEPRECATION:
-    - WHAT: This model is now deprecated in favor of `acq_module.models.seller.SellerRawData`
-    - WHY: Asset Management now consumes `SellerRawData` rows flagged with Trade.Status.BOARD
-    - HOW: Serializers/queries should migrate to `SellerRawData` and treat this model as read-only legacy storage.
-    """
-    
-    # WHAT: Hub-owned primary key - strict 1:1 with core.AssetIdHub
-    # WHY: Aligns with hub-first architecture so this model's PK equals the hub ID
-    # HOW: OneToOneField with primary_key=True (same pattern as BlendedOutcomeModel)
-    asset_hub = models.OneToOneField(
-        'core.AssetIdHub',
-        on_delete=models.PROTECT,
-        primary_key=True,
-        related_name='am_boarded',
-        help_text='1:1 with hub; this model\'s PK equals the hub ID.',
-    )
-    
-    # Original seller and trade references (using ID values for future-proofing)
-    acq_seller_id = models.IntegerField(help_text="ID reference to the original Seller model in acq_module", null=True)
-    acq_trade_id = models.IntegerField(help_text="ID reference to the original Trade model in acq_module", null=True)
-    
-    # String representations for display and reporting
-    seller_name = models.CharField(max_length=100, null=True, blank=True)
-    trade_name = models.CharField(max_length=100, null=True, blank=True)
-    
-    # Asset data fields from SellerRawData
-    sellertape_id = models.CharField(max_length=64, null=True, blank=True)
-    sellertape_altid = models.CharField(max_length=64, null=True, blank=True)
-    asset_status = models.CharField(
-        max_length=100,
-        choices=SellerRawData.AssetStatus.choices,
-        null=True,
-        blank=True,
-    )
-    
-    # Property information
-    street_address = models.CharField(max_length=100, null=True, blank=True)
-    city = models.CharField(max_length=100, null=True, blank=True)
-    state = models.CharField(max_length=100, null=True, blank=True)
-    zip = models.CharField(max_length=100, null=True, blank=True)
-    class PropertyType(models.TextChoices):
-        """Mirror acquisition property types so boarded data stays in sync.
-
-        Using TextChoices ensures Django validation + form rendering constrain values
-        without relying on free-form strings. Aligns with SellerRawData.PROPERTY_TYPE_CHOICES.
-        Docs: https://docs.djangoproject.com/en/stable/ref/models/fields/#enumeration-types
-        """
-
-        SFR = 'SFR', 'SFR'
-        MANUFACTURED = 'Manufactured', 'Manufactured'
-        CONDO = 'Condo', 'Condo'
-        TWO_TO_FOUR_FAMILY = '2-4 Family', '2-4 Family'
-        LAND = 'Land', 'Land'
-        MULTIFAMILY = 'Multifamily 5+', 'Multifamily 5+'
-        HEALTHCARE = 'Healthcare', 'Healthcare'
-
-    property_type = models.CharField(
-        max_length=100,
-        choices=PropertyType.choices,
-        default=PropertyType.SFR,
-        null=True,
-        blank=True,
-        help_text='Categorized property type synced with acquisition import definitions.',
-    )
-    occupancy = models.CharField(
-        max_length=100,
-        choices=SellerRawData.Occupancy.choices,
-        default=SellerRawData.Occupancy.UNKNOWN,
-        null=True,
-        blank=True,
-    )
-    year_built = models.IntegerField(null=True, blank=True)
-    sq_ft = models.IntegerField(null=True, blank=True)
-    lot_size = models.IntegerField(null=True, blank=True)
-    beds = models.IntegerField(null=True, blank=True)
-    baths = models.IntegerField(null=True, blank=True)
-    
-    # Loan balance information
-    current_balance = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    deferred_balance = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    interest_rate = models.DecimalField(max_digits=6, decimal_places=4, null=True, blank=True)
-    next_due_date = models.DateField(null=True, blank=True)
-    last_paid_date = models.DateField(null=True, blank=True)
-    
-    # Loan origination information
-    first_pay_date = models.DateField(null=True, blank=True)
-    origination_date = models.DateField(null=True, blank=True)
-    original_balance = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    original_term = models.IntegerField(null=True, blank=True)
-    original_rate = models.DecimalField(max_digits=6, decimal_places=4, null=True, blank=True)
-    original_maturity_date = models.DateField(null=True, blank=True)
-    
-    # Additional loan information
-    default_rate = models.DecimalField(max_digits=6, decimal_places=4, null=True, blank=True)
-    months_dlq = models.IntegerField(null=True, blank=True)
-    current_maturity_date = models.DateField(null=True, blank=True)
-    current_term = models.IntegerField(null=True, blank=True)
-    
-    # Balances and fees
-    accrued_note_interest = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    accrued_default_interest = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    escrow_balance = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    escrow_advance = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    recoverable_corp_advance = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    late_fees = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    other_fees = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    suspense_balance = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    total_debt = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-
-    # Valuation information
-    origination_value = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    origination_arv = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    origination_value_date = models.DateField(null=True, blank=True)
-    
-    seller_value_date = models.DateField(null=True, blank=True)
-    seller_arv_value = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    seller_asis_value = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    
-    additional_asis_value = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    additional_arv_value = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    additional_value_date = models.DateField(null=True, blank=True)
-
-    # Foreclosure information
-    fc_flag = models.BooleanField(null=True, blank=True, default=None)
-    fc_first_legal_date = models.DateField(null=True, blank=True)
-    fc_referred_date = models.DateField(null=True, blank=True)
-    fc_judgement_date = models.DateField(null=True, blank=True)
-    fc_scheduled_sale_date = models.DateField(null=True, blank=True)
-    fc_sale_date = models.DateField(null=True, blank=True)
-    fc_starting = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-
-    # Bankruptcy information
-    bk_flag = models.BooleanField(null=True, blank=True, default=None)
-    bk_chapter = models.CharField(max_length=10, null=True, blank=True)
-    
-    # Modification information
-    mod_flag = models.BooleanField(null=True, blank=True, default=None)
-    mod_date = models.DateField(null=True, blank=True)
-    mod_maturity_date = models.DateField(null=True, blank=True)
-    mod_term = models.IntegerField(null=True, blank=True)
-    mod_rate = models.DecimalField(max_digits=6, decimal_places=4, null=True, blank=True)
-    mod_initial_balance = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)    
-
-    # Boarding information
-    boarded_at = models.DateTimeField(auto_now_add=True, help_text="When this record was boarded into the AM module")
-    boarded_by = models.CharField(max_length=100, null=True, blank=True, help_text="User who initiated the boarding process")
-    
-    # Standard timestamps
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
-    class Meta:
-        verbose_name = "Boarded Seller Data"
-        verbose_name_plural = "Boarded Seller Data"
-        indexes = [
-            models.Index(fields=['asset_hub']),  # Primary key index (now asset_hub)
-            models.Index(fields=['asset_status']),
-            models.Index(fields=['acq_seller_id']),
-            models.Index(fields=['acq_trade_id']),
-            models.Index(fields=['state']),
-            models.Index(fields=['sellertape_id']),
-        ]
-        ordering = ['-boarded_at']  
-    
-    def save(self, *args, **kwargs):
-        """Override save method without mutating any boarded fields.
-
-        Behavior:
-        - Do not normalize or transform any values. Data is assumed to be
-          pre-cleaned by the acquisition module before boarding.
-        - Persist exactly as provided.
-        """
-        super().save(*args, **kwargs)
-    
-    def __str__(self):
-        return f"Boarded Data {self.pk} - {self.seller_name} - {self.trade_name}"
+# # DEPRECATION NOTICE:
+# # - This model is deprecated and will be removed in the next overhaul.
+# # - Canonical source of truth for acquisition fields is `acq_module.models.seller.SellerRawData`.
+# # - During the transition, prefer a thin AM metadata table and/or DB view composed with
+# #   `SellerRawData` instead of duplicating fields here.
+# # Docs reviewed: Django project structure and unmanaged models (views):
+# #   https://docs.djangoproject.com/en/stable/topics/db/models/
+#
+# class SellerBoardedData(models.Model): #deprecated delete in PRod
+#     """
+#     WHAT: Model for boarded seller data transferred from acq_module
+#     WHY: Contains all data points from SellerRawData plus trade name, trade_id, seller name
+#     HOW: Uses asset_hub as primary key for 1:1 relationship with AssetIdHub
+#
+#     Architecture:
+#     - Uses asset_hub as primary key (no separate id field)
+#     - This ensures SellerBoardedData.pk == AssetIdHub.pk
+#     - Eliminates ID mapping confusion between tables
+#
+#     DEPRECATION:
+#     - WHAT: This model is now deprecated in favor of `acq_module.models.seller.SellerRawData`
+#     - WHY: Asset Management now consumes `SellerRawData` rows flagged with Trade.Status.BOARD
+#     - HOW: Serializers/queries should migrate to `SellerRawData` and treat this model as read-only legacy storage.
+#     """
+#
+#     # WHAT: Hub-owned primary key - strict 1:1 with core.AssetIdHub
+#     # WHY: Aligns with hub-first architecture so this model's PK equals the hub ID
+#     # HOW: OneToOneField with primary_key=True (same pattern as BlendedOutcomeModel)
+#     asset_hub = models.OneToOneField(
+#         'core.AssetIdHub',
+#         on_delete=models.PROTECT,
+#         primary_key=True,
+#         related_name='am_boarded',
+#         help_text='1:1 with hub; this model\'s PK equals the hub ID.',
+#     )
+#
+#     # Original seller and trade references (using ID values for future-proofing)
+#     acq_seller_id = models.IntegerField(help_text="ID reference to the original Seller model in acq_module", null=True)
+#     acq_trade_id = models.IntegerField(help_text="ID reference to the original Trade model in acq_module", null=True)
+#
+#     # String representations for display and reporting
+#     seller_name = models.CharField(max_length=100, null=True, blank=True)
+#     trade_name = models.CharField(max_length=100, null=True, blank=True)
+#
+#     # Asset data fields from SellerRawData
+#     sellertape_id = models.CharField(max_length=64, null=True, blank=True)
+#     sellertape_altid = models.CharField(max_length=64, null=True, blank=True)
+#     asset_status = models.CharField(
+#         max_length=100,
+#         choices=SellerRawData.AssetStatus.choices,
+#         null=True,
+#         blank=True,
+#     )
+#
+#     # Property information
+#     street_address = models.CharField(max_length=100, null=True, blank=True)
+#     city = models.CharField(max_length=100, null=True, blank=True)
+#     state = models.CharField(max_length=100, null=True, blank=True)
+#     zip = models.CharField(max_length=100, null=True, blank=True)
+#     class PropertyType(models.TextChoices):
+#         """Mirror acquisition property types so boarded data stays in sync.
+#
+#         Using TextChoices ensures Django validation + form rendering constrain values
+#         without relying on free-form strings. Aligns with SellerRawData.PROPERTY_TYPE_CHOICES.
+#         Docs: https://docs.djangoproject.com/en/stable/ref/models/fields/#enumeration-types
+#         """
+#
+#         SFR = 'SFR', 'SFR'
+#         MANUFACTURED = 'Manufactured', 'Manufactured'
+#         CONDO = 'Condo', 'Condo'
+#         TWO_TO_FOUR_FAMILY = '2-4 Family', '2-4 Family'
+#         LAND = 'Land', 'Land'
+#         MULTIFAMILY = 'Multifamily 5+', 'Multifamily 5+'
+#         HEALTHCARE = 'Healthcare', 'Healthcare'
+#
+#     property_type = models.CharField(
+#         max_length=100,
+#         choices=PropertyType.choices,
+#         default=PropertyType.SFR,
+#         null=True,
+#         blank=True,
+#         help_text='Categorized property type synced with acquisition import definitions.',
+#     )
+#     occupancy = models.CharField(
+#         max_length=100,
+#         choices=SellerRawData.Occupancy.choices,
+#         default=SellerRawData.Occupancy.UNKNOWN,
+#         null=True,
+#         blank=True,
+#     )
+#     year_built = models.IntegerField(null=True, blank=True)
+#     sq_ft = models.IntegerField(null=True, blank=True)
+#     lot_size = models.IntegerField(null=True, blank=True)
+#     beds = models.IntegerField(null=True, blank=True)
+#     baths = models.IntegerField(null=True, blank=True)
+#
+#     # Loan balance information
+#     current_balance = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+#     deferred_balance = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+#     interest_rate = models.DecimalField(max_digits=6, decimal_places=4, null=True, blank=True)
+#     next_due_date = models.DateField(null=True, blank=True)
+#     last_paid_date = models.DateField(null=True, blank=True)
+#
+#     # Loan origination information
+#     first_pay_date = models.DateField(null=True, blank=True)
+#     origination_date = models.DateField(null=True, blank=True)
+#     original_balance = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+#     original_term = models.IntegerField(null=True, blank=True)
+#     original_rate = models.DecimalField(max_digits=6, decimal_places=4, null=True, blank=True)
+#     original_maturity_date = models.DateField(null=True, blank=True)
+#
+#     # Additional loan information
+#     default_rate = models.DecimalField(max_digits=6, decimal_places=4, null=True, blank=True)
+#     months_dlq = models.IntegerField(null=True, blank=True)
+#     current_maturity_date = models.DateField(null=True, blank=True)
+#     current_term = models.IntegerField(null=True, blank=True)
+#
+#     # Balances and fees
+#     accrued_note_interest = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+#     accrued_default_interest = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+#     escrow_balance = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+#     escrow_advance = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+#     recoverable_corp_advance = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+#     late_fees = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+#     other_fees = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+#     suspense_balance = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+#     total_debt = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+#
+#     # Valuation information
+#     origination_value = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+#     origination_arv = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+#     origination_value_date = models.DateField(null=True, blank=True)
+#
+#     seller_value_date = models.DateField(null=True, blank=True)
+#     seller_arv_value = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+#     seller_asis_value = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+#
+#     additional_asis_value = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+#     additional_arv_value = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+#     additional_value_date = models.DateField(null=True, blank=True)
+#
+#     # Foreclosure information
+#     fc_flag = models.BooleanField(null=True, blank=True, default=None)
+#     fc_first_legal_date = models.DateField(null=True, blank=True)
+#     fc_referred_date = models.DateField(null=True, blank=True)
+#     fc_judgement_date = models.DateField(null=True, blank=True)
+#     fc_scheduled_sale_date = models.DateField(null=True, blank=True)
+#     fc_sale_date = models.DateField(null=True, blank=True)
+#     fc_starting = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+#
+#     # Bankruptcy information
+#     bk_flag = models.BooleanField(null=True, blank=True, default=None)
+#     bk_chapter = models.CharField(max_length=10, null=True, blank=True)
+#
+#     # Modification information
+#     mod_flag = models.BooleanField(null=True, blank=True, default=None)
+#     mod_date = models.DateField(null=True, blank=True)
+#     mod_maturity_date = models.DateField(null=True, blank=True)
+#     mod_term = models.IntegerField(null=True, blank=True)
+#     mod_rate = models.DecimalField(max_digits=6, decimal_places=4, null=True, blank=True)
+#     mod_initial_balance = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)    
+#
+#     # Boarding information
+#     boarded_at = models.DateTimeField(auto_now_add=True, help_text="When this record was boarded into the AM module")
+#     boarded_by = models.CharField(max_length=100, null=True, blank=True, help_text="User who initiated the boarding process")
+#
+#     # Standard timestamps
+#     created_at = models.DateTimeField(auto_now_add=True)
+#     updated_at = models.DateTimeField(auto_now=True)
+#
+#     class Meta:
+#         verbose_name = "Boarded Seller Data"
+#         verbose_name_plural = "Boarded Seller Data"
+#         indexes = [
+#             models.Index(fields=['asset_hub']),  # Primary key index (now asset_hub)
+#             models.Index(fields=['asset_status']),
+#             models.Index(fields=['acq_seller_id']),
+#             models.Index(fields=['acq_trade_id']),
+#             models.Index(fields=['state']),
+#             models.Index(fields=['sellertape_id']),
+#         ]
+#         ordering = ['-boarded_at']  
+#
+#     def save(self, *args, **kwargs):
+#         """Override save method without mutating any boarded fields.
+#
+#         Behavior:
+#         - Do not normalize or transform any values. Data is assumed to be
+#           pre-cleaned by the acquisition module before boarding.
+#         - Persist exactly as provided.
+#         """
+#         super().save(*args, **kwargs)
+#
+#     def __str__(self):
+#         return f"Boarded Data {self.pk} - {self.seller_name} - {self.trade_name}"
 
 
 # -----------------------------------------------------------------------------------
