@@ -12,7 +12,7 @@
       >
         <h5 class="mb-0 d-flex align-items-center">
           <i class="fas fa-handshake me-2 text-primary"></i>
-          <span class="badge rounded-pill text-bg-primary size_med">Deed-in-Lieu</span>
+          <UiBadge tone="primary" size="sm">Deed-in-Lieu</UiBadge>
         </h5>
         <div class="d-flex align-items-center gap-2">
           <div class="position-relative" ref="menuRef">

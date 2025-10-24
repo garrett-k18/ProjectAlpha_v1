@@ -5,7 +5,7 @@
       <div class="d-flex align-items-center justify-content-between">
         <h5 class="mb-0 d-flex align-items-center">
           <i class="fas fa-pen-alt me-2 text-secondary"></i>
-          <span class="badge rounded-pill text-bg-secondary size_med">Modification</span>
+          <UiBadge tone="secondary" size="sm">Modification</UiBadge>
         </h5>
         <div class="d-flex align-items-center gap-2">
           <div class="position-relative" ref="menuRef">
@@ -58,7 +58,7 @@
                 @click="onSelectPill(opt.value)"
                 :title="existingTypes.has(opt.value) ? 'Already added' : 'Add ' + opt.label"
               >
-                <span :class="badgeClass(opt.value)" class="me-0">{{ opt.label }}</span>
+                <UiBadge :tone="badgeClass(opt.value)" size="sm" class="me-0">{{ opt.label }}</UiBadge>
               </button>
             </div>
           </div>
@@ -81,7 +81,7 @@
         >
           <div class="d-flex align-items-center justify-content-between" role="button" @click="toggleExpand(t.id)">
             <div class="d-flex align-items-center ps-2">
-              <span :class="badgeClass(t.task_type)" class="me-2">{{ labelFor(t.task_type) }}</span>
+              <UiBadge :tone="badgeClass(t.task_type)" size="sm" class="me-2">{{ labelFor(t.task_type) }}</UiBadge>
             </div>
             <div class="d-flex align-items-center small text-muted">
               <span class="me-3">

@@ -12,7 +12,7 @@
       >
         <h5 class="mb-0 d-flex align-items-center">
           <i class="fas fa-gavel me-2 text-danger"></i>
-          <span class="badge rounded-pill text-bg-danger size_med">Foreclosure</span>
+          <UiBadge tone="danger" size="sm">Foreclosure</UiBadge>
         </h5>
         <div class="d-flex align-items-center gap-2">
           <div class="position-relative" ref="menuRef">
@@ -69,7 +69,7 @@
                 @click="onSelectPill(opt.value)"
                 :title="existingTypes.has(opt.value) ? 'Already added' : 'Add ' + opt.label"
               >
-                <span :class="badgeClass(opt.value)" class="me-0">{{ opt.label }}</span>
+                <UiBadge :tone="badgeClass(opt.value)" size="sm">{{ opt.label }}</UiBadge>
               </button>
             </div>
           </div>
@@ -95,7 +95,7 @@
         >
           <div class="d-flex align-items-center justify-content-between" role="button" @click="toggleExpand(t.id)">
             <div class="d-flex align-items-center">
-              <span :class="badgeClass(t.task_type)" class="me-2">{{ labelFor(t.task_type) }}</span>
+              <UiBadge :tone="badgeClass(t.task_type)" size="sm" class="me-2">{{ labelFor(t.task_type) }}</UiBadge>
             </div>
             <div class="d-flex align-items-center small text-muted gap-2">
               <span class="me-2">
@@ -197,6 +197,7 @@
 import { withDefaults, defineProps, ref, computed, onMounted, onBeforeUnmount, defineEmits } from 'vue'
 import { useAmOutcomesStore, type FcTask, type FcTaskType, type FcSale } from '@/stores/outcomes'
 import http from '@/lib/http'
+import UiBadge from '@/components/ui/UiBadge.vue'
 // Feature-local notes component (moved for AM Tasking scope)
 // Path: src/views/am_module/loanlvl/am_tasking/components/SubtaskNotes.vue
 import SubtaskNotes from '@/views/am_module/loanlvl/am_tasking/components/SubtaskNotes.vue'
@@ -298,15 +299,15 @@ async function updateTaskField(taskId: number, fieldName: string, newValue: stri
   }
 }
 
-function badgeClass(tp: FcTaskType): string {
-  const map: Record<FcTaskType, string> = {
-    nod_noi: 'badge rounded-pill size_small text-bg-warning',
-    fc_filing: 'badge rounded-pill size_small text-bg-primary',
-    mediation: 'badge rounded-pill size_small text-bg-info',
-    judgement: 'badge rounded-pill size_small text-bg-secondary',
-    redemption: 'badge rounded-pill size_small text-bg-success',
-    sale_scheduled: 'badge rounded-pill size_small text-bg-dark',
-    sold: 'badge rounded-pill size_small text-bg-success',
+function badgeClass(tp: FcTaskType): import('@/config/badgeTokens').BadgeToneKey {
+  const map: Record<FcTaskType, import('@/config/badgeTokens').BadgeToneKey> = {
+    nod_noi: 'warning',
+    fc_filing: 'primary',
+    mediation: 'info',
+    judgement: 'secondary',
+    redemption: 'success',
+    sale_scheduled: 'dark',
+    sold: 'success',
   }
   return map[tp]
 }
