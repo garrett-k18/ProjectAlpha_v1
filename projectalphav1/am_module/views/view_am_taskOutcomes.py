@@ -232,3 +232,71 @@ class REOScopeViewSet(mixins.ListModelMixin,
             return self.get_paginated_response(ser.data)
         ser = self.get_serializer(qs, many=True)
         return Response(ser.data)
+
+
+# ============================================================
+# Task Metrics Endpoint
+# ============================================================
+
+from rest_framework.views import APIView
+from am_module.services.serv_am_tasking import get_task_metrics, get_active_outcome_tracks
+
+
+class TaskMetricsView(APIView):
+    """
+    WHAT: Endpoint for task completion metrics by asset hub
+    WHY: Provide active vs completed task counts for the tasking dashboard UI
+    WHERE: Called by frontend am_ll_tasking.vue to populate KPI cards
+    HOW: Delegate to service layer (serv_am_tasking.py) for business logic
+    
+    URL: GET /api/am/outcomes/task-metrics/?asset_hub_id=<id>
+    
+    Response:
+        {
+            'active_count': int,
+            'completed_count': int,
+            'active_items': [{'key': str, 'label': str, 'tone': str}, ...],
+            'completed_items': [{'key': str, 'label': str, 'tone': str}, ...]
+        }
+    """
+    
+    permission_classes = [AllowAny]
+    authentication_classes: list[type[SessionAuthentication]] = []
+    
+    def get(self, request: Request) -> Response:
+        """
+        WHAT: Get task metrics for a specific asset hub
+        WHY: Dashboard needs counts and badge data for active/completed tasks
+        HOW: Extract hub_id from query params, call service, return metrics
+        """
+        asset_hub_id = request.query_params.get('asset_hub_id')
+        
+        if not asset_hub_id:
+            return Response(
+                {"detail": "asset_hub_id query parameter is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            asset_hub_id = int(asset_hub_id)
+        except (ValueError, TypeError):
+            return Response(
+                {"detail": "asset_hub_id must be a valid integer"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # WHAT: Call service layer to compute metrics
+        # WHY: Keep business logic in services, not views
+        # WHERE: serv_am_tasking.py
+        task_metrics = get_task_metrics(asset_hub_id)
+        track_metrics = get_active_outcome_tracks(asset_hub_id)
+        
+        # WHAT: Combine task and track metrics into single response
+        # WHY: Frontend needs both task completion and track completion data
+        # HOW: Merge dictionaries
+        response_data = {
+            **task_metrics,
+            **track_metrics,
+        }
+        
+        return Response(response_data, status=status.HTTP_200_OK)

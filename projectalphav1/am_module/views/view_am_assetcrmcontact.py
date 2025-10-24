@@ -16,8 +16,9 @@ Docs Reviewed
 - Filtering: https://www.django-rest-framework.org/api-guide/filtering/
 """
 
-from rest_framework import viewsets, filters
+from rest_framework import viewsets, filters, status
 from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
 
 from am_module.models.am_data import AssetCRMContact
 from am_module.serializers.serial_am_crm import AssetCRMContactSerializer
@@ -75,3 +76,42 @@ class AssetCRMContactViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(crm_id=crm)
         
         return queryset
+    
+    def create(self, request, *args, **kwargs):
+        """
+        WHAT: Create or update AssetCRMContact with idempotent behavior
+        WHY: Bypass DRF's unique validation to allow reassigning same contact
+        WHERE: POST /api/am/asset-crm-contacts/
+        HOW: Manually get_or_create, then serialize and return
+        """
+        asset_hub_id = request.data.get('asset_hub_id')
+        crm_id = request.data.get('crm_id')
+        role = request.data.get('role')
+        notes = request.data.get('notes', '')
+        
+        if not all([asset_hub_id, crm_id, role]):
+            return Response(
+                {'detail': 'asset_hub_id, crm_id, and role are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # WHAT: Get or create contact link (idempotent)
+        # WHY: Allow reassigning same contact without error
+        # HOW: Use get_or_create with unique fields
+        obj, created = AssetCRMContact.objects.get_or_create(
+            asset_hub_id=asset_hub_id,
+            crm_id=crm_id,
+            role=role,
+            defaults={'notes': notes}
+        )
+        
+        # Update notes if already exists
+        if not created and notes:
+            obj.notes = notes
+            obj.save()
+        
+        serializer = self.get_serializer(obj)
+        return Response(
+            serializer.data,
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK
+        )

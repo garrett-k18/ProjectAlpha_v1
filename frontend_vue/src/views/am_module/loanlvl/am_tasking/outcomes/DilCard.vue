@@ -43,61 +43,6 @@
   </template>
 
 
-    <!-- Sub Tasks (collapsible body) -->
-    <hr class="my-3" />
-
-    <!-- Legal Contact (simplified clickable field) -->
-    <div class="px-3">
-      <div class="d-flex align-items-center justify-content-between">
-        <div class="d-flex align-items-center gap-2 small text-muted">
-          <i class="fas fa-scale-balanced"></i>
-          <span>Legal</span>
-        </div>
-        <button 
-          type="button" 
-          class="btn btn-link p-0 text-decoration-none fw-medium"
-          @click="showLegalModal = true"
-          :title="'Click for contact details'"
-        >
-          {{ legal.company || 'Assign Legal Firm' }}
-        </button>
-      </div>
-    </div>
-
-    <!-- Legal Contact Modal -->
-    <div v-if="showLegalModal" class="modal d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-      <div class="modal-dialog modal-sm">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h6 class="modal-title">Legal Contact</h6>
-            <button type="button" class="btn-close" @click="showLegalModal = false"></button>
-          </div>
-          <div class="modal-body">
-            <div class="mb-2">
-              <strong>{{ legal.company || 'No firm assigned' }}</strong>
-            </div>
-            <div class="mb-2" v-if="legal.name">
-              <small class="text-muted">Contact:</small><br>
-              {{ legal.name }}
-            </div>
-            <div class="mb-2" v-if="legal.phone">
-              <small class="text-muted">Phone:</small><br>
-              <a :href="`tel:${legal.phone}`" class="text-decoration-none">{{ legal.phone }}</a>
-            </div>
-            <div class="mb-2" v-if="legal.email">
-              <small class="text-muted">Email:</small><br>
-              <button class="btn btn-sm btn-outline-primary" @click="sendEmail">
-                <i class="fas fa-envelope me-1"></i>Send Email
-              </button>
-            </div>
-            <div v-if="!legal.company" class="text-muted small">
-              No legal firm assigned to this DIL.
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- Two-column layout: Subtasks | Notes -->
     <div class="p-3">
       <div class="row g-3">
@@ -348,36 +293,6 @@ const latestStatusLabel = computed<string | null>(() => latestStatusValue.value 
 
 // DIL outcome data for displaying dil_cost and syncing cfk_cost
 const dil = computed<Dil | null>(() => store.getDil(props.hubId))
-// Placeholder legal contact view model until CRM wiring is implemented.
-// WHAT: Minimal fields we expect from CRM (company, name, email, phone).
-// WHY: Provide immediate links (mailto/tel) and show linked CRM id.
-// HOW: For now, only legal_crm id is known; others display as placeholders.
-// Legal contact modal state
-const showLegalModal = ref(false)
-
-// Placeholder legal contact view model until CRM wiring is implemented.
-// WHAT: Minimal fields we expect from CRM (company, name, email, phone).
-// WHY: Provide immediate contact access via modal and prepare for Outlook API integration.
-// HOW: For now, only legal_crm id is known; others display as placeholders.
-const legal = computed<{ id: number | null; company: string | null; name: string | null; email: string | null; phone: string | null }>(() => {
-  return {
-    id: dil.value?.crm ?? null,
-    company: null, // Will be populated from CRM lookup
-    name: null,
-    email: null,
-    phone: null,
-  }
-})
-
-// Placeholder for Outlook API email integration
-// WHAT: Opens email compose window using platform's Outlook API.
-// WHY: Allows in-platform email without leaving the DIL workflow.
-// HOW: Will integrate with Outlook API; for now shows placeholder alert.
-function sendEmail() {
-  // TODO: Integrate with Outlook API to compose email to legal.email
-  alert(`Email integration coming soon. Would send to: ${legal.value.email || 'legal contact'}`)
-  showLegalModal.value = false
-}
 const legalCostDisplay = computed<string>(() => dil.value?.dil_cost ?? '—')
 // Currency formatting for read-only display of legal cost
 function money(val: string | number | null | undefined): string {

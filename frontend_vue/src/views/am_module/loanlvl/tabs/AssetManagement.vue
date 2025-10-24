@@ -9,7 +9,7 @@
 
 <script setup lang="ts">
 import { withDefaults, defineProps } from 'vue'
-import AmLlTasking from '@/views/am_module/loanlvl/am_tasking/am_ll_tasking.vue'
+import AmLlTasking from '@/views/am_module/loanlvl/am_tasking/index_amLLTasking.vue'
 
 const props = withDefaults(defineProps<{ row?: Record<string, any> | null; assetHubId?: string | number | null }>(), {
   row: null,

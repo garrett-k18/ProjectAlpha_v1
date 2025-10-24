@@ -15,7 +15,7 @@
         <!-- Legal Contact Column -->
         <div class="col-md-6">
           <LegalContactCard 
-            :contact="outcome?.crm_details || null" 
+            :contact="legalContact" 
             label="Foreclosure Attorney"
             @assign="handleAssignLegal"
           />
@@ -36,7 +36,6 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useAmOutcomesStore, type FcSale } from '@/stores/outcomes'
 import http from '@/lib/http'
 // Reusable legal contact card with assignment dropdown
 // Path: src/components/crm/LegalContactCard.vue
@@ -49,20 +48,30 @@ const props = defineProps<{
   hubId: number
 }>()
 
-const store = useAmOutcomesStore()
-
-// FC outcome data (for CRM contact info)
-const outcome = ref<FcSale | null>(null)
+// Contact data from AssetCRMContact
+const legalContact = ref<any>(null)
 const servicerContact = ref<any>(null)
 
 /**
  * Load key contacts for this asset hub
- * Fetches FC outcome for legal contact and servicer from AssetCRMContact
+ * Fetches legal and servicer contacts from AssetCRMContact
  */
 async function loadContacts() {
   try {
-    // Load FC outcome data (for CRM contact info)
-    outcome.value = await store.fetchOutcome(props.hubId, 'fc')
+    // WHAT: Load legal contact from AssetCRMContact
+    // WHY: Legal contacts are now stored in junction table, not FC outcome
+    // WHERE: /api/am/asset-crm-contacts/?asset_hub=X&role=legal
+    const legalRes = await http.get(`/am/asset-crm-contacts/`, {
+      params: { asset_hub: props.hubId, role: 'legal' }
+    })
+    
+    // Get first legal contact if exists
+    const legals = Array.isArray(legalRes.data) ? legalRes.data : legalRes.data.results || []
+    if (legals.length > 0) {
+      legalContact.value = legals[0].crm_details
+    } else {
+      legalContact.value = null
+    }
     
     // Load servicer contact from AssetCRMContact
     const servicerRes = await http.get(`/am/asset-crm-contacts/`, {
@@ -89,7 +98,9 @@ async function handleAssignLegal(crmId: number) {
   try {
     console.log('Assigning legal contact:', { asset_hub_id: props.hubId, crm_id: crmId, role: 'legal' })
     
-    // Create or update AssetCRMContact with role='legal'
+    // WHAT: Create or update AssetCRMContact with role='legal'
+    // WHY: Store legal contact assignment in junction table
+    // WHERE: POST /api/am/asset-crm-contacts/
     const response = await http.post(`/am/asset-crm-contacts/`, {
       asset_hub_id: props.hubId,
       crm_id: crmId,
@@ -98,8 +109,9 @@ async function handleAssignLegal(crmId: number) {
     
     console.log('Assignment successful:', response.data)
     
-    // Reload outcome to show updated attorney
-    outcome.value = await store.fetchOutcome(props.hubId, 'fc')
+    // WHAT: Reload contacts to show updated attorney
+    // WHY: Display newly assigned legal contact
+    await loadContacts()
   } catch (err: any) {
     console.error('Failed to assign attorney:', err)
     console.error('Error response:', err.response?.data)

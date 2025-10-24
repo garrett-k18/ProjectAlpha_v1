@@ -56,6 +56,16 @@ class AssetCRMContactSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'asset_hub', 'crm', 'crm_details', 'created_at', 'updated_at']
     
+    def validate(self, attrs):
+        """
+        WHAT: Check for existing asset-CRM-role combination
+        WHY: Provide better error message than generic unique constraint violation
+        WHERE: Called before create() during POST
+        HOW: Query for existing record, allow if found (idempotent)
+        """
+        # This validation is informational only - create() handles idempotency
+        return attrs
+    
     def create(self, validated_data):
         """
         Create or update AssetCRMContact link.

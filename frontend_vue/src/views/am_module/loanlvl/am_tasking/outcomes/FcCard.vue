@@ -306,7 +306,7 @@ function badgeClass(tp: FcTaskType): string {
     judgement: 'badge rounded-pill size_small text-bg-secondary',
     redemption: 'badge rounded-pill size_small text-bg-success',
     sale_scheduled: 'badge rounded-pill size_small text-bg-dark',
-    sold: 'badge rounded-pill size_small text-bg-danger',
+    sold: 'badge rounded-pill size_small text-bg-success',
   }
   return map[tp]
 }
@@ -318,7 +318,7 @@ function itemBorderClass(tp: FcTaskType): string {
     judgement: 'border-start border-2 border-secondary',
     redemption: 'border-start border-2 border-success',
     sale_scheduled: 'border-start border-2 border-dark',
-    sold: 'border-start border-2 border-danger',
+    sold: 'border-start border-2 border-success',
   }
   return map[tp]
 }
@@ -332,7 +332,7 @@ function leftEdgeStyle(tp: FcTaskType): Record<string, string> {
     judgement: 'var(--bs-secondary, #6c757d)',
     redemption: 'var(--bs-success, #198754)',
     sale_scheduled: 'var(--bs-dark, #212529)',
-    sold: 'var(--bs-danger, #dc3545)',
+    sold: 'var(--bs-success, #198754)',
   }
   return {
     boxShadow: `inset 3px 0 0 ${colorMap[tp]}, var(--bs-box-shadow-sm, 0 .125rem .25rem rgba(0,0,0,.075))`,

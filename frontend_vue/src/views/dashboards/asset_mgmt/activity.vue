@@ -3,7 +3,7 @@
 </template>
 
 <script>
-import RecentActivity from "@/views/am_module/loanlvl/am_tasking/recent-activity.vue";
+import RecentActivity from "@/views/am_module/loanlvl/am_tasking/components/recent-activity.vue";
 
 export default {
   components: {RecentActivity},

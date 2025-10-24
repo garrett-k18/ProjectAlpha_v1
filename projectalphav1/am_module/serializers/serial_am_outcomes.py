@@ -128,7 +128,7 @@ class ShortSaleSerializer(serializers.ModelSerializer):
         model = ShortSale
         fields = [
             'asset_hub', 'asset_hub_id',
-            'acceptable_min_offer', 'short_sale_date', 'short_sale_completion_date',
+            'acceptable_min_offer', 'short_sale_date',
         ]
         read_only_fields = ['asset_hub']
 
@@ -151,7 +151,7 @@ class ModificationSerializer(serializers.ModelSerializer):
             'asset_hub', 'asset_hub_id',
             'modification_date', 'modification_cost', 'modification_upb',
             'modification_term', 'modification_rate', 'modification_maturity_date',
-            'modification_pi', 'modification_down_payment', 'modification_completion_date',
+            'modification_pi', 'modification_down_payment',
         ]
         read_only_fields = ['asset_hub']
 

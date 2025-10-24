@@ -23,7 +23,11 @@
               :aria-expanded="menuOpen ? 'true' : 'false'"
               aria-label="Card settings"
             >
-              <i class="fas fa-ellipsis-vertical"></i>
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                <circle cx="8" cy="2.5" r="1.5" />
+                <circle cx="8" cy="8" r="1.5" />
+                <circle cx="8" cy="13.5" r="1.5" />
+              </svg>
             </button>
             <div v-if="menuOpen" class="card shadow-sm mt-1" style="position: absolute; right: 0; min-width: 160px; z-index: 1060;" @click.stop>
               <div class="list-group list-group-flush">

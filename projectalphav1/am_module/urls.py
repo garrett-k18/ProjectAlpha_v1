@@ -5,13 +5,14 @@ from am_module.views.notes import AMNoteViewSet
 from am_module.views.view_performance_summary import PerformanceSummaryViewSet
 from am_module.views.views import cash_flow_series_view
 from am_module.views.view_am_assetcrmcontact import AssetCRMContactViewSet
-from am_module.views.outcomes import (
+from am_module.views.view_am_taskOutcomes import (
     REODataViewSet, REOTaskViewSet,
     FCSaleViewSet, FCTaskViewSet,
     DILViewSet, DILTaskViewSet,
     ShortSaleViewSet, ShortSaleTaskViewSet,
     ModificationViewSet, ModificationTaskViewSet,
     REOScopeViewSet,
+    TaskMetricsView,
 )
 
 router = DefaultRouter()
@@ -39,4 +40,8 @@ urlpatterns = [
     # WHY: Retrieve period-by-period cash flow data for time-series grid
     # WHERE: Used by CashFlowSeries.vue component
     path('am/cash-flow-series/<int:asset_id>/', cash_flow_series_view, name='cash-flow-series'),
+    # WHAT: Task metrics endpoint for tasking dashboard
+    # WHY: Provide active vs completed task counts and badge data
+    # WHERE: Called by am_ll_tasking.vue to populate KPI cards
+    path('am/outcomes/task-metrics/', TaskMetricsView.as_view(), name='am-task-metrics'),
 ]

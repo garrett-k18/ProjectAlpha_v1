@@ -192,7 +192,7 @@ const hasHubId = computed<boolean>(() => normalizedHubId.value != null)
 /**
  * WHAT: Mapping from outcome type to user-facing badge label.
  * WHY: Keeps label text consistent between Tasking tab and Quickview snapshot.
- * HOW: Mirrors helper in `am_tasking/am_ll_tasking.vue` to stay in sync.
+ * HOW: Mirrors helper in `am_tasking/index_amLLTasking.vue` to stay in sync.
  */
 function trackLabel(type: OutcomeType): string {
   switch (type) {

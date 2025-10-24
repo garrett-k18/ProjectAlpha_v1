@@ -1,218 +1,161 @@
 <template>
-  <!-- Asset Management: Outcome Manager -->
-  <div class="am-tasking-wrapper">
-    <!-- Asset Navigation Header (dynamic to selected asset) -->
-    <b-card class="mb-3">
-      <div class="d-flex align-items-center justify-content-between mb-3">
-        <div>
-          <h3 class="mb-1">{{ headerAsset?.propertyAddress || 'No address selected' }}</h3>
-          <div class="d-flex align-items-center flex-wrap gap-3 text-muted">
-            <div class="d-flex align-items-center gap-2">
-              <UiBadge
-                v-if="headerAsset?.delinquencyStatusLabel"
-                :tone="headerAsset.delinquencyTone"
-                size="sm"
-                :label="headerAsset.delinquencyStatusLabel"
-              />
-              <span v-else class="text-body">Delinquency unknown</span>
-            </div>
-            <div class="d-flex align-items-center gap-2">
-              <UiBadge
-                v-if="headerAsset?.propertyTypeLabel"
-                :tone="headerAsset.propertyTypeTone"
-                size="sm"
-                :label="headerAsset.propertyTypeLabel"
-              />
-              <span v-else class="text-body">Property type unavailable</span>
-            </div>
-          </div>
-        </div>
+  <div class="tasking-container">
+    <!-- Asset Header Card -->
+    <div class="header-card">
+      <div class="header-badges">
+        <UiBadge
+          v-if="headerAsset?.delinquencyStatusLabel"
+          :tone="headerAsset.delinquencyTone"
+          size="sm"
+          :label="headerAsset.delinquencyStatusLabel"
+        />
+        <span v-else class="badge-placeholder">Delinquency unknown</span>
         
+        <UiBadge
+          v-if="headerAsset?.propertyTypeLabel"
+          :tone="headerAsset.propertyTypeTone"
+          size="sm"
+          :label="headerAsset.propertyTypeLabel"
+        />
+        <span v-else class="badge-placeholder">Property type unavailable</span>
       </div>
       
-      <!-- Asset Details Row (static placeholders) -->
-      <b-row class="g-3">
-        <b-col md="3">
-          <div class="bg-light rounded p-3">
-            <div class="small text-muted">Current Balance</div>
-            <div class="fw-semibold">{{ formatCurrency(headerAsset?.currentBalance) }}</div>
-          </div>
-        </b-col>
-        <b-col md="3">
-          <div class="bg-light rounded p-3">
-            <div class="small text-muted">Total Debt</div>
-            <div class="fw-semibold">{{ formatCurrency(headerAsset?.totalDebt) }}</div>
-          </div>
-        </b-col>
-        <b-col md="3">
-          <div class="bg-light rounded p-3">
-            <div class="small text-muted">UW As-Is -ARV</div>
-            <div class="fw-semibold">{{ formatCurrencyRange(headerAsset?.uwAsIsValue, headerAsset?.uwArvValue) }}</div>
-          </div>
-        </b-col>
-        <b-col md="3">
-          <div class="bg-light rounded p-3">
-            <div class="small text-muted">Active Outcomes</div>
-            <div class="kpi-badges d-flex gap-2 align-items-center">
-              <span class="text-muted">Moved to Pending Outcomes</span>
-            </div>
-          </div>
-        </b-col>
-      </b-row>
-    </b-card>
+      <!-- Asset Details Fields -->
+      <div class="details-fields">
+        <div class="detail-field">
+          <small class="text-muted d-block">Current Balance</small>
+          <span class="fw-semibold text-dark">{{ formatCurrency(headerAsset?.currentBalance) }}</span>
+        </div>
+        <div class="detail-field">
+          <small class="text-muted d-block">Total Debt</small>
+          <span class="fw-semibold text-dark">{{ formatCurrency(headerAsset?.totalDebt) }}</span>
+        </div>
+        <div class="detail-field">
+          <small class="text-muted d-block">UW As-Is - ARV</small>
+          <span class="fw-semibold text-dark">{{ formatCurrencyRange(headerAsset?.uwAsIsValue, headerAsset?.uwArvValue) }}</span>
+        </div>
+      </div>
+    </div>
 
-    <!-- Outcome Summary Cards (moved above Track) -->
-    <b-row class="g-3 my-6">
-      <b-col md="4">
-        <b-card body-class="py-2 px-2 mb-1" style="min-height: 80px; display: flex; align-items: center;">
-          <div class="d-flex align-items-center justify-content-between w-100">
-            <div class="flex-grow-1 me-3">
-              <div class="h3 text-black mb-0">{{ activeTypes.length }}</div>
-              <div class="small text-muted mb-0">Active Tracks</div>
-              <div class="d-flex flex-wrap gap-1 mt-1" style="max-height: 40px; overflow: auto;">
-                <template v-if="activeTypes.length">
-                  <UiBadge
-                    v-for="t in activeTypes"
-                    :key="t"
-                    :tone="trackTone(t)"
-                    size="sm"
-                  >{{ trackLabel(t) }}</UiBadge>
-                </template>
-                <span v-else class="text-muted small">None</span>
-              </div>
-            </div>
-            <i class="fas fa-clock fa-lg text-warning"></i>
+    <!-- KPI Cards Row -->
+    <div class="kpi-cards-row">
+      <div class="kpi-card">
+        <div class="kpi-main">
+          <div class="kpi-number">{{ taskMetrics.active_track_count || 0 }}</div>
+          <div class="kpi-title">Active Tracks</div>
+          <div class="kpi-badges-container">
+            <UiBadge
+              v-for="badge in taskMetrics.active_track_badges"
+              :key="badge.key"
+              :tone="badge.tone"
+              size="sm"
+            >{{ badge.label }}</UiBadge>
           </div>
-        </b-card>
-      </b-col>
-      <b-col md="4">
-        <b-card body-class="p-2 mb-1" style="min-height: 80px; display: flex; align-items: center;">
-          <div class="d-flex align-items-center justify-content-between w-100">
-            <div class="flex-grow-1 me-3">
-              <div class="h3 text-black mb-0">{{ activeTaskCount }}</div>
-              <div class="small text-muted mb-0">Active Tasks</div>
-              <div class="d-flex flex-wrap gap-1 mt-1" style="max-height: 40px; overflow: auto;">
-                <UiBadge
-                  v-for="pill in activeTaskItems"
-                  :key="pill.key"
-                  :tone="pill.tone"
-                  size="sm"
-                >{{ pill.label }}</UiBadge>
-              </div>
-            </div>
-            <i class="fas fa-spinner fa-lg text-primary"></i>
-          </div>
-        </b-card>
-      </b-col>
-      <b-col md="4">
-        <b-card class="text-center" body-class="py-2 px-2 mb-1" style="min-height: 80px; display: flex; align-items: center;">
-          <div class="d-flex align-items-center justify-content-between w-100">
-            <div>
-              <div class="h3 text-black mb-0">{{ completedTaskCount }}</div>
-              <div class="small text-muted mb-0">Completed Tasks</div>
-            </div>
-            <i class="fas fa-check-circle fa-lg text-success"></i>
-          </div>
-        </b-card>
-      </b-col>
-    </b-row>
+        </div>
+        <i class="kpi-icon fas fa-clock text-warning"></i>
+      </div>
 
-    <!-- Demo: Recent Activity timeline (right-sized card below KPIs) -->
-    <b-row class="g-3 my-1">
-      <b-col md="4">
-        <!-- WHAT: Small, scrollable list of recent events for this asset.
-             WHY: Quick context without opening each outcome card.
-             WHERE: Feature-local component under am_tasking; see recent-activity.vue
-             HOW: Pass ActivityItem[] via :activityData. Currently demo data. -->
+      <div class="kpi-card">
+        <div class="kpi-main">
+          <div class="kpi-number">{{ activeTaskCount }}</div>
+          <div class="kpi-title">Active Tasks</div>
+          <div class="kpi-badges-container">
+            <UiBadge
+              v-for="pill in taskMetrics.active_items"
+              :key="pill.key"
+              :tone="pill.tone"
+              size="sm"
+            >{{ pill.label }}</UiBadge>
+          </div>
+        </div>
+        <i class="kpi-icon fas fa-spinner text-primary"></i>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-main">
+          <div class="kpi-number">{{ completedTaskCount }}</div>
+          <div class="kpi-title">Completed Tasks</div>
+          <div class="kpi-badges-container">
+            <UiBadge
+              v-for="pill in taskMetrics.completed_items"
+              :key="pill.key"
+              :tone="pill.tone"
+              size="sm"
+            >{{ pill.label }}</UiBadge>
+          </div>
+        </div>
+        <i class="kpi-icon fas fa-check-circle text-success"></i>
+      </div>
+    </div>
+
+    <!-- Activity Widgets Row -->
+    <div class="activity-widgets-row">
+      <div class="activity-widget">
         <RecentActivity
           title="Recent Activity"
           :activityWindowHeight="'280px'"
           :activityData="activityItems"
         />
-      </b-col>
-      <b-col md="4">
-        <!-- WHAT: Upcoming deadlines across outcomes/tasks.
-             WHY: Fast view of what is due soon.
-             WHERE: Feature-local component under am_tasking; see upcoming-deadlines.vue
-             HOW: Pass DeadlineItem[] via :items. Currently demo data. -->
-        <UpcomingDeadlines
-          title="Milestones"
-          :items="deadlineItems"
-        />
-      </b-col>
-      <b-col md="4">
-        <!-- WHAT: Key Contacts card with Foreclosure Attorney and Servicer
-             WHY: Quick access to primary contacts for the loan
-             WHERE: Feature-local component under am_tasking; see components/KeyContacts.vue
-             HOW: Pass hubId to load and manage contacts -->
+      </div>
+      <div class="activity-widget">
+        <UpcomingDeadlines v-if="hubId" :hub-id="hubId" />
+      </div>
+      <div class="activity-widget">
         <KeyContacts v-if="hubId" :hubId="hubId" />
-      </b-col>
-    </b-row>
+      </div>
+    </div>
 
-    <!-- Track: Start/ensure outcomes and render cards -->
-    <b-row class="g-3 align-items-stretch my-1">
-      <b-col cols="12">
-        <b-card class="w-100">
-          <template #header>
-            <div class="d-flex align-items-center justify-content-between w-100">
-              <h5 class="mb-0 d-flex align-items-center">
-                <i class="fas fa-stream me-2"></i>
-                Current Track(s)
-              </h5>
-              <div class="position-relative" ref="trackMenuRef">
-                <button type="button" class="btn btn-sm btn-outline-primary px-3 d-inline-flex align-items-center justify-content-center position-relative" :disabled="!hubId || ensureBusy" @click.stop="toggleTrackMenu">
-                  <span class="w-100 text-center">Choose Track</span>
-                  <i class="fas fa-chevron-down small position-absolute end-0 me-2 top-50 translate-middle-y" aria-hidden="true"></i>
-                </button>
-                <!-- Custom dropdown menu with pill badges -->
-                <div v-if="showTrackMenu" class="card shadow-sm mt-1" style="position: absolute; right: 0; min-width: 680px; z-index: 1060;" @click.stop>
-                  <div class="card-body py-2">
-                    <div class="d-flex flex-row flex-nowrap align-items-center justify-content-center gap-2 text-center">
-                      <button class="btn p-0 bg-transparent border-0" @click="selectTrack('modification')" :disabled="ensureBusy">
-                        <UiBadge tone="secondary" size="sm">Modification</UiBadge>
-                      </button>
-                      <button class="btn p-0 bg-transparent border-0" @click="selectTrack('short_sale')" :disabled="ensureBusy">
-                        <UiBadge tone="warning" size="sm">Short Sale</UiBadge>
-                      </button>
-                      <button class="btn p-0 bg-transparent border-0" @click="selectTrack('dil')" :disabled="ensureBusy">
-                        <UiBadge tone="primary" size="sm">Deed-in-Lieu</UiBadge>
-                      </button>
-                      <button class="btn p-0 bg-transparent border-0" @click="selectTrack('fc')" :disabled="ensureBusy">
-                        <UiBadge tone="danger" size="sm">Foreclosure</UiBadge>
-                      </button>
-                      <button class="btn p-0 bg-transparent border-0" @click="selectTrack('reo')" :disabled="ensureBusy">
-                        <UiBadge tone="info" size="sm">REO</UiBadge>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </template>
-
-          <div class="row g-3">
-            <div class="col-12" v-if="visibleOutcomes.dil">
-              <DilCard :hubId="hubId!" @delete="() => requestDelete('dil')" />
-            </div>
-            <div class="col-12" v-if="visibleOutcomes.fc">
-              <FcCard :hubId="hubId!" @delete="() => requestDelete('fc')" />
-            </div>
-            <div class="col-12" v-if="visibleOutcomes.reo">
-              <ReoCard :hubId="hubId!" @delete="() => requestDelete('reo')" />
-            </div>
-            <div class="col-12" v-if="visibleOutcomes.short_sale">
-              <ShortSaleCard :hubId="hubId!" @delete="() => requestDelete('short_sale')" />
-            </div>
-            <div class="col-12" v-if="visibleOutcomes.modification">
-              <ModificationCard :hubId="hubId!" @delete="() => requestDelete('modification')" />
-            </div>
-            <div v-if="!anyVisibleOutcome" class="col-12 small text-muted">
-              Pick a track above to create its card for this asset.
-            </div>
+    <!-- Track Selection Card -->
+    <div class="track-card">
+      <div class="track-header">
+        <h5 class="track-title">
+          <i class="fas fa-stream"></i>
+          Current Track(s)
+        </h5>
+        <div class="track-menu-wrapper" ref="trackMenuRef">
+          <button 
+            type="button" 
+            class="track-button"
+            :disabled="!hubId || ensureBusy" 
+            @click.stop="toggleTrackMenu"
+          >
+            Choose Track
+            <i class="fas fa-chevron-down"></i>
+          </button>
+          
+          <div v-if="showTrackMenu" class="track-dropdown" @click.stop>
+            <button class="track-option" @click="selectTrack('modification')" :disabled="ensureBusy">
+              <UiBadge tone="secondary" size="sm">Modification</UiBadge>
+            </button>
+            <button class="track-option" @click="selectTrack('short_sale')" :disabled="ensureBusy">
+              <UiBadge tone="warning" size="sm">Short Sale</UiBadge>
+            </button>
+            <button class="track-option" @click="selectTrack('dil')" :disabled="ensureBusy">
+              <UiBadge tone="primary" size="sm">Deed-in-Lieu</UiBadge>
+            </button>
+            <button class="track-option" @click="selectTrack('fc')" :disabled="ensureBusy">
+              <UiBadge tone="danger" size="sm">Foreclosure</UiBadge>
+            </button>
+            <button class="track-option" @click="selectTrack('reo')" :disabled="ensureBusy">
+              <UiBadge tone="info" size="sm">REO</UiBadge>
+            </button>
           </div>
-        </b-card>
-      </b-col>
-    </b-row>
+        </div>
+      </div>
+
+      <div class="track-outcomes">
+        <DilCard v-if="visibleOutcomes.dil" :hubId="hubId!" @delete="() => requestDelete('dil')" />
+        <FcCard v-if="visibleOutcomes.fc" :hubId="hubId!" @delete="() => requestDelete('fc')" />
+        <ReoCard v-if="visibleOutcomes.reo" :hubId="hubId!" @delete="() => requestDelete('reo')" />
+        <ShortSaleCard v-if="visibleOutcomes.short_sale" :hubId="hubId!" @delete="() => requestDelete('short_sale')" />
+        <ModificationCard v-if="visibleOutcomes.modification" :hubId="hubId!" @delete="() => requestDelete('modification')" />
+        
+        <div v-if="!anyVisibleOutcome" class="no-tracks">
+          <i class="fas fa-info-circle"></i>
+          Pick a track above to create its card for this asset.
+        </div>
+      </div>
+    </div>
 
     <!-- Confirm Delete Modal (Hyper UI style) -->
     <template v-if="confirm.open">
@@ -252,6 +195,7 @@
 
 <script setup lang="ts">
 import { withDefaults, defineProps, ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import axios from 'axios'
 defineOptions({
   name: 'AmLlTasking',
 })
@@ -265,12 +209,10 @@ import ReoCard from '@/views/am_module/loanlvl/am_tasking/outcomes/ReoCard.vue'
 import ShortSaleCard from '@/views/am_module/loanlvl/am_tasking/outcomes/ShortSaleCard.vue'
 import ModificationCard from '@/views/am_module/loanlvl/am_tasking/outcomes/ModificationCard.vue'
 import { useAmOutcomesStore, type OutcomeType } from '@/stores/outcomes'
-// Recent Activity widget (feature-local). Path: views/.../am_tasking/recent-activity.vue
-import RecentActivity from '@/views/am_module/loanlvl/am_tasking/recent-activity.vue'
-import type { ActivityItem } from '@/views/am_module/loanlvl/am_tasking/recent-activity.vue'
-// Upcoming Deadlines widget (feature-local). Path: views/.../am_tasking/upcoming-deadlines.vue
-import UpcomingDeadlines from '@/views/am_module/loanlvl/am_tasking/upcoming-deadlines.vue'
-import type { DeadlineItem } from '@/views/am_module/loanlvl/am_tasking/upcoming-deadlines.vue'
+// Recent Activity widget (feature-local). Path: views/.../am_tasking/components/recent-activity.vue
+import RecentActivity, { type ActivityItem } from '@/views/am_module/loanlvl/am_tasking/components/recent-activity.vue'
+// Milestones Card widget (feature-local). Path: views/.../am_tasking/components/milestonesCard.vue
+import UpcomingDeadlines from '@/views/am_module/loanlvl/am_tasking/components/milestonesCard.vue'
 // Key Contacts widget (feature-local). Path: views/.../am_tasking/components/KeyContacts.vue
 import KeyContacts from '@/views/am_module/loanlvl/am_tasking/components/KeyContacts.vue'
 
@@ -379,14 +321,6 @@ const activityItems = ref<ActivityItem[]>([
   { id: 2, icon: 'mdi-gavel', title: 'FC Filing', text: 'Filed with county', boldText: 'NOD/NOI', subtext: 'Yesterday', color: 'primary' },
 ])
 
-// Demo deadline items for the UpcomingDeadlines widget (replace with backend feed later)
-// WHAT: Simple due date list per outcome or subtask.
-// WHY: Surfaces time-sensitive tasks in one place.
-// WHERE: Right below KPI row, next to Recent Activity.
-const deadlineItems = ref<DeadlineItem[]>([
-  { id: 101, label: 'DIL: Borrower Signature', dueDate: new Date(Date.now() + 3*24*3600*1000).toISOString(), tone: 'warning' },
-  { id: 102, label: 'FC: Mediation Hearing', dueDate: new Date(Date.now() + 5*24*3600*1000).toISOString(), tone: 'danger' },
-])
 
 const outcomes = ref<Outcome[]>([
   {
@@ -805,21 +739,60 @@ const activeTaskItems = computed<PillItem[]>(() => {
   return items
 })
 
-// Completed tasks = for each outcome, total subtasks minus 1 (if at least one exists)
-const completedTaskCount = computed<number>(() => {
-  const id = hubId.value
-  if (!id) return 0
-  let total = 0
-  const add = (list?: Array<{ id: number }>) => { if (list && list.length > 1) total += (list.length - 1) }
-  if (visibleOutcomes.value.fc) add(outcomesStore.fcTasksByHub[id])
-  if (visibleOutcomes.value.reo) add(outcomesStore.reoTasksByHub[id])
-  if (visibleOutcomes.value.short_sale) add(outcomesStore.shortSaleTasksByHub[id])
-  if (visibleOutcomes.value.dil) add(outcomesStore.dilTasksByHub[id])
-  if (visibleOutcomes.value.modification) add(outcomesStore.modificationTasksByHub[id])
-  return total
+// WHAT: Task metrics from backend API
+// WHY: Backend determines completion based on task_type (e.g., "sold", "executed")
+// WHERE: API endpoint at /api/am/outcomes/task-metrics/
+const taskMetrics = ref<{
+  active_count: number
+  completed_count: number
+  active_items: Array<{ key: string; label: string; tone: BadgeToneKey }>
+  completed_items: Array<{ key: string; label: string; tone: BadgeToneKey }>
+  active_tracks: string[]
+  completed_tracks: string[]
+  active_track_badges: Array<{ key: string; label: string; tone: BadgeToneKey }>
+  active_track_count: number
+  completed_track_count: number
+}>({ 
+  active_count: 0, 
+  completed_count: 0, 
+  active_items: [], 
+  completed_items: [],
+  active_tracks: [],
+  completed_tracks: [],
+  active_track_badges: [],
+  active_track_count: 0,
+  completed_track_count: 0,
 })
 
-const activeTaskCount = computed<number>(() => activeTaskItems.value.length)
+// WHAT: Fetch task metrics from backend
+// WHY: Get accurate active/completed counts based on task_type completion logic
+// HOW: Call API with asset_hub_id query param
+async function fetchTaskMetrics() {
+  const id = hubId.value
+  if (!id) return
+  
+  try {
+    const response = await axios.get('/api/am/outcomes/task-metrics/', {
+      params: { asset_hub_id: id }
+    })
+    taskMetrics.value = response.data
+  } catch (error) {
+    console.error('Failed to fetch task metrics:', error)
+  }
+}
+
+// WHAT: Computed properties for template binding
+// WHY: Provide reactive counts for KPI cards
+const completedTaskCount = computed<number>(() => taskMetrics.value.completed_count)
+const activeTaskCount = computed<number>(() => taskMetrics.value.active_count)
+
+// WHAT: Watch hubId and fetch metrics when it changes
+// WHY: Update metrics when user navigates to different asset
+watch(hubId, () => {
+  if (hubId.value) {
+    fetchTaskMetrics()
+  }
+}, { immediate: true })
 
 function toggleTrackMenu() {
   showTrackMenu.value = !showTrackMenu.value
@@ -935,57 +908,272 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* Custom styles for the Asset Management Tasking component */
-.am-tasking-wrapper {
-  /* Full-width wrapper so cards align with the surrounding layout */
+/* Container */
+.tasking-container {
   width: 100%;
-  /* Remove duplicate horizontal padding because parent container already applies spacing */
+  max-width: 100%;
   padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
-.border-start {
-  border-left-width: 4px !important;
+/* Header Card */
+.header-card {
+  background: white;
+  border-radius: 0.375rem;
+  padding: 1.25rem;
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
 }
 
-.bg-light {
-  background-color: #f8f9fa !important;
+.header-badges {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
-.text-warning {
-  color: #ffc107 !important;
+.badge-placeholder {
+  font-size: 0.875rem;
+  color: #6c757d;
 }
 
-.text-primary {
-  color: #0d6efd !important;
+/* Details Fields */
+.details-fields {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  flex: 1;
 }
 
-.text-success {
-  color: #198754 !important;
+.detail-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  text-align: center;
 }
 
-.text-danger {
-  color: #dc3545 !important;
+/* KPI Cards Row */
+.kpi-cards-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
 }
 
-.border-danger {
-  border-color: #dc3545 !important;
+.kpi-card {
+  background: white;
+  border-radius: 0.375rem;
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 110px;
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
 }
 
-.border-warning {
-  border-color: #ffc107 !important;
+.kpi-main {
+  flex: 1;
+  min-width: 0;
 }
 
-.border-secondary {
-  border-color: #6c757d !important;
+.kpi-number {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: 0.375rem;
+  color: #212529;
 }
 
-/* Keep KPI card height stable when showing multiple active outcome pills */
-.kpi-badges {
-  flex-wrap: nowrap;
-  overflow: hidden;           /* prevent growing the card */
-  text-overflow: ellipsis;    /* gracefully truncate if too many */
-  white-space: nowrap;        /* keep on one line */
-  min-height: 1.5rem;         /* stable line box */
+.kpi-title {
+  font-size: 0.875rem;
+  color: #6c757d;
+  margin-bottom: 0.5rem;
+}
+
+.kpi-badges-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  max-height: 3rem;
+  overflow-y: auto;
+}
+
+.kpi-icon {
+  font-size: 2rem;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.no-data {
+  font-size: 0.875rem;
+  color: #6c757d;
+  font-style: italic;
+}
+
+/* Activity Widgets Row */
+.activity-widgets-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.activity-widget {
+  min-height: 280px;
+}
+
+/* Track Card */
+.track-card {
+  background: white;
+  border-radius: 0.375rem;
+  overflow: hidden;
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.track-header {
+  background: #e9ecef;
+  border-bottom: 1px solid #dee2e6;
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.track-title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #212529;
+}
+
+.track-menu-wrapper {
+  position: relative;
+}
+
+.track-button {
+  background: white;
+  border: 1px solid #0d6efd;
+  color: #0d6efd;
+  padding: 0.375rem 2rem 0.375rem 0.75rem;
+  border-radius: 0.25rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.15s ease;
+}
+
+.track-button:hover:not(:disabled) {
+  background: #0d6efd;
+  color: white;
+}
+
+.track-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.track-button i {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.75rem;
+}
+
+.track-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.25rem);
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 0.375rem;
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+  padding: 0.75rem;
+  min-width: 680px;
+  z-index: 1060;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.track-option {
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.track-option:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+.track-option:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.track-outcomes {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.no-tracks {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #6c757d;
+  font-size: 0.95rem;
+}
+
+.no-tracks i {
+  margin-right: 0.5rem;
+}
+
+/* Responsive */
+@media (max-width: 992px) {
+  .header-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .details-fields {
+    flex-wrap: wrap;
+    gap: 1.5rem;
+  }
+  
+  .kpi-cards-row {
+    grid-template-columns: 1fr;
+  }
+  
+  .activity-widgets-row {
+    grid-template-columns: 1fr;
+  }
+  
+  .track-dropdown {
+    min-width: 100%;
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 768px) {
+  .details-fields {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  
+  .kpi-number {
+    font-size: 1.5rem;
+  }
 }
 </style>
 
