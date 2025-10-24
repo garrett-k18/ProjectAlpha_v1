@@ -19,7 +19,7 @@
     :aria-label="computedAriaLabel"
     :title="hoverTitle"
     role="status"
-    style="line-height: 1; padding-top: 0.6rem; padding-bottom: 0.5rem;"
+    style="line-height: 1; padding-top: 0.2rem; padding-bottom: 0.2rem; font-size: 0.6rem;"
   >
     <!-- Allow callers to override the content via default slot; fall back to provided label -->
     <slot>{{ label }}</slot>

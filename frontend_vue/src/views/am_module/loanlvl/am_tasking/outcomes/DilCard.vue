@@ -102,9 +102,6 @@
                   @update:model-value="(newDate) => updateTaskStarted(t.id, newDate)"
                 />
               </span>
-              <button class="btn btn-sm btn-outline-danger px-1 py-0" @click.stop="requestDeleteTask(t.id)" title="Delete Task">
-                <i class="mdi mdi-delete"></i>
-              </button>
               <i :class="expandedId === t.id ? 'fas fa-chevron-up' : 'fas fa-chevron-down'"></i>
             </div>
           </div>
@@ -136,6 +133,17 @@
 
             <!-- Task-specific data fields for DIL Drafted -->
             <!-- Notes moved to right column (outcome-level) -->
+            <div class="d-flex justify-content-end mt-2">
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-danger d-inline-flex align-items-center gap-1 px-2 py-1"
+                style="font-size: 0.75rem;"
+                @click.stop="requestDeleteTask(t.id)"
+              >
+                <i class="mdi mdi-delete me-1"></i>
+                <span>Delete Task</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>

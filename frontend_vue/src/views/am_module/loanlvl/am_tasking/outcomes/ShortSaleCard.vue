@@ -107,6 +107,17 @@
           <div v-if="expandedId === t.id" class="mt-2 p-2 border-top">
             <div class="small text-muted">Task data fields can be added here</div>
             <!-- TODO: Add task-specific form fields here -->
+            <div class="d-flex justify-content-end mt-2">
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-danger d-inline-flex align-items-center gap-1 px-2 py-1"
+                style="font-size: 0.75rem;"
+                @click.stop="requestDeleteTask(t.id)"
+              >
+                <i class="mdi mdi-delete me-1"></i>
+                <span>Delete Task</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -123,6 +134,35 @@
       </div>
     </div>
   </b-card>
+
+  <!-- Confirm Delete Task Modal -->
+  <template v-if="deleteTaskConfirm.open">
+    <div class="modal-backdrop fade show" style="z-index: 1050;"></div>
+    <div class="modal fade show" tabindex="-1" role="dialog" aria-modal="true"
+         style="display: block; position: fixed; inset: 0; z-index: 1055;">
+      <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+          <div class="modal-header bg-danger-subtle">
+            <h5 class="modal-title d-flex align-items-center">
+              <i class="fas fa-triangle-exclamation text-danger me-2"></i>
+              Confirm Task Deletion
+            </h5>
+            <button type="button" class="btn-close" aria-label="Close" @click="cancelDeleteTask"></button>
+          </div>
+          <div class="modal-body">
+            <p class="mb-0">Are you sure you want to delete this task? This action cannot be undone.</p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-light" @click="cancelDeleteTask">Cancel</button>
+            <button type="button" class="btn btn-danger" @click="confirmDeleteTask" :disabled="deleteTaskConfirm.busy">
+              <span v-if="deleteTaskConfirm.busy" class="spinner-border spinner-border-sm me-2"></span>
+              Delete
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
 </template>
 
 <script setup lang="ts">
@@ -142,6 +182,7 @@ const store = useAmOutcomesStore()
 // Collapsed state for the entire card body (subtasks section hidden when true)
 const collapsed = ref<boolean>(false)
 const busy = ref(false)
+const deleteTaskConfirm = ref<{ open: boolean; taskId: number | null; busy: boolean }>({ open: false, taskId: null, busy: false })
 // Settings menu state/handlers
 const menuOpen = ref(false)
 const menuRef = ref<HTMLElement | null>(null)
@@ -204,6 +245,29 @@ async function updateTaskStarted(taskId: number, newDate: string) {
   } catch (err: any) {
     console.error('Failed to update task start date:', err)
     alert('Failed to update start date. Please try again.')
+  }
+}
+
+function requestDeleteTask(taskId: number) {
+  deleteTaskConfirm.value = { open: true, taskId, busy: false }
+}
+
+function cancelDeleteTask() {
+  deleteTaskConfirm.value = { open: false, taskId: null, busy: false }
+}
+
+async function confirmDeleteTask() {
+  const taskId = deleteTaskConfirm.value.taskId
+  if (!taskId) return
+  try {
+    deleteTaskConfirm.value.busy = true
+    await store.deleteShortSaleTask(props.hubId, taskId)
+    tasks.value = await store.listShortSaleTasks(props.hubId, true)
+    cancelDeleteTask()
+  } catch (err: any) {
+    console.error('Failed to delete short sale task:', err)
+    alert('Failed to delete task. Please try again.')
+    deleteTaskConfirm.value.busy = false
   }
 }
 
