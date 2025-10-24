@@ -184,19 +184,19 @@
           </template>
 
           <div class="row g-3">
-            <div class="col-12 col-lg-6" v-if="visibleOutcomes.dil">
+            <div class="col-12" v-if="visibleOutcomes.dil">
               <DilCard :hubId="hubId!" @delete="() => requestDelete('dil')" />
             </div>
-            <div class="col-12 col-lg-6" v-if="visibleOutcomes.fc">
+            <div class="col-12" v-if="visibleOutcomes.fc">
               <FcCard :hubId="hubId!" @delete="() => requestDelete('fc')" />
             </div>
-            <div class="col-12 col-lg-6" v-if="visibleOutcomes.reo">
+            <div class="col-12" v-if="visibleOutcomes.reo">
               <ReoCard :hubId="hubId!" @delete="() => requestDelete('reo')" />
             </div>
-            <div class="col-12 col-lg-6" v-if="visibleOutcomes.short_sale">
+            <div class="col-12" v-if="visibleOutcomes.short_sale">
               <ShortSaleCard :hubId="hubId!" @delete="() => requestDelete('short_sale')" />
             </div>
-            <div class="col-12 col-lg-6" v-if="visibleOutcomes.modification">
+            <div class="col-12" v-if="visibleOutcomes.modification">
               <ModificationCard :hubId="hubId!" @delete="() => requestDelete('modification')" />
             </div>
             <div v-if="!anyVisibleOutcome" class="col-12 small text-muted">
@@ -855,21 +855,28 @@ async function confirmDelete() {
 }
 
 // Hydrate visible cards when hub changes
+// WHAT: Checks which outcome tracks exist in backend and shows their cards
+// WHY: On page load/refresh, we need to restore the visible track cards
+// HOW: Fetches each outcome type and sets visibility flag if it exists
 async function refreshVisible() {
   visibleOutcomes.value = { dil: false, fc: false, reo: false, short_sale: false, modification: false }
   const id = hubId.value
   if (!id) return
   const types: OutcomeType[] = ['dil', 'fc', 'reo', 'short_sale', 'modification']
   for (const t of types) {
-    const exists = await outcomesStore.fetchOutcome(id, t)
-    if (exists) {
-      visibleOutcomes.value[t] = true
-      // Preload task lists for the KPI widget
-      if (t === 'fc') await outcomesStore.listFcTasks(id)
-      else if (t === 'reo') await outcomesStore.listReoTasks(id)
-      else if (t === 'short_sale') await outcomesStore.listShortSaleTasks(id)
-      else if (t === 'dil') await outcomesStore.listDilTasks(id)
-      else if (t === 'modification') await outcomesStore.listModificationTasks(id)
+    try {
+      const exists = await outcomesStore.fetchOutcome(id, t)
+      if (exists) {
+        visibleOutcomes.value[t] = true
+        // Preload task lists for the KPI widget
+        if (t === 'fc') await outcomesStore.listFcTasks(id)
+        else if (t === 'reo') await outcomesStore.listReoTasks(id)
+        else if (t === 'short_sale') await outcomesStore.listShortSaleTasks(id)
+        else if (t === 'dil') await outcomesStore.listDilTasks(id)
+        else if (t === 'modification') await outcomesStore.listModificationTasks(id)
+      }
+    } catch (err) {
+      console.error(`[AM Tasking] Error fetching outcome ${t}:`, err)
     }
   }
 }

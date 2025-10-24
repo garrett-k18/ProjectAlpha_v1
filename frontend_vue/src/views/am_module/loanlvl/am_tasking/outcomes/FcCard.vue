@@ -45,46 +45,53 @@
       </div>
     </template>
 
-    <div class="row g-3">
-      <div class="col-lg-6">
-        <div class="mb-2 small text-muted">Outcome Details</div>
-        <div class="d-flex flex-column gap-2">
-          <div class="d-flex justify-content-between"><span class="text-muted">Legal CRM</span><span class="fw-medium">{{ fc?.legal_crm ?? '—' }}</span></div>
-          <div class="d-flex justify-content-between"><span class="text-muted">Scheduled Sale</span><span class="fw-medium">{{ fc?.fc_sale_sched_date ?? '—' }}</span></div>
-          <div class="d-flex justify-content-between"><span class="text-muted">Actual Sale</span><span class="fw-medium">{{ fc?.fc_sale_actual_date ?? '—' }}</span></div>
-          <div class="d-flex justify-content-between"><span class="text-muted">Bid Price</span><span class="fw-medium">{{ money(fc?.fc_bid_price) }}</span></div>
-          <div class="d-flex justify-content-between"><span class="text-muted">Sale Price</span><span class="fw-medium">{{ money(fc?.fc_sale_price) }}</span></div>
+    <!-- Two-column layout: Subtasks | Notes -->
+    <div class="p-3" v-show="!collapsed">
+      <div class="row g-3">
+        <!-- Left Column: Subtasks -->
+        <div class="col-md-6">
+      <!-- Foreclosure Attorney Contact Card -->
+      <div class="card border-primary mb-3">
+        <div class="card-body p-2">
+          <div v-if="outcome?.crm_details" class="d-flex flex-column gap-1">
+            <div class="d-flex align-items-center justify-content-between">
+              <div class="d-flex align-items-center gap-2">
+                <i class="fas fa-user-tie text-primary"></i>
+                <div>
+                  <div class="small fw-bold text-primary">{{ outcome.crm_details.contact_name || 'Foreclosure Attorney' }}</div>
+                  <div v-if="outcome.crm_details.firm" class="small text-muted">{{ outcome.crm_details.firm }}</div>
+                </div>
+              </div>
+              <button class="btn btn-sm btn-outline-primary px-2 py-1" style="font-size: 0.75rem;" title="View in CRM">
+                <i class="fas fa-external-link-alt"></i>
+              </button>
+            </div>
+            <div class="d-flex flex-column gap-1 ms-4">
+              <a v-if="outcome.crm_details.email" :href="`mailto:${outcome.crm_details.email}`" class="small text-primary text-decoration-none d-flex align-items-center gap-1">
+                <i class="fas fa-envelope" style="width: 14px;"></i>
+                <span>{{ outcome.crm_details.email }}</span>
+              </a>
+              <a v-if="outcome.crm_details.phone" :href="`tel:${outcome.crm_details.phone}`" class="small text-primary text-decoration-none d-flex align-items-center gap-1">
+                <i class="fas fa-phone" style="width: 14px;"></i>
+                <span>{{ outcome.crm_details.phone }}</span>
+              </a>
+            </div>
+          </div>
+          <div v-else class="d-flex align-items-center gap-2">
+            <i class="fas fa-user-tie text-muted"></i>
+            <div class="flex-grow-1">
+              <div class="small fw-bold text-muted">Foreclosure Attorney</div>
+              <div class="small text-muted">No attorney assigned</div>
+            </div>
+            <button class="btn btn-sm btn-outline-primary px-2 py-1" style="font-size: 0.75rem;" title="Assign Attorney">
+              <i class="fas fa-plus"></i>
+            </button>
+          </div>
         </div>
       </div>
-      <div class="col-lg-6">
-        <div class="mb-2 small text-muted">Quick Update</div>
-        <form class="row g-2" @submit.prevent>
-          <div class="col-6">
-            <label class="form-label small text-muted">Scheduled Sale</label>
-            <input type="date" class="form-control" v-model="form.fc_sale_sched_date" />
-          </div>
-          <div class="col-6">
-            <label class="form-label small text-muted">Actual Sale</label>
-            <input type="date" class="form-control" v-model="form.fc_sale_actual_date" />
-          </div>
-          <div class="col-6">
-            <label class="form-label small text-muted">Bid Price</label>
-            <input v-currency pattern="[0-9,]*" class="form-control" v-model="form.fc_bid_price" />
-          </div>
-          <div class="col-6">
-            <label class="form-label small text-muted">Sale Price</label>
-            <input v-currency pattern="[0-9,]*" class="form-control" v-model="form.fc_sale_price" />
-          </div>
-          <!-- Auto-save enabled, no Save button -->
-        </form>
-      </div>
-    </div>
-    <hr class="my-3" />
 
-    <!-- Sub Tasks (collapsible body) -->
-    <div class="p-3" v-show="!collapsed">
-      <div class="d-flex align-items-center justify-content-between mb-3">
-        <div class="small text-muted">Sub Tasks</div>
+      <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
+        <h5 class="mb-0 fw-bold text-body">Sub Tasks</h5>
         <div class="position-relative" ref="addMenuRef">
           <button type="button" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-2" @click.stop="toggleAddMenu">
             <i class="fas" :class="addMenuOpen ? 'fa-minus' : 'fa-plus'"></i>
@@ -109,61 +116,150 @@
         </div>
       </div>
 
-      <!-- Subtask cards list -->
+      <!-- Subtask cards list (expandable for data fields) -->
       <div v-if="tasks.length" class="list-group list-group-flush">
         <div
           v-for="t in tasks"
           :key="t.id"
           :class="[
             'list-group-item',
-            'px-0',
-            'bg-secondary-subtle', // subtle neutral fill with slight contrast
-            'border', 'border-1', 'border-light', // neutral thin outline
+            'px-2',
+            'py-2',
+            'bg-secondary-subtle',
+            'border', 'border-1', 'border-light',
             'rounded-2', 'shadow-sm',
-            'mb-2', // spacing between cards
-            'border-start', // ensure left edge area
+            'mb-2',
+            'border-start',
           ]"
           :style="leftEdgeStyle(t.task_type)"
         >
           <div class="d-flex align-items-center justify-content-between" role="button" @click="toggleExpand(t.id)">
-            <div class="d-flex align-items-center ps-2">
+            <div class="d-flex align-items-center">
               <span :class="badgeClass(t.task_type)" class="me-2">{{ labelFor(t.task_type) }}</span>
             </div>
-            <div class="d-flex align-items-center small text-muted">
-              <span class="me-3">Created: {{ isoDate(t.created_at) }}</span>
+            <div class="d-flex align-items-center small text-muted gap-2">
+              <span class="me-2">
+                Started: 
+                <EditableDate 
+                  :model-value="t.task_started" 
+                  @update:model-value="(newDate) => updateTaskStarted(t.id, newDate)"
+                />
+              </span>
               <i :class="expandedId === t.id ? 'fas fa-chevron-up' : 'fas fa-chevron-down'"></i>
             </div>
           </div>
-          <div v-if="expandedId === t.id" class="mt-2">
-            <SubtaskNotes :hubId="props.hubId" outcome="fc" :taskType="t.task_type" :taskId="t.id" />
+          <!-- Expandable section for task-specific data fields -->
+          <div v-if="expandedId === t.id" class="mt-2 p-2 border-top">
+            <!-- NOD/NOI specific date fields -->
+            <div v-if="t.task_type === 'nod_noi'" class="row g-3 mb-3">
+              <div class="col-md-6">
+                <label class="form-label small">NOD/NOI Sent Date</label>
+                <input 
+                  type="text" 
+                  class="form-control form-control-sm date" 
+                  data-toggle="date-picker" 
+                  data-single-date-picker="true"
+                  :value="getTaskField(t, 'nod_noi_sent_date')"
+                  @change="(e) => updateTaskField(t.id, 'nod_noi_sent_date', (e.target as HTMLInputElement).value)"
+                  placeholder="Select date"
+                >
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small">NOD/NOI Expire Date</label>
+                <input 
+                  type="text" 
+                  class="form-control form-control-sm date" 
+                  data-toggle="date-picker" 
+                  data-single-date-picker="true"
+                  :value="getTaskField(t, 'nod_noi_expire_date')"
+                  @change="(e) => updateTaskField(t.id, 'nod_noi_expire_date', (e.target as HTMLInputElement).value)"
+                  placeholder="Select date"
+                >
+              </div>
+            </div>
+            <div v-else class="small text-muted mb-3">Task data fields can be added here</div>
+            
+            <!-- Delete button at bottom of expanded section -->
+            <div class="d-flex justify-content-end mt-2">
+              <button class="btn btn-sm btn-outline-danger px-2 py-1" @click.stop="requestDeleteTask(t.id)" style="font-size: 0.75rem;">
+                <i class="mdi mdi-delete me-1"></i>
+                Delete Task
+              </button>
+            </div>
           </div>
         </div>
       </div>
       <div v-else class="text-muted small">No subtasks yet. Use Add Task to create one.</div>
+        </div>
+
+        <!-- Right Column: Shared Notes for this Outcome -->
+        <div class="col-md-6">
+          <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
+            <h5 class="mb-0 fw-bold text-body">Notes</h5>
+          </div>
+          <SubtaskNotes :hubId="props.hubId" outcome="fc" :taskType="null" :taskId="null" />
+        </div>
+      </div>
     </div>
   </b-card>
+
+  <!-- Confirm Delete Task Modal -->
+  <template v-if="deleteTaskConfirm.open">
+    <div class="modal-backdrop fade show" style="z-index: 1050;"></div>
+    <div class="modal fade show" tabindex="-1" role="dialog" aria-modal="true"
+         style="display: block; position: fixed; inset: 0; z-index: 1055;">
+      <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+          <div class="modal-header bg-danger-subtle">
+            <h5 class="modal-title d-flex align-items-center">
+              <i class="fas fa-triangle-exclamation text-danger me-2"></i>
+              Confirm Task Deletion
+            </h5>
+            <button type="button" class="btn-close" aria-label="Close" @click="cancelDeleteTask"></button>
+          </div>
+          <div class="modal-body">
+            <p class="mb-0">Are you sure you want to delete this task? This action cannot be undone.</p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-light" @click="cancelDeleteTask">Cancel</button>
+            <button type="button" class="btn btn-danger" @click="confirmDeleteTask" :disabled="deleteTaskConfirm.busy">
+              <span v-if="deleteTaskConfirm.busy" class="spinner-border spinner-border-sm me-2"></span>
+              Delete
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
 </template>
 
 <script setup lang="ts">
-import { withDefaults, defineProps, computed, ref, reactive, onMounted, defineEmits, watch, onBeforeUnmount } from 'vue'
-import { useAmOutcomesStore, type FcSale, type FcTask, type FcTaskType } from '@/stores/outcomes'
+import { withDefaults, defineProps, ref, computed, onMounted, onBeforeUnmount, defineEmits } from 'vue'
+import { useAmOutcomesStore, type FcTask, type FcTaskType, type FcSale } from '@/stores/outcomes'
+import http from '@/lib/http'
 // Feature-local notes component (moved for AM Tasking scope)
 // Path: src/views/am_module/loanlvl/am_tasking/components/SubtaskNotes.vue
 import SubtaskNotes from '@/views/am_module/loanlvl/am_tasking/components/SubtaskNotes.vue'
-import http from '@/lib/http'
+// Reusable editable date component with inline picker
+// Path: src/components/ui/EditableDate.vue
+import EditableDate from '@/components/ui/EditableDate.vue'
 
 const props = withDefaults(defineProps<{ hubId: number }>(), {})
 const emit = defineEmits<{ (e: 'delete'): void }>()
 const store = useAmOutcomesStore()
-const fc = ref<FcSale | null>(null)
 // Collapsed state for the entire card body (subtasks section hidden when true)
 const collapsed = ref<boolean>(false)
 const busy = ref(false)
+// FC outcome data (for CRM contact info)
+const outcome = ref<FcSale | null>(null)
 // FC Subtasks state
 const tasks = ref<FcTask[]>([])
 const expandedId = ref<number | null>(null)
 const addMenuOpen = ref(false)
 const addMenuRef = ref<HTMLElement | null>(null)
+
+// Delete task confirmation modal state
+const deleteTaskConfirm = ref({ open: false, taskId: null as number | null, busy: false })
 
 // Settings menu (3-dot) state and handlers
 const menuOpen = ref(false)
@@ -178,54 +274,12 @@ function handleDocClick(e: MouseEvent) {
 onMounted(() => document.addEventListener('click', handleDocClick))
 onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
 
-function money(val: string | number | null | undefined): string {
-  if (val == null || val === '') return '—'
-  const num = typeof val === 'string' ? Number(val) : Number(val)
-  try {
-    return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(num)
-  } catch { return String(val) }
-}
-
-const form = reactive({
-  fc_sale_sched_date: '' as string,
-  fc_sale_actual_date: '' as string,
-  fc_bid_price: '' as string,
-  fc_sale_price: '' as string,
-})
-
 async function load() {
-  fc.value = await store.fetchFc(props.hubId)
-  if (fc.value) {
-    form.fc_sale_sched_date = fc.value.fc_sale_sched_date || ''
-    form.fc_sale_actual_date = fc.value.fc_sale_actual_date || ''
-    form.fc_bid_price = fc.value.fc_bid_price || ''
-    form.fc_sale_price = fc.value.fc_sale_price || ''
-  }
-  // Load subtasks
+  // Load FC outcome data (for CRM contact info)
+  outcome.value = await store.fetchOutcome(props.hubId, 'fc')
+  // Load FC tasks
   tasks.value = await store.listFcTasks(props.hubId, true)
 }
-
-// Debounced auto-save on form changes
-let timer: number | undefined
-watch(form, async () => {
-  if (!fc.value) return
-  if (timer) window.clearTimeout(timer)
-  timer = window.setTimeout(async () => {
-    try {
-      busy.value = true
-      const payload: Record<string, any> = {}
-      if (form.fc_sale_sched_date) payload.fc_sale_sched_date = form.fc_sale_sched_date
-      if (form.fc_sale_actual_date) payload.fc_sale_actual_date = form.fc_sale_actual_date
-      if (form.fc_bid_price) payload.fc_bid_price = form.fc_bid_price
-      if (form.fc_sale_price) payload.fc_sale_price = form.fc_sale_price
-      if (!Object.keys(payload).length) return
-      await store.patchFc(props.hubId, payload)
-      await load()
-    } finally {
-      busy.value = false
-    }
-  }, 600)
-}, { deep: true })
 
 onMounted(load)
 
@@ -253,7 +307,40 @@ function onSelectPill(tp: FcTaskType) {
     .finally(() => { busy.value = false; addMenuOpen.value = false })
 }
 function toggleExpand(id: number) { expandedId.value = expandedId.value === id ? null : id }
-function isoDate(iso: string): string { try { return new Date(iso).toLocaleDateString() } catch { return iso } }
+function isoDate(iso: string | null): string { 
+  if (!iso) return 'N/A'
+  try { return new Date(iso).toLocaleDateString() } catch { return iso } 
+}
+
+// Update task_started date via PATCH request
+async function updateTaskStarted(taskId: number, newDate: string) {
+  try {
+    await http.patch(`/am/outcomes/fc-tasks/${taskId}/`, { task_started: newDate })
+    // Refresh tasks to show updated date
+    tasks.value = await store.listFcTasks(props.hubId, true)
+  } catch (err: any) {
+    console.error('Failed to update task start date:', err)
+    alert('Failed to update start date. Please try again.')
+  }
+}
+
+// Get task field value (for NOD/NOI date fields)
+function getTaskField(task: FcTask, fieldName: string): string | null {
+  return (task as any)[fieldName] || null
+}
+
+// Update any task field via PATCH request
+async function updateTaskField(taskId: number, fieldName: string, newValue: string) {
+  try {
+    await http.patch(`/am/outcomes/fc-tasks/${taskId}/`, { [fieldName]: newValue })
+    // Refresh tasks to show updated value
+    tasks.value = await store.listFcTasks(props.hubId, true)
+  } catch (err: any) {
+    console.error(`Failed to update ${fieldName}:`, err)
+    alert(`Failed to update ${fieldName}. Please try again.`)
+  }
+}
+
 function badgeClass(tp: FcTaskType): string {
   const map: Record<FcTaskType, string> = {
     nod_noi: 'badge rounded-pill size_small text-bg-warning',
@@ -294,4 +381,29 @@ function leftEdgeStyle(tp: FcTaskType): Record<string, string> {
     boxShadow: `inset 3px 0 0 ${colorMap[tp]}, var(--bs-box-shadow-sm, 0 .125rem .25rem rgba(0,0,0,.075))`,
   }
 }
+
+// Delete task confirmation handlers
+function requestDeleteTask(taskId: number) {
+  deleteTaskConfirm.value = { open: true, taskId, busy: false }
+}
+
+function cancelDeleteTask() {
+  deleteTaskConfirm.value = { open: false, taskId: null, busy: false }
+}
+
+async function confirmDeleteTask() {
+  const taskId = deleteTaskConfirm.value.taskId
+  if (!taskId) return
+  try {
+    deleteTaskConfirm.value.busy = true
+    await store.deleteFcTask(props.hubId, taskId)
+    await load()
+    cancelDeleteTask()
+  } catch (err) {
+    console.error('Failed to delete task:', err)
+    alert('Failed to delete task. Please try again.')
+    deleteTaskConfirm.value.busy = false
+  }
+}
 </script>
+

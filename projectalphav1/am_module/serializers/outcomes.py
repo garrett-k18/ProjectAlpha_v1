@@ -21,6 +21,7 @@ from am_module.models.am_data import (
 )
 from core.models import AssetIdHub
 from core.models.crm import MasterCRM  # string refs used in models but serializer type hints are fine
+from core.serializers.crm_serializers import MasterCRMSerializer
 
 
 # -----------------------------
@@ -68,15 +69,16 @@ class REODataSerializer(serializers.ModelSerializer):
 
 class FCSaleSerializer(serializers.ModelSerializer):
     asset_hub_id = _AssetHubPKField()
+    crm_details = MasterCRMSerializer(source='crm', read_only=True)
 
     class Meta:
         model = FCSale
         fields = [
             'asset_hub', 'asset_hub_id',
-            'crm', 'fc_sale_sched_date', 'fc_sale_actual_date',
+            'crm', 'crm_details', 'fc_sale_sched_date', 'fc_sale_actual_date',
             'fc_bid_price', 'fc_sale_price',
         ]
-        read_only_fields = ['asset_hub']
+        read_only_fields = ['asset_hub', 'crm_details']
 
     def create(self, validated_data: Dict[str, Any]):
         asset_hub = validated_data.get('asset_hub')
@@ -162,7 +164,7 @@ class REOTaskSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = REOtask
-        fields = ['id', 'asset_hub', 'asset_hub_id', 'reo_outcome', 'task_type', 'created_at', 'updated_at']
+        fields = ['id', 'asset_hub', 'asset_hub_id', 'reo_outcome', 'task_type', 'task_started', 'created_at', 'updated_at']
         read_only_fields = ['id', 'asset_hub', 'created_at', 'updated_at']
 
     def validate(self, attrs: Dict[str, Any]) -> Dict[str, Any]:
@@ -171,6 +173,13 @@ class REOTaskSerializer(serializers.ModelSerializer):
         hub = attrs.get('asset_hub')
         if reo and hub and reo.asset_hub_id != hub.id:
             raise serializers.ValidationError('REO outcome and asset_hub mismatch.')
+        task_type = attrs.get('task_type') or getattr(self.instance, 'task_type', None)
+        if hub and task_type:
+            qs = REOtask.objects.filter(asset_hub=hub, task_type=task_type)
+            if self.instance:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise serializers.ValidationError('A task with this type already exists for this asset.')
         return attrs
 
 
@@ -236,7 +245,7 @@ class FCTaskSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = FCTask
-        fields = ['id', 'asset_hub', 'asset_hub_id', 'fc_sale', 'task_type', 'created_at', 'updated_at']
+        fields = ['id', 'asset_hub', 'asset_hub_id', 'fc_sale', 'task_type', 'task_started', 'nod_noi_sent_date', 'nod_noi_expire_date', 'created_at', 'updated_at']
         read_only_fields = ['id', 'asset_hub', 'created_at', 'updated_at']
 
     def validate(self, attrs: Dict[str, Any]) -> Dict[str, Any]:
@@ -244,6 +253,13 @@ class FCTaskSerializer(serializers.ModelSerializer):
         hub = attrs.get('asset_hub')
         if fc_sale and hub and fc_sale.asset_hub_id != hub.id:
             raise serializers.ValidationError('FCSale outcome and asset_hub mismatch.')
+        task_type = attrs.get('task_type') or getattr(self.instance, 'task_type', None)
+        if hub and task_type:
+            qs = FCTask.objects.filter(asset_hub=hub, task_type=task_type)
+            if self.instance:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise serializers.ValidationError('A task with this type already exists for this asset.')
         return attrs
 
 
@@ -252,7 +268,7 @@ class DILTaskSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = DILTask
-        fields = ['id', 'asset_hub', 'asset_hub_id', 'dil', 'task_type', 'created_at', 'updated_at']
+        fields = ['id', 'asset_hub', 'asset_hub_id', 'dil', 'task_type', 'task_started', 'created_at', 'updated_at']
         read_only_fields = ['id', 'asset_hub', 'created_at', 'updated_at']
 
     def validate(self, attrs: Dict[str, Any]) -> Dict[str, Any]:
@@ -260,6 +276,13 @@ class DILTaskSerializer(serializers.ModelSerializer):
         hub = attrs.get('asset_hub')
         if dil and hub and dil.asset_hub_id != hub.id:
             raise serializers.ValidationError('DIL outcome and asset_hub mismatch.')
+        task_type = attrs.get('task_type') or getattr(self.instance, 'task_type', None)
+        if hub and task_type:
+            qs = DILTask.objects.filter(asset_hub=hub, task_type=task_type)
+            if self.instance:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise serializers.ValidationError('A task with this type already exists for this asset.')
         return attrs
 
 
@@ -268,7 +291,7 @@ class ShortSaleTaskSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ShortSaleTask
-        fields = ['id', 'asset_hub', 'asset_hub_id', 'short_sale', 'task_type', 'created_at', 'updated_at']
+        fields = ['id', 'asset_hub', 'asset_hub_id', 'short_sale', 'task_type', 'task_started', 'created_at', 'updated_at']
         read_only_fields = ['id', 'asset_hub', 'created_at', 'updated_at']
 
     def validate(self, attrs: Dict[str, Any]) -> Dict[str, Any]:
@@ -276,6 +299,13 @@ class ShortSaleTaskSerializer(serializers.ModelSerializer):
         hub = attrs.get('asset_hub')
         if ss and hub and ss.asset_hub_id != hub.id:
             raise serializers.ValidationError('ShortSale outcome and asset_hub mismatch.')
+        task_type = attrs.get('task_type') or getattr(self.instance, 'task_type', None)
+        if hub and task_type:
+            qs = ShortSaleTask.objects.filter(asset_hub=hub, task_type=task_type)
+            if self.instance:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise serializers.ValidationError('A task with this type already exists for this asset.')
         return attrs
 
 
@@ -284,7 +314,7 @@ class ModificationTaskSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ModificationTask
-        fields = ['id', 'asset_hub', 'asset_hub_id', 'modification', 'task_type', 'created_at', 'updated_at']
+        fields = ['id', 'asset_hub', 'asset_hub_id', 'modification', 'task_type', 'task_started', 'created_at', 'updated_at']
         read_only_fields = ['id', 'asset_hub', 'created_at', 'updated_at']
 
     def validate(self, attrs: Dict[str, Any]) -> Dict[str, Any]:
@@ -292,4 +322,11 @@ class ModificationTaskSerializer(serializers.ModelSerializer):
         hub = attrs.get('asset_hub')
         if m and hub and m.asset_hub_id != hub.id:
             raise serializers.ValidationError('Modification outcome and asset_hub mismatch.')
+        task_type = attrs.get('task_type') or getattr(self.instance, 'task_type', None)
+        if hub and task_type:
+            qs = ModificationTask.objects.filter(asset_hub=hub, task_type=task_type)
+            if self.instance:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise serializers.ValidationError('A task with this type already exists for this asset.')
         return attrs

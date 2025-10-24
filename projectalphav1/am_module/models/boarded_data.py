@@ -11,13 +11,6 @@ from django.utils import timezone
 from acq_module.models.seller import SellerRawData
 import re
 
-# ============================================================
-# PHASE 2: MODEL DELETED
-# SellerBoardedData model has been removed from the codebase.
-# Migration 0033_delete_sellerboardeddata.py successfully deployed.
-# REPLACEMENT: Use SellerRawData (acq_module.models.seller) with acq_status=BOARD
-# ============================================================
-
 # Blended Outcome Model (One-to-one with AssetIdHub)
 # -----------------------------------------------------------------------------------
 class BlendedOutcomeModel(models.Model):

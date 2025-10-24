@@ -38,43 +38,19 @@
       </div>
     </template>
 
-    <div class="row g-3">
-      <div class="col-lg-6">
-        <div class="mb-2 small text-muted">Outcome Details</div>
-        <div class="d-flex flex-column gap-2">
-          <div class="d-flex justify-content-between"><span class="text-muted">Broker CRM</span><span class="fw-medium">{{ ss?.broker_crm ?? '—' }}</span></div>
-          <div class="d-flex justify-content-between"><span class="text-muted">Acceptable Min Offer</span><span class="fw-medium">{{ money(ss?.acceptable_min_offer) }}</span></div>
-          <div class="d-flex justify-content-between"><span class="text-muted">Short Sale Date</span><span class="fw-medium">{{ ss?.short_sale_date ?? '—' }}</span></div>
-        </div>
-      </div>
-      <div class="col-lg-6">
-        <div class="mb-2 small text-muted">Quick Update</div>
-        <form class="row g-2" @submit.prevent>
-          <div class="col-6">
-            <label class="form-label small text-muted">Acceptable Min Offer</label>
-            <input v-currency pattern="[0-9,]*" class="form-control" v-model="form.acceptable_min_offer" />
-          </div>
-          <div class="col-6">
-            <label class="form-label small text-muted">Short Sale Date</label>
-            <input type="date" class="form-control" v-model="form.short_sale_date" />
-          </div>
-          <!-- Auto-save enabled, no Save button -->
-        </form>
-      </div>
-    </div>
-
-    <hr class="my-3" />
-
-    <!-- Sub Tasks (collapsible body) -->
+    <!-- Two-column layout: Subtasks | Notes -->
     <div class="p-3" v-show="!collapsed">
-      <div class="d-flex align-items-center justify-content-between mb-3">
-        <div class="small text-muted">Sub Tasks</div>
-        <div class="position-relative" ref="addMenuRef">
-          <button type="button" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-2" @click.stop="toggleAddMenu">
-            <i class="fas" :class="addMenuOpen ? 'fa-minus' : 'fa-plus'"></i>
-            <span>Add Task</span>
-            <i class="fas fa-chevron-down small"></i>
-          </button>
+      <div class="row g-3">
+        <!-- Left Column: Subtasks -->
+        <div class="col-md-6">
+          <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
+            <h5 class="mb-0 fw-bold text-body">Sub Tasks</h5>
+            <div class="position-relative" ref="addMenuRef">
+              <button type="button" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-2" @click.stop="toggleAddMenu">
+                <i class="fas" :class="addMenuOpen ? 'fa-minus' : 'fa-plus'"></i>
+                <span>Add Task</span>
+                <i class="fas fa-chevron-down small"></i>
+              </button>
           <div v-if="addMenuOpen" class="card shadow-sm mt-1" style="position: absolute; right: 0; min-width: 260px; z-index: 1060;">
             <div class="list-group list-group-flush p-2 d-flex flex-wrap gap-2">
               <button
@@ -114,23 +90,44 @@
               <span :class="badgeClass(t.task_type)" class="me-2">{{ labelFor(t.task_type) }}</span>
             </div>
             <div class="d-flex align-items-center small text-muted">
-              <span class="me-3">Created: {{ isoDate(t.created_at) }}</span>
+              <span class="me-3">
+                Started: 
+                <EditableDate 
+                  :model-value="t.task_started" 
+                  @update:model-value="(newDate) => updateTaskStarted(t.id, newDate)"
+                />
+              </span>
               <i :class="expandedId === t.id ? 'fas fa-chevron-up' : 'fas fa-chevron-down'"></i>
             </div>
           </div>
-          <div v-if="expandedId === t.id" class="mt-2">
-            <SubtaskNotes :hubId="props.hubId" outcome="short_sale" :taskType="t.task_type" :taskId="t.id" />
+          <div v-if="expandedId === t.id" class="mt-2 p-2 border-top">
+            <div class="small text-muted">Task data fields can be added here</div>
+            <!-- TODO: Add task-specific form fields here -->
           </div>
         </div>
       </div>
       <div v-else class="text-muted small">No subtasks yet. Use Add Task to create one.</div>
+        </div>
+
+        <!-- Right Column: Shared Notes for this Outcome -->
+        <div class="col-md-6">
+          <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
+            <h5 class="mb-0 fw-bold text-body">Notes</h5>
+          </div>
+          <SubtaskNotes :hubId="props.hubId" outcome="short_sale" :taskType="null" :taskId="null" />
+        </div>
+      </div>
     </div>
   </b-card>
 </template>
 
 <script setup lang="ts">
-import { withDefaults, defineProps, defineEmits, ref, onMounted, onBeforeUnmount, computed, reactive, watch } from 'vue'
-import { useAmOutcomesStore, type ShortSaleOutcome, type ShortSaleTask, type ShortSaleTaskType } from '@/stores/outcomes'
+import { withDefaults, defineProps, ref, computed, onMounted, onBeforeUnmount, defineEmits } from 'vue'
+import { useAmOutcomesStore, type ShortSaleTask, type ShortSaleTaskType } from '@/stores/outcomes'
+import http from '@/lib/http'
+// Reusable editable date component with inline picker
+// Path: src/components/ui/EditableDate.vue
+import EditableDate from '@/components/ui/EditableDate.vue'
 // Feature-local notes component (moved for AM Tasking scope)
 // Path: src/views/am_module/loanlvl/am_tasking/components/SubtaskNotes.vue
 import SubtaskNotes from '@/views/am_module/loanlvl/am_tasking/components/SubtaskNotes.vue'
@@ -140,7 +137,6 @@ const emit = defineEmits<{ (e: 'delete'): void }>()
 const store = useAmOutcomesStore()
 // Collapsed state for the entire card body (subtasks section hidden when true)
 const collapsed = ref<boolean>(false)
-const ss = ref<ShortSaleOutcome | null>(null)
 const busy = ref(false)
 // Settings menu state/handlers
 const menuOpen = ref(false)
@@ -162,48 +158,10 @@ function handleDocClick(e: MouseEvent) {
 onMounted(() => document.addEventListener('click', handleDocClick))
 onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
 
-function money(val: string | number | null | undefined): string {
-  if (val == null || val === '') return '—'
-  const num = typeof val === 'string' ? Number(val) : Number(val)
-  try {
-    return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(num)
-  } catch { return String(val) }
-}
-
-const form = reactive({
-  acceptable_min_offer: '' as string,
-  short_sale_date: '' as string,
-})
-
 async function load() {
-  ss.value = await store.fetchShortSale(props.hubId)
-  if (ss.value) {
-    form.acceptable_min_offer = ss.value.acceptable_min_offer || ''
-    form.short_sale_date = ss.value.short_sale_date || ''
-  }
   // Load subtasks
   tasks.value = await store.listShortSaleTasks(props.hubId, true)
 }
-
-// Debounced auto-save on form changes
-let timer: number | undefined
-watch(form, async () => {
-  if (!ss.value) return
-  if (timer) window.clearTimeout(timer)
-  timer = window.setTimeout(async () => {
-    try {
-      busy.value = true
-      const payload: Record<string, any> = {}
-      if (form.acceptable_min_offer) payload.acceptable_min_offer = form.acceptable_min_offer
-      if (form.short_sale_date) payload.short_sale_date = form.short_sale_date
-      if (!Object.keys(payload).length) return
-      await store.patchShortSale(props.hubId, payload)
-      await load()
-    } finally {
-      busy.value = false
-    }
-  }, 600)
-}, { deep: true })
 
 onMounted(load)
 
@@ -228,7 +186,23 @@ function onSelectPill(tp: ShortSaleTaskType) {
     .finally(() => { busy.value = false; addMenuOpen.value = false })
 }
 function toggleExpand(id: number) { expandedId.value = expandedId.value === id ? null : id }
-function isoDate(iso: string): string { try { return new Date(iso).toLocaleDateString() } catch { return iso } }
+function isoDate(iso: string | null): string { 
+  if (!iso) return 'N/A'
+  try { return new Date(iso).toLocaleDateString() } catch { return iso } 
+}
+
+// Update task_started date via PATCH request
+async function updateTaskStarted(taskId: number, newDate: string) {
+  try {
+    await http.patch(`/am/outcomes/short-sale-tasks/${taskId}/`, { task_started: newDate })
+    // Refresh tasks to show updated date
+    tasks.value = await store.listShortSaleTasks(props.hubId, true)
+  } catch (err: any) {
+    console.error('Failed to update task start date:', err)
+    alert('Failed to update start date. Please try again.')
+  }
+}
+
 function badgeClass(tp: ShortSaleTaskType): string {
   const map: Record<ShortSaleTaskType, string> = {
     list_price_accepted: 'badge rounded-pill size_small text-bg-warning',

@@ -37,6 +37,9 @@ export interface FcTask {
   asset_hub: number
   fc_sale: number
   task_type: FcTaskType
+  task_started: string | null
+  nod_noi_sent_date?: string | null
+  nod_noi_expire_date?: string | null
   created_at: string
   updated_at: string
 }
@@ -48,6 +51,7 @@ export interface ShortSaleTask {
   asset_hub: number
   short_sale: number
   task_type: ShortSaleTaskType
+  task_started: string | null
   created_at: string
   updated_at: string
 }
@@ -59,6 +63,7 @@ export interface ModificationTask {
   asset_hub: number
   modification: number
   task_type: ModificationTaskType
+  task_started: string | null
   created_at: string
   updated_at: string
 }
@@ -74,10 +79,21 @@ export interface Dil {
   cfk_cost: string | null
 }
 
+// CRM contact details
+export interface CrmContact {
+  id: number
+  contact_name: string | null
+  firm: string | null
+  email: string | null
+  phone: string | null
+  tag: string | null
+}
+
 // FC outcome interface aligns to FCSale model in backend
 export interface FcSale {
   asset_hub: number
   crm: number | null
+  crm_details: CrmContact | null
   fc_sale_sched_date: string | null
   fc_sale_actual_date: string | null
   fc_bid_price: string | null
@@ -128,6 +144,7 @@ export interface DilTask {
   // Parent DIL PK equals hub id
   dil: number
   task_type: DilTaskType
+  task_started: string | null
   created_at: string
   updated_at: string
 }
@@ -139,6 +156,7 @@ export interface ReoTask {
   asset_hub: number
   reo_outcome: number
   task_type: ReoTaskType
+  task_started: string | null
   created_at: string
   updated_at: string
 }
@@ -163,6 +181,9 @@ interface StateShape {
   // outcomes by hub id
   dilByHub: Record<number, Dil | null>
   reoByHub: Record<number, ReoData | null>
+  fcByHub: Record<number, FcSale | null>
+  shortSaleByHub: Record<number, ShortSaleOutcome | null>
+  modificationByHub: Record<number, ModificationOutcome | null>
   // tasks by hub id
   dilTasksByHub: Record<number, DilTask[]>
   // REO tasks by hub id
@@ -192,6 +213,9 @@ export const useAmOutcomesStore = defineStore('amOutcomes', {
   state: (): StateShape => ({
     dilByHub: {},
     reoByHub: {},
+    fcByHub: {},
+    shortSaleByHub: {},
+    modificationByHub: {},
     dilTasksByHub: {},
     reoTasksByHub: {},
     fcTasksByHub: {},
@@ -225,12 +249,19 @@ export const useAmOutcomesStore = defineStore('amOutcomes', {
 
   actions: {
     // Generic ensure-create for any outcome. Returns the outcome payload (shape varies per outcome).
+    // WHAT: Creates a new outcome record if it doesn't exist
+    // WHY: Called when user selects a track from the dropdown
+    // HOW: POSTs to backend and caches the created outcome in store
     async ensureOutcome(hubId: number, type: OutcomeType): Promise<any> {
       const path = outcomePath[type]
       const url = `/am/outcomes/${path}/`
       const res = await http.post(url, { asset_hub_id: hubId })
-      // Store/cache per type as implemented; start with DIL
+      // Cache the created outcome in the appropriate store property
       if (type === 'dil') this.dilByHub[hubId] = res.data as Dil
+      else if (type === 'fc') this.fcByHub[hubId] = res.data as FcSale
+      else if (type === 'reo') this.reoByHub[hubId] = res.data as ReoData
+      else if (type === 'short_sale') this.shortSaleByHub[hubId] = res.data as ShortSaleOutcome
+      else if (type === 'modification') this.modificationByHub[hubId] = res.data as ModificationOutcome
       return res.data
     },
 
@@ -350,6 +381,21 @@ export const useAmOutcomesStore = defineStore('amOutcomes', {
         this.loadingReoTasks[hubId] = false
       }
     },
+    async deleteReoTask(hubId: number, taskId: number): Promise<void> {
+      try {
+        this.loadingReoTasks[hubId] = true
+        this.errorReoTasks[hubId] = null
+        await http.delete(`/am/outcomes/reo-tasks/${taskId}/`, { params: { asset_hub_id: hubId } })
+        const list = this.reoTasksByHub[hubId] ?? []
+        this.reoTasksByHub[hubId] = list.filter(t => t.id !== taskId)
+      } catch (err: any) {
+        const msg = err?.response?.data?.detail || err?.message || 'Failed to delete REO task'
+        this.errorReoTasks[hubId] = msg
+        throw err
+      } finally {
+        this.loadingReoTasks[hubId] = false
+      }
+    },
 
     // Delete an outcome by hub id and type, then clear caches for that type
     async deleteOutcome(hubId: number, type: OutcomeType): Promise<void> {
@@ -365,19 +411,22 @@ export const useAmOutcomesStore = defineStore('amOutcomes', {
         delete this.errorDil[hubId]
         delete this.errorDilTasks[hubId]
       } else if (type === 'reo') {
-        // REO outcome is keyed by hub id; tasks cache should be cleared as well
+        delete this.reoByHub[hubId]
         delete this.reoTasksByHub[hubId]
         delete this.loadingReoTasks[hubId]
         delete this.errorReoTasks[hubId]
       } else if (type === 'fc') {
+        delete this.fcByHub[hubId]
         delete this.fcTasksByHub[hubId]
         delete this.loadingFcTasks[hubId]
         delete this.errorFcTasks[hubId]
       } else if (type === 'short_sale') {
+        delete this.shortSaleByHub[hubId]
         delete this.shortSaleTasksByHub[hubId]
         delete this.loadingShortSaleTasks[hubId]
         delete this.errorShortSaleTasks[hubId]
       } else if (type === 'modification') {
+        delete this.modificationByHub[hubId]
         delete this.modificationTasksByHub[hubId]
         delete this.loadingModificationTasks[hubId]
         delete this.errorModificationTasks[hubId]
@@ -385,12 +434,22 @@ export const useAmOutcomesStore = defineStore('amOutcomes', {
     },
 
     // Generic fetch to detect if an outcome exists for a hub. Returns first match or null.
+    // WHAT: Fetches outcome record from backend and caches it in store
+    // WHY: Needed to determine which outcome cards to show on page load
+    // HOW: Queries by asset_hub_id and caches the first result per outcome type
     async fetchOutcome(hubId: number, type: OutcomeType): Promise<any | null> {
       const path = outcomePath[type]
       const url = `/am/outcomes/${path}/`
-      const res = await http.get<any[]>(url, { params: { asset_hub_id: hubId } })
-      const first = Array.isArray(res.data) && res.data.length ? res.data[0] : null
+      const res = await http.get<any>(url, { params: { asset_hub_id: hubId } })
+      // Handle both paginated (DRF) and non-paginated responses
+      const results = res.data?.results || res.data
+      const first = Array.isArray(results) && results.length ? results[0] : null
+      // Cache the outcome in the appropriate store property
       if (type === 'dil') this.dilByHub[hubId] = first as Dil | null
+      else if (type === 'fc') this.fcByHub[hubId] = first as FcSale | null
+      else if (type === 'reo') this.reoByHub[hubId] = first as ReoData | null
+      else if (type === 'short_sale') this.shortSaleByHub[hubId] = first as ShortSaleOutcome | null
+      else if (type === 'modification') this.modificationByHub[hubId] = first as ModificationOutcome | null
       return first
     },
 
@@ -398,8 +457,9 @@ export const useAmOutcomesStore = defineStore('amOutcomes', {
     // FC (FCSale) helpers
     // -----------------------------
     async fetchFc(hubId: number): Promise<FcSale | null> {
-      const res = await http.get<FcSale[]>(`/am/outcomes/fc/`, { params: { asset_hub_id: hubId } })
-      return Array.isArray(res.data) && res.data.length ? res.data[0] : null
+      const res = await http.get<any>(`/am/outcomes/fc/`, { params: { asset_hub_id: hubId } })
+      const results = res.data?.results || res.data
+      return Array.isArray(results) && results.length ? results[0] : null
     },
     async patchFc(hubId: number, payload: Partial<FcSale>): Promise<FcSale> {
       const res = await http.patch<FcSale>(`/am/outcomes/fc/${hubId}/`, payload)
@@ -410,8 +470,9 @@ export const useAmOutcomesStore = defineStore('amOutcomes', {
     // REO helpers
     // -----------------------------
     async fetchReo(hubId: number): Promise<ReoData | null> {
-      const res = await http.get<ReoData[]>(`/am/outcomes/reo/`, { params: { asset_hub_id: hubId } })
-      return Array.isArray(res.data) && res.data.length ? res.data[0] : null
+      const res = await http.get<any>(`/am/outcomes/reo/`, { params: { asset_hub_id: hubId } })
+      const results = res.data?.results || res.data
+      return Array.isArray(results) && results.length ? results[0] : null
     },
     async patchReo(hubId: number, payload: Partial<ReoData>): Promise<ReoData> {
       const res = await http.patch<ReoData>(`/am/outcomes/reo/${hubId}/`, payload)
@@ -422,8 +483,9 @@ export const useAmOutcomesStore = defineStore('amOutcomes', {
     // Short Sale helpers
     // -----------------------------
     async fetchShortSale(hubId: number): Promise<ShortSaleOutcome | null> {
-      const res = await http.get<ShortSaleOutcome[]>(`/am/outcomes/short-sale/`, { params: { asset_hub_id: hubId } })
-      return Array.isArray(res.data) && res.data.length ? res.data[0] : null
+      const res = await http.get<any>(`/am/outcomes/short-sale/`, { params: { asset_hub_id: hubId } })
+      const results = res.data?.results || res.data
+      return Array.isArray(results) && results.length ? results[0] : null
     },
     async patchShortSale(hubId: number, payload: Partial<ShortSaleOutcome>): Promise<ShortSaleOutcome> {
       const res = await http.patch<ShortSaleOutcome>(`/am/outcomes/short-sale/${hubId}/`, payload)
@@ -434,8 +496,9 @@ export const useAmOutcomesStore = defineStore('amOutcomes', {
     // Modification helpers
     // -----------------------------
     async fetchModification(hubId: number): Promise<ModificationOutcome | null> {
-      const res = await http.get<ModificationOutcome[]>(`/am/outcomes/modification/`, { params: { asset_hub_id: hubId } })
-      return Array.isArray(res.data) && res.data.length ? res.data[0] : null
+      const res = await http.get<any>(`/am/outcomes/modification/`, { params: { asset_hub_id: hubId } })
+      const results = res.data?.results || res.data
+      return Array.isArray(results) && results.length ? results[0] : null
     },
     async patchModification(hubId: number, payload: Partial<ModificationOutcome>): Promise<ModificationOutcome> {
       const res = await http.patch<ModificationOutcome>(`/am/outcomes/modification/${hubId}/`, payload)
@@ -465,8 +528,9 @@ export const useAmOutcomesStore = defineStore('amOutcomes', {
       try {
         this.loadingDil[hubId] = true
         this.errorDil[hubId] = null
-        const res = await http.get<Dil[]>('/am/outcomes/dil/', { params: { asset_hub_id: hubId } })
-        const item = Array.isArray(res.data) && res.data.length ? res.data[0] : null
+        const res = await http.get<any>('/am/outcomes/dil/', { params: { asset_hub_id: hubId } })
+        const results = res.data?.results || res.data
+        const item = Array.isArray(results) && results.length ? results[0] : null
         this.dilByHub[hubId] = item
         return item
       } catch (err: any) {
@@ -530,6 +594,21 @@ export const useAmOutcomesStore = defineStore('amOutcomes', {
         this.loadingDilTasks[hubId] = false
       }
     },
+    async deleteDilTask(hubId: number, taskId: number): Promise<void> {
+      try {
+        this.loadingDilTasks[hubId] = true
+        this.errorDilTasks[hubId] = null
+        await http.delete(`/am/outcomes/dil-tasks/${taskId}/`, { params: { asset_hub_id: hubId } })
+        const list = this.dilTasksByHub[hubId] ?? []
+        this.dilTasksByHub[hubId] = list.filter(t => t.id !== taskId)
+      } catch (err: any) {
+        const msg = err?.response?.data?.detail || err?.message || 'Failed to delete DIL task'
+        this.errorDilTasks[hubId] = msg
+        throw err
+      } finally {
+        this.loadingDilTasks[hubId] = false
+      }
+    },
 
     // -----------------------------
     // FC Tasks helpers
@@ -579,6 +658,22 @@ export const useAmOutcomesStore = defineStore('amOutcomes', {
         return res.data
       } catch (err: any) {
         const msg = err?.response?.data?.detail || err?.message || 'Failed to create FC task'
+        this.errorFcTasks[hubId] = msg
+        throw err
+      } finally {
+        this.loadingFcTasks[hubId] = false
+      }
+    },
+    async deleteFcTask(hubId: number, taskId: number): Promise<void> {
+      try {
+        this.loadingFcTasks[hubId] = true
+        this.errorFcTasks[hubId] = null
+        await http.delete(`/am/outcomes/fc-tasks/${taskId}/`, { params: { asset_hub_id: hubId } })
+        // Remove from cache
+        const list = this.fcTasksByHub[hubId] ?? []
+        this.fcTasksByHub[hubId] = list.filter(t => t.id !== taskId)
+      } catch (err: any) {
+        const msg = err?.response?.data?.detail || err?.message || 'Failed to delete FC task'
         this.errorFcTasks[hubId] = msg
         throw err
       } finally {
@@ -640,6 +735,21 @@ export const useAmOutcomesStore = defineStore('amOutcomes', {
         this.loadingShortSaleTasks[hubId] = false
       }
     },
+    async deleteShortSaleTask(hubId: number, taskId: number): Promise<void> {
+      try {
+        this.loadingShortSaleTasks[hubId] = true
+        this.errorShortSaleTasks[hubId] = null
+        await http.delete(`/am/outcomes/short-sale-tasks/${taskId}/`, { params: { asset_hub_id: hubId } })
+        const list = this.shortSaleTasksByHub[hubId] ?? []
+        this.shortSaleTasksByHub[hubId] = list.filter(t => t.id !== taskId)
+      } catch (err: any) {
+        const msg = err?.response?.data?.detail || err?.message || 'Failed to delete Short Sale task'
+        this.errorShortSaleTasks[hubId] = msg
+        throw err
+      } finally {
+        this.loadingShortSaleTasks[hubId] = false
+      }
+    },
 
     // -----------------------------
     // Modification Tasks helpers
@@ -689,6 +799,21 @@ export const useAmOutcomesStore = defineStore('amOutcomes', {
         return res.data
       } catch (err: any) {
         const msg = err?.response?.data?.detail || err?.message || 'Failed to create Modification task'
+        this.errorModificationTasks[hubId] = msg
+        throw err
+      } finally {
+        this.loadingModificationTasks[hubId] = false
+      }
+    },
+    async deleteModificationTask(hubId: number, taskId: number): Promise<void> {
+      try {
+        this.loadingModificationTasks[hubId] = true
+        this.errorModificationTasks[hubId] = null
+        await http.delete(`/am/outcomes/modification-tasks/${taskId}/`, { params: { asset_hub_id: hubId } })
+        const list = this.modificationTasksByHub[hubId] ?? []
+        this.modificationTasksByHub[hubId] = list.filter(t => t.id !== taskId)
+      } catch (err: any) {
+        const msg = err?.response?.data?.detail || err?.message || 'Failed to delete Modification task'
         this.errorModificationTasks[hubId] = msg
         throw err
       } finally {

@@ -37,10 +37,13 @@
 
     <hr class="my-3" />
 
-    <!-- Sub Tasks -->
+    <!-- Two-column layout: Subtasks | Notes -->
     <div class="p-3">
-      <div class="d-flex align-items-center justify-content-between mb-3">
-        <div class="small text-muted">Sub Tasks</div>
+      <div class="row g-3">
+        <!-- Left Column: Subtasks -->
+        <div class="col-md-6">
+      <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
+        <h5 class="mb-0 fw-bold text-body">Sub Tasks</h5>
         <div class="position-relative" ref="addMenuRef">
           <button type="button" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-2" @click.stop="toggleAddMenu">
             <i class="fas" :class="addMenuOpen ? 'fa-minus' : 'fa-plus'"></i>
@@ -84,23 +87,44 @@
               <span :class="badgeClass(t.task_type)" class="me-2">{{ labelFor(t.task_type) }}</span>
             </div>
             <div class="d-flex align-items-center small text-muted">
-              <span class="me-3">Created: {{ isoDate(t.created_at) }}</span>
+              <span class="me-3">
+                Started: 
+                <EditableDate 
+                  :model-value="t.task_started" 
+                  @update:model-value="(newDate) => updateTaskStarted(t.id, newDate)"
+                />
+              </span>
               <i :class="expandedId === t.id ? 'fas fa-chevron-up' : 'fas fa-chevron-down'"></i>
             </div>
           </div>
-          <div v-if="expandedId === t.id" class="mt-2">
-            <SubtaskNotes :hubId="props.hubId" outcome="modification" :taskType="t.task_type" :taskId="t.id" />
+          <div v-if="expandedId === t.id" class="mt-2 p-2 border-top">
+            <div class="small text-muted">Task data fields can be added here</div>
+            <!-- TODO: Add task-specific form fields here -->
           </div>
         </div>
       </div>
       <div v-else class="text-muted small">No subtasks yet. Use Add Task to create one.</div>
+        </div>
+
+        <!-- Right Column: Shared Notes for this Outcome -->
+        <div class="col-md-6">
+          <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
+            <h5 class="mb-0 fw-bold text-body">Notes</h5>
+          </div>
+          <SubtaskNotes :hubId="props.hubId" outcome="modification" :taskType="null" :taskId="null" />
+        </div>
+      </div>
     </div>
   </b-card>
 </template>
 
 <script setup lang="ts">
-import { withDefaults, defineProps, defineEmits, ref, onMounted, onBeforeUnmount, computed } from 'vue'
+import { withDefaults, defineProps, ref, computed, onMounted, onBeforeUnmount, defineEmits } from 'vue'
 import { useAmOutcomesStore, type ModificationTask, type ModificationTaskType } from '@/stores/outcomes'
+import http from '@/lib/http'
+// Reusable editable date component with inline picker
+// Path: src/components/ui/EditableDate.vue
+import EditableDate from '@/components/ui/EditableDate.vue'
 // Feature-local notes component (moved for AM Tasking scope)
 // Path: src/views/am_module/loanlvl/am_tasking/components/SubtaskNotes.vue
 import SubtaskNotes from '@/views/am_module/loanlvl/am_tasking/components/SubtaskNotes.vue'
@@ -156,7 +180,23 @@ function onSelectPill(tp: ModificationTaskType) {
     .finally(() => { busy.value = false; addMenuOpen.value = false })
 }
 function toggleExpand(id: number) { expandedId.value = expandedId.value === id ? null : id }
-function isoDate(iso: string): string { try { return new Date(iso).toLocaleDateString() } catch { return iso } }
+function isoDate(iso: string | null): string { 
+  if (!iso) return 'N/A'
+  try { return new Date(iso).toLocaleDateString() } catch { return iso } 
+}
+
+// Update task_started date via PATCH request
+async function updateTaskStarted(taskId: number, newDate: string) {
+  try {
+    await http.patch(`/am/outcomes/modification-tasks/${taskId}/`, { task_started: newDate })
+    // Refresh tasks to show updated date
+    tasks.value = await store.listModificationTasks(props.hubId, true)
+  } catch (err: any) {
+    console.error('Failed to update task start date:', err)
+    alert('Failed to update start date. Please try again.')
+  }
+}
+
 function badgeClass(tp: ModificationTaskType): string {
   const map: Record<ModificationTaskType, string> = {
     mod_negotiations: 'badge rounded-pill size_small text-bg-info',

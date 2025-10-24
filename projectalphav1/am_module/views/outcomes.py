@@ -117,11 +117,13 @@ class _TaskBaseViewSet(mixins.ListModelMixin,
                        mixins.RetrieveModelMixin,
                        mixins.CreateModelMixin,
                        mixins.UpdateModelMixin,
+                       mixins.DestroyModelMixin,
                        GenericViewSet):
-    """Base for task viewsets. List supports filtering by asset_hub_id and parent id."""
+    """Base for task viewsets. List supports filtering by asset_hub_id and parent id. Supports DELETE."""
 
     permission_classes = [AllowAny]
     authentication_classes: list[type[SessionAuthentication]] = []
+    pagination_class = None
 
     parent_field_name: str = ''  # e.g., 'dil', 'fc_sale', etc.
 
@@ -143,6 +145,7 @@ class _TaskBaseViewSet(mixins.ListModelMixin,
                 return Response({"detail": f"{self.parent_field_name} must be an integer"}, status=status.HTTP_400_BAD_REQUEST)
             qs = qs.filter(**filter_kwargs)
 
+        qs = qs.order_by('-created_at', '-id')
         page = self.paginate_queryset(qs)
         if page is not None:
             ser = self.get_serializer(page, many=True)

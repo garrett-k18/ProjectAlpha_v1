@@ -124,10 +124,11 @@ export const useNotesStore = defineStore('amNotes', {
         this.errorByHub[assetHubId] = null
 
         // Perform GET request against DRF endpoint; expects array of NoteItem
-        const res = await http.get<NoteItem[]>('/am/notes/', { params: q })
+        const res = await http.get<any>('/am/notes/', { params: q })
 
-        // Normalize array, then update cache for the given hub id
-        const items = Array.isArray(res.data) ? res.data : []
+        // Handle paginated DRF response (results array) or plain array
+        const results = res.data?.results || res.data
+        const items = Array.isArray(results) ? results : []
         // Sort pinned first then most recently updated (mirrors backend default but is explicit)
         const sorted = [...items].sort((a, b) => {
           if (a.pinned !== b.pinned) return a.pinned ? -1 : 1
@@ -188,7 +189,8 @@ export const useNotesStore = defineStore('amNotes', {
       try {
         this.loadingByHub[assetHubId] = true
         this.errorByHub[assetHubId] = null
-        const res = await http.patch<NoteItem>(`/am/notes/${noteId}/`, patch)
+        // Include asset_hub_id query param for backend queryset filtering
+        const res = await http.patch<NoteItem>(`/am/notes/${noteId}/`, patch, { params: { asset_hub_id: assetHubId } })
         const list = this.notesByHub[assetHubId] ?? []
         this.notesByHub[assetHubId] = list.map(n => (n.id === noteId ? res.data : n))
         return res.data
@@ -206,7 +208,8 @@ export const useNotesStore = defineStore('amNotes', {
       try {
         this.loadingByHub[assetHubId] = true
         this.errorByHub[assetHubId] = null
-        await http.delete(`/am/notes/${noteId}/`)
+        // Include asset_hub_id query param for backend queryset filtering
+        await http.delete(`/am/notes/${noteId}/`, { params: { asset_hub_id: assetHubId } })
         const list = this.notesByHub[assetHubId] ?? []
         this.notesByHub[assetHubId] = list.filter(n => n.id !== noteId)
       } catch (err: any) {

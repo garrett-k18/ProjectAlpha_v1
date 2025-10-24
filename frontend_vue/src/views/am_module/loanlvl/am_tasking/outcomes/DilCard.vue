@@ -98,10 +98,13 @@
       </div>
     </div>
 
-    <!-- Sub Tasks -->
+    <!-- Two-column layout: Subtasks | Notes -->
     <div class="p-3">
-      <div class="d-flex align-items-center justify-content-between mb-3">
-        <div class="small text-muted">Sub Tasks</div>
+      <div class="row g-3">
+        <!-- Left Column: Subtasks -->
+        <div class="col-md-6">
+      <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
+        <h5 class="mb-0 fw-bold text-body">Sub Tasks</h5>
         <div class="position-relative" ref="addMenuRef">
           <button type="button" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-2" @click.stop="toggleAddMenu">
             <i class="fas" :class="addMenuOpen ? 'fa-minus' : 'fa-plus'"></i>
@@ -146,8 +149,17 @@
             <div class="d-flex align-items-center ps-2">
               <UiBadge :tone="pillTone(t.task_type)" size="sm" class="me-2">{{ taskLabel(t.task_type) }}</UiBadge>
             </div>
-            <div class="d-flex align-items-center small text-muted">
-              <span class="me-3">Created: {{ isoDate(t.created_at) }}</span>
+            <div class="d-flex align-items-center small text-muted gap-2">
+              <span class="me-2">
+                Started: 
+                <EditableDate 
+                  :model-value="t.task_started" 
+                  @update:model-value="(newDate) => updateTaskStarted(t.id, newDate)"
+                />
+              </span>
+              <button class="btn btn-sm btn-outline-danger px-1 py-0" @click.stop="requestDeleteTask(t.id)" title="Delete Task">
+                <i class="mdi mdi-delete"></i>
+              </button>
               <i :class="expandedId === t.id ? 'fas fa-chevron-up' : 'fas fa-chevron-down'"></i>
             </div>
           </div>
@@ -177,22 +189,66 @@
               </div>
             </div>
 
-            <SubtaskNotes :hubId="props.hubId" outcome="dil" :taskType="t.task_type" :taskId="t.id" />
+            <!-- Task-specific data fields for DIL Drafted -->
+            <!-- Notes moved to right column (outcome-level) -->
           </div>
         </div>
       </div>
       <div v-else class="text-muted small">No subtasks yet. Use Add Task to create one.</div>
+        </div>
+
+        <!-- Right Column: Shared Notes for this Outcome -->
+        <div class="col-md-6">
+          <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
+            <h5 class="mb-0 fw-bold text-body">Notes</h5>
+          </div>
+          <SubtaskNotes :hubId="props.hubId" outcome="dil" :taskType="null" :taskId="null" />
+        </div>
+      </div>
     </div>
   </b-card>
+
+  <!-- Confirm Delete Task Modal -->
+  <template v-if="deleteTaskConfirm.open">
+    <div class="modal-backdrop fade show" style="z-index: 1050;"></div>
+    <div class="modal fade show" tabindex="-1" role="dialog" aria-modal="true"
+         style="display: block; position: fixed; inset: 0; z-index: 1055;">
+      <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+          <div class="modal-header bg-danger-subtle">
+            <h5 class="modal-title d-flex align-items-center">
+              <i class="fas fa-triangle-exclamation text-danger me-2"></i>
+              Confirm Task Deletion
+            </h5>
+            <button type="button" class="btn-close" aria-label="Close" @click="cancelDeleteTask"></button>
+          </div>
+          <div class="modal-body">
+            <p class="mb-0">Are you sure you want to delete this task? This action cannot be undone.</p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-light" @click="cancelDeleteTask">Cancel</button>
+            <button type="button" class="btn btn-danger" @click="confirmDeleteTask" :disabled="deleteTaskConfirm.busy">
+              <span v-if="deleteTaskConfirm.busy" class="spinner-border spinner-border-sm me-2"></span>
+              Delete
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
 </template>
 
 <script setup lang="ts">
 // Component for managing DIL subtasks only (details/quick-edit removed by request).
 // Docs: Pinia https://pinia.vuejs.org/ ; DRF ViewSets https://www.django-rest-framework.org/api-guide/viewsets/
 
-import { onMounted, computed, ref, withDefaults, defineProps, defineEmits, onBeforeUnmount } from 'vue'
-import { useAmOutcomesStore, type Dil, type DilTask, type DilTaskType } from '@/stores/outcomes'
+import { onMounted, computed, ref, withDefaults, defineProps, defineEmits, onBeforeUnmount, watch } from 'vue'
+import { useAmOutcomesStore, type DilTask, type DilTaskType, type Dil } from '@/stores/outcomes'
+import http from '@/lib/http'
 import UiBadge from '@/components/ui/UiBadge.vue'
+// Reusable editable date component with inline picker
+// Path: src/components/ui/EditableDate.vue
+import EditableDate from '@/components/ui/EditableDate.vue'
 // Feature-local notes component (moved for AM Tasking scope)
 // Path: src/views/am_module/loanlvl/am_tasking/components/SubtaskNotes.vue
 import SubtaskNotes from '@/views/am_module/loanlvl/am_tasking/components/SubtaskNotes.vue'
@@ -230,6 +286,9 @@ const taskOptions: Array<{ value: DilTaskType; label: string }> = [
 ]
 
 const tasksBusy = ref(false)
+
+// Delete task confirmation modal state
+const deleteTaskConfirm = ref({ open: false, taskId: null as number | null, busy: false })
 
 function taskLabel(v: DilTaskType): string {
   const m = taskOptions.find(o => o.value === v)
@@ -330,11 +389,26 @@ function money(val: string | number | null | undefined): string {
 }
 const legalCostFormatted = computed<string>(() => money(dil.value?.dil_cost ?? null))
 
-function isoDate(iso: string): string {
+function isoDate(iso: string | null): string {
+  if (!iso) return 'N/A'
   try {
     const d = new Date(iso)
     return d.toLocaleDateString()
-  } catch { return iso }
+  } catch {
+    return iso
+  }
+}
+
+// Update task_started date via PATCH request
+async function updateTaskStarted(taskId: number, newDate: string) {
+  try {
+    await http.patch(`/am/outcomes/dil-tasks/${taskId}/`, { task_started: newDate })
+    // Refresh tasks - they are computed from store, so just refetch from store
+    await store.listDilTasks(props.hubId, true)
+  } catch (err: any) {
+    console.error('Failed to update task start date:', err)
+    alert('Failed to update start date. Please try again.')
+  }
 }
 
 function toggleAddMenu() { addMenuOpen.value = !addMenuOpen.value }
@@ -412,6 +486,30 @@ function formatNumberWithCommas(n: string): string {
   const [intPart, decPart] = n.split('.')
   const withCommas = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
   return decPart !== undefined ? `${withCommas}.${decPart}` : withCommas
+}
+
+// Delete task confirmation handlers
+function requestDeleteTask(taskId: number) {
+  deleteTaskConfirm.value = { open: true, taskId, busy: false }
+}
+
+function cancelDeleteTask() {
+  deleteTaskConfirm.value = { open: false, taskId: null, busy: false }
+}
+
+async function confirmDeleteTask() {
+  const taskId = deleteTaskConfirm.value.taskId
+  if (!taskId) return
+  try {
+    deleteTaskConfirm.value.busy = true
+    await store.deleteDilTask(props.hubId, taskId)
+    await store.listDilTasks(props.hubId, true)
+    cancelDeleteTask()
+  } catch (err) {
+    console.error('Failed to delete task:', err)
+    alert('Failed to delete task. Please try again.')
+    deleteTaskConfirm.value.busy = false
+  }
 }
 </script>
 

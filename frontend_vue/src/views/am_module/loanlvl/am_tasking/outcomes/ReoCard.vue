@@ -107,10 +107,13 @@
       </div>
     </div>
 
-    <!-- Sub Tasks (collapsible body) -->
+    <!-- Two-column layout: Subtasks | Notes -->
     <div class="p-3" v-show="!collapsed">
-      <div class="d-flex align-items-center justify-content-between mb-3">
-        <div class="small text-muted">Sub Tasks</div>
+      <div class="row g-3">
+        <!-- Left Column: Subtasks -->
+        <div class="col-md-6">
+      <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
+        <h5 class="mb-0 fw-bold text-body">Sub Tasks</h5>
         <div class="position-relative" ref="addMenuRef">
           <button type="button" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-2" @click.stop="toggleAddMenu">
             <i class="fas" :class="addMenuOpen ? 'fa-minus' : 'fa-plus'"></i>
@@ -156,7 +159,13 @@
               <span :class="badgeClass(t.task_type)" class="me-2">{{ labelFor(t.task_type) }}</span>
             </div>
             <div class="d-flex align-items-center small text-muted">
-              <span class="me-3">Created: {{ isoDate(t.created_at) }}</span>
+              <span class="me-3">
+                Started: 
+                <EditableDate 
+                  :model-value="t.task_started" 
+                  @update:model-value="(newDate) => updateTaskStarted(t.id, newDate)"
+                />
+              </span>
               <i :class="expandedIds.has(t.id) ? 'fas fa-chevron-up' : 'fas fa-chevron-down'"></i>
             </div>
           </div>
@@ -182,7 +191,8 @@
               </template>
 
               <template #notes>
-                <SubtaskNotes :hubId="props.hubId" outcome="reo" :taskType="t.task_type" :taskId="t.id" />
+                <!-- Notes moved to right column (outcome-level) -->
+                <div class="text-muted small">Task notes moved to outcome-level notes panel</div>
               </template>
 
               <template #docs>
@@ -194,6 +204,16 @@
         </div>
       </div>
       <div v-else class="text-muted small">No subtasks yet. Choose one from the dropdown and click Add.</div>
+        </div>
+
+        <!-- Right Column: Shared Notes for this Outcome -->
+        <div class="col-md-6">
+          <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
+            <h5 class="mb-0 fw-bold text-body">Notes</h5>
+          </div>
+          <SubtaskNotes :hubId="props.hubId" outcome="reo" :taskType="null" :taskId="null" />
+        </div>
+      </div>
     </div>
   </b-card>
 </template>
@@ -201,6 +221,10 @@
 <script setup lang="ts">
 import { withDefaults, defineProps, ref, computed, onMounted, defineEmits, onBeforeUnmount } from 'vue'
 import { useAmOutcomesStore, type ReoTask, type ReoTaskType, type ReoData } from '@/stores/outcomes'
+import http from '@/lib/http'
+// Reusable editable date component with inline picker
+// Path: src/components/ui/EditableDate.vue
+import EditableDate from '@/components/ui/EditableDate.vue'
 // Feature-local notes component (moved for AM Tasking scope)
 // Path: src/views/am_module/loanlvl/am_tasking/components/SubtaskNotes.vue
 import SubtaskNotes from '@/views/am_module/loanlvl/am_tasking/components/SubtaskNotes.vue'
@@ -407,9 +431,23 @@ function toggleExpand(id: number) {
   else expandedIds.value.add(id)
 }
 
-function isoDate(iso: string): string {
+function isoDate(iso: string | null): string {
+  if (!iso) return 'N/A'
   try { const d = new Date(iso); return d.toLocaleDateString() } catch { return iso }
 }
+
+// Update task_started date via PATCH request
+async function updateTaskStarted(taskId: number, newDate: string) {
+  try {
+    await http.patch(`/am/outcomes/reo-tasks/${taskId}/`, { task_started: newDate })
+    // Refresh tasks to show updated date
+    await loadTasks()
+  } catch (err: any) {
+    console.error('Failed to update task start date:', err)
+    alert('Failed to update start date. Please try again.')
+  }
+}
+
 // Settings menu state and handlers
 const menuOpen = ref(false)
 const menuRef = ref<HTMLElement | null>(null)

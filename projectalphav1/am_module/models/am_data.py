@@ -498,17 +498,6 @@ class AuditLog(models.Model):
             changed_by=changed_by,
         )
 
-
-# ============================================================
-# PHASE 2: MODEL DELETED
-# AMMetricsChange model has been removed from the codebase.
-# Migration 0032_delete_ammetricschange.py successfully deployed.
-# REPLACEMENT: Use AuditLog for generic audit logging
-# ============================================================
-
-
-
-
 class AMNote(models.Model):
     """User-authored note attached to an AssetIdHub (many-to-one).
 
@@ -870,6 +859,13 @@ class REOtask(models.Model):
         help_text='The REO outcome record this task is associated with (many-to-one).',
     )
 
+    # User-editable start date for tracking when this task actually began
+    task_started = models.DateField(
+        null=True,
+        blank=True,
+        help_text='Date when this task was started (defaults to today if not specified).'
+    )
+
     # Minimal audit timestamps (used by serializers)
     created_at = models.DateTimeField(auto_now_add=True, help_text="When this task was created.")
     updated_at = models.DateTimeField(auto_now=True, help_text="When this task was last updated.")
@@ -878,6 +874,9 @@ class REOtask(models.Model):
         verbose_name = "REO Task"
         verbose_name_plural = "REO Tasks"
         ordering = ['-created_at', '-id']
+        constraints = [
+            models.UniqueConstraint(fields=['asset_hub', 'task_type'], name='reo_task_unique_type_per_asset'),
+        ]
 
     # Change tracking (match pattern used by other task models)
     _actor = None
@@ -899,6 +898,10 @@ class REOtask(models.Model):
                 original_values = {}
         else:
             original_values = {}
+
+        # Default task_started to today if not provided
+        if not self.task_started:
+            self.task_started = timezone.now().date()
 
         # Save the record
         super().save(*args, **kwargs)
@@ -941,7 +944,18 @@ class FCSale(models.Model):
         related_name="fc_sales",  # Access from MasterCRM via: crm.fc_sales.all()
         help_text="CRM contact associated with this foreclosure sale (optional).",
     )
-    
+    nod_noi_sent_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date NOI was sent to NOD (optional).",
+    )
+
+    nod_noi_expire_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date NOI expires (optional).",
+    )
+
     fc_sale_sched_date = models.DateField(
         null=True,
         blank=True,
@@ -1054,6 +1068,26 @@ class FCTask(models.Model):
         help_text='Foreclosure workflow stage for this task.',
     )
 
+    # User-editable start date for tracking when this task actually began
+    task_started = models.DateField(
+        null=True,
+        blank=True,
+        help_text='Date when this task was started (defaults to today if not specified).'
+    )
+
+    # NOD/NOI specific date fields (only applicable when task_type is 'nod_noi')
+    nod_noi_sent_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date NOI was sent to NOD (optional, for NOD/NOI tasks).",
+    )
+
+    nod_noi_expire_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date NOI expires (optional, for NOD/NOI tasks).",
+    )
+
     # Minimal audit timestamps
     created_at = models.DateTimeField(auto_now_add=True, help_text="When this task was created.")
     updated_at = models.DateTimeField(auto_now=True, help_text="When this task was last updated.")
@@ -1061,6 +1095,9 @@ class FCTask(models.Model):
     class Meta:
         verbose_name = "Foreclosure Task"
         verbose_name_plural = "Foreclosure Tasks"
+        constraints = [
+            models.UniqueConstraint(fields=['asset_hub', 'task_type'], name='fc_task_unique_type_per_asset'),
+        ]
 
     # Change tracking
     _actor = None
@@ -1082,6 +1119,10 @@ class FCTask(models.Model):
                 original_values = {}
         else:
             original_values = {}
+
+        # Default task_started to today if not provided
+        if not self.task_started:
+            self.task_started = timezone.now().date()
 
         # Save the record
         super().save(*args, **kwargs)
@@ -1230,6 +1271,13 @@ class DILTask(models.Model):
         help_text='DIL workflow stage for this task.',
     )
 
+    # User-editable start date for tracking when this task actually began
+    task_started = models.DateField(
+        null=True,
+        blank=True,
+        help_text='Date when this task was started (defaults to today if not specified).'
+    )
+
     # Minimal audit timestamps
     created_at = models.DateTimeField(auto_now_add=True, help_text="When this task was created.")
     updated_at = models.DateTimeField(auto_now=True, help_text="When this task was last updated.")
@@ -1237,6 +1285,9 @@ class DILTask(models.Model):
     class Meta:
         verbose_name = "DIL Task"
         verbose_name_plural = "DIL Tasks"
+        constraints = [
+            models.UniqueConstraint(fields=['asset_hub', 'task_type'], name='dil_task_unique_type_per_asset'),
+        ]
 
     # Change tracking
     _actor = None
@@ -1258,6 +1309,10 @@ class DILTask(models.Model):
                 original_values = {}
         else:
             original_values = {}
+
+        # Default task_started to today if not provided
+        if not self.task_started:
+            self.task_started = timezone.now().date()
 
         # Save the record
         super().save(*args, **kwargs)
@@ -1398,6 +1453,13 @@ class ShortSaleTask(models.Model):
         help_text='Short Sale workflow stage for this task.',
     )
 
+    # User-editable start date for tracking when this task actually began
+    task_started = models.DateField(
+        null=True,
+        blank=True,
+        help_text='Date when this task was started (defaults to today if not specified).'
+    )
+
     # Minimal audit timestamps
     created_at = models.DateTimeField(auto_now_add=True, help_text="When this task was created.")
     updated_at = models.DateTimeField(auto_now=True, help_text="When this task was last updated.")
@@ -1405,6 +1467,9 @@ class ShortSaleTask(models.Model):
     class Meta:
         verbose_name = "Short Sale Task"
         verbose_name_plural = "Short Sale Tasks"
+        constraints = [
+            models.UniqueConstraint(fields=['asset_hub', 'task_type'], name='short_sale_task_unique_type_per_asset'),
+        ]
 
     # Change tracking
     _actor = None
@@ -1426,6 +1491,10 @@ class ShortSaleTask(models.Model):
                 original_values = {}
         else:
             original_values = {}
+
+        # Default task_started to today if not provided
+        if not self.task_started:
+            self.task_started = timezone.now().date()
 
         # Save the record
         super().save(*args, **kwargs)
@@ -1618,6 +1687,13 @@ class ModificationTask(models.Model):
         help_text='Modification workflow stage for this task.',
     )
 
+    # User-editable start date for tracking when this task actually began
+    task_started = models.DateField(
+        null=True,
+        blank=True,
+        help_text='Date when this task was started (defaults to today if not specified).'
+    )
+
     # Minimal audit timestamps
     created_at = models.DateTimeField(auto_now_add=True, help_text="When this task was created.")
     updated_at = models.DateTimeField(auto_now=True, help_text="When this task was last updated.")
@@ -1625,6 +1701,9 @@ class ModificationTask(models.Model):
     class Meta:
         verbose_name = "Modification Task"
         verbose_name_plural = "Modification Tasks"
+        constraints = [
+            models.UniqueConstraint(fields=['asset_hub', 'task_type'], name='modification_task_unique_type_per_asset'),
+        ]
 
     # Change tracking
     _actor = None
@@ -1646,6 +1725,10 @@ class ModificationTask(models.Model):
                 original_values = {}
         else:
             original_values = {}
+
+        # Default task_started to today if not provided
+        if not self.task_started:
+            self.task_started = timezone.now().date()
 
         # Save the record
         super().save(*args, **kwargs)
