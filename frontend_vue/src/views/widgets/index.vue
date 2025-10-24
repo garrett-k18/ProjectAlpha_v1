@@ -246,7 +246,7 @@ import StatChart from '@/components/widgets/widget-stat-chart-1.vue'
 import Chat from '@/components/widgets/chat.vue'
 import ToDoList from '@/components/widgets/todo-list.vue'
 import Message from '@/components/widgets/message.vue'
-import RecentActivity from '@/views/am_module/loanlvl/am_tasking/recent-activity.vue'
+import RecentActivity from '@/views/am_module/loanlvl/am_tasking/components/recent-activity.vue'
 import Transactions from '@/components/widgets/transactions.vue'
 import StatChart3 from '@/components/widgets/widget-stat-chart-3.vue'
 

@@ -55,7 +55,7 @@ export interface ActivityItem {
   title: string
   text: string
   subtext: string
-  boldText: string
+  boldText?: string
   color: 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'secondary' | string
 }
 
