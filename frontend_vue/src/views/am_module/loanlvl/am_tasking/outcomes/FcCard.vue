@@ -50,46 +50,6 @@
       <div class="row g-3">
         <!-- Left Column: Subtasks -->
         <div class="col-md-6">
-      <!-- Foreclosure Attorney Contact Card -->
-      <div class="card border-primary mb-3">
-        <div class="card-body p-2">
-          <div v-if="outcome?.crm_details" class="d-flex flex-column gap-1">
-            <div class="d-flex align-items-center justify-content-between">
-              <div class="d-flex align-items-center gap-2">
-                <i class="fas fa-user-tie text-primary"></i>
-                <div>
-                  <div class="small fw-bold text-primary">{{ outcome.crm_details.contact_name || 'Foreclosure Attorney' }}</div>
-                  <div v-if="outcome.crm_details.firm" class="small text-muted">{{ outcome.crm_details.firm }}</div>
-                </div>
-              </div>
-              <button class="btn btn-sm btn-outline-primary px-2 py-1" style="font-size: 0.75rem;" title="View in CRM">
-                <i class="fas fa-external-link-alt"></i>
-              </button>
-            </div>
-            <div class="d-flex flex-column gap-1 ms-4">
-              <a v-if="outcome.crm_details.email" :href="`mailto:${outcome.crm_details.email}`" class="small text-primary text-decoration-none d-flex align-items-center gap-1">
-                <i class="fas fa-envelope" style="width: 14px;"></i>
-                <span>{{ outcome.crm_details.email }}</span>
-              </a>
-              <a v-if="outcome.crm_details.phone" :href="`tel:${outcome.crm_details.phone}`" class="small text-primary text-decoration-none d-flex align-items-center gap-1">
-                <i class="fas fa-phone" style="width: 14px;"></i>
-                <span>{{ outcome.crm_details.phone }}</span>
-              </a>
-            </div>
-          </div>
-          <div v-else class="d-flex align-items-center gap-2">
-            <i class="fas fa-user-tie text-muted"></i>
-            <div class="flex-grow-1">
-              <div class="small fw-bold text-muted">Foreclosure Attorney</div>
-              <div class="small text-muted">No attorney assigned</div>
-            </div>
-            <button class="btn btn-sm btn-outline-primary px-2 py-1" style="font-size: 0.75rem;" title="Assign Attorney">
-              <i class="fas fa-plus"></i>
-            </button>
-          </div>
-        </div>
-      </div>
-
       <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
         <h5 class="mb-0 fw-bold text-body">Sub Tasks</h5>
         <div class="position-relative" ref="addMenuRef">
@@ -250,8 +210,6 @@ const store = useAmOutcomesStore()
 // Collapsed state for the entire card body (subtasks section hidden when true)
 const collapsed = ref<boolean>(false)
 const busy = ref(false)
-// FC outcome data (for CRM contact info)
-const outcome = ref<FcSale | null>(null)
 // FC Subtasks state
 const tasks = ref<FcTask[]>([])
 const expandedId = ref<number | null>(null)
@@ -266,6 +224,7 @@ const menuOpen = ref(false)
 const menuRef = ref<HTMLElement | null>(null)
 function toggleMenu() { menuOpen.value = !menuOpen.value }
 function onDelete() { menuOpen.value = false; emit('delete') }
+
 function handleDocClick(e: MouseEvent) {
   const root = menuRef.value
   if (!root) return
@@ -275,8 +234,6 @@ onMounted(() => document.addEventListener('click', handleDocClick))
 onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
 
 async function load() {
-  // Load FC outcome data (for CRM contact info)
-  outcome.value = await store.fetchOutcome(props.hubId, 'fc')
   // Load FC tasks
   tasks.value = await store.listFcTasks(props.hubId, true)
 }

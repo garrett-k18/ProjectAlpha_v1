@@ -10,7 +10,7 @@ from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 
 from core.models import AssetIdHub, LLCashFlowSeries
-from am_module.serializers.serial_cash_flows import CashFlowSeriesSerializer
+from am_module.serializers.serial_am_cashFlows import CashFlowSeriesSerializer
 
 
 @api_view(['GET'])
@@ -83,7 +83,7 @@ def cash_flow_series_view(request, asset_id):
     
     # WHAT: Manually build response with serialized periods
     # WHY: Simpler than custom serializer, direct control over output
-    from am_module.serializers.serial_cash_flows import CashFlowPeriodSerializer
+    from am_module.serializers.serial_am_cashFlows import CashFlowPeriodSerializer
     
     serialized_periods = CashFlowPeriodSerializer(periods, many=True).data
     print(f"DEBUG: Serialized periods count: {len(serialized_periods)}")

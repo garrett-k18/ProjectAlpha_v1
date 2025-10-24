@@ -8,7 +8,7 @@ HOW: Pure field definitions - all business logic delegated to service layer
 Docs: https://www.django-rest-framework.org/api-guide/serializers/
 """
 from rest_framework import serializers
-from .servicer_loan_data import ServicerLoanDataSerializer
+from .serial_am_servicerData import ServicerLoanDataSerializer
 
 
 class AssetInventoryRowSerializer(serializers.Serializer):

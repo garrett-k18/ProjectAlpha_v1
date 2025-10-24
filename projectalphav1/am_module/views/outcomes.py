@@ -25,7 +25,7 @@ from am_module.models.am_data import (
     Modification, ModificationTask,
     REOScope,
 )
-from am_module.serializers.outcomes import (
+from am_module.serializers.serial_am_outcomes import (
     REODataSerializer, REOTaskSerializer,
     FCSaleSerializer, FCTaskSerializer,
     DILSerializer, DILTaskSerializer,
@@ -89,27 +89,27 @@ class _OutcomeBaseViewSet(mixins.ListModelMixin,
 
 
 class REODataViewSet(_OutcomeBaseViewSet):
-    queryset = REOData.objects.all().select_related('asset_hub', 'crm')
+    queryset = REOData.objects.all().select_related('asset_hub')
     serializer_class = REODataSerializer
 
 
 class FCSaleViewSet(_OutcomeBaseViewSet):
-    queryset = FCSale.objects.all().select_related('asset_hub', 'crm')
+    queryset = FCSale.objects.all().select_related('asset_hub')
     serializer_class = FCSaleSerializer
 
 
 class DILViewSet(_OutcomeBaseViewSet):
-    queryset = DIL.objects.all().select_related('asset_hub', 'crm')
+    queryset = DIL.objects.all().select_related('asset_hub')
     serializer_class = DILSerializer
 
 
 class ShortSaleViewSet(_OutcomeBaseViewSet):
-    queryset = ShortSale.objects.all().select_related('asset_hub', 'crm')
+    queryset = ShortSale.objects.all().select_related('asset_hub')
     serializer_class = ShortSaleSerializer
 
 
 class ModificationViewSet(_OutcomeBaseViewSet):
-    queryset = Modification.objects.all().select_related('asset_hub', 'crm')
+    queryset = Modification.objects.all().select_related('asset_hub')
     serializer_class = ModificationSerializer
 
 
@@ -201,7 +201,7 @@ class REOScopeViewSet(mixins.ListModelMixin,
     permission_classes = [AllowAny]
     authentication_classes: list[type[SessionAuthentication]] = []
     serializer_class = REOScopeSerializer
-    queryset = REOScope.objects.all().select_related('asset_hub', 'crm', 'reo_task')
+    queryset = REOScope.objects.all().select_related('asset_hub', 'reo_task')
 
     def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         asset_hub_id = request.query_params.get('asset_hub_id')

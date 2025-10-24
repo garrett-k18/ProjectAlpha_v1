@@ -33,6 +33,73 @@ from django.core.exceptions import ValidationError  # For model-level validation
 import json                        # For serializing JSON diffs
 
 
+class AssetCRMContact(models.Model):
+    """
+    Junction model linking assets to CRM contacts.
+    
+    What: Many-to-many relationship between assets and CRM contacts with role categorization
+    Why: Track multiple contacts per asset (attorney, servicer, broker, etc.) independent of outcome type
+    Where: Used across all AM workflows - not tied to specific tracks or tasks
+    How: Links AssetIdHub to MasterCRM with optional role and notes fields
+    
+    Examples:
+    - Asset 123 -> Howard Law Group (role='legal')
+    - Asset 123 -> ABC Servicing (role='servicer')
+    - Asset 456 -> Smith Realty (role='broker')
+    """
+    
+    # Link to the asset (hub)
+    asset_hub = models.ForeignKey(
+        "core.AssetIdHub",
+        on_delete=models.CASCADE,  # Delete contact links when asset is deleted
+        related_name="crm_contacts",
+        help_text="Asset this contact is associated with",
+    )
+    
+    # Link to the CRM contact
+    crm = models.ForeignKey(
+        "core.MasterCRM",
+        on_delete=models.CASCADE,  # Delete link when CRM contact is deleted
+        related_name="asset_links",
+        help_text="CRM contact associated with this asset",
+    )
+    
+    # Optional role categorization (matches CRM tag but allows flexibility)
+    role = models.CharField(
+        max_length=32,
+        blank=True,
+        null=True,
+        db_index=True,
+        help_text="Role of this contact for this asset (e.g., 'legal', 'servicer', 'broker')",
+    )
+    
+    # Optional notes about this specific relationship
+    notes = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Notes about this contact's involvement with this asset",
+    )
+    
+    # Audit timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'am_asset_crm_contact'
+        indexes = [
+            models.Index(fields=['asset_hub', 'role']),
+            models.Index(fields=['crm', 'role']),
+        ]
+        unique_together = [['asset_hub', 'crm', 'role']]  # Prevent duplicate role assignments
+        ordering = ['role', 'created_at']
+        verbose_name = 'Asset CRM Contact'
+        verbose_name_plural = 'Asset CRM Contacts'
+    
+    def __str__(self) -> str:
+        role_str = f" ({self.role})" if self.role else ""
+        return f"{self.asset_hub} -> {self.crm}{role_str}"
+
+
 class AMMetrics(models.Model):
     """Generic auxiliary data store for the Asset Mgmt module.
 
@@ -645,17 +712,8 @@ class REOData(models.Model):
         help_text='1:1 with hub; REO data keyed by AssetIdHub.',
     )
     
-    # Optional one-to-one link to a CRM directory entry (Broker contact)
-    # Using string app label reference to avoid circular imports
-    crm = models.OneToOneField(
-        "core.MasterCRM",
-        on_delete=models.SET_NULL,   # If broker entry is removed, preserve REOData but null the link
-        null=True,
-        blank=True,
-        related_name="reo_record",  # Access from MasterCRM via: mastercrm.reo_record
-        help_text="Linked CRM contact for this REO asset (optional).",
-    )
-
+    # Note: CRM contacts are now managed via AssetCRMContact junction model
+    # Access contacts via: asset_hub.crm_contacts.filter(role='broker')
 
     list_price = models.DecimalField(
         max_digits=10,
@@ -787,21 +845,14 @@ class REOData(models.Model):
         """Model-level validation for REOScope.
 
         Rules enforced:
-        - If `crm` is provided, it must have `tag='vendor'`.
         - If `reo_task` is provided, it must belong to the same `asset_hub`.
         - If both `scope_kind` and `reo_task` are provided, they must match (trashout/renovation).
+        
+        Note: CRM contacts now managed via AssetCRMContact junction model
         """
         from django.core.exceptions import ValidationError
 
         errors = {}
-
-        # crm must be vendor-tagged when present
-        # Import MasterCRM to access the ContactTag enum for type-safe comparison
-        from core.models.crm import MasterCRM
-        if getattr(self, 'crm_id', None):
-            tag = getattr(self.crm, 'tag', None)
-            if tag != MasterCRM.ContactTag.VENDOR:
-                errors['crm'] = 'Selected CRM must have tag "vendor".'
 
         # REO task linkage integrity
         if getattr(self, 'reo_task_id', None):
@@ -935,15 +986,9 @@ class FCSale(models.Model):
         help_text='1:1 with hub; foreclosure sale keyed by AssetIdHub.',
     )
     
-    # Optional association to a CRM contact/entity managing the FC
-    crm = models.ForeignKey(
-        "core.MasterCRM",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="fc_sales",  # Access from MasterCRM via: crm.fc_sales.all()
-        help_text="CRM contact associated with this foreclosure sale (optional).",
-    )
+    # Note: CRM contacts are now managed via AssetCRMContact junction model
+    # Access contacts via: asset_hub.crm_contacts.filter(role='legal')
+    # This allows multiple contacts per asset independent of outcome type
     nod_noi_sent_date = models.DateField(
         null=True,
         blank=True,
@@ -1075,19 +1120,6 @@ class FCTask(models.Model):
         help_text='Date when this task was started (defaults to today if not specified).'
     )
 
-    # NOD/NOI specific date fields (only applicable when task_type is 'nod_noi')
-    nod_noi_sent_date = models.DateField(
-        null=True,
-        blank=True,
-        help_text="Date NOI was sent to NOD (optional, for NOD/NOI tasks).",
-    )
-
-    nod_noi_expire_date = models.DateField(
-        null=True,
-        blank=True,
-        help_text="Date NOI expires (optional, for NOD/NOI tasks).",
-    )
-
     # Minimal audit timestamps
     created_at = models.DateTimeField(auto_now_add=True, help_text="When this task was created.")
     updated_at = models.DateTimeField(auto_now=True, help_text="When this task was last updated.")
@@ -1156,15 +1188,8 @@ class DIL(models.Model):
         help_text='1:1 with hub; DIL keyed by AssetIdHub.',
     )
     
-    # Optional association to a CRM contact/entity managing the DIL
-    crm = models.ForeignKey(
-        "core.MasterCRM",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="dils",  # Access from MasterCRM via: crm.dils.all()
-        help_text="CRM contact associated with this DIL (optional).",
-    )
+    # Note: CRM contacts are now managed via AssetCRMContact junction model
+    # Access contacts via: asset_hub.crm_contacts.filter(role='legal')
     
     dil_completion_date = models.DateField(
         null=True,
@@ -1346,17 +1371,8 @@ class ShortSale(models.Model):
         help_text='1:1 with hub; short sale keyed by AssetIdHub.',
     )
 
-    # Optional association to a CRM contact/entity managing the short sale
-    crm = models.ForeignKey(
-        "core.MasterCRM",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="short_sales",  # Access from MasterCRM via: crm.short_sales.all()
-        help_text="CRM contact associated with this short sale (optional).",
-    )
-
-    
+    # Note: CRM contacts are now managed via AssetCRMContact junction model
+    # Access contacts via: asset_hub.crm_contacts.filter(role='legal')
 
     acceptable_min_offer = models.DecimalField(
         max_digits=10,
@@ -1417,6 +1433,7 @@ class ShortSale(models.Model):
                         changed_by=actor,
                         asset_hub=self.asset_hub
                     )
+
 
 class ShortSaleTask(models.Model):
     """Short Sale workflow task linked to a `ShortSale` record.
@@ -1517,6 +1534,7 @@ class ShortSaleTask(models.Model):
                         asset_hub=self.asset_hub
                     )
 
+
 class Modification(models.Model):
     """Data about a modification (hub-keyed 1:1)."""
     
@@ -1538,15 +1556,8 @@ class Modification(models.Model):
         help_text='1:1 with hub; modification keyed by AssetIdHub.',
     )
     
-    # Optional association to a CRM contact/entity managing the modification
-    crm = models.ForeignKey(
-        "core.MasterCRM",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="modifications",  # Access from MasterCRM via: crm.modifications.all()
-        help_text="CRM contact associated with this modification (optional).",
-    )
+    # Note: CRM contacts are now managed via AssetCRMContact junction model
+    # Access contacts via: asset_hub.crm_contacts.filter(role='legal')
     
     modification_date = models.DateField(
         null=True,
@@ -1652,6 +1663,7 @@ class Modification(models.Model):
                         asset_hub=self.asset_hub
                     )
 
+
 class ModificationTask(models.Model):
     """Modification workflow task linked to a `Modification` record.
 
@@ -1750,6 +1762,7 @@ class ModificationTask(models.Model):
                         asset_hub=self.asset_hub
                     )
 
+
 class REOScope(models.Model):
     """Work orders / scopes / bids associated with a property (many-to-one).
 
@@ -1766,15 +1779,8 @@ class REOScope(models.Model):
         help_text='The asset hub this scope/bid belongs to (many-to-one).',
     )
 
-    # Optional link to CRM vendor/contact
-    crm = models.ForeignKey(
-        'core.MasterCRM',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='reo_scopes',
-        help_text='Optional CRM contact/vendor associated with this scope/bid.',
-    )
+    # Note: CRM contacts are now managed via AssetCRMContact junction model
+    # Access contacts via: asset_hub.crm_contacts.filter(role='broker')
 
     # Scope classification and optional link to a specific REO task (Trashout/Renovation)
     class ScopeKind(models.TextChoices):
@@ -1837,7 +1843,6 @@ class REOScope(models.Model):
             models.Index(fields=['asset_hub', 'scope_date']),
             models.Index(fields=['asset_hub', 'expected_completion']),
             models.Index(fields=['asset_hub', 'scope_kind']),
-            models.Index(fields=['crm']),
             models.Index(fields=['reo_task']),
         ]
         ordering = ['-created_at', '-id']

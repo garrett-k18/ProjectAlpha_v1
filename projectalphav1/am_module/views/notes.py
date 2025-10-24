@@ -4,7 +4,7 @@ from rest_framework.authentication import SessionAuthentication
 from rest_framework.request import Request
 
 from am_module.models.am_data import AMNote
-from am_module.serializers.am_note import AMNoteSerializer
+from am_module.serializers.serial_am_note import AMNoteSerializer
 
 
 class AMNoteViewSet(ModelViewSet):

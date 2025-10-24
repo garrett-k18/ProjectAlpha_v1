@@ -164,3 +164,26 @@ class LegalSerializer(MasterCRMSerializer):
         # Always set tag to legal for this endpoint
         validated_data['tag'] = MasterCRM.ContactTag.LEGAL
         return super().create(validated_data)
+
+
+class ServicerSerializer(MasterCRMSerializer):
+    """
+    Specialized serializer for Servicer CRM entries.
+    
+    What: Extends MasterCRMSerializer with servicer-specific defaults
+    Why: Automatically sets tag='servicer' for servicer endpoints
+    Where: Used by /api/core/crm/servicers/ endpoint
+    How: Overrides create() to force tag to SERVICER
+    """
+    
+    def create(self, validated_data):
+        """
+        Create a new MasterCRM entry with tag='servicer'.
+        
+        What: Creates new servicer CRM record
+        Why: Ensures all records created via servicer endpoint have correct tag
+        How: Forces tag field to ContactTag.SERVICER before saving
+        """
+        # Always set tag to servicer for this endpoint
+        validated_data['tag'] = MasterCRM.ContactTag.SERVICER
+        return super().create(validated_data)

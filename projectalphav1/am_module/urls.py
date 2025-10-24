@@ -4,6 +4,7 @@ from am_module.views.view_am_assetInventory import AssetInventoryViewSet, asset_
 from am_module.views.notes import AMNoteViewSet
 from am_module.views.view_performance_summary import PerformanceSummaryViewSet
 from am_module.views.views import cash_flow_series_view
+from am_module.views.view_am_assetcrmcontact import AssetCRMContactViewSet
 from am_module.views.outcomes import (
     REODataViewSet, REOTaskViewSet,
     FCSaleViewSet, FCTaskViewSet,
@@ -17,6 +18,7 @@ router = DefaultRouter()
 router.register(r'assets', AssetInventoryViewSet, basename='asset-inventory')
 router.register(r'notes', AMNoteViewSet, basename='am-notes')
 router.register(r'performance-summary', PerformanceSummaryViewSet, basename='performance-summary')
+router.register(r'asset-crm-contacts', AssetCRMContactViewSet, basename='asset-crm-contacts')
 router.register(r'outcomes/reo', REODataViewSet, basename='am-reo')
 router.register(r'outcomes/reo-tasks', REOTaskViewSet, basename='am-reo-tasks')
 router.register(r'outcomes/fc', FCSaleViewSet, basename='am-fc')

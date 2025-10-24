@@ -48,7 +48,6 @@ class REODataSerializer(serializers.ModelSerializer):
         model = REOData
         fields = [
             'asset_hub', 'asset_hub_id',
-            'crm',
             'list_price', 'list_date', 'under_contract_flag', 'under_contract_date',
             'contract_price', 'estimated_close_date', 'actual_close_date',
             'seller_credit_amt', 'purchase_type', 'gross_purchase_price',
@@ -69,16 +68,27 @@ class REODataSerializer(serializers.ModelSerializer):
 
 class FCSaleSerializer(serializers.ModelSerializer):
     asset_hub_id = _AssetHubPKField()
-    crm_details = MasterCRMSerializer(source='crm', read_only=True)
+    # CRM contacts now accessed via: asset_hub.crm_contacts.filter(role='legal')
+    crm_details = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = FCSale
         fields = [
             'asset_hub', 'asset_hub_id',
-            'crm', 'crm_details', 'fc_sale_sched_date', 'fc_sale_actual_date',
-            'fc_bid_price', 'fc_sale_price',
+            'crm_details', 'fc_sale_sched_date', 'fc_sale_actual_date',
+            'fc_bid_price', 'fc_sale_price', 'nod_noi_sent_date', 'nod_noi_expire_date',
         ]
         read_only_fields = ['asset_hub', 'crm_details']
+    
+    def get_crm_details(self, obj):
+        """Get legal contact for this asset via AssetCRMContact junction."""
+        try:
+            contact_link = obj.asset_hub.crm_contacts.filter(role='legal').first()
+            if contact_link:
+                return MasterCRMSerializer(contact_link.crm).data
+        except Exception:
+            pass
+        return None
 
     def create(self, validated_data: Dict[str, Any]):
         asset_hub = validated_data.get('asset_hub')
@@ -97,7 +107,7 @@ class DILSerializer(serializers.ModelSerializer):
         model = DIL
         fields = [
             'asset_hub', 'asset_hub_id',
-            'crm', 'dil_completion_date', 'dil_cost', 'cfk_cost',
+            'dil_completion_date', 'dil_cost', 'cfk_cost',
         ]
         read_only_fields = ['asset_hub']
 
@@ -118,7 +128,7 @@ class ShortSaleSerializer(serializers.ModelSerializer):
         model = ShortSale
         fields = [
             'asset_hub', 'asset_hub_id',
-            'crm', 'acceptable_min_offer', 'short_sale_date',
+            'acceptable_min_offer', 'short_sale_date', 'short_sale_completion_date',
         ]
         read_only_fields = ['asset_hub']
 
@@ -139,9 +149,9 @@ class ModificationSerializer(serializers.ModelSerializer):
         model = Modification
         fields = [
             'asset_hub', 'asset_hub_id',
-            'crm', 'modification_date', 'modification_cost', 'modification_upb',
+            'modification_date', 'modification_cost', 'modification_upb',
             'modification_term', 'modification_rate', 'modification_maturity_date',
-            'modification_pi', 'modification_down_payment',
+            'modification_pi', 'modification_down_payment', 'modification_completion_date',
         ]
         read_only_fields = ['asset_hub']
 
@@ -195,7 +205,7 @@ class REOScopeSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'asset_hub', 'asset_hub_id',
-            'crm', 'scope_kind', 'reo_task',
+            'scope_kind', 'reo_task',
             'scope_date', 'total_cost', 'expected_completion', 'notes',
             'created_at', 'updated_at',
         ]
@@ -205,11 +215,6 @@ class REOScopeSerializer(serializers.ModelSerializer):
         # Mirror model.clean() basic checks at serializer level for clearer API errors
         hub = attrs.get('asset_hub')
         reo_task = attrs.get('reo_task')
-        scope_kind = attrs.get('scope_kind')
-        crm = attrs.get('crm')
-        # Use the ContactTag enum for type-safe comparison
-        if crm and getattr(crm, 'tag', None) != MasterCRM.ContactTag.VENDOR:
-            raise serializers.ValidationError('Selected CRM must have tag "vendor".')
         if reo_task and hub and reo_task.asset_hub_id != hub.id:
             raise serializers.ValidationError('Linked REO task must reference the same AssetIdHub.')
         if reo_task and reo_task.task_type not in ('trashout', 'renovation'):
@@ -245,7 +250,7 @@ class FCTaskSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = FCTask
-        fields = ['id', 'asset_hub', 'asset_hub_id', 'fc_sale', 'task_type', 'task_started', 'nod_noi_sent_date', 'nod_noi_expire_date', 'created_at', 'updated_at']
+        fields = ['id', 'asset_hub', 'asset_hub_id', 'fc_sale', 'task_type', 'task_started', 'created_at', 'updated_at']
         read_only_fields = ['id', 'asset_hub', 'created_at', 'updated_at']
 
     def validate(self, attrs: Dict[str, Any]) -> Dict[str, Any]:

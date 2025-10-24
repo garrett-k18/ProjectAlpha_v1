@@ -38,6 +38,7 @@ from core.views.crm_api import (
     BrokerViewSet,
     TradingPartnerViewSet,
     LegalViewSet,
+    ServicerViewSet,
 )
 
 # Create a router and register our viewsets
@@ -53,12 +54,13 @@ router.register(r'servicers', ServicerViewSet, basename='servicers')
 # Register calendar viewset for custom events (CRUD operations)
 router.register(r'calendar/events/custom', CustomCalendarEventViewSet, basename='calendar-custom-events')
 
-# Register CRM viewsets for Investors, Brokers, Trading Partners, Legal
+# Register CRM viewsets for Investors, Brokers, Trading Partners, Legal, Servicers
 # These provide tag-filtered views of the MasterCRM model
 router.register(r'crm/investors', InvestorViewSet, basename='crm-investors')
 router.register(r'crm/brokers', BrokerViewSet, basename='crm-brokers')
 router.register(r'crm/trading-partners', TradingPartnerViewSet, basename='crm-trading-partners')
 router.register(r'crm/legal', LegalViewSet, basename='crm-legal')
+router.register(r'crm/servicers', ServicerViewSet, basename='crm-servicers')
 
 # The API URLs are now determined automatically by the router
 urlpatterns = [

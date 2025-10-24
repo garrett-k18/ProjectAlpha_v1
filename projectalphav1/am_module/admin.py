@@ -6,7 +6,7 @@ from am_module.models.boarded_data import BlendedOutcomeModel  # Keep only Blend
 from am_module.models.servicers import ServicerLoanData
 from am_module.models.statebridgeservicing import SBDailyLoanData
 from am_module.models.am_data import (
-    AMMetrics, AuditLog,  # AMMetricsChange removed (deprecated)
+    AMMetrics, AuditLog, AssetCRMContact,
     AMNote, REOData, FCSale, DIL, ShortSale, Modification,
     REOtask, FCTask, DILTask, ShortSaleTask, ModificationTask,
     REOScope,
@@ -264,14 +264,14 @@ class REODataAdmin(admin.ModelAdmin):
         'asset_hub__am_boarded__street_address',
     )
     ordering = ('-list_date',)
-    list_select_related = ('asset_hub', 'crm')
+    list_select_related = ('asset_hub',)
     list_per_page = 5
 
 
 @admin.register(REOScope)
 class REOScopeAdmin(admin.ModelAdmin):
     list_display = (
-        'id', 'asset_hub', 'scope_kind', 'reo_task', 'crm',
+        'id', 'asset_hub', 'scope_kind', 'reo_task',
         'total_cost', 'scope_date', 'expected_completion', 'created_at',
     )
     list_filter = (
@@ -282,7 +282,7 @@ class REOScopeAdmin(admin.ModelAdmin):
         'asset_hub__am_boarded__street_address',
     )
     ordering = ('-created_at', '-id')
-    list_select_related = ('asset_hub', 'crm', 'reo_task')
+    list_select_related = ('asset_hub', 'reo_task')
     list_per_page = 5
 
 
@@ -294,7 +294,7 @@ class FCSaleAdmin(admin.ModelAdmin):
         'asset_hub__am_boarded__street_address',
     )
     ordering = ('-fc_sale_actual_date', '-fc_sale_sched_date')
-    list_select_related = ('asset_hub', 'crm')
+    list_select_related = ('asset_hub',)
     list_per_page = 5
 
 
@@ -306,7 +306,7 @@ class DILAdmin(admin.ModelAdmin):
         'asset_hub__am_boarded__street_address',
     )
     ordering = ('-dil_completion_date',)
-    list_select_related = ('asset_hub', 'crm')
+    list_select_related = ('asset_hub',)
     list_per_page = 5
 
 
@@ -318,7 +318,7 @@ class ShortSaleAdmin(admin.ModelAdmin):
         'asset_hub__am_boarded__street_address',
     )
     ordering = ('-short_sale_date',)
-    list_select_related = ('asset_hub', 'crm')
+    list_select_related = ('asset_hub',)
     list_per_page = 5
 
 
@@ -331,7 +331,24 @@ class ModificationAdmin(admin.ModelAdmin):
         'asset_hub__am_boarded__street_address',
     )
     ordering = ('-modification_date',)
+    list_select_related = ('asset_hub',)
+    list_per_page = 5
+
+
+@admin.register(AssetCRMContact)
+class AssetCRMContactAdmin(admin.ModelAdmin):
+    list_display = ('id', 'asset_hub', 'crm', 'role', 'created_at')
+    list_filter = ('role', 'created_at')
+    search_fields = (
+        'asset_hub__am_boarded__sellertape_id',
+        'asset_hub__am_boarded__street_address',
+        'crm__firm',
+        'crm__contact_name',
+        'role',
+    )
+    ordering = ('-created_at',)
     list_select_related = ('asset_hub', 'crm')
+    readonly_fields = ('created_at', 'updated_at')
     list_per_page = 5
 
 

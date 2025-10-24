@@ -10,8 +10,8 @@ from am_module.serializers.serial_am_assetInventory import (
     AssetInventoryRowSerializer,
     AssetInventoryColumnsSerializer,
 )
-from am_module.serializers.am_note import AMNoteSerializer
-from am_module.serializers.servicer_loan_data import ServicerLoanDataSerializer
+from am_module.serializers.serial_am_note import AMNoteSerializer
+from am_module.serializers.serial_am_servicerData import ServicerLoanDataSerializer
 from am_module.models.servicers import ServicerLoanData
 
 # Import acquisitions models to surface photos linked to SellerRawData (via sellertape_id)

@@ -21,6 +21,7 @@ class MasterCRM(models.Model):
         INVESTOR = "investor", "Investor"
         LEGAL = "legal", "Legal"
         VENDOR = "vendor", "Vendor"
+        SERVICER = "servicer", "Servicer"
     
     firm = models.CharField(max_length=255, blank=True, null=True)
     contact_name = models.CharField(max_length=255, blank=True, null=True)
@@ -40,7 +41,7 @@ class MasterCRM(models.Model):
         null=True,
         blank=True,
         db_index=True,
-        help_text="Contact type: Broker, Trading Partner, Investor, Legal, or Vendor",
+        help_text="Contact type: Broker, Trading Partner, Investor, Legal, Servicer, or Vendor",
     )
     
 

@@ -25,6 +25,7 @@ from core.serializers.crm_serializers import (
     BrokerSerializer,
     TradingPartnerSerializer,
     LegalSerializer,
+    ServicerSerializer,
 )
 
 
@@ -185,3 +186,27 @@ class LegalViewSet(MasterCRMViewSet):
         """
         queryset = super().get_queryset()
         return queryset.filter(tag=MasterCRM.ContactTag.LEGAL)
+
+
+class ServicerViewSet(MasterCRMViewSet):
+    """
+    ViewSet for Servicer CRM entries (tag='servicer').
+    
+    What: API endpoint specifically for servicer contacts
+    Why: Provides dedicated /api/core/crm/servicers/ endpoint
+    Where: Mounted at /api/core/crm/servicers/ in urls.py
+    How: Filters MasterCRM to only show servicer-tagged entries
+    """
+    
+    serializer_class = ServicerSerializer
+    
+    def get_queryset(self):
+        """
+        Return only MasterCRM entries with tag='servicer'.
+        
+        What: Filters to servicer-only records
+        Why: This endpoint should only show/manage servicer contacts
+        How: Adds tag filter to base queryset
+        """
+        queryset = super().get_queryset()
+        return queryset.filter(tag=MasterCRM.ContactTag.SERVICER)

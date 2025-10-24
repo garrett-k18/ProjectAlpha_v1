@@ -14,8 +14,8 @@
     - Each item shows a label, a due date (compact), and an optional tone badge.
   -->
   <div class="card h-100">
-    <div class="card-header d-flex align-items-center justify-content-between py-2">
-      <h6 class="mb-0">{{ title }}</h6>
+    <div class="card-header d-flex align-items-center justify-content-between">
+      <h4 class="header-title mb-0">{{ title }}</h4>
       <i class="mdi mdi-calendar-clock text-muted"></i>
     </div>
     <div class="card-body py-2">

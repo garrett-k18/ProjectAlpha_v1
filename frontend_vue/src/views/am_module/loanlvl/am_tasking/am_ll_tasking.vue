@@ -2,7 +2,7 @@
   <!-- Asset Management: Outcome Manager -->
   <div class="am-tasking-wrapper">
     <!-- Asset Navigation Header (dynamic to selected asset) -->
-    <b-card class="mb-4">
+    <b-card class="mb-3">
       <div class="d-flex align-items-center justify-content-between mb-3">
         <div>
           <h3 class="mb-1">{{ headerAsset?.propertyAddress || 'No address selected' }}</h3>
@@ -62,14 +62,14 @@
     </b-card>
 
     <!-- Outcome Summary Cards (moved above Track) -->
-    <b-row class="g-3 mb-4">
+    <b-row class="g-3 my-6">
       <b-col md="4">
-        <b-card class="h-100">
-          <div class="d-flex align-items-center justify-content-between">
+        <b-card body-class="py-2 px-2 mb-1" style="min-height: 80px; display: flex; align-items: center;">
+          <div class="d-flex align-items-center justify-content-between w-100">
             <div class="flex-grow-1 me-3">
-              <div class="h2 text-black mb-0">{{ activeTypes.length }}</div>
-              <div class="small text-muted mb-2">Active Tracks</div>
-              <div class="d-flex flex-wrap gap-2" style="max-height: 84px; overflow: auto;">
+              <div class="h3 text-black mb-0">{{ activeTypes.length }}</div>
+              <div class="small text-muted mb-0">Active Tracks</div>
+              <div class="d-flex flex-wrap gap-1 mt-1" style="max-height: 40px; overflow: auto;">
                 <template v-if="activeTypes.length">
                   <UiBadge
                     v-for="t in activeTypes"
@@ -81,17 +81,17 @@
                 <span v-else class="text-muted small">None</span>
               </div>
             </div>
-            <i class="fas fa-clock fa-2x text-warning"></i>
+            <i class="fas fa-clock fa-lg text-warning"></i>
           </div>
         </b-card>
       </b-col>
       <b-col md="4">
-        <b-card class="h-100">
-          <div class="d-flex align-items-center justify-content-between">
+        <b-card body-class="p-2 mb-1" style="min-height: 80px; display: flex; align-items: center;">
+          <div class="d-flex align-items-center justify-content-between w-100">
             <div class="flex-grow-1 me-3">
-              <div class="h2 text-black mb-0">{{ activeTaskCount }}</div>
-              <div class="small text-muted mb-2">Active Tasks</div>
-              <div class="d-flex flex-wrap gap-2" style="max-height: 84px; overflow: auto;">
+              <div class="h3 text-black mb-0">{{ activeTaskCount }}</div>
+              <div class="small text-muted mb-0">Active Tasks</div>
+              <div class="d-flex flex-wrap gap-1 mt-1" style="max-height: 40px; overflow: auto;">
                 <UiBadge
                   v-for="pill in activeTaskItems"
                   :key="pill.key"
@@ -100,25 +100,25 @@
                 >{{ pill.label }}</UiBadge>
               </div>
             </div>
-            <i class="fas fa-spinner fa-2x text-primary"></i>
+            <i class="fas fa-spinner fa-lg text-primary"></i>
           </div>
         </b-card>
       </b-col>
       <b-col md="4">
-        <b-card class="text-center h-100">
-          <div class="d-flex align-items-center justify-content-between">
+        <b-card class="text-center" body-class="py-2 px-2 mb-1" style="min-height: 80px; display: flex; align-items: center;">
+          <div class="d-flex align-items-center justify-content-between w-100">
             <div>
-              <div class="h2 text-black mb-0">{{ completedTaskCount }}</div>
-              <div class="small text-muted">Completed Tasks</div>
+              <div class="h3 text-black mb-0">{{ completedTaskCount }}</div>
+              <div class="small text-muted mb-0">Completed Tasks</div>
             </div>
-            <i class="fas fa-check-circle fa-2x text-success"></i>
+            <i class="fas fa-check-circle fa-lg text-success"></i>
           </div>
         </b-card>
       </b-col>
     </b-row>
 
     <!-- Demo: Recent Activity timeline (right-sized card below KPIs) -->
-    <b-row class="g-3 mb-4">
+    <b-row class="g-3 my-1">
       <b-col md="4">
         <!-- WHAT: Small, scrollable list of recent events for this asset.
              WHY: Quick context without opening each outcome card.
@@ -136,14 +136,21 @@
              WHERE: Feature-local component under am_tasking; see upcoming-deadlines.vue
              HOW: Pass DeadlineItem[] via :items. Currently demo data. -->
         <UpcomingDeadlines
-          title="Upcoming Deadlines"
+          title="Milestones"
           :items="deadlineItems"
         />
+      </b-col>
+      <b-col md="4">
+        <!-- WHAT: Key Contacts card with Foreclosure Attorney and Servicer
+             WHY: Quick access to primary contacts for the loan
+             WHERE: Feature-local component under am_tasking; see components/KeyContacts.vue
+             HOW: Pass hubId to load and manage contacts -->
+        <KeyContacts v-if="hubId" :hubId="hubId" />
       </b-col>
     </b-row>
 
     <!-- Track: Start/ensure outcomes and render cards -->
-    <b-row class="g-3 align-items-stretch mb-4">
+    <b-row class="g-3 align-items-stretch my-1">
       <b-col cols="12">
         <b-card class="w-100">
           <template #header>
@@ -264,6 +271,8 @@ import type { ActivityItem } from '@/views/am_module/loanlvl/am_tasking/recent-a
 // Upcoming Deadlines widget (feature-local). Path: views/.../am_tasking/upcoming-deadlines.vue
 import UpcomingDeadlines from '@/views/am_module/loanlvl/am_tasking/upcoming-deadlines.vue'
 import type { DeadlineItem } from '@/views/am_module/loanlvl/am_tasking/upcoming-deadlines.vue'
+// Key Contacts widget (feature-local). Path: views/.../am_tasking/components/KeyContacts.vue
+import KeyContacts from '@/views/am_module/loanlvl/am_tasking/components/KeyContacts.vue'
 
 interface HeaderAssetView {
   propertyAddress: string
