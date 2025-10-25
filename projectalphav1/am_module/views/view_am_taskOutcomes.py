@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import Any
 
 from django.shortcuts import get_object_or_404
-from rest_framework import status, mixins
+from rest_framework import status, mixins, viewsets
 from django.db import transaction
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import action
@@ -24,6 +24,7 @@ from am_module.models.am_data import (
     ShortSale, ShortSaleTask,
     Modification, ModificationTask,
     REOScope,
+    Offers,
 )
 from am_module.serializers.serial_am_outcomes import (
     REODataSerializer, REOTaskSerializer,
@@ -32,6 +33,7 @@ from am_module.serializers.serial_am_outcomes import (
     ShortSaleSerializer, ShortSaleTaskSerializer,
     ModificationSerializer, ModificationTaskSerializer,
     REOScopeSerializer,
+    OffersSerializer,
 )
 
 
@@ -184,6 +186,46 @@ class ModificationTaskViewSet(_TaskBaseViewSet):
     parent_field_name = 'modification'
 
 
+class OffersViewSet(viewsets.ModelViewSet):
+    """
+    WHAT: ViewSet for managing offers from various sources
+    WHY: Handle offers from agent portal, asset manager, manual entry, and AI crawling
+    WHERE: Used in Short Sale and REO workflows
+    HOW: Standard CRUD operations with asset_hub filtering
+    """
+
+    permission_classes = [AllowAny]
+    authentication_classes: list[type[SessionAuthentication]] = []
+    serializer_class = OffersSerializer
+    queryset = Offers.objects.all().select_related('asset_hub')
+
+    def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        asset_hub_id = request.query_params.get('asset_hub_id')
+        offer_source = request.query_params.get('offer_source')
+        
+        if not asset_hub_id:
+            return Response([], status=status.HTTP_200_OK)
+        
+        try:
+            asset_hub_id = int(asset_hub_id)
+        except Exception:
+            return Response({"detail": "asset_hub_id must be an integer"}, status=status.HTTP_400_BAD_REQUEST)
+
+        qs = self.get_queryset().filter(asset_hub_id=asset_hub_id)
+        
+        # Filter by offer source if specified
+        if offer_source in ('short_sale', 'reo'):
+            qs = qs.filter(offer_source=offer_source)
+            
+        qs = qs.order_by('-offer_date', '-created_at')
+        page = self.paginate_queryset(qs)
+        if page is not None:
+            ser = self.get_serializer(page, many=True)
+            return self.get_paginated_response(ser.data)
+        ser = self.get_serializer(qs, many=True)
+        return Response(ser.data)
+
+
 class REOScopeViewSet(mixins.ListModelMixin,
                       mixins.RetrieveModelMixin,
                       mixins.CreateModelMixin,
@@ -239,7 +281,7 @@ class REOScopeViewSet(mixins.ListModelMixin,
 # ============================================================
 
 from rest_framework.views import APIView
-from am_module.services.serv_am_tasking import get_task_metrics, get_active_outcome_tracks
+from am_module.services.serv_am_tasking import get_task_metrics, get_active_outcome_tracks, get_track_milestones
 
 
 class TaskMetricsView(APIView):
@@ -300,3 +342,63 @@ class TaskMetricsView(APIView):
         }
         
         return Response(response_data, status=status.HTTP_200_OK)
+
+
+class TrackMilestonesView(APIView):
+    """
+    WHAT: Endpoint for track milestones (current and upcoming tasks)
+    WHY: Provide milestone progression view for tasking dashboard
+    WHERE: Called by frontend milestonesCard.vue to populate milestone data
+    HOW: Delegate to service layer (serv_am_tasking.py) for business logic
+    
+    URL: GET /api/am/outcomes/track-milestones/?asset_hub_id=<id>
+    
+    Response:
+        [
+            {
+                'track_name': 'Foreclosure',
+                'current_task': {'id': 1, 'label': 'Mediation', 'due_date': '2025-10-27', 'tone': 'danger'},
+                'upcoming_task': {'id': 2, 'label': 'Sheriff Sale', 'due_date': '2025-11-15', 'tone': 'warning'}
+            }
+        ]
+    """
+    
+    permission_classes = [AllowAny]
+    authentication_classes: list[type[SessionAuthentication]] = []
+    
+    def get(self, request: Request) -> Response:
+        """
+        WHAT: Get track milestones for a specific asset hub
+        WHY: Dashboard needs current and upcoming tasks organized by track
+        WHERE: Called by milestonesCard.vue component
+        HOW: Extract asset_hub_id, call service layer, return milestone data
+        """
+        # WHAT: Extract and validate asset_hub_id parameter
+        # WHY: Required to identify which asset's milestones to fetch
+        # HOW: Get from query params, validate as integer
+        asset_hub_id = request.query_params.get('asset_hub_id')
+        if not asset_hub_id:
+            return Response(
+                {'error': 'asset_hub_id parameter is required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            asset_hub_id = int(asset_hub_id)
+        except ValueError:
+            return Response(
+                {'error': 'asset_hub_id must be a valid integer'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # WHAT: Call service layer to get milestone data
+        # WHY: Keep business logic in services, not views
+        # WHERE: serv_am_tasking.py
+        try:
+            milestones = get_track_milestones(asset_hub_id)
+            return Response(milestones, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to fetch milestones: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

@@ -1387,6 +1387,26 @@ class ShortSale(models.Model):
         blank=True,
         help_text="Date of the short sale (optional).",
     )
+    gross_proceeds = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Gross proceeds of the short sale (optional).",
+    )
+    short_sale_list_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date of the short sale list (optional).",
+    )
+
+    short_sale_list_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="List price of the short sale (optional).",
+    )
 
     class Meta:
         verbose_name = "Short Sale"
@@ -1900,3 +1920,210 @@ class REOScope(models.Model):
                         changed_by=actor,
                         asset_hub=self.asset_hub,
                     )
+
+
+class Offers(models.Model):
+    """
+    WHAT: Track offers received for Short Sale and REO properties
+    WHY: Need to manage multiple offers per asset with detailed terms
+    WHERE: Used in Short Sale and REO workflows
+    HOW: Many-to-one relationship with AssetHub
+    """
+    
+    # WHAT: Core relationship and identification
+    # WHY: Link offers to specific assets and track source
+    asset_hub = models.ForeignKey(
+        'core.AssetIdHub', 
+        on_delete=models.CASCADE,
+        related_name='offers',
+        help_text="Asset this offer is for"
+    )
+    
+    offer_source = models.CharField(
+        max_length=20,
+        choices=[
+            ('short_sale', 'Short Sale'),
+            ('reo', 'REO'),
+        ],
+        help_text="Which track this offer came from"
+    )
+    
+    # WHAT: Offer details and terms
+    # WHY: Core financial information for offer evaluation
+    offer_price = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        help_text="Offered purchase price"
+    )
+    
+    offer_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date offer was received (optional)"
+    )
+    
+    seller_credits = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        default=0.00,
+        help_text="Seller credits/concessions offered"
+    )
+    
+    # WHAT: Financing and buyer information
+    # WHY: Important for offer evaluation and closing probability
+    financing_type = models.CharField(
+        max_length=20,
+        null=True,
+        blank=True,
+        choices=[
+            ('cash', 'Cash'),
+            ('conventional', 'Conventional Financing'),
+            ('fha', 'FHA Financing'),
+            ('va', 'VA Financing'),
+            ('usda', 'USDA Financing'),
+            ('hard_money', 'Hard Money'),
+            ('other', 'Other Financing'),
+        ],
+        help_text="Type of financing for this offer (optional)"
+    )
+    
+    buyer_name = models.CharField(
+        max_length=200,
+        null=True,
+        blank=True,
+        help_text="Name of buyer making offer (optional)"
+    )
+    
+    buyer_agent = models.CharField(
+        max_length=200,
+        null=True,
+        blank=True,
+        help_text="Buyer's real estate agent (optional)"
+    )
+    
+    # WHAT: Offer status and timeline
+    # WHY: Track offer progression through negotiation process
+    offer_status = models.CharField(
+        max_length=20,
+        choices=[
+            ('pending', 'Pending Review'),
+            ('under_review', 'Under Review'),
+            ('countered', 'Counter Offer Sent'),
+            ('accepted', 'Accepted'),
+            ('rejected', 'Rejected'),
+            ('withdrawn', 'Withdrawn'),
+            ('expired', 'Expired'),
+        ],
+        default='pending',
+        help_text="Current status of this offer"
+    )
+    
+    expiration_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date offer expires (optional)"
+    )
+    
+    closing_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Proposed closing date (optional)"
+    )
+    
+    # WHAT: Additional terms and conditions
+    # WHY: Capture important offer details that affect evaluation
+    earnest_money = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Earnest money deposit amount (optional)"
+    )
+    
+    inspection_period_days = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Number of days for inspection period (optional)"
+    )
+    
+    financing_contingency_days = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Number of days for financing contingency (optional)"
+    )
+    
+    appraisal_contingency = models.BooleanField(
+        default=True,
+        help_text="Whether offer includes appraisal contingency"
+    )
+    
+    # WHAT: Notes and additional information
+    # WHY: Capture any special terms or comments
+    special_terms = models.TextField(
+        null=True,
+        blank=True,
+        help_text="Any special terms or conditions (optional)"
+    )
+    
+    internal_notes = models.TextField(
+        null=True,
+        blank=True,
+        help_text="Internal notes about this offer (optional)"
+    )
+    
+    # WHAT: Audit fields
+    # WHY: Track when offers are created and modified
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        help_text="User who created this offer record"
+    )
+    
+    class Meta:
+        verbose_name = "Offer"
+        verbose_name_plural = "Offers"
+        ordering = ['-offer_date', '-created_at']
+        indexes = [
+            models.Index(fields=['asset_hub', 'offer_status']),
+            models.Index(fields=['offer_source', 'offer_status']),
+            models.Index(fields=['offer_date']),
+        ]
+    
+    def __str__(self):
+        asset_ref = self.asset_hub.servicer_id or f"Asset #{self.asset_hub.id}"
+        buyer_ref = self.buyer_name or "Unknown Buyer"
+        return f"${self.offer_price:,.2f} offer for {asset_ref} from {buyer_ref}"
+    
+    @property
+    def net_offer_amount(self):
+        """
+        WHAT: Calculate net offer amount after seller credits
+        WHY: Quick way to see actual net proceeds
+        """
+        return self.offer_price - (self.seller_credits or 0)
+    
+    @property
+    def is_cash_offer(self):
+        """
+        WHAT: Check if this is a cash offer
+        WHY: Cash offers typically have higher acceptance probability
+        """
+        return self.financing_type == 'cash'
+    
+    @property
+    def days_until_expiration(self):
+        """
+        WHAT: Calculate days until offer expires
+        WHY: Help prioritize time-sensitive offers
+        """
+        if not self.expiration_date:
+            return None
+        from datetime import date
+        delta = self.expiration_date - date.today()
+        return delta.days if delta.days >= 0 else 0
+    

@@ -1,11 +1,12 @@
 <!--
-  UiBadge.vue
+  UiBadge.vue - SINGLE SOURCE OF TRUTH PRESENTATION LAYER
   ---------------------------------------------------------------------------
-  A tiny presentation wrapper for badge/pill UI that defers styling decisions
-  to `@/config/badgeTokens.ts`. This separation allows for maximum reusability across
-  Vue components, Pinia stores, and even plain TypeScript utilities, while
-  keeping the component itself very lightweight. Hyper UI badge reference:
-  https://hyperui.dev/components/badges
+  Pure presentation component that renders badges using centralized styling from
+  `@/config/badgeTokens.ts`. ALL styling logic consolidated in badgeTokens.ts.
+  WHAT: Lightweight Vue wrapper for badge rendering
+  WHY: Eliminates dual styling sources and CSS conflicts
+  HOW: Consumes complete styling from badgeTokens.ts (classes + inline styles)
+  Hyper UI badge reference: https://hyperui.dev/components/badges
 -->
 <template>
   <!--
@@ -16,10 +17,10 @@
   <span
     v-if="resolvedClasses"
     :class="resolvedClasses"
+    :style="resolvedInlineStyles"
     :aria-label="computedAriaLabel"
     :title="hoverTitle"
     role="status"
-    style="line-height: 1; padding-top: 0.2rem; padding-bottom: 0.2rem; font-size: 0.6rem;"
   >
     <!-- Allow callers to override the content via default slot; fall back to provided label -->
     <slot>{{ label }}</slot>
@@ -28,54 +29,44 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { withDefaults, defineProps } from 'vue'
 import type { BadgeToneKey, BadgeSizeKey } from '@/config/badgeTokens'
 import { resolveBadgeTokens } from '@/config/badgeTokens'
 
-/**
- * Props for `UiBadge`.
- * - `tone` selects the color palette.
- * - `size` selects the spacing + font scale (defaults to `md`).
- * - `label` provides inline text when the slot is unused.
- * - `ariaLabel` lets callers override the accessible description when needed.
- */
+// ============================================================================
+// PROPS - Simple badge component interface
+// ============================================================================
+
 const props = withDefaults(defineProps<{
-  tone: BadgeToneKey
-  size?: BadgeSizeKey
-  label?: string | number | null
-  ariaLabel?: string | null
+  tone: BadgeToneKey           // Color theme (primary, secondary, etc.)
+  size?: BadgeSizeKey          // Size variant (xs, sm, md, lg)
+  label?: string | number | null // Text content when not using slot
+  ariaLabel?: string | null    // Custom accessibility label
 }>(), {
   size: 'md',
   label: null,
   ariaLabel: null,
 })
 
-/**
- * Resolve merged classes + aria label from centralized badge token map.
- */
+// ============================================================================
+// COMPUTED PROPERTIES - All styling resolved from badgeTokens.ts
+// ============================================================================
+
+/** Get complete styling configuration from badgeTokens.ts */
 const tokens = computed(() => resolveBadgeTokens(props.tone, props.size))
 
-/**
- * Extract the final class list. We memoize via computed to avoid recalculation.
- */
+/** CSS classes for the badge */
 const resolvedClasses = computed(() => tokens.value.classes)
 
-/**
- * Compute the aria-label hierarchy (explicit prop overrides token defaults).
- */
+/** Inline styles for precise control */
+const resolvedInlineStyles = computed(() => tokens.value.inlineStyles)
+
+/** Accessibility label with fallback hierarchy */
 const computedAriaLabel = computed(() => props.ariaLabel ?? tokens.value.ariaLabel ?? undefined)
 
-/**
- * Normalize label to a string for template fallback rendering.
- */
+/** Display label as string */
 const label = computed(() => (props.label ?? '').toString())
 
-/**
- * Provide a native hover tooltip. Priority:
- * 1) explicit ariaLabel prop
- * 2) ariaLabel from token map
- * 3) visible label text
- */
+/** Hover tooltip with priority: custom > token > label */
 const hoverTitle = computed(() => {
   if (props.ariaLabel) return props.ariaLabel
   if (tokens.value.ariaLabel) return tokens.value.ariaLabel

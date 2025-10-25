@@ -5,7 +5,7 @@
       <div class="d-flex align-items-center justify-content-between">
         <h5 class="mb-0 d-flex align-items-center">
           <i class="fas fa-pen-alt me-2 text-secondary"></i>
-          <UiBadge tone="secondary" size="sm">Modification</UiBadge>
+          <UiBadge tone="secondary" size="lg">Modification</UiBadge>
         </h5>
         <div class="d-flex align-items-center gap-2">
           <div class="position-relative" ref="menuRef">
@@ -73,10 +73,11 @@
           :class="[
             'list-group-item',
             'px-0',
-            'bg-body-secondary',
-            'border', 'border-1',
+            'bg-secondary-subtle', // subtle neutral fill
+            'border', 'border-1', 'border-light', // neutral thin outline
             'rounded-2', 'shadow-sm',
-            itemBorderClass(t.task_type)
+            'mb-2', // spacing
+            'border-start', // ensure left edge area
           ]"
         >
           <div class="d-flex align-items-center justify-content-between" role="button" @click="toggleExpand(t.id)">
@@ -159,8 +160,9 @@
 import { withDefaults, defineProps, ref, computed, onMounted, onBeforeUnmount, defineEmits } from 'vue'
 import { useAmOutcomesStore, type ModificationTask, type ModificationTaskType } from '@/stores/outcomes'
 import http from '@/lib/http'
-// Reusable editable date component with inline picker
-// Path: src/components/ui/EditableDate.vue
+import UiBadge from '@/components/ui/UiBadge.vue'
+import type { BadgeToneKey } from '@/config/badgeTokens'
+import { useDataRefresh } from '@/composables/useDataRefresh'
 import EditableDate from '@/components/ui/EditableDate.vue'
 // Feature-local notes component (moved for AM Tasking scope)
 // Path: src/views/am_module/loanlvl/am_tasking/components/SubtaskNotes.vue
@@ -195,6 +197,13 @@ function handleDocClick(e: MouseEvent) {
 onMounted(() => document.addEventListener('click', handleDocClick))
 onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
 
+// WHAT: Setup data refresh functionality
+// WHY: Auto-refresh when other components modify data
+const { emitTaskAdded, emitTaskDeleted, emitTaskUpdated } = useDataRefresh(props.hubId, async () => {
+  // WHAT: Refresh tasks when data changes
+  tasks.value = await store.listModificationTasks(props.hubId, true)
+})
+
 // Load subtasks on mount
 onMounted(async () => {
   tasks.value = await store.listModificationTasks(props.hubId, true)
@@ -217,7 +226,12 @@ function onSelectPill(tp: ModificationTaskType) {
   if (existingTypes.value.has(tp) || busy.value) return
   busy.value = true
   store.createModificationTask(props.hubId, tp)
-    .then(async () => { tasks.value = await store.listModificationTasks(props.hubId, true) })
+    .then(async (newTask) => { 
+      tasks.value = await store.listModificationTasks(props.hubId, true)
+      // WHAT: Emit task added event
+      // WHY: Notify other components to refresh their data
+      emitTaskAdded('modification', newTask?.id || 0)
+    })
     .finally(() => { busy.value = false; addMenuOpen.value = false })
 }
 function toggleExpand(id: number) { expandedId.value = expandedId.value === id ? null : id }
@@ -232,6 +246,9 @@ async function updateTaskStarted(taskId: number, newDate: string) {
     await http.patch(`/am/outcomes/modification-tasks/${taskId}/`, { task_started: newDate })
     // Refresh tasks to show updated date
     tasks.value = await store.listModificationTasks(props.hubId, true)
+    // WHAT: Emit task updated event
+    // WHY: Notify other components that task data changed
+    emitTaskUpdated('modification', taskId)
   } catch (err: any) {
     console.error('Failed to update task start date:', err)
     alert('Failed to update start date. Please try again.')
@@ -256,6 +273,9 @@ async function confirmDeleteTask() {
     deleteTaskConfirm.value.busy = true
     await store.deleteModificationTask(props.hubId, taskId)
     tasks.value = await store.listModificationTasks(props.hubId, true)
+    // WHAT: Emit task deleted event
+    // WHY: Notify other components that task was removed
+    emitTaskDeleted('modification', taskId)
     cancelDeleteTask()
   } catch (err: any) {
     console.error('Failed to delete modification task:', err)
@@ -264,22 +284,17 @@ async function confirmDeleteTask() {
   }
 }
 
-function badgeClass(tp: ModificationTaskType): string {
-  const map: Record<ModificationTaskType, string> = {
-    mod_negotiations: 'badge rounded-pill size_small text-bg-info',
-    mod_accepted: 'badge rounded-pill size_small text-bg-success',
-    mod_started: 'badge rounded-pill size_small text-bg-primary',
-    mod_failed: 'badge rounded-pill size_small text-bg-danger',
+function badgeClass(tp: ModificationTaskType): BadgeToneKey {
+  const map: Record<ModificationTaskType, BadgeToneKey> = {
+    mod_negotiations: 'info',
+    mod_accepted: 'success',
+    mod_started: 'primary',
+    mod_failed: 'danger',
   }
   return map[tp]
 }
 function itemBorderClass(tp: ModificationTaskType): string {
-  const map: Record<ModificationTaskType, string> = {
-    mod_negotiations: 'border-start border-2 border-info',
-    mod_accepted: 'border-start border-2 border-success',
-    mod_started: 'border-start border-2 border-primary',
-    mod_failed: 'border-start border-2 border-danger',
-  }
-  return map[tp]
+  // Return empty string for clean appearance like ShortSaleCard
+  return ''
 }
 </script>

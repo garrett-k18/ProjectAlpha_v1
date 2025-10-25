@@ -1,9 +1,9 @@
 <template>
   <!--
-    WHAT: Key Contacts card displaying Foreclosure Attorney and Servicer
-    WHY: Quick access to primary contacts for the loan
+    WHAT: Key Contacts card displaying all primary contacts
+    WHY: Quick access to Legal, Servicer, Agent, and Contractor contacts
     WHERE: AM Tasking page, after Upcoming Deadlines
-    HOW: Displays LegalContactCard and ServicerContactCard components
+    HOW: Displays all four contact card components in 2x2 grid
   -->
   <div class="card h-100">
     <div class="card-header d-flex align-items-center justify-content-between">
@@ -13,7 +13,7 @@
     <div class="card-body py-2">
       <div class="row g-2">
         <!-- Legal Contact Column -->
-        <div class="col-md-6">
+        <div class="col-6">
           <LegalContactCard 
             :contact="legalContact" 
             label="Foreclosure Attorney"
@@ -22,11 +22,29 @@
         </div>
         
         <!-- Servicer Contact Column -->
-        <div class="col-md-6">
+        <div class="col-6">
           <ServicerContactCard 
             :contact="servicerContact" 
             label="Loan Servicer"
             @assign="handleAssignServicer"
+          />
+        </div>
+        
+        <!-- Agent Contact Column -->
+        <div class="col-6">
+          <AgentContactCard 
+            :contact="agentContact" 
+            label="Real Estate Agent"
+            @assign="handleAssignAgent"
+          />
+        </div>
+        
+        <!-- Contractor Contact Column -->
+        <div class="col-6">
+          <ContractorContactCard 
+            :contact="contractorContact" 
+            label="Contractor"
+            @assign="handleAssignContractor"
           />
         </div>
       </div>
@@ -37,12 +55,15 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import http from '@/lib/http'
-// Reusable legal contact card with assignment dropdown
+// Reusable contact cards with assignment dropdowns
 // Path: src/components/crm/LegalContactCard.vue
 import LegalContactCard from '@/components/crm/LegalContactCard.vue'
-// Reusable servicer contact card with assignment dropdown
 // Path: src/components/crm/ServicerContactCard.vue
 import ServicerContactCard from '@/components/crm/ServicerContactCard.vue'
+// Path: src/components/crm/AgentContactCard.vue
+import AgentContactCard from '@/components/crm/AgentContactCard.vue'
+// Path: src/components/crm/ContractorContactCard.vue
+import ContractorContactCard from '@/components/crm/ContractorContactCard.vue'
 
 const props = defineProps<{
   hubId: number
@@ -51,10 +72,12 @@ const props = defineProps<{
 // Contact data from AssetCRMContact
 const legalContact = ref<any>(null)
 const servicerContact = ref<any>(null)
+const agentContact = ref<any>(null)
+const contractorContact = ref<any>(null)
 
 /**
  * Load key contacts for this asset hub
- * Fetches legal and servicer contacts from AssetCRMContact
+ * Fetches all contact types from AssetCRMContact
  */
 async function loadContacts() {
   try {
@@ -84,6 +107,32 @@ async function loadContacts() {
       servicerContact.value = servicers[0].crm_details
     } else {
       servicerContact.value = null
+    }
+    
+    // Load agent contact from AssetCRMContact
+    const agentRes = await http.get(`/am/asset-crm-contacts/`, {
+      params: { asset_hub: props.hubId, role: 'agent' }
+    })
+    
+    // Get first agent contact if exists
+    const agents = Array.isArray(agentRes.data) ? agentRes.data : agentRes.data.results || []
+    if (agents.length > 0) {
+      agentContact.value = agents[0].crm_details
+    } else {
+      agentContact.value = null
+    }
+    
+    // Load contractor contact from AssetCRMContact
+    const contractorRes = await http.get(`/am/asset-crm-contacts/`, {
+      params: { asset_hub: props.hubId, role: 'contractor' }
+    })
+    
+    // Get first contractor contact if exists
+    const contractors = Array.isArray(contractorRes.data) ? contractorRes.data : contractorRes.data.results || []
+    if (contractors.length > 0) {
+      contractorContact.value = contractors[0].crm_details
+    } else {
+      contractorContact.value = null
     }
   } catch (err: any) {
     console.error('Failed to load key contacts:', err)
@@ -144,6 +193,60 @@ async function handleAssignServicer(crmId: number) {
     console.error('Error response:', err.response?.data)
     console.error('Error status:', err.response?.status)
     alert(`Failed to assign servicer: ${err.response?.data?.detail || err.message}`)
+  }
+}
+
+/**
+ * Handle agent contact assignment
+ * Creates AssetCRMContact link with role='agent'
+ */
+async function handleAssignAgent(crmId: number) {
+  try {
+    console.log('Assigning agent contact:', { asset_hub_id: props.hubId, crm_id: crmId, role: 'agent' })
+    
+    // Create or update AssetCRMContact with role='agent'
+    const response = await http.post(`/am/asset-crm-contacts/`, {
+      asset_hub_id: props.hubId,
+      crm_id: crmId,
+      role: 'agent'
+    })
+    
+    console.log('Agent assignment successful:', response.data)
+    
+    // Reload contacts to show updated agent
+    await loadContacts()
+  } catch (err: any) {
+    console.error('Failed to assign agent:', err)
+    console.error('Error response:', err.response?.data)
+    console.error('Error status:', err.response?.status)
+    alert(`Failed to assign agent: ${err.response?.data?.detail || err.message}`)
+  }
+}
+
+/**
+ * Handle contractor contact assignment
+ * Creates AssetCRMContact link with role='contractor'
+ */
+async function handleAssignContractor(crmId: number) {
+  try {
+    console.log('Assigning contractor contact:', { asset_hub_id: props.hubId, crm_id: crmId, role: 'contractor' })
+    
+    // Create or update AssetCRMContact with role='contractor'
+    const response = await http.post(`/am/asset-crm-contacts/`, {
+      asset_hub_id: props.hubId,
+      crm_id: crmId,
+      role: 'contractor'
+    })
+    
+    console.log('Contractor assignment successful:', response.data)
+    
+    // Reload contacts to show updated contractor
+    await loadContacts()
+  } catch (err: any) {
+    console.error('Failed to assign contractor:', err)
+    console.error('Error response:', err.response?.data)
+    console.error('Error status:', err.response?.status)
+    alert(`Failed to assign contractor: ${err.response?.data?.detail || err.message}`)
   }
 }
 

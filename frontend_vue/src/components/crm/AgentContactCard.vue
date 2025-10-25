@@ -1,8 +1,9 @@
 <template>
-  <!-- Legal Contact Card with Flip Animation -->
+  <!-- Agent Contact Card with Flip Animation -->
   <!-- WHAT: Card flip feature - front shows title, back shows contact details -->
   <!-- WHY: Cleaner UI with interactive reveal of contact information -->
   <!-- HOW: CSS 3D transforms with Vue reactive state for flip control -->
+  <!-- LINKED TO: Broker CRM tag -->
   <div class="flip-card" @click="flipCard">
     <div class="flip-card-inner" :class="{ 'flipped': isFlipped }">
       
@@ -11,14 +12,14 @@
         <div class="card-body p-2 position-relative">
           <!-- Title in top left corner -->
           <div class="position-absolute top-0 start-0 p-2">
-            <div class="small text-muted fw-bold">Legal</div>
+            <div class="small text-muted fw-bold">Agent</div>
           </div>
           <!-- Center content with firm name -->
           <div class="d-flex align-items-center justify-content-center h-100 pt-3">
             <div class="text-center">
-              <i class="fas fa-scale-balance text-primary mb-2" style="font-size: 1.5rem;"></i>
+              <i class="fas fa-handshake text-primary mb-2" style="font-size: 1.5rem;"></i>
               <div class="fw-bold text-dark">
-                {{ contact?.firm || label || 'Foreclosure Attorney' }}
+                {{ contact?.firm || label || 'Real Estate Agent' }}
               </div>
               <div class="small text-muted">Click to view contact</div>
             </div>
@@ -31,17 +32,17 @@
         <div class="card-body p-2">
           <!-- Section title with button -->
           <div class="d-flex justify-content-between align-items-center mb-2">
-            <div class="small text-muted fw-bold">Legal</div>
+            <div class="small text-muted fw-bold">Agent</div>
             <div class="position-relative" ref="assignMenuRef">
               <button 
                 class="btn btn-sm btn-outline-primary px-2 py-0" 
                 style="font-size: 0.65rem;" 
-                :title="contact ? 'Re-assign Attorney' : 'Assign Attorney'"
+                :title="contact ? 'Re-assign Agent' : 'Assign Agent'"
                 @click.stop="toggleAssignMenu"
               >
                 {{ contact ? 'Re-assign' : 'Assign' }}
               </button>
-              <!-- Dropdown menu with legal contacts -->
+              <!-- Dropdown menu with agent contacts -->
               <div 
                 v-if="assignMenuOpen" 
                 class="card shadow-sm mt-1" 
@@ -49,35 +50,35 @@
               >
                 <div class="list-group list-group-flush">
                   <!-- Loading state -->
-                  <div v-if="loadingAttorneys" class="p-3 text-center text-muted small">
+                  <div v-if="loadingAgents" class="p-3 text-center text-muted small">
                     <i class="fas fa-spinner fa-spin me-1"></i>
-                    Loading attorneys...
+                    Loading agents...
                   </div>
-                  <!-- Attorney list -->
+                  <!-- Agent list -->
                   <button
-                    v-for="attorney in legalContacts"
-                    :key="attorney.id"
+                    v-for="agent in agentContacts"
+                    :key="agent.id"
                     type="button"
                     class="list-group-item list-group-item-action p-2 small"
-                    @click="selectAttorney(attorney.id)"
+                    @click="selectAgent(agent.id)"
                   >
-                    <div class="fw-bold">{{ attorney.firm }}</div>
-                    <div class="text-muted" style="font-size: 0.85em;">{{ attorney.contact_name }}</div>
+                    <div class="fw-bold">{{ agent.firm }}</div>
+                    <div class="text-muted" style="font-size: 0.85em;">{{ agent.contact_name }}</div>
                   </button>
                   <!-- Empty state -->
-                  <div v-if="!loadingAttorneys && legalContacts.length === 0" class="p-3 text-center text-muted small">
-                    No attorneys found
+                  <div v-if="!loadingAgents && agentContacts.length === 0" class="p-3 text-center text-muted small">
+                    No agents found
                   </div>
                 </div>
               </div>
             </div>
           </div>
-          <!-- Attorney contact info -->
+          <!-- Agent contact info -->
           <div class="text-center">
             <div class="d-flex flex-column gap-1">
               <!-- Firm name -->
               <div class="small fw-bold text-dark">
-                {{ contact?.firm || label || 'Foreclosure Attorney' }}
+                {{ contact?.firm || label || 'Real Estate Agent' }}
               </div>
               <!-- Contact details: email and phone on single line -->
               <div class="d-flex justify-content-center gap-3 flex-wrap">
@@ -116,7 +117,7 @@ const props = defineProps<{
   label?: string
 }>()
 
-// Emits: when attorney is selected or view CRM is clicked
+// Emits: when agent is selected or view CRM is clicked
 const emit = defineEmits<{
   (e: 'assign', crmId: number): void
   (e: 'view-crm', crmId: number): void
@@ -125,11 +126,11 @@ const emit = defineEmits<{
 // Card flip state
 const isFlipped = ref(false)
 
-// Dropdown state for attorney assignment
+// Dropdown state for agent assignment
 const assignMenuOpen = ref(false)
 const assignMenuRef = ref<HTMLElement | null>(null)
-const legalContacts = ref<CrmContact[]>([])
-const loadingAttorneys = ref(false)
+const agentContacts = ref<CrmContact[]>([])
+const loadingAgents = ref(false)
 
 /**
  * Toggle card flip animation
@@ -143,41 +144,41 @@ function flipCard() {
 
 /**
  * Toggle the assignment dropdown menu
- * Fetches legal contacts on first open
+ * Fetches agent contacts on first open
  */
 async function toggleAssignMenu() {
   assignMenuOpen.value = !assignMenuOpen.value
-  if (assignMenuOpen.value && legalContacts.value.length === 0) {
-    await fetchLegalContacts()
+  if (assignMenuOpen.value && agentContacts.value.length === 0) {
+    await fetchAgentContacts()
   }
 }
 
 /**
- * Fetch all legal contacts from CRM
- * Uses the /core/crm/legal/ endpoint which filters by tag='legal'
+ * Fetch all agent contacts from CRM
+ * Uses the /core/crm/brokers/ endpoint which filters by tag='broker'
  */
-async function fetchLegalContacts() {
+async function fetchAgentContacts() {
   try {
-    loadingAttorneys.value = true
-    const res = await http.get<{ results: CrmContact[] } | CrmContact[]>('/core/crm/legal/')
+    loadingAgents.value = true
+    const res = await http.get<{ results: CrmContact[] } | CrmContact[]>('/core/crm/brokers/')
     // DRF returns paginated response: {count, next, previous, results}
     // Extract results array from paginated response
-    legalContacts.value = Array.isArray(res.data) 
+    agentContacts.value = Array.isArray(res.data) 
       ? res.data 
       : (res.data as any).results || []
   } catch (err: any) {
-    console.error('Failed to fetch legal contacts:', err)
-    legalContacts.value = []
+    console.error('Failed to fetch agent contacts:', err)
+    agentContacts.value = []
   } finally {
-    loadingAttorneys.value = false
+    loadingAgents.value = false
   }
 }
 
 /**
- * Handle attorney selection from dropdown
+ * Handle agent selection from dropdown
  * Emits the selected CRM ID to parent component
  */
-function selectAttorney(crmId: number) {
+function selectAgent(crmId: number) {
   emit('assign', crmId)
   assignMenuOpen.value = false
 }

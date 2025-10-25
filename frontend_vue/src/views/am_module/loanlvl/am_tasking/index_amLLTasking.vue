@@ -120,24 +120,23 @@
             @click.stop="toggleTrackMenu"
           >
             Choose Track
-            <i class="fas fa-chevron-down"></i>
           </button>
           
           <div v-if="showTrackMenu" class="track-dropdown" @click.stop>
             <button class="track-option" @click="selectTrack('modification')" :disabled="ensureBusy">
-              <UiBadge tone="secondary" size="sm">Modification</UiBadge>
+              <UiBadge tone="secondary" size="md">Modification</UiBadge>
             </button>
             <button class="track-option" @click="selectTrack('short_sale')" :disabled="ensureBusy">
-              <UiBadge tone="warning" size="sm">Short Sale</UiBadge>
+              <UiBadge tone="warning" size="md">Short Sale</UiBadge>
             </button>
             <button class="track-option" @click="selectTrack('dil')" :disabled="ensureBusy">
-              <UiBadge tone="primary" size="sm">Deed-in-Lieu</UiBadge>
+              <UiBadge tone="primary" size="md">Deed-in-Lieu</UiBadge>
             </button>
             <button class="track-option" @click="selectTrack('fc')" :disabled="ensureBusy">
-              <UiBadge tone="danger" size="sm">Foreclosure</UiBadge>
+              <UiBadge tone="danger" size="md">Foreclosure</UiBadge>
             </button>
             <button class="track-option" @click="selectTrack('reo')" :disabled="ensureBusy">
-              <UiBadge tone="info" size="sm">REO</UiBadge>
+              <UiBadge tone="info" size="md">REO</UiBadge>
             </button>
           </div>
         </div>
@@ -194,7 +193,7 @@
 </template>
 
 <script setup lang="ts">
-import { withDefaults, defineProps, ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { withDefaults, defineProps, ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import axios from 'axios'
 defineOptions({
   name: 'AmLlTasking',
@@ -215,6 +214,8 @@ import RecentActivity, { type ActivityItem } from '@/views/am_module/loanlvl/am_
 import UpcomingDeadlines from '@/views/am_module/loanlvl/am_tasking/components/milestonesCard.vue'
 // Key Contacts widget (feature-local). Path: views/.../am_tasking/components/KeyContacts.vue
 import KeyContacts from '@/views/am_module/loanlvl/am_tasking/components/KeyContacts.vue'
+// Event bus for auto-refresh functionality
+import { eventBus, refreshHubData } from '@/lib/eventBus'
 
 interface HeaderAssetView {
   propertyAddress: string
@@ -804,6 +805,11 @@ async function selectTrack(type: OutcomeType) {
     selectedOutcome.value = type
     await outcomesStore.ensureOutcome(hubId.value, type)
     visibleOutcomes.value[type] = true
+    
+    // WHAT: Emit track added event for auto-refresh
+    // WHY: Notify other components that new track was created
+    eventBus.emit('track:added', { trackType: type, hubId: hubId.value })
+    refreshHubData(hubId.value)
   } finally {
     ensureBusy.value = false
     showTrackMenu.value = false
@@ -828,9 +834,28 @@ async function confirmDelete() {
   if (!hubId.value || !confirm.value.type) return
   try {
     confirm.value.busy = true
-    await outcomesStore.deleteOutcome(hubId.value, confirm.value.type)
-    visibleOutcomes.value[confirm.value.type] = false
+    const deletedType = confirm.value.type
+    
+    // WHAT: Delete outcome from backend
+    await outcomesStore.deleteOutcome(hubId.value, deletedType)
+    
+    // WHAT: Hide the outcome card immediately
+    // WHY: Prevent component update errors during deletion
+    visibleOutcomes.value[deletedType] = false
+    
+    // WHAT: Wait for DOM update before emitting events
+    // WHY: Ensure component is properly removed before notifying others
+    await nextTick()
+    
+    // WHAT: Emit track deleted event for auto-refresh
+    // WHY: Notify other components that track was removed
+    eventBus.emit('track:deleted', { trackType: deletedType, hubId: hubId.value })
+    refreshHubData(hubId.value)
+    
     closeConfirm()
+  } catch (err: any) {
+    console.error('Failed to delete outcome:', err)
+    alert(`Failed to delete ${confirm.value.type}. Please try again.`)
   } finally {
     confirm.value.busy = false
   }
@@ -1061,12 +1086,16 @@ onMounted(() => {
   background: white;
   border: 1px solid #0d6efd;
   color: #0d6efd;
-  padding: 0.375rem 2rem 0.375rem 0.75rem;
+  padding: 0.375rem 0.75rem; /* Symmetric padding */
   border-radius: 0.25rem;
   font-size: 0.875rem;
   cursor: pointer;
   position: relative;
   transition: all 0.15s ease;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .track-button:hover:not(:disabled) {

@@ -9,7 +9,7 @@ from am_module.models.am_data import (
     AMMetrics, AuditLog, AssetCRMContact,
     AMNote, REOData, FCSale, DIL, ShortSale, Modification,
     REOtask, FCTask, DILTask, ShortSaleTask, ModificationTask,
-    REOScope,
+    REOScope, Offers,
 )
 
 # ============================================================
@@ -352,6 +352,9 @@ class AssetCRMContactAdmin(admin.ModelAdmin):
     list_per_page = 5
 
 
+# Offers admin registration moved to end of file to avoid conflicts
+
+
 @admin.register(AuditLog)
 class AuditLogAdmin(admin.ModelAdmin):
     list_display = ('id', 'content_type', 'object_id', 'asset_hub', 'field_name', 'changed_at', 'changed_by')
@@ -369,3 +372,48 @@ class AuditLogAdmin(admin.ModelAdmin):
     
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('content_type', 'asset_hub', 'changed_by')
+
+
+@admin.register(Offers)
+class OffersAdmin(admin.ModelAdmin):
+    """
+    WHAT: Admin interface for managing offers from various sources
+    WHY: Allow staff to view and manage offers received for assets
+    WHERE: Django admin interface
+    HOW: Standard ModelAdmin with filtering and search capabilities
+    """
+    list_display = (
+        'id', 'asset_hub', 'offer_price', 'buyer_name', 'financing_type', 
+        'offer_status', 'offer_date', 'offer_source', 'created_at'
+    )
+    list_filter = (
+        'offer_status', 'offer_source', 'financing_type', 
+        'offer_date', 'created_at'
+    )
+    search_fields = (
+        'buyer_name', 'buyer_agent', 'asset_hub__servicer_id',
+        'notes'
+    )
+    ordering = ('-offer_date', '-created_at')
+    list_select_related = ('asset_hub',)
+    readonly_fields = ('created_at', 'updated_at')
+    list_per_page = 25
+    
+    fieldsets = (
+        ('Offer Details', {
+            'fields': ('asset_hub', 'offer_source', 'offer_price', 'offer_date')
+        }),
+        ('Buyer Information', {
+            'fields': ('buyer_name', 'buyer_agent', 'financing_type')
+        }),
+        ('Status & Terms', {
+            'fields': ('offer_status', 'seller_credits', 'notes')
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        })
+    )
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('asset_hub')

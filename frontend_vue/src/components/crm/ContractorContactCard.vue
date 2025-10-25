@@ -1,8 +1,9 @@
 <template>
-  <!-- Legal Contact Card with Flip Animation -->
+  <!-- Contractor Contact Card with Flip Animation -->
   <!-- WHAT: Card flip feature - front shows title, back shows contact details -->
   <!-- WHY: Cleaner UI with interactive reveal of contact information -->
   <!-- HOW: CSS 3D transforms with Vue reactive state for flip control -->
+  <!-- LINKED TO: Vendor CRM tag -->
   <div class="flip-card" @click="flipCard">
     <div class="flip-card-inner" :class="{ 'flipped': isFlipped }">
       
@@ -11,14 +12,14 @@
         <div class="card-body p-2 position-relative">
           <!-- Title in top left corner -->
           <div class="position-absolute top-0 start-0 p-2">
-            <div class="small text-muted fw-bold">Legal</div>
+            <div class="small text-muted fw-bold">Contractor</div>
           </div>
           <!-- Center content with firm name -->
           <div class="d-flex align-items-center justify-content-center h-100 pt-3">
             <div class="text-center">
-              <i class="fas fa-scale-balance text-primary mb-2" style="font-size: 1.5rem;"></i>
+              <i class="fas fa-hard-hat text-primary mb-2" style="font-size: 1.5rem;"></i>
               <div class="fw-bold text-dark">
-                {{ contact?.firm || label || 'Foreclosure Attorney' }}
+                {{ contact?.firm || label || 'Contractor' }}
               </div>
               <div class="small text-muted">Click to view contact</div>
             </div>
@@ -31,17 +32,17 @@
         <div class="card-body p-2">
           <!-- Section title with button -->
           <div class="d-flex justify-content-between align-items-center mb-2">
-            <div class="small text-muted fw-bold">Legal</div>
+            <div class="small text-muted fw-bold">Contractor</div>
             <div class="position-relative" ref="assignMenuRef">
               <button 
                 class="btn btn-sm btn-outline-primary px-2 py-0" 
                 style="font-size: 0.65rem;" 
-                :title="contact ? 'Re-assign Attorney' : 'Assign Attorney'"
+                :title="contact ? 'Re-assign Contractor' : 'Assign Contractor'"
                 @click.stop="toggleAssignMenu"
               >
                 {{ contact ? 'Re-assign' : 'Assign' }}
               </button>
-              <!-- Dropdown menu with legal contacts -->
+              <!-- Dropdown menu with contractor contacts -->
               <div 
                 v-if="assignMenuOpen" 
                 class="card shadow-sm mt-1" 
@@ -49,35 +50,37 @@
               >
                 <div class="list-group list-group-flush">
                   <!-- Loading state -->
-                  <div v-if="loadingAttorneys" class="p-3 text-center text-muted small">
+                  <div v-if="loadingContractors" class="p-3 text-center text-muted small">
                     <i class="fas fa-spinner fa-spin me-1"></i>
-                    Loading attorneys...
+                    Loading contractors...
                   </div>
-                  <!-- Attorney list -->
-                  <button
-                    v-for="attorney in legalContacts"
-                    :key="attorney.id"
-                    type="button"
-                    class="list-group-item list-group-item-action p-2 small"
-                    @click="selectAttorney(attorney.id)"
-                  >
-                    <div class="fw-bold">{{ attorney.firm }}</div>
-                    <div class="text-muted" style="font-size: 0.85em;">{{ attorney.contact_name }}</div>
-                  </button>
                   <!-- Empty state -->
-                  <div v-if="!loadingAttorneys && legalContacts.length === 0" class="p-3 text-center text-muted small">
-                    No attorneys found
+                  <div v-else-if="!contractorContacts.length" class="p-3 text-center text-muted small">
+                    No contractor contacts found
                   </div>
+                  <!-- Contact list -->
+                  <button
+                    v-else
+                    v-for="contractorContact in contractorContacts"
+                    :key="contractorContact.id"
+                    type="button"
+                    class="list-group-item list-group-item-action p-2"
+                    @click="selectContractor(contractorContact.id)"
+                  >
+                    <div class="small fw-bold">{{ contractorContact.contact_name || 'Unnamed Contact' }}</div>
+                    <div v-if="contractorContact.firm" class="small text-muted">{{ contractorContact.firm }}</div>
+                    <div v-if="contractorContact.email" class="small text-muted">{{ contractorContact.email }}</div>
+                  </button>
                 </div>
               </div>
             </div>
           </div>
-          <!-- Attorney contact info -->
+          <!-- Contractor contact info -->
           <div class="text-center">
             <div class="d-flex flex-column gap-1">
               <!-- Firm name -->
               <div class="small fw-bold text-dark">
-                {{ contact?.firm || label || 'Foreclosure Attorney' }}
+                {{ contact?.firm || label || 'Contractor' }}
               </div>
               <!-- Contact details: email and phone on single line -->
               <div class="d-flex justify-content-center gap-3 flex-wrap">
@@ -116,7 +119,7 @@ const props = defineProps<{
   label?: string
 }>()
 
-// Emits: when attorney is selected or view CRM is clicked
+// Emits: when contractor is selected or view CRM is clicked
 const emit = defineEmits<{
   (e: 'assign', crmId: number): void
   (e: 'view-crm', crmId: number): void
@@ -125,11 +128,11 @@ const emit = defineEmits<{
 // Card flip state
 const isFlipped = ref(false)
 
-// Dropdown state for attorney assignment
+// Dropdown state for contractor assignment
 const assignMenuOpen = ref(false)
 const assignMenuRef = ref<HTMLElement | null>(null)
-const legalContacts = ref<CrmContact[]>([])
-const loadingAttorneys = ref(false)
+const contractorContacts = ref<CrmContact[]>([])
+const loadingContractors = ref(false)
 
 /**
  * Toggle card flip animation
@@ -143,41 +146,41 @@ function flipCard() {
 
 /**
  * Toggle the assignment dropdown menu
- * Fetches legal contacts on first open
+ * Fetches contractor contacts on first open
  */
 async function toggleAssignMenu() {
   assignMenuOpen.value = !assignMenuOpen.value
-  if (assignMenuOpen.value && legalContacts.value.length === 0) {
-    await fetchLegalContacts()
+  if (assignMenuOpen.value && contractorContacts.value.length === 0) {
+    await fetchContractorContacts()
   }
 }
 
 /**
- * Fetch all legal contacts from CRM
- * Uses the /core/crm/legal/ endpoint which filters by tag='legal'
+ * Fetch all contractor contacts from CRM
+ * Uses the /core/crm/vendors/ endpoint which filters by tag='vendor'
  */
-async function fetchLegalContacts() {
+async function fetchContractorContacts() {
   try {
-    loadingAttorneys.value = true
-    const res = await http.get<{ results: CrmContact[] } | CrmContact[]>('/core/crm/legal/')
+    loadingContractors.value = true
+    const res = await http.get<{ results: CrmContact[] } | CrmContact[]>('/core/crm/vendors/')
     // DRF returns paginated response: {count, next, previous, results}
     // Extract results array from paginated response
-    legalContacts.value = Array.isArray(res.data) 
+    contractorContacts.value = Array.isArray(res.data) 
       ? res.data 
       : (res.data as any).results || []
   } catch (err: any) {
-    console.error('Failed to fetch legal contacts:', err)
-    legalContacts.value = []
+    console.error('Failed to fetch contractor contacts:', err)
+    contractorContacts.value = []
   } finally {
-    loadingAttorneys.value = false
+    loadingContractors.value = false
   }
 }
 
 /**
- * Handle attorney selection from dropdown
+ * Handle contractor selection from dropdown
  * Emits the selected CRM ID to parent component
  */
-function selectAttorney(crmId: number) {
+function selectContractor(crmId: number) {
   emit('assign', crmId)
   assignMenuOpen.value = false
 }
@@ -228,11 +231,6 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
   height: 100px; /* Fixed height for consistent flip animation */
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
-}
-
-.flip-card-front {
-  /* Front side is visible by default - no additional styles needed */
-  z-index: 2;
 }
 
 .flip-card-back {

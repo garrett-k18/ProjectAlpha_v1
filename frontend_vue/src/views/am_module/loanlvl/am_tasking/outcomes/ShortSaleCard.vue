@@ -12,7 +12,7 @@
       >
         <h5 class="mb-0 d-flex align-items-center">
           <i class="fas fa-tags me-2 text-warning"></i>
-          <UiBadge tone="warning" size="sm" class="text-dark">Short Sale</UiBadge>
+          <UiBadge tone="warning" size="lg" class="text-dark">Short Sale</UiBadge>
         </h5>
         <div class="d-flex align-items-center gap-2">
           <div class="position-relative" ref="menuRef">
@@ -105,8 +105,79 @@
             </div>
           </div>
           <div v-if="expandedId === t.id" class="mt-2 p-2 border-top">
-            <div class="small text-muted">Task data fields can be added here</div>
-            <!-- TODO: Add task-specific form fields here -->
+            <!-- WHAT: Task-specific fields based on task type -->
+            <!-- WHY: Different tasks need different data collection -->
+            <div v-if="t.task_type === 'sold'" class="mb-3">
+              <div class="row g-2">
+                <div class="col-md-6">
+                  <label class="form-label small">Sale Date</label>
+                  <input 
+                    ref="saleDateInput"
+                    type="text" 
+                    class="form-control form-control-sm date" 
+                    data-toggle="date-picker" 
+                    data-single-date-picker="true" 
+                    :value="convertToDisplayDate(shortSaleData?.short_sale_date || '')"
+                    @input="handleDateInput"
+                    placeholder="Select date" 
+                    spellcheck="false"
+                  />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label small">Gross Proceeds</label>
+                  <UiCurrencyInput 
+                    :model-value="shortSaleData?.gross_proceeds || ''"
+                    @update:model-value="handleCurrencyChange"
+                    prefix="$"
+                    :debounce-ms="1000"
+                    size="sm"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+            </div>
+            <!-- WHAT: Listed task completion fields -->
+            <!-- WHY: Track listing date and price for listed properties -->
+            <div v-else-if="t.task_type === 'listed'" class="mb-3">
+              <div class="row g-2">
+                <div class="col-md-6">
+                  <label class="form-label small">List Date</label>
+                  <input 
+                    ref="listDateInput"
+                    type="text" 
+                    class="form-control form-control-sm date" 
+                    data-toggle="date-picker" 
+                    data-single-date-picker="true" 
+                    :value="convertToDisplayDate(shortSaleData?.short_sale_list_date || '')"
+                    @input="handleListDateInput"
+                    placeholder="Select date" 
+                    spellcheck="false"
+                  />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label small">List Price</label>
+                  <UiCurrencyInput 
+                    :model-value="shortSaleData?.short_sale_list_price || ''"
+                    @update:model-value="handleListPriceChange"
+                    prefix="$"
+                    :debounce-ms="1000"
+                    size="sm"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+              
+              <!-- WHAT: Reusable offers section -->
+              <!-- WHY: Shared component for offers management -->
+              <OffersSection 
+                :hub-id="hubId" 
+                offer-source="short_sale"
+                ref="offersSection"
+              />
+            </div>
+            <div v-else class="small text-muted mb-2">Task-specific fields for {{ labelFor(t.task_type) }}</div>
+            
+            
             <div class="d-flex justify-content-end mt-2">
               <button
                 type="button"
@@ -166,16 +237,24 @@
 </template>
 
 <script setup lang="ts">
-import { withDefaults, defineProps, ref, computed, onMounted, onBeforeUnmount, defineEmits } from 'vue'
+import { withDefaults, defineProps, ref, computed, onMounted, onBeforeUnmount, defineEmits, nextTick } from 'vue'
 import { useAmOutcomesStore, type ShortSaleTask, type ShortSaleTaskType } from '@/stores/outcomes'
 import http from '@/lib/http'
+import { useDataRefresh } from '@/composables/useDataRefresh'
+// Import jQuery for date picker initialization
+import $ from 'jquery'
+import 'bootstrap-datepicker'
 // Reusable editable date component with inline picker
 // Path: src/components/ui/EditableDate.vue
 import EditableDate from '@/components/ui/EditableDate.vue'
 import UiBadge from '@/components/ui/UiBadge.vue'
+// Hyper UI currency input component
+// Path: src/components/ui/UiCurrencyInput.vue
+import UiCurrencyInput from '@/components/ui/UiCurrencyInput.vue'
 // Feature-local notes component (moved for AM Tasking scope)
 // Path: src/views/am_module/loanlvl/am_tasking/components/SubtaskNotes.vue
 import SubtaskNotes from '@/views/am_module/loanlvl/am_tasking/components/SubtaskNotes.vue'
+import OffersSection from '../components/OffersSection.vue'
 
 const props = withDefaults(defineProps<{ hubId: number }>(), {})
 const emit = defineEmits<{ (e: 'delete'): void }>()
@@ -195,6 +274,13 @@ const addMenuRef = ref<HTMLElement | null>(null)
 // Subtasks state
 const tasks = ref<ShortSaleTask[]>([])
 const expandedId = ref<number | null>(null)
+// Short Sale completion data
+const shortSaleData = ref<any>(null)
+// Date picker refs
+const saleDateInput = ref<HTMLInputElement | null>(null)
+const listDateInput = ref<HTMLInputElement | null>(null)
+// Reference to offers section component
+const offersSection = ref<any>(null)
 function handleDocClick(e: MouseEvent) {
   const root = menuRef.value
   const addRoot = addMenuRef.value
@@ -202,11 +288,214 @@ function handleDocClick(e: MouseEvent) {
   if (addMenuOpen.value && addRoot && !addRoot.contains(e.target as Node)) addMenuOpen.value = false
 }
 onMounted(() => document.addEventListener('click', handleDocClick))
-onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleDocClick)
+  cleanupDatePicker()
+})
+
+// WHAT: Setup data refresh functionality
+// WHY: Auto-refresh when other components modify data
+const { emitTaskAdded, emitTaskDeleted, emitTaskUpdated } = useDataRefresh(props.hubId, async () => {
+  // WHAT: Refresh tasks and completion data when changes occur
+  tasks.value = await store.listShortSaleTasks(props.hubId, true)
+  await loadShortSaleData()
+})
 
 async function load() {
   // Load subtasks
   tasks.value = await store.listShortSaleTasks(props.hubId, true)
+  // Load Short Sale outcome data for completion fields
+  await loadShortSaleData()
+  // Initialize date picker after data is loaded
+  await nextTick()
+  initializeDatePicker()
+}
+
+// WHAT: Initialize Bootstrap date picker
+// WHY: Enable calendar popup for date selection
+function initializeDatePicker() {
+  // Initialize sale date picker
+  if (saleDateInput.value) {
+    $(saleDateInput.value).datepicker({
+      format: 'mm/dd/yyyy',
+      autoclose: true,
+      todayHighlight: true,
+      orientation: 'bottom auto'
+    }).on('changeDate', function(e: any) {
+      const selectedDate = e.format('mm/dd/yyyy')
+      const backendDate = convertToBackendDate(selectedDate)
+      updateShortSaleField('short_sale_date', backendDate, false)
+    })
+  }
+  
+  // Initialize list date picker
+  if (listDateInput.value) {
+    $(listDateInput.value).datepicker({
+      format: 'mm/dd/yyyy',
+      autoclose: true,
+      todayHighlight: true,
+      orientation: 'bottom auto'
+    }).on('changeDate', function(e: any) {
+      const selectedDate = e.format('mm/dd/yyyy')
+      const backendDate = convertToBackendDate(selectedDate)
+      updateShortSaleField('short_sale_list_date', backendDate, false)
+    })
+  }
+}
+
+// WHAT: Cleanup date picker on unmount
+// WHY: Prevent memory leaks
+function cleanupDatePicker() {
+  if (saleDateInput.value) {
+    $(saleDateInput.value).datepicker('destroy')
+  }
+  if (listDateInput.value) {
+    $(listDateInput.value).datepicker('destroy')
+  }
+}
+
+// WHAT: Load Short Sale outcome data
+// WHY: Need access to completion fields like sale date and gross proceeds
+async function loadShortSaleData() {
+  try {
+    // Get Short Sale outcome for this asset
+    const response = await http.get(`/am/outcomes/short-sale/?asset_hub_id=${props.hubId}`)
+    if (response.data && response.data.length > 0) {
+      shortSaleData.value = response.data[0] // Take the first (should be only) result
+    } else {
+      // No Short Sale outcome exists yet, create one
+      const payload = {
+        asset_hub_id: props.hubId
+      }
+      console.log('Creating Short Sale outcome with payload:', payload)
+      const createResponse = await http.post('/am/outcomes/short-sale/', payload)
+      shortSaleData.value = createResponse.data
+    }
+  } catch (err: any) {
+    console.error('Failed to load/create short sale data:', err)
+    console.error('Error response:', err.response?.data)
+    console.error('Error status:', err.response?.status)
+    console.error('Full error object:', err)
+    // Initialize empty data as fallback
+    shortSaleData.value = {
+      asset_hub: null,
+      short_sale_date: null,
+      gross_proceeds: null,
+      short_sale_list_date: null,
+      short_sale_list_price: null
+    }
+  }
+}
+
+
+// WHAT: Convert US date format to backend format
+// WHY: Backend expects yyyy-mm-dd but users see mm/dd/yyyy
+function convertToBackendDate(usDate: string): string {
+  if (!usDate) return ''
+  try {
+    const [month, day, year] = usDate.split('/')
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+  } catch {
+    return usDate // Return as-is if parsing fails
+  }
+}
+
+// WHAT: Convert backend date format to US display format
+// WHY: Display mm/dd/yyyy to users but store yyyy-mm-dd
+function convertToDisplayDate(backendDate: string): string {
+  if (!backendDate) return ''
+  try {
+    const [year, month, day] = backendDate.split('-')
+    return `${month}/${day}/${year}`
+  } catch {
+    return backendDate // Return as-is if parsing fails
+  }
+}
+
+// WHAT: Handle date input from text field
+// WHY: Convert display format to backend format and save
+function handleDateInput(event: Event) {
+  const target = event.target as HTMLInputElement
+  const displayDate = target.value
+  const backendDate = convertToBackendDate(displayDate)
+  updateShortSaleField('short_sale_date', backendDate, false)
+}
+
+// WHAT: Handle date changes from EditableDate component
+// WHY: EditableDate already provides yyyy-mm-dd format
+function handleDateChange(backendDate: string) {
+  updateShortSaleField('short_sale_date', backendDate, false)
+}
+
+// WHAT: Handle currency changes from UiCurrencyInput component
+// WHY: Save currency values with built-in debouncing
+function handleCurrencyChange(value: string) {
+  updateShortSaleField('gross_proceeds', value, false)
+}
+
+// WHAT: Handle list date input from text field
+// WHY: Convert display format to backend format and save
+function handleListDateInput(event: Event) {
+  const target = event.target as HTMLInputElement
+  const displayDate = target.value
+  const backendDate = convertToBackendDate(displayDate)
+  updateShortSaleField('short_sale_list_date', backendDate, false)
+}
+
+// WHAT: Handle list price changes from UiCurrencyInput component
+// WHY: Save list price values with built-in debouncing
+function handleListPriceChange(value: string) {
+  updateShortSaleField('short_sale_list_price', value, false)
+}
+
+
+// WHAT: Update Short Sale completion fields
+// WHY: Save completion data when user enters sale date or proceeds
+async function updateShortSaleField(fieldName: string, value: string, emitEvent: boolean = true) {
+  try {
+    console.log(`Updating ${fieldName} with value:`, value)
+    
+    // Ensure we have a Short Sale outcome to update
+    if (!shortSaleData.value || !shortSaleData.value.asset_hub) {
+      console.log('No Short Sale outcome found, creating one first')
+      await loadShortSaleData()
+    }
+    
+    if (!shortSaleData.value?.asset_hub) {
+      throw new Error('Unable to create or find Short Sale outcome')
+    }
+    
+    // WHAT: Convert value to proper format for backend
+    // WHY: Ensure consistent data storage
+    let processedValue = value || null
+    if (fieldName === 'gross_proceeds' && processedValue) {
+      // For currency fields, ensure we store as number
+      const numValue = parseFloat(processedValue)
+      processedValue = isNaN(numValue) ? null : numValue.toString()
+      console.log(`Processed currency value:`, processedValue)
+    }
+    
+    const payload = { [fieldName]: processedValue }
+    console.log(`Sending PATCH to /am/outcomes/short-sale/${shortSaleData.value.asset_hub}/ with payload:`, payload)
+    
+    const response = await http.patch(`/am/outcomes/short-sale/${shortSaleData.value.asset_hub}/`, payload)
+    console.log(`Backend response:`, response.data)
+    
+    // Update local data immediately
+    if (shortSaleData.value) {
+      shortSaleData.value[fieldName] = processedValue
+    }
+    
+    // WHAT: Emit task updated event only when requested
+    // WHY: Avoid excessive refresh events for field updates
+    if (emitEvent) {
+      emitTaskUpdated('short_sale', 0) // Use 0 as placeholder task ID for outcome updates
+    }
+  } catch (err: any) {
+    console.error(`Failed to update ${fieldName}:`, err)
+    console.error('Error details:', err.response?.data)
+    alert(`Failed to update ${fieldName}. Please try again.`)
+  }
 }
 
 onMounted(load)
@@ -228,10 +517,27 @@ function onSelectPill(tp: ShortSaleTaskType) {
   if (existingTypes.value.has(tp) || busy.value) return
   busy.value = true
   store.createShortSaleTask(props.hubId, tp)
-    .then(async () => { tasks.value = await store.listShortSaleTasks(props.hubId, true) })
+    .then(async (newTask) => { 
+      tasks.value = await store.listShortSaleTasks(props.hubId, true)
+      // WHAT: Emit task added event
+      // WHY: Notify other components to refresh their data
+      emitTaskAdded('short_sale', newTask?.id || 0)
+    })
     .finally(() => { busy.value = false; addMenuOpen.value = false })
 }
-function toggleExpand(id: number) { expandedId.value = expandedId.value === id ? null : id }
+async function toggleExpand(id: number) { 
+  expandedId.value = expandedId.value === id ? null : id 
+  // WHAT: Initialize date picker when Sold task is expanded
+  // WHY: Date picker input only exists when task is expanded
+  if (expandedId.value === id) {
+    await nextTick()
+    // Initialize for sold and listed tasks
+    const task = tasks.value.find(t => t.id === id)
+    if (task?.task_type === 'sold' || task?.task_type === 'listed') {
+      initializeDatePicker()
+    }
+  }
+}
 function isoDate(iso: string | null): string { 
   if (!iso) return 'N/A'
   try { return new Date(iso).toLocaleDateString() } catch { return iso } 
@@ -243,6 +549,9 @@ async function updateTaskStarted(taskId: number, newDate: string) {
     await http.patch(`/am/outcomes/short-sale-tasks/${taskId}/`, { task_started: newDate })
     // Refresh tasks to show updated date
     tasks.value = await store.listShortSaleTasks(props.hubId, true)
+    // WHAT: Emit task updated event
+    // WHY: Notify other components that task data changed
+    emitTaskUpdated('short_sale', taskId)
   } catch (err: any) {
     console.error('Failed to update task start date:', err)
     alert('Failed to update start date. Please try again.')
@@ -264,6 +573,9 @@ async function confirmDeleteTask() {
     deleteTaskConfirm.value.busy = true
     await store.deleteShortSaleTask(props.hubId, taskId)
     tasks.value = await store.listShortSaleTasks(props.hubId, true)
+    // WHAT: Emit task deleted event
+    // WHY: Notify other components that task was removed
+    emitTaskDeleted('short_sale', taskId)
     cancelDeleteTask()
   } catch (err: any) {
     console.error('Failed to delete short sale task:', err)

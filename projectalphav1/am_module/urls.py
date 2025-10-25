@@ -12,7 +12,9 @@ from am_module.views.view_am_taskOutcomes import (
     ShortSaleViewSet, ShortSaleTaskViewSet,
     ModificationViewSet, ModificationTaskViewSet,
     REOScopeViewSet,
+    OffersViewSet,
     TaskMetricsView,
+    TrackMilestonesView,
 )
 
 router = DefaultRouter()
@@ -31,6 +33,7 @@ router.register(r'outcomes/short-sale-tasks', ShortSaleTaskViewSet, basename='am
 router.register(r'outcomes/modification', ModificationViewSet, basename='am-modification')
 router.register(r'outcomes/modification-tasks', ModificationTaskViewSet, basename='am-modification-tasks')
 router.register(r'outcomes/reo-scopes', REOScopeViewSet, basename='am-reo-scopes')
+router.register(r'outcomes/offers', OffersViewSet, basename='am-offers')
 
 urlpatterns = [
     path('am/', include(router.urls)),
@@ -44,4 +47,8 @@ urlpatterns = [
     # WHY: Provide active vs completed task counts and badge data
     # WHERE: Called by am_ll_tasking.vue to populate KPI cards
     path('am/outcomes/task-metrics/', TaskMetricsView.as_view(), name='am-task-metrics'),
+    # WHAT: Track milestones endpoint for tasking dashboard
+    # WHY: Provide current and upcoming tasks organized by track
+    # WHERE: Called by milestonesCard.vue to populate milestone data
+    path('am/outcomes/track-milestones/', TrackMilestonesView.as_view(), name='am-track-milestones'),
 ]

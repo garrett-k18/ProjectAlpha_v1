@@ -12,7 +12,7 @@
       >
         <h5 class="mb-0 d-flex align-items-center">
           <i class="fas fa-house-chimney me-2 text-info"></i>
-          <span class="badge rounded-pill text-bg-info size_med">REO</span>
+          <UiBadge tone="info" size="lg">REO</UiBadge>
         </h5>
         <div class="d-flex align-items-center gap-2">
           <div class="position-relative ms-2" ref="menuRef">
@@ -196,6 +196,8 @@
 import { withDefaults, defineProps, ref, computed, onMounted, defineEmits, onBeforeUnmount } from 'vue'
 import { useAmOutcomesStore, type ReoTask, type ReoTaskType, type ReoData } from '@/stores/outcomes'
 import http from '@/lib/http'
+import UiBadge from '@/components/ui/UiBadge.vue'
+import type { BadgeToneKey } from '@/config/badgeTokens'
 // Reusable editable date component with inline picker
 // Path: src/components/ui/EditableDate.vue
 import EditableDate from '@/components/ui/EditableDate.vue'
@@ -253,14 +255,14 @@ function labelFor(tp: ReoTaskType): string {
 }
 
 // Return Bootstrap pill badge class matching the task type
-function badgeClass(tp: ReoTaskType): string {
-  const map: Record<ReoTaskType, string> = {
-    eviction: 'badge rounded-pill size_small text-bg-danger',
-    trashout: 'badge rounded-pill size_small text-bg-warning',
-    renovation: 'badge rounded-pill size_small text-bg-info',
-    marketing: 'badge rounded-pill size_small text-bg-primary',
-    under_contract: 'badge rounded-pill size_small text-bg-success',
-    sold: 'badge rounded-pill size_small text-bg-success',
+function badgeClass(tp: ReoTaskType): BadgeToneKey {
+  const map: Record<ReoTaskType, BadgeToneKey> = {
+    eviction: 'danger',
+    trashout: 'warning',
+    renovation: 'info',
+    marketing: 'primary',
+    under_contract: 'success',
+    sold: 'success',
   }
   return map[tp]
 }

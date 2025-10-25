@@ -12,7 +12,7 @@
       >
         <h5 class="mb-0 d-flex align-items-center">
           <i class="fas fa-handshake me-2 text-primary"></i>
-          <UiBadge tone="primary" size="sm">Deed-in-Lieu</UiBadge>
+          <UiBadge tone="primary" size="lg">Deed-in-Lieu</UiBadge>
         </h5>
         <div class="d-flex align-items-center gap-2">
           <div class="position-relative" ref="menuRef">
@@ -249,17 +249,6 @@ function taskLabel(v: DilTaskType): string {
 }
 
 const existingTypes = computed<Set<DilTaskType>>(() => new Set(tasks.value.map(t => t.task_type)))
-
-// Badge classes per DIL task type (pill style)
-function badgeClass(tp: DilTaskType): string {
-  const map: Record<DilTaskType, string> = {
-    owner_contacted: 'badge rounded-pill text-bg-primary',
-    no_cooperation: 'badge rounded-pill text-bg-secondary',
-    dil_drafted: 'badge rounded-pill text-bg-warning',
-    dil_successful: 'badge rounded-pill text-bg-success',
-  }
-  return map[tp]
-}
 
 // Map DIL task types to UiBadge tones so all pills follow our shared badge template.
 function pillTone(tp: DilTaskType): import('@/config/badgeTokens').BadgeToneKey {

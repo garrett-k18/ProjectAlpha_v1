@@ -52,9 +52,9 @@ def get_task_metrics(hub_id: int) -> Dict[str, Any]:
     COMPLETION_TASK_TYPES = {
         FCTask: ['sold'],
         REOtask: ['sold'],
-        DILTask: ['dil_successful'],
+        DILTask: ['executed'],
         ShortSaleTask: ['sold'],
-        ModificationTask: ['mod_accepted'],
+        ModificationTask: ['failed'],  # Note: 'failed' could be completion (negative outcome)
     }
     
     active_tasks = []
@@ -220,7 +220,7 @@ def get_active_outcome_tracks(hub_id: int) -> Dict[str, Any]:
         'modification': {
             'outcome_model': Modification,
             'task_model': ModificationTask,
-            'completion_types': ['completed'],
+            'completion_types': ['failed'],  # Note: Could also include 'started' as completion
             'label': 'Modification',
             'tone': 'secondary',
         },
@@ -268,3 +268,288 @@ def get_active_outcome_tracks(hub_id: int) -> Dict[str, Any]:
         'active_track_count': len(active_tracks),
         'completed_track_count': len(completed_tracks),
     }
+
+
+def get_track_milestones(hub_id: int) -> List[Dict[str, Any]]:
+    """
+    WHAT: Get current and upcoming tasks for each active track
+    WHY: Provide milestone progression view for tasking dashboard
+    WHERE: Called by view_am_tasking.py endpoint for milestones card
+    HOW: Define task sequences, find current task, determine next task
+    
+    Args:
+        hub_id: The asset hub ID to get milestones for
+        
+    Returns:
+        List of track groups with current and upcoming tasks:
+        [
+            {
+                'track_name': 'Foreclosure',
+                'current_task': {'id': 1, 'label': 'Mediation', 'due_date': '2025-10-27', 'tone': 'danger'},
+                'upcoming_task': {'id': 2, 'label': 'Sheriff Sale', 'due_date': '2025-11-15', 'tone': 'warning'}
+            }
+        ]
+    """
+    # WHAT: Define task sequences for each outcome track
+    # WHY: Each track has a specific order of tasks that must be completed
+    # HOW: Map track to ordered list of task_type values
+    TRACK_SEQUENCES = {
+        'fc': {
+            'label': 'Foreclosure',
+            'tone': 'danger',
+            'task_model': FCTask,
+            'sequence': [
+                'nod_noi',        # NOD/NOI (Notice of Default/Notice of Intent)
+                'fc_filing',      # FC Filing
+                'mediation',      # Mediation
+                'judgment',       # Judgment
+                'redemption',     # Redemption period
+                'sale_schedule',  # Sale Schedule
+                'sold',          # Sold (completion)
+            ]
+        },
+        'modification': {
+            'label': 'Modification',
+            'tone': 'secondary',
+            'task_model': ModificationTask,
+            'sequence': [
+                'negotiations',   # Negotiations
+                'accepted',      # Accepted
+                'started',       # Started
+                'failed',        # Failed (or could be completion if negative outcome)
+            ]
+        },
+        'short_sale': {
+            'label': 'Short Sale',
+            'tone': 'warning',
+            'task_model': ShortSaleTask,
+            'sequence': [
+                'list_price_accepted', # List Price Accepted (matches ShortSaleCard)
+                'listed',             # Listed
+                'under_contract',     # Under Contract
+                'sold',              # Sold (completion)
+            ]
+        },
+        'dil': {
+            'label': 'Deed-in-Lieu',
+            'tone': 'primary',
+            'task_model': DILTask,
+            'sequence': [
+                'borrower_heir_cooperation', # Borrower/Heir Cooperation
+                'no_cooperation',           # No Cooperation
+                'drafted',                  # Drafted
+                'executed',                # Executed (completion)
+            ]
+        },
+        'reo': {
+            'label': 'REO',
+            'tone': 'info',
+            'task_model': REOtask,
+            'sequence': [
+                'eviction',       # Eviction
+                'trashout',       # Trashout
+                'renovation',     # Renovation
+                'marketing',      # Marketing
+                'under_contract', # Under Contract
+                'sold',          # Sold (completion)
+            ]
+        }
+    }
+    
+    track_groups = []
+    
+    # WHAT: Get active tracks for this hub
+    # WHY: Only show milestones for tracks that are currently active
+    # HOW: Use existing get_active_outcome_tracks function
+    active_data = get_active_outcome_tracks(hub_id)
+    active_tracks = active_data['active_tracks']
+    
+    print(f"DEBUG: Hub ID {hub_id} has active tracks: {active_tracks}")
+    print(f"DEBUG: Available track sequences: {list(TRACK_SEQUENCES.keys())}")
+    
+    for track_type in active_tracks:
+        if track_type not in TRACK_SEQUENCES:
+            continue
+            
+        config = TRACK_SEQUENCES[track_type]
+        task_model = config['task_model']
+        sequence = config['sequence']
+        
+        # WHAT: Get all tasks for this track and hub
+        # WHY: Need to find current task position in sequence
+        # HOW: Query task model, order by creation date
+        tasks = task_model.objects.filter(asset_hub_id=hub_id).order_by('created_at')
+        
+        print(f"DEBUG: Track {track_type} has {tasks.count()} tasks")
+        if tasks.exists():
+            for task in tasks:
+                print(f"DEBUG: - Task ID {task.id}: task_type='{task.task_type}', created={task.created_at}")
+        
+        if not tasks.exists():
+            print(f"DEBUG: No tasks found for track {track_type}, skipping")
+            continue
+            
+        # WHAT: Find current task (latest non-completion task)
+        # WHY: Current task is the active step in the workflow
+        # HOW: Get latest task that isn't a completion task_type
+        current_task = None
+        current_index = -1
+        
+        for task in tasks:
+            task_type_lower = task.task_type.lower() if task.task_type else ''
+            print(f"DEBUG: Found task with task_type: '{task.task_type}' (lowercase: '{task_type_lower}')")
+            print(f"DEBUG: Sequence for {track_type}: {sequence}")
+            if task_type_lower in sequence:
+                current_index = sequence.index(task_type_lower)
+                current_task = task
+                print(f"DEBUG: Task matches sequence at index {current_index}")
+            else:
+                print(f"DEBUG: Task type '{task_type_lower}' NOT found in sequence {sequence}")
+        
+        if not current_task:
+            print(f"DEBUG: No current task found for track {track_type}, skipping")
+            continue
+            
+        print(f"DEBUG: Current task for {track_type}: {current_task.task_type} (index {current_index})")
+            
+        # WHAT: Determine upcoming task (next in sequence)
+        # WHY: Show what's coming next in the workflow
+        # HOW: Get next task_type in sequence, create placeholder with estimated date
+        upcoming_task = None
+        if current_index < len(sequence) - 1:
+            next_task_type = sequence[current_index + 1]
+            
+            # WHAT: Calculate estimated due date for upcoming task
+            # WHY: Provide timeline expectations
+            # HOW: Add standard intervals based on task type
+            from datetime import datetime, timedelta
+            
+            # Standard intervals between tasks (in days)
+            TASK_INTERVALS = {
+                # Foreclosure intervals
+                'fc_filing': 30,        # 30 days after NOD/NOI
+                'mediation': 45,        # 45 days after filing
+                'judgment': 60,         # 60 days after mediation
+                'redemption': 30,       # 30 days redemption period
+                'sale_schedule': 21,    # 21 days to schedule sale
+                # Modification intervals
+                'accepted': 14,         # 14 days for acceptance
+                'started': 7,           # 7 days to start process
+                'failed': 30,           # 30 days if process fails
+                # Short Sale intervals
+                'listed': 14,           # 14 days after price acceptance
+                'under_contract': 45,   # 45 days to get under contract
+                # DIL intervals
+                'no_cooperation': 21,   # 21 days if no cooperation
+                'drafted': 14,          # 14 days to draft documents
+                'executed': 30,         # 30 days to execute
+                # REO intervals
+                'trashout': 7,          # 7 days for trashout
+                'renovation': 30,       # 30 days for renovation
+                'marketing': 14,        # 14 days to start marketing
+                'under_contract': 60,   # 60 days to get under contract
+            }
+            
+            interval_days = TASK_INTERVALS.get(next_task_type, 14)  # Default 2 weeks
+            estimated_date = datetime.now() + timedelta(days=interval_days)
+            
+            upcoming_task = {
+                'id': f"upcoming_{track_type}_{next_task_type}",
+                'label': _format_task_label(next_task_type),
+                'due_date': estimated_date.strftime('%Y-%m-%d'),
+                'tone': _get_task_urgency_tone(interval_days)
+            }
+        
+        # WHAT: Format current task data
+        # WHY: Consistent format for frontend display
+        # HOW: Extract task details and format for UI
+        current_task_data = {
+            'id': current_task.id,
+            'label': _format_task_label(current_task.task_type),
+            'due_date': current_task.due_date.strftime('%Y-%m-%d') if hasattr(current_task, 'due_date') and current_task.due_date else datetime.now().strftime('%Y-%m-%d'),
+            'tone': _get_current_task_tone(current_task)
+        }
+        
+        track_group = {
+            'track_name': config['label'],
+            'current_task': current_task_data,
+            'upcoming_task': upcoming_task
+        }
+        
+        print(f"DEBUG: Adding track group for {track_type}: {track_group}")
+        print(f"DEBUG: Final track_groups count: {len(track_groups) + 1}")
+        track_groups.append(track_group)
+    
+    print(f"DEBUG: Returning {len(track_groups)} track groups total")
+    return track_groups
+
+
+def _format_task_label(task_type: str) -> str:
+    """
+    WHAT: Convert task_type to human-readable label
+    WHY: Display friendly names in UI
+    WHERE: Helper for get_track_milestones
+    HOW: Map task_type values to display labels
+    """
+    label_map = {
+        # Foreclosure labels
+        'nod_noi': 'NOD/NOI Filed',
+        'fc_filing': 'FC Filing',
+        'mediation': 'Mediation',
+        'judgment': 'Judgment',
+        'redemption': 'Redemption Period',
+        'sale_schedule': 'Sale Scheduled',
+        'sold': 'Property Sold',
+        # Modification labels
+        'negotiations': 'Negotiations',
+        'accepted': 'Accepted',
+        'started': 'Started',
+        'failed': 'Failed',
+        # Short Sale labels
+        'list_price_accepted': 'List Price Accepted',
+        'listed': 'Listed',
+        'under_contract': 'Under Contract',
+        # DIL labels
+        'borrower_heir_cooperation': 'Borrower/Heir Cooperation',
+        'no_cooperation': 'No Cooperation',
+        'drafted': 'Drafted',
+        'executed': 'Executed',
+        # REO labels
+        'eviction': 'Eviction',
+        'trashout': 'Trashout',
+        'renovation': 'Renovation',
+        'marketing': 'Marketing',
+    }
+    return label_map.get(task_type.lower(), task_type.title())
+
+
+def _get_task_urgency_tone(days_until_due: int) -> str:
+    """
+    WHAT: Determine urgency tone based on days until due
+    WHY: Visual indicators for task priority
+    WHERE: Helper for get_track_milestones
+    HOW: Map day ranges to tone colors
+    """
+    if days_until_due <= 3:
+        return 'danger'   # Urgent - red
+    elif days_until_due <= 7:
+        return 'warning'  # Soon - yellow
+    elif days_until_due <= 14:
+        return 'info'     # Upcoming - blue
+    else:
+        return 'secondary' # Future - gray
+
+
+def _get_current_task_tone(task) -> str:
+    """
+    WHAT: Determine tone for current task based on due date
+    WHY: Show urgency of current tasks
+    WHERE: Helper for get_track_milestones
+    HOW: Calculate days until due, map to tone
+    """
+    if not hasattr(task, 'due_date') or not task.due_date:
+        return 'secondary'
+        
+    from datetime import datetime
+    days_until_due = (task.due_date - datetime.now().date()).days
+    return _get_task_urgency_tone(days_until_due)

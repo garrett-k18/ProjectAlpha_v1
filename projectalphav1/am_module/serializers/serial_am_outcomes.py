@@ -18,6 +18,7 @@ from am_module.models.am_data import (
     ShortSale, ShortSaleTask,
     Modification, ModificationTask,
     REOScope,
+    Offers,
 )
 from core.models import AssetIdHub
 from core.models.crm import MasterCRM  # string refs used in models but serializer type hints are fine
@@ -128,7 +129,8 @@ class ShortSaleSerializer(serializers.ModelSerializer):
         model = ShortSale
         fields = [
             'asset_hub', 'asset_hub_id',
-            'acceptable_min_offer', 'short_sale_date',
+            'acceptable_min_offer', 'short_sale_date', 'gross_proceeds',
+            'short_sale_list_date', 'short_sale_list_price',
         ]
         read_only_fields = ['asset_hub']
 
@@ -140,6 +142,21 @@ class ShortSaleSerializer(serializers.ModelSerializer):
                 setattr(obj, k, v)
             obj.save()
         return obj
+
+
+class OffersSerializer(serializers.ModelSerializer):
+    """Serializer for Offers model to track offers from various sources."""
+    asset_hub_id = _AssetHubPKField()
+
+    class Meta:
+        model = Offers
+        fields = [
+            'id', 'asset_hub', 'asset_hub_id', 'offer_source',
+            'offer_price', 'offer_date', 'seller_credits',
+            'financing_type', 'buyer_name', 'buyer_agent',
+            'offer_status', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['asset_hub', 'created_at', 'updated_at']
 
 
 class ModificationSerializer(serializers.ModelSerializer):

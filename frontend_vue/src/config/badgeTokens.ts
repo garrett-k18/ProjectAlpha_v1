@@ -1,116 +1,139 @@
-// Hyper UI badge config tokens
-// Documentation consulted: https://hyperui.dev/components/badges
-// This module centralizes *design system data* only (sizes, tones, accessibility labels) so
-// Vue components, stores, or even non-Vue utilities can consume the same palette without
-// duplicating class strings. Rendering logic lives in `components/ui/UiBadge.vue`; this file
-// remains framework-agnostic to keep badge styling reusable across the project.
+/**
+ * GARRETT...CONTROL BADGE SETTINGS HERE DUMBASS
+ * 
+ * ============================================================================
+ * BADGE TOKENS - SINGLE SOURCE OF TRUTH FOR ALL BADGE STYLING
+ * ============================================================================
+ * 
+ * WHAT: Complete badge configuration system with styling variables and mappings
+ * WHY: Eliminates dual styling sources and provides easy maintenance
+ * HOW: Centralized variables + mappings + helper functions
+ * 
+ * Documentation: https://hyperui.dev/components/badges
+ * ============================================================================
+ */
 
-export type BadgeSizeKey = 'xs' | 'sm' | 'md' | 'lg';
-
-export interface BadgeVisualConfig {
-  /**
-   * Tailwind/Hyper UI class string that controls the pill background, text color, padding, and font treatment.
-   * Keeping this centralized avoids style drift across the platform.
-   */
-  classes: string;
-
-  /**
-   * Optional ARIA label override. Useful when we want screen readers to spell out abbreviations like "30D".
-   */
-  ariaLabel?: string;
-}
+// ============================================================================
+// 🎨 MASTER STYLING VARIABLES - EDIT THESE TO CHANGE ALL BADGE DIMENSIONS
+// ============================================================================
 
 /**
- * Map occupancy values to badge tones.
+ * Master pill dimensions - Change these values to adjust all badge sizes globally
  */
-export function getOccupancyBadgeTone(occupancy?: string | null): BadgeToneKey {
-  const v = (occupancy ?? '').toString().toLowerCase();
-  if (v === 'occupied') return 'success';
-  if (v === 'vacant') return 'danger';
-  if (v === 'unknown') return 'warning';
-  return 'secondary';
-}
-
-/**
- * Map asset status (NPL/REO/PERF/RPL) to badge tones.
- */
-export function getAssetStatusBadgeTone(status?: string | null): BadgeToneKey {
-  const v = (status ?? '').toString().toUpperCase();
-  if (v === 'NPL') return 'danger';
-  if (v === 'REO') return 'secondary';
-  if (v === 'PERF') return 'success';
-  if (v === 'RPL') return 'info';
-  return 'secondary';
-}
-
-/**
- * Map product type strings to badge tones.
- */
-export function getProductTypeBadgeTone(productType?: string | null): BadgeToneKey {
-  const v = (productType ?? '').toString().toLowerCase();
-  switch (v) {
-    case 'bpl':
-      return 'primary';
-    case 'hecm':
-      return 'info';
-    case 'va':
-      return 'success';
-    case 'conv':
-      return 'dark';
-    case 'commercial':
-      return 'secondary';
-    default:
-      return 'secondary';
-  }
-}
-
-/**
- * Shared size presets. Combine with `badgeToneMap` entries to create consistent pills.
- */
-export const badgeSizeMap: Record<BadgeSizeKey, BadgeVisualConfig> = {
+const PILL_DIMENSIONS = {
   xs: {
-    classes: 'badge rounded-pill px-2 py-0.5 text-xs fw-semibold',
-    ariaLabel: undefined,
+    paddingX: '0.5rem',    // px-2 equivalent
+    paddingY: '0.125rem',  // Tight vertical padding
+    fontSize: '0.5rem',    // Very small text
+    borderRadius: '9999px' // Full rounded pill
   },
   sm: {
-    classes: 'badge rounded-pill px-2 py-1 text-sm fw-semibold d-inline-flex align-items-center justify-content-center lh-base',
-    ariaLabel: undefined,
+    paddingX: '0.5rem',    // px-2 equivalent  
+    paddingY: '0.2rem',    // Current production padding
+    fontSize: '0.7rem',    // Current production font size
+    borderRadius: '9999px' // Full rounded pill
   },
   md: {
-    classes: 'badge rounded-pill px-3 text-base fw-semibold d-inline-flex align-items-center justify-content-center',
-    ariaLabel: undefined,
+    paddingX: '0.75rem',   // px-3 equivalent
+    paddingY: '0.25rem',   // Medium padding
+    fontSize: '0.75rem',   // Medium font size
+    borderRadius: '9999px' // Full rounded pill
   },
   lg: {
-    classes: 'badge rounded-pill px-4 py-1.5 text-lg fw-bold',
-    ariaLabel: undefined,
-  },
-};
+    paddingX: '1rem',      // px-4 equivalent
+    paddingY: '0.375rem',  // Large padding
+    fontSize: '0.875rem',  // Large font size
+    borderRadius: '9999px' // Full rounded pill
+  }
+} as const;
+
+// ============================================================================
+// 🏗️ TYPE DEFINITIONS
+// ============================================================================
+
+/**
+ * Badge size type definition
+ */
+export type BadgeSizeKey = keyof typeof PILL_DIMENSIONS;
+
+export interface BadgeVisualConfig {
+  /** Tailwind/Bootstrap classes for styling */
+  classes: string;
+  /** Optional ARIA label for accessibility */
+  ariaLabel?: string;
+  /** Inline CSS styles for precise control */
+  inlineStyles?: string;
+}
+
+// ============================================================================
+// 🎨 COLOR TONE DEFINITIONS - Add/Remove badge colors here
+// ============================================================================
 
 export type BadgeToneKey =
-  | 'delinquency-current'
-  | 'delinquency-30'
-  | 'delinquency-60'
-  | 'delinquency-90'
-  | 'delinquency-120-plus'
-  | 'property-sfr'
-  | 'property-condo'
-  | 'property-townhome'
-  | 'property-multifamily'
-  | 'property-land'
-  | 'property-mixed-use'
-  | 'property-other'
+  // Standard Bootstrap colors
   | 'primary'
   | 'secondary'
   | 'dark'
   | 'info'
   | 'success'
   | 'warning'
-  | 'danger';
+  | 'danger'
+  // Delinquency-specific colors
+  | 'delinquency-current'
+  | 'delinquency-30'
+  | 'delinquency-60'
+  | 'delinquency-90'
+  | 'delinquency-120-plus'
+  // Property type colors
+  | 'property-sfr'
+  | 'property-condo'
+  | 'property-townhome'
+  | 'property-multifamily'
+  | 'property-land'
+  | 'property-mixed-use'
+  | 'property-other';
+
+// ============================================================================
+// 📏 SIZE CONFIGURATIONS - Uses master variables above
+// ============================================================================
 
 /**
- * Tone palette for badges. These align to Hyper UI badge color recommendations.
+ * Badge size configurations built from master PILL_DIMENSIONS
+ * EDIT PILL_DIMENSIONS above to change all badge sizes globally
+ */
+export const badgeSizeMap: Record<BadgeSizeKey, BadgeVisualConfig> = {
+  xs: {
+    classes: 'badge rounded-pill fw-semibold d-inline-flex align-items-center justify-content-center',
+    ariaLabel: undefined,
+    inlineStyles: `line-height: 1; padding: ${PILL_DIMENSIONS.xs.paddingY} ${PILL_DIMENSIONS.xs.paddingX}; font-size: ${PILL_DIMENSIONS.xs.fontSize}; border-radius: ${PILL_DIMENSIONS.xs.borderRadius};`,
+  },
+  sm: {
+    classes: 'badge rounded-pill fw-semibold d-inline-flex align-items-center justify-content-center',
+    ariaLabel: undefined,
+    inlineStyles: `line-height: 1; padding: ${PILL_DIMENSIONS.sm.paddingY} ${PILL_DIMENSIONS.sm.paddingX}; font-size: ${PILL_DIMENSIONS.sm.fontSize}; border-radius: ${PILL_DIMENSIONS.sm.borderRadius};`,
+  },
+  md: {
+    classes: 'badge rounded-pill fw-semibold d-inline-flex align-items-center justify-content-center',
+    ariaLabel: undefined,
+    inlineStyles: `line-height: 1; padding: ${PILL_DIMENSIONS.md.paddingY} ${PILL_DIMENSIONS.md.paddingX}; font-size: ${PILL_DIMENSIONS.md.fontSize}; border-radius: ${PILL_DIMENSIONS.md.borderRadius};`,
+  },
+  lg: {
+    classes: 'badge rounded-pill fw-bold d-inline-flex align-items-center justify-content-center',
+    ariaLabel: undefined,
+    inlineStyles: `line-height: 1; padding: ${PILL_DIMENSIONS.lg.paddingY} ${PILL_DIMENSIONS.lg.paddingX}; font-size: ${PILL_DIMENSIONS.lg.fontSize}; border-radius: ${PILL_DIMENSIONS.lg.borderRadius};`,
+  },
+};
+
+// ============================================================================
+// 🌈 COLOR MAPPINGS - Edit these to change badge colors
+// ============================================================================
+
+/**
+ * Badge color configurations - Add/edit colors here
+ * Uses Bootstrap/Hyper UI color classes
  */
 export const badgeToneMap: Record<BadgeToneKey, BadgeVisualConfig> = {
+  // Standard Bootstrap Colors
   primary: {
     classes: 'bg-primary text-white border-0',
     ariaLabel: undefined,
@@ -123,6 +146,24 @@ export const badgeToneMap: Record<BadgeToneKey, BadgeVisualConfig> = {
     classes: 'bg-dark text-white border-0',
     ariaLabel: undefined,
   },
+  info: {
+    classes: 'bg-info text-white border-0',
+    ariaLabel: undefined,
+  },
+  success: {
+    classes: 'bg-success text-white border-0',
+    ariaLabel: undefined,
+  },
+  warning: {
+    classes: 'bg-warning text-dark border-0',
+    ariaLabel: undefined,
+  },
+  danger: {
+    classes: 'bg-danger text-white border-0',
+    ariaLabel: undefined,
+  },
+  
+  // Delinquency Status Colors
   'delinquency-current': {
     classes: 'bg-success text-white border-0 shadow-sm',
     ariaLabel: 'Current delinquency status',
@@ -143,6 +184,8 @@ export const badgeToneMap: Record<BadgeToneKey, BadgeVisualConfig> = {
     classes: 'bg-danger text-white border-0 shadow',
     ariaLabel: 'Delinquent one hundred twenty days or more',
   },
+
+  // Property Type Colors
   'property-sfr': {
     classes: 'bg-primary text-white border-0',
     ariaLabel: 'Single family residence property type',
@@ -171,33 +214,26 @@ export const badgeToneMap: Record<BadgeToneKey, BadgeVisualConfig> = {
     classes: 'bg-dark text-white border-0',
     ariaLabel: 'Other property type classification',
   },
-  info: {
-    classes: 'bg-info text-white border-0',
-    ariaLabel: undefined,
-  },
-  success: {
-    classes: 'bg-success text-white border-0',
-    ariaLabel: undefined,
-  },
-  warning: {
-    classes: 'bg-warning text-dark border-0',
-    ariaLabel: undefined,
-  },
-  danger: {
-    classes: 'bg-danger text-white border-0',
-    ariaLabel: undefined,
-  },
 };
+
+// ============================================================================
+// 🔧 CORE HELPER FUNCTIONS
+// ============================================================================
 
 export interface BadgeTokenLookupResult {
   /** Computed class string after merging size + tone. */
   classes: string;
   /** Optional aria label we surfaced from tone config. */
   ariaLabel?: string;
+  /** Optional inline styles for precise control. */
+  inlineStyles?: string;
 }
 
 /**
- * Helper to merge tone and size definitions.
+ * SINGLE SOURCE OF TRUTH: Helper to merge tone and size definitions.
+ * WHAT: Combines size + tone configs into complete badge styling
+ * WHY: Eliminates need for dual styling in component files
+ * HOW: Merges classes and passes through inline styles from size config
  */
 export function resolveBadgeTokens(
   toneKey: BadgeToneKey,
@@ -209,14 +245,64 @@ export function resolveBadgeTokens(
   return {
     classes: `${size.classes} ${tone.classes}`.trim(),
     ariaLabel: tone.ariaLabel ?? size.ariaLabel,
+    inlineStyles: size.inlineStyles,
   };
+}
+
+// ============================================================================
+// 🗺️ FIELD VALUE MAPPINGS - Add/edit field-to-badge mappings here
+// ============================================================================
+
+/**
+ * Map occupancy values to badge tones.
+ * EDIT: Add new occupancy values here
+ */
+export function getOccupancyBadgeTone(occupancy?: string | null): BadgeToneKey {
+  const v = (occupancy ?? '').toString().toLowerCase();
+  if (v === 'occupied') return 'success';
+  if (v === 'vacant') return 'danger';
+  if (v === 'unknown') return 'warning';
+  return 'secondary';
+}
+
+/**
+ * Map asset status (NPL/REO/PERF/RPL) to badge tones.
+ * EDIT: Add new asset status values here
+ */
+export function getAssetStatusBadgeTone(status?: string | null): BadgeToneKey {
+  const v = (status ?? '').toString().toUpperCase();
+  if (v === 'NPL') return 'danger';
+  if (v === 'REO') return 'secondary';
+  if (v === 'PERF') return 'success';
+  if (v === 'RPL') return 'info';
+  return 'secondary';
+}
+
+/**
+ * Map product type strings to badge tones.
+ * EDIT: Add new product types here
+ */
+export function getProductTypeBadgeTone(productType?: string | null): BadgeToneKey {
+  const v = (productType ?? '').toString().toLowerCase();
+  switch (v) {
+    case 'bpl':
+      return 'primary';
+    case 'hecm':
+      return 'info';
+    case 'va':
+      return 'success';
+    case 'conv':
+      return 'dark';
+    case 'commercial':
+      return 'secondary';
+    default:
+      return 'secondary';
+  }
 }
 
 /**
  * Normalized lookup for property type strings to badge tone keys.
- * WHAT: Maps all property type variations to consistent badge colors
- * WHY: Different sellers use different naming conventions
- * HOW: Lowercase normalized keys map to predefined tone keys
+ * EDIT: Add new property type variations here
  */
 export const propertyTypeToneLookup: Record<string, BadgeToneKey> = {
   // Single Family Residence (Blue/Primary)
@@ -267,6 +353,7 @@ export const propertyTypeToneLookup: Record<string, BadgeToneKey> = {
 
 /**
  * Helper that resolves a property type string to an appropriate badge tone key.
+ * EDIT: Modify logic here if needed
  */
 export function getPropertyTypeBadgeTone(propertyType?: string | null): BadgeToneKey {
   if (!propertyType) {
@@ -278,6 +365,7 @@ export function getPropertyTypeBadgeTone(propertyType?: string | null): BadgeTon
 
 /**
  * Helper that maps delinquency buckets to badge tone keys.
+ * EDIT: Add new delinquency statuses here
  */
 export function getDelinquencyBadgeTone(status?: string | null): BadgeToneKey {
   switch ((status ?? '').toLowerCase()) {
@@ -301,11 +389,13 @@ export function getDelinquencyBadgeTone(status?: string | null): BadgeToneKey {
   }
 }
 
+// ============================================================================
+// 📊 AG GRID ENUM MAPS - For AG Grid badge cell renderers
+// ============================================================================
+
 /**
  * AG Grid enum map for Property Type badges
- * WHAT: Centralized property type badge configuration for AG Grid
- * WHY: Keeps badge styling consistent across all grids
- * HOW: Maps property type values to label, color, and title
+ * EDIT: Add new property types for AG Grid here
  */
 export const propertyTypeEnumMap: Record<string, { label: string; color: string; title: string }> = {
   'SFR': { label: 'SFR', color: 'bg-primary', title: 'Single Family Residence' },
@@ -321,9 +411,7 @@ export const propertyTypeEnumMap: Record<string, { label: string; color: string;
 
 /**
  * AG Grid enum map for Occupancy badges
- * WHAT: Centralized occupancy badge configuration for AG Grid
- * WHY: Keeps badge styling consistent across all grids
- * HOW: Maps occupancy values to label, color, and title
+ * EDIT: Add new occupancy statuses for AG Grid here
  */
 export const occupancyEnumMap: Record<string, { label: string; color: string; title: string }> = {
   'Vacant': { label: 'Vacant', color: 'bg-danger', title: 'Property is Vacant' },
@@ -336,9 +424,7 @@ export const occupancyEnumMap: Record<string, { label: string; color: string; ti
 
 /**
  * AG Grid enum map for Asset Status badges
- * WHAT: Centralized asset status badge configuration for AG Grid
- * WHY: Keeps badge styling consistent across all grids
- * HOW: Maps asset status values to label, color, and title
+ * EDIT: Add new asset statuses for AG Grid here
  */
 export const assetStatusEnumMap: Record<string, { label: string; color: string; title: string }> = {
   'NPL': { label: 'NPL', color: 'bg-danger', title: 'Non-Performing Loan' },
@@ -349,9 +435,7 @@ export const assetStatusEnumMap: Record<string, { label: string; color: string; 
 
 /**
  * AG Grid enum map for Product Type badges
- * WHAT: Centralized product type badge configuration for AG Grid
- * WHY: Keeps badge styling consistent across all grids
- * HOW: Maps product type values to label, color, and title
+ * EDIT: Add new product types for AG Grid here
  */
 export const productTypeEnumMap: Record<string, { label: string; color: string; title: string }> = {
   'BPL': { label: 'BPL', color: 'bg-primary', title: 'Business Purpose Loan' },
@@ -360,6 +444,10 @@ export const productTypeEnumMap: Record<string, { label: string; color: string; 
   'HELOC': { label: 'HELOC', color: 'bg-warning text-dark', title: 'Home Equity Line of Credit' },
   'Other': { label: 'Other', color: 'bg-secondary', title: 'Other Product Type' },
 };
+
+// ============================================================================
+// 🔧 UTILITY FUNCTIONS
+// ============================================================================
 
 /**
  * Utility: normalize various boolean-ish values into Yes/No/— labels.
@@ -372,7 +460,7 @@ export function toYesNoLabel(v: any): string {
 
 /**
  * Flag badge tone helpers (standardize FC/BK/Mod visuals across app).
- * Aligns with AG Grid-like red for risk flags, green for clear, info for mod present.
+ * EDIT: Modify flag color logic here
  */
 export function getFcFlagBadgeTone(flag?: any): BadgeToneKey {
   const lbl = toYesNoLabel(flag);
@@ -397,6 +485,7 @@ export function getModFlagBadgeTone(flag?: any): BadgeToneKey {
 
 /**
  * AG Grid enum maps for FC/BK/Mod flags to keep grid pills consistent with components.
+ * EDIT: Modify flag display here
  */
 export const foreclosureFlagEnumMap: Record<string, { label: string; color: string; title: string }> = {
   'Yes': { label: 'Yes', color: 'bg-danger text-white', title: 'Foreclosure Flag' },
