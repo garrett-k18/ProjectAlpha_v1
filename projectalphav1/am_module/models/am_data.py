@@ -1269,8 +1269,8 @@ class DILTask(models.Model):
         OWNER_CONTACTED = "owner_contacted", "Owner/Heirs contacted"
         # Explicit tag when borrower/heirs are not cooperating
         NO_COOPERATION = "no_cooperation", "No Cooperation"
-        DRAFTED = "dil_drafted", "Deed-in-Lieu Drafted"
-        SUCCESSFUL = "dil_successful", "Deed-in-Lieu Successful"
+        DRAFTED = "dil_drafted", "Drafted"
+        EXECUTED = "dil_executed", "Executed"
 
     # Direct link to the asset hub for simplified querying.
     asset_hub = models.ForeignKey(

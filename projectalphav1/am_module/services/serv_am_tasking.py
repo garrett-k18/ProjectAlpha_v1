@@ -46,43 +46,89 @@ def get_task_metrics(hub_id: int) -> Dict[str, Any]:
         - Modification Task "mod_accepted" = completed
         - All other task types = active
     """
-    # WHAT: Define completion task_type values per outcome
-    # WHY: Different outcomes have different completion criteria
-    # HOW: Map model class to list of task_type values that mean "done"
-    COMPLETION_TASK_TYPES = {
+    # WHAT: Define task sequences for each outcome type
+    # WHY: Need to know the order of tasks to determine which is "most recent"
+    # HOW: Map model class to ordered sequence of task_type values
+    TASK_SEQUENCES = {
+        FCTask: ['nod_noi', 'fc_filing', 'mediation', 'judgement', 'redemption', 'sale_scheduled', 'sold'],
+        REOtask: ['eviction', 'trashout', 'renovation', 'marketing', 'under_contract', 'sold'],
+        DILTask: ['owner_contacted', 'no_cooperation', 'dil_drafted', 'dil_executed'],
+        ShortSaleTask: ['list_price_accepted', 'listed', 'under_contract', 'sold'],
+        ModificationTask: ['mod_drafted', 'mod_executed', 'mod_rpl', 'mod_failed'],
+    }
+    
+    # WHAT: Define which task types actually close the track
+    # WHY: Some final tasks close the track (sold, failed), others don't (re-performing)
+    # HOW: Map model class to list of task_type values that mean "track closed"
+    TRACK_CLOSING_TYPES = {
         FCTask: ['sold'],
         REOtask: ['sold'],
-        DILTask: ['dil_successful'],
+        DILTask: ['dil_executed'],
         ShortSaleTask: ['sold'],
-        ModificationTask: ['mod_failed'],  # Note: 'failed' could be completion (negative outcome)
+        ModificationTask: ['mod_failed'],  # Only 'failed' closes track, not 're-performing'
     }
     
     active_tasks = []
     completed_tasks = []
     
-    # WHAT: Query each task type for this hub
-    # WHY: Tasks are stored in separate tables per outcome type
-    # HOW: Iterate through each model, filter by hub_id, check completion status
-    for task_model, completion_types in COMPLETION_TASK_TYPES.items():
+    # WHAT: Process each task model to categorize tasks
+    # WHY: Need to determine which task is most recent and which are superseded
+    # HOW: For each model, find highest task in sequence and mark others as completed
+    for task_model, sequence in TASK_SEQUENCES.items():
         tasks = task_model.objects.filter(asset_hub_id=hub_id).select_related('asset_hub')
         
+        if not tasks:
+            continue
+        
+        # WHAT: Find the highest (most recent) task in the sequence
+        # WHY: Only the most recent task should be active, all previous are completed
+        # HOW: Check each task's position in sequence, keep track of highest
+        highest_index = -1
+        highest_task = None
+        closing_types = TRACK_CLOSING_TYPES.get(task_model, [])
+        
         for task in tasks:
-            # WHAT: Check if task_type indicates completion
-            # WHY: task_type field holds the workflow stage (e.g., "sold", "executed")
-            # HOW: Compare task.task_type against completion list (case-insensitive)
+            task_type_lower = task.task_type.lower() if task.task_type else ''
+            try:
+                index = sequence.index(task_type_lower)
+                if index > highest_index:
+                    highest_index = index
+                    highest_task = task
+            except ValueError:
+                # Task type not in sequence, skip it
+                continue
+        
+        # WHAT: Categorize all tasks based on highest task found
+        # WHY: Most recent task is active (unless it closes track), all others are completed
+        # HOW: Compare each task's index to highest_index
+        for task in tasks:
             task_type_lower = task.task_type.lower() if task.task_type else ''
             
-            print(f"DEBUG: Task {task.id} ({task_model.__name__}): task_type='{task.task_type}' (lower='{task_type_lower}'), completion_types={completion_types}")
+            try:
+                index = sequence.index(task_type_lower)
+            except ValueError:
+                # Task type not in sequence, skip it
+                continue
             
-            if task_type_lower in completion_types:
-                print(f"DEBUG: -> COMPLETED task")
-                completed_tasks.append({
-                    'model': task_model.__name__,
-                    'task': task,
-                })
+            # WHAT: Check if this is the highest task
+            if task.id == highest_task.id:
+                # WHAT: Check if this task type closes the track
+                if task_type_lower in closing_types:
+                    # Track is closed, add to completed
+                    completed_tasks.append({
+                        'model': task_model.__name__,
+                        'task': task,
+                    })
+                else:
+                    # Most recent task but track still active
+                    active_tasks.append({
+                        'model': task_model.__name__,
+                        'task': task,
+                    })
             else:
-                print(f"DEBUG: -> ACTIVE task")
-                active_tasks.append({
+                # WHAT: This task is superseded by a more recent task
+                # WHY: Earlier tasks in sequence are considered "completed" when later tasks exist
+                completed_tasks.append({
                     'model': task_model.__name__,
                     'task': task,
                 })
@@ -142,10 +188,10 @@ def _serialize_task_pills(task_data_list: List[Dict[str, Any]], is_completed: bo
         # HOW: Format as "Track: Task" (e.g., "FC: Mediation", "Mod: Drafted")
         label = f"{track_prefix}: {task_label}"
         
-        # WHAT: Use 'success' (green) tone for all completed tasks
-        # WHY: All sold/executed/completed tasks should be green per project standards
-        # HOW: Check is_completed flag, otherwise use outcome-specific tone
-        tone = 'success' if is_completed else _get_outcome_tone(outcome_type)
+        # WHAT: Use track-specific color for both active and completed tasks
+        # WHY: Maintain visual consistency - track color should persist in completed state
+        # HOW: Always use outcome-specific tone regardless of completion status
+        tone = _get_outcome_tone(outcome_type)
         
         pills.append({
             'key': f"{outcome_type}_{task.id}",
@@ -229,7 +275,7 @@ def get_active_outcome_tracks(hub_id: int) -> Dict[str, Any]:
         'dil': {
             'outcome_model': DIL,
             'task_model': DILTask,
-            'completion_types': ['dil_successful'],
+            'completion_types': ['dil_executed'],
             'label': 'DIL',
             'tone': 'primary',
         },
@@ -361,7 +407,7 @@ def get_track_milestones(hub_id: int) -> List[Dict[str, Any]]:
                 'owner_contacted',          # Owner/Heirs contacted
                 'no_cooperation',           # No Cooperation
                 'dil_drafted',              # DIL Drafted
-                'dil_successful',           # DIL Successful (completion)
+                'dil_executed',             # DIL Executed (completion)
             ]
         },
         'reo': {
@@ -466,7 +512,7 @@ def get_track_milestones(hub_id: int) -> List[Dict[str, Any]]:
                 # DIL intervals
                 'no_cooperation': 21,       # 21 days if no cooperation
                 'dil_drafted': 14,          # 14 days to draft documents
-                'dil_successful': 30,       # 30 days to execute
+                'dil_executed': 30,         # 30 days to execute
                 # REO intervals
                 'trashout': 7,          # 7 days for trashout
                 'renovation': 30,       # 30 days for renovation
@@ -536,8 +582,8 @@ def _format_task_label(task_type: str) -> str:
         # DIL labels
         'owner_contacted': 'Owner/Heirs Contacted',
         'no_cooperation': 'No Cooperation',
-        'dil_drafted': 'DIL Drafted',
-        'dil_successful': 'DIL Successful',
+        'dil_drafted': 'Drafted',
+        'dil_executed': 'Executed',
         # REO labels
         'eviction': 'Eviction',
         'trashout': 'Trashout',

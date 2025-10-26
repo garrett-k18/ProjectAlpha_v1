@@ -18,7 +18,7 @@ import http from '@/lib/http'
 // -----------------------------
 // Type Definitions
 // -----------------------------
-export type DilTaskType = 'owner_contacted' | 'no_cooperation' | 'dil_drafted' | 'dil_successful'
+export type DilTaskType = 'owner_contacted' | 'no_cooperation' | 'dil_drafted' | 'dil_executed'
 
 // Allow a generic start for any outcome
 export type OutcomeType = 'dil' | 'fc' | 'reo' | 'short_sale' | 'modification'

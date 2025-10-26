@@ -199,6 +199,7 @@ import { onMounted, computed, ref, withDefaults, defineProps, defineEmits, onBef
 import { useAmOutcomesStore, type DilTask, type DilTaskType, type Dil } from '@/stores/outcomes'
 import http from '@/lib/http'
 import UiBadge from '@/components/ui/UiBadge.vue'
+import { useDataRefresh } from '@/composables/useDataRefresh'
 // Reusable editable date component with inline picker
 // Path: src/components/ui/EditableDate.vue
 import EditableDate from '@/components/ui/EditableDate.vue'
@@ -210,6 +211,14 @@ const props = withDefaults(defineProps<{ hubId: number; masterCollapsed?: boolea
 const emit = defineEmits<{ (e: 'delete'): void }>()
 
 const store = useAmOutcomesStore()
+
+// WHAT: Setup data refresh functionality
+// WHY: Auto-refresh when other components modify data
+const { emitTaskAdded, emitTaskDeleted, emitTaskUpdated } = useDataRefresh(props.hubId, async () => {
+  // WHAT: Refresh tasks when data changes
+  await store.listDilTasks(props.hubId, true)
+})
+
 // Collapsed state for the entire card body (subtasks section hidden when true)
 const localCollapsed = ref<boolean>(false)
 const collapsed = computed(() => props.masterCollapsed || localCollapsed.value)
@@ -249,7 +258,7 @@ const taskOptions: Array<{ value: DilTaskType; label: string }> = [
   { value: 'owner_contacted', label: 'Borrowers/Heirs Cooperation' },
   { value: 'no_cooperation', label: 'No Cooperation' },
   { value: 'dil_drafted', label: 'Drafted' },
-  { value: 'dil_successful', label: 'Executed' },
+  { value: 'dil_executed', label: 'Executed' },
 ]
 
 const tasksBusy = ref(false)
@@ -270,7 +279,7 @@ function pillTone(tp: DilTaskType): import('@/config/badgeTokens').BadgeToneKey 
     owner_contacted: 'primary',
     no_cooperation: 'secondary',
     dil_drafted: 'warning',
-    dil_successful: 'success',
+    dil_executed: 'success',
   }
   return m[tp]
 }
@@ -281,7 +290,7 @@ function itemBorderClass(tp: DilTaskType): string {
     owner_contacted: 'border-start border-2 border-primary',
     no_cooperation: 'border-start border-2 border-secondary',
     dil_drafted: 'border-start border-2 border-warning',
-    dil_successful: 'border-start border-2 border-success',
+    dil_executed: 'border-start border-2 border-success',
   }
   return map[tp]
 }
@@ -292,7 +301,7 @@ function leftEdgeStyle(tp: DilTaskType): Record<string, string> {
     owner_contacted: 'var(--bs-primary, #0d6efd)',
     no_cooperation: 'var(--bs-secondary, #6c757d)',
     dil_drafted: 'var(--bs-warning, #ffc107)',
-    dil_successful: 'var(--bs-success, #198754)',
+    dil_executed: 'var(--bs-success, #198754)',
   }
   return {
     boxShadow: `inset 3px 0 0 ${colorMap[tp]}, var(--bs-box-shadow-sm, 0 .125rem .25rem rgba(0,0,0,.075))`,
@@ -331,6 +340,9 @@ async function updateTaskStarted(taskId: number, newDate: string) {
     await http.patch(`/am/outcomes/dil-tasks/${taskId}/`, { task_started: newDate })
     // Refresh tasks - they are computed from store, so just refetch from store
     await store.listDilTasks(props.hubId, true)
+    // WHAT: Emit task updated event
+    // WHY: Notify other components that task data changed
+    emitTaskUpdated('dil', taskId)
   } catch (err: any) {
     console.error('Failed to update task start date:', err)
     alert('Failed to update start date. Please try again.')
@@ -342,6 +354,12 @@ function onSelectPill(tp: DilTaskType) {
   if (existingTypes.value.has(tp) || tasksBusy.value) return
   tasksBusy.value = true
   store.createDilTask(props.hubId, tp)
+    .then(async (newTask) => {
+      await store.listDilTasks(props.hubId, true)
+      // WHAT: Emit task added event
+      // WHY: Notify other components to refresh their data
+      emitTaskAdded('dil', newTask?.id || 0)
+    })
     .finally(() => { tasksBusy.value = false; addMenuOpen.value = false })
 }
 // Initialize CFK input when expanding the drafted subtask
@@ -431,6 +449,9 @@ async function confirmDeleteTask() {
     deleteTaskConfirm.value.busy = true
     await store.deleteDilTask(props.hubId, taskId)
     await store.listDilTasks(props.hubId, true)
+    // WHAT: Emit task deleted event
+    // WHY: Notify other components that task was removed
+    emitTaskDeleted('dil', taskId)
     cancelDeleteTask()
   } catch (err) {
     console.error('Failed to delete task:', err)

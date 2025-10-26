@@ -670,13 +670,13 @@ const dilTaskLabel: Record<import('@/stores/outcomes').DilTaskType, string> = {
   owner_contacted: 'Borrowers/Heirs contacted',
   no_cooperation: 'No Cooperation',
   dil_drafted: 'DIL Drafted',
-  dil_successful: 'DIL Executed',
+  dil_executed: 'DIL Executed',
 }
 const dilToneMap: Record<import('@/stores/outcomes').DilTaskType, BadgeToneKey> = {
   owner_contacted: 'primary',
   no_cooperation: 'secondary',
   dil_drafted: 'warning',
-  dil_successful: 'success',
+  dil_executed: 'success',
 }
 const modificationTaskLabel: Record<import('@/stores/outcomes').ModificationTaskType, string> = {
   mod_drafted: 'Drafted',
@@ -968,6 +968,8 @@ onMounted(() => {
   eventBus.on('track:added', handleMetricsRefresh)
   eventBus.on('track:deleted', handleMetricsRefresh)
   eventBus.on('task:added', handleMetricsRefresh)
+  eventBus.on('task:deleted', handleMetricsRefresh)
+  eventBus.on('task:updated', handleMetricsRefresh)
 })
 
 // WHAT: Clean up event listeners on unmount
@@ -976,6 +978,8 @@ onBeforeUnmount(() => {
   eventBus.off('track:added', handleMetricsRefresh)
   eventBus.off('track:deleted', handleMetricsRefresh)
   eventBus.off('task:added', handleMetricsRefresh)
+  eventBus.off('task:deleted', handleMetricsRefresh)
+  eventBus.off('task:updated', handleMetricsRefresh)
 })
 </script>
 

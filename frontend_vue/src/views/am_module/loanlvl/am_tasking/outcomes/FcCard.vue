@@ -198,6 +198,7 @@ import { withDefaults, defineProps, ref, computed, watch, onMounted, onBeforeUnm
 import { useAmOutcomesStore, type FcTask, type FcTaskType, type FcSale } from '@/stores/outcomes'
 import http from '@/lib/http'
 import UiBadge from '@/components/ui/UiBadge.vue'
+import { useDataRefresh } from '@/composables/useDataRefresh'
 // Feature-local notes component (moved for AM Tasking scope)
 // Path: src/views/am_module/loanlvl/am_tasking/components/SubtaskNotes.vue
 import SubtaskNotes from '@/views/am_module/loanlvl/am_tasking/components/SubtaskNotes.vue'
@@ -208,6 +209,13 @@ import EditableDate from '@/components/ui/EditableDate.vue'
 const props = withDefaults(defineProps<{ hubId: number; masterCollapsed?: boolean }>(), { masterCollapsed: false })
 const emit = defineEmits<{ (e: 'delete'): void }>()
 const store = useAmOutcomesStore()
+
+// WHAT: Setup data refresh functionality
+// WHY: Auto-refresh when other components modify data
+const { emitTaskAdded, emitTaskDeleted, emitTaskUpdated } = useDataRefresh(props.hubId, async () => {
+  // WHAT: Refresh tasks when data changes
+  tasks.value = await store.listFcTasks(props.hubId, true)
+})
 // WHAT: Collapsed state for the entire card body (subtasks section hidden when true)
 // WHY: Allow both individual card collapse and master collapse control
 const localCollapsed = ref<boolean>(false)
@@ -283,7 +291,12 @@ function onSelectPill(tp: FcTaskType) {
   if (existingTypes.value.has(tp) || busy.value) return
   busy.value = true
   store.createFcTask(props.hubId, tp)
-    .then(async () => { tasks.value = await store.listFcTasks(props.hubId, true) })
+    .then(async (newTask) => {
+      tasks.value = await store.listFcTasks(props.hubId, true)
+      // WHAT: Emit task added event
+      // WHY: Notify other components to refresh their data
+      emitTaskAdded('fc', newTask?.id || 0)
+    })
     .finally(() => { busy.value = false; addMenuOpen.value = false })
 }
 function toggleExpand(id: number) { 
@@ -381,6 +394,9 @@ async function confirmDeleteTask() {
     deleteTaskConfirm.value.busy = true
     await store.deleteFcTask(props.hubId, taskId)
     await load()
+    // WHAT: Emit task deleted event
+    // WHY: Notify other components that task was removed
+    emitTaskDeleted('fc', taskId)
     cancelDeleteTask()
   } catch (err) {
     console.error('Failed to delete task:', err)

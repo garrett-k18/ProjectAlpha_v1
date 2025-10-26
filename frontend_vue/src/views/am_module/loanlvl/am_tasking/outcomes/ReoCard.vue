@@ -184,6 +184,7 @@ import { useAmOutcomesStore, type ReoTask, type ReoTaskType, type ReoData } from
 import http from '@/lib/http'
 import UiBadge from '@/components/ui/UiBadge.vue'
 import type { BadgeToneKey } from '@/config/badgeTokens'
+import { useDataRefresh } from '@/composables/useDataRefresh'
 // Reusable editable date component with inline picker
 // Path: src/components/ui/EditableDate.vue
 import EditableDate from '@/components/ui/EditableDate.vue'
@@ -201,6 +202,13 @@ const props = withDefaults(defineProps<{ hubId: number; masterCollapsed?: boolea
 const emit = defineEmits<{ (e: 'delete'): void }>()
 // Pinia store for outcomes/tasks
 const store = useAmOutcomesStore()
+
+// WHAT: Setup data refresh functionality
+// WHY: Auto-refresh when other components modify data
+const { emitTaskAdded, emitTaskDeleted, emitTaskUpdated } = useDataRefresh(props.hubId, async () => {
+  // WHAT: Refresh tasks when data changes
+  tasks.value = await store.listReoTasks(props.hubId, true)
+})
 // Local state: list of tasks and busy flag
 const tasks = ref<ReoTask[]>([])
 const busy = ref(false)
@@ -311,6 +319,9 @@ async function addTask(tp: ReoTaskType) {
     busy.value = true
     const created = await store.createReoTask(props.hubId, tp)
     await loadTasks()
+    // WHAT: Emit task added event
+    // WHY: Notify other components to refresh their data
+    emitTaskAdded('reo', created.id)
     expandedIds.value.add(created.id)
   } finally {
     busy.value = false
@@ -384,6 +395,9 @@ async function confirmDeleteTask() {
     deleteTaskConfirm.value.busy = true
     await store.deleteReoTask(props.hubId, taskId)
     await loadTasks()
+    // WHAT: Emit task deleted event
+    // WHY: Notify other components that task was removed
+    emitTaskDeleted('reo', taskId)
     cancelDeleteTask()
   } catch (err: any) {
     console.error('Failed to delete REO task:', err)
