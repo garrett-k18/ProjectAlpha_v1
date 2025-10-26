@@ -8,7 +8,7 @@
         :aria-expanded="!collapsed"
         title="Toggle sub tasks"
         style="cursor: pointer;"
-        @click.stop="collapsed = !collapsed"
+        @click="localCollapsed = !localCollapsed"
       >
         <h5 class="mb-0 d-flex align-items-center">
           <i class="fas fa-tags me-2 text-warning"></i>
@@ -101,10 +101,10 @@
                   @update:model-value="(newDate) => updateTaskStarted(t.id, newDate)"
                 />
               </span>
-              <i :class="expandedId === t.id ? 'fas fa-chevron-up' : 'fas fa-chevron-down'"></i>
+              <i :class="(expandedId === t.id || expandedId === 'all') ? 'fas fa-chevron-up' : 'fas fa-chevron-down'"></i>
             </div>
           </div>
-          <div v-if="expandedId === t.id" class="mt-2 p-2 border-top">
+          <div v-if="expandedId === t.id || expandedId === 'all'" class="mt-2 p-2 border-top">
             <!-- WHAT: Task-specific fields based on task type -->
             <!-- WHY: Different tasks need different data collection -->
             <div v-if="t.task_type === 'sold'" class="mb-3">
@@ -237,7 +237,7 @@
 </template>
 
 <script setup lang="ts">
-import { withDefaults, defineProps, ref, computed, onMounted, onBeforeUnmount, defineEmits, nextTick } from 'vue'
+import { withDefaults, defineProps, ref, computed, watch, onMounted, onBeforeUnmount, defineEmits, nextTick } from 'vue'
 import { useAmOutcomesStore, type ShortSaleTask, type ShortSaleTaskType } from '@/stores/outcomes'
 import http from '@/lib/http'
 import { useDataRefresh } from '@/composables/useDataRefresh'
@@ -256,11 +256,13 @@ import UiCurrencyInput from '@/components/ui/UiCurrencyInput.vue'
 import SubtaskNotes from '@/views/am_module/loanlvl/am_tasking/components/SubtaskNotes.vue'
 import OffersSection from '../components/OffersSection.vue'
 
-const props = withDefaults(defineProps<{ hubId: number }>(), {})
+const props = withDefaults(defineProps<{ hubId: number; masterCollapsed?: boolean }>(), { masterCollapsed: false })
 const emit = defineEmits<{ (e: 'delete'): void }>()
 const store = useAmOutcomesStore()
-// Collapsed state for the entire card body (subtasks section hidden when true)
-const collapsed = ref<boolean>(false)
+// WHAT: Collapsed state for the entire card body (subtasks section hidden when true)
+// WHY: Allow both individual card collapse and master collapse control
+const localCollapsed = ref<boolean>(false)
+const collapsed = computed(() => props.masterCollapsed || localCollapsed.value)
 const busy = ref(false)
 const deleteTaskConfirm = ref<{ open: boolean; taskId: number | null; busy: boolean }>({ open: false, taskId: null, busy: false })
 // Settings menu state/handlers
@@ -273,7 +275,20 @@ const addMenuOpen = ref(false)
 const addMenuRef = ref<HTMLElement | null>(null)
 // Subtasks state
 const tasks = ref<ShortSaleTask[]>([])
-const expandedId = ref<number | null>(null)
+const localExpandedId = ref<number | null>(null)
+const userInteracted = ref(false)
+
+watch(() => props.masterCollapsed, (newVal: boolean) => {
+  if (newVal) {
+    userInteracted.value = false
+    localExpandedId.value = null
+  }
+})
+
+const expandedId = computed(() => {
+  if (!props.masterCollapsed && !userInteracted.value) return 'all' as any
+  return localExpandedId.value
+})
 // Short Sale completion data
 const shortSaleData = ref<any>(null)
 // Date picker refs
@@ -526,10 +541,11 @@ function onSelectPill(tp: ShortSaleTaskType) {
     .finally(() => { busy.value = false; addMenuOpen.value = false })
 }
 async function toggleExpand(id: number) { 
-  expandedId.value = expandedId.value === id ? null : id 
+  userInteracted.value = true
+  localExpandedId.value = localExpandedId.value === id ? null : id 
   // WHAT: Initialize date picker when Sold task is expanded
   // WHY: Date picker input only exists when task is expanded
-  if (expandedId.value === id) {
+  if (localExpandedId.value === id) {
     await nextTick()
     // Initialize for sold and listed tasks
     const task = tasks.value.find(t => t.id === id)

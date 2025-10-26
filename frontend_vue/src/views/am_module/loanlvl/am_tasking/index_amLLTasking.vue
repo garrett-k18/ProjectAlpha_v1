@@ -112,42 +112,59 @@
           <i class="fas fa-stream"></i>
           Current Track(s)
         </h5>
-        <div class="track-menu-wrapper" ref="trackMenuRef">
-          <button 
-            type="button" 
-            class="track-button"
-            :disabled="!hubId || ensureBusy" 
-            @click.stop="toggleTrackMenu"
+        <div class="d-flex align-items-center gap-2">
+          <button
+            type="button"
+            class="collapse-toggle-btn"
+            @click.stop="toggleTracksCollapsed"
+            :aria-expanded="!tracksCollapsed ? 'true' : 'false'"
+            aria-label="Toggle tracks visibility"
+            title="Collapse/Expand Tracks"
           >
-            Choose Track
+            <svg v-if="tracksCollapsed" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+              <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+            </svg>
+            <svg v-else xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+              <path fill-rule="evenodd" d="M7.646 4.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1-.708.708L8 5.707l-5.646 5.647a.5.5 0 0 1-.708-.708l6-6z"/>
+            </svg>
           </button>
-          
-          <div v-if="showTrackMenu" class="track-dropdown" @click.stop>
-            <button class="track-option" @click="selectTrack('modification')" :disabled="ensureBusy">
-              <UiBadge tone="secondary" size="md">Modification</UiBadge>
+          <div class="track-menu-wrapper" ref="trackMenuRef">
+            <button 
+              type="button" 
+              class="track-button"
+              :disabled="!hubId || ensureBusy" 
+              @click.stop="toggleTrackMenu"
+            >
+              Choose Track
             </button>
-            <button class="track-option" @click="selectTrack('short_sale')" :disabled="ensureBusy">
-              <UiBadge tone="warning" size="md">Short Sale</UiBadge>
-            </button>
-            <button class="track-option" @click="selectTrack('dil')" :disabled="ensureBusy">
-              <UiBadge tone="primary" size="md">Deed-in-Lieu</UiBadge>
-            </button>
-            <button class="track-option" @click="selectTrack('fc')" :disabled="ensureBusy">
-              <UiBadge tone="danger" size="md">Foreclosure</UiBadge>
-            </button>
-            <button class="track-option" @click="selectTrack('reo')" :disabled="ensureBusy">
-              <UiBadge tone="info" size="md">REO</UiBadge>
-            </button>
+            
+            <div v-if="showTrackMenu" class="track-dropdown" @click.stop>
+              <button class="track-option" @click="selectTrack('modification')" :disabled="ensureBusy">
+                <UiBadge tone="modification-green" size="md">Modification</UiBadge>
+              </button>
+              <button class="track-option" @click="selectTrack('short_sale')" :disabled="ensureBusy">
+                <UiBadge tone="warning" size="md">Short Sale</UiBadge>
+              </button>
+              <button class="track-option" @click="selectTrack('dil')" :disabled="ensureBusy">
+                <UiBadge tone="primary" size="md">Deed-in-Lieu</UiBadge>
+              </button>
+              <button class="track-option" @click="selectTrack('fc')" :disabled="ensureBusy">
+                <UiBadge tone="danger" size="md">Foreclosure</UiBadge>
+              </button>
+              <button class="track-option" @click="selectTrack('reo')" :disabled="ensureBusy">
+                <UiBadge tone="info" size="md">REO</UiBadge>
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
       <div class="track-outcomes">
-        <DilCard v-if="visibleOutcomes.dil" :hubId="hubId!" @delete="() => requestDelete('dil')" />
-        <FcCard v-if="visibleOutcomes.fc" :hubId="hubId!" @delete="() => requestDelete('fc')" />
-        <ReoCard v-if="visibleOutcomes.reo" :hubId="hubId!" @delete="() => requestDelete('reo')" />
-        <ShortSaleCard v-if="visibleOutcomes.short_sale" :hubId="hubId!" @delete="() => requestDelete('short_sale')" />
-        <ModificationCard v-if="visibleOutcomes.modification" :hubId="hubId!" @delete="() => requestDelete('modification')" />
+        <DilCard v-if="visibleOutcomes.dil" :hubId="hubId!" :masterCollapsed="tracksCollapsed" @delete="() => requestDelete('dil')" />
+        <FcCard v-if="visibleOutcomes.fc" :hubId="hubId!" :masterCollapsed="tracksCollapsed" @delete="() => requestDelete('fc')" />
+        <ReoCard v-if="visibleOutcomes.reo" :hubId="hubId!" :masterCollapsed="tracksCollapsed" @delete="() => requestDelete('reo')" />
+        <ShortSaleCard v-if="visibleOutcomes.short_sale" :hubId="hubId!" :masterCollapsed="tracksCollapsed" @delete="() => requestDelete('short_sale')" />
+        <ModificationCard v-if="visibleOutcomes.modification" :hubId="hubId!" :masterCollapsed="tracksCollapsed" @delete="() => requestDelete('modification')" />
         
         <div v-if="!anyVisibleOutcome" class="no-tracks">
           <i class="fas fa-info-circle"></i>
@@ -558,6 +575,9 @@ const showTrackMenu = ref(false)
 const trackMenuRef = ref<HTMLElement | null>(null)
 const visibleOutcomes = ref<Record<OutcomeType, boolean>>({ dil: false, fc: false, reo: false, short_sale: false, modification: false })
 const anyVisibleOutcome = computed(() => Object.values(visibleOutcomes.value).some(Boolean))
+// WHAT: Track whether outcome cards are collapsed or expanded
+// WHY: Allow users to hide/show all outcome cards at once
+const tracksCollapsed = ref(false)
 
 // Resolve hub id from the incoming row props
 const hubId = computed<number | null>(() => {
@@ -587,7 +607,7 @@ function trackLabel(t: OutcomeType): string {
 // Map an outcome type to a UiBadge tone defined in badgeTokens
 function trackTone(t: OutcomeType): import('@/config/badgeTokens').BadgeToneKey {
   switch (t) {
-    case 'modification': return 'secondary'
+    case 'modification': return 'modification-green'
     case 'short_sale': return 'warning'
     case 'dil': return 'primary'
     case 'fc': return 'danger'
@@ -659,15 +679,15 @@ const dilToneMap: Record<import('@/stores/outcomes').DilTaskType, BadgeToneKey> 
   dil_successful: 'success',
 }
 const modificationTaskLabel: Record<import('@/stores/outcomes').ModificationTaskType, string> = {
-  mod_negotiations: 'Negotiations',
-  mod_accepted: 'Accepted',
-  mod_started: 'Started',
+  mod_drafted: 'Drafted',
+  mod_executed: 'Executed',
+  mod_rpl: 'Re-Performing',
   mod_failed: 'Failed',
 }
 const modificationToneMap: Record<import('@/stores/outcomes').ModificationTaskType, BadgeToneKey> = {
-  mod_negotiations: 'info',
-  mod_accepted: 'success',
-  mod_started: 'primary',
+  mod_drafted: 'info',
+  mod_executed: 'success',
+  mod_rpl: 'primary',
   mod_failed: 'danger',
 }
 
@@ -798,6 +818,11 @@ watch(hubId, () => {
 function toggleTrackMenu() {
   showTrackMenu.value = !showTrackMenu.value
 }
+// WHAT: Toggle collapsed/expanded state of all outcome cards
+// WHY: Allow users to quickly hide/show all tracks and tasks
+function toggleTracksCollapsed() {
+  tracksCollapsed.value = !tracksCollapsed.value
+}
 async function selectTrack(type: OutcomeType) {
   if (!hubId.value) return
   try {
@@ -924,11 +949,33 @@ const normalizeNumeric = (value: unknown): number | null => {
 }
 // (legacy helper functions removed)
 
-// Initialize with current asset if available
+// WHAT: Event handler for refreshing metrics
+// WHY: Reusable handler for track/task change events
+const handleMetricsRefresh = () => {
+  if (hubId.value) fetchTaskMetrics()
+}
+
+// WHAT: Event listeners for track and task changes
+// WHY: Refresh metrics when tracks are added/deleted or tasks are added
+// HOW: Listen to eventBus events and call fetchTaskMetrics
 onMounted(() => {
   if (amId.value) {
     currentAssetId.value = amId.value
   }
+  
+  // WHAT: Listen for track and task change events
+  // WHY: Update KPI cards when data changes
+  eventBus.on('track:added', handleMetricsRefresh)
+  eventBus.on('track:deleted', handleMetricsRefresh)
+  eventBus.on('task:added', handleMetricsRefresh)
+})
+
+// WHAT: Clean up event listeners on unmount
+// WHY: Prevent memory leaks
+onBeforeUnmount(() => {
+  eventBus.off('track:added', handleMetricsRefresh)
+  eventBus.off('track:deleted', handleMetricsRefresh)
+  eventBus.off('task:added', handleMetricsRefresh)
 })
 </script>
 
@@ -1060,8 +1107,6 @@ onMounted(() => {
 }
 
 .track-header {
-  background: #e9ecef;
-  border-bottom: 1px solid #dee2e6;
   padding: 1rem 1.25rem;
   display: flex;
   align-items: center;
@@ -1076,6 +1121,34 @@ onMounted(() => {
   align-items: center;
   gap: 0.5rem;
   color: #212529;
+}
+
+/* WHAT: Collapse/expand toggle button styling */
+/* WHY: Clean icon button to toggle track outcomes visibility */
+.collapse-toggle-btn {
+  background: transparent;
+  border: 1px solid #6c757d;
+  color: #6c757d;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.collapse-toggle-btn:hover {
+  background: #6c757d;
+  color: white;
+  border-color: #6c757d;
+}
+
+.collapse-toggle-btn svg {
+  display: block;
 }
 
 .track-menu-wrapper {

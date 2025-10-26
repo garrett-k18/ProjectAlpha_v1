@@ -8,7 +8,7 @@
         :aria-expanded="!collapsed"
         title="Toggle sub tasks"
         style="cursor: pointer;"
-        @click="collapsed = !collapsed"
+        @click="localCollapsed = !localCollapsed"
       >
         <h5 class="mb-0 d-flex align-items-center">
           <i class="fas fa-house-chimney me-2 text-info"></i>
@@ -66,7 +66,7 @@
                 @click="onSelectPill(opt.value)"
                 :title="existingTypes.has(opt.value) ? 'Already added' : 'Add ' + opt.label"
               >
-                <span :class="badgeClass(opt.value)" class="me-0">{{ opt.label }}</span>
+                <UiBadge :tone="badgeClass(opt.value)" size="sm">{{ opt.label }}</UiBadge>
               </button>
             </div>
           </div>
@@ -91,7 +91,7 @@
         >
           <div class="d-flex align-items-center justify-content-between" role="button" @click="toggleExpand(t.id)">
             <div class="d-flex align-items-center ps-2">
-              <span :class="badgeClass(t.task_type)" class="me-2">{{ labelFor(t.task_type) }}</span>
+              <UiBadge :tone="badgeClass(t.task_type)" size="sm" class="me-2">{{ labelFor(t.task_type) }}</UiBadge>
             </div>
             <div class="d-flex align-items-center small text-muted">
               <span class="me-3">
@@ -104,46 +104,32 @@
               <i :class="expandedIds.has(t.id) ? 'fas fa-chevron-up' : 'fas fa-chevron-down'"></i>
             </div>
           </div>
-          <div v-if="expandedIds.has(t.id)" class="mt-2">
-            <SubtaskPanel
-              :title="labelFor(t.task_type)"
-              :tabs="[
-                { key: 'bids', label: 'Bids', icon: 'fas fa-file-invoice-dollar' },
-                { key: 'notes', label: 'Notes', icon: 'fas fa-note-sticky' },
-                { key: 'docs', label: 'Docs', icon: 'fas fa-folder' },
-              ]"
-              initial="bids"
-            >
-              <template #bids>
-                <!-- REO Scopes/Bids (only for Trashout or Renovation) -->
-                <ReoScopesPanel
-                  v-if="t.task_type === 'trashout' || t.task_type === 'renovation'"
-                  :hub-id="props.hubId"
-                  :task-id="t.id"
-                  :task-type="t.task_type as 'trashout' | 'renovation'"
-                />
-                <div v-else class="text-muted small">No bids for this task type.</div>
-              </template>
-
-              <template #notes>
-                <!-- Notes moved to right column (outcome-level) -->
-                <div class="text-muted small">Task notes moved to outcome-level notes panel</div>
-              </template>
-
-              <template #docs>
-                <!-- Reuse global quick view; wire real items later -->
-                <DocumentsQuickView :items="[]" title="Documents" :showViewAll="false" />
-              </template>
-            </SubtaskPanel>
+          <!-- Expandable section for task-specific data fields -->
+          <div v-if="expandedIds.has(t.id)" class="mt-2 p-2 border-top">
+            <!-- WHAT: REO Scopes/Bids for Trashout or Renovation tasks -->
+            <!-- WHY: These tasks require bid collection and scope management -->
+            <div v-if="t.task_type === 'trashout' || t.task_type === 'renovation'" class="mb-3">
+              <ReoScopesSection
+                :hub-id="props.hubId"
+                :task-id="t.id"
+                :task-type="t.task_type as 'trashout' | 'renovation'"
+              />
+            </div>
+            <!-- WHAT: Offers section for Marketing, Under Contract, and Sold tasks -->
+            <!-- WHY: Track offers received during marketing and sale phases -->
+            <div v-else-if="t.task_type === 'marketing' || t.task_type === 'under_contract' || t.task_type === 'sold'" class="mb-3">
+              <OffersSection
+                :hub-id="props.hubId"
+                offer-source="reo"
+              />
+            </div>
+            <div v-else class="small text-muted mb-3">Task data fields can be added here</div>
+            
+            <!-- Delete button at bottom of expanded section -->
             <div class="d-flex justify-content-end mt-2">
-              <button
-                type="button"
-                class="btn btn-sm btn-outline-danger d-inline-flex align-items-center gap-1 px-2 py-1"
-                style="font-size: 0.75rem;"
-                @click.stop="requestDeleteTask(t.id)"
-              >
+              <button class="btn btn-sm btn-outline-danger px-2 py-1" @click.stop="requestDeleteTask(t.id)" style="font-size: 0.75rem;">
                 <i class="mdi mdi-delete me-1"></i>
-                <span>Delete Task</span>
+                Delete Task
               </button>
             </div>
           </div>
@@ -193,7 +179,7 @@
 </template>
 
 <script setup lang="ts">
-import { withDefaults, defineProps, ref, computed, onMounted, defineEmits, onBeforeUnmount } from 'vue'
+import { withDefaults, defineProps, ref, computed, watch, onMounted, defineEmits, onBeforeUnmount } from 'vue'
 import { useAmOutcomesStore, type ReoTask, type ReoTaskType, type ReoData } from '@/stores/outcomes'
 import http from '@/lib/http'
 import UiBadge from '@/components/ui/UiBadge.vue'
@@ -204,17 +190,14 @@ import EditableDate from '@/components/ui/EditableDate.vue'
 // Feature-local notes component (moved for AM Tasking scope)
 // Path: src/views/am_module/loanlvl/am_tasking/components/SubtaskNotes.vue
 import SubtaskNotes from '@/views/am_module/loanlvl/am_tasking/components/SubtaskNotes.vue'
-// Scopes panel for Trashout/Renovation tasks
-// Path: src/views/am_module/loanlvl/am_tasking/components/ReoScopesPanel.vue
-import ReoScopesPanel from '@/views/am_module/loanlvl/am_tasking/components/ReoScopesPanel.vue'
-// New tab wrapper for subtask sections (Bids/Notes/Docs)
-// Path: src/views/am_module/loanlvl/am_tasking/components/SubtaskPanel.vue
-import SubtaskPanel from '@/views/am_module/loanlvl/am_tasking/components/SubtaskPanel.vue'
-// Global documents quick view card
-// Path: src/components/DocumentsQuickView.vue
-import DocumentsQuickView from '@/components/DocumentsQuickView.vue'
+// Scopes section for Trashout/Renovation tasks (refactored to match OffersSection pattern)
+// Path: src/views/am_module/loanlvl/am_tasking/components/ReoScopesSection.vue
+import ReoScopesSection from '@/views/am_module/loanlvl/am_tasking/components/ReoScopesSection.vue'
+// Offers section for Marketing tasks (shows REO-tagged offers)
+// Path: src/views/am_module/loanlvl/am_tasking/components/OffersSection.vue
+import OffersSection from '@/views/am_module/loanlvl/am_tasking/components/OffersSection.vue'
 
-const props = withDefaults(defineProps<{ hubId: number }>(), {})
+const props = withDefaults(defineProps<{ hubId: number; masterCollapsed?: boolean }>(), { masterCollapsed: false })
 const emit = defineEmits<{ (e: 'delete'): void }>()
 // Pinia store for outcomes/tasks
 const store = useAmOutcomesStore()
@@ -223,9 +206,28 @@ const tasks = ref<ReoTask[]>([])
 const busy = ref(false)
 const newType = ref<ReoTaskType | ''>('')
 // Allow multiple subtasks to be expanded at the same time
-const expandedIds = ref<Set<number>>(new Set())
+const localExpandedIds = ref<Set<number>>(new Set())
+const userInteracted = ref(false)
+
+watch(() => props.masterCollapsed, (newVal: boolean) => {
+  if (newVal) {
+    userInteracted.value = false
+    localExpandedIds.value.clear()
+  }
+})
+
+// WHAT: Computed expandedIds that includes all task IDs when master is not collapsed
+// WHY: Master expand button should expand all tasks within the card
+const expandedIds = computed(() => {
+  if (!props.masterCollapsed && !userInteracted.value) {
+    // When master is expanded, return set with all task IDs
+    return new Set(tasks.value.map(t => t.id))
+  }
+  return localExpandedIds.value
+})
 // Collapsed state for the entire card body (subtasks section hidden when true)
-const collapsed = ref<boolean>(false)
+const localCollapsed = ref<boolean>(false)
+const collapsed = computed(() => props.masterCollapsed || localCollapsed.value)
 // Add Task custom dropdown state
 const addMenuOpen = ref(false)
 const addMenuRef = ref<HTMLElement | null>(null)
@@ -336,8 +338,9 @@ function onSelectPill(tp: ReoTaskType) {
 }
 
 function toggleExpand(id: number) {
-  if (expandedIds.value.has(id)) expandedIds.value.delete(id)
-  else expandedIds.value.add(id)
+  userInteracted.value = true
+  if (localExpandedIds.value.has(id)) localExpandedIds.value.delete(id)
+  else localExpandedIds.value.add(id)
 }
 
 function isoDate(iso: string | null): string {

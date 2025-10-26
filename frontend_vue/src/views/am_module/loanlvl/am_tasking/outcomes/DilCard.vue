@@ -8,7 +8,7 @@
         :aria-expanded="!collapsed"
         title="Toggle sub tasks"
         style="cursor: pointer;"
-        @click="collapsed = !collapsed"
+        @click="localCollapsed = !localCollapsed"
       >
         <h5 class="mb-0 d-flex align-items-center">
           <i class="fas fa-handshake me-2 text-primary"></i>
@@ -102,10 +102,10 @@
                   @update:model-value="(newDate) => updateTaskStarted(t.id, newDate)"
                 />
               </span>
-              <i :class="expandedId === t.id ? 'fas fa-chevron-up' : 'fas fa-chevron-down'"></i>
+              <i :class="(expandedId === t.id || expandedId === 'all') ? 'fas fa-chevron-up' : 'fas fa-chevron-down'"></i>
             </div>
           </div>
-          <div v-if="expandedId === t.id" class="mt-2">
+          <div v-if="expandedId === t.id || expandedId === 'all'" class="mt-2 p-2 border-top">
             <!-- When the subtask is 'Deed-in-Lieu Drafted', render extra fields -->
             <div v-if="t.task_type === 'dil_drafted'" class="mb-2 p-1 bg-transparent">
               <div class="row g-1 align-items-center">
@@ -206,14 +206,28 @@ import EditableDate from '@/components/ui/EditableDate.vue'
 // Path: src/views/am_module/loanlvl/am_tasking/components/SubtaskNotes.vue
 import SubtaskNotes from '@/views/am_module/loanlvl/am_tasking/components/SubtaskNotes.vue'
 
-const props = withDefaults(defineProps<{ hubId: number }>(), {})
+const props = withDefaults(defineProps<{ hubId: number; masterCollapsed?: boolean }>(), { masterCollapsed: false })
 const emit = defineEmits<{ (e: 'delete'): void }>()
 
 const store = useAmOutcomesStore()
 // Collapsed state for the entire card body (subtasks section hidden when true)
-const collapsed = ref<boolean>(false)
+const localCollapsed = ref<boolean>(false)
+const collapsed = computed(() => props.masterCollapsed || localCollapsed.value)
 const tasks = computed<DilTask[]>(() => store.getDilTasks(props.hubId))
-const expandedId = ref<number | null>(null)
+const localExpandedId = ref<number | null>(null)
+const userInteracted = ref(false)
+
+watch(() => props.masterCollapsed, (newVal: boolean) => {
+  if (newVal) {
+    userInteracted.value = false
+    localExpandedId.value = null
+  }
+})
+
+const expandedId = computed(() => {
+  if (!props.masterCollapsed && !userInteracted.value) return 'all' as any
+  return localExpandedId.value
+})
 // Add Task custom dropdown state
 const addMenuOpen = ref(false)
 const addMenuRef = ref<HTMLElement | null>(null)
@@ -331,9 +345,10 @@ function onSelectPill(tp: DilTaskType) {
     .finally(() => { tasksBusy.value = false; addMenuOpen.value = false })
 }
 // Initialize CFK input when expanding the drafted subtask
-function toggleExpand(id: number) {
-  expandedId.value = expandedId.value === id ? null : id
-  if (expandedId.value === id) {
+function toggleExpand(id: number) { 
+  userInteracted.value = true
+  localExpandedId.value = localExpandedId.value === id ? null : id
+  if (localExpandedId.value === id) {
     const t = tasks.value.find(x => x.id === id)
     if (t && t.task_type === 'dil_drafted' && cashForKeysByTask.value[id] === undefined) {
       // Format initial value from backend with thousand separators for display

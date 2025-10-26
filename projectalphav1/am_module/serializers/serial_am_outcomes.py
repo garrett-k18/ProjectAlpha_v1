@@ -222,6 +222,7 @@ class REOScopeSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'asset_hub', 'asset_hub_id',
+            'crm',
             'scope_kind', 'reo_task',
             'scope_date', 'total_cost', 'expected_completion', 'notes',
             'created_at', 'updated_at',
@@ -232,6 +233,7 @@ class REOScopeSerializer(serializers.ModelSerializer):
         # Mirror model.clean() basic checks at serializer level for clearer API errors
         hub = attrs.get('asset_hub')
         reo_task = attrs.get('reo_task')
+        scope_kind = attrs.get('scope_kind')
         if reo_task and hub and reo_task.asset_hub_id != hub.id:
             raise serializers.ValidationError('Linked REO task must reference the same AssetIdHub.')
         if reo_task and reo_task.task_type not in ('trashout', 'renovation'):

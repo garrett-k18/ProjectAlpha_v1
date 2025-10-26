@@ -220,13 +220,14 @@ function toneLabel(tone?: DeadlineTone): string {
 function getTrackBadgeClass(trackName: string): string {
   const trackMap: Record<string, string> = {
     'Foreclosure': 'badge bg-danger-subtle text-danger',
-    'Modification': 'badge bg-secondary-subtle text-secondary',
+    'Modification': 'badge bg-success-subtle text-success',
     'Short Sale': 'badge bg-warning-subtle text-warning',
     'Deed-in-Lieu': 'badge bg-primary-subtle text-primary',
     'DIL': 'badge bg-primary-subtle text-primary',
     'FC': 'badge bg-danger-subtle text-danger',
-    'MOD': 'badge bg-secondary-subtle text-secondary',
-    'SS': 'badge bg-warning-subtle text-warning'
+    'MOD': 'badge bg-success-subtle text-success',
+    'SS': 'badge bg-warning-subtle text-warning',
+    'REO': 'badge bg-info-subtle text-info'
   }
   return trackMap[trackName] || 'badge bg-secondary-subtle text-secondary'
 }

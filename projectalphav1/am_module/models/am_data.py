@@ -1691,10 +1691,10 @@ class ModificationTask(models.Model):
     """
 
     class TaskType(models.TextChoices):
-        NEGOTIATIONS = "mod_negotiations", "Mod negotiations"
-        ACCEPTED = "mod_accepted", "Mod Accepted"
-        STARTED = "mod_started", "Mod Started"
-        FAILED = "mod_failed", "Mod Failed"
+        Drafted = "mod_drafted", "Drafted"
+        Executed = "mod_executed", "Executed"
+        Re_Performing = "mod_rpl", "Re-Performing"
+        Failed = "mod_failed", "Failed"
 
     # Direct link to the asset hub for simplified querying.
     asset_hub = models.ForeignKey(
@@ -1799,8 +1799,17 @@ class REOScope(models.Model):
         help_text='The asset hub this scope/bid belongs to (many-to-one).',
     )
 
-    # Note: CRM contacts are now managed via AssetCRMContact junction model
-    # Access contacts via: asset_hub.crm_contacts.filter(role='broker')
+    # WHAT: Vendor/contractor reference for this scope
+    # WHY: Track which vendor provided the bid/scope
+    # HOW: Links to MasterCRM with tag='vendor'
+    crm = models.ForeignKey(
+        'core.MasterCRM',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reo_scopes',
+        help_text='Vendor/contractor who provided this scope/bid (optional).',
+    )
 
     # Scope classification and optional link to a specific REO task (Trashout/Renovation)
     class ScopeKind(models.TextChoices):

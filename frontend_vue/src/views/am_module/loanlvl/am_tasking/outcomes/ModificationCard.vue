@@ -4,8 +4,8 @@
     <template #header>
       <div class="d-flex align-items-center justify-content-between">
         <h5 class="mb-0 d-flex align-items-center">
-          <i class="fas fa-pen-alt me-2 text-secondary"></i>
-          <UiBadge tone="secondary" size="lg">Modification</UiBadge>
+          <i class="fas fa-pen-alt me-2" style="color: #198754;"></i>
+          <UiBadge tone="modification-green" size="lg">Modification</UiBadge>
         </h5>
         <div class="d-flex align-items-center gap-2">
           <div class="position-relative" ref="menuRef">
@@ -92,10 +92,10 @@
                   @update:model-value="(newDate) => updateTaskStarted(t.id, newDate)"
                 />
               </span>
-              <i :class="expandedId === t.id ? 'fas fa-chevron-up' : 'fas fa-chevron-down'"></i>
+              <i :class="(expandedId === t.id || expandedId === 'all') ? 'fas fa-chevron-up' : 'fas fa-chevron-down'"></i>
             </div>
           </div>
-          <div v-if="expandedId === t.id" class="mt-2 p-2 border-top">
+          <div v-if="expandedId === t.id || expandedId === 'all'" class="mt-2 p-2 border-top">
             <div class="small text-muted">Task data fields can be added here</div>
             <!-- TODO: Add task-specific form fields here -->
             <div class="d-flex justify-content-end mt-2">
@@ -157,7 +157,7 @@
 </template>
 
 <script setup lang="ts">
-import { withDefaults, defineProps, ref, computed, onMounted, onBeforeUnmount, defineEmits } from 'vue'
+import { withDefaults, defineProps, ref, computed, watch, onMounted, onBeforeUnmount, defineEmits } from 'vue'
 import { useAmOutcomesStore, type ModificationTask, type ModificationTaskType } from '@/stores/outcomes'
 import http from '@/lib/http'
 import UiBadge from '@/components/ui/UiBadge.vue'
@@ -168,9 +168,14 @@ import EditableDate from '@/components/ui/EditableDate.vue'
 // Path: src/views/am_module/loanlvl/am_tasking/components/SubtaskNotes.vue
 import SubtaskNotes from '@/views/am_module/loanlvl/am_tasking/components/SubtaskNotes.vue'
 
-const props = withDefaults(defineProps<{ hubId: number }>(), {})
+const props = withDefaults(defineProps<{ hubId: number; masterCollapsed?: boolean }>(), { masterCollapsed: false })
 const emit = defineEmits<{ (e: 'delete'): void }>()
 const store = useAmOutcomesStore()
+
+// WHAT: Collapsed state for the entire card body (subtasks section hidden when true)
+// WHY: Allow both individual card collapse and master collapse control
+const localCollapsed = ref<boolean>(false)
+const collapsed = computed(() => props.masterCollapsed || localCollapsed.value)
 
 // Settings menu state/handlers
 const menuOpen = ref(false)
@@ -182,7 +187,20 @@ const addMenuOpen = ref(false)
 const addMenuRef = ref<HTMLElement | null>(null)
 // Subtasks state
 const tasks = ref<ModificationTask[]>([])
-const expandedId = ref<number | null>(null)
+const localExpandedId = ref<number | null>(null)
+const userInteracted = ref(false)
+
+watch(() => props.masterCollapsed, (newVal: boolean) => {
+  if (newVal) {
+    userInteracted.value = false
+    localExpandedId.value = null
+  }
+})
+
+const expandedId = computed(() => {
+  if (!props.masterCollapsed && !userInteracted.value) return 'all' as any
+  return localExpandedId.value
+})
 const busy = ref(false)
 // WHAT: Track confirmation modal state for deletion (open flag, target id, spinner)
 // WHY: Keep UX consistent with other outcome cards and avoid accidental deletions
@@ -211,9 +229,9 @@ onMounted(async () => {
 
 // ---------- Subtasks helpers ----------
 const taskOptions: ReadonlyArray<{ value: ModificationTaskType; label: string }> = [
-  { value: 'mod_negotiations', label: 'Negotiations' },
-  { value: 'mod_accepted', label: 'Accepted' },
-  { value: 'mod_started', label: 'Started' },
+  { value: 'mod_drafted', label: 'Drafted' },
+  { value: 'mod_executed', label: 'Executed' },
+  { value: 'mod_rpl', label: 'Re-Performing' },
   { value: 'mod_failed', label: 'Failed' },
 ]
 function labelFor(tp: ModificationTaskType): string {
@@ -234,7 +252,10 @@ function onSelectPill(tp: ModificationTaskType) {
     })
     .finally(() => { busy.value = false; addMenuOpen.value = false })
 }
-function toggleExpand(id: number) { expandedId.value = expandedId.value === id ? null : id }
+function toggleExpand(id: number) { 
+  userInteracted.value = true
+  localExpandedId.value = localExpandedId.value === id ? null : id 
+}
 function isoDate(iso: string | null): string { 
   if (!iso) return 'N/A'
   try { return new Date(iso).toLocaleDateString() } catch { return iso } 
@@ -286,9 +307,9 @@ async function confirmDeleteTask() {
 
 function badgeClass(tp: ModificationTaskType): BadgeToneKey {
   const map: Record<ModificationTaskType, BadgeToneKey> = {
-    mod_negotiations: 'info',
-    mod_accepted: 'success',
-    mod_started: 'primary',
+    mod_drafted: 'info',
+    mod_executed: 'success',
+    mod_rpl: 'primary',
     mod_failed: 'danger',
   }
   return map[tp]

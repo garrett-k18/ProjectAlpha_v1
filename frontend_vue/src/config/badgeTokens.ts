@@ -78,6 +78,8 @@ export type BadgeToneKey =
   | 'success'
   | 'warning'
   | 'danger'
+  // Track-specific colors
+  | 'modification-green'
   // Delinquency-specific colors
   | 'delinquency-current'
   | 'delinquency-30'
@@ -163,6 +165,12 @@ export const badgeToneMap: Record<BadgeToneKey, BadgeVisualConfig> = {
     ariaLabel: undefined,
   },
   
+  // Track-specific Colors
+  'modification-green': {
+    classes: 'bg-success text-white border-0',
+    ariaLabel: undefined,
+  },
+  
   // Delinquency Status Colors
   'delinquency-current': {
     classes: 'bg-success text-white border-0 shadow-sm',
@@ -242,10 +250,18 @@ export function resolveBadgeTokens(
   const tone = badgeToneMap[toneKey];
   const size = badgeSizeMap[sizeKey];
 
+  // Merge inline styles from both size and tone
+  // Ensure proper semicolon separation for CSS
+  const mergedStyles = [size.inlineStyles, tone.inlineStyles]
+    .filter(Boolean)
+    .map(s => s?.trim())
+    .filter(s => s && s.length > 0)
+    .join(' ');
+
   return {
     classes: `${size.classes} ${tone.classes}`.trim(),
     ariaLabel: tone.ariaLabel ?? size.ariaLabel,
-    inlineStyles: size.inlineStyles,
+    inlineStyles: mergedStyles || undefined,
   };
 }
 

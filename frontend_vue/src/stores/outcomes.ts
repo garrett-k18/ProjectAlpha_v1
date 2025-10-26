@@ -57,7 +57,7 @@ export interface ShortSaleTask {
 }
 
 // Modification Task support
-export type ModificationTaskType = 'mod_negotiations' | 'mod_accepted' | 'mod_started' | 'mod_failed'
+export type ModificationTaskType = 'mod_drafted' | 'mod_executed' | 'mod_rpl' | 'mod_failed'
 export interface ModificationTask {
   id: number
   asset_hub: number

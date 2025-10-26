@@ -52,9 +52,9 @@ def get_task_metrics(hub_id: int) -> Dict[str, Any]:
     COMPLETION_TASK_TYPES = {
         FCTask: ['sold'],
         REOtask: ['sold'],
-        DILTask: ['executed'],
+        DILTask: ['dil_successful'],
         ShortSaleTask: ['sold'],
-        ModificationTask: ['failed'],  # Note: 'failed' could be completion (negative outcome)
+        ModificationTask: ['mod_failed'],  # Note: 'failed' could be completion (negative outcome)
     }
     
     active_tasks = []
@@ -72,12 +72,16 @@ def get_task_metrics(hub_id: int) -> Dict[str, Any]:
             # HOW: Compare task.task_type against completion list (case-insensitive)
             task_type_lower = task.task_type.lower() if task.task_type else ''
             
+            print(f"DEBUG: Task {task.id} ({task_model.__name__}): task_type='{task.task_type}' (lower='{task_type_lower}'), completion_types={completion_types}")
+            
             if task_type_lower in completion_types:
+                print(f"DEBUG: -> COMPLETED task")
                 completed_tasks.append({
                     'model': task_model.__name__,
                     'task': task,
                 })
             else:
+                print(f"DEBUG: -> ACTIVE task")
                 active_tasks.append({
                     'model': task_model.__name__,
                     'task': task,
@@ -116,10 +120,27 @@ def _serialize_task_pills(task_data_list: List[Dict[str, Any]], is_completed: bo
         # HOW: Remove "Task" suffix and lowercase
         outcome_type = model_name.replace('Task', '').replace('task', '').lower()
         
+        # WHAT: Map outcome type to track prefix for badge labels
+        # WHY: Show which track each task belongs to (e.g., "FC: Mediation")
+        # HOW: Dictionary lookup with friendly track names
+        track_prefix_map = {
+            'fc': 'FC',
+            'modification': 'Mod',
+            'shortsale': 'Sh.Sale',
+            'dil': 'DIL',
+            'reo': 'REO',
+        }
+        track_prefix = track_prefix_map.get(outcome_type, outcome_type.upper())
+        
         # WHAT: Get human-readable label from task_type choices
         # WHY: Display friendly names like "Sold" instead of "sold"
         # HOW: Use get_task_type_display() Django method
-        label = task.get_task_type_display() if hasattr(task, 'get_task_type_display') else task.task_type.upper()
+        task_label = task.get_task_type_display() if hasattr(task, 'get_task_type_display') else task.task_type.upper()
+        
+        # WHAT: Combine track prefix with task label
+        # WHY: Show context of which track the task belongs to
+        # HOW: Format as "Track: Task" (e.g., "FC: Mediation", "Mod: Drafted")
+        label = f"{track_prefix}: {task_label}"
         
         # WHAT: Use 'success' (green) tone for all completed tasks
         # WHY: All sold/executed/completed tasks should be green per project standards
@@ -155,9 +176,11 @@ def _get_outcome_tone(outcome_type: str) -> str:
         'reo': 'info',
         'dil': 'primary',
         'shortsale': 'warning',
-        'modification': 'secondary',
+        'modification': 'modification-green',
     }
-    return tone_map.get(outcome_type, 'secondary')
+    result = tone_map.get(outcome_type, 'secondary')
+    print(f"DEBUG: get_outcome_tone({outcome_type}) = {result}")
+    return result
 
 
 def get_active_outcome_tracks(hub_id: int) -> Dict[str, Any]:
@@ -206,7 +229,7 @@ def get_active_outcome_tracks(hub_id: int) -> Dict[str, Any]:
         'dil': {
             'outcome_model': DIL,
             'task_model': DILTask,
-            'completion_types': ['executed'],
+            'completion_types': ['dil_successful'],
             'label': 'DIL',
             'tone': 'primary',
         },
@@ -222,7 +245,7 @@ def get_active_outcome_tracks(hub_id: int) -> Dict[str, Any]:
             'task_model': ModificationTask,
             'completion_types': ['failed'],  # Note: Could also include 'started' as completion
             'label': 'Modification',
-            'tone': 'secondary',
+            'tone': 'modification-green',
         },
     }
     
@@ -310,13 +333,13 @@ def get_track_milestones(hub_id: int) -> List[Dict[str, Any]]:
         },
         'modification': {
             'label': 'Modification',
-            'tone': 'secondary',
+            'tone': 'modification-green',
             'task_model': ModificationTask,
             'sequence': [
-                'negotiations',   # Negotiations
-                'accepted',      # Accepted
-                'started',       # Started
-                'failed',        # Failed (or could be completion if negative outcome)
+                'mod_drafted',      # Drafted
+                'mod_executed',     # Executed
+                'mod_rpl',          # Re-Performing
+                'mod_failed',       # Failed
             ]
         },
         'short_sale': {
@@ -335,10 +358,10 @@ def get_track_milestones(hub_id: int) -> List[Dict[str, Any]]:
             'tone': 'primary',
             'task_model': DILTask,
             'sequence': [
-                'borrower_heir_cooperation', # Borrower/Heir Cooperation
+                'owner_contacted',          # Owner/Heirs contacted
                 'no_cooperation',           # No Cooperation
-                'drafted',                  # Drafted
-                'executed',                # Executed (completion)
+                'dil_drafted',              # DIL Drafted
+                'dil_successful',           # DIL Successful (completion)
             ]
         },
         'reo': {
@@ -374,6 +397,7 @@ def get_track_milestones(hub_id: int) -> List[Dict[str, Any]]:
         config = TRACK_SEQUENCES[track_type]
         task_model = config['task_model']
         sequence = config['sequence']
+        print(f"DEBUG: Raw sequence from config: {sequence}")
         
         # WHAT: Get all tasks for this track and hub
         # WHY: Need to find current task position in sequence
@@ -433,16 +457,16 @@ def get_track_milestones(hub_id: int) -> List[Dict[str, Any]]:
                 'redemption': 30,       # 30 days redemption period
                 'sale_schedule': 21,    # 21 days to schedule sale
                 # Modification intervals
-                'accepted': 14,         # 14 days for acceptance
-                'started': 7,           # 7 days to start process
-                'failed': 30,           # 30 days if process fails
+                'mod_executed': 30,         # 30 days to execute
+                'mod_rpl': 60,              # 60 days for re-performing status
+                'mod_failed': 30,           # 30 days if process fails
                 # Short Sale intervals
                 'listed': 14,           # 14 days after price acceptance
                 'under_contract': 45,   # 45 days to get under contract
                 # DIL intervals
-                'no_cooperation': 21,   # 21 days if no cooperation
-                'drafted': 14,          # 14 days to draft documents
-                'executed': 30,         # 30 days to execute
+                'no_cooperation': 21,       # 21 days if no cooperation
+                'dil_drafted': 14,          # 14 days to draft documents
+                'dil_successful': 30,       # 30 days to execute
                 # REO intervals
                 'trashout': 7,          # 7 days for trashout
                 'renovation': 30,       # 30 days for renovation
@@ -501,19 +525,19 @@ def _format_task_label(task_type: str) -> str:
         'sale_schedule': 'Sale Scheduled',
         'sold': 'Property Sold',
         # Modification labels
-        'negotiations': 'Negotiations',
-        'accepted': 'Accepted',
-        'started': 'Started',
-        'failed': 'Failed',
+        'mod_drafted': 'Drafted',
+        'mod_executed': 'Executed',
+        'mod_rpl': 'Re-Performing',
+        'mod_failed': 'Failed',
         # Short Sale labels
         'list_price_accepted': 'List Price Accepted',
         'listed': 'Listed',
         'under_contract': 'Under Contract',
         # DIL labels
-        'borrower_heir_cooperation': 'Borrower/Heir Cooperation',
+        'owner_contacted': 'Owner/Heirs Contacted',
         'no_cooperation': 'No Cooperation',
-        'drafted': 'Drafted',
-        'executed': 'Executed',
+        'dil_drafted': 'DIL Drafted',
+        'dil_successful': 'DIL Successful',
         # REO labels
         'eviction': 'Eviction',
         'trashout': 'Trashout',

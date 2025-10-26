@@ -8,7 +8,7 @@
         :aria-expanded="!collapsed"
         title="Toggle sub tasks"
         style="cursor: pointer;"
-        @click="collapsed = !collapsed"
+        @click="localCollapsed = !localCollapsed"
       >
         <h5 class="mb-0 d-flex align-items-center">
           <i class="fas fa-gavel me-2 text-danger"></i>
@@ -105,11 +105,11 @@
                   @update:model-value="(newDate) => updateTaskStarted(t.id, newDate)"
                 />
               </span>
-              <i :class="expandedId === t.id ? 'fas fa-chevron-up' : 'fas fa-chevron-down'"></i>
+              <i :class="(expandedId === t.id || expandedId === 'all') ? 'fas fa-chevron-up' : 'fas fa-chevron-down'"></i>
             </div>
           </div>
           <!-- Expandable section for task-specific data fields -->
-          <div v-if="expandedId === t.id" class="mt-2 p-2 border-top">
+          <div v-if="expandedId === t.id || expandedId === 'all'" class="mt-2 p-2 border-top">
             <!-- NOD/NOI specific date fields -->
             <div v-if="t.task_type === 'nod_noi'" class="row g-3 mb-3">
               <div class="col-md-6">
@@ -194,7 +194,7 @@
 </template>
 
 <script setup lang="ts">
-import { withDefaults, defineProps, ref, computed, onMounted, onBeforeUnmount, defineEmits } from 'vue'
+import { withDefaults, defineProps, ref, computed, watch, onMounted, onBeforeUnmount, defineEmits } from 'vue'
 import { useAmOutcomesStore, type FcTask, type FcTaskType, type FcSale } from '@/stores/outcomes'
 import http from '@/lib/http'
 import UiBadge from '@/components/ui/UiBadge.vue'
@@ -205,15 +205,37 @@ import SubtaskNotes from '@/views/am_module/loanlvl/am_tasking/components/Subtas
 // Path: src/components/ui/EditableDate.vue
 import EditableDate from '@/components/ui/EditableDate.vue'
 
-const props = withDefaults(defineProps<{ hubId: number }>(), {})
+const props = withDefaults(defineProps<{ hubId: number; masterCollapsed?: boolean }>(), { masterCollapsed: false })
 const emit = defineEmits<{ (e: 'delete'): void }>()
 const store = useAmOutcomesStore()
-// Collapsed state for the entire card body (subtasks section hidden when true)
-const collapsed = ref<boolean>(false)
+// WHAT: Collapsed state for the entire card body (subtasks section hidden when true)
+// WHY: Allow both individual card collapse and master collapse control
+const localCollapsed = ref<boolean>(false)
+const collapsed = computed(() => props.masterCollapsed || localCollapsed.value)
 const busy = ref(false)
 // FC Subtasks state
 const tasks = ref<FcTask[]>([])
-const expandedId = ref<number | null>(null)
+const localExpandedId = ref<number | null>(null)
+// WHAT: Track if user has manually interacted with tasks after master expand
+// WHY: Allow individual task collapse even when master is expanded
+const userInteracted = ref(false)
+
+// WHAT: Watch master collapsed state to reset user interaction
+// WHY: When master collapses, reset so next expand works correctly
+watch(() => props.masterCollapsed, (newVal) => {
+  if (newVal) {
+    userInteracted.value = false
+    localExpandedId.value = null
+  }
+})
+
+const expandedId = computed(() => {
+  // If master is expanded and user hasn't interacted, expand all
+  if (!props.masterCollapsed && !userInteracted.value) {
+    return 'all' as any
+  }
+  return localExpandedId.value
+})
 const addMenuOpen = ref(false)
 const addMenuRef = ref<HTMLElement | null>(null)
 
@@ -264,7 +286,10 @@ function onSelectPill(tp: FcTaskType) {
     .then(async () => { tasks.value = await store.listFcTasks(props.hubId, true) })
     .finally(() => { busy.value = false; addMenuOpen.value = false })
 }
-function toggleExpand(id: number) { expandedId.value = expandedId.value === id ? null : id }
+function toggleExpand(id: number) { 
+  userInteracted.value = true
+  localExpandedId.value = localExpandedId.value === id ? null : id 
+}
 function isoDate(iso: string | null): string { 
   if (!iso) return 'N/A'
   try { return new Date(iso).toLocaleDateString() } catch { return iso } 
