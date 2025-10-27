@@ -155,6 +155,12 @@ const dashboardRoutes = [
                 meta: {authRequired: true},
                 component: () => import('@/views/dashboards/wallet/index.vue'),
             },
+            {
+                name: 'Portfolio Management',
+                path: 'portfolio-mgmt',
+                meta: {authRequired: true},
+                component: () => import('@/views/dashboards/portfolio_mgmt/index_portfolioMgmt.vue'),
+            },
 
         ]
     }

@@ -47,7 +47,6 @@
         <li class="side-nav-item menuitem-active">
           <router-link to="/home" class="side-nav-link side-nav-link-ref">
             <i class="uil-home-alt"></i>
-            <b-badge class="float-end" variant="success">5</b-badge>
             <span>{{ dashboardLabel }}</span>
           </router-link>
         </li>
@@ -69,7 +68,7 @@
         </li>
 
         <li class="side-nav-item">
-          <router-link to="javascript:void(0)" class="side-nav-link side-nav-link-ref">
+          <router-link to="/portfolio-mgmt" class="side-nav-link side-nav-link-ref">
             <i class="uil-briefcase-alt"></i>
             <span> Portfolio Management </span>
           </router-link>

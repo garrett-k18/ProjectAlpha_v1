@@ -1,7 +1,7 @@
 <template>
   <div class="card">
     <div class="d-flex card-header justify-content-between align-items-center">
-      <h4 class="header-title">Top Selling Products</h4>
+      <h4 class="header-title">Recent Liquidations</h4>
       <a href="javascript:void(0);" class="btn btn-sm btn-light">Export <i class="mdi mdi-download ms-1"></i></a>
     </div>
 

@@ -1,5 +1,5 @@
 # All models moved to core for hub-first architecture
-from .capital import DebtFacility
+from .capital import DebtFacility, JVEquityPartner, CoInvestor, InvestorContribution, InvestorDistribution, Fund
 from .crm import MasterCRM
 from .asset_id_hub import AssetIdHub
 from .assumptions import Servicer, StateReference, FCStatus, FCTimelines, CommercialUnits
@@ -14,6 +14,11 @@ from .calendar_events import CalendarEvent
 
 __all__ = [
     'DebtFacility',
+    'JVEquityPartner',
+    'CoInvestor',
+    'InvestorContribution',
+    'InvestorDistribution',
+    'Fund',
     'MasterCRM',
     'AssetIdHub',
     'Servicer',
