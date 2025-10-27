@@ -12,16 +12,9 @@
     -->
     <b-row>
       <b-col class="col-12">
-        <div class="page-title-box">
-          <h4 class="page-title mb-0">Dashboard</h4>
+        <div class="page-title-box text-center">
+          <h1 class="page-title m-5" style="font-size: 3rem;">{{ greeting }}!</h1>
         </div>
-      </b-col>
-    </b-row>
-
-    <!-- Quick Links - Compact navigation buttons -->
-    <b-row class="mt-2 mb-2">
-      <b-col cols="12">
-        <QuickLinksWidget />
       </b-col>
     </b-row>
 
@@ -99,10 +92,10 @@ import Layout from "@/components/layouts/layout.vue";
 import HomeCalendarWidget from '@/components/widgets/HomeCalendarWidget.vue'
 // Macro rates widget - displays economic indicators from FRED API
 import MacroRatesWidget from './components/MacroRatesWidget.vue'
-// Quick links widget - navigation tiles to primary app areas
-import QuickLinksWidget from './components/QuickLinksWidget.vue'
 // Stats widget - key metrics tiles (Assets, Tasks, Brokers, Docs)
 import StatsWidget from './components/StatsWidget.vue'
+// Django auth store for user data
+import { useDjangoAuthStore } from '@/stores/djangoAuth'
 
 export default {
   // Explicit component name for devtools and tracing
@@ -112,7 +105,6 @@ export default {
     Layout,
     HomeCalendarWidget,
     MacroRatesWidget,
-    QuickLinksWidget,
     StatsWidget,
   },
   // Options API state for simplicity and broad compatibility across the app
@@ -125,6 +117,30 @@ export default {
         { title: "Updated assumptions: state reference table", when: "2 days ago" },
       ],
     };
+  },
+  computed: {
+    /**
+     * greeting: Personalized time-based greeting with user's first name
+     * Returns "Good Morning/Afternoon/Evening [FirstName]"
+     * Morning: 5am-11:59am, Afternoon: 12pm-4:59pm, Evening: 5pm-4:59am
+     */
+    greeting(): string {
+      const authStore = useDjangoAuthStore();
+      const firstName = authStore.user?.first_name || 'User';
+      
+      // Get current hour (0-23)
+      const hour = new Date().getHours();
+      
+      // Determine time of day
+      let timeOfDay = 'Evening';
+      if (hour >= 5 && hour < 12) {
+        timeOfDay = 'Morning';
+      } else if (hour >= 12 && hour < 17) {
+        timeOfDay = 'Afternoon';
+      }
+      
+      return `Good ${timeOfDay}, ${firstName}`;
+    }
   },
 };
 </script>

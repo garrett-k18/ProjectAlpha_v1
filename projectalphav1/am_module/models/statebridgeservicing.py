@@ -296,8 +296,6 @@ class SBDailyLoanData(models.Model):
         db_table = 'loan_records'
         verbose_name = 'StateBridge Daily Loan Data'
         verbose_name_plural = 'StateBridge Daily Loan Data'
-        # WHAT: Daily snapshots pattern - same loan can appear multiple times but only once per day.
-        unique_together = [['loan_number', 'investor_id', 'date']]
         
         indexes = [
             models.Index(fields=['loan_number']),
@@ -431,8 +429,6 @@ class SBDailyForeclosureData(models.Model):
         db_table = 'foreclosure_records'
         verbose_name = 'StateBridge Daily Foreclosure Data'
         verbose_name_plural = 'StateBridge Daily Foreclosure Data'
-        # WHAT: Daily snapshots pattern - same loan can appear multiple times but only once per day.
-        unique_together = [['loan_id', 'investor_id', 'file_date']]
         
         indexes = [
             models.Index(fields=['loan_id']),
@@ -539,8 +535,6 @@ class SBDailyBankruptcyData(models.Model):
         db_table = 'bankruptcy_records'
         verbose_name = 'StateBridge Daily Bankruptcy Data'
         verbose_name_plural = 'StateBridge Daily Bankruptcy Data'
-        # WHAT: Daily snapshots pattern - same loan can appear multiple times but only once per day.
-        unique_together = [['loan_id', 'investor_id', 'bk_filed_date']]
         
         indexes = [
             models.Index(fields=['loan_id']),
@@ -591,8 +585,6 @@ class SBDailyCommentData(models.Model):
         db_table = 'comment_records'
         verbose_name = 'StateBridge Daily Comment Data'
         verbose_name_plural = 'StateBridge Daily Comment Data'
-        # WHAT: Daily snapshots pattern - same comment can appear multiple times but only once per day.
-        unique_together = [['loan_number', 'investor_id', 'comment_date']]
         
         indexes = [
             models.Index(fields=['loan_number']),
@@ -749,8 +741,6 @@ class SBDailyPayHistoryData(models.Model):
         db_table = 'pay_history_records'
         verbose_name = 'StateBridge Daily Pay History Data'
         verbose_name_plural = 'StateBridge Daily Pay History Data'
-        # WHAT: Daily snapshots pattern - same loan can appear multiple times but only once per day.
-        unique_together = [['loan_number', 'investor', 'next_payment_due_dt']]
         
         indexes = [
             models.Index(fields=['loan_number']),
@@ -824,8 +814,6 @@ class SBDailyTransactionData(models.Model):
         db_table = 'transaction_records'
         verbose_name = 'StateBridge Daily Transaction Data'
         verbose_name_plural = 'StateBridge Daily Transaction Data'
-        # WHAT: Daily snapshots pattern - same transaction can appear multiple times but only once per day.
-        unique_together = [['loan_id', 'loan_transaction_id', 'transaction_date']]
         
         indexes = [
             models.Index(fields=['loan_id']),

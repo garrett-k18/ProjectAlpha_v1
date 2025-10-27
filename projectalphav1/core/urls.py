@@ -25,7 +25,7 @@ from core.views.commercial_api import (
     RentRollListView,
     HistoricalPropertyCashFlowListView
 )
-from core.views.calendar_api import get_calendar_events, CustomCalendarEventViewSet
+from core.views.view_co_calendar import get_calendar_events, CustomCalendarEventViewSet
 from core.views.macro_metrics_api_new import (
     get_mortgage_30_year_api,
     get_10_year_treasury_api,

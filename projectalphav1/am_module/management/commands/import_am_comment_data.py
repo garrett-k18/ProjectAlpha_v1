@@ -21,7 +21,8 @@ HOW (high-level):
 from __future__ import annotations
 
 import csv
-from typing import Optional, Dict, Any, List
+import io
+from typing import Optional, Dict, Any, List, TextIO, Tuple
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
@@ -34,6 +35,40 @@ def _clean_string(val: Optional[str]) -> Optional[str]:
     if val is None or val.strip() == '':
         return None
     return val.strip()
+
+
+def _row_has_data(mapped_values: Dict[str, Optional[str]]) -> bool:
+    """Return True when at least one mapped field contains data."""
+    return any(value not in (None, '') for value in mapped_values.values())
+
+
+def _open_csv_with_fallback(
+    path: str,
+    encodings: List[str],
+) -> Tuple[TextIO, str]:
+    """Open CSV with encoding fallback, returning handle and detected encoding."""
+    # Read raw bytes once so we can safely retry decodes without touching disk repeatedly.
+    # Refer to Python codec docs: https://docs.python.org/3/library/codecs.html#codecs.decode
+    with open(path, 'rb') as raw_file:
+        data = raw_file.read()
+
+    last_error: Optional[Exception] = None
+    for encoding in encodings:
+        try:
+            # Attempt to decode entire file; if it fails we catch UnicodeDecodeError
+            # and continue to the next candidate encoding.
+            text = data.decode(encoding)
+            # Wrap decoded text in StringIO so csv.DictReader receives a text stream
+            # that still honours newline semantics. newline='' to hand control to csv module
+            # per https://docs.python.org/3/library/csv.html#csv.reader.
+            handle = io.StringIO(text, newline='')
+            return handle, encoding
+        except UnicodeDecodeError as decode_error:
+            last_error = decode_error
+            continue
+    if last_error is not None:
+        raise last_error
+    raise UnicodeDecodeError("", b"", 0, 0, "Unable to detect encoding")
 
 
 class Command(BaseCommand):
@@ -74,8 +109,21 @@ class Command(BaseCommand):
             'Additional Notes': 'additional_notes',
         }
 
+        skipped_blank_rows = 0  # Track rows that contained only delimiters/no values.
+
         try:
-            with open(csv_file, 'r', encoding='utf-8-sig', newline='') as file:
+            csv_handle, active_encoding = _open_csv_with_fallback(
+                csv_file,
+                ['utf-8-sig', 'utf-8', 'cp1252', 'latin-1'],
+            )
+            with csv_handle as file:
+                if active_encoding not in {'utf-8', 'utf-8-sig'}:
+                    self.stderr.write(
+                        self.style.WARNING(
+                            f"Detected non-UTF8 encoding '{active_encoding}' for file: {csv_file}. "
+                            "Continuing with fallback decoding."
+                        )
+                    )
                 reader = csv.DictReader(file)
                 
                 # Validate CSV headers
@@ -96,6 +144,10 @@ class Command(BaseCommand):
                         for csv_col, model_field in FIELD_MAP.items():
                             if csv_col in row:
                                 kwargs[model_field] = _clean_string(row[csv_col])
+
+                        if not _row_has_data(kwargs):
+                            skipped_blank_rows += 1
+                            continue
 
                         batch.append(SBDailyCommentData(**kwargs))
 
@@ -126,11 +178,15 @@ class Command(BaseCommand):
         # Final summary
         self.stdout.write(
             self.style.SUCCESS(
-                f"Import complete: processed={created_count}, errors={error_count}, dry_run={dry_run}"
+                f"Import complete: processed={created_count}, errors={error_count}, dry_run={dry_run}, skipped_blank_rows={skipped_blank_rows}"
             )
         )
 
-    def _process_batch(self, instances: List[SBDailyCommentData], dry_run: bool) -> tuple[int, int]:
+    def _process_batch(
+        self,
+        instances: List[SBDailyCommentData],
+        dry_run: bool,
+    ) -> tuple[int, int]:
         """Process a batch of instances."""
         if not instances:
             return 0, 0
@@ -143,12 +199,7 @@ class Command(BaseCommand):
             with transaction.atomic():
                 result = SBDailyCommentData.objects.bulk_create(
                     instances,
-                    update_conflicts=True,
-                    update_fields=[
-                        'investor_loan_number', 'prior_servicer_loan_number', 'department',
-                        'comment', 'additional_notes'
-                    ],
-                    unique_fields=['loan_number', 'investor_id', 'comment_date'],
+                    batch_size=len(instances),
                 )
                 
                 self.stdout.write(f"Processed batch: {len(instances)} rows")

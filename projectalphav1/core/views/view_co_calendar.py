@@ -1,7 +1,13 @@
 """
 Calendar API Views
+
+What: REST API endpoints for unified calendar event aggregation and custom event CRUD
+Why: Frontend calendar widget needs to display dates from multiple models + user-created events
+Where: projectalphav1/core/views/view_co_calendar.py
+How: Aggregates date fields from various models into standardized format using serial_co_calendar serializers
+
 Handles both:
-1. Read-only events from model dates (SellerRawData, ServicerData, etc.)
+1. Read-only events from model dates (SellerRawData, ServicerData, TradeLevelAssumption, Trade)
 2. CRUD operations for custom calendar events (CalendarEvent model)
 
 Endpoints:
@@ -10,6 +16,13 @@ Endpoints:
     GET    /api/core/calendar/events/custom/<id>/  - Get custom event
     PUT    /api/core/calendar/events/custom/<id>/  - Update custom event
     DELETE /api/core/calendar/events/custom/<id>/  - Delete custom event
+
+Linked Serializers:
+- CalendarEventReadSerializer (read-only model events)
+- CustomCalendarEventSerializer (CRUD for CalendarEvent model)
+- UnifiedCalendarEventSerializer (combined output format)
+
+Location: projectalphav1/core/serializers/serial_co_calendar.py
 """
 from datetime import datetime, timedelta
 from rest_framework.decorators import api_view, permission_classes
@@ -23,10 +36,11 @@ from acq_module.models.seller import SellerRawData, Seller, Trade
 from acq_module.models.assumptions import TradeLevelAssumption
 from am_module.models.servicers import ServicerLoanData as ServicerData
 from core.models import CalendarEvent
-from core.serializers.calendar_serializer import (
+from core.serializers.serial_co_calendar import (
     CalendarEventReadSerializer,
     CustomCalendarEventSerializer,
-    UnifiedCalendarEventSerializer
+    UnifiedCalendarEventSerializer,
+    CALENDAR_DATE_FIELDS,
 )
 
 
@@ -36,18 +50,50 @@ def get_calendar_events(request):
     """
     Aggregates calendar events from various models across the application.
     
+    What: Main calendar endpoint that combines events from multiple data sources
+    Why: Frontend FullCalendar widget needs unified event list from all models
+    Where: Called by frontend calendar component at /api/core/calendar/events/
+    How: Calls helper functions for each model, filters/combines results, serializes with UnifiedCalendarEventSerializer
+    
     Query Parameters:
     - start_date (optional): Filter events on or after this date (YYYY-MM-DD)
     - end_date (optional): Filter events on or before this date (YYYY-MM-DD)
     - seller_id (optional): Filter events for a specific seller
     - trade_id (optional): Filter events for a specific trade
     - categories (optional): Comma-separated list of event categories to include
+                            Valid: bg-primary, bg-success, bg-info, bg-warning, bg-danger, bg-secondary
     
     Returns:
-        List of calendar events with standardized format
+        JSON array of calendar events with standardized format:
+        - id: Unique composite key (e.g., 'servicer_data:123:actual_fc_sale_date')
+        - title: Event title displayed on calendar
+        - date: Event date (YYYY-MM-DD)
+        - time: Event time or 'All Day'
+        - description: Additional details
+        - category: Bootstrap color class
+        - source_model: Origin model name
+        - editable: Boolean indicating if event can be edited
+        - url: Frontend navigation URL
+    
+    Example Response:
+        [
+            {
+                "id": "trade_assumption:10:bid_date",
+                "title": "Bid Date: Portfolio 2025-Q1",
+                "date": "2025-10-15",
+                "time": "All Day",
+                "description": "Bid submitted for Portfolio 2025-Q1",
+                "category": "bg-primary",
+                "source_model": "TradeLevelAssumption",
+                "editable": false,
+                "url": "/acq/trade/5/"
+            }
+        ]
     """
     
-    # Parse query parameters
+    # Parse query parameters from request
+    # What: Extract filter parameters from GET request
+    # Why: Allow frontend to filter events by date range, entity, or category
     start_date = request.GET.get('start_date')
     end_date = request.GET.get('end_date')
     seller_id = request.GET.get('seller_id')
@@ -55,6 +101,8 @@ def get_calendar_events(request):
     categories_param = request.GET.get('categories')
     
     # Convert date strings to date objects
+    # What: Parse YYYY-MM-DD strings into Python date objects
+    # Why: Need date objects for ORM filtering and comparison
     if start_date:
         try:
             start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
@@ -74,33 +122,43 @@ def get_calendar_events(request):
             )
     
     # Parse categories filter
+    # What: Convert comma-separated category string into list
+    # Why: Allow filtering by multiple Bootstrap color classes (e.g., 'bg-danger,bg-warning')
     categories_filter = None
     if categories_param:
         categories_filter = [cat.strip() for cat in categories_param.split(',')]
     
     # Collect events from various sources
+    # What: Aggregate events from all models into single list
+    # Why: Calendar needs unified view of all date-based events across the system
+    # How: Call helper function for each model, each returns list of standardized dicts
     events = []
     
     # 1. SellerRawData - Foreclosure dates, maturity dates, modification dates
+    # Currently empty date_fields list - add fields as needed
     events.extend(_get_seller_raw_data_events(start_date, end_date, seller_id, trade_id))
     
     # 2. ServicerData - Payment dates, maturity dates, bankruptcy dates
+    # Currently includes: actual_fc_sale_date
     events.extend(_get_servicer_data_events(start_date, end_date, seller_id, trade_id))
     
-    # 3. Trade-level events (created dates, important milestones)
-    events.extend(_get_trade_events(start_date, end_date, seller_id, trade_id))
-    
-    # 4. TradeLevelAssumption dates (bid_date, settlement_date)
+    # 3. TradeLevelAssumption dates (bid_date, settlement_date)
+    # Currently includes: bid_date, settlement_date
     events.extend(_get_trade_assumption_events(start_date, end_date, seller_id, trade_id))
     
-    # 5. Custom CalendarEvent records (user-created events)
+    # 4. Custom CalendarEvent records (user-created events)
+    # All fields from CalendarEvent model
     events.extend(_get_custom_calendar_events(start_date, end_date, seller_id, trade_id))
     
     # Filter by categories if specified
+    # What: Remove events that don't match requested categories
+    # Why: Allow frontend to show only certain event types (e.g., only deadlines)
     if categories_filter:
         events = [e for e in events if e.get('category') in categories_filter]
     
     # Serialize and return
+    # What: Convert list of dicts to JSON using UnifiedCalendarEventSerializer
+    # Why: Validates structure and ensures consistent output format
     serializer = UnifiedCalendarEventSerializer(events, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -108,7 +166,25 @@ def get_calendar_events(request):
 def _get_seller_raw_data_events(start_date=None, end_date=None, seller_id=None, trade_id=None):
     """
     Extract calendar events from SellerRawData model.
+    
+    What: Converts date fields from SellerRawData records into calendar events
+    Why: Seller tape data contains important dates that should appear on calendar
+    Where: Called by get_calendar_events() main endpoint
+    How: Queries SellerRawData, extracts configured date fields, formats as event dicts
+    
     Includes: maturity dates, foreclosure dates, modification dates, payment dates
+    
+    Args:
+        start_date: Filter events on/after this date
+        end_date: Filter events on/before this date
+        seller_id: Filter to specific seller
+        trade_id: Filter to specific trade
+    
+    Returns:
+        List of event dicts with keys: id, title, date, time, description, category, 
+        source_model, source_id, url, editable
+    
+    Note: Currently date_fields list is empty - add date field configs as needed
     """
     events = []
     
@@ -120,11 +196,15 @@ def _get_seller_raw_data_events(start_date=None, end_date=None, seller_id=None, 
     if trade_id:
         queryset = queryset.filter(trade_id=trade_id)
     
-    # Define which date fields to extract and their display properties
-    # Format: (field_name, title_template, category, description_template)
-    # Currently limited to key dates - more can be added later
+    # Get date fields from serializer config
+    # What: Filter CALENDAR_DATE_FIELDS for SellerRawData model
+    # Why: Single list in serial_co_calendar.py controls all calendar fields
+    # Where: CALENDAR_DATE_FIELDS in core/serializers/serial_co_calendar.py
+    # How: Just add/remove lines in that list - no need to edit this view
     date_fields = [
-        # Currently no date fields from SellerRawData - will add as needed
+        (field, f'{title}: {{address}}', event_type, title)
+        for model, field, title, event_type in CALENDAR_DATE_FIELDS
+        if model == 'SellerRawData'
     ]
     
     for record in queryset:
@@ -152,7 +232,8 @@ def _get_seller_raw_data_events(start_date=None, end_date=None, seller_id=None, 
                     'category': category,
                     'source_model': 'SellerRawData',
                     'source_id': record.asset_hub_id,
-                    'url': f'/acq/loan/{record.asset_hub_id}/'
+                    'url': f'/acq/loan/{record.asset_hub_id}/',
+                    'editable': False  # Model-based events are read-only
                 })
     
     return events
@@ -161,7 +242,23 @@ def _get_seller_raw_data_events(start_date=None, end_date=None, seller_id=None, 
 def _get_servicer_data_events(start_date=None, end_date=None, seller_id=None, trade_id=None):
     """
     Extract calendar events from ServicerData model.
-    Includes: payment dates, maturity dates, bankruptcy dates
+    
+    What: Converts date fields from ServicerLoanData records into calendar events
+    Why: Servicer data contains critical dates (FC sales, payments, bankruptcy) for calendar
+    Where: Called by get_calendar_events() main endpoint
+    How: Queries ServicerLoanData, extracts configured date fields, formats as event dicts
+    
+    Includes: payment dates, maturity dates, bankruptcy dates, actual_fc_sale_date
+    
+    Args:
+        start_date: Filter events on/after this date
+        end_date: Filter events on/before this date
+        seller_id: Filter to specific seller (via asset_hub relationship)
+        trade_id: Filter to specific trade (via asset_hub relationship)
+    
+    Returns:
+        List of event dicts with keys: id, title, date, time, description, category, 
+        source_model, source_id, url, editable
     """
     events = []
     
@@ -177,11 +274,15 @@ def _get_servicer_data_events(start_date=None, end_date=None, seller_id=None, tr
             filters &= Q(asset_hub__sellerrawdata__trade_id=trade_id)
         queryset = queryset.filter(filters)
     
-    # Define date fields to extract from ServicerData
-    # Format: (field_name, title_template, category, description_template)
-    # Currently limited to actual_fc_sale_date - more can be added later
+    # Get date fields from serializer config
+    # What: Filter CALENDAR_DATE_FIELDS for ServicerLoanData model
+    # Why: Single list in serial_co_calendar.py controls all calendar fields
+    # Where: CALENDAR_DATE_FIELDS in core/serializers/serial_co_calendar.py
+    # How: Just add/remove lines in that list - no need to edit this view
     date_fields = [
-        ('actual_fc_sale_date', 'FC Sale: {address}', 'bg-danger', 'Actual foreclosure sale date'),
+        (field, f'{title}: {{address}}', event_type, title)
+        for model, field, title, event_type in CALENDAR_DATE_FIELDS
+        if model == 'ServicerLoanData'
     ]
     
     for record in queryset:
@@ -202,11 +303,12 @@ def _get_servicer_data_events(start_date=None, end_date=None, seller_id=None, tr
                     'title': title_template.format(address=address),
                     'date': date_value,
                     'time': 'All Day',
-                    'description': desc_template.format(address=address),
+                    'description': desc_template,
                     'category': category,
                     'source_model': 'ServicerData',
                     'source_id': record.id,
-                    'url': f'/am/loan/{record.asset_hub_id}/' if record.asset_hub_id else ''
+                    'url': f'/am/loan/{record.asset_hub_id}/' if record.asset_hub_id else '',
+                    'editable': False  # Model-based events are read-only
                 })
     
     return events
@@ -215,7 +317,23 @@ def _get_servicer_data_events(start_date=None, end_date=None, seller_id=None, tr
 def _get_trade_events(start_date=None, end_date=None, seller_id=None, trade_id=None):
     """
     Extract calendar events from Trade model.
+    
+    What: Converts date fields from Trade records into calendar events
+    Why: Trade creation dates and milestones should appear on calendar for tracking
+    Where: Called by get_calendar_events() main endpoint
+    How: Queries Trade model, extracts created_at and other date fields, formats as event dicts
+    
     Includes: trade creation dates, important milestones
+    
+    Args:
+        start_date: Filter events on/after this date
+        end_date: Filter events on/before this date
+        seller_id: Filter to specific seller
+        trade_id: Filter to specific trade
+    
+    Returns:
+        List of event dicts with keys: id, title, date, time, description, category, 
+        source_model, source_id, url, editable
     """
     events = []
     
@@ -242,11 +360,12 @@ def _get_trade_events(start_date=None, end_date=None, seller_id=None, trade_id=N
                 'title': f'Trade Created: {trade.trade_name}',
                 'date': trade_date,
                 'time': 'All Day',
-                'description': f'Trade {trade.trade_name} created for {trade.seller.seller_name if trade.seller else "Unknown Seller"}',
+                'description': f'Trade {trade.trade_name} created for {trade.seller.name if trade.seller else "Unknown Seller"}',
                 'category': 'bg-primary',
                 'source_model': 'Trade',
                 'source_id': trade.id,
-                'url': f'/acq/trade/{trade.id}/'
+                'url': f'/acq/trade/{trade.id}/',
+                'editable': False  # Model-based events are read-only
             })
     
     return events
@@ -255,7 +374,23 @@ def _get_trade_events(start_date=None, end_date=None, seller_id=None, trade_id=N
 def _get_trade_assumption_events(start_date=None, end_date=None, seller_id=None, trade_id=None):
     """
     Extract calendar events from TradeLevelAssumption model.
+    
+    What: Converts date fields from TradeLevelAssumption records into calendar events
+    Why: Bid dates and settlement dates are critical milestones that should appear on calendar
+    Where: Called by get_calendar_events() main endpoint
+    How: Queries TradeLevelAssumption, extracts configured date fields, formats as event dicts
+    
     Includes: bid_date, settlement_date
+    
+    Args:
+        start_date: Filter events on/after this date
+        end_date: Filter events on/before this date
+        seller_id: Filter to specific seller (via trade relationship)
+        trade_id: Filter to specific trade
+    
+    Returns:
+        List of event dicts with keys: id, title, date, time, description, category, 
+        source_model, source_id, url, editable
     """
     events = []
     
@@ -267,11 +402,15 @@ def _get_trade_assumption_events(start_date=None, end_date=None, seller_id=None,
     if trade_id:
         queryset = queryset.filter(trade_id=trade_id)
     
-    # Define date fields to extract from TradeLevelAssumption
-    # Format: (field_name, title_template, category, description_template)
+    # Get date fields from serializer config
+    # What: Filter CALENDAR_DATE_FIELDS for TradeLevelAssumption model
+    # Why: Single list in serial_co_calendar.py controls all calendar fields
+    # Where: CALENDAR_DATE_FIELDS in core/serializers/serial_co_calendar.py
+    # How: Just add/remove lines in that list - no need to edit this view
     date_fields = [
-        ('bid_date', 'Bid Date: {trade_name}', 'bg-primary', 'Bid submitted for {trade_name}'),
-        ('settlement_date', 'Settlement: {trade_name}', 'bg-success', 'Settlement date for {trade_name}'),
+        (field, f'{title}: {{trade_name}}', event_type, title)
+        for model, field, title, event_type in CALENDAR_DATE_FIELDS
+        if model == 'TradeLevelAssumption'
     ]
     
     for record in queryset:
@@ -305,7 +444,25 @@ def _get_trade_assumption_events(start_date=None, end_date=None, seller_id=None,
 def _get_custom_calendar_events(start_date=None, end_date=None, seller_id=None, trade_id=None):
     """
     Extract calendar events from CalendarEvent model (user-created custom events).
+    
+    What: Retrieves user-created CalendarEvent records and formats as calendar events
+    Why: Users need to add custom events (meetings, deadlines, reminders) to calendar
+    Where: Called by get_calendar_events() main endpoint
+    How: Queries CalendarEvent model, formats all fields as event dicts
+    
     These events are editable through the calendar interface.
+    
+    Args:
+        start_date: Filter events on/after this date
+        end_date: Filter events on/before this date
+        seller_id: Filter to specific seller
+        trade_id: Filter to specific trade
+    
+    Returns:
+        List of event dicts with keys: id, title, date, time, description, category, 
+        source_model, editable (True), url
+    
+    Note: Unlike model-based events, these have editable=True and can be modified via API
     """
     events = []
     
@@ -350,6 +507,11 @@ class CustomCalendarEventViewSet(viewsets.ModelViewSet):
     """
     ViewSet for CRUD operations on custom calendar events.
     
+    What: DRF ModelViewSet providing full CRUD for CalendarEvent model
+    Why: Users need to create/edit/delete custom calendar events through the UI
+    Where: Registered at /api/core/calendar/events/custom/ in core/urls.py
+    How: Uses CustomCalendarEventSerializer from serial_co_calendar.py
+    
     Endpoints:
         GET    /api/core/calendar/events/custom/       - List all custom events
         POST   /api/core/calendar/events/custom/       - Create new custom event
@@ -359,11 +521,13 @@ class CustomCalendarEventViewSet(viewsets.ModelViewSet):
         DELETE /api/core/calendar/events/custom/<id>/  - Delete custom event
     
     Query Parameters (for list):
-        - start_date: Filter events on or after this date
-        - end_date: Filter events on or before this date
-        - seller_id: Filter by seller
-        - trade_id: Filter by trade
-        - asset_hub_id: Filter by asset
+        - start_date: Filter events on or after this date (YYYY-MM-DD)
+        - end_date: Filter events on or before this date (YYYY-MM-DD)
+        - seller_id: Filter by seller ID
+        - trade_id: Filter by trade ID
+        - asset_hub_id: Filter by asset hub ID
+    
+    Serializer: CustomCalendarEventSerializer (projectalphav1/core/serializers/serial_co_calendar.py)
     """
     queryset = CalendarEvent.objects.all()
     serializer_class = CustomCalendarEventSerializer
@@ -372,6 +536,12 @@ class CustomCalendarEventViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """
         Filter queryset based on query parameters.
+        
+        What: Applies filters to CalendarEvent queryset based on GET parameters
+        Why: Frontend needs to filter events by date range or entity
+        Where: Called automatically by DRF for list/retrieve operations
+        How: Parses query params and applies Django ORM filters
+        
         Allows filtering by date range, seller, trade, or asset.
         """
         queryset = super().get_queryset()
@@ -412,6 +582,11 @@ class CustomCalendarEventViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         """
         Save the custom event with the current user as creator.
+        
+        What: Intercepts save operation to set created_by field
+        Why: Track which user created each calendar event for audit trail
+        Where: Called automatically by DRF during POST operations
+        How: Checks if user is authenticated and sets created_by before save
         """
         if self.request.user.is_authenticated:
             serializer.save(created_by=self.request.user)

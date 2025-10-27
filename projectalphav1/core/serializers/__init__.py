@@ -18,6 +18,12 @@ from .crm_serializers import (
     TradingPartnerSerializer,
     LegalSerializer,
 )
+from .serial_co_calendar import (
+    CalendarEventReadSerializer,
+    CustomCalendarEventSerializer,
+    UnifiedCalendarEventSerializer,
+    CALENDAR_DATE_FIELDS,
+)
 
 __all__ = [
     'UnitMixSerializer',
@@ -28,4 +34,8 @@ __all__ = [
     'BrokerSerializer',
     'TradingPartnerSerializer',
     'LegalSerializer',
+    'CalendarEventReadSerializer',
+    'CustomCalendarEventSerializer',
+    'UnifiedCalendarEventSerializer',
+    'CALENDAR_DATE_FIELDS',
 ]

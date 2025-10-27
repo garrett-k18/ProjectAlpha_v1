@@ -4,7 +4,7 @@ Django management command to import StateBridge daily pay history data from CSV.
 WHAT:
 - Reads a CSV (UTF-8 with/without BOM) and loads rows into
   am_module.models.statebridgeservicing.SBDailyPayHistoryData.
-- Supports both creating new records and updating existing ones (upsert pattern).
+- Inserts every row exactly as received (no deduping) to preserve audit history.
 
 WHY:
 - StateBridge provides daily pay history snapshots via FTP in CSV format.
@@ -13,15 +13,15 @@ WHY:
 
 HOW (high-level):
 - For each row, map CSV columns to SBDailyPayHistoryData model fields.
-- Use bulk_create with update_conflicts for efficient upsert based on
-  unique_together constraint (loan_number, investor, next_payment_due_dt).
+- Use bulk_create batches with encoding fallbacks so duplicate snapshots land side-by-side.
 - All fields are stored as strings (raw data landing pattern).
 - Each batch is processed in a transaction for atomicity.
 """
 from __future__ import annotations
 
 import csv
-from typing import Optional, Dict, Any, List
+import io
+from typing import Optional, Dict, Any, List, TextIO, Tuple
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
@@ -34,6 +34,37 @@ def _clean_string(val: Optional[str]) -> Optional[str]:
     if val is None or val.strip() == '':
         return None
     return val.strip()
+
+
+def _row_has_data(mapped_values: Dict[str, Optional[str]]) -> bool:
+    """Return True when at least one mapped field contains data."""
+    return any(value not in (None, '') for value in mapped_values.values())
+
+
+def _open_csv_with_fallback(
+    path: str,
+    encodings: List[str],
+) -> Tuple[TextIO, str]:
+    """Open CSV with encoding fallback, returning text handle and detected encoding."""
+    # Read file once as bytes so we can retry decoding without extra disk I/O.
+    # Reference: Python codec docs https://docs.python.org/3/library/codecs.html#codecs.decode
+    with open(path, 'rb') as raw_file:
+        data = raw_file.read()
+
+    last_error: Optional[Exception] = None
+    for encoding in encodings:
+        try:
+            text = data.decode(encoding)
+            # Wrap decoded text in StringIO so csv module controls newline behavior (newline='').
+            # Docs: https://docs.python.org/3/library/csv.html#csv.reader
+            handle = io.StringIO(text, newline='')
+            return handle, encoding
+        except UnicodeDecodeError as decode_error:
+            last_error = decode_error
+            continue
+    if last_error is not None:
+        raise last_error
+    raise UnicodeDecodeError("", b"", 0, 0, "Unable to detect encoding")
 
 
 class Command(BaseCommand):
@@ -161,8 +192,21 @@ class Command(BaseCommand):
             'ID0 12 - $': 'id0_12',
         }
 
+        skipped_blank_rows = 0  # Track rows containing only delimiters with no actual data.
+
         try:
-            with open(csv_file, 'r', encoding='utf-8-sig', newline='') as file:
+            csv_handle, active_encoding = _open_csv_with_fallback(
+                csv_file,
+                ['utf-8-sig', 'utf-8', 'cp1252', 'latin-1'],
+            )
+            with csv_handle as file:
+                if active_encoding not in {'utf-8', 'utf-8-sig'}:
+                    self.stderr.write(
+                        self.style.WARNING(
+                            f"Detected non-UTF8 encoding '{active_encoding}' for file: {csv_file}. "
+                            "Continuing with fallback decoding."
+                        )
+                    )
                 reader = csv.DictReader(file)
                 
                 # Validate CSV headers
@@ -183,6 +227,10 @@ class Command(BaseCommand):
                         for csv_col, model_field in FIELD_MAP.items():
                             if csv_col in row:
                                 kwargs[model_field] = _clean_string(row[csv_col])
+
+                        if not _row_has_data(kwargs):
+                            skipped_blank_rows += 1
+                            continue
 
                         batch.append(SBDailyPayHistoryData(**kwargs))
 
@@ -213,7 +261,7 @@ class Command(BaseCommand):
         # Final summary
         self.stdout.write(
             self.style.SUCCESS(
-                f"Import complete: processed={created_count}, errors={error_count}, dry_run={dry_run}"
+                f"Import complete: processed={created_count}, errors={error_count}, dry_run={dry_run}, skipped_blank_rows={skipped_blank_rows}"
             )
         )
 
@@ -230,28 +278,7 @@ class Command(BaseCommand):
             with transaction.atomic():
                 result = SBDailyPayHistoryData.objects.bulk_create(
                     instances,
-                    update_conflicts=True,
-                    update_fields=[
-                        field for field in [
-                            'previous_ln_num', 'borrower_name', 'property_address', 'city', 'state', 'zip',
-                            'property_type', 'number_of_units', 'occupancy_status', 'original_upb', 'second_upb',
-                            'current_upb', 'account_type', 'lien', 'loan_term', 'remaining_term', 'maturity_date',
-                            'rate_type', 'arm', 'balloon', 'piggyback', 'current_ir', 'current_pi', 'current_ti',
-                            'current_piti', 'last_full_payment_dt', 'escrow_indicator', 'restricted_escrow',
-                            'escrow_advance', 'rec_corp_advance_balance', 'third_party_rec_balance',
-                            'accrued_interest', 'accrued_late_fees', 'fc_status', 'fc_type', 'fc_first_legal_filed_dt',
-                            'fc_judgement_entered_dt', 'fc_sale_scheduled_dt', 'fc_suspended_dt', 'fc_removal_dt',
-                            'fc_removal_description', 'bk_status', 'bk_code', 'bk_filing_date', 'bk_case_number',
-                            'bk_removal_dt', 'original_appraised_value', 'as_is_bpo', 'bpo_date', 'fico_original',
-                            'fico', 'fico_date', 'loan_mod_dt', 'mod_upb', 'mod_ir', 'mod_pi', 'mod_first_payment_dt',
-                            'mod_maturity', 'origination_date', 'original_principal', 'orig_rate', 'fp_date',
-                            'mt_date', 'interest_only_indicator', 'interest_only_expiration_dt', 'hoi_expiration_dt',
-                            'm0', 'm1', 'm2', 'm3', 'm4', 'm5', 'm6', 'm7', 'm8', 'm9', 'm10', 'm11', 'm12',
-                            'id0_0', 'id0_1', 'id0_2', 'id0_3', 'id0_4', 'id0_5', 'id0_6', 'id0_7', 'id0_8',
-                            'id0_9', 'id0_10', 'id0_11', 'id0_12'
-                        ]
-                    ],
-                    unique_fields=['loan_number', 'investor', 'next_payment_due_dt'],
+                    batch_size=len(instances),
                 )
                 
                 self.stdout.write(f"Processed batch: {len(instances)} rows")

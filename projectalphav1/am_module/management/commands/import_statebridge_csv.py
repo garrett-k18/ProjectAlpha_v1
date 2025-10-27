@@ -29,6 +29,7 @@ import csv
 from datetime import datetime, date
 from decimal import Decimal, InvalidOperation
 from typing import Optional, Dict, Any, Tuple, List
+from dataclasses import dataclass
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
@@ -158,6 +159,23 @@ def _to_str(val: Optional[str]) -> Optional[str]:
         return s
     except (ValueError, TypeError, AttributeError):
         return None  # WHAT: Silently skip bad data in raw imports
+
+
+def _clean_str(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    value = value.strip()
+    return value or None
+
+
+def _row_has_data(mapped_values: Dict[str, Optional[str]]) -> bool:
+    """Return True when at least one mapped field contains data."""
+    return any(value not in (None, '') for value in mapped_values.values())
+
+
+@dataclass
+class CSVRowResult:
+    pass
 
 
 class Command(BaseCommand):
@@ -474,6 +492,8 @@ class Command(BaseCommand):
         updated_count = 0
         error_count = 0
 
+        skipped_blank_rows = 0  # Count CSV rows that were fully empty after cleaning.
+
         for batch_start in range(0, len(rows), batch_size):
             batch = rows[batch_start:batch_start + batch_size]
             
@@ -490,7 +510,11 @@ class Command(BaseCommand):
                     for csv_col, (attr, conv) in FIELD_MAP.items():
                         if csv_col in row:
                             kwargs[attr] = conv(row[csv_col])
-                    
+
+                    if not _row_has_data(kwargs):
+                        skipped_blank_rows += 1
+                        continue
+
                     instances.append(SBDailyLoanData(**kwargs))
                     
                 except Exception as e:
@@ -506,30 +530,25 @@ class Command(BaseCommand):
                 created_count += len(instances)
                 self.stdout.write(f"Dry-run batch: would process {len(instances)} rows")
                 continue
-            
-            # WHAT: Bulk upsert using Django's bulk_create with update_conflicts.
-            # WHY: Efficient upsert pattern for large datasets (reviewed: https://docs.djangoproject.com/en/5.0/ref/models/querysets/#bulk-create).
-            # HOW: unique_together (loan_number, investor_id, date) triggers update on conflict.
+
+            # WHAT: Bulk insert raw rows exactly as provided (including duplicates).
+            # WHY: Daily feed may resend the same snapshot; we preserve every landing row for audit history.
             try:
                 with transaction.atomic():
                     result = SBDailyLoanData.objects.bulk_create(
                         instances,
-                        update_conflicts=True,
-                        update_fields=[attr for csv_col, (attr, conv) in FIELD_MAP.items() if attr not in ('loan_number', 'investor_id', 'date')],  # All fields except unique constraint
-                        unique_fields=['loan_number', 'investor_id', 'date'],
+                        batch_size=len(instances),
                     )
-                    # WHAT: Django doesn't return created vs updated counts, so estimate.
-                    # WHY: Provide user feedback on operation results.
                     created_count += len(result)
-                    
                     self.stdout.write(f"Processed batch: {len(instances)} rows")
-                    
+
             except Exception as e:
                 error_count += len(instances)
                 self.stderr.write(self.style.ERROR(f"Batch insert failed: {e}"))
 
+
         # WHAT: Final summary of import operation.
         # WHY: Clear feedback on what was accomplished.
         self.stdout.write(self.style.SUCCESS(
-            f"Import complete: processed={created_count}, errors={error_count}, dry_run={dry_run}"
+            f"Import complete: processed={created_count}, errors={error_count}, dry_run={dry_run}, skipped_blank_rows={skipped_blank_rows}"
         ))

@@ -1,27 +1,28 @@
+// Calendar event type categories with color coding
+// What: Defines visual legend for calendar event types
+// Why: Users need to understand what each color represents
+// Where: Displayed in calendar sidebar legend
+// How: Maps event types to Bootstrap color classes
 const categories = [
     {
-        name: 'Danger',
-        value: 'bg-danger'
+        name: 'Liquidation',
+        value: 'bg-success'  // Green - actual foreclosure sales
     },
     {
-        name: 'Success',
-        value: 'bg-success'
+        name: 'Projected Liquidation',
+        value: 'bg-warning'  // Yellow - projected/scheduled FC sales
     },
     {
-        name: 'Primary',
-        value: 'bg-primary'
+        name: 'Bid Date',
+        value: 'bg-info'  // Cyan - bid submission deadlines
     },
     {
-        name: 'Info',
-        value: 'bg-info'
+        name: 'Settlement Date',
+        value: 'bg-dark'  // Dark/Purple - successful settlements
     },
     {
-        name: 'Dark',
-        value: 'bg-dark'
-    },
-    {
-        name: 'Warning',
-        value: 'bg-warning'
+        name: 'Asset Milestone',
+        value: 'bg-danger'  // Red - other important milestones
     },
 ];
 
@@ -37,34 +38,11 @@ interface CalendarEvent {
     classNames?: string[],
 }
 
-const calendarEvents: CalendarEvent[] = [
-    {
-        id:1,
-        title: "Meeting with Mr. Shreyu",
-        start: new Date(today + 158000000),
-        end: new Date(today + 338000000),
-        className: "bg-warning",
-    },
-    {
-        id:2,
-        title: "Interview - Backend Engineer",
-        start: today,
-        end: today,
-        className: "bg-success",
-    },
-    {
-        id:3,
-        title: "Phone Screen - Frontend Engineer",
-        start: new Date(today + 168000000),
-        className: "bg-info",
-    },
-    {
-        id:4,
-        title: "Buy Design Assets",
-        start: new Date(today + 338000000),
-        end: new Date(today + 338000000 * 1.2),
-        className: "bg-primary",
-    },
-];
+// Empty demo events - all events now come from backend API
+// What: Placeholder for demo/local events (currently empty)
+// Why: All calendar events are fetched from Django backend
+// Where: Backend API at /api/core/calendar/events/
+// How: Component fetches on mount and populates calendar
+const calendarEvents: CalendarEvent[] = [];
 
 export {categories, calendarEvents};

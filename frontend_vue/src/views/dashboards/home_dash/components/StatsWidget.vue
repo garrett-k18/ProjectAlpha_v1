@@ -2,7 +2,7 @@
   <!--
     Stats Widget
     Displays key metrics tiles (Assets, Tasks, Brokers, Docs)
-    Component path: frontend_vue/src/views/home_dash/components/StatsWidget.vue
+    Component path: frontend_vue/src/views/dashboards/home_dash/components/StatsWidget.vue
   -->
   <b-row>
     <b-col 

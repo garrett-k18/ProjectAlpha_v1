@@ -6,7 +6,7 @@ const homeRoute = [
         name: "home",
         // Require auth on homepage so logged-out users are redirected to login
         meta: { authRequired: true },
-        component: () => import("@/views/home_dash/index_home.vue"),
+        component: () => import("@/views/dashboards/home_dash/index_home.vue"),
     },
 ];
 
@@ -167,7 +167,7 @@ const calendarAppsRoutes = [
         name: 'Calendar',
         header: 'Apps',
         icon: 'uil-calender',
-        component: () => import('@/views/apps/calendar/index.vue'),
+        component: () => import('@/views/apps/calendar/index_calendar.vue'),
         meta: {authRequired: true},
 
     }

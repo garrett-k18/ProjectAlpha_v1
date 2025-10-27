@@ -36,6 +36,11 @@ def _clean_string(val: Optional[str]) -> Optional[str]:
     return val.strip()
 
 
+def _row_has_data(mapped_values: Dict[str, Optional[str]]) -> bool:
+    """Return True when at least one mapped field contains data."""
+    return any(value not in (None, '') for value in mapped_values.values())
+
+
 class Command(BaseCommand):
     help = 'Import StateBridge daily bankruptcy data from CSV file'
 
@@ -119,6 +124,8 @@ class Command(BaseCommand):
             'Active Bankruptcy': 'active_bankruptcy',
         }
 
+        skipped_blank_rows = 0  # Track rows that contain only delimiters (no actual data).
+
         try:
             with open(csv_file, 'r', encoding='utf-8-sig', newline='') as file:
                 reader = csv.DictReader(file)
@@ -141,6 +148,10 @@ class Command(BaseCommand):
                         for csv_col, model_field in FIELD_MAP.items():
                             if csv_col in row:
                                 kwargs[model_field] = _clean_string(row[csv_col])
+
+                        if not _row_has_data(kwargs):
+                            skipped_blank_rows += 1
+                            continue
 
                         batch.append(SBDailyBankruptcyData(**kwargs))
 
@@ -171,7 +182,7 @@ class Command(BaseCommand):
         # Final summary
         self.stdout.write(
             self.style.SUCCESS(
-                f"Import complete: processed={created_count}, errors={error_count}, dry_run={dry_run}"
+                f"Import complete: processed={created_count}, errors={error_count}, dry_run={dry_run}, skipped_blank_rows={skipped_blank_rows}"
             )
         )
 
@@ -188,27 +199,7 @@ class Command(BaseCommand):
             with transaction.atomic():
                 result = SBDailyBankruptcyData.objects.bulk_create(
                     instances,
-                    update_conflicts=True,
-                    update_fields=[
-                        field for field in [
-                            'asset_manager', 'investor_loan_id', 'previous_ln_num', 'acquisition_date',
-                            'loan_due_date', 'mba', 'legal', 'warning', 'chapter', 'case_number',
-                            'state_filed', 'filing_court', 'filing_borrower', 'joint_filer', 'trustee_name',
-                            'statebridge_atty_name', 'borrower_atty_name', 'bankruptcy_status',
-                            'prepetition_claim_amt', 'active_plan', 'plan_start_date', 'pre_petition_payment',
-                            'plan_length', 'projected_plan_end_date', 'actual_plan_completion_date',
-                            'last_pre_petition_payment_rcvd_date', 'last_payment_applied', 'pre_petition_balance',
-                            'stipulation_claim_amt', 'stipulation_date', 'stipulation_first_pmt_date',
-                            'stipulation_last_pmt_date', 'stipulation_monthly_pmt', 'stipulation_repay_months',
-                            'last_stipulation_payment_rcvd_date', 'first_post_petition_due_date',
-                            'next_post_petition_due_date', 'post_petition_pmt_amt', 'bk_case_closed_date',
-                            'bk_discharge_date', 'bk_dismissed_date', 'date_motion_for_relief_filed',
-                            'date_proof_of_claim_filed', 'date_of_meeting_of_creditors',
-                            'date_object_to_confirmation_filed', 'relief_date', 'bankruptcy_business_area_status',
-                            'bankruptcy_business_area_status_date', 'order_of_confirmation_date', 'active_bankruptcy'
-                        ]
-                    ],
-                    unique_fields=['loan_id', 'investor_id', 'bk_filed_date'],
+                    batch_size=len(instances),
                 )
                 
                 self.stdout.write(f"Processed batch: {len(instances)} rows")

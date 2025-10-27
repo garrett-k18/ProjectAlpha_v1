@@ -1,28 +1,58 @@
 <template>
-  <!-- AM Documents Tab: uses reusable quick view widget -->
+  <!-- 
+    WHAT: AM Documents Tab - full document management interface
+    WHY: Provides organized document access for asset management workflow
+    HOW: Composes DocumentManagerPanel with AM-specific view modes
+    WHERE: Used in AM loan-level tabs (frontend_vue/src/views/am_module/loanlvl/tabs/)
+  -->
   <b-row class="g-3 g-lg-4 px-3 px-lg-4">
     <b-col lg="12" class="d-flex">
       <div class="w-100 h-100">
-        <DocumentsQuickView title="All Documents" :docs="docItems" :maxItems="0" :showViewAll="false" />
+        <!-- WHAT: Reusable document manager panel -->
+        <!-- WHY: Consistent document UX across AM and Acquisitions modules -->
+        <!-- WHERE: Component at frontend_vue/src/components/document_components/DocumentManagerPanel.vue -->
+        <DocumentManagerPanel
+          :row="row"
+          :assetId="assetHubId ?? undefined"
+          :module="module"
+          :viewModesInput="viewModesAM"
+          initialViewId="by-type"
+        />
       </div>
     </b-col>
   </b-row>
+
+  <!-- Slot for future document viewer/details area if needed -->
   <slot />
 </template>
 
 <script setup lang="ts">
-import { withDefaults, defineProps, computed } from 'vue'
-import DocumentsQuickView from '@/components/DocumentsQuickView.vue'
-import type { DocumentItem } from '@/components/DocumentsQuickView.vue'
+// WHAT: AM Documents tab - composes reusable DocumentManagerPanel
+// WHY: Provides full document management features in asset management context
+// HOW: Imports DocumentManagerPanel and defines AM-specific view modes
+// WHERE: Used in AM loan-level modal tabs
+import { withDefaults, defineProps } from 'vue'
+import DocumentManagerPanel from '@/components/document_components/DocumentManagerPanel.vue'
+import type { ViewMode } from '@/components/document_components/types'
 
-withDefaults(defineProps<{ row?: Record<string, any> | null; assetHubId?: string | number | null }>(), {
+// WHAT: Component props interface
+// WHY: Accept row data and asset hub ID from parent LoanTabs component
+// HOW: Optional props with defaults for flexible usage
+withDefaults(defineProps<{
+  row?: Record<string, any> | null
+  assetHubId?: string | number
+  module?: 'acq' | 'am'
+}>(), {
   row: null,
-  assetHubId: null,
+  module: 'am',
 })
 
-const docItems = computed<DocumentItem[]>(() => [
-  { id: 'pdf-bpo', name: 'BPO.pdf', type: 'application/pdf', sizeBytes: Math.round(2.3 * 1024 * 1024), previewUrl: '#', downloadUrl: '#' },
-  { id: 'pdf-appraisal', name: 'Appraisal.pdf', type: 'application/pdf', sizeBytes: Math.round(3.25 * 1024 * 1024), previewUrl: '#', downloadUrl: '#' },
-  { id: 'doc-memo', name: 'Memo.docx', type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', sizeBytes: Math.round(7.05 * 1024 * 1024), previewUrl: '#', downloadUrl: '#' },
-])
+// WHAT: View modes configuration for AM Documents tab
+// WHY: Exclude 'by-trade' view (not relevant in asset-level context)
+// HOW: Define 3 view modes - by type (default), by status, and recent
+const viewModesAM: ViewMode[] = [
+  { id: 'by-type', label: 'By Document Type', icon: 'mdi mdi-file-document', description: 'Group by document category' },
+  { id: 'by-status', label: 'By Status', icon: 'mdi mdi-check-circle', description: 'Active, Archived, etc.' },
+  { id: 'recent', label: 'Recent', icon: 'mdi mdi-clock-outline', description: 'Recently uploaded' },
+]
 </script>

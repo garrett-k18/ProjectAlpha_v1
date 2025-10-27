@@ -21,7 +21,8 @@ HOW (high-level):
 from __future__ import annotations
 
 import csv
-from typing import Optional, Dict, Any, List
+import io
+from typing import Optional, Dict, Any, List, TextIO, Tuple
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
@@ -34,6 +35,55 @@ def _clean_string(val: Optional[str]) -> Optional[str]:
     if val is None or val.strip() == '':
         return None
     return val.strip()
+
+
+def _row_has_data(mapped_values: Dict[str, Optional[str]]) -> bool:
+    """Return True when at least one mapped field contains data."""
+    return any(value not in (None, '') for value in mapped_values.values())
+
+
+def _open_csv_with_fallback(
+    path: str,
+    encodings: List[str],
+) -> Tuple[TextIO, str]:
+    """Open CSV with encoding fallback, returning text handle and detected encoding."""
+    # Read the file once as bytes so we can retry decoding without reopening.
+    # Reference: Python codec docs https://docs.python.org/3/library/codecs.html#codecs.decode
+    with open(path, 'rb') as raw_file:
+        data = raw_file.read()
+
+    last_error: Optional[Exception] = None
+    for encoding in encodings:
+        try:
+            # Decode entire payload; failures raise UnicodeDecodeError which we capture.
+            text = data.decode(encoding)
+            # Wrap decoded text in StringIO so csv.DictReader gets a text stream while letting
+            # the csv module control newline handling (newline='' per
+            # https://docs.python.org/3/library/csv.html#csv.reader).
+            handle = io.StringIO(text, newline='')
+            return handle, encoding
+        except UnicodeDecodeError as decode_error:
+            last_error = decode_error
+            continue
+    if last_error is not None:
+        raise last_error
+    raise UnicodeDecodeError("", b"", 0, 0, "Unable to detect encoding")
+
+
+def _dedupe_instances(
+    instances: List[SBDailyForeclosureData],
+    unique_fields: List[str],
+) -> Tuple[List[SBDailyForeclosureData], int]:
+    """Return deduplicated instances and number of dropped duplicates."""
+    deduped: Dict[Tuple[Any, ...], SBDailyForeclosureData] = {}
+    for instance in instances:
+        # Build uniqueness key using the same fields enforced by the model constraint.
+        key = tuple(getattr(instance, field) for field in unique_fields)
+        # Later rows overwrite earlier ones so the last CSV occurrence wins.
+        deduped[key] = instance
+    deduped_list = list(deduped.values())
+    dropped_count = len(instances) - len(deduped_list)
+    return deduped_list, dropped_count
 
 
 class Command(BaseCommand):
@@ -132,8 +182,26 @@ class Command(BaseCommand):
             'First Legal Action Date': 'first_legal_action_date',
         }
 
+        # UNIQUE_FIELDS mirrors the model unique_together so we can pre-dedupe batches.
+        # PostgreSQL docs (https://www.postgresql.org/docs/current/sql-insert.html)
+        # note ON CONFLICT cannot affect the same row twice in one statement, hence dedupe.
+        UNIQUE_FIELDS: List[str] = ['loan_id', 'investor_id', 'file_date']
+
+        skipped_blank_rows = 0  # Track delimiter-only rows to avoid inserting empty snapshots.
+
         try:
-            with open(csv_file, 'r', encoding='utf-8-sig', newline='') as file:
+            csv_handle, active_encoding = _open_csv_with_fallback(
+                csv_file,
+                ['utf-8-sig', 'utf-8', 'cp1252', 'latin-1'],
+            )
+            with csv_handle as file:
+                if active_encoding not in {'utf-8', 'utf-8-sig'}:
+                    self.stderr.write(
+                        self.style.WARNING(
+                            f"Detected non-UTF8 encoding '{active_encoding}' for file: {csv_file}. "
+                            "Continuing with fallback decoding."
+                        )
+                    )
                 reader = csv.DictReader(file)
                 
                 # Validate CSV headers
@@ -155,11 +223,15 @@ class Command(BaseCommand):
                             if csv_col in row:
                                 kwargs[model_field] = _clean_string(row[csv_col])
 
+                        if not _row_has_data(kwargs):
+                            skipped_blank_rows += 1
+                            continue
+
                         batch.append(SBDailyForeclosureData(**kwargs))
 
                         # Process batch when it reaches batch_size
                         if len(batch) >= batch_size:
-                            created, errors = self._process_batch(batch, dry_run)
+                            created, errors = self._process_batch(batch, dry_run, UNIQUE_FIELDS)
                             created_count += created
                             error_count += errors
                             batch = []
@@ -172,7 +244,7 @@ class Command(BaseCommand):
 
                 # Process remaining batch
                 if batch:
-                    created, errors = self._process_batch(batch, dry_run)
+                    created, errors = self._process_batch(batch, dry_run, UNIQUE_FIELDS)
                     created_count += created
                     error_count += errors
 
@@ -184,23 +256,37 @@ class Command(BaseCommand):
         # Final summary
         self.stdout.write(
             self.style.SUCCESS(
-                f"Import complete: processed={created_count}, errors={error_count}, dry_run={dry_run}"
+                f"Import complete: processed={created_count}, errors={error_count}, dry_run={dry_run}, skipped_blank_rows={skipped_blank_rows}"
             )
         )
 
-    def _process_batch(self, instances: List[SBDailyForeclosureData], dry_run: bool) -> tuple[int, int]:
+    def _process_batch(
+        self,
+        instances: List[SBDailyForeclosureData],
+        dry_run: bool,
+        unique_fields: List[str],
+    ) -> tuple[int, int]:
         """Process a batch of instances."""
         if not instances:
             return 0, 0
 
+        # Deduplicate rows to avoid ON CONFLICT hitting same key multiple times in one bulk op.
+        deduped_instances, dropped_count = _dedupe_instances(instances, unique_fields)
+        if dropped_count:
+            self.stderr.write(
+                self.style.WARNING(
+                    f"Deduplicated {dropped_count} duplicate rows within batch for keys {unique_fields}"
+                )
+            )
+
         if dry_run:
-            self.stdout.write(f"Dry-run batch: would process {len(instances)} rows")
-            return len(instances), 0
+            self.stdout.write(f"Dry-run batch: would process {len(deduped_instances)} rows")
+            return len(deduped_instances), 0
 
         try:
             with transaction.atomic():
                 result = SBDailyForeclosureData.objects.bulk_create(
-                    instances,
+                    deduped_instances,
                     update_conflicts=True,
                     update_fields=[
                         field for field in [
@@ -220,15 +306,15 @@ class Command(BaseCommand):
                             'hold_start_date', 'hold_reason', 'hold_end_date', 'projected_fc_sale_date',
                             'scheduled_fc_sale_date', 'actual_fc_sale_date', 'bid_amount', 'sale_amount',
                             'sale_results', 'rrc_expired', 'fc_completion_date', 'deed_recorded',
-                            'first_legal_action_date', 'count'
+                            'first_legal_action_date'
                         ]
                     ],
                     unique_fields=['loan_id', 'investor_id', 'file_date'],
                 )
                 
-                self.stdout.write(f"Processed batch: {len(instances)} rows")
+                self.stdout.write(f"Processed batch: {len(deduped_instances)} rows")
                 return len(result), 0
 
         except Exception as e:
             self.stderr.write(self.style.ERROR(f"Batch insert failed: {e}"))
-            return 0, len(instances)
+            return 0, len(deduped_instances)

@@ -2,7 +2,7 @@
   <!--
     Quick Links Widget
     Compact navigation buttons for primary app areas
-    Component path: frontend_vue/src/views/home_dash/components/QuickLinksWidget.vue
+    Component path: frontend_vue/src/views/dashboards/home_dash/components/QuickLinksWidget.vue
   -->
   <div class="d-flex align-items-center gap-3 flex-wrap">
     <span class="text-muted fw-semibold">Quick Links:</span>

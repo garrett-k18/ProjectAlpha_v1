@@ -1,6 +1,13 @@
 <template>
   <Layout>
-    <Breadcrumb :title="title" :items="items" />
+    <!-- Page Title -->
+    <b-row>
+      <b-col cols="12">
+        <div class="page-title-box">
+          <h4 class="page-title">Calendar</h4>
+        </div>
+      </b-col>
+    </b-row>
 
     <b-row>
       <b-col cols="12">
@@ -18,68 +25,21 @@
                     <i class="mdi mdi-plus-circle-outline"></i> Create New Event
                   </b-button>
                 </div>
-                <div id="external-events" class="mt-3">
-                  <p class="text-muted">
-                    Drag and drop your event or click in the calendar
-                  </p>
+                <!-- Event Type Legend -->
+                <div class="mt-3">
+                  <h5 class="mb-3">Event Types</h5>
                   <div
-                    class="external-event bg-success-lighten text-success"
-                    data-class="bg-success"
+                    v-for="category in categories"
+                    :key="category.value"
+                    class="mb-2 d-flex align-items-center"
                   >
-                    <i
-                      class="mdi mdi-checkbox-blank-circle me-2 vertical-middle"
-                    ></i
-                    >New Theme Release
+                    <span
+                      class="badge me-2"
+                      :class="category.value"
+                      style="width: 20px; height: 20px; display: inline-block;"
+                    ></span>
+                    <span class="text-muted">{{ category.name }}</span>
                   </div>
-                  <div
-                    class="external-event bg-info-lighten text-info"
-                    data-class="bg-info"
-                  >
-                    <i
-                      class="mdi mdi-checkbox-blank-circle me-2 vertical-middle"
-                    ></i
-                    >My Event
-                  </div>
-                  <div
-                    class="external-event bg-warning-lighten text-warning"
-                    data-class="bg-warning"
-                  >
-                    <i
-                      class="mdi mdi-checkbox-blank-circle me-2 vertical-middle"
-                    ></i
-                    >Meet manager
-                  </div>
-                  <div
-                    class="external-event bg-danger-lighten text-danger"
-                    data-class="bg-danger"
-                  >
-                    <i
-                      class="mdi mdi-checkbox-blank-circle me-2 vertical-middle"
-                    ></i
-                    >Create New theme
-                  </div>
-                </div>
-
-                <div class="mt-5 d-none d-xl-block">
-                  <h5 class="text-center">How It Works ?</h5>
-
-                  <ul class="ps-3">
-                    <li class="text-muted mb-3">
-                      It has survived not only five centuries, but also the leap
-                      into electronic typesetting, remaining essentially
-                      unchanged.
-                    </li>
-                    <li class="text-muted mb-3">
-                      Richard McClintock, a Latin professor at Hampden-Sydney
-                      College in Virginia, looked up one of the more obscure
-                      Latin words, consectetur, from a Lorem Ipsum passage.
-                    </li>
-                    <li class="text-muted mb-3">
-                      It has survived not only five centuries, but also the leap
-                      into electronic typesetting, remaining essentially
-                      unchanged.
-                    </li>
-                  </ul>
                 </div>
               </b-col>
               <!-- end col-->
@@ -260,16 +220,32 @@ import Breadcrumb from "@/components/breadcrumb.vue";
 import FullCalendar from "@fullcalendar/vue3";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
-import interactionPlugin, { Draggable } from "@fullcalendar/interaction";
+import interactionPlugin from "@fullcalendar/interaction";
 import bootstrapPlugin from "@fullcalendar/bootstrap5";
 import listPlugin from "@fullcalendar/list";
 
-import { calendarEvents, categories } from "./data";
-import { type CalendarOptions } from "@fullcalendar/core";
+import { calendarEvents as demoEvents, categories } from "./data";
+import axios from '@/lib/http';  // Centralized axios instance
+import { type CalendarOptions, type EventInput } from "@fullcalendar/core";
+
+type EventForm = {
+  title: string;
+  category: string;
+};
+
+type EditEventForm = {
+  editTitle: string;
+  editCategory: string | string[];
+};
 
 export default {
   components: { Breadcrumb, Layout, FullCalendar },
   data() {
+    const normalizedDemoEvents: EventInput[] = demoEvents.map((event) => ({
+      ...event,
+      id: String(event.id),
+    }));
+
     return {
       title: "Calendar",
       items: [
@@ -290,20 +266,33 @@ export default {
       showModal: false,
       eventModal: false,
       categories: categories,
-      calendarEvents: calendarEvents,
+      demoEventInputs: normalizedDemoEvents,
+      calendarEvents: [...normalizedDemoEvents],
       submitted: false,
       submit: false,
       newEventData: {} as any,
       edit: {} as any,
       deleteId: {},
       event: {
-        title: "Add new event",
+        title: "",
         category: "bg-success",
-      },
+      } as EventForm,
       editevent: {
         editTitle: "",
-        editCategory: {},
-      },
+        editCategory: "bg-success",
+      } as EditEventForm,
+      // Map backend event types to Bootstrap color classes
+      // What: Converts semantic event types from backend to frontend styling
+      // Why: Separates backend data concerns from frontend presentation
+      // Where: Used in fetchCalendarEvents() to apply colors
+      // How: Backend sends event type, frontend applies matching color
+      eventColorMap: {
+        'actual_liquidation': 'bg-success',     // Green - actual FC sales
+        'projected_liquidation': 'bg-warning',  // Yellow - projected FC sales
+        'bid_date': 'bg-info',                  // Cyan - bid deadlines
+        'settlement_date': 'bg-dark',           // Dark - settlements
+        'milestone': 'bg-danger',               // Red - other milestones
+      } as Record<string, string>,
       calendarOptions: {
         plugins: [
           dayGridPlugin,
@@ -333,12 +322,15 @@ export default {
         themeSystem: "bootstrap",
         initialView: "dayGridMonth",
         handleWindowResize: true,
-        height: window.innerHeight - 200,
+        height: 'auto',  // Auto-adjust overall calendar height
+        aspectRatio: 1.35,  // Width-to-height ratio for consistent cell sizing
         weekends: true,
-        droppable: true,
+        droppable: false,  // Disable drag-drop since we removed external events
         editable: true,
         selectable: true,
-        events: calendarEvents,
+        dayMaxEvents: 3,  // Show max 3 events, then "+X more" link
+        moreLinkClick: 'popover',  // Show remaining events in popover when clicking "+more"
+        events: normalizedDemoEvents,
         eventClick: (arg) => {
           this.editEvent(arg);
         },
@@ -349,7 +341,63 @@ export default {
     };
   },
   methods: {
-    handleSubmit(e) {
+    /**
+     * Fetch calendar events from Django backend API
+     * 
+     * What: Loads events from /api/core/calendar/events/ endpoint
+     * Why: Display real data from models (ServicerLoanData, TradeLevelAssumption, etc.)
+     * Where: Called in mounted() hook on component load
+     * How: Fetches JSON, maps event types to colors, formats for FullCalendar
+     */
+    async fetchCalendarEvents() {
+      try {
+        // Note: baseURL is already '/api', so we don't include it in the path
+        const response = await axios.get('/core/calendar/events/');
+        
+        // Map backend events to FullCalendar format
+        // What: Transforms Django API response to FullCalendar event objects
+        // Why: FullCalendar expects specific format (start, classNames, etc.)
+        // How: Maps category to color class, formats date, adds metadata
+        const backendEvents = response.data.map((event: any) => ({
+          id: String(event.id),
+          title: event.title,
+          start: event.date,  // Backend sends YYYY-MM-DD format
+          allDay: true,       // All model-based events are all-day
+          classNames: [this.getEventColor(event.category)],  // Apply color based on type
+          extendedProps: {
+            description: event.description,
+            source_model: event.source_model,
+            editable: event.editable,
+            url: event.url,
+          },
+        }));
+        
+        // Set backend events as calendar events
+        this.calendarEvents = backendEvents;
+        this.calendarOptions.events = this.calendarEvents;
+        
+        console.log(`Loaded ${backendEvents.length} events from backend`);
+      } catch (error) {
+        console.error('Failed to fetch calendar events:', error);
+        // Empty calendar if API fails
+        this.calendarEvents = [];
+        this.calendarOptions.events = this.calendarEvents;
+      }
+    },
+    
+    /**
+     * Get Bootstrap color class for event type
+     * 
+     * What: Maps semantic event type to Bootstrap class
+     * Why: Backend sends types like 'foreclosure', frontend needs 'bg-danger'
+     * Where: Called during fetchCalendarEvents() for each event
+     * How: Looks up type in eventColorMap, defaults to bg-primary
+     */
+    getEventColor(eventType: string): string {
+      return this.eventColorMap[eventType as keyof typeof this.eventColorMap] || 'bg-primary';
+    },
+    
+    handleSubmit(e: Event) {
       this.submitted = true;
       const title = this.event.title;
       const category = this.event.category;
@@ -357,7 +405,7 @@ export default {
         return;
       } else {
         this.calendarEvents.push({
-          id: this.calendarEvents.length + 1,
+          id: String(this.calendarEvents.length + 1),
           title: title,
           start: this.newEventData.date,
           allDay: this.newEventData.allDay,
@@ -368,16 +416,22 @@ export default {
         this.newEventData = {} as any;
       }
       this.submitted = false;
-      this.event = {};
+      this.event = {
+        title: "",
+        category: "bg-success",
+      };
     },
 
-    hideModal(e) {
+    hideModal(e: Event) {
       this.submitted = false;
       this.showModal = false;
-      this.event = {};
+      this.event = {
+        title: "",
+        category: "bg-success",
+      };
     },
 
-    editSubmit(e) {
+    editSubmit(e: Event) {
       this.submit = true;
       const editTitle = this.editevent.editTitle;
       const editCategory = this.editevent.editCategory;
@@ -390,12 +444,12 @@ export default {
       var deleteId = this.edit.id;
 
       this.calendarOptions.events = (this.calendarOptions.events as any).filter(
-        (x) => "" + x.id !== "" + deleteId
+        (x: any) => "" + x.id !== "" + deleteId
       );
       this.eventModal = false;
     },
 
-    dateClicked(info) {
+    dateClicked(info: any) {
       this.newEventData = info;
       this.showModal = true;
     },
@@ -412,16 +466,24 @@ export default {
     },
   },
   mounted() {
-    new Draggable(document.getElementById("external-events")!, {
-      itemSelector: ".external-event",
-      eventData: function (eventEl) {
-        return {
-          title: eventEl.innerText,
-          start: new Date(),
-          className: eventEl.getAttribute("data-class"),
-        };
-      },
-    });
+    // Fetch calendar events from backend API
+    // What: Load real events from Django on component mount
+    // Why: Display actual data from ServicerLoanData, TradeLevelAssumption, etc.
+    // Where: Calls /api/core/calendar/events/ endpoint
+    // How: fetchCalendarEvents() handles API call and data mapping
+    this.fetchCalendarEvents();
   },
 };
 </script>
+
+<style scoped>
+/* Force consistent minimum height for all day cells */
+:deep(.fc-daygrid-day-frame) {
+  min-height: 160px !important;
+}
+
+/* Ensure event container has proper spacing */
+:deep(.fc-daygrid-day-events) {
+  min-height: 90px;
+}
+</style>
