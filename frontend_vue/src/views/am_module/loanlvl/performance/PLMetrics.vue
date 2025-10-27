@@ -1610,8 +1610,15 @@ async function fetchPerformanceData() {
     
     console.log('PLMetrics: Data loaded successfully', data)
   } catch (err: any) {
-    console.error('PLMetrics: Failed to fetch performance data', err)
-    error.value = err.response?.data?.detail || 'Failed to load performance data'
+    // WHAT: Handle 404 gracefully - it just means no performance data exists yet
+    // WHY: Not all assets have BlendedOutcomeModel records (only modeled assets)
+    if (err.response?.status === 404) {
+      console.warn('PLMetrics: No performance data found for this asset')
+      error.value = 'No performance data available for this asset. This data is populated during acquisition modeling.'
+    } else {
+      console.error('PLMetrics: Failed to fetch performance data', err)
+      error.value = err.response?.data?.detail || 'Failed to load performance data'
+    }
   } finally {
     loading.value = false
   }
@@ -1619,14 +1626,20 @@ async function fetchPerformanceData() {
 
 // WHAT: Fetch data on component mount
 // WHY: Load data when component first renders
+// HOW: Only fetch if assetHubId is provided (not null)
 onMounted(() => {
-  fetchPerformanceData()
+  if (props.assetHubId) {
+    fetchPerformanceData()
+  }
 })
 
 // WHAT: Watch assetHubId changes
 // WHY: Refetch data if user switches to different asset
-watch(() => props.assetHubId, () => {
-  fetchPerformanceData()
+// HOW: Only fetch when assetHubId becomes truthy (not null/undefined)
+watch(() => props.assetHubId, (newId) => {
+  if (newId) {
+    fetchPerformanceData()
+  }
 })
 </script>
 

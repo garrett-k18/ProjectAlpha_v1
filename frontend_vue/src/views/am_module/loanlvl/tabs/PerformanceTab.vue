@@ -50,9 +50,6 @@ const props = withDefaults(defineProps<{
   row: null,
   assetHubId: null,
 })
-
-// DEBUG: Log what we receive
-console.log('PerformanceTab - Received assetHubId:', props.assetHubId)
 </script>
 
 <style scoped>

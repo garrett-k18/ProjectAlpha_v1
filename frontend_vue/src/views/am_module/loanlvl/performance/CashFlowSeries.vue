@@ -417,12 +417,20 @@ function scrollToCurrentPeriod() {
   tableContainer.value.scrollLeft = scrollPosition
 }
 
+// WHAT: Fetch data on mount if assetHubId is available
+// WHY: Prevent unnecessary API calls when component loads without context
 onMounted(() => {
-  fetchCashFlowData()
+  if (props.assetHubId) {
+    fetchCashFlowData()
+  }
 })
 
-watch(() => props.assetHubId, () => {
-  fetchCashFlowData()
+// WHAT: Watch for assetHubId changes
+// WHY: Refetch when user navigates to different asset
+watch(() => props.assetHubId, (newId) => {
+  if (newId) {
+    fetchCashFlowData()
+  }
 })
 </script>
 
