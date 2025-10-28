@@ -57,33 +57,11 @@ class Trade(models.Model):
         return f"Trade for {self.seller.name}"
 
     def save(self, *args, **kwargs):
-        """Auto-generate `trade_name` only when it is left blank.
-
-        Behavior:
-        - If `trade_name` is empty on save, generate '<SellerNameNoSpecials> - MM.DD.YY' (with sequence if needed).
-        - If a value is provided (via admin/API), keep the user-provided value.
-        - Uses local date at save time for the default naming scheme.
+        """Save trade instance.
+        
+        Note: Trade name generation moved to ETL process for better context and AI integration.
+        If trade_name is blank, it should be set by the ETL process before saving.
         """
-        if not self.trade_name:
-            # Remove all non-alphanumeric characters from the seller's name (keep case)
-            base_name = re.sub(r"[^A-Za-z0-9]", "", self.seller.name or "")
-            # Use local date in MM.DD.%y format
-            date_str = timezone.localdate().strftime("%m.%d.%y")
-            base_prefix = f"{base_name} - {date_str}"
-
-            # Determine next sequence number for this seller and date, e.g., " - 2", " - 3"
-            existing_count = type(self).objects.filter(
-                seller=self.seller,
-                trade_name__startswith=base_prefix,
-            ).count()
-
-            # First one: no suffix. Subsequent ones: " - 2", " - 3", etc.
-            suffix = "" if existing_count == 0 else f" - {existing_count + 1}"
-
-            generated = f"{base_prefix}{suffix}"
-            # Ensure we don't exceed the DB max_length constraint
-            self.trade_name = generated[:100]
-
         super().save(*args, **kwargs)
 
     class Meta:
@@ -169,8 +147,22 @@ class SellerRawData(models.Model):
         related_name='acq_raw',
         help_text='1:1 with hub; this model\'s PK equals the hub ID.',
     )
-    seller = models.ForeignKey(Seller, on_delete=models.CASCADE, related_name='seller_raw_data')
-    trade = models.ForeignKey(Trade, on_delete=models.CASCADE, related_name='seller_raw_data')
+    seller = models.ForeignKey(
+        Seller,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='seller_raw_data',
+        help_text='Nullable reference so Seller deletions preserve this raw row.'
+    )
+    trade = models.ForeignKey(
+        Trade,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='seller_raw_data',
+        help_text='Nullable reference so Trade deletions keep the raw asset record.'
+    )
     # WHAT: Unique loan identifier from seller's tape (primary identifier)
     # WHY: CharField to handle any format - numbers, letters, dashes, etc. (e.g., "ABC-123-456", "9160091924")
     # HOW: Max 100 chars covers all seller tape ID formats
@@ -188,9 +180,9 @@ class SellerRawData(models.Model):
     acq_status = models.CharField(
         max_length=20,
         choices=AcquisitionStatus.choices,
-        default=AcquisitionStatus.PASS,
+        default=AcquisitionStatus.DD,
         db_index=True,
-        help_text='Acquisition lifecycle status (Pass, DD, Drop, Awarded, Board).'
+        help_text='Acquisition lifecycle status (Pass, DD, Drop, Awarded, Board); defaults to Due Diligence.'
     )
     as_of_date = models.DateField(null=True, blank=True)
     
@@ -412,4 +404,18 @@ class SellerRawData(models.Model):
             trade.refresh_status_from_assets()
 
     def __str__(self):
-        return f"Seller Raw Data {self.pk} - {self.seller.name} - {self.trade.trade_name}"
+        """Return a safe, human-readable label for admin and logs."""
+        # WHAT: Resolve seller name while guarding against null FK after Seller deletion
+        seller_name = (
+            self.seller.name  # HOW: Use actual seller name when FK still populated
+            if self.seller is not None
+            else "Unassigned Seller"  # WHY: Provide fallback label when FK was nulled
+        )
+        # WHAT: Resolve trade name while handling nullable FK to avoid AttributeError in admin lists
+        trade_name = (
+            self.trade.trade_name  # HOW: Surface trade title for clarity in UI lists
+            if self.trade is not None
+            else "Unassigned Trade"  # WHY: Keep string informative even when FK missing
+        )
+        # RETURN: Include primary key plus resolved names to match previous display format safely
+        return f"Seller Raw Data {self.pk} - {seller_name} - {trade_name}"
