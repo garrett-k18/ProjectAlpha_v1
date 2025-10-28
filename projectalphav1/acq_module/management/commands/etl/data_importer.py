@@ -25,6 +25,7 @@ from django.utils.dateparse import parse_date
 from acq_module.models.seller import SellerRawData, Seller, Trade
 from core.models import AssetIdHub
 from .ai_seller_matcher import AISellerMatcher
+from .ai_mapper import validate_choice_value
 
 logger = logging.getLogger(__name__)
 
@@ -106,13 +107,18 @@ class DataImporter:
         """
         # Get or create seller and trade
         if not seller or not trade:
+            logger.info('Getting or creating seller and trade...')
             seller, trade = self.get_or_create_seller_trade(file_path)
+            logger.info(f'Seller: {seller.name} (ID: {seller.id}), Trade: {trade.trade_name} (ID: {trade.id})')
 
         # Detect per-row seller/trade columns
+        logger.info('Detecting per-row columns...')
         self._detect_per_row_columns(df)
 
         # Transform and validate data
+        logger.info(f'Transforming {len(df)} rows...')
         records, errors = self._transform_data(df, column_mapping, seller, trade)
+        logger.info(f'Transformation complete: {len(records)} valid records, {len(errors)} errors')
 
         if self.stdout:
             self.stdout.write(f'      [OK] Valid records: {len(records)}\n')
@@ -132,14 +138,19 @@ class DataImporter:
     def get_or_create_seller_trade(self, file_path: Optional[Path] = None) -> Tuple[Seller, Trade]:
         """
         WHAT: Get existing or create new Seller and Trade records
-        WHY: Common workflow is to upload data before creating seller/trade records
-        HOW: Uses IDs if provided, otherwise creates based on name or intelligent defaults
+        WHY: Simplified flow - always get/create seller, always create NEW trade
+        HOW: Seller is reused if exists, Trade is ALWAYS newly created (never overwrites)
 
         Args:
             file_path: File path for auto-generating seller name (optional)
 
         Returns:
             Tuple of (Seller, Trade)
+        
+        LOGIC:
+        1. Seller: Get existing or create new (by name)
+        2. Trade: ALWAYS create new (with manual name or auto-generated name)
+        3. NEVER overwrite existing trade data
         """
         # SCENARIO 1: Both IDs provided - use existing records
         if self.seller_id and self.trade_id:
@@ -156,8 +167,8 @@ class DataImporter:
             except Trade.DoesNotExist:
                 raise ValueError(f'Trade with ID {self.trade_id} does not exist')
 
-        # SCENARIO 2: Auto-create mode
-        if self.auto_create:
+        # SCENARIO 2: Get or create seller (simplified - no auto_create flag needed)
+        if True:  # Always execute this path unless IDs provided
             # Use AI seller matching if enabled
             if self._ai_matcher:
                 if self.stdout:
@@ -192,55 +203,43 @@ class DataImporter:
                     else:
                         self.stdout.write(f'[OK] Using existing Seller: {seller.name} (ID: {seller.id})\n')
 
-            # Generate intelligent trade name using AI matcher
-            if self._ai_matcher:
-                trade_name = self._ai_matcher.generate_trade_name(
-                    seller=seller,
-                    email_data=self.email_data,
-                    file_path=file_path
-                )
+            # TRADE CREATION: ALWAYS create NEW trade (NEVER overwrite existing)
+            # Determine trade name
+            if self.trade_name:
+                # User provided manual trade name - use it exactly
+                base_trade_name = self.trade_name
+                if self.stdout:
+                    self.stdout.write(f'[TRADE] Using manual trade name: {base_trade_name}\n')
             else:
-                # Fallback trade name generation (same simple format)
+                # Auto-generate trade name with timestamp
                 from datetime import datetime
                 seller_clean = re.sub(r'[^A-Za-z0-9\s]', '', seller.name).replace(' ', '')
                 date_str = datetime.now().strftime('%m.%d.%y')
-                trade_name = f"{seller_clean} - {date_str}"
-
-            # Create trade with generated name
-            trade = Trade.objects.create(seller=seller, trade_name=trade_name)
+                base_trade_name = f"{seller_clean} - {date_str}"
+                if self.stdout:
+                    self.stdout.write(f'[TRADE] Auto-generated trade name: {base_trade_name}\n')
+            
+            # Check if trade name exists and add suffix if needed
+            final_trade_name = base_trade_name
+            suffix = 2
+            while Trade.objects.filter(seller=seller, trade_name=final_trade_name).exists():
+                final_trade_name = f"{base_trade_name} -{suffix}"
+                suffix += 1
+                if self.stdout:
+                    self.stdout.write(f'[TRADE] Trade name exists, trying: {final_trade_name}\n')
+            
+            # ALWAYS create NEW trade (never get existing)
+            trade = Trade.objects.create(
+                seller=seller,
+                trade_name=final_trade_name
+            )
             if self.stdout:
-                self.stdout.write(f'[OK] Created new Trade: {trade.trade_name} (ID: {trade.id})\n')
+                self.stdout.write(f'[OK] Created NEW Trade: {trade.trade_name} (ID: {trade.id})\n')
 
             return seller, trade
 
-        # SCENARIO 3: Seller name provided without auto-create - lookup only
-        if self.seller_name:
-            try:
-                seller = Seller.objects.get(name=self.seller_name)
-                # Get most recent trade for this seller
-                trade = seller.trades.latest('created_at')
-                if self.stdout:
-                    self.stdout.write(
-                        f'[OK] Found Seller: {seller.name} (ID: {seller.id}), '
-                        f'using latest Trade: {trade.trade_name}\n'
-                    )
-                return seller, trade
-            except Seller.DoesNotExist:
-                raise ValueError(
-                    f'Seller "{self.seller_name}" not found. Use --auto-create to create it automatically.'
-                )
-            except Trade.DoesNotExist:
-                raise ValueError(
-                    f'Seller "{self.seller_name}" has no trades. Use --auto-create to create a new trade.'
-                )
-
-        # SCENARIO 4: No seller/trade info provided at all
-        raise ValueError(
-            'Must provide either:\n'
-            '  1. --seller-id and --trade-id (use existing records)\n'
-            '  2. --seller-name --auto-create (auto-create new records)\n'
-            '  3. --auto-create (auto-create with filename as seller name)'
-        )
+        # Should never reach here
+        raise ValueError('Invalid seller/trade configuration')
 
     def _detect_per_row_columns(self, df: pd.DataFrame):
         """
@@ -419,6 +418,25 @@ class DataImporter:
 
         return seller or default_seller, trade or default_trade
 
+    def _clean_choice_field(self, value: Any, field_name: str) -> Optional[str]:
+        """
+        WHAT: Clean and validate choice field values using AI
+        WHY: Prevent database constraint violations from invalid ETL data
+        HOW: Delegates to AI-powered validation in ai_mapper module
+        
+        Args:
+            value: Raw value from Excel/CSV
+            field_name: Name of the model field
+            
+        Returns:
+            Valid choice value or None
+        """
+        if pd.isna(value) or value == '' or value == '-':
+            return None
+        
+        # Use AI validation from ai_mapper module (respects --no-ai flag)
+        return validate_choice_value(field_name, str(value), use_ai=self.use_ai_seller_matching)
+
     def _convert_value(self, value: Any, field) -> Any:
         """Convert value to appropriate type for Django model field"""
         field_type = field.get_internal_type()
@@ -486,8 +504,17 @@ class DataImporter:
                     return None
             return None
 
-        # Char fields
+        # Char fields - apply choice validation for fields with choices
         elif field_type in ['CharField', 'TextField', 'EmailField']:
+            field_name = field.name if hasattr(field, 'name') else ''
+            
+            # Apply choice field cleaning for known choice fields
+            if field_name in ['property_type', 'product_type', 'occupancy', 'asset_status']:
+                cleaned_value = self._clean_choice_field(value, field_name)
+                if cleaned_value is None:
+                    return None
+                value = cleaned_value
+            
             return str(value)[:field.max_length] if hasattr(field, 'max_length') else str(value)
 
         # Default

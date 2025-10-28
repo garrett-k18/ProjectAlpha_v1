@@ -28,6 +28,7 @@ export const useStratsStore = defineStore('strats', () => {
   const debtBandsByKey = ref<Record<string, StratBand[]>>({}) // total_debt bands cache
   const asisBandsByKey = ref<Record<string, StratBand[]>>({}) // seller_asis_value bands cache
   const wacBandsByKey = ref<Record<string, StratBand[]>>({}) // interest_rate (WAC) bands cache
+  const defaultRateBandsByKey = ref<Record<string, StratBand[]>>({}) // default_rate bands cache
   const propertyTypeBandsByKey = ref<Record<string, StratBand[]>>({}) // property_type bands cache
   const occupancyBandsByKey = ref<Record<string, StratBand[]>>({}) // occupancy bands cache
   const delinquencyBandsByKey = ref<Record<string, StratBand[]>>({}) // delinquency bands cache
@@ -43,6 +44,9 @@ export const useStratsStore = defineStore('strats', () => {
   const loadingWac = ref<boolean>(false)       // WAC loading
   const errorWac = ref<string | null>(null)    // WAC error
   const lastWacKey = ref<string | null>(null)  // last WAC key
+  const loadingDefaultRate = ref<boolean>(false)    // Default rate loading
+  const errorDefaultRate = ref<string | null>(null) // Default rate error
+  const lastDefaultRateKey = ref<string | null>(null) // last default rate key
   const loadingPropertyType = ref<boolean>(false) // property_type loading
   const errorPropertyType = ref<string | null>(null) // property_type error
   const lastPropertyTypeKey = ref<string | null>(null) // last property_type key
@@ -58,6 +62,7 @@ export const useStratsStore = defineStore('strats', () => {
   const ctrlTD = ref<AbortController | null>(null)
   const ctrlAsis = ref<AbortController | null>(null)
   const ctrlWac = ref<AbortController | null>(null)
+  const ctrlDefaultRate = ref<AbortController | null>(null)
   const ctrlProp = ref<AbortController | null>(null)
   const ctrlOcc = ref<AbortController | null>(null)
   const ctrlDel = ref<AbortController | null>(null)
@@ -75,6 +80,9 @@ export const useStratsStore = defineStore('strats', () => {
     loadingWac.value = false
     errorWac.value = null
     lastWacKey.value = null
+    loadingDefaultRate.value = false
+    errorDefaultRate.value = null
+    lastDefaultRateKey.value = null
     loadingPropertyType.value = false
     errorPropertyType.value = null
     lastPropertyTypeKey.value = null
@@ -89,10 +97,39 @@ export const useStratsStore = defineStore('strats', () => {
     try { ctrlTD.value?.abort() } catch {}
     try { ctrlAsis.value?.abort() } catch {}
     try { ctrlWac.value?.abort() } catch {}
+    try { ctrlDefaultRate.value?.abort() } catch {}
     try { ctrlProp.value?.abort() } catch {}
     try { ctrlOcc.value?.abort() } catch {}
     try { ctrlDel.value?.abort() } catch {}
-    ctrlCB.value = ctrlTD.value = ctrlAsis.value = ctrlWac.value = ctrlProp.value = ctrlOcc.value = ctrlDel.value = null
+    ctrlCB.value = ctrlTD.value = ctrlAsis.value = ctrlWac.value = ctrlDefaultRate.value = ctrlProp.value = ctrlOcc.value = ctrlDel.value = null
+  }
+
+  // Fetch Default Rate stratification bands for a selection
+  async function fetchBandsDefaultRate(sellerId: number, tradeId: number): Promise<StratBand[]> {
+    const key = `${sellerId}:${tradeId}`
+    {
+      const cached = defaultRateBandsByKey.value[key]
+      if (Array.isArray(cached) && cached.length > 0) return cached
+    }
+    try { ctrlDefaultRate.value?.abort() } catch {}
+    ctrlDefaultRate.value = new AbortController()
+    loadingDefaultRate.value = true
+    errorDefaultRate.value = null
+    try {
+      const resp = await http.get(`/acq/summary/strat/default-rate/${sellerId}/${tradeId}/`, { signal: ctrlDefaultRate.value.signal })
+      const data = Array.isArray(resp.data) ? (resp.data as StratBand[]) : []
+      defaultRateBandsByKey.value[key] = data
+      lastDefaultRateKey.value = key
+      return data
+    } catch (e: any) {
+      errorDefaultRate.value = e?.response?.data?.error || e?.message || 'Failed to fetch Default Rate stratification'
+      lastDefaultRateKey.value = null
+      defaultRateBandsByKey.value[key] = []
+      return []
+    } finally {
+      loadingDefaultRate.value = false
+      ctrlDefaultRate.value = null
+    }
   }
 
   // Fetch Delinquency stratification bands for a selection (categorical by days past due)
@@ -336,6 +373,13 @@ export const useStratsStore = defineStore('strats', () => {
     return wacBandsByKey.value[key] || []
   }
 
+  // Getter for Default Rate bands
+  function getBandsDefaultRate(sellerId: number | null, tradeId: number | null): StratBand[] {
+    if (!sellerId || !tradeId) return []
+    const key = `${sellerId}:${tradeId}`
+    return defaultRateBandsByKey.value[key] || []
+  }
+
   // Getter for Property Type bands
   function getBandsPropertyType(sellerId: number | null, tradeId: number | null): StratBand[] {
     if (!sellerId || !tradeId) return []
@@ -362,6 +406,7 @@ export const useStratsStore = defineStore('strats', () => {
     debtBandsByKey.value = {}
     asisBandsByKey.value = {}
     wacBandsByKey.value = {}
+    defaultRateBandsByKey.value = {}
     propertyTypeBandsByKey.value = {}
     occupancyBandsByKey.value = {}
     reset()
@@ -373,6 +418,7 @@ export const useStratsStore = defineStore('strats', () => {
     debtBandsByKey,
     asisBandsByKey,
     wacBandsByKey,
+    defaultRateBandsByKey,
     propertyTypeBandsByKey,
     occupancyBandsByKey,
     delinquencyBandsByKey,
@@ -388,6 +434,9 @@ export const useStratsStore = defineStore('strats', () => {
     loadingWac,
     errorWac,
     lastWacKey,
+    loadingDefaultRate,
+    errorDefaultRate,
+    lastDefaultRateKey,
     loadingPropertyType,
     errorPropertyType,
     lastPropertyTypeKey,
@@ -402,6 +451,7 @@ export const useStratsStore = defineStore('strats', () => {
     fetchBandsTotalDebt,
     fetchBandsSellerAsIs,
     fetchBandsWac,
+    fetchBandsDefaultRate,
     fetchBandsPropertyType,
     fetchBandsOccupancy,
     fetchBandsDelinquency,
@@ -412,6 +462,7 @@ export const useStratsStore = defineStore('strats', () => {
     getBandsTotalDebt,
     getBandsSellerAsIs,
     getBandsWac,
+    getBandsDefaultRate,
     getBandsPropertyType,
     getBandsOccupancy,
     getBandsDelinquency,

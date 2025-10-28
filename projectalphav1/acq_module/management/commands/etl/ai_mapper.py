@@ -279,3 +279,132 @@ class ConfiguredMapper:
     def map(self, **kwargs) -> Dict[str, str]:
         """Return pre-configured mapping"""
         return self.mapping
+
+
+# Cache for AI validation results to avoid repeated API calls
+_AI_VALIDATION_CACHE: Dict[str, Optional[str]] = {}
+
+def validate_choice_value(field_name: str, value: str, use_ai: bool = True) -> Optional[str]:
+    """
+    WHAT: Validate and clean choice field values using AI
+    WHY: Handle variations, typos, and ambiguous values in ETL data
+    HOW: Uses Claude to semantically match values to valid model choices
+    
+    Args:
+        field_name: Model field name (e.g., 'occupancy', 'property_type')
+        value: Raw value from Excel/CSV
+        use_ai: Enable AI validation (default: True)
+        
+    Returns:
+        Valid choice value or None
+        
+    Example:
+        >>> validate_choice_value('occupancy', 'No')
+        'Vacant'
+        >>> validate_choice_value('property_type', 'Single Family')
+        'SFR'
+    """
+    if not value or not isinstance(value, str):
+        return None
+        
+    value = value.strip()
+    if not value or value == '-':
+        return None
+    
+    # Define valid choices for each field (matches model constraints)
+    FIELD_CHOICES = {
+        'property_type': ['SFR', 'Manufactured', 'Condo', 'Townhouse', '2-4 Family', 
+                         'Land', 'Multifamily 5+', 'Industrial', 'Mixed Use', 'Storage', 'Healthcare'],
+        'product_type': ['BPL', 'HECM', 'VA', 'Conv', 'Commercial'],
+        'occupancy': ['Vacant', 'Occupied', 'Unknown'],
+        'asset_status': ['NPL', 'REO', 'PERF', 'RPL'],
+    }
+    
+    # Return as-is for non-choice fields
+    if field_name not in FIELD_CHOICES:
+        return value
+        
+    valid_choices = FIELD_CHOICES[field_name]
+    
+    # Exact match (case-sensitive)
+    if value in valid_choices:
+        return value
+        
+    # Case-insensitive match
+    for choice in valid_choices:
+        if value.upper() == choice.upper():
+            return choice
+    
+    # Use AI if enabled and API key available
+    if not use_ai:
+        return None
+        
+    api_key = os.getenv('ANTHROPIC_API_KEY')
+    if not api_key:
+        return None
+    
+    # Check cache first to avoid repeated API calls
+    cache_key = f"{field_name}:{value}"
+    if cache_key in _AI_VALIDATION_CACHE:
+        logger.info(f'AI validation cache hit for {field_name}="{value}"')
+        return _AI_VALIDATION_CACHE[cache_key]
+    
+    try:
+        logger.info(f'AI validating {field_name}="{value}" (calling Claude API...)')
+        client = anthropic.Anthropic(api_key=api_key)
+        
+        # Build AI prompt for choice validation
+        prompt = f"""Map this value to the correct choice for the {field_name} field.
+
+INVALID VALUE: "{value}"
+
+VALID CHOICES:
+{json.dumps(valid_choices)}
+
+INSTRUCTIONS:
+1. Determine which valid choice best matches the invalid value
+2. Consider synonyms, abbreviations, and semantic meaning
+3. Return ONLY the exact valid choice string, nothing else
+4. If no good match exists, return "null"
+
+EXAMPLES:
+- For occupancy: "No" -> "Vacant", "Yes" -> "Occupied"
+- For property_type: "Single Family" -> "SFR", "Duplex" -> "2-4 Family"
+
+Return only the matched choice or "null"."""
+
+        message = client.messages.create(
+            model="claude-opus-4-20250514",
+            max_tokens=50,
+            temperature=0,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        
+        # Extract response
+        response_text = ""
+        for block in message.content:
+            if hasattr(block, 'text'):
+                response_text += block.text
+            elif isinstance(block, dict) and 'text' in block:
+                response_text += block['text']
+        
+        response_text = response_text.strip().strip('"')
+        
+        # Validate response is in valid choices
+        result = None
+        if response_text in valid_choices:
+            result = response_text
+        elif response_text.lower() == 'null':
+            result = None
+        
+        # Cache the result
+        _AI_VALIDATION_CACHE[cache_key] = result
+        logger.info(f'AI validation result cached: {field_name}="{value}" -> {result}')
+        return result
+            
+    except Exception as e:
+        logger.warning(f'AI choice validation failed for {field_name}={value}: {e}')
+        # Cache the failure too
+        _AI_VALIDATION_CACHE[cache_key] = None
+    
+    return None

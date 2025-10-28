@@ -50,10 +50,14 @@ def import_seller_tape(request):
             )
         
         uploaded_file: UploadedFile = request.FILES['file']
-        seller_name = request.data.get('seller_name', '').strip()
-        trade_name = request.data.get('trade_name', '').strip()
-        auto_create = request.data.get('auto_create', 'true').lower() == 'true'
-        dry_run = request.data.get('dry_run', 'false').lower() == 'true'
+        # Use request.POST for multipart/form-data (not request.data)
+        seller_name = request.POST.get('seller_name', '').strip()
+        trade_name = request.POST.get('trade_name', '').strip()
+        dry_run = request.POST.get('dry_run', 'false').lower() == 'true'
+        
+        # Debug logging
+        logger.info(f'Import request - seller_name: {seller_name}, trade_name: {trade_name}, dry_run: {dry_run}')
+        logger.info(f'POST data: {dict(request.POST)}')
         
         # Validate seller name
         if not seller_name:
@@ -96,9 +100,6 @@ def import_seller_tape(request):
             if trade_name:
                 cmd.extend(['--trade-name', trade_name])
             
-            if auto_create:
-                cmd.append('--auto-create')
-            
             if dry_run:
                 cmd.append('--dry-run')
             
@@ -117,11 +118,37 @@ def import_seller_tape(request):
             
             # Check if command succeeded
             if result.returncode == 0:
+                # Parse output to extract seller/trade IDs and stats
+                output = result.stdout
+                seller_id = None
+                trade_id = None
+                records_imported = 0
+                
+                # Extract seller ID from output like "Created new Seller: HUD (ID: 123)"
+                import re
+                seller_match = re.search(r'Seller.*\(ID: (\d+)\)', output)
+                if seller_match:
+                    seller_id = int(seller_match.group(1))
+                
+                # Extract trade ID from output like "Created NEW Trade: HUD - 10.28.25 (ID: 456)"
+                trade_match = re.search(r'Trade.*\(ID: (\d+)\)', output)
+                if trade_match:
+                    trade_id = int(trade_match.group(1))
+                
+                # Extract record count from output like "Created: 50, Updated: 0, Skipped: 0"
+                records_match = re.search(r'Created: (\d+)', output)
+                if records_match:
+                    records_imported = int(records_match.group(1))
+                
                 # Success
                 return Response({
                     'success': True,
-                    'message': 'Import completed successfully!',
-                    'output': result.stdout,
+                    'message': f'Successfully imported {records_imported} records!',
+                    'seller_id': seller_id,
+                    'trade_id': trade_id,
+                    'seller_name': seller_name,
+                    'records_imported': records_imported,
+                    'output': output,
                     'dry_run': dry_run
                 })
             else:

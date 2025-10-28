@@ -108,8 +108,10 @@ class SellerRawDataRowSerializer(serializers.Serializer):
     # Borrower fields
     borrower1_last = serializers.CharField(allow_null=True, allow_blank=True)
     borrower1_first = serializers.CharField(allow_null=True, allow_blank=True)
+    borrower1_full_name = serializers.CharField(allow_null=True, allow_blank=True)
     borrower2_last = serializers.CharField(allow_null=True, allow_blank=True)
     borrower2_first = serializers.CharField(allow_null=True, allow_blank=True)
+    borrower2_full_name = serializers.CharField(allow_null=True, allow_blank=True)
 
     # Direct seller valuation fields (from SellerRawData model)
     seller_asis_value = serializers.DecimalField(max_digits=15, decimal_places=2, allow_null=True)

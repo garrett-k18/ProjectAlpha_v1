@@ -97,8 +97,9 @@ export const useAgGridRowsStore = defineStore('agGridRows', () => {
       // Endpoint implemented by Django: GET /api/acq/raw-data/<sellerId>/<tradeId>/?view=<view>
       // Now returns paginated DRF response: { results: [...], count, next, previous }
       // Pass view parameter to filter by drop status
+      // Request large page_size to get all assets (backend max is 500)
       const resp = await http.get<{ results: GridRow[]; count: number; next: string | null; previous: string | null }>(`/acq/raw-data/${sellerId}/${tradeId}/`, {
-        params: { view },
+        params: { view, page_size: 500 },
         signal: currentController.signal as any,
         timeout: 20000,
       })

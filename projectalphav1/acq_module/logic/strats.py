@@ -280,8 +280,79 @@ def current_balance_stratification_dynamic(
         # Keep zero-count bands visible to maintain consistent 5-band layout
         return results
 
-    # Per product decision: no equal-frequency fallback; return empty if no rule match.
-    return []
+
+def default_rate_stratification_static(
+    seller_id: int,
+    trade_id: int,
+) -> List[Dict[str, object]]:
+    """Return static bands for `default_rate` (fractional) with counts and sums.
+
+    Mirrors :func:`wac_stratification_static` but targets ``SellerRawData.default_rate``.
+    Product requested identical fractional thresholds: <3%, 3-6%, 6-9%, 9-12%, >12%.
+
+    Docs reviewed (per standards):
+    - Django aggregation: https://docs.djangoproject.com/en/stable/topics/db/aggregation/
+    - Decimal quantize: https://docs.python.org/3/library/decimal.html#decimal.Decimal.quantize
+    """
+
+    qs = sellertrade_qs(seller_id, trade_id).exclude(default_rate__isnull=True)
+    zero_dec = Value(Decimal("0.00"), output_field=DecimalField(max_digits=15, decimal_places=2))
+    edges = [Decimal("0.03"), Decimal("0.06"), Decimal("0.09"), Decimal("0.12")]
+    total_bands = len(edges) + 1
+
+    def pct_label(lo: Optional[Decimal], hi: Optional[Decimal], idx: int, total: int) -> str:
+        def fmt(x: Optional[Decimal]) -> str:
+            if x is None:
+                return ""
+            return f"{int((x * 100).quantize(Decimal('1'), rounding=ROUND_HALF_UP))}%"
+
+        if idx == 1 and hi is not None:
+            return f"< {fmt(hi)}"
+        if idx == total and lo is not None:
+            return f"> {fmt(lo)}"
+        if lo is not None and hi is not None:
+            return f"{fmt(lo)} – {fmt(hi)}"
+        if lo is not None:
+            return f"> {fmt(lo)}"
+        if hi is not None:
+            return f"< {fmt(hi)}"
+        return "N/A"
+
+    results: List[Dict[str, object]] = []
+    for i in range(total_bands):
+        if i == 0:
+            lo: Optional[Decimal] = None
+            hi: Optional[Decimal] = edges[0]
+            bin_qs = qs.filter(default_rate__lt=hi)
+        elif i == total_bands - 1:
+            lo = edges[-1]
+            hi = None
+            bin_qs = qs.filter(default_rate__gte=lo)
+        else:
+            lo = edges[i - 1]
+            hi = edges[i]
+            bin_qs = qs.filter(default_rate__gte=lo, default_rate__lt=hi)
+
+        cnt = bin_qs.count()
+        aggs = bin_qs.aggregate(
+            upb=Coalesce(Sum("current_balance"), zero_dec),
+            td=Coalesce(Sum("total_debt"), zero_dec),
+            asis=Coalesce(Sum("seller_asis_value"), zero_dec),
+        )
+        label = pct_label(lo, hi, i + 1, total_bands)
+        results.append({
+            "key": str(i + 1),
+            "index": i + 1,
+            "lower": lo,
+            "upper": hi,
+            "count": int(cnt),
+            "sum_current_balance": aggs.get("upb") or Decimal("0.00"),
+            "sum_total_debt": aggs.get("td") or Decimal("0.00"),
+            "sum_seller_asis_value": aggs.get("asis") or Decimal("0.00"),
+            "label": label,
+        })
+
+    return results
 
 # ---------------------------------------------------------------------------
 # Delinquency (Days DLQ) stratification (categorical ranges)
@@ -425,24 +496,15 @@ def property_type_stratification_categorical(
     # Index aggregated results by code for fast lookup
     by_code: Dict[str, Dict[str, object]] = {r["property_type"]: r for r in rows}
 
-    # Preserve choice order from the model. Include zero-count placeholders for missing categories.
+    # Only include property types that have data (skip zero-count placeholders)
     results: List[Dict[str, object]] = []
     idx = 1
     for code, label in getattr(SellerRawData, "PROPERTY_TYPE_CHOICES", []) or []:
         r = by_code.get(code)
         if r is None:
-            # Build a zeroed row to keep UI consistent even if category absent
-            results.append({
-                "key": str(code),
-                "index": idx,
-                "lower": None,
-                "upper": None,
-                "count": 0,
-                "sum_current_balance": Decimal("0.00"),
-                "sum_total_debt": Decimal("0.00"),
-                "sum_seller_asis_value": Decimal("0.00"),
-                "label": str(label),
-            })
+            # Skip zero-count rows to minimize frontend space
+            idx += 1
+            continue
         else:
             results.append({
                 "key": str(code),
@@ -506,24 +568,20 @@ def occupancy_stratification_categorical(
     """
     # Local import to avoid circulars at app load time
     from ..models.seller import SellerRawData
+    from django.db.models.functions import Coalesce as CoalesceFunc
 
-    # Base queryset filtered by selection; exclude null/blank occupancy
-    qs = (
-        sellertrade_qs(seller_id, trade_id)
-        .exclude(occupancy__isnull=True)
-        .exclude(occupancy__exact="")
-    )
-
-    # If no matching rows for selection, return empty list for predictable UI
-    if not qs.exists():
-        return []
+    # Base queryset filtered by selection; treat null/blank occupancy as "Unknown"
+    qs = sellertrade_qs(seller_id, trade_id)
 
     # Typed zero for Decimal sums so JSON serializer yields strings consistently
     zero_dec = Value(Decimal("0.00"), output_field=DecimalField(max_digits=15, decimal_places=2))
 
-    # Aggregate in a single query by occupancy
+    # Aggregate in a single query by occupancy, coalescing null/blank to "Unknown"
     rows = (
-        qs.values("occupancy")
+        qs.annotate(
+            occupancy_normalized=CoalesceFunc("occupancy", Value("Unknown"))
+        )
+        .values("occupancy_normalized")
         .annotate(
             count=Count("pk"),  # Use pk since SellerRawData primary key is asset_hub (no 'id' field)
             sum_current_balance=Coalesce(Sum("current_balance"), zero_dec),
@@ -532,8 +590,8 @@ def occupancy_stratification_categorical(
         )
     )
 
-    # Index rows by occupancy code for fast lookup during ordered assembly
-    by_code: Dict[str, Dict[str, object]] = {r["occupancy"]: r for r in rows}
+    # Index rows by normalized occupancy code for fast lookup during ordered assembly
+    by_code: Dict[str, Dict[str, object]] = {r["occupancy_normalized"]: r for r in rows}
 
     # Walk model choices in order to build the results, inserting zero rows for
     # categories missing from the dataset so the UI always shows a stable table.
@@ -617,10 +675,6 @@ def wac_stratification_static(
     """
     # Base queryset: exclude null interest rates to avoid skewed bands
     qs = sellertrade_qs(seller_id, trade_id).exclude(interest_rate__isnull=True)
-
-    # If empty, return no bands
-    if not qs.exists():
-        return []
 
     # Typed zero for Decimal sums
     zero_dec = Value(Decimal("0.00"), output_field=DecimalField(max_digits=15, decimal_places=2))

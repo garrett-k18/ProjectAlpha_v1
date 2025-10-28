@@ -176,8 +176,8 @@ const cols: Record<string, ColDef> = {
   current_balance: { headerName: 'Current Balance', field: 'current_balance', valueFormatter: currency0 },
   interest_rate: { headerName: 'Interest Rate', field: 'interest_rate', valueFormatter: percentFmt },
   total_debt: { headerName: 'Total Debt', field: 'total_debt', valueFormatter: currency0 },
-  months_dlq: { headerName: 'Months DLQ', field: 'months_dlq' },
-  next_due_date: { headerName: 'Next Due Date', field: 'next_due_date', valueFormatter: dateFmt },
+  months_dlq: { headerName: 'Months DLQ', field: 'months_dlq', width: 100 },
+  next_due_date: { headerName: 'Next Due Date', field: 'next_due_date', width: 110, valueFormatter: dateFmt },
   // Flag badges with requested colors: Yes=red, No=yellow
   fc_flag: {
     headerName: 'FC Flag',
@@ -209,7 +209,7 @@ const cols: Record<string, ColDef> = {
   internal_initial_uw_value_date: { headerName: 'Internal UW Value Date', field: 'internal_initial_uw_value_date', valueFormatter: dateFmt },
   // Additional date and property fields
   
-  product_type: { headerName: 'Product Type', field: 'product_type' },
+  product_type: { headerName: 'Product Type', field: 'product_type' ,width: 110},
   year_built: { headerName: 'Year Built', field: 'year_built',width: 90 },
   sq_ft: { headerName: 'Sq Ft', field: 'sq_ft',width: 90, valueFormatter: (p: any) => p.value ? new Intl.NumberFormat().format(p.value) : '' },
   lot_size: { headerName: 'Lot Size', field: 'lot_size', width: 90, valueFormatter: (p: any) => p.value ? new Intl.NumberFormat().format(p.value) : '' },
@@ -220,10 +220,18 @@ const cols: Record<string, ColDef> = {
   origination_date: { headerName: 'Origination Date', field: 'origination_date', valueFormatter: dateFmt },
   last_paid_date: { headerName: 'Last Paid Date', field: 'last_paid_date', valueFormatter: dateFmt },
   // Borrower fields
-  borrower1_last: { headerName: 'Borrower 1 Last', field: 'borrower1_last' },
-  borrower1_first: { headerName: 'Borrower 1 First', field: 'borrower1_first' },
-  borrower2_last: { headerName: 'Borrower 2 Last', field: 'borrower2_last' },
-  borrower2_first: { headerName: 'Borrower 2 First', field: 'borrower2_first' },
+  borrower1_name: {
+    headerName: 'Borrower 1',
+    field: 'borrower1_full_name',
+    headerClass: ['ag-left-aligned-header', 'text-start'],
+    cellClass: ['ag-left-aligned-cell', 'text-start'],
+  },
+  borrower2_name: {
+    headerName: 'Borrower 2',
+    field: 'borrower2_full_name',
+    headerClass: ['ag-left-aligned-header', 'text-start'],
+    cellClass: ['ag-left-aligned-cell', 'text-start'],
+  },
   // Additional valuation fields
   origination_arv: { headerName: 'Origination ARV', field: 'origination_arv', valueFormatter: currency0 },
   origination_value_date: { headerName: 'Origination Value Date', field: 'origination_value_date', valueFormatter: dateFmt },
@@ -269,6 +277,72 @@ const cols: Record<string, ColDef> = {
 /* --------------------------------------------------------------------------
  * View presets – simple arrays of keys from cols map
  * -------------------------------------------------------------------------- */
+const OPTIONAL_REMOVABLE_FIELDS_ALL_VIEW = new Set<string>([
+  'origination_arv',
+  'additional_asis_value',
+  'additional_arv_value',
+  'additional_value_date',
+  'deferred_balance',
+  'first_pay_date',
+  'original_term',
+  'original_rate',
+  'original_maturity_date',
+  'default_rate',
+  'current_maturity_date',
+  'current_term',
+  'accrued_note_interest',
+  'accrued_default_interest',
+  'escrow_balance',
+  'escrow_advance',
+  'recoverable_corp_advance',
+  'late_fees',
+  'other_fees',
+  'suspense_balance',
+  'fc_first_legal_date',
+  'fc_referred_date',
+  'fc_judgement_date',
+  'fc_scheduled_sale_date',
+  'fc_sale_date',
+  'fc_starting',
+  'bk_chapter',
+  'mod_date',
+  'mod_maturity_date',
+  'mod_term',
+  'mod_rate',
+  'mod_initial_balance',
+])
+
+const ALWAYS_VISIBLE_FIELDS_ALL_VIEW = new Set<string>([
+  'zip',
+  'as_of_date',
+  'property_type',
+  'occupancy',
+  'asset_status',
+  'seller_asis_value',
+  'seller_arv_value',
+  'origination_value',
+  'seller_value_date',
+  'current_balance',
+  'interest_rate',
+  'total_debt',
+  'months_dlq',
+  'next_due_date',
+  'fc_flag',
+  'bk_flag',
+  'mod_flag',
+  'product_type',
+  'year_built',
+  'sq_ft',
+  'lot_size',
+  'beds',
+  'baths',
+  'original_balance',
+  'origination_date',
+  'last_paid_date',
+  'borrower1_full_name',
+  'borrower2_full_name',
+])
+
 const presets: Record<'snapshot' | 'all' | 'valuations' | 'drops', ColDef[]> = {
   snapshot: [
     cols.asset_status,
@@ -312,7 +386,72 @@ const presets: Record<'snapshot' | 'all' | 'valuations' | 'drops', ColDef[]> = {
     cols.bk_flag,
     // TODO: Add drop_reason, drop_date columns when backend model is updated
   ],
-  all: Object.values(cols),
+  all: [
+    // WHAT: Curated "All" view – keep data tape essentials without flooding grid
+    // WHY: Object.values(cols) produced >60 columns, breaking auto-sizing and UX
+    // HOW: Blend categorical, financial, borrower, and foreclosure data in logical blocks
+    cols.zip,
+    cols.as_of_date,
+    cols.property_type,
+    cols.occupancy,
+    cols.asset_status,
+    cols.seller_asis_value,
+    cols.seller_arv_value,
+    cols.origination_value,
+    cols.seller_value_date,
+    cols.current_balance,
+    cols.interest_rate,
+    cols.total_debt,
+    cols.months_dlq,
+    cols.next_due_date,
+    cols.fc_flag,
+    cols.bk_flag,
+    cols.mod_flag,
+    cols.product_type,
+    cols.year_built,
+    cols.sq_ft,
+    cols.lot_size,
+    cols.beds,
+    cols.baths,
+    cols.original_balance,
+    cols.origination_date,
+    cols.last_paid_date,
+    cols.borrower1_name,
+    cols.borrower2_name,
+    cols.origination_arv,
+    cols.origination_value_date,
+    cols.additional_asis_value,
+    cols.additional_arv_value,
+    cols.additional_value_date,
+    cols.deferred_balance,
+    cols.first_pay_date,
+    cols.original_term,
+    cols.original_rate,
+    cols.original_maturity_date,
+    cols.default_rate,
+    cols.current_maturity_date,
+    cols.current_term,
+    cols.accrued_note_interest,
+    cols.accrued_default_interest,
+    cols.escrow_balance,
+    cols.escrow_advance,
+    cols.recoverable_corp_advance,
+    cols.late_fees,
+    cols.other_fees,
+    cols.suspense_balance,
+    cols.fc_first_legal_date,
+    cols.fc_referred_date,
+    cols.fc_judgement_date,
+    cols.fc_scheduled_sale_date,
+    cols.fc_sale_date,
+    cols.fc_starting,
+    cols.bk_chapter,
+    cols.mod_date,
+    cols.mod_maturity_date,
+    cols.mod_term,
+    cols.mod_rate,
+    cols.mod_initial_balance,
+  ],
 }
 
 /* -------------------------------------------------------------------------- */
@@ -326,11 +465,43 @@ const viewTitle = computed(() => {
   }
   return titles[activeView.value]
 })
-const columnDefs = ref<ColDef[]>([...constantColumns, ...presets[activeView.value]])
+const columnDefs = ref<ColDef[]>(buildColumnsForView(activeView.value))
+
+function columnHasMeaningfulData(field?: string): boolean {
+  if (!field) return true
+  const rows = rowData.value
+  if (!Array.isArray(rows) || rows.length === 0) return true
+  return rows.some((row: Record<string, any>) => {
+    const value = row[field]
+    if (value === null || value === undefined) return false
+    if (typeof value === 'string') return value.trim() !== ''
+    return true
+  })
+}
+
+function pruneOptionalColumns(columns: ColDef[]): ColDef[] {
+  if (activeView.value !== 'all') return columns
+  return columns.filter((col: ColDef) => {
+    const field = typeof col.field === 'string' ? col.field : undefined
+    if (!field) return true
+    if (ALWAYS_VISIBLE_FIELDS_ALL_VIEW.has(field)) return true
+    if (!OPTIONAL_REMOVABLE_FIELDS_ALL_VIEW.has(field)) return true
+    return columnHasMeaningfulData(field)
+  })
+}
+
+function buildColumnsForView(view: 'snapshot' | 'all' | 'valuations' | 'drops'): ColDef[] {
+  const baseColumns = [...constantColumns, ...presets[view]]
+  return pruneOptionalColumns(baseColumns)
+}
+
+function refreshColumnDefs(): void {
+  columnDefs.value = buildColumnsForView(activeView.value)
+  nextTick(() => updateGridSize())
+}
 
 function applyView(): void {
-  columnDefs.value = [...constantColumns, ...presets[activeView.value]]
-  nextTick(() => updateGridSize())
+  refreshColumnDefs()
 }
 
 /* --------------------------------------------------------------------------
@@ -370,8 +541,7 @@ watch([selectedSellerId, selectedTradeId, activeView], () => {
 
 // React to data changes to trigger auto-sizing
 watch(rowData, () => {
-  // When data loads, re-run auto-sizing to ensure columns fit the actual data
-  updateGridSize()
+  refreshColumnDefs()
 }, { flush: 'post' })
 
 function onGridReady(e: GridReadyEvent) {

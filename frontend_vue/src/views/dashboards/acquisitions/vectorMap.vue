@@ -13,7 +13,29 @@
     <div class="card-body pt-0">
       <b-row>
         <b-col lg="8">
+          <!-- Loading spinner overlay -->
+          <div v-if="markersLoading" class="position-relative" style="min-height: 300px;">
+            <div class="d-flex flex-column align-items-center justify-content-center h-100 position-absolute w-100" style="z-index: 10;">
+              <div class="spinner-border text-primary mb-2" role="status">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+              <p class="text-muted mb-0">Fetching Map Markers...</p>
+            </div>
+            <!-- Show faded map behind spinner -->
+            <div style="opacity: 0.3;">
+              <BaseVectorMap
+                :key="mapKey"
+                id="acq-vector-map"
+                class="mt-3 mb-3"
+                :map-height="300"
+                :options="mapOptions"
+                :markers="[]"
+              />
+            </div>
+          </div>
+          <!-- Normal map when not loading -->
           <BaseVectorMap
+            v-else
             :key="mapKey"
             id="acq-vector-map"
             class="mt-3 mb-3"
@@ -121,6 +143,10 @@ export default {
     },
     selectedTradeId(): number | null {
       const v = (this.acqStore as any).selectedTradeId
+      return typeof v?.value !== 'undefined' ? v.value : v
+    },
+    markersLoading(): boolean {
+      const v = (this.acqStore as any).loadingMarkers
       return typeof v?.value !== 'undefined' ? v.value : v
     },
     /**

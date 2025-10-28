@@ -39,7 +39,7 @@ from ..serializers.serial_acq_dataTable import (
     SellerRawDataDetailSerializer,
     SellerRawDataFieldsSerializer,
 )
-from ..services.seller_data import build_queryset
+from ..services.serv_acq_sellerData import build_queryset
 from ..logic.summarystats import (
     states_for_selection,
     state_count_for_selection,
@@ -56,6 +56,7 @@ from ..logic.strats import (
     seller_asis_value_stratification_dynamic,
     judicial_stratification_dynamic,
     wac_stratification_static,
+    default_rate_stratification_static,
     property_type_stratification_categorical,
     occupancy_stratification_categorical,
     delinquency_stratification_categorical,
@@ -333,6 +334,14 @@ def get_seller_asis_value_stratification(request, seller_id: int, trade_id: int)
 def get_wac_stratification(request, seller_id: int, trade_id: int):
     try:
         return JsonResponse(wac_stratification_static(seller_id, trade_id), safe=False)
+    except Exception:
+        return JsonResponse([], safe=False)
+
+
+@api_view(["GET"])  # Default rate strat (static)
+def get_default_rate_stratification(request, seller_id: int, trade_id: int):
+    try:
+        return JsonResponse(default_rate_stratification_static(seller_id, trade_id), safe=False)
     except Exception:
         return JsonResponse([], safe=False)
 

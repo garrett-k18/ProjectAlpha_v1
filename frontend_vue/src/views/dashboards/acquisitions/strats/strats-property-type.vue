@@ -1,10 +1,10 @@
 <template>
-  <div class="card h-100">
+  <div class="card">
     <div class="d-flex card-header justify-content-between align-items-center">
       <h4 class="header-title">Property Type</h4>
     </div>
 
-    <div :class="['card-body', 'pt-0', 'pb-3', hasRows ? 'strat-card-body' : '']">
+    <div class="card-body pt-0 pb-0">
       <!-- Error state -->
       <div v-if="errorPropertyType" class="alert alert-danger d-flex align-items-center my-3" role="alert">
         <i class="mdi mdi-alert-circle-outline me-2"></i>
@@ -25,8 +25,8 @@
       </div>
 
       <!-- Borderless grid-table: rows are property types -->
-      <div v-else class="mt-2">
-        <div class="table-responsive">
+      <div v-else class="mt-2 mb-0">
+        <div class="table-responsive mb-0">
           <table class="table table-borderless table-striped align-middle mb-0 bands-table">
             <thead class="text-uppercase text-muted small">
               <tr>
@@ -133,11 +133,8 @@ function formatCurrencyNoDecimals(n: number): string {
   --bs-table-striped-color: inherit; /* keep text color normal */
 }
 
-/* Ensure consistent vertical size across strat cards by reserving space.
-   Uses minimal custom CSS per project rules; prefers utilities otherwise. */
-.strat-card-body {
-  min-height: 280px; /* base height when content exists */
-  display: flex;
-  flex-direction: column;
+/* Force card body to not expand beyond content */
+.card-body {
+  overflow: hidden;
 }
 </style>

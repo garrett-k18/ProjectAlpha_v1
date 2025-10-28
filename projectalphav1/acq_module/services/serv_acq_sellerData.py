@@ -11,7 +11,8 @@ Docs reviewed:
 from __future__ import annotations
 
 from typing import Optional
-from django.db.models import QuerySet, Q
+from django.db.models import QuerySet, Q, F, Value, Case, When, CharField
+from django.db.models.functions import Concat
 from ..models.seller import SellerRawData
 
 # Fields used by quick filter 'q' - common searchable text fields
@@ -64,6 +65,63 @@ def build_queryset(
         .filter(seller_id=seller_id, trade_id=trade_id)
         .select_related('seller', 'trade', 'asset_hub')  # Optimize joins for serializer access
         .prefetch_related('asset_hub__valuations')  # Bring valuations into memory for serializer
+        .annotate(  # Annotate borrower full names so serializer stays thin (no formatting logic)
+            borrower1_full_name=Case(
+                # Both last and first present -> join as "Last, First"
+                When(
+                    borrower1_last__isnull=False,
+                    borrower1_last__gt='',
+                    borrower1_first__isnull=False,
+                    borrower1_first__gt='',
+                    then=Concat(
+                        F('borrower1_last'),
+                        Value(', '),
+                        F('borrower1_first'),
+                        output_field=CharField(),
+                    ),
+                ),
+                # Only last present -> show last
+                When(
+                    borrower1_last__isnull=False,
+                    borrower1_last__gt='',
+                    then=F('borrower1_last'),
+                ),
+                # Only first present -> show first
+                When(
+                    borrower1_first__isnull=False,
+                    borrower1_first__gt='',
+                    then=F('borrower1_first'),
+                ),
+                default=Value(''),
+                output_field=CharField(),
+            ),
+            borrower2_full_name=Case(
+                When(
+                    borrower2_last__isnull=False,
+                    borrower2_last__gt='',
+                    borrower2_first__isnull=False,
+                    borrower2_first__gt='',
+                    then=Concat(
+                        F('borrower2_last'),
+                        Value(', '),
+                        F('borrower2_first'),
+                        output_field=CharField(),
+                    ),
+                ),
+                When(
+                    borrower2_last__isnull=False,
+                    borrower2_last__gt='',
+                    then=F('borrower2_last'),
+                ),
+                When(
+                    borrower2_first__isnull=False,
+                    borrower2_first__gt='',
+                    then=F('borrower2_first'),
+                ),
+                default=Value(''),
+                output_field=CharField(),
+            ),
+        )
     )
     
     # Filter by acquisition status based on view

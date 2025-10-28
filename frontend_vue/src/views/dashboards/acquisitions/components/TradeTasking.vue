@@ -20,67 +20,82 @@
 
       <!-- Values / BPOs -->
       <template v-else>
-        <div class="status-item mb-3">
-          <div class="d-flex justify-content-between align-items-center mb-1">
-            <span class="fw-semibold">Values / BPOs</span>
-            <span class="badge" :class="progressBadgeClass(valuesCompleted, totalAssets)">
-              {{ valuesCompleted }} / {{ totalAssets }}
-            </span>
+        <router-link to="/acquisitions/valuation-center" class="status-item-link mb-3">
+          <div class="status-item">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <div class="d-flex align-items-center">
+                <i class="ri-line-chart-line me-2 text-primary fs-4"></i>
+                <span class="fw-semibold fs-5">Valuation Center</span>
+              </div>
+              <span class="badge" :class="progressBadgeClass(valuesCompleted, totalAssets)">
+                {{ valuesCompleted }} / {{ totalAssets }}
+              </span>
+            </div>
+            <div class="progress" style="height: 8px;">
+              <div 
+                class="progress-bar" 
+                :class="progressBarClass(valuesCompleted, totalAssets)"
+                role="progressbar" 
+                :style="{width: progressPercent(valuesCompleted, totalAssets) + '%'}"
+                :aria-valuenow="valuesCompleted" 
+                :aria-valuemin="0" 
+                :aria-valuemax="totalAssets"
+              ></div>
+            </div>
           </div>
-          <div class="progress" style="height: 8px;">
-            <div 
-              class="progress-bar" 
-              :class="progressBarClass(valuesCompleted, totalAssets)"
-              role="progressbar" 
-              :style="{width: progressPercent(valuesCompleted, totalAssets) + '%'}"
-              :aria-valuenow="valuesCompleted" 
-              :aria-valuemin="0" 
-              :aria-valuemax="totalAssets"
-            ></div>
-          </div>
-        </div>
+        </router-link>
 
         <!-- Collateral Checks -->
-        <div class="status-item mb-3">
-          <div class="d-flex justify-content-between align-items-center mb-1">
-            <span class="fw-semibold">Collateral Checks</span>
-            <span class="badge" :class="progressBadgeClass(collateralCompleted, totalAssets)">
-              {{ collateralCompleted }} / {{ totalAssets }}
-            </span>
+        <router-link to="/acquisitions/collateral-center" class="status-item-link mb-3">
+          <div class="status-item">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <div class="d-flex align-items-center">
+                <i class="ri-home-4-line me-2 text-success fs-4"></i>
+                <span class="fw-semibold fs-5">Collateral Center</span>
+              </div>
+              <span class="badge" :class="progressBadgeClass(collateralCompleted, totalAssets)">
+                {{ collateralCompleted }} / {{ totalAssets }}
+              </span>
+            </div>
+            <div class="progress" style="height: 8px;">
+              <div 
+                class="progress-bar" 
+                :class="progressBarClass(collateralCompleted, totalAssets)"
+                role="progressbar" 
+                :style="{width: progressPercent(collateralCompleted, totalAssets) + '%'}"
+                :aria-valuenow="collateralCompleted" 
+                :aria-valuemin="0" 
+                :aria-valuemax="totalAssets"
+              ></div>
+            </div>
           </div>
-          <div class="progress" style="height: 8px;">
-            <div 
-              class="progress-bar" 
-              :class="progressBarClass(collateralCompleted, totalAssets)"
-              role="progressbar" 
-              :style="{width: progressPercent(collateralCompleted, totalAssets) + '%'}"
-              :aria-valuenow="collateralCompleted" 
-              :aria-valuemin="0" 
-              :aria-valuemax="totalAssets"
-            ></div>
-          </div>
-        </div>
+        </router-link>
 
         <!-- Title Checks -->
-        <div class="status-item mb-2">
-          <div class="d-flex justify-content-between align-items-center mb-1">
-            <span class="fw-semibold">Title Checks</span>
-            <span class="badge" :class="progressBadgeClass(titleCompleted, totalAssets)">
-              {{ titleCompleted }} / {{ totalAssets }}
-            </span>
+        <router-link to="/acquisitions/title-center" class="status-item-link mb-2">
+          <div class="status-item">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <div class="d-flex align-items-center">
+                <i class="ri-file-shield-line me-2 text-info fs-4"></i>
+                <span class="fw-semibold fs-5">Title Center</span>
+              </div>
+              <span class="badge" :class="progressBadgeClass(titleCompleted, totalAssets)">
+                {{ titleCompleted }} / {{ totalAssets }}
+              </span>
+            </div>
+            <div class="progress" style="height: 8px;">
+              <div 
+                class="progress-bar" 
+                :class="progressBarClass(titleCompleted, totalAssets)"
+                role="progressbar" 
+                :style="{width: progressPercent(titleCompleted, totalAssets) + '%'}"
+                :aria-valuenow="titleCompleted" 
+                :aria-valuemin="0" 
+                :aria-valuemax="totalAssets"
+              ></div>
+            </div>
           </div>
-          <div class="progress" style="height: 8px;">
-            <div 
-              class="progress-bar" 
-              :class="progressBarClass(titleCompleted, totalAssets)"
-              role="progressbar" 
-              :style="{width: progressPercent(titleCompleted, totalAssets) + '%'}"
-              :aria-valuenow="titleCompleted" 
-              :aria-valuemin="0" 
-              :aria-valuemax="totalAssets"
-            ></div>
-          </div>
-        </div>
+        </router-link>
       </template>
     </div>
   </div>
@@ -188,6 +203,27 @@ watch([selectedSellerId, selectedTradeId], () => fetchMetrics())
 </script>
 
 <style scoped>
+/* Status item link styling */
+.status-item-link {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+  transition: all 0.2s ease;
+  border-radius: 0.375rem;
+  padding: 0.75rem;
+  margin-left: -0.75rem;
+  margin-right: -0.75rem;
+}
+
+.status-item-link:hover {
+  background-color: rgba(0, 0, 0, 0.02);
+  transform: translateX(4px);
+}
+
+.status-item-link:hover .status-item {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
 /* Status item styling */
 .status-item {
   transition: all 0.2s ease;

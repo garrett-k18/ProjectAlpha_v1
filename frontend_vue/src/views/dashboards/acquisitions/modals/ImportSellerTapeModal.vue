@@ -92,19 +92,6 @@
           <div class="col-12">
             <div class="form-check">
               <input
-                v-model="autoCreate"
-                class="form-check-input"
-                type="checkbox"
-                id="autoCreateCheck"
-              />
-              <label class="form-check-label" for="autoCreateCheck">
-                Auto-create seller and trade if they don't exist
-              </label>
-            </div>
-          </div>
-          <div class="col-12">
-            <div class="form-check">
-              <input
                 v-model="dryRun"
                 class="form-check-input"
                 type="checkbox"
@@ -169,7 +156,7 @@
       <button
         v-if="step === 'results'"
         class="btn btn-success"
-        @click="$emit('close')"
+        @click="handleDone"
       >
         Done
       </button>
@@ -193,7 +180,7 @@ interface SellerOption {
 // Emits
 const emit = defineEmits<{
   close: []
-  success: []
+  success: [payload?: { sellerId: number; tradeId: number }]
   refresh: []
 }>()
 
@@ -206,7 +193,6 @@ const fileInput = ref<HTMLInputElement | null>(null) // WHAT: Hidden input refer
 // Import options
 const sellerName = ref('') // WHAT: Seller name used for backend processing
 const tradeName = ref('') // WHAT: Optional trade label override supplied by user
-const autoCreate = ref(true) // WHAT: Checkbox state instructing backend to create seller/trade if missing
 const dryRun = ref(false) // WHAT: Checkbox state toggling preview-only mode
 const sellerOptions = ref<SellerOption[]>([]) // WHAT: Cached list of seller dropdown options
 const selectedSellerId = ref<number | 'manual'>('manual') // WHAT: Currently chosen seller id or manual flag
@@ -218,6 +204,7 @@ const processingMessage = ref('Uploading file and analyzing columns...') // WHAT
 const importSuccess = ref(false) // WHAT: Tracks whether backend reported success
 const importResults = ref('') // WHAT: Success payload provided by backend
 const importError = ref('') // WHAT: Error payload provided by backend
+const importedData = ref<{ sellerId: number; tradeId: number } | null>(null) // WHAT: Store imported IDs for auto-selection
 
 /**
  * WHAT: Apply dropdown selection to local state and auto-create toggle.
@@ -226,12 +213,10 @@ const importError = ref('') // WHAT: Error payload provided by backend
 const applySellerSelection = (nextValue: number | 'manual'): void => {
   if (nextValue === 'manual') {
     sellerName.value = ''
-    autoCreate.value = true
     return
   }
   const match = sellerOptions.value.find((option) => option.id === nextValue)
   sellerName.value = match?.name ?? ''
-  autoCreate.value = false
 }
 
 /**
@@ -257,7 +242,7 @@ const fetchSellerOptions = async (): Promise<void> => {
   }
 }
 
-// WHAT: React to dropdown changes to keep sellerName/autoCreate synced.
+// WHAT: React to dropdown changes to keep sellerName synced.
 watch(selectedSellerId, (nextValue) => applySellerSelection(nextValue))
 
 // WHAT: Prime seller dropdown on mount so users see options immediately.
@@ -320,7 +305,6 @@ async function startImport() {
     formData.append('file', selectedFile.value)
     formData.append('seller_name', sellerName.value)
     if (tradeName.value) formData.append('trade_name', tradeName.value)
-    formData.append('auto_create', autoCreate.value.toString())
     formData.append('dry_run', dryRun.value.toString())
 
     // Call backend API endpoint (to be created)
@@ -331,8 +315,24 @@ async function startImport() {
     // Success
     step.value = 'results'
     importSuccess.value = true
-    importResults.value = response.data.message || 'Import completed successfully!'
-    emit('success')
+    
+    // Build detailed success message
+    const data = response.data
+    let successMsg = data.message || 'Import completed successfully!'
+    if (data.seller_name) {
+      successMsg += `\n\nSeller: ${data.seller_name}`
+    }
+    if (data.records_imported) {
+      successMsg += `\nRecords: ${data.records_imported}`
+    }
+    importResults.value = successMsg
+    
+    // Store imported IDs for auto-selection when user clicks Done
+    if (data.seller_id && data.trade_id) {
+      importedData.value = { sellerId: data.seller_id, tradeId: data.trade_id }
+    }
+    
+    // Refresh data but don't auto-close
     emit('refresh')
   } catch (error: any) {
     // Error - show detailed error message
@@ -360,6 +360,18 @@ async function startImport() {
 }
 
 /**
+ * Handle Done button - emit success with IDs and close
+ */
+function handleDone() {
+  if (importedData.value) {
+    emit('success', importedData.value)
+  } else {
+    emit('success')
+  }
+  emit('close')
+}
+
+/**
  * Reset modal to initial state
  */
 function resetModal() {
@@ -367,11 +379,11 @@ function resetModal() {
   selectedFile.value = null
   sellerName.value = ''
   tradeName.value = ''
-  autoCreate.value = true
   dryRun.value = false
   importSuccess.value = false
   importResults.value = ''
   importError.value = ''
+  importedData.value = null
   selectedSellerId.value = 'manual'
   applySellerSelection('manual')
 }

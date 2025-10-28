@@ -17,6 +17,7 @@ from .views.view_seller_data import (
     get_total_debt_stratification,
     get_seller_asis_value_stratification,
     get_wac_stratification,
+    get_default_rate_stratification,
     get_judicial_stratification,
     get_property_type_stratification,
     get_occupancy_stratification,
@@ -57,7 +58,7 @@ from .views.trade_status_api import (
     get_trade_status,
     update_trade_status,
 )
-from .views.import_api import import_seller_tape
+from .views.view_acq_directImport import import_seller_tape
 from .views.asset_actions_api import drop_asset, restore_asset
 
 # This defines the URL patterns for the acq_module app.
@@ -124,6 +125,8 @@ urlpatterns = [
     path('summary/strat/interest-rate/<int:seller_id>/<int:trade_id>/', get_wac_stratification, name='api_interest_rate_stratification'),
     # Alias path for convenience
     path('summary/strat/wac/<int:seller_id>/<int:trade_id>/', get_wac_stratification, name='api_wac_stratification'),
+    # Static default rate stratification
+    path('summary/strat/default-rate/<int:seller_id>/<int:trade_id>/', get_default_rate_stratification, name='api_default_rate_stratification'),
     # Judicial vs Non-Judicial stratification
     path('summary/strat/judicial/<int:seller_id>/<int:trade_id>/', get_judicial_stratification, name='api_judicial_stratification'),
     # Property Type stratification (categorical)

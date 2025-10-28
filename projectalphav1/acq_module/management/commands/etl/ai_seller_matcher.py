@@ -470,7 +470,7 @@ Return only the formatted company name:"""
         if best_match:
             seller = Seller.objects.get(id=best_match)
             if self.stdout:
-                self.stdout.write(f'   [AI-SELLER] Fuzzy match: "{seller_name}" → "{seller.name}" (score: {best_score:.2f})\n')
+                self.stdout.write(f'   [AI-SELLER] Fuzzy match: "{seller_name}" -> "{seller.name}" (score: {best_score:.2f})\n')
             return seller
 
         return None

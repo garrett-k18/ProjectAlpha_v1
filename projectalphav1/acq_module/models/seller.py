@@ -324,7 +324,38 @@ class SellerRawData(models.Model):
             models.Index(fields=['trade']),
             models.Index(fields=['state']),
         ]
-        ordering = ['-created_at']  
+        ordering = ['-created_at']
+        constraints = [
+            # Enforce property_type choices at database level
+            models.CheckConstraint(
+                check=models.Q(property_type__isnull=True) | models.Q(
+                    property_type__in=['SFR', 'Manufactured', 'Condo', 'Townhouse', '2-4 Family', 
+                                      'Land', 'Multifamily 5+', 'Industrial', 'Mixed Use', 'Storage', 'Healthcare']
+                ),
+                name='valid_property_type',
+            ),
+            # Enforce product_type choices at database level
+            models.CheckConstraint(
+                check=models.Q(product_type__isnull=True) | models.Q(
+                    product_type__in=['BPL', 'HECM', 'VA', 'Conv', 'Commercial']
+                ),
+                name='valid_product_type',
+            ),
+            # Enforce occupancy choices at database level
+            models.CheckConstraint(
+                check=models.Q(occupancy__isnull=True) | models.Q(
+                    occupancy__in=['Vacant', 'Occupied', 'Unknown']
+                ),
+                name='valid_occupancy',
+            ),
+            # Enforce asset_status choices at database level
+            models.CheckConstraint(
+                check=models.Q(asset_status__isnull=True) | models.Q(
+                    asset_status__in=['NPL', 'REO', 'PERF', 'RPL']
+                ),
+                name='valid_asset_status',
+            ),
+        ]  
     
 
 

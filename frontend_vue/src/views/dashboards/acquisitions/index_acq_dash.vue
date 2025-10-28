@@ -128,46 +128,45 @@
       </b-col>
     </b-row>
 
-    <!-- Stratification cards row: render all four in one row on xl screens -->
+    <!-- Value stratification cards: keep the three financial metrics together at the top -->
     <b-row class="g-2 mt-2" v-if="gridRowsLoaded">
-      <b-col xl="3" lg="6" md="12">
+      <b-col xl="4" lg="6" md="12">
         <StratsCurrentBal />
       </b-col>
-      <b-col xl="3" lg="6" md="12">
+      <b-col xl="4" lg="6" md="12">
         <StratsTotalDebt />
       </b-col>
-      <b-col xl="3" lg="6" md="12">
+      <b-col xl="4" lg="6" md="12">
         <StratsSellerAsIs />
-      </b-col>
-      <b-col xl="3" lg="6" md="12">
-        <StratsWac />
       </b-col>
     </b-row>
 
-    <!-- Other analytics cards (System removed) -->
-
-    <!-- Property Type, Occupancy, Judicial, and Delinquency stratifications (categorical) -->
-    <b-row class="g-2 mt-2" v-if="gridRowsLoaded">
-      <b-col xl="3" lg="6" md="12">
+    <!-- Property Type, Coupon, and Default Rate share a dedicated row for rate-focused insights -->
+    <b-row class="g-2 mt-2 strat-row-equal-height" v-if="gridRowsLoaded">
+      <b-col xl="4" lg="6" md="12" class="d-flex">
         <StratsPropertyType />
       </b-col>
-      <b-col xl="3" lg="6" md="12">
+      <b-col xl="4" lg="6" md="12" class="d-flex">
+        <StratsWac />
+      </b-col>
+      <b-col xl="4" lg="6" md="12" class="d-flex">
+        <StratsDefaultRate />
+      </b-col>
+    </b-row>
+
+    <!-- Remaining categorical cards grouped below with Occupancy leading the row per user request -->
+    <b-row class="g-2 mt-2 mb-3" v-if="gridRowsLoaded">
+      <b-col xl="4" lg="6" md="12">
         <StratsOccupancy />
       </b-col>
-      <!-- Moved Judicial vs Non-Judicial here to sit next to Occupancy -->
-      <b-col xl="3" lg="6" md="12">
+      <b-col xl="4" lg="6" md="12">
         <StratsJudVsNon />
       </b-col>
-      <b-col xl="3" lg="6" md="12">
+      <b-col xl="4" lg="6" md="12">
         <StratsDelinquency />
       </b-col>
     </b-row>
 
-    
-
-    
-
-    
     <!-- Loan-Level Modal wrapper using BootstrapVue Next -->
     <!-- Docs: https://bootstrap-vue-next.github.io/bootstrap-vue-next/docs/components/modal -->
     <BModal
@@ -283,6 +282,7 @@ import StratsCurrentBal from "@/views/dashboards/acquisitions/strats/strats-curr
 import StratsTotalDebt from "@/views/dashboards/acquisitions/strats/strats-total-debt.vue";
 import StratsSellerAsIs from "@/views/dashboards/acquisitions/strats/strats-seller-asis.vue";
 import StratsWac from "@/views/dashboards/acquisitions/strats/strats-wac.vue";
+import StratsDefaultRate from "@/views/dashboards/acquisitions/strats/strats-default-rate.vue";
 import StratsPropertyType from "@/views/dashboards/acquisitions/strats/strats-property-type.vue";
 import StratsOccupancy from "@/views/dashboards/acquisitions/strats/strats-occupancy.vue";
 import StratsJudVsNon from "@/views/dashboards/acquisitions/strats/strats-judvsnon.vue";
@@ -322,6 +322,7 @@ export default {
     StratsTotalDebt,
     StratsSellerAsIs,
     StratsWac,
+    StratsDefaultRate,
     StratsPropertyType,
     StratsOccupancy,
     StratsDelinquency,
@@ -621,9 +622,16 @@ export default {
       }
     };
 
-    // WHAT: Close modal on success while reloading options for dependent widgets.
-    const handleImportSuccess = async (): Promise<void> => {
+    // WHAT: Close modal on success, reload options, and auto-select imported seller/trade
+    const handleImportSuccess = async (payload?: { sellerId: number; tradeId: number }): Promise<void> => {
       await handleImportRefresh();
+      
+      // Auto-select the imported seller and trade
+      if (payload?.sellerId && payload?.tradeId) {
+        acqStore.selectedSellerId = payload.sellerId;
+        acqStore.selectedTradeId = payload.tradeId;
+      }
+      
       showImportModal.value = false;
     };
 
@@ -790,3 +798,34 @@ export default {
   }
 };
 </script>
+
+<style>
+/* Global style for all strat table headers - add subtle bottom border */
+.bands-table thead th {
+  border-bottom: 2px solid rgba(0, 0, 0, 0.1) !important;
+  padding-bottom: 0.75rem !important;
+}
+
+/* Force equal height cards in strat row - nuclear option */
+.strat-row-equal-height {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.strat-row-equal-height > [class*="col"] {
+  display: flex !important;
+}
+
+.strat-row-equal-height .card {
+  width: 100% !important;
+  height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 0 !important;
+}
+
+.strat-row-equal-height .card-body {
+  flex: 1 1 auto !important;
+  overflow: auto !important;
+}
+</style>

@@ -131,6 +131,24 @@ const dashboardRoutes = [
                 component: () => import('@/views/dashboards/acquisitions/index_acq_dash.vue'),
             },
             {
+                name: 'Valuation Center',
+                path: 'acquisitions/valuation-center',
+                meta: {authRequired: true},
+                component: () => import('@/views/dashboards/acquisitions/centers/ValuationCenter.vue'),
+            },
+            {
+                name: 'Collateral Center',
+                path: 'acquisitions/collateral-center',
+                meta: {authRequired: true},
+                component: () => import('@/views/dashboards/acquisitions/centers/CollateralCenter.vue'),
+            },
+            {
+                name: 'Title Center',
+                path: 'acquisitions/title-center',
+                meta: {authRequired: true},
+                component: () => import('@/views/dashboards/acquisitions/centers/TitleCenter.vue'),
+            },
+            {
                 name: 'Asset Mgmt',
                 path: 'asset-mgmt',
                 alias: '/ecommerce',
