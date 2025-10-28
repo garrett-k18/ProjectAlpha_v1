@@ -32,7 +32,7 @@ from rest_framework.pagination import PageNumberPagination
 import logging
 from ..models.seller import Seller, Trade, SellerRawData
 from ..logic.common import sellertrade_qs
-from ..serializers.acq_datatable_serializer import (
+from ..serializers.serial_acq_dataTable import (
     SellerRawDataRowSerializer,
     SellerOptionSerializer,
     TradeOptionSerializer,

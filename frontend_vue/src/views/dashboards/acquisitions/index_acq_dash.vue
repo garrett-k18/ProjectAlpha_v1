@@ -271,6 +271,7 @@
       <ImportSellerTapeModal 
         @close="showImportModal = false" 
         @success="handleImportSuccess"
+        @refresh="handleImportRefresh"
       />
     </BModal>
   </Layout>
@@ -311,12 +312,7 @@ import { useAgGridRowsStore } from '@/stores/agGridRows'
 import { useTradeAssumptionsStore } from '@/stores/tradeAssumptions'
 import { storeToRefs } from 'pinia'
 import { ref, watch, onMounted, computed } from 'vue'
-// Centralized Axios instance (baseURL='/api')
-import http from '@/lib/http'
-
-// Types for dropdown options (module-scope to satisfy TS export typing)
-export interface SellerOption { id: number; name: string }
-export interface TradeOption { id: number; trade_name: string }
+import type { SellerOption, TradeOption } from '@/stores/acqSelections'
 
 export default {
   components: {
@@ -343,12 +339,22 @@ export default {
     TradeActionDock,
   },
   setup() {
-    // Local lists for options
-    const sellers = ref<SellerOption[]>([])
-    const trades = ref<TradeOption[]>([])
-    const sellersLoading = ref<boolean>(false)
-    const tradesLoading = ref<boolean>(false)
-    
+    // WHAT: Main acquisitions selections store consolidates seller/trade choices.
+    // WHY: Avoid duplicate fetch logic across dashboard widgets and modals.
+    const acqStore = useAcqSelectionsStore();
+    const tradeAssumptionsStore = useTradeAssumptionsStore();
+    const {
+      tradeStatusValue,
+      tradeStatusOptions,
+      tradeStatusLoading,
+      sellerOptions,
+      tradeOptions,
+      sellerOptionsLoading,
+      tradeOptionsLoading,
+      sellerOptionsError,
+      tradeOptionsError,
+    } = storeToRefs(acqStore);
+
     // Trade dates form state
     const bidDateModel = ref<string>('')
     const settlementDateModel = ref<string>('')
@@ -363,9 +369,6 @@ export default {
     })
 
     // Shared selection state via Pinia stores
-    const acqStore = useAcqSelectionsStore()
-    const tradeAssumptionsStore = useTradeAssumptionsStore()
-    const { tradeStatusValue, tradeStatusOptions, tradeStatusLoading } = storeToRefs(acqStore)
     // Use computed accessors that delegate to store actions to avoid
     // duplicating reset logic across components
     const selectedSellerId = computed<number | null>({
@@ -395,20 +398,20 @@ export default {
 
     // selectedSellerLabel resolves the human-readable seller name for the trade control prototypes
     const selectedSellerLabel = computed<string>(() => {
-      const match = sellers.value.find((s) => s.id === (selectedSellerId.value ?? -1)) // Look up seller in current list
+      const match = sellerOptions.value.find((s) => s.id === (selectedSellerId.value ?? -1)) // Look up seller in current list
       return match ? match.name : 'No seller selected' // Return seller name or fallback placeholder
     })
 
     // selectedTradeLabel resolves the human-readable trade name for the trade control prototypes
     const selectedTradeLabel = computed<string>(() => {
-      const match = trades.value.find((t) => t.id === (selectedTradeId.value ?? -1)) // Look up trade in current list
+      const match = tradeOptions.value.find((t) => t.id === (selectedTradeId.value ?? -1)) // Look up trade in current list
       return match ? match.trade_name : 'No trade selected' // Return trade name or fallback placeholder
     })
 
     // Context payload forwarded into TradeDocumentsModal for shared document components
     const tradeDocumentContext = computed(() => {
-      const seller = sellers.value.find((s) => s.id === (selectedSellerId.value ?? -1)) || null
-      const trade = trades.value.find((t) => t.id === (selectedTradeId.value ?? -1)) || null
+      const seller = sellerOptions.value.find((s) => s.id === (selectedSellerId.value ?? -1)) || null
+      const trade = tradeOptions.value.find((t) => t.id === (selectedTradeId.value ?? -1)) || null
       if (!seller && !trade) {
         return {
           seller: null,
@@ -486,52 +489,15 @@ export default {
       await saveDateChanges()
     }
 
-    // Fetch sellers using centralized Axios instance
-    async function fetchSellers(): Promise<void> {
-      if (sellersLoading.value) return
-      sellersLoading.value = true
-      try {
-        // Leading slash to correctly join with baseURL '/api' -> '/api/acq/sellers/'
-        const resp = await http.get<SellerOption[]>(`/acq/sellers/`)
-        sellers.value = Array.isArray(resp.data) ? resp.data : []
-      } catch (e) {
-        console.error('[Acq Index] Failed to load sellers', e)
-        sellers.value = []
-      } finally {
-        sellersLoading.value = false
-      }
-    }
-
-    // Fetch trades for a specific seller with cancellation and timeout
-    let tradesController: AbortController | null = null
-    async function fetchTrades(sellerId: number): Promise<void> {
-      if (!sellerId) { trades.value = []; return }
-      tradesLoading.value = true
-      try {
-        // Abort any previous in-flight request
-        if (tradesController) { try { tradesController.abort() } catch {} }
-        tradesController = new AbortController()
-        const resp = await http.get<TradeOption[]>(`/acq/trades/${sellerId}/`, {
-          signal: tradesController.signal as any,
-          timeout: 10000,
-        })
-        trades.value = Array.isArray(resp.data) ? resp.data : []
-      } catch (e) {
-        // Non-fatal: log and clear list so the select becomes enabled
-        console.error('[Acq Index] Failed to load trades', e)
-        trades.value = []
-      } finally {
-        tradesLoading.value = false
-        tradesController = null
-      }
-    }
-
     // Watch seller selection -> load trades list
     watch(selectedSellerId, async (newSellerId) => {
-      trades.value = []
-      resetLocalDateModels()
-      if (newSellerId) await fetchTrades(newSellerId)
-    })
+      resetLocalDateModels();
+      if (newSellerId) {
+        await acqStore.fetchTradeOptions(newSellerId, true);
+      } else {
+        acqStore.resetTradeStatus();
+      }
+    });
 
     watch(selectedTradeId, async (newTradeId) => {
       if (newTradeId) {
@@ -548,15 +514,15 @@ export default {
     })
 
     onMounted(async () => {
-      await fetchSellers()
-      // If a seller already selected (e.g., persisted), load trades
+      await acqStore.fetchSellerOptions(true);
+      // WHAT: If a seller already selected (persisted in store), prime the trades list too.
       if (selectedSellerId.value) {
-        await fetchTrades(selectedSellerId.value)
+        await acqStore.fetchTradeOptions(selectedSellerId.value, true);
       }
       if (selectedTradeId.value) {
-        await acqStore.fetchTradeStatus()
+        await acqStore.fetchTradeStatus();
       }
-    })
+    });
 
     // Documents Quick View placeholder items (to be wired to real data)
     const docItems = computed<DocumentItem[]>(() => {
@@ -629,29 +595,45 @@ export default {
 
       // WHAT: Remove trade locally so dropdown updates without waiting on network
       if (tradeIdBeforeChange !== null) {
-        trades.value = trades.value.filter((trade) => trade.id !== tradeIdBeforeChange)
+        tradeOptions.value = tradeOptions.value.filter((trade) => trade.id !== tradeIdBeforeChange);
       }
 
       // WHAT: Refresh trade list from backend to ensure alignment with server filters
       if (sellerIdBeforeChange !== null) {
-        await fetchTrades(sellerIdBeforeChange) // WHY: backend now excludes PASS/BOARD so dropdown stays authoritative
+        await acqStore.fetchTradeOptions(sellerIdBeforeChange, true); // WHY: backend now excludes PASS/BOARD so dropdown stays authoritative
       }
 
       // WHAT: If no trades remain for the seller, drop the seller entry and clear selection
-      if (sellerIdBeforeChange !== null && trades.value.length === 0) {
-        sellers.value = sellers.value.filter((seller) => seller.id !== sellerIdBeforeChange) // Remove seller from local options
-        acqStore.setSeller(null) // Reset seller selection so watchers clear downstream state
+      if (sellerIdBeforeChange !== null && tradeOptions.value.length === 0) {
+        sellerOptions.value = sellerOptions.value.filter((seller) => seller.id !== sellerIdBeforeChange); // Remove seller from local options
+        acqStore.setSeller(null); // Reset seller selection so watchers clear downstream state
       }
 
       // WHAT: Always refresh sellers list so new backend filtering (active trades only) is reflected globally
-      await fetchSellers()
+      await acqStore.fetchSellerOptions(true);
     }
 
+    // WHAT: Refresh dropdown caches after import so new sellers/trades appear instantly.
+    const handleImportRefresh = async (): Promise<void> => {
+      await acqStore.refreshOptions();
+      if (selectedSellerId.value) {
+        await acqStore.fetchTradeOptions(selectedSellerId.value, true);
+      }
+    };
+
+    // WHAT: Close modal on success while reloading options for dependent widgets.
+    const handleImportSuccess = async (): Promise<void> => {
+      await handleImportRefresh();
+      showImportModal.value = false;
+    };
+
     return {
-      sellers,
-      trades,
-      sellersLoading,
-      tradesLoading,
+      sellers: sellerOptions,
+      trades: tradeOptions,
+      sellersLoading: sellerOptionsLoading,
+      tradesLoading: tradeOptionsLoading,
+      sellerOptionsError,
+      tradeOptionsError,
       selectedSellerId,
       selectedTradeId,
       resetSelections,
@@ -659,6 +641,8 @@ export default {
       tradeStatusOptions,
       tradeStatusLoading,
       handleTradeStatusUpdate,
+      handleImportRefresh,
+      handleImportSuccess,
       docItems,
       gridRowsLoaded,
       // Date fields

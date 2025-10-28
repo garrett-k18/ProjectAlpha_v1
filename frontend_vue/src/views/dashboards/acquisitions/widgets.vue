@@ -15,7 +15,7 @@
     <!-- Assets count tile -->
     <b-col xl="3" lg="6">
       <div class="card tilebox-one mb-0">
-        <div class="card-body py-1 px-2">
+        <div class="card-body pt-3 pb-2 px-3">
           <!-- Grid of items icon to suggest count of assets -->
           <i class="uil uil-apps float-end" aria-hidden="true"></i>
           <h6 class="text-uppercase mt-0">Assets</h6>
@@ -30,7 +30,7 @@
     <!-- Current Balance tile -->
     <b-col xl="3" lg="6">
       <div class="card tilebox-one mb-0">
-        <div class="card-body py-1 px-2">
+        <div class="card-body pt-3 pb-2 px-3">
           <i class="uil uil-dollar-sign float-end" aria-hidden="true"></i>
           <h6 class="text-uppercase mt-0">Current Balance</h6>
           <h2 class="my-2 d-flex align-items-baseline" id="current-balance">
@@ -48,7 +48,7 @@
     <!-- Total Debt tile -->
     <b-col xl="3" lg="6">
       <div class="card tilebox-one mb-0">
-        <div class="card-body py-1 px-2">
+        <div class="card-body pt-3 pb-2 px-3">
           <i class="uil uil-chart-line float-end" aria-hidden="true"></i>
           <h6 class="text-uppercase mt-0">Total Debt</h6>
           <h2 class="my-2 d-flex align-items-baseline" id="total-debt">
@@ -66,7 +66,7 @@
     <!-- Seller As-is Value tile -->
     <b-col xl="3" lg="6">
       <div class="card tilebox-one mb-0">
-        <div class="card-body py-1 px-2">
+        <div class="card-body pt-3 pb-2 px-3">
           <i class="uil uil-home float-end" aria-hidden="true"></i>
           <h6 class="text-uppercase mt-0">Seller As-is Value</h6>
           <h2 class="my-2" id="seller-asis-value">

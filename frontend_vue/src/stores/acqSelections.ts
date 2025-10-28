@@ -21,6 +21,17 @@ export interface BackendMarker {
   id: number
 }
 
+// Shared option payloads consumed by dropdown selectors
+export interface SellerOption {
+  id: number
+  name: string
+}
+
+export interface TradeOption {
+  id: number
+  trade_name: string
+}
+
 // jVectorMap marker shape expected by the map component
 export interface VectorMarker {
   // [lat, lng] tuple per jVectorMap API
@@ -44,6 +55,16 @@ export const useAcqSelectionsStore = defineStore('acqSelections', () => {
   const markers = ref<BackendMarker[]>([])          // raw markers from backend
   const loadingMarkers = ref<boolean>(false)        // network activity flag
   const errorMarkers = ref<string | null>(null)     // last error message (if any)
+
+  // ---------------------------------------------------------------------------
+  // Dropdown option caches shared across acquisitions UI
+  // ---------------------------------------------------------------------------
+  const sellerOptions = ref<SellerOption[]>([])
+  const tradeOptions = ref<TradeOption[]>([])
+  const sellerOptionsLoading = ref<boolean>(false)
+  const tradeOptionsLoading = ref<boolean>(false)
+  const sellerOptionsError = ref<string | null>(null)
+  const tradeOptionsError = ref<string | null>(null)
 
   // Cache the last selection pair to avoid duplicate fetches
   const lastKey = ref<string | null>(null)          // e.g., "sellerId:tradeId"
@@ -73,6 +94,12 @@ export const useAcqSelectionsStore = defineStore('acqSelections', () => {
   // ---------------------------------------------------------------------------
   // Mutators for selections and markers
   // ---------------------------------------------------------------------------
+  function clearTradeOptions(): void {
+    tradeOptions.value = []
+    tradeOptionsError.value = null
+    tradeOptionsLoading.value = false
+  }
+
   function setSeller(id: number | null): void {
     // update seller id; clear trade if seller changes
     const changed = selectedSellerId.value !== id
@@ -81,6 +108,11 @@ export const useAcqSelectionsStore = defineStore('acqSelections', () => {
       selectedTradeId.value = null
       resetMarkers()
       resetTradeStatus() // ensure trade status UI clears when seller context changes
+      if (id) {
+        void fetchTradeOptions(id)
+      } else {
+        clearTradeOptions()
+      }
     }
   }
 
@@ -148,6 +180,62 @@ export const useAcqSelectionsStore = defineStore('acqSelections', () => {
     tradeStatusOptions.value = []
     tradeStatusLoading.value = false
     tradeStatusError.value = null
+  }
+
+  async function fetchSellerOptions(force = false): Promise<SellerOption[]> {
+    if (!force && sellerOptions.value.length > 0) {
+      return sellerOptions.value
+    }
+
+    sellerOptionsLoading.value = true
+    sellerOptionsError.value = null
+    try {
+      const resp = await http.get<SellerOption[]>('/acq/sellers/', { timeout: 10000 })
+      const payload = Array.isArray(resp.data) ? resp.data : []
+      sellerOptions.value = payload.map((option) => ({
+        id: option.id,
+        name: String(option.name ?? '').toUpperCase(),
+      }))
+      return sellerOptions.value
+    } catch (e: any) {
+      sellerOptionsError.value = e?.message || 'Failed to load sellers'
+      sellerOptions.value = []
+      return []
+    } finally {
+      sellerOptionsLoading.value = false
+    }
+  }
+
+  async function fetchTradeOptions(sellerId: number, force = false): Promise<TradeOption[]> {
+    if (!sellerId) {
+      clearTradeOptions()
+      return []
+    }
+
+    if (!force && tradeOptions.value.length > 0 && selectedSellerId.value === sellerId) {
+      return tradeOptions.value
+    }
+
+    tradeOptionsLoading.value = true
+    tradeOptionsError.value = null
+    try {
+      const resp = await http.get<TradeOption[]>(`/acq/trades/${sellerId}/`, { timeout: 10000 })
+      tradeOptions.value = Array.isArray(resp.data) ? resp.data : []
+      return tradeOptions.value
+    } catch (e: any) {
+      tradeOptionsError.value = e?.message || 'Failed to load trades'
+      tradeOptions.value = []
+      return []
+    } finally {
+      tradeOptionsLoading.value = false
+    }
+  }
+
+  async function refreshOptions(): Promise<void> {
+    await fetchSellerOptions(true)
+    if (selectedSellerId.value) {
+      await fetchTradeOptions(selectedSellerId.value, true)
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -227,6 +315,12 @@ export const useAcqSelectionsStore = defineStore('acqSelections', () => {
     tradeStatusOptions,
     tradeStatusLoading,
     tradeStatusError,
+    sellerOptions,
+    tradeOptions,
+    sellerOptionsLoading,
+    tradeOptionsLoading,
+    sellerOptionsError,
+    tradeOptionsError,
     // getters
     hasBothSelections,
     selectionKey,
@@ -239,5 +333,8 @@ export const useAcqSelectionsStore = defineStore('acqSelections', () => {
     fetchMarkers,
     fetchTradeStatus,
     updateTradeStatus,
+    fetchSellerOptions,
+    fetchTradeOptions,
+    refreshOptions,
   }
 })

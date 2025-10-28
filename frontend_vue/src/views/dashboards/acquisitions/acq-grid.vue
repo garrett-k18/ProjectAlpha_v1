@@ -2,7 +2,7 @@
   <!-- Simplified Acquisitions Grid (refactor trial) -->
   <div class="card" ref="cardRef" :class="{ 'fullscreen-card': isFullscreen }">
     <div class="d-flex card-header justify-content-between align-items-center">
-      <h4 class="header-title">Acquisitions – {{ viewTitle }}</h4>
+      <h4 class="header-title">Data Tape – {{ viewTitle }}</h4>
       <div class="d-flex align-items-center gap-2">
         <!-- View selector -->
         <label for="viewSelect" class="me-1 small mb-0">View</label>
@@ -101,7 +101,7 @@ const constantColumns: ColDef[] = [
     colId: 'actions',
     pinned: 'left',
     width: 220,
-    minWidth: 210,
+    minWidth: 210,  // Keep fixed width for Actions column (has buttons)
     lockPosition: true,
     suppressMovable: true,
     sortable: false,
@@ -110,34 +110,39 @@ const constantColumns: ColDef[] = [
     cellRenderer: ActionsCell as any,
     cellRendererParams: { onAction: onRowAction },
   },
-  { headerName: 'Seller ID', field: 'sellertape_id', pinned: 'left', minWidth: 90 },
-  {
-    headerName: 'Property Address',
-    colId: 'address',
+  { headerName: 'Seller ID', field: 'sellertape_id', pinned: 'left' },
+  // Address fields now pinned left for all views (sortable individually)
+  { 
+    headerName: 'Street Address', 
+    field: 'street_address', 
     pinned: 'left',
-    minWidth: 260,
-    wrapHeaderText: true,
-    autoHeaderHeight: true,
     headerClass: ['ag-left-aligned-header', 'text-start'],
     cellClass: ['ag-left-aligned-cell', 'text-start'],
-    valueGetter: (p: any) => {
-      const s = (p.data?.street_address || '').toString().trim()
-      const c = (p.data?.city || '').toString().trim()
-      const st = (p.data?.state || '').toString().trim()
-      return [s, c, st].filter(Boolean).join(', ')
-    },
+  },
+  { 
+    headerName: 'City', 
+    field: 'city', 
+    pinned: 'left',
+    headerClass: ['ag-left-aligned-header', 'text-start'],
+    cellClass: ['ag-left-aligned-cell', 'text-start'],
+  },
+  { 
+    headerName: 'State', 
+    field: 'state', 
+    pinned: 'left',
   },
 ]
-
 /* --------------------------------------------------------------------------
  * All dynamic columns defined once here – easy to rename & reuse
  * -------------------------------------------------------------------------- */
 const cols: Record<string, ColDef> = {
+  // Fields for "All" view only - appear right after State
+  zip: { headerName: 'ZIP', field: 'zip' },
+  as_of_date: { headerName: 'As Of Date', field: 'as_of_date', valueFormatter: dateFmt },
   // Category badges with subtle professional colors
   property_type: {
     headerName: 'Property Type',
     field: 'property_type',
-    minWidth: 140,
     cellRenderer: BadgeCell as any,
     cellRendererParams: {
       mode: 'enum',
@@ -147,7 +152,6 @@ const cols: Record<string, ColDef> = {
   occupancy: {
     headerName: 'Occupancy',
     field: 'occupancy',
-    minWidth: 130,
     cellRenderer: BadgeCell as any,
     cellRendererParams: {
       mode: 'enum',
@@ -158,53 +162,108 @@ const cols: Record<string, ColDef> = {
   asset_status: {
     headerName: 'Asset Status',
     field: 'asset_status',
-    minWidth: 140,
     cellRenderer: BadgeCell as any,
     cellRendererParams: {
       mode: 'enum',
       enumMap: assetStatusEnumMap,
     },
   },
-  seller_asis_value: { headerName: 'Seller AIV', field: 'seller_asis_value', minWidth: 140, valueFormatter: currency0 },
-  seller_arv_value: { headerName: 'Seller ARV', field: 'seller_arv_value', minWidth: 140, valueFormatter: currency0 },
+  seller_asis_value: { headerName: 'Seller AIV', field: 'seller_asis_value', valueFormatter: currency0 },
+  seller_arv_value: { headerName: 'Seller ARV', field: 'seller_arv_value', valueFormatter: currency0 },
   // Origination value (from serializer)
-  origination_value: { headerName: 'Origination AIV', field: 'origination_value', minWidth: 140, valueFormatter: currency0 },
-  seller_value_date: { headerName: 'Seller Value Date', field: 'seller_value_date', valueFormatter: dateFmt, minWidth: 140 },
-  current_balance: { headerName: 'Current Balance', field: 'current_balance', valueFormatter: currency0, minWidth: 140 },
-  interest_rate: { headerName: 'Interest Rate', field: 'interest_rate', valueFormatter: percentFmt, minWidth: 110 },
-  total_debt: { headerName: 'Total Debt', field: 'total_debt', valueFormatter: currency0, minWidth: 140 },
-  months_dlq: { headerName: 'Months DLQ', field: 'months_dlq', minWidth: 130 },
-  next_due_date: { headerName: 'Next Due Date', field: 'next_due_date', valueFormatter: dateFmt, minWidth: 140 },
+  origination_value: { headerName: 'Origination AIV', field: 'origination_value', valueFormatter: currency0 },
+  seller_value_date: { headerName: 'Seller Value Date', field: 'seller_value_date', valueFormatter: dateFmt },
+  current_balance: { headerName: 'Current Balance', field: 'current_balance', valueFormatter: currency0 },
+  interest_rate: { headerName: 'Interest Rate', field: 'interest_rate', valueFormatter: percentFmt },
+  total_debt: { headerName: 'Total Debt', field: 'total_debt', valueFormatter: currency0 },
+  months_dlq: { headerName: 'Months DLQ', field: 'months_dlq' },
+  next_due_date: { headerName: 'Next Due Date', field: 'next_due_date', valueFormatter: dateFmt },
   // Flag badges with requested colors: Yes=red, No=yellow
   fc_flag: {
     headerName: 'FC Flag',
     field: 'fc_flag',
-    minWidth: 100,
     cellRenderer: BadgeCell as any,
     cellRendererParams: { mode: 'boolean', booleanYesColor: 'bg-danger', booleanNoColor: 'bg-secondary' },
   },
   bk_flag: {
     headerName: 'BK Flag',
     field: 'bk_flag',
-    minWidth: 100,
     cellRenderer: BadgeCell as any,
     cellRendererParams: { mode: 'boolean', booleanYesColor: 'bg-danger', booleanNoColor: 'bg-secondary' },
   },
   mod_flag: {
     headerName: 'MOD Flag',
     field: 'mod_flag',
-    minWidth: 100,
     cellRenderer: BadgeCell as any,
     cellRendererParams: { mode: 'boolean', booleanYesColor: 'bg-danger', booleanNoColor: 'bg-secondary' },
   },
   // Local Agents columns
-  agent_name: { headerName: 'Broker', field: 'agent_name', minWidth: 140 },
-  bid_amount: { headerName: 'Bid Amount', field: 'bid_amount', valueFormatter: currency0, minWidth: 140 },
+  agent_name: { headerName: 'Broker', field: 'agent_name' },
+  bid_amount: { headerName: 'Bid Amount', field: 'bid_amount', valueFormatter: currency0 },
   // Valuations (unified from backend serializer)
-  broker_asis_value: { headerName: 'Broker AIV', field: 'broker_asis_value', minWidth: 140, valueFormatter: currency0 },
-  broker_arv_value: { headerName: 'Broker ARV', field: 'broker_arv_value', minWidth: 140, valueFormatter: currency0 },
-  internal_initial_uw_asis_value: { headerName: 'Internal UW AIV', field: 'internal_initial_uw_asis_value', minWidth: 140, valueFormatter: currency0 },
-  internal_initial_uw_arv_value: { headerName: 'Internal UW ARV', field: 'internal_initial_uw_arv_value', minWidth: 140, valueFormatter: currency0 },
+  broker_asis_value: { headerName: 'Broker AIV', field: 'broker_asis_value', valueFormatter: currency0 },
+  broker_arv_value: { headerName: 'Broker ARV', field: 'broker_arv_value', valueFormatter: currency0 },
+  broker_value_date: { headerName: 'Broker Value Date', field: 'broker_value_date', valueFormatter: dateFmt },
+  internal_initial_uw_asis_value: { headerName: 'Internal UW AIV', field: 'internal_initial_uw_asis_value', valueFormatter: currency0 },
+  internal_initial_uw_arv_value: { headerName: 'Internal UW ARV', field: 'internal_initial_uw_arv_value', valueFormatter: currency0 },
+  internal_initial_uw_value_date: { headerName: 'Internal UW Value Date', field: 'internal_initial_uw_value_date', valueFormatter: dateFmt },
+  // Additional date and property fields
+  
+  product_type: { headerName: 'Product Type', field: 'product_type' },
+  year_built: { headerName: 'Year Built', field: 'year_built',width: 90 },
+  sq_ft: { headerName: 'Sq Ft', field: 'sq_ft',width: 90, valueFormatter: (p: any) => p.value ? new Intl.NumberFormat().format(p.value) : '' },
+  lot_size: { headerName: 'Lot Size', field: 'lot_size', width: 90, valueFormatter: (p: any) => p.value ? new Intl.NumberFormat().format(p.value) : '' },
+  beds: { headerName: 'Beds', field: 'beds', width: 90 },
+  baths: { headerName: 'Baths', field: 'baths', width: 90 },
+  // Financial fields
+  original_balance: { headerName: 'Original Balance', field: 'original_balance', valueFormatter: currency0 },
+  origination_date: { headerName: 'Origination Date', field: 'origination_date', valueFormatter: dateFmt },
+  last_paid_date: { headerName: 'Last Paid Date', field: 'last_paid_date', valueFormatter: dateFmt },
+  // Borrower fields
+  borrower1_last: { headerName: 'Borrower 1 Last', field: 'borrower1_last' },
+  borrower1_first: { headerName: 'Borrower 1 First', field: 'borrower1_first' },
+  borrower2_last: { headerName: 'Borrower 2 Last', field: 'borrower2_last' },
+  borrower2_first: { headerName: 'Borrower 2 First', field: 'borrower2_first' },
+  // Additional valuation fields
+  origination_arv: { headerName: 'Origination ARV', field: 'origination_arv', valueFormatter: currency0 },
+  origination_value_date: { headerName: 'Origination Value Date', field: 'origination_value_date', valueFormatter: dateFmt },
+  additional_asis_value: { headerName: 'Additional AIV', field: 'additional_asis_value', valueFormatter: currency0 },
+  additional_arv_value: { headerName: 'Additional ARV', field: 'additional_arv_value', valueFormatter: currency0 },
+  additional_value_date: { headerName: 'Additional Value Date', field: 'additional_value_date', valueFormatter: dateFmt },
+  // Additional financial and schedule fields
+  deferred_balance: { headerName: 'Deferred Balance', field: 'deferred_balance', valueFormatter: currency0 },
+  first_pay_date: { headerName: 'First Pay Date', field: 'first_pay_date', valueFormatter: dateFmt },
+  original_term: { headerName: 'Original Term', field: 'original_term' },
+  original_rate: { headerName: 'Original Rate', field: 'original_rate', valueFormatter: percentFmt },
+  original_maturity_date: { headerName: 'Original Maturity Date', field: 'original_maturity_date', valueFormatter: dateFmt },
+  default_rate: { headerName: 'Default Rate', field: 'default_rate', valueFormatter: percentFmt },
+  current_maturity_date: { headerName: 'Current Maturity Date', field: 'current_maturity_date', valueFormatter: dateFmt },
+  current_term: { headerName: 'Current Term', field: 'current_term' },
+  accrued_note_interest: { headerName: 'Accrued Note Interest', field: 'accrued_note_interest', valueFormatter: currency0 },
+  accrued_default_interest: { headerName: 'Accrued Default Interest', field: 'accrued_default_interest', valueFormatter: currency0 },
+  escrow_balance: { headerName: 'Escrow Balance', field: 'escrow_balance', valueFormatter: currency0 },
+  escrow_advance: { headerName: 'Escrow Advance', field: 'escrow_advance', valueFormatter: currency0 },
+  recoverable_corp_advance: { headerName: 'Recoverable Corp Advance', field: 'recoverable_corp_advance', valueFormatter: currency0 },
+  late_fees: { headerName: 'Late Fees', field: 'late_fees', valueFormatter: currency0 },
+  other_fees: { headerName: 'Other Fees', field: 'other_fees', valueFormatter: currency0 },
+  suspense_balance: { headerName: 'Suspense Balance', field: 'suspense_balance', valueFormatter: currency0 },
+  // Foreclosure fields
+  fc_first_legal_date: { headerName: 'FC First Legal Date', field: 'fc_first_legal_date', valueFormatter: dateFmt },
+  fc_referred_date: { headerName: 'FC Referred Date', field: 'fc_referred_date', valueFormatter: dateFmt },
+  fc_judgement_date: { headerName: 'FC Judgement Date', field: 'fc_judgement_date', valueFormatter: dateFmt },
+  fc_scheduled_sale_date: { headerName: 'FC Scheduled Sale Date', field: 'fc_scheduled_sale_date', valueFormatter: dateFmt },
+  fc_sale_date: { headerName: 'FC Sale Date', field: 'fc_sale_date', valueFormatter: dateFmt },
+  fc_starting: { headerName: 'FC Starting Bid', field: 'fc_starting', valueFormatter: currency0 },
+  // Bankruptcy fields
+  bk_chapter: { headerName: 'BK Chapter', field: 'bk_chapter' },
+  // Modification fields
+  mod_date: { headerName: 'MOD Date', field: 'mod_date', valueFormatter: dateFmt },
+  mod_maturity_date: { headerName: 'MOD Maturity Date', field: 'mod_maturity_date', valueFormatter: dateFmt },
+  mod_term: { headerName: 'MOD Term', field: 'mod_term' },
+  mod_rate: { headerName: 'MOD Rate', field: 'mod_rate', valueFormatter: percentFmt },
+  mod_initial_balance: { headerName: 'MOD Initial Balance', field: 'mod_initial_balance', valueFormatter: currency0 },
+  // Acquisition status
+  acq_status: { headerName: 'Acq Status', field: 'acq_status' },
 }
 
 /* --------------------------------------------------------------------------
@@ -261,7 +320,7 @@ const activeView = ref<'snapshot' | 'all' | 'valuations' | 'drops'>('snapshot')
 const viewTitle = computed(() => {
   const titles: Record<typeof activeView.value, string> = {
     snapshot: 'Snapshot',
-    all: 'All Properties',
+    all: 'All Assets',
     valuations: 'Valuations',
     drops: 'Drops'
   }
@@ -308,6 +367,12 @@ function maybeFetchRows(): void {
 watch([selectedSellerId, selectedTradeId, activeView], () => {
   maybeFetchRows()
 })
+
+// React to data changes to trigger auto-sizing
+watch(rowData, () => {
+  // When data loads, re-run auto-sizing to ensure columns fit the actual data
+  updateGridSize()
+}, { flush: 'post' })
 
 function onGridReady(e: GridReadyEvent) {
   // Cache Grid API and size columns; data will load via watchers when IDs are present
@@ -457,19 +522,43 @@ const gridRef = ref<any>(null)
 const gridStyle = computed(() => (isFullscreen.value ? { width: '100%', height: '100%' } : { width: '100%', height: '420px' }))
 
 function updateGridSize(): void {
-  nextTick(() => gridApi.value?.autoSizeAllColumns?.())
+  // WHAT: Auto-size columns that don't have manual width set
+  // WHY: Columns with width property keep their size, others auto-size
+  // HOW: autoSizeAllColumns will skip columns with explicit width
+  //
+  // TIMING ISSUES & KNOWN PROBLEMS:
+  // - Auto-sizing sometimes fails when switching to "All" view for the first time
+  // - Columns may not be fully rendered when autoSizeAllColumns() runs
+  // - Data loading timing can affect auto-sizing accuracy
+  // - AG Grid has limitations with many columns (>50) - auto-sizing may stop working after ~30-40 columns
+  //
+  // APPROACHES TRIED:
+  // 1. Simple autoSizeAllColumns(false) - works for early columns but fails on later ones
+  // 2. Individual column auto-sizing in a loop - helped ~3 more columns but still failed
+  // 3. Increased delays (100ms, 200ms, 300ms) - helps but doesn't fully solve timing issues
+  // 4. Data watcher to trigger auto-sizing after data loads - helps but still inconsistent
+  // 5. Manual width settings on problematic columns - works but not ideal for dynamic content
+  //
+  // CURRENT STATE:
+  // - Columns with explicit 'width' property keep their fixed size
+  // - Other columns attempt auto-sizing but may fail on complex grids
+  // - Users can manually resize any column by dragging borders
+  // - Works better on subsequent view switches after initial render
+  nextTick(() => {
+    if (!gridApi.value) return
+    // Small delay to ensure columns are fully rendered (especially when switching to "All" view)
+    setTimeout(() => {
+      if (!gridApi.value) return
+      gridApi.value.autoSizeAllColumns(false)
+    }, 300)
+  })
 }
 
-async function toggleFullscreen(): Promise<void> {
-  const el = cardRef.value as any
-  if (!el) return
-  if (isFullscreen.value || document.fullscreenElement) {
-    await document.exitFullscreen?.()
-    isFullscreen.value = false
-  } else {
-    await el.requestFullscreen?.()
-    isFullscreen.value = true
-  }
+function toggleFullscreen(): void {
+  // WHAT: Toggle between normal card view and full-window maximized view
+  // WHY: User wants window-based fullscreen, not native monitor fullscreen
+  // HOW: Use CSS class to position card as fixed overlay covering viewport
+  isFullscreen.value = !isFullscreen.value
   updateGridSize()
 }
 
@@ -479,9 +568,9 @@ async function toggleFullscreen(): Promise<void> {
 const defaultColDef: ColDef = {
   resizable: true,
   filter: true,
-  minWidth: 120,
-  wrapHeaderText: true,
-  autoHeaderHeight: true,
+  // No minWidth - let AG Grid auto-size based on content (header vs data, whichever is longer)
+  wrapHeaderText: true,  // Headers wrap to multiple lines if needed
+  autoHeaderHeight: true,  // Header height adjusts automatically to fit wrapped text
   headerClass: 'text-center',
   cellClass: 'text-center',
   menuTabs: ['filterMenuTab'],
@@ -502,12 +591,24 @@ const emit = defineEmits<{
 </script>
 
 <style scoped>
+/* Full-window overlay mode (not native fullscreen) */
 .fullscreen-card {
   position: fixed;
   inset: 0;
   z-index: 1050;
   border-radius: 0 !important;
+  margin: 0 !important;
+  max-width: 100vw !important;
+  max-height: 100vh !important;
+  overflow: hidden;
 }
+
+.fullscreen-card .card-body {
+  height: calc(100vh - 60px); /* Subtract header height */
+  overflow: hidden;
+}
+
+/* Center-align grid headers and cells by default */
 :deep(.acq-grid .ag-header-cell-label) {
   justify-content: center;
 }
@@ -518,16 +619,10 @@ const emit = defineEmits<{
   text-align: center;
 }
 
-/* Force left-alignment for address column */
-:deep(.acq-grid [col-id="address"]),
-:deep(.acq-grid .ag-header-cell[col-id="address"]) {
-  text-align: left !important;
-}
-:deep(.acq-grid .ag-cell[col-id="address"]) {
-  justify-content: flex-start !important;
-  text-align: left !important;
-}
-:deep(.acq-grid .ag-cell[col-id="address"] .ag-cell-wrapper) {
-  justify-content: flex-start !important;
+/* Multi-line header support - allow wrapping */
+:deep(.acq-grid .ag-header-cell-text) {
+  white-space: normal !important;
+  line-height: 1.2;
+  word-break: break-word;
 }
 </style>

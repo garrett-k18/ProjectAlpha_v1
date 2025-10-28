@@ -49,15 +49,35 @@
         <h6>Import Options</h6>
         <div class="row g-3">
           <div class="col-md-6">
-            <label class="form-label">Seller Name <span class="text-danger">*</span></label>
+            <label class="form-label">Seller <span class="text-danger">*</span></label>
+            <select
+              v-model="selectedSellerId"
+              class="form-select"
+              :disabled="sellersLoading"
+              required
+            >
+              <option value="manual">+ Manually add new seller</option>
+              <option
+                v-for="option in sellerOptions"
+                :key="option.id"
+                :value="option.id"
+              >
+                {{ option.name }}
+              </option>
+            </select>
+            <small v-if="sellersError" class="text-danger d-block mt-1">{{ sellersError }}</small>
+            <small v-else class="form-text text-muted">Choose an existing seller or add a new one.</small>
             <input
+              v-if="selectedSellerId === 'manual'"
               v-model="sellerName"
               type="text"
-              class="form-control"
-              placeholder="e.g., ABC Capital"
+              class="form-control mt-2"
+              placeholder="Enter seller name"
               required
             />
-            <small class="form-text text-muted">Required - will be created if doesn't exist</small>
+            <div v-else class="form-control mt-2 bg-light" readonly>
+              {{ sellerName || 'Select a seller' }}
+            </div>
           </div>
           <div class="col-md-6">
             <label class="form-label">Trade Name <span class="text-muted">(Optional)</span></label>
@@ -158,32 +178,92 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import axios from 'axios'
+
+/**
+ * WHAT: Type definition describing each seller option returned by the API.
+ * WHY: Keeps the dropdown strongly typed for TypeScript correctness.
+ */
+interface SellerOption {
+  id: number // WHAT: Database identifier for the seller option
+  name: string // WHAT: Human-friendly seller display name
+}
 
 // Emits
 const emit = defineEmits<{
   close: []
   success: []
+  refresh: []
 }>()
 
 // State
-const step = ref<'upload' | 'processing' | 'results'>('upload')
-const isDragging = ref(false)
-const selectedFile = ref<File | null>(null)
-const fileInput = ref<HTMLInputElement | null>(null)
+const step = ref<'upload' | 'processing' | 'results'>('upload') // WHAT: Current wizard stage
+const isDragging = ref(false) // WHAT: Tracks drag-over styling state for drop zone
+const selectedFile = ref<File | null>(null) // WHAT: User-selected file reference
+const fileInput = ref<HTMLInputElement | null>(null) // WHAT: Hidden input reference for programmatic reset
 
 // Import options
-const sellerName = ref('')
-const tradeName = ref('')
-const autoCreate = ref(true)
-const dryRun = ref(false)
+const sellerName = ref('') // WHAT: Seller name used for backend processing
+const tradeName = ref('') // WHAT: Optional trade label override supplied by user
+const autoCreate = ref(true) // WHAT: Checkbox state instructing backend to create seller/trade if missing
+const dryRun = ref(false) // WHAT: Checkbox state toggling preview-only mode
+const sellerOptions = ref<SellerOption[]>([]) // WHAT: Cached list of seller dropdown options
+const selectedSellerId = ref<number | 'manual'>('manual') // WHAT: Currently chosen seller id or manual flag
+const sellersLoading = ref(false) // WHAT: Loading indicator while fetching seller options
+const sellersError = ref('') // WHAT: Error message to surface when seller fetch fails
 
 // Processing state
-const processingMessage = ref('Uploading file and analyzing columns...')
-const importSuccess = ref(false)
-const importResults = ref('')
-const importError = ref('')
+const processingMessage = ref('Uploading file and analyzing columns...') // WHAT: Status text displayed during import
+const importSuccess = ref(false) // WHAT: Tracks whether backend reported success
+const importResults = ref('') // WHAT: Success payload provided by backend
+const importError = ref('') // WHAT: Error payload provided by backend
+
+/**
+ * WHAT: Apply dropdown selection to local state and auto-create toggle.
+ * WHY: Ensures manual entry clears sellerName while existing selections populate it.
+ */
+const applySellerSelection = (nextValue: number | 'manual'): void => {
+  if (nextValue === 'manual') {
+    sellerName.value = ''
+    autoCreate.value = true
+    return
+  }
+  const match = sellerOptions.value.find((option) => option.id === nextValue)
+  sellerName.value = match?.name ?? ''
+  autoCreate.value = false
+}
+
+/**
+ * WHAT: Retrieve seller dropdown options from acquisitions API endpoint.
+ * WHY: Powers dropdown choices to encourage reuse over manual entry.
+ * DOCS: https://axios-http.com/docs/api_intro for request patterns.
+ */
+const fetchSellerOptions = async (): Promise<void> => {
+  sellersLoading.value = true
+  sellersError.value = ''
+  try {
+    const response = await axios.get<SellerOption[]>('/api/acq/sellers/')
+    const payload = Array.isArray(response.data) ? response.data : []
+    sellerOptions.value = payload.map((option) => ({
+      id: option.id,
+      name: String(option.name ?? '').toUpperCase(),
+    }))
+  } catch (error: any) {
+    sellersError.value = error?.message || 'Failed to load sellers'
+  } finally {
+    sellersLoading.value = false
+    applySellerSelection(selectedSellerId.value)
+  }
+}
+
+// WHAT: React to dropdown changes to keep sellerName/autoCreate synced.
+watch(selectedSellerId, (nextValue) => applySellerSelection(nextValue))
+
+// WHAT: Prime seller dropdown on mount so users see options immediately.
+onMounted(() => {
+  void fetchSellerOptions()
+})
 
 /**
  * Handle file drop
@@ -253,6 +333,7 @@ async function startImport() {
     importSuccess.value = true
     importResults.value = response.data.message || 'Import completed successfully!'
     emit('success')
+    emit('refresh')
   } catch (error: any) {
     // Error - show detailed error message
     step.value = 'results'
@@ -291,6 +372,8 @@ function resetModal() {
   importSuccess.value = false
   importResults.value = ''
   importError.value = ''
+  selectedSellerId.value = 'manual'
+  applySellerSelection('manual')
 }
 </script>
 
