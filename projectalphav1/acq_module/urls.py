@@ -50,7 +50,7 @@ from .views.brokers.internal import (
     list_assigned_loans,
     list_brokers,
 )
-from .views.trade_assumptions_api import (
+from .views.view_acq_tradeAssumptions import (
     get_trade_level_assumptions,
     update_trade_level_assumptions,
 )

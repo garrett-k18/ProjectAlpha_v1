@@ -11,6 +11,7 @@ from .serial_acq_dataTable import (
     SellerRawDataDetailSerializer,
     SellerRawDataFieldsSerializer,
 )
+from .serial_acq_tradeAssumptions import TradeLevelAssumptionSerializer
 
 __all__ = [
     'SellerRawDataRowSerializer',
@@ -18,4 +19,5 @@ __all__ = [
     'TradeOptionSerializer',
     'SellerRawDataDetailSerializer',
     'SellerRawDataFieldsSerializer',
+    'TradeLevelAssumptionSerializer',
 ]

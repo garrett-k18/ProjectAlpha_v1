@@ -179,6 +179,12 @@ const dashboardRoutes = [
                 meta: {authRequired: true},
                 component: () => import('@/views/dashboards/portfolio_mgmt/index_portfolioMgmt.vue'),
             },
+            {
+                name: 'Reporting',
+                path: 'reporting',
+                meta: {authRequired: true},
+                component: () => import('@/views/dashboards/reporting/index_reporting.vue'),
+            },
 
         ]
     }

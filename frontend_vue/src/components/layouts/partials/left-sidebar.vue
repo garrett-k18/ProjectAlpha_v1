@@ -75,7 +75,7 @@
         </li>
 
         <li class="side-nav-item">
-          <router-link to="javascript:void(0)" class="side-nav-link side-nav-link-ref">
+          <router-link to="/reporting" class="side-nav-link side-nav-link-ref">
             <i class="uil-chart-line"></i>
             <span> Reporting </span>
           </router-link>

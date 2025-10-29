@@ -1,0 +1,90 @@
+"""
+API views for TradeLevelAssumption model.
+
+This module provides endpoints for retrieving and updating TradeLevelAssumption
+data for specific trade.
+"""
+
+from django.http import JsonResponse
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from rest_framework import status
+import logging
+
+from ..models.assumptions import TradeLevelAssumption
+from ..models.seller import Trade
+from ..serializers import TradeLevelAssumptionSerializer
+
+# Module-level logger
+logger = logging.getLogger(__name__)
+
+@api_view(['GET'])
+def get_trade_level_assumptions(request, trade_id):
+    """
+    Get trade level assumptions for a specific trade.
+
+    Args:
+        request: The Django request object
+        trade_id: The ID of the Trade
+
+    Returns:
+        JsonResponse containing the TradeLevelAssumption data, or an empty dict if not found
+    """
+    if not trade_id:
+        return JsonResponse({}, safe=False)
+
+    try:
+        # Get or initialize TradeLevelAssumption for the trade
+        assumption = TradeLevelAssumption.objects.filter(trade_id=trade_id).first()
+        
+        if assumption:
+            serializer = TradeLevelAssumptionSerializer(assumption)
+            return Response(serializer.data)
+
+        # Return empty skeleton so UI knows the trade id even without an assumption row yet
+        return Response({"trade_id": trade_id})
+    
+    except Exception as e:
+        logger.exception(f"Error fetching trade level assumptions for trade ID {trade_id}: {str(e)}")
+        return JsonResponse({"error": "Failed to retrieve trade level assumptions"}, status=500)
+
+@api_view(['POST', 'PUT'])
+def update_trade_level_assumptions(request, trade_id):
+    """
+    Update or create trade level assumptions for a specific trade.
+
+    Args:
+        request: The Django request object
+        trade_id: The ID of the Trade
+
+    Returns:
+        JsonResponse containing the updated TradeLevelAssumption data
+    """
+    if not trade_id:
+        return JsonResponse({"error": "Trade ID is required"}, status=400)
+
+    try:
+        # Get the trade object
+        trade = Trade.objects.get(pk=trade_id)
+        
+        # Get or create TradeLevelAssumption for the trade
+        assumption, _ = TradeLevelAssumption.objects.get_or_create(trade=trade)
+
+        serializer = TradeLevelAssumptionSerializer(
+            instance=assumption,
+            data=request.data,
+            partial=True,
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        response_payload = dict(serializer.data)
+        response_payload["success"] = True
+        return Response(response_payload)
+    
+    except Trade.DoesNotExist:
+        return Response({"error": f"Trade with ID {trade_id} does not exist"}, status=status.HTTP_404_NOT_FOUND)
+    
+    except Exception as e:
+        logger.exception(f"Error updating trade level assumptions for trade ID {trade_id}: {str(e)}")
+        return Response({"error": "Failed to update trade level assumptions"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
