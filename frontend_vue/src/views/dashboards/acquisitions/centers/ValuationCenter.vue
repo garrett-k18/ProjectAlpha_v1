@@ -137,9 +137,10 @@
                     <thead class="table-light">
                       <tr>
                         <th>Address</th>
-                        <th>Seller AIV</th>
-                        <th>Broker AIV</th>
-                        <th>Internal AIV</th>
+                        <th>Seller AIV - ARV</th>
+                        <th>BPO AIV - ARV</th>
+                        <th>Broker AIV - ARV</th>
+                        <th>Internal AIV - ARV</th>
                         <th>Variance</th>
                         <th>Status</th>
                         <th>Actions</th>
@@ -147,18 +148,35 @@
                     </thead>
                     <tbody>
                       <tr v-if="!rows || rows.length === 0">
-                        <td colspan="7" class="text-center text-muted py-3">
+                        <td colspan="8" class="text-center text-muted py-3">
                           No assets to display
                         </td>
                       </tr>
                       <tr v-for="asset in (rows as any[])" :key="asset.asset_hub_id">
                         <td>
-                          <div class="fw-semibold">{{ asset.property_address || '-' }}</div>
-                          <div class="text-muted small">{{ asset.property_city }}, {{ asset.property_state }}</div>
+                          <div class="fw-semibold">{{ formatAddress(asset) }}</div>
+                          <div class="text-muted small">{{ formatCityState(asset) }}</div>
                         </td>
-                        <td>{{ formatCurrency(asset.seller_asis_value as number) }}</td>
-                        <td>{{ formatCurrency(asset.broker_asis_value as number) }}</td>
-                        <td>{{ formatCurrency(asset.internal_initial_uw_asis_value as number) }}</td>
+                        <td>
+                          <span>{{ formatCurrency(asset.seller_asis_value as number) }}</span>
+                          <span class="mx-1">-</span>
+                          <span>{{ formatCurrency(asset.seller_arv_value as number) }}</span>
+                        </td>
+                        <td>
+                          <span>{{ formatCurrency(asset.additional_asis_value as number) }}</span>
+                          <span class="mx-1">-</span>
+                          <span>{{ formatCurrency(asset.additional_arv_value as number) }}</span>
+                        </td>
+                        <td>
+                          <span>{{ formatCurrency(asset.broker_asis_value as number) }}</span>
+                          <span class="mx-1">-</span>
+                          <span>{{ formatCurrency(asset.broker_arv_value as number) }}</span>
+                        </td>
+                        <td>
+                          <span>{{ formatCurrency(asset.internal_initial_uw_asis_value as number) }}</span>
+                          <span class="mx-1">-</span>
+                          <span>{{ formatCurrency(asset.internal_initial_uw_arv_value as number) }}</span>
+                        </td>
                         <td>
                           <span :class="varianceClass(calculateVariance(asset))">
                             {{ formatPercent(calculateVariance(asset)) }}
@@ -459,6 +477,20 @@ function getValuationStatus(asset: any): string {
 function formatCurrency(val: number | null): string {
   if (val == null) return '-'
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val)
+}
+
+// Format address from asset data
+function formatAddress(asset: any): string {
+  // Try different possible address field names
+  return asset.property_address || asset.address || asset.street_address || '-'
+}
+
+// Format city and state
+function formatCityState(asset: any): string {
+  const city = asset.property_city || asset.city || ''
+  const state = asset.property_state || asset.state || ''
+  if (!city && !state) return ''
+  return `${city}${city && state ? ', ' : ''}${state}`
 }
 
 function formatPercent(val: number | null): string {

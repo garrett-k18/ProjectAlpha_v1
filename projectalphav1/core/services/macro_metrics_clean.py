@@ -9,11 +9,12 @@ import requests
 from typing import Dict, Optional, Any
 from django.core.cache import cache
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
 # FRED API Configuration (Federal Reserve Economic Data)
-FRED_API_KEY = "a8bf99bea824e58e23aef28772f61af1"
+FRED_API_KEY = os.getenv("FRED_API_KEY")
 FRED_BASE_URL = "https://api.stlouisfed.org/fred"
 CACHE_TIMEOUT = 86400  # 24 hours cache for rates (86400 seconds)
 
