@@ -40,7 +40,7 @@ from ..serializers.serial_acq_dataTable import (
     SellerRawDataFieldsSerializer,
 )
 from ..services.serv_acq_sellerData import build_queryset
-from ..logic.summarystats import (
+from ..logic.logi_acq_summaryStats import (
     states_for_selection,
     state_count_for_selection,
     count_by_state,

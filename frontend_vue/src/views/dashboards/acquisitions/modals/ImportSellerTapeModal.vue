@@ -308,7 +308,7 @@ async function startImport() {
     formData.append('dry_run', dryRun.value.toString())
 
     // Call backend API endpoint (to be created)
-    const response = await axios.post('/api/acq/import-seller-tape/', formData, {
+    const response = await axios.post('/acq/import-seller-tape/', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
 

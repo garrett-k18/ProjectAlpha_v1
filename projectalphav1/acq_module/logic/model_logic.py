@@ -8,7 +8,7 @@ How: Plain functions that query models and shape dictionaries for serializers.
 """
 
 from decimal import Decimal
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 from django.db.models import Prefetch, Sum
 

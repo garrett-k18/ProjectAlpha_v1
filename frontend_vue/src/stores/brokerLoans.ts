@@ -130,7 +130,7 @@ export const useBrokerLoansStore = defineStore('brokerLoans', {
       this.errorDetail[brokerId] = null
       try {
         // perform GET request against backend API
-        const res = await http.get<BrokerDetail>(`/api/acq/brokers/${brokerId}/`)
+        const res = await http.get<BrokerDetail>(`/acq/brokers/${brokerId}/`)
         // store result in cache map
         this.brokerById[brokerId] = res.data
         return res.data
@@ -154,7 +154,7 @@ export const useBrokerLoansStore = defineStore('brokerLoans', {
       this.errorAssigned[brokerId] = null
       try {
         // perform GET request against backend API
-        const res = await http.get<{ results: AssignedLoanEntry[] }>(`/api/acq/brokers/${brokerId}/assigned-loans/`)
+        const res = await http.get<{ results: AssignedLoanEntry[] }>(`/acq/brokers/${brokerId}/assigned-loans/`)
         // store results list in cache map
         this.assignedByBrokerId[brokerId] = res.data.results
         return res.data.results
