@@ -37,7 +37,7 @@ urlpatterns = [
 # This catch-all pattern must be last to avoid conflicting with API routes
 # Exclude /static/ and /media/ so WhiteNoise can serve them
 urlpatterns.append(
-    re_path(r'^(?!api/|static/|media/).*$', TemplateView.as_view(template_name='index.html'))
+    re_path(r'^(?!api/|static/|media/|admin/).*$', TemplateView.as_view(template_name='index.html'))
 )
 
 # Serve media files in development
