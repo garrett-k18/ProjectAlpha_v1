@@ -278,33 +278,33 @@
 
 <script lang="ts">
 import Layout from "@/components/layouts/layout.vue";
-import StratsCurrentBal from "@/views/dashboards/acquisitions/strats/strats-current-bal.vue";
-import StratsTotalDebt from "@/views/dashboards/acquisitions/strats/strats-total-debt.vue";
-import StratsSellerAsIs from "@/views/dashboards/acquisitions/strats/strats-seller-asis.vue";
-import StratsWac from "@/views/dashboards/acquisitions/strats/strats-wac.vue";
-import StratsDefaultRate from "@/views/dashboards/acquisitions/strats/strats-default-rate.vue";
-import StratsPropertyType from "@/views/dashboards/acquisitions/strats/strats-property-type.vue";
-import StratsOccupancy from "@/views/dashboards/acquisitions/strats/strats-occupancy.vue";
-import StratsJudVsNon from "@/views/dashboards/acquisitions/strats/strats-judvsnon.vue";
-import StratsDelinquency from "@/views/dashboards/acquisitions/strats/strats-delinquency.vue";
-import VectorMap from "@/views/dashboards/acquisitions/vectorMap.vue";
-import Widgets from "@/views/dashboards/acquisitions/widgets.vue";
-import TradeTasking from '@/views/dashboards/acquisitions/components/TradeTasking.vue';
+import StratsCurrentBal from "@/views/acq_module/acq_dash/strats/strats-current-bal.vue";
+import StratsTotalDebt from "@/views/acq_module/acq_dash/strats/strats-total-debt.vue";
+import StratsSellerAsIs from "@/views/acq_module/acq_dash/strats/strats-seller-asis.vue";
+import StratsWac from "@/views/acq_module/acq_dash/strats/strats-wac.vue";
+import StratsDefaultRate from "@/views/acq_module/acq_dash/strats/strats-default-rate.vue";
+import StratsPropertyType from "@/views/acq_module/acq_dash/strats/strats-property-type.vue";
+import StratsOccupancy from "@/views/acq_module/acq_dash/strats/strats-occupancy.vue";
+import StratsJudVsNon from "@/views/acq_module/acq_dash/strats/strats-judvsnon.vue";
+import StratsDelinquency from "@/views/acq_module/acq_dash/strats/strats-delinquency.vue";
+import VectorMap from "@/views/acq_module/acq_dash/vectorMap.vue";
+import Widgets from "@/views/acq_module/acq_dash/widgets.vue";
+import TradeTasking from '@/views/acq_module/acq_dash/components/TradeTasking.vue';
 // Local type for document items used by TradeDocumentsModal
 // Exported to fix TypeScript module inference when this component is imported elsewhere
 export interface DocumentItem { id: string; name: string; type: string; sizeBytes: number; previewUrl: string; downloadUrl: string }
 // AG Grid: simplified testing grid for acquisitions dashboard
-import AcqGrid from "@/views/dashboards/acquisitions/acq-grid.vue";
+import AcqGrid from "@/views/acq_module/acq_dash/acq-grid.vue";
 // BootstrapVue Next modal component (Vue 3 compatible)
 import { BModal } from 'bootstrap-vue-next';
 // Centralized loan-level wrapper used for both full-page and modal
 import LoanLevelIndex from '@/views/acq_module/loanlvl/loanlvl_index.vue'
 // Trade modals
-import TradeDetailsModal from '@/views/dashboards/acquisitions/modals/TradeDetailsModal.vue'
-import TradeDocumentsModal from '@/views/dashboards/acquisitions/modals/TradeDocumentsModal.vue'
-import ImportSellerTapeModal from '@/views/dashboards/acquisitions/modals/ImportSellerTapeModal.vue'
+import TradeDetailsModal from '@/views/acq_module/acq_dash/modals/TradeDetailsModal.vue'
+import TradeDocumentsModal from '@/views/acq_module/acq_dash/modals/TradeDocumentsModal.vue'
+import ImportSellerTapeModal from '@/views/acq_module/acq_dash/modals/ImportSellerTapeModal.vue'
 // Trade control prototype Option 1 (Action Dock)
-import TradeActionDock from '@/views/dashboards/acquisitions/components/TradeActionDock.vue';
+import TradeActionDock from '@/views/acq_module/acq_dash/components/TradeActionDock.vue';
 // Trade control prototype Option 2 (Tabbed Control Center)
 // Selections store + helpers
 import { useAcqSelectionsStore } from '@/stores/acqSelections'

@@ -2,8 +2,8 @@
   <!-- Option 1: Status Card with Progress Bars -->
   <div class="card h-100 d-flex flex-column" data-testid="tasking-option1">
     <!-- Header -->
-    <div class="d-flex card-header justify-content-between align-items-center">
-      <h4 class="header-title mb-0">Trade Tracker</h4>
+    <div class="d-flex card-header justify-content-between align-items-center py-2">
+      <h4 class="header-title m-1">Trade Tracker</h4>
     </div>
 
     <!-- Body -->
@@ -28,7 +28,7 @@
                 <span class="fw-semibold fs-5">Valuation Center</span>
               </div>
               <span class="badge" :class="progressBadgeClass(valuesReconciled, totalAssets)">
-                {{ valuesReconciled }} / {{ totalAssets }}
+               Reconciled Values {{ valuesReconciled }} / {{ totalAssets }}
               </span>
             </div>
             <div class="progress" style="height: 8px;">
@@ -54,7 +54,7 @@
                 <span class="fw-semibold fs-5">Collateral Center</span>
               </div>
               <span class="badge" :class="progressBadgeClass(collateralCompleted, totalAssets)">
-                {{ collateralCompleted }} / {{ totalAssets }}
+                Collateral Checks {{ collateralCompleted }} / {{ totalAssets }}
               </span>
             </div>
             <div class="progress" style="height: 8px;">
@@ -80,7 +80,7 @@
                 <span class="fw-semibold fs-5">Title Center</span>
               </div>
               <span class="badge" :class="progressBadgeClass(titleCompleted, totalAssets)">
-                {{ titleCompleted }} / {{ totalAssets }}
+                Title Checks {{ titleCompleted }} / {{ totalAssets }}
               </span>
             </div>
             <div class="progress" style="height: 8px;">

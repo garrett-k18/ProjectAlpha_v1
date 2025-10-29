@@ -28,6 +28,11 @@
             "folderPath": "ProjectAlpha_v1\\frontend_vue\\src\\",
             "color": "foldercolorizer.color_996633",
             "isFolderOnly": true
+        },
+        {
+            "folderPath": "ProjectAlpha_v1\\frontend_vue\\src\\views\\acq_module\\",
+            "color": "foldercolorizer.color_00dd00",
+            "isFolderOnly": true
         }
     ],
     "favoritesPanel.commandsForWorkspace": [

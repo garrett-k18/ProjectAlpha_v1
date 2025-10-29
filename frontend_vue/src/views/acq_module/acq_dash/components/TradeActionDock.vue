@@ -1,23 +1,9 @@
 <template>
   <!-- Root card wraps the entire Option 1 (Action Dock) concept so it can sit inside dashboard columns -->
   <div class="card h-100">
-    <!-- Header communicates which trade is being summarized and includes status selector -->
-    <div class="d-flex card-header justify-content-between align-items-center">
-      <!-- Heading matches TradeTasking typography for visual consistency -->
-      <h4 class="header-title mb-0">Actions</h4>
-      <!-- Status selector allows users to update trade lifecycle directly from the dock -->
-      <div class="d-flex align-items-center" role="group" aria-label="Trade status controls">
-        <select
-          class="form-select form-select-sm"
-          v-model="selectedStatus"
-          :disabled="savingStatus"
-          @change="handleStatusChange"
-        >
-          <option v-for="option in decoratedStatusOptions" :key="option.value" :value="option.value">
-            {{ option.label }}
-          </option>
-        </select>
-      </div>
+    <!-- Header keeps visual hierarchy light now that the status control lives in the body -->
+    <div class="d-flex card-header justify-content-between align-items-center py-2">
+      <h4 class="header-title m-1">Actions</h4>
     </div>
 
     <!-- Confirmation modal appears when high-impact statuses (Pass/Board) are chosen -->
@@ -53,6 +39,29 @@
     <div class="card-body pt-3">
       <!-- Stack keeps spacing consistent between action buttons -->
       <div class="vstack gap-2">
+        <!-- Trade status sits in its own control card so it visually aligns with action buttons -->
+        <div
+          class="status-card btn text-start w-100 d-flex align-items-center justify-content-between btn-light border"
+          role="group"
+          aria-label="Trade status controls"
+        >
+          <div class="d-flex align-items-center gap-2">
+            <i class="mdi mdi-flag-outline fs-4"></i>
+            <div class="d-flex flex-column">
+              <span class="fw-semibold">Trade Status</span>
+            </div>
+          </div>
+          <select
+            class="form-select form-select-sm status-select"
+            v-model="selectedStatus"
+            :disabled="savingStatus"
+            @change="handleStatusChange"
+          >
+            <option v-for="option in decoratedStatusOptions" :key="option.value" :value="option.value">
+              {{ option.label }}
+            </option>
+          </select>
+        </div>
         <!-- Each button is full-width, text-aligned to the left, and triggers the emit when clicked -->
         <button
           v-for="action in resolvedActionItems"
@@ -246,13 +255,6 @@ const handleStatusChange = async () => {
 
 const resolvedActionItems = computed(() => {
   return props.actionItems.map((item) => {
-    if (item.id === 'trade-assumptions') {
-      return {
-        ...item,
-        badge: props.hasActiveTrade ? 'Auto-Save' : null,
-        badgeClasses: props.hasActiveTrade ? 'bg-info-subtle text-info-emphasis' : null,
-      }
-    }
     if (item.id === 'trade-approvals') {
       return {
         ...item,
@@ -310,3 +312,24 @@ const cancelStatusChange = () => {
   selectedStatus.value = lastCommittedStatus.value
 }
 </script>
+
+<style scoped>
+.status-card {
+  padding: 0.5rem 0.75rem;
+  /* WHAT: match Bootstrap button vertical rhythm so card aligns with neighbors */
+  /* WHY: dropdown control was adding extra space compared to standard action buttons */
+  /* HOW: use same padding scale as .btn plus slight wiggle room for the select */
+  min-height: auto;
+}
+
+.status-select {
+  /* WHAT: restrict width so "Trade Status" heading stays on a single line while keeping options legible */
+  /* WHY: user requested narrower control to preserve single-line layout */
+  /* HOW: clamp width range and prevent flexbox from stretching the control */
+  min-width: 140px;
+  max-width: 160px;
+  width: 100%;
+  flex: 0 0 auto;
+  border-radius: 0.5rem;
+}
+</style>

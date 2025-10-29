@@ -193,36 +193,36 @@ class TradeLevelAssumption(models.Model):
     )
     
     # Trade dates
-    bid_date = models.DateField(help_text="Date the bid was submitted")
-    settlement_date = models.DateField(help_text="Expected or actual settlement date")
+    bid_date = models.DateField(null=True, blank=True, help_text="Date the bid was submitted")
+    settlement_date = models.DateField(null=True, blank=True, help_text="Expected or actual settlement date")
     servicing_transfer_date = models.DateField(null=True, blank=True, help_text="Date servicing transfers to new servicer")
     
     # Trade-specific financial assumptions
-    pctUPB = models.DecimalField(max_digits=15, decimal_places=2, help_text="Purchase price as percentage of UPB")
-    target_irr = models.DecimalField(max_digits=6, decimal_places=4, help_text="Target internal rate of return for this trade")
-    discount_rate = models.DecimalField(max_digits=6, decimal_places=4, default=0.12, help_text="Discount rate for NPV calculations")
+    pctUPB = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="Purchase price as percentage of UPB")
+    target_irr = models.DecimalField(max_digits=6, decimal_places=4, null=True, blank=True, help_text="Target internal rate of return for this trade")
+    discount_rate = models.DecimalField(max_digits=6, decimal_places=4, default=0.12, null=True, blank=True, help_text="Discount rate for NPV calculations")
     
     # Perf/RPL assumptions
-    perf_rpl_hold_period = models.IntegerField(default=12, help_text="Hold period for performing/re-performing loans (months)")
+    perf_rpl_hold_period = models.IntegerField(default=12, null=True, blank=True, help_text="Hold period for performing/re-performing loans (months)")
     
     # Modification assumptions
-    mod_rate = models.DecimalField(max_digits=6, decimal_places=4, default=0.0400, help_text="Modification interest rate as decimal (e.g., 0.04 = 4%)")
-    mod_legal_term = models.IntegerField(default=360, help_text="Modification legal term in months")
-    mod_amort_term = models.IntegerField(default=360, help_text="Modification amortization term in months")
-    max_mod_ltv = models.DecimalField(max_digits=6, decimal_places=4, default=0.95, help_text="Maximum LTV for modifications as decimal (e.g., 0.95 = 95%)")
-    mod_io_flag = models.BooleanField(default=False, help_text="IO (interest-only) flag for modifications")
-    mod_down_pmt = models.DecimalField(max_digits=6, decimal_places=4, default=0.05, help_text="Modification down payment as decimal (e.g., 0.05 = 5%)")
-    mod_orig_cost = models.DecimalField(max_digits=10, decimal_places=2, default=500.00, help_text="Modification origination cost in dollars per loan")
-    mod_setup_duration = models.IntegerField(default=6, help_text="Modification setup duration in months")
-    mod_hold_duration = models.IntegerField(default=6, help_text="Modification hold duration in months")
+    mod_rate = models.DecimalField(max_digits=6, decimal_places=4, default=0.0400, null=True, blank=True, help_text="Modification interest rate as decimal (e.g., 0.04 = 4%)")
+    mod_legal_term = models.IntegerField(default=360, null=True, blank=True, help_text="Modification legal term in months")
+    mod_amort_term = models.IntegerField(default=360, null=True, blank=True, help_text="Modification amortization term in months")
+    max_mod_ltv = models.DecimalField(max_digits=6, decimal_places=4, default=0.95, null=True, blank=True, help_text="Maximum LTV for modifications as decimal (e.g., 0.95 = 95%)")
+    mod_io_flag = models.BooleanField(default=False, null=True, blank=True, help_text="IO (interest-only) flag for modifications")
+    mod_down_pmt = models.DecimalField(max_digits=6, decimal_places=4, default=0.05, null=True, blank=True, help_text="Modification down payment as decimal (e.g., 0.05 = 5%)")
+    mod_orig_cost = models.DecimalField(max_digits=10, decimal_places=2, default=500.00, null=True, blank=True, help_text="Modification origination cost in dollars per loan")
+    mod_setup_duration = models.IntegerField(default=6, null=True, blank=True, help_text="Modification setup duration in months")
+    mod_hold_duration = models.IntegerField(default=6, null=True, blank=True, help_text="Modification hold duration in months")
     
     # Acquisition costs (dollar amounts per loan)
-    acq_legal_cost = models.DecimalField(max_digits=10, decimal_places=2, default=300.00, help_text="Acquisition legal cost in dollars per loan")
-    acq_dd_cost = models.DecimalField(max_digits=10, decimal_places=2, default=150.00, help_text="Acquisition due diligence cost in dollars per loan")
-    acq_tax_title_cost = models.DecimalField(max_digits=10, decimal_places=2, default=100.00, help_text="Acquisition tax/title cost in dollars per loan")
+    acq_legal_cost = models.DecimalField(max_digits=10, decimal_places=2, default=300.00, null=True, blank=True, help_text="Acquisition legal cost in dollars per loan")
+    acq_dd_cost = models.DecimalField(max_digits=10, decimal_places=2, default=150.00, null=True, blank=True, help_text="Acquisition due diligence cost in dollars per loan")
+    acq_tax_title_cost = models.DecimalField(max_digits=10, decimal_places=2, default=100.00, null=True, blank=True, help_text="Acquisition tax/title cost in dollars per loan")
     
     # Asset management fees (percentage as decimal)
-    am_fee_pct = models.DecimalField(max_digits=6, decimal_places=4, default=0.01, help_text="Asset management fee as decimal (e.g., 0.01 = 1%)")
+    am_fee_pct = models.DecimalField(max_digits=6, decimal_places=4, default=0.01, null=True, blank=True, help_text="Asset management fee as decimal (e.g., 0.01 = 1%)")
     
     
     
