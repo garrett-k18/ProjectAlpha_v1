@@ -27,17 +27,17 @@
                 <i class="ri-line-chart-line me-2 text-primary fs-4"></i>
                 <span class="fw-semibold fs-5">Valuation Center</span>
               </div>
-              <span class="badge" :class="progressBadgeClass(valuesCompleted, totalAssets)">
-                {{ valuesCompleted }} / {{ totalAssets }}
+              <span class="badge" :class="progressBadgeClass(valuesReconciled, totalAssets)">
+                {{ valuesReconciled }} / {{ totalAssets }}
               </span>
             </div>
             <div class="progress" style="height: 8px;">
               <div 
                 class="progress-bar" 
-                :class="progressBarClass(valuesCompleted, totalAssets)"
+                :class="progressBarClass(valuesReconciled, totalAssets)"
                 role="progressbar" 
-                :style="{width: progressPercent(valuesCompleted, totalAssets) + '%'}"
-                :aria-valuenow="valuesCompleted" 
+                :style="{width: progressPercent(valuesReconciled, totalAssets) + '%'}"
+                :aria-valuenow="valuesReconciled" 
                 :aria-valuemin="0" 
                 :aria-valuemax="totalAssets"
               ></div>
@@ -132,7 +132,24 @@ const metrics = ref({
 
 // Derived counts from current grid rows
 const totalAssets = computed<number>(() => Array.isArray(gridRows.value) ? gridRows.value.length : 0)
-const valuesCompleted = computed<number>(() => (gridRows.value || []).filter((r: any) => r && r.seller_asis_value != null).length)
+// WHAT: computed total of reconciled valuations across grid rows to drive Valuation Center progress UI
+// WHY: business requirement is to track only assets where all valuation sources have been reconciled
+// HOW: count rows with seller, at least one external (broker or bpo), and internal underwriting values present
+const valuesReconciled = computed<number>(() => {
+  // COMMENT: guard against undefined rows array coming from Pinia store
+  const rowsForCounting = gridRows.value || []
+  // COMMENT: iterate rows and retain only assets with all required valuation touchpoints populated
+  return rowsForCounting.filter((row: any) => {
+    // COMMENT: ensure seller valuation exists (baseline prerequisite for reconciliation)
+    const hasSellerValuation = row && row.seller_asis_value != null
+    // COMMENT: reconciliation accepts either broker or BPO valuation sources in addition to seller
+    const hasExternalValuation = row && (row.broker_asis_value != null || row.additional_asis_value != null)
+    // COMMENT: internal underwriting valuation must be present to finalize reconciliation
+    const hasInternalValuation = row && row.internal_initial_uw_asis_value != null
+    // COMMENT: only count the asset when all three valuation pillars are available
+    return Boolean(hasSellerValuation && hasExternalValuation && hasInternalValuation)
+  }).length
+})
 // TODO: Replace with real flags when backend fields are available
 const collateralCompleted = computed<number>(() => 0)
 const titleCompleted = computed<number>(() => 0)
@@ -140,7 +157,7 @@ const titleCompleted = computed<number>(() => 0)
 const ddApproved = computed<boolean>(() => {
   const total = totalAssets.value
   if (!total) return false
-  return valuesCompleted.value === total && collateralCompleted.value === total && titleCompleted.value === total
+  return valuesReconciled.value === total && collateralCompleted.value === total && titleCompleted.value === total
 })
 
 // Fetch pool summary for current selection

@@ -80,12 +80,15 @@ def monthly_insurance_for_asset(asset_hub_id: int) -> Decimal:
 
 """
 def monthly_hoa
-def am_liq_fee_asset
-def broker_fee_closing_cost
+def acq_broker_fee
+def acq_fee_other
 def acq_dd_cost
 def acq_legal_cost
 def acq_tax_title_cost
-def 
+def liq_tax_transfer
+def liq_title_expense
+def liq_broker_fees
+def liq_am_fees
 def utiliy_electric
 def utiliy_gas
 def utiliy_water
@@ -95,8 +98,11 @@ def utiliy_other
 def property_management
 def repairs_maintenance
 def marketing
-
-
-def security_property_preservation
+def trashout
+def renovation
+def property_preservation
+def security_cost
 def landscaping
+def pool_maintenance
+
 """ 
