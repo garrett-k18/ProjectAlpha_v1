@@ -49,7 +49,7 @@ from ..logic.logi_acq_summaryStats import (
     sum_seller_asis_value_by_state,
     count_upb_td_val_summary,
 )
-from ..logic.strats import (
+from ..logic.logi_acq_strats import (
     # Dynamic stratification helpers (NTILE with fallback)
     current_balance_stratification_dynamic,
     total_debt_stratification_dynamic,

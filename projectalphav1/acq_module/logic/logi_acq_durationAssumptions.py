@@ -1,9 +1,9 @@
 """
-acq_module.logic.model_logic
+acq_module.logic.logi_acq_durationAssumptions
 General logic used for all outcomes...not specific to any one outcome
 What: Backend logic helpers for ACQ workflows.
 Why: Keep reusable model/business logic out of views; import from DRF views and other modules.
-Where: projectalphav1/acq_module/logic/model_logic.py
+Where: projectalphav1/acq_module/logic/logi_acq_durationAssumptions.py
 How: Plain functions that query models and shape dictionaries for serializers.
 """
 

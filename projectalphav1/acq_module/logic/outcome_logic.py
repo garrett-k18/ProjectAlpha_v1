@@ -69,7 +69,7 @@ class fcoutcomeLogic:
 
         What we'll add next (future components to be summed into the forecast):
         - estimated monthly property taxes using state assumptions
-          e.g., see helpers in `acq_module.logic.model_logic`:
+          e.g., see helpers in `acq_module.logic.logi_acq_durationAssumptions`:
               monthly_tax_for_asset(asset_hub_id)
         - estimated monthly insurance using state assumptions
               monthly_insurance_for_asset(asset_hub_id)
@@ -105,7 +105,7 @@ class fcoutcomeLogic:
         base_debt: Decimal = raw.total_debt or Decimal('0.00')
 
         # NOTE: Future extension point (intentionally commented for clarity):
-        # from acq_module.logic.model_logic import monthly_tax_for_asset, monthly_insurance_for_asset
+        # from acq_module.logic.logi_acq_durationAssumptions import monthly_tax_for_asset, monthly_insurance_for_asset
         # est_monthly_tax = monthly_tax_for_asset(asset_hub_id)
         # est_monthly_ins = monthly_insurance_for_asset(asset_hub_id)
         # advances = Decimal('0.00')  # TODO: source from servicer data or assumptions
