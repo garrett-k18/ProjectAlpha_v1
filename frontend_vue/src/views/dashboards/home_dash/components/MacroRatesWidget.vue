@@ -111,11 +111,11 @@ export default defineComponent({
       try {
         // Fetch all economic indicators from FRED API in order: SOFR, Fed Funds, 30yr Mortgage, 10yr Treasury, CPI
         const [sofrRes, fedFundsRes, mortgage30Res, treasury10Res, cpiRes] = await Promise.all([
-          axios.get('/api/core/macro/sofr/'),
-          axios.get('/api/core/macro/fed-funds-rate/'),
-          axios.get('/api/core/macro/mortgage-rates/30-year/'),
-          axios.get('/api/core/macro/10-year-treasury/'),
-          axios.get('/api/core/macro/cpi/'),
+          axios.get('/core/macro/sofr/'),
+          axios.get('/core/macro/fed-funds-rate/'),
+          axios.get('/core/macro/mortgage-rates/30-year/'),
+          axios.get('/core/macro/10-year-treasury/'),
+          axios.get('/core/macro/cpi/'),
         ]);
 
         const rates = [];
