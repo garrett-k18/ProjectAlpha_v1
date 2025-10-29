@@ -310,6 +310,8 @@ async function startImport() {
     // Call backend API endpoint (to be created)
     const response = await axios.post('/acq/import-seller-tape/', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      // Allow lengthy ETL processing (3 minutes)
+      timeout: 180000,
     })
 
     // Success

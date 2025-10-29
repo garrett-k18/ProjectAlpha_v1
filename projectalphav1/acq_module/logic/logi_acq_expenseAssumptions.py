@@ -77,3 +77,26 @@ def monthly_insurance_for_asset(asset_hub_id: int) -> Decimal:
         return Decimal('0.00')
 
     return (base * state.insurance_rate_avg / Decimal('12')).quantize(Decimal('0.01'))
+
+"""
+def monthly_hoa
+def am_liq_fee_asset
+def broker_fee_closing_cost
+def acq_dd_cost
+def acq_legal_cost
+def acq_tax_title_cost
+def 
+def utiliy_electric
+def utiliy_gas
+def utiliy_water
+def utiliy_sewer
+def utiliy_trash
+def utiliy_other
+def property_management
+def repairs_maintenance
+def marketing
+
+
+def security_property_preservation
+def landscaping
+""" 
