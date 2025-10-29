@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 # FRED API Configuration (Federal Reserve Economic Data)
 FRED_API_KEY = os.getenv("FRED_API_KEY")
 FRED_BASE_URL = "https://api.stlouisfed.org/fred"
-CACHE_TIMEOUT = 86400  # 24 hours cache for rates (86400 seconds)
+CACHE_TIMEOUT = 3600  # Reduced to 1 hour for testing; was 86400 (24 hours) to handle stale data issues
 
 # FRED Series IDs
 FRED_MORTGAGE_30_YEAR = "MORTGAGE30US"  # 30-Year Fixed Rate Mortgage Average
@@ -149,13 +149,16 @@ def get_mortgage_rate_30_year() -> Dict[str, Any]:
         raise
 
 
-def get_fred_series(series_id: str, series_name: str) -> Dict[str, Any]:
+def get_fred_series(series_id: str, series_name: str, params: Optional[Dict] = None, limit: int = 2, sort_order: str = 'desc') -> Dict[str, Any]:
     """
     Generic function to fetch any FRED series with week-over-week change.
     
     Args:
         series_id: FRED series identifier
         series_name: Human-readable name for caching
+        params: Additional query parameters
+        limit: Number of observations to fetch
+        sort_order: Sort order of observations (asc/desc)
     
     Returns:
         Dictionary with current value, date, and percentage change
@@ -172,13 +175,16 @@ def get_fred_series(series_id: str, series_name: str) -> Dict[str, Any]:
     logger.info(f"Fetching {series_name} from FRED API")
     try:
         # Get the 2 most recent observations to calculate change
-        params = {
+        request_params = {
             'series_id': series_id,
-            'sort_order': 'desc',  # Most recent first
-            'limit': 2  # Get latest 2 values for change calculation
+            'sort_order': sort_order,  # Most recent first
+            'limit': limit  # Get latest 2 values for change calculation
         }
         
-        response = _make_fred_request("series/observations", params=params)
+        if params:
+            request_params.update(params)
+        
+        response = _make_fred_request("series/observations", params=request_params)
         
         # Extract the observation data
         if 'observations' in response and len(response['observations']) > 0:
@@ -205,7 +211,8 @@ def get_fred_series(series_id: str, series_name: str) -> Dict[str, Any]:
                 'date': current_obs['date'],
                 'change_pct': change_pct,
                 'previous_value': previous_value,
-                'previous_date': previous_date
+                'previous_date': previous_date,
+                'observations': response['observations']
             }
             
             # Cache the result
@@ -236,8 +243,19 @@ def get_sofr() -> Dict[str, Any]:
 
 
 def get_cpi() -> Dict[str, Any]:
-    """Get Consumer Price Index."""
-    return get_fred_series(FRED_CPI, "cpi")
+    """
+    Get year-over-year percentage change for Consumer Price Index (CPI) directly from FRED API.
+    Uses FRED API parameter 'units=pc1' to request percent change from one year ago.
+    Reference: https://fred.stlouisfed.org/docs/api/fred/series_observations.html (add &units=pc1)
+    
+    Returns:
+        Dict with keys: 'series_id', 'value' (percent change), 'date', 'units'
+    
+    Raises:
+        FREDAPIError: If the API request fails
+    """
+    params = {'units': 'pc1'}  # Request percent change from year ago
+    return get_fred_series(FRED_CPI, "cpi", params=params)
 
 
 def clear_rate_cache():

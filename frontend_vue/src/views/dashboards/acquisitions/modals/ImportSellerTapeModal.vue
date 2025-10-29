@@ -166,7 +166,7 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue'
-import axios from 'axios'
+import axios from '@/lib/http'
 
 /**
  * WHAT: Type definition describing each seller option returned by the API.
