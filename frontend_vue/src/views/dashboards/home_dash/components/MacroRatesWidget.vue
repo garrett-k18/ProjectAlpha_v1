@@ -68,7 +68,7 @@
 
 <script lang="ts">
 import { defineComponent } from 'vue';
-import axios from 'axios';
+import axios from '@/lib/http';
 
 export interface RateData {
   name: string;
