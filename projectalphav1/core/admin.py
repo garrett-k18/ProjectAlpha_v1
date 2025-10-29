@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.db.models import Exists, OuterRef
 from django.utils.html import format_html
+from django.urls import reverse
 from urllib.parse import quote
 from .models.capital import DebtFacility, CoInvestor, InvestorContribution, InvestorDistribution, Fund
 from .models.crm import MasterCRM
