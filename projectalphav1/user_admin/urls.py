@@ -4,8 +4,8 @@ from .views.auth_views import LoginView, LogoutView, RegisterView, UserDetailsVi
 
 # URL patterns for user_admin app
 urlpatterns = [
-    # Temporarily disabled redirect to debug admin issues
-    # path('', RedirectView.as_view(url='/admin/', permanent=False)),
+    # Redirect the site root to the Django admin login
+    path('', RedirectView.as_view(url='/admin/', permanent=False)),
     # CSRF token endpoint - must be called before login to get CSRF cookie
     path('api/auth/csrf/', CSRFTokenView.as_view(), name='csrf-token'),
     # Authentication endpoints
