@@ -105,7 +105,10 @@ class fcoutcomeLogic:
         base_debt: Decimal = raw.total_debt or Decimal('0.00')
 
         # NOTE: Future extension point (intentionally commented for clarity):
-        # from acq_module.logic.logi_acq_durationAssumptions import monthly_tax_for_asset, monthly_insurance_for_asset
+        # from acq_module.logic.logi_acq_expenseAssumptions import (
+        #     monthly_tax_for_asset,
+        #     monthly_insurance_for_asset,
+        # )
         # est_monthly_tax = monthly_tax_for_asset(asset_hub_id)
         # est_monthly_ins = monthly_insurance_for_asset(asset_hub_id)
         # advances = Decimal('0.00')  # TODO: source from servicer data or assumptions

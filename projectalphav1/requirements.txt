@@ -24,6 +24,8 @@ anthropic>=0.30,<1
 geocodio-library-python>=0.2.0,<1
 
 # Data processing and ETL
+# Docs: https://numpy.org/doc/
+numpy>=1.24.0
 # Docs: https://pandas.pydata.org/docs/
 pandas>=2.2.0,<3
 
@@ -34,7 +36,13 @@ openpyxl>=3.1.0,<4
 # Legacy Excel format support (.xls files)
 xlrd>=2.0.0,<3
 
+# Microsoft Graph API authentication (Outlook ETL)
+msal>=1.24.0
+
 gunicorn
 whitenoise>=6.6,<7
 
 requests==2.31.0
+
+# Password-protected Excel files
+msoffcrypto-tool>=5.0.0
