@@ -15,12 +15,6 @@ logger = logging.getLogger(__name__)
 
 # FRED API Configuration (Federal Reserve Economic Data)
 FRED_API_KEY = os.getenv("FRED_API_KEY")
-
-# Debug: Log API key presence (without exposing the key)
-if FRED_API_KEY:
-    logger.info("FRED API key loaded from environment")
-else:
-    logger.error("FRED_API_KEY environment variable not set!")
 FRED_BASE_URL = "https://api.stlouisfed.org/fred"
 CACHE_TIMEOUT = 86400  # 24 hours cache for rates (86400 seconds)
 
@@ -51,6 +45,11 @@ def _make_fred_request(endpoint: str, params: Optional[Dict] = None) -> Dict[str
     Raises:
         FREDAPIError: If the API request fails
     """
+    # Check if API key is available
+    if not FRED_API_KEY:
+        logger.error("FRED_API_KEY environment variable not set!")
+        raise FREDAPIError("FRED API key not configured")
+    
     url = f"{FRED_BASE_URL}/{endpoint}"
     
     # Add API key and default file_type to params
