@@ -78,7 +78,8 @@ class StateReference(models.Model):
         validators=[MinValueValidator(Decimal('0.0000')), MaxValueValidator(Decimal('1.0000'))],
         help_text="Average insurance rate (as decimal: 0.0040 = 0.40%, range: 0-100%)"
     )
-    
+    broker_closing_cost_fees_avg = models.DecimalField(max_digits=10, decimal_places=2, help_text="Average broker closing cost fees")
+    other_closing_cost_fees_avg = models.DecimalField(max_digits=10, decimal_places=2, help_text="Average other closing cost fees")
     # Legal fees
     fc_legal_fees_avg = models.DecimalField(max_digits=10, decimal_places=2, help_text="Average legal fees for foreclosure")
     dil_cost_avg = models.DecimalField(max_digits=10, decimal_places=2, help_text="Average dilution cost")
@@ -312,3 +313,56 @@ class CommercialUnits(models.Model):
     
     def __str__(self):
         return f"{self.units} units"
+
+
+class HOAAssumption(models.Model):
+    """Model to store HOA (Homeowners Association) fee assumptions by property type.
+    
+    What this does:
+    - Stores default monthly HOA fees for residential property types that typically have HOA fees
+    - Used in financial calculations and cash flow projections
+    - Focuses on property types where HOA fees are common (SFR, Condo, Townhouse, etc.)
+    
+    How it works:
+    - Each property type has a default monthly HOA fee amount
+    - One record per property type (unique constraint)
+    - Used to estimate ongoing carrying costs for properties
+    """
+    
+    # Property type (free text field for residential property types that have HOA fees)
+    property_type = models.CharField(
+        max_length=20,
+        unique=True,
+        help_text="Property type (typically residential types like SFR, Condo, Townhouse, etc.)"
+    )
+    
+    # Monthly HOA fee amount
+    monthly_hoa_fee = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        help_text="Default monthly HOA fee for this property type"
+    )
+    
+    # Optional notes about the assumption
+    notes = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Additional notes about HOA assumptions for this property type"
+    )
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "HOA Assumption"
+        verbose_name_plural = "HOA Assumptions"
+        ordering = ['property_type']
+        indexes = [
+            models.Index(fields=['property_type']),
+        ]
+        db_table = 'hoa_assumptions'
+    
+    def __str__(self):
+        return f"{self.property_type}: ${self.monthly_hoa_fee}/month"
+

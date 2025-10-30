@@ -44,7 +44,7 @@
 
 
     <!-- Two-column layout: Subtasks | Notes -->
-    <div class="p-3">
+    <div class="p-3" v-show="!collapsed">
       <div class="row g-3">
         <!-- Left Column: Subtasks -->
         <div class="col-md-6">

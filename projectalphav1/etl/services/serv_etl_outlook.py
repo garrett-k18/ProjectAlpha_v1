@@ -26,7 +26,7 @@ from datetime import datetime, timedelta
 import requests
 from msal import ConfidentialClientApplication
 
-from .seller_rules import SellerRule
+from etl.services.serv_etl_seller_rules import SellerRule
 
 logger = logging.getLogger(__name__)
 

@@ -1,99 +1,110 @@
 <template>
-  <!--
-    Valuation Matrix Option 2: Comparison Grid
-    Side-by-side comparison with visual indicators for differences
-    Clean, modern grid layout with color-coded sources
-    Component path: frontend_vue/src/views/acq_module/loanlvl/components/valuationMatrix_Option2.vue
-  -->
-  <div class="valuation-option-2">
-    <div class="card">
-      <div class="card-body p-0">
-        <!-- Grid Header -->
-        <div class="comparison-header">
-          <div class="source-col header-cell">Source</div>
-          <div class="value-col header-cell">As-Is Value</div>
-          <div class="value-col header-cell">After Repair Value</div>
-          <div class="value-col header-cell">Rehab Estimate</div>
-        </div>
+  <!-- Valuation Matrix Option 2: Comparison Grid -->
+  <div class="card">
+    <!-- Card Header -->
+    <div class="d-flex card-header justify-content-between align-items-center">
+      <h4 class="header-title">Valuation Summary</h4>
+      <div v-if="saving" class="text-muted small">
+        <i class="mdi mdi-reload mdi-spin me-1"></i>Saving…
+      </div>
+    </div>
 
-        <!-- Internal Reconciled Row (Editable) -->
-        <div class="comparison-row reconciled-row">
-          <div class="source-col">
-            <div class="d-flex align-items-center">
-              <i class="mdi mdi-pencil text-primary me-2"></i>
-              <strong>Internal Reconciled</strong>
-            </div>
-          </div>
-          <div class="value-col">
-            <b-form-input
-              v-model="internalAsIs"
-              v-currency
-              @update:modelValue="onCurrencyModel('asIs', $event)"
-              type="text"
-              inputmode="numeric"
-              pattern="[0-9,]*"
-              size="sm"
-              class="text-start"
-              :disabled="!sellerId || saving"
-              @blur="onAsIsBlur"
-              placeholder="Enter"
-            />
-            <small v-if="asIsTouched && internalAsIs !== '' && !isWholeNumberDisplay(internalAsIs)" class="text-danger d-block mt-1">Whole number only</small>
-          </div>
-          <div class="value-col">
-            <b-form-input
-              v-model="internalArv"
-              v-currency
-              @update:modelValue="onCurrencyModel('arv', $event)"
-              type="text"
-              inputmode="numeric"
-              pattern="[0-9,]*"
-              size="sm"
-              class="text-start"
-              :disabled="!sellerId || saving"
-              @blur="onArvBlur"
-              placeholder="Enter"
-            />
-            <small v-if="arvTouched && internalArv !== '' && !isWholeNumberDisplay(internalArv)" class="text-danger d-block mt-1">Whole number only</small>
-          </div>
-          <div class="value-col">
-            <b-form-input
-              v-model="internalRehab"
-              v-currency
-              @update:modelValue="onCurrencyModel('rehab', $event)"
-              type="text"
-              inputmode="numeric"
-              pattern="[0-9,]*"
-              size="sm"
-              class="text-start"
-              :disabled="!sellerId || saving"
-              @blur="onRehabBlur"
-              placeholder="Enter"
-            />
-            <small v-if="rehabTouched && internalRehab !== '' && !isWholeNumberDisplay(internalRehab)" class="text-danger d-block mt-1">Whole number only</small>
-          </div>
-        </div>
+    <!-- Card Body -->
+    <div class="card-body pt-0">
+      <div class="table-responsive">
+        <table class="table table-centered table-hover mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>Source</th>
+              <th>As-Is Value</th>
+              <th>After Repair Value</th>
+              <th>Rehab Estimate</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Internal Reconciled Row (Editable) -->
+            <tr class="table-active">
+              <td>
+                <span class="badge bg-primary-subtle text-primary">
+                  <i class="mdi mdi-pencil me-1"></i>Internal Reconciled
+                </span>
+              </td>
+              <td>
+                <b-form-input
+                  v-model="internalAsIs"
+                  v-currency
+                  @update:modelValue="onCurrencyModel('asIs', $event)"
+                  type="text"
+                  inputmode="numeric"
+                  pattern="[0-9,]*"
+                  size="sm"
+                  :disabled="!sellerId || saving"
+                  @blur="onAsIsBlur"
+                  placeholder="Enter value"
+                  style="max-width: 180px;"
+                />
+                <small v-if="asIsTouched && internalAsIs !== '' && !isWholeNumberDisplay(internalAsIs)" class="text-danger d-block mt-1">
+                  Whole number only
+                </small>
+              </td>
+              <td>
+                <b-form-input
+                  v-model="internalArv"
+                  v-currency
+                  @update:modelValue="onCurrencyModel('arv', $event)"
+                  type="text"
+                  inputmode="numeric"
+                  pattern="[0-9,]*"
+                  size="sm"
+                  :disabled="!sellerId || saving"
+                  @blur="onArvBlur"
+                  placeholder="Enter value"
+                  style="max-width: 180px;"
+                />
+                <small v-if="arvTouched && internalArv !== '' && !isWholeNumberDisplay(internalArv)" class="text-danger d-block mt-1">
+                  Whole number only
+                </small>
+              </td>
+              <td>
+                <b-form-input
+                  v-model="internalRehab"
+                  v-currency
+                  @update:modelValue="onCurrencyModel('rehab', $event)"
+                  type="text"
+                  inputmode="numeric"
+                  pattern="[0-9,]*"
+                  size="sm"
+                  :disabled="!sellerId || saving"
+                  @blur="onRehabBlur"
+                  placeholder="Enter value"
+                  style="max-width: 180px;"
+                />
+                <small v-if="rehabTouched && internalRehab !== '' && !isWholeNumberDisplay(internalRehab)" class="text-danger d-block mt-1">
+                  Whole number only
+                </small>
+              </td>
+            </tr>
 
-        <!-- Divider -->
-        <div class="divider"></div>
+            <!-- Supporting Reference Rows (Read-only) -->
+            <tr v-for="(r, idx) in otherRows" :key="idx">
+              <td>
+                <span class="badge" :class="getSourceBadgeClass(r.source)">
+                  {{ r.source }}
+                </span>
+              </td>
+              <td class="fw-semibold">{{ formatDisplay(r.asIs) }}</td>
+              <td class="fw-semibold">{{ formatDisplay(r.arv) }}</td>
+              <td>{{ formatDisplay(r.rehab) }}</td>
+            </tr>
 
-        <!-- Reference Rows (Read-only) -->
-        <div v-for="(r, idx) in otherRows" :key="idx" class="comparison-row reference-row">
-          <div class="source-col">
-            <span class="source-badge" :class="getSourceBadgeClass(r.source)">
-              {{ r.source }}
-            </span>
-          </div>
-          <div class="value-col">
-            <span class="value-display">{{ r.asIs || '—' }}</span>
-          </div>
-          <div class="value-col">
-            <span class="value-display">{{ r.arv || '—' }}</span>
-          </div>
-          <div class="value-col">
-            <span class="value-display">{{ r.rehab || '—' }}</span>
-          </div>
-        </div>
+            <!-- Empty State -->
+            <tr v-if="otherRows.length === 0">
+              <td colspan="4" class="text-center text-muted py-3">
+                No supporting valuations available for this asset.
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   </div>
@@ -102,8 +113,10 @@
 <script setup lang="ts">
 /**
  * Valuation Matrix Option 2: Comparison Grid
- * Clean grid layout with side-by-side comparison of all sources
- * Color-coded badges for easy source identification
+ * 
+ * Displays a clean grid layout with side-by-side comparison of all valuation sources.
+ * Internal reconciled values are editable inputs, supporting values are read-only.
+ * Uses color-coded badges for easy source identification.
  */
 import { withDefaults } from 'vue'
 import { useValuationLogic } from './valuationLogic'
@@ -118,7 +131,7 @@ const props = withDefaults(defineProps<{
   assetId: null,
 })
 
-// Use shared valuation logic
+// Use shared valuation logic composable
 const {
   internalAsIs,
   internalArv,
@@ -136,123 +149,33 @@ const {
   isWholeNumberDisplay,
 } = useValuationLogic(props)
 
-// Helper to assign color classes to source badges
+/**
+ * Returns Bootstrap badge class based on valuation source type
+ */
 function getSourceBadgeClass(source: string): string {
-  if (source.includes('Seller')) return 'badge-seller'
-  if (source.includes('Agent')) return 'badge-agent'
-  if (source.includes('BPO')) return 'badge-bpo'
-  return 'badge-default'
+  if (source.includes('Seller')) return 'bg-info-subtle text-info'
+  if (source.includes('Agent')) return 'bg-purple-subtle text-purple'
+  if (source.includes('BPO')) return 'bg-success-subtle text-success'
+  return 'bg-secondary-subtle text-secondary'
+}
+
+/**
+ * Formats display value, showing em dash for empty/null values
+ */
+function formatDisplay(value?: string): string {
+  return value && value.trim() !== '' ? value : '—'
 }
 </script>
 
 <style scoped>
-.valuation-option-2 {
-  font-size: 0.95rem;
+/* Minimal scoped styles - rely on Hyper UI Bootstrap utilities */
+
+/* Purple badge variant (not in Bootstrap by default) */
+.bg-purple-subtle {
+  background-color: #f3e5f5 !important;
 }
 
-.comparison-header {
-  display: grid;
-  grid-template-columns: 2fr 1.5fr 1.5fr 1.5fr;
-  gap: 1rem;
-  padding: 1rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  font-weight: 600;
-  border-radius: 0.25rem 0.25rem 0 0;
-}
-
-.comparison-row {
-  display: grid;
-  grid-template-columns: 2fr 1.5fr 1.5fr 1.5fr;
-  gap: 1rem;
-  padding: 1rem;
-  align-items: center;
-  border-bottom: 1px solid #e9ecef;
-}
-
-.comparison-row:last-child {
-  border-bottom: none;
-}
-
-.reconciled-row {
-  background: #fafbfc;
-  border-left: 4px solid #667eea;
-}
-
-.reference-row:hover {
-  background: #f8f9fa;
-}
-
-.header-cell {
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.source-col {
-  display: flex;
-  align-items: center;
-}
-
-.value-col {
-  display: flex;
-  flex-direction: column;
-}
-
-.value-display {
-  font-size: 1.1rem;
-  font-weight: 500;
-  color: #495057;
-}
-
-.source-badge {
-  padding: 0.35rem 0.75rem;
-  border-radius: 0.25rem;
-  font-size: 0.85rem;
-  font-weight: 500;
-}
-
-.badge-seller {
-  background: #e8eaf6;
-  color: #3f51b5;
-}
-
-.badge-agent {
-  background: #f3e5f5;
-  color: #8e24aa;
-}
-
-.badge-bpo {
-  background: #e0f2f1;
-  color: #00897b;
-}
-
-.badge-default {
-  background: #eceff1;
-  color: #546e7a;
-}
-
-.divider {
-  height: 2px;
-  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-  margin: 0;
-}
-
-@media (max-width: 768px) {
-  .comparison-header,
-  .comparison-row {
-    grid-template-columns: 1fr;
-    gap: 0.5rem;
-  }
-  
-  .header-cell {
-    display: none;
-  }
-  
-  .value-col::before {
-    content: attr(data-label);
-    font-weight: 600;
-    margin-bottom: 0.25rem;
-  }
+.text-purple {
+  color: #6a1b9a !important;
 }
 </style>

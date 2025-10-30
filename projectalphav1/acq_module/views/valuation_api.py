@@ -145,7 +145,7 @@ def internal_valuation_view(request, seller_id: int | str):
     ser_cls = ValuationCompatSerializer
     # Pick source (default internal)
     source = (request.query_params.get('source') or 'internal').strip().lower()
-    if source not in {s for s, _ in Valuation.SOURCE_CHOICES}:
+    if source not in {s for s, _ in Valuation.Source.choices}:
         source = 'internal'
 
     if request.method == 'GET':
@@ -323,7 +323,7 @@ def internal_valuation_view(request, seller_id: int | str):
     ser_cls = ValuationCompatSerializer
     # Pick source (default internal)
     source = (request.query_params.get('source') or 'internal').strip().lower()
-    if source not in {s for s, _ in Valuation.SOURCE_CHOICES}:
+    if source not in {s for s, _ in Valuation.Source.choices}:
         source = 'internal'
 
     if request.method == 'GET':

@@ -3,7 +3,7 @@ from django.utils.html import format_html
 
 # All valuation models moved to core
 from .models.seller import Seller, Trade, SellerRawData
-from .models.assumptions import LoanLevelAssumption, TradeLevelAssumption, StaticModelAssumptions  # StaticModelAssumptions is DEPRECATED
+from .models.assumptions import LoanLevelAssumption, TradeLevelAssumption, StaticModelAssumptions, NoteSaleAssumption  # StaticModelAssumptions is DEPRECATED
 """
 NOTE: Valuation models have been unified.
 
@@ -189,6 +189,59 @@ class TradeLevelAssumptionAdmin(admin.ModelAdmin):
     list_per_page = 5
     
     # No fieldsets: show all fields by default
+
+
+@admin.register(NoteSaleAssumption)
+class NoteSaleAssumptionAdmin(admin.ModelAdmin):
+    """Admin configuration for NoteSaleAssumption model.
+    
+    What this does:
+    - Manages individual discount factors for note sale calculations
+    - Each record represents one discount factor with factor type dropdown
+    - Simple, flexible structure allows unlimited factor combinations
+    """
+    list_display = (
+        'factor_name', 'factor_type', 'index_order', 'discount_factor',
+        'range_display', 'priority', 'is_active'
+    )
+    list_filter = ('factor_type', 'is_active', 'index_order', 'priority')
+    search_fields = ('factor_name', 'notes', 'range_value')
+    readonly_fields = ('created_at', 'updated_at')
+    list_per_page = 15
+    
+    # Group fields logically in the form
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('factor_name', 'factor_type', 'index_order', 'discount_factor', 'priority', 'is_active')
+        }),
+        ('Range Definition', {
+            'fields': ('range_min', 'range_max', 'range_value'),
+            'description': 'Define range using min/max for numeric values OR exact value for strings (e.g., property types)'
+        }),
+        ('Notes & Timestamps', {
+            'fields': ('notes', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        })
+    )
+    
+    def range_display(self, obj):
+        """Display the range in a readable format"""
+        if obj.range_value:
+            return f"= {obj.range_value}"
+        elif obj.range_min is not None and obj.range_max is not None:
+            return f"{obj.range_min} - {obj.range_max}"
+        elif obj.range_min is not None:
+            return f">= {obj.range_min}"
+        elif obj.range_max is not None:
+            return f"<= {obj.range_max}"
+        else:
+            return "All values"
+    range_display.short_description = "Range"
+    
+    def get_queryset(self, request):
+        """Order by index order, factor type, then priority"""
+        return super().get_queryset(request).order_by('index_order', 'factor_type', '-priority')
+
 
 ## InternalValuation and BrokerValues admin removed (deprecated). Use core.admin Valuation.
 

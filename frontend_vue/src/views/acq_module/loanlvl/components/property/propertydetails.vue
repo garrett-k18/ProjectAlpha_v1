@@ -5,14 +5,14 @@
     - Accepts either a full `row` object or, if absent, fetches data by `productId`.
     - Styled per Hyper UI/Bootstrap with acquisitions-consistent header.
   -->
-  <div class="card h-100">
+  <div class="card">
     <!-- Header -->
     <div class="d-flex card-header justify-content-between align-items-center">
       <h4 class="header-title">Property Details</h4>
     </div>
 
     <!-- Body -->
-    <div class="card-body pt-0">
+    <div class="card-body">
       <!-- Empty state -->
       <div v-if="!hasAnyData" class="text-muted text-center py-3">No property details available.</div>
 
@@ -45,18 +45,24 @@
             </span>
           </div>
 
-          <div v-if="rowActive?.sq_ft" class="mb-2">
+          <div class="mb-2">
             <small class="text-muted d-block">Square Feet</small>
-            <span class="fw-semibold text-dark">
-              {{ new Intl.NumberFormat().format(rowActive.sq_ft) }} sq ft
-            </span>
+            <span class="fw-semibold text-dark">{{ livingAreaDisplay }}</span>
           </div>
 
-          <div v-if="rowActive?.lot_size" class="mb-2">
+          <div class="mb-2">
             <small class="text-muted d-block">Lot Size</small>
-            <span class="fw-semibold text-dark">
-              {{ new Intl.NumberFormat().format(rowActive.lot_size) }} sq ft
-            </span>
+            <span class="fw-semibold text-dark">{{ lotSizeDisplay }}</span>
+          </div>
+
+          <div class="mb-2">
+            <small class="text-muted d-block">Gross Square Feet</small>
+            <span class="fw-semibold text-dark">{{ grossSqFtDisplay }}</span>
+          </div>
+
+          <div class="mb-2">
+            <small class="text-muted d-block">Units</small>
+            <span class="fw-semibold text-dark">{{ unitsDisplay }}</span>
           </div>
 
           <div v-if="rowActive?.year_built" class="mb-2">
@@ -78,59 +84,11 @@
           </div>
         </div>
 
-        <!-- Column 2: Financials (HOA & Tax) -->
+        <!-- Column 2: Market & Location descriptors -->
         <div class="col-md-6">
-          <!-- HOA Flag / HOA $ (combined) -->
-          <!-- TODO: Wire to backend fields once available. Suggested fields:
-               - rowActive.hoa_flag: boolean | 'Y' | 'N'
-               - rowActive.hoa_amount: number (monthly dollars) -->
-          <div class="mb-2">
-            <small class="text-muted d-block">HOA</small>
-            <span class="fw-semibold text-dark">
-              <template v-if="rowActive != null">
-                {{ rowActive?.hoa_flag == null ? blankDisplay : (normalizeBool(rowActive?.hoa_flag) ? 'Yes' : 'No') }}
-                <template v-if="normalizeBool(rowActive?.hoa_flag) && rowActive?.hoa_amount != null">
-                  - {{ formatMoney(rowActive.hoa_amount) }}
-                </template>
-              </template>
-              <template v-else>{{ blankDisplay }}</template>
-            </span>
-          </div>
-
-          <!-- Property Tax Rate (percentage) -->
-          <!-- TODO: Wire to backend: rowActive.property_tax_rate (e.g., 0.0125 for 1.25%) -->
-          <div class="mb-2">
-            <small class="text-muted d-block">Property Tax Rate</small>
-            <span class="fw-semibold text-dark">
-              <template v-if="rowActive != null && rowActive.property_tax_rate != null">
-                {{ formatPercent(rowActive.property_tax_rate) }}
-              </template>
-              <template v-else>{{ blankDisplay }}</template>
-            </span>
-          </div>
-
-          <!-- Assessed Value (currency) -->
-          <!-- TODO: Wire to backend: rowActive.assessed_value (number) -->
-          <div class="mb-2">
-            <small class="text-muted d-block">Assessed Value</small>
-            <span class="fw-semibold text-dark">
-              <template v-if="rowActive != null && rowActive.assessed_value != null">
-                {{ formatMoney(rowActive.assessed_value) }}
-              </template>
-              <template v-else>{{ blankDisplay }}</template>
-            </span>
-          </div>
-
-          <!-- Property Taxes (Prev Year) (currency) -->
-          <!-- TODO: Wire to backend: rowActive.property_taxes_prev_year (number) -->
-          <div class="mb-2">
-            <small class="text-muted d-block">Property Taxes (Prev Year)</small>
-            <span class="fw-semibold text-dark">
-              <template v-if="rowActive != null && rowActive.property_taxes_prev_year != null">
-                {{ formatMoney(rowActive.property_taxes_prev_year) }}
-              </template>
-              <template v-else>{{ blankDisplay }}</template>
-            </span>
+          <div v-for="descriptor in locationDescriptors" :key="descriptor.key" class="mb-2">
+            <small class="text-muted d-block">{{ descriptor.label }}</small>
+            <span class="fw-semibold text-dark">{{ descriptor.value }}</span>
           </div>
         </div>
 
@@ -176,8 +134,12 @@ export default defineComponent({
         r.street_address || r.city || r.state || r.zip ||
         r.property_type || r.occupancy ||
         r.beds != null || r.baths != null || r.sq_ft != null || r.lot_size != null || r.year_built != null ||
-        r.hoa_flag != null || r.hoa_amount != null || r.property_tax_rate != null ||
-        r.assessed_value != null || r.property_taxes_prev_year != null
+        getFirstValue(['msa_name', 'msa', 'metro_area', 'cbsa_name']) ||
+        getFirstValue(['county_name', 'county']) ||
+        getFirstValue(['neighborhood', 'subdivision', 'area_description']) ||
+        getFirstValue(['zoning', 'zoning_class']) ||
+        getFirstValue(['flood_zone', 'flood_zone_code']) ||
+        getFirstValue(['school_district', 'school_district_name'])
       ))
     })
 
@@ -207,32 +169,6 @@ export default defineComponent({
       { immediate: true }
     )
 
-    const formatCurrency = (v: any) => {
-      if (v != null && !isNaN(v)) {
-        return new Intl.NumberFormat('en-US', { style: 'decimal', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(Number(v))
-      }
-      return blankDisplay // WHAT: Return empty string so UI leaves cells blank when numeric value missing
-    }
-
-    const formatDate = (v: any) => (v ? new Date(v).toLocaleDateString('en-US') : blankDisplay) // WHAT: Render blank string if date absent
-
-    // Format currency with USD symbol and no decimals per platform convention for most UI readouts
-    const formatMoney = (v: any) => {
-      if (v != null && !isNaN(v)) {
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(Number(v))
-      }
-      return blankDisplay // WHAT: Keep financial fields blank when values missing per AM UX guidance
-    }
-
-    // Format percent from decimal input (e.g., 0.0125 -> 1.25%)
-    const formatPercent = (v: any) => {
-      if (v != null && !isNaN(v)) {
-        const pct = Number(v) * 100
-        return `${pct.toFixed(2)}%`
-      }
-      return blankDisplay // WHAT: Leave percentage cells empty when source data missing
-    }
-
     const formatBeds = (v: any): string => {
       if (v == null || v === '') return blankDisplay // WHAT: Provide empty string when bed count missing so snapshot card shows blank per UX request
       const num = Number(v)
@@ -246,13 +182,60 @@ export default defineComponent({
       return num % 1 === 0 ? `${num.toFixed(0)}` : `${num.toFixed(1)}`
     }
 
-    // Normalize boolean-like fields (true/'Y'/'YES' -> true)
-    const normalizeBool = (v: any): boolean => {
-      if (typeof v === 'boolean') return v
-      if (v == null) return false
-      const s = String(v).trim().toLowerCase()
-      return s === 'y' || s === 'yes' || s === 'true' || s === '1'
+    const getFirstValue = (keys: string[]): string => {
+      const r = rowActive.value as any
+      if (!r) return ''
+      for (const key of keys) {
+        const value = r?.[key]
+        if (value != null && String(value).trim().length > 0) {
+          return String(value)
+        }
+      }
+      return ''
     }
+
+    const getNumericValue = (keys: string[]): number | null => {
+      const r = rowActive.value as any
+      if (!r) return null
+      for (const key of keys) {
+        const raw = r?.[key]
+        if (raw == null || raw === '') continue
+        const num = Number(raw)
+        if (!Number.isNaN(num)) return num
+      }
+      return null
+    }
+
+    const formatSquareFeet = (value: number | null): string => {
+      if (value == null) return blankDisplay
+      return `${new Intl.NumberFormat('en-US').format(value)} sq ft`
+    }
+
+    const formatUnits = (value: number | null): string => {
+      if (value == null) return blankDisplay
+      return `${new Intl.NumberFormat('en-US').format(value)}`
+    }
+
+    const livingAreaDisplay = computed(() => formatSquareFeet(getNumericValue(['sq_ft', 'living_area_sq_ft', 'gross_living_area', 'gla'])))
+    const lotSizeDisplay = computed(() => formatSquareFeet(getNumericValue(['lot_size', 'lot_sqft', 'lot_square_feet', 'land_sq_ft'])))
+    const grossSqFtDisplay = computed(() => formatSquareFeet(getNumericValue(['gross_sq_ft', 'building_sq_ft', 'improved_sq_ft'])))
+    const unitsDisplay = computed(() => formatUnits(getNumericValue(['units', 'number_of_units', 'unit_count'])))
+
+    const locationDescriptors = computed(() => {
+      const descriptorSources: Array<{ key: string; label: string; sample: string; keys: string[] }> = [
+        { key: 'msa', label: 'Metropolitan Area', sample: 'Cheyenne Metropolitan Statistical Area', keys: ['msa_name', 'msa', 'metro_area', 'cbsa_name'] },
+        { key: 'county', label: 'County', sample: 'Platte County', keys: ['county_name', 'county'] },
+        { key: 'neighborhood', label: 'Neighborhood', sample: 'Downtown Wheatland', keys: ['neighborhood', 'subdivision', 'area_description'] },
+        { key: 'zoning', label: 'Zoning', sample: 'Residential (R-1)', keys: ['zoning', 'zoning_class'] },
+        { key: 'flood', label: 'Flood Zone', sample: 'Zone X (Minimal Risk)', keys: ['flood_zone', 'flood_zone_code'] },
+        { key: 'school', label: 'School District', sample: 'Platte County School District #1', keys: ['school_district', 'school_district_name'] },
+      ]
+
+      return descriptorSources.map(({ key, label, sample, keys }) => {
+        const value = getFirstValue(keys) || sample
+        return { key, label, value }
+      })
+    })
 
     // Badge color maps copied from AG Grid configuration to keep visual parity
     // Property Type badge colors
@@ -287,7 +270,21 @@ export default defineComponent({
       return occupancyBadgeMap[key] || null
     })
 
-    return { rowActive, hasAnyData, fullAddress, formatCurrency, formatDate, formatMoney, formatPercent, normalizeBool, propertyBadge, occupancyBadge, blankDisplay, formatBeds, formatBaths }
+    return {
+      rowActive,
+      hasAnyData,
+      fullAddress,
+      propertyBadge,
+      occupancyBadge,
+      blankDisplay,
+      formatBeds,
+      formatBaths,
+      livingAreaDisplay,
+      lotSizeDisplay,
+      grossSqFtDisplay,
+      unitsDisplay,
+      locationDescriptors,
+    }
   },
 })
 </script>

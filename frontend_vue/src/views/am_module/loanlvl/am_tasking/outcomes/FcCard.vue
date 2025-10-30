@@ -137,6 +137,37 @@
                 >
               </div>
             </div>
+            <!-- WHAT: Sale completion fields for Sold task -->
+            <!-- WHY: Capture final proceeds and sale date when foreclosure is sold -->
+            <div v-else-if="t.task_type === 'sold'" class="mb-3">
+              <div class="row g-2">
+                <div class="col-md-6">
+                  <label class="form-label small">Sale Date</label>
+                  <input 
+                    ref="saleDateInput"
+                    type="text" 
+                    class="form-control form-control-sm date" 
+                    data-toggle="date-picker" 
+                    data-single-date-picker="true" 
+                    :value="convertToDisplayDate(fcData?.fc_sale_actual_date || '')"
+                    @input="handleSaleDateInput"
+                    placeholder="Select date" 
+                    spellcheck="false"
+                  />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label small">Gross Sale Proceeds</label>
+                  <UiCurrencyInput 
+                    :model-value="fcData?.fc_sale_price || ''"
+                    @update:model-value="handleSalePriceChange"
+                    prefix="$"
+                    :debounce-ms="1000"
+                    size="sm"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+            </div>
             <div v-else class="small text-muted mb-3">Task data fields can be added here</div>
             
             <!-- Delete button at bottom of expanded section -->
@@ -205,6 +236,12 @@ import SubtaskNotes from '@/views/am_module/loanlvl/am_tasking/components/Subtas
 // Reusable editable date component with inline picker
 // Path: src/components/ui/EditableDate.vue
 import EditableDate from '@/components/ui/EditableDate.vue'
+// Hyper UI currency input component
+// Path: src/components/ui/UiCurrencyInput.vue
+import UiCurrencyInput from '@/components/ui/UiCurrencyInput.vue'
+// Import jQuery for date picker initialization
+import $ from 'jquery'
+import 'bootstrap-datepicker'
 
 const props = withDefaults(defineProps<{ hubId: number; masterCollapsed?: boolean }>(), { masterCollapsed: false })
 const emit = defineEmits<{ (e: 'delete'): void }>()
@@ -224,6 +261,10 @@ const busy = ref(false)
 // FC Subtasks state
 const tasks = ref<FcTask[]>([])
 const localExpandedId = ref<number | null>(null)
+// FC completion data
+const fcData = ref<any>(null)
+// Date picker refs
+const saleDateInput = ref<HTMLInputElement | null>(null)
 // WHAT: Track if user has manually interacted with tasks after master expand
 // WHY: Allow individual task collapse even when master is expanded
 const userInteracted = ref(false)
@@ -267,6 +308,101 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
 async function load() {
   // Load FC tasks
   tasks.value = await store.listFcTasks(props.hubId, true)
+  // Load FC outcome data
+  await loadFcData()
+}
+
+// WHAT: Load FC outcome data
+// WHY: Need access to completion fields like sale date and sale price
+async function loadFcData() {
+  try {
+    const response = await http.get(`/am/outcomes/fc-sale/?asset_hub_id=${props.hubId}`)
+    if (response.data && response.data.length > 0) {
+      fcData.value = response.data[0]
+    } else {
+      // No FC outcome exists yet, create one
+      const payload = { asset_hub_id: props.hubId }
+      const createResponse = await http.post('/am/outcomes/fc-sale/', payload)
+      fcData.value = createResponse.data
+    }
+  } catch (err: any) {
+    console.error('Failed to load/create FC data:', err)
+    fcData.value = {
+      asset_hub: null,
+      fc_sale_actual_date: null,
+      fc_sale_price: null
+    }
+  }
+}
+
+// WHAT: Convert US date format to backend format
+// WHY: Backend expects yyyy-mm-dd but users see mm/dd/yyyy
+function convertToBackendDate(usDate: string): string {
+  if (!usDate) return ''
+  try {
+    const [month, day, year] = usDate.split('/')
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+  } catch {
+    return usDate
+  }
+}
+
+// WHAT: Convert backend date format to US display format
+// WHY: Display mm/dd/yyyy to users but store yyyy-mm-dd
+function convertToDisplayDate(backendDate: string): string {
+  if (!backendDate) return ''
+  try {
+    const [year, month, day] = backendDate.split('-')
+    return `${month}/${day}/${year}`
+  } catch {
+    return backendDate
+  }
+}
+
+// WHAT: Handle sale date input from text field
+// WHY: Convert display format to backend format and save
+function handleSaleDateInput(event: Event) {
+  const target = event.target as HTMLInputElement
+  const displayDate = target.value
+  const backendDate = convertToBackendDate(displayDate)
+  updateFcField('fc_sale_actual_date', backendDate)
+}
+
+// WHAT: Handle sale price changes from UiCurrencyInput component
+// WHY: Save sale price values with built-in debouncing
+function handleSalePriceChange(value: string) {
+  updateFcField('fc_sale_price', value)
+}
+
+// WHAT: Update FC completion fields
+// WHY: Save completion data when user enters sale date or price
+async function updateFcField(fieldName: string, value: string) {
+  try {
+    if (!fcData.value || !fcData.value.asset_hub) {
+      await loadFcData()
+    }
+    
+    if (!fcData.value?.asset_hub) {
+      throw new Error('Unable to create or find FC outcome')
+    }
+    
+    let processedValue = value || null
+    if (fieldName === 'fc_sale_price' && processedValue) {
+      const numValue = parseFloat(processedValue)
+      processedValue = isNaN(numValue) ? null : numValue.toString()
+    }
+    
+    const payload = { [fieldName]: processedValue }
+    await http.patch(`/am/outcomes/fc-sale/${fcData.value.asset_hub}/`, payload)
+    
+    // Update local data immediately
+    if (fcData.value) {
+      fcData.value[fieldName] = processedValue
+    }
+  } catch (err: any) {
+    console.error(`Failed to update ${fieldName}:`, err)
+    alert(`Failed to update ${fieldName}. Please try again.`)
+  }
 }
 
 onMounted(load)

@@ -2,7 +2,7 @@
 from .capital import DebtFacility, JVEquityPartner, CoInvestor, InvestorContribution, InvestorDistribution, Fund
 from .crm import MasterCRM
 from .asset_id_hub import AssetIdHub
-from .assumptions import Servicer, StateReference, FCStatus, FCTimelines, CommercialUnits
+from .assumptions import Servicer, StateReference, FCStatus, FCTimelines, CommercialUnits, HOAAssumption
 from .enrichment import LlDataEnrichment
 from .valuations import Valuation
 from .attachments import Photo, Document
@@ -26,6 +26,7 @@ __all__ = [
     'FCStatus',
     'FCTimelines',
     'CommercialUnits',
+    'HOAAssumption',
     'LlDataEnrichment', 
     'Valuation',
     'Photo',

@@ -89,6 +89,7 @@ INSTALLED_APPS = [
 'core',
 'acq_module.apps.AcqModuleConfig',
 'am_module',
+'etl',
 'user_admin',  
 'reporting',
 ]

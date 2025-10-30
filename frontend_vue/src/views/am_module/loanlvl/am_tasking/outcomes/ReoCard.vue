@@ -115,9 +115,46 @@
                 :task-type="t.task_type as 'trashout' | 'renovation'"
               />
             </div>
-            <!-- WHAT: Offers section for Marketing, Under Contract, and Sold tasks -->
+            <!-- WHAT: Offers section for Marketing, Under Contract tasks -->
             <!-- WHY: Track offers received during marketing and sale phases -->
-            <div v-else-if="t.task_type === 'marketing' || t.task_type === 'under_contract' || t.task_type === 'sold'" class="mb-3">
+            <div v-else-if="t.task_type === 'marketing' || t.task_type === 'under_contract'" class="mb-3">
+              <OffersSection
+                :hub-id="props.hubId"
+                offer-source="reo"
+              />
+            </div>
+            <!-- WHAT: Sale completion fields for Sold task -->
+            <!-- WHY: Capture final proceeds and close date when REO is sold -->
+            <div v-else-if="t.task_type === 'sold'" class="mb-3">
+              <div class="row g-2 mb-3">
+                <div class="col-md-6">
+                  <label class="form-label small">Close Date</label>
+                  <input 
+                    ref="closeDateInput"
+                    type="text" 
+                    class="form-control form-control-sm date" 
+                    data-toggle="date-picker" 
+                    data-single-date-picker="true" 
+                    :value="convertToDisplayDate(reoData?.actual_close_date || '')"
+                    @input="handleCloseDateInput"
+                    placeholder="Select date" 
+                    spellcheck="false"
+                  />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label small">Gross Sale Proceeds</label>
+                  <UiCurrencyInput 
+                    :model-value="reoData?.gross_purchase_price || ''"
+                    @update:model-value="handleProceedsChange"
+                    prefix="$"
+                    :debounce-ms="1000"
+                    size="sm"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+              <!-- WHAT: Offers section for sold properties -->
+              <!-- WHY: Show accepted offer details -->
               <OffersSection
                 :hub-id="props.hubId"
                 offer-source="reo"
@@ -197,6 +234,12 @@ import ReoScopesSection from '@/views/am_module/loanlvl/am_tasking/components/Re
 // Offers section for Marketing tasks (shows REO-tagged offers)
 // Path: src/views/am_module/loanlvl/am_tasking/components/OffersSection.vue
 import OffersSection from '@/views/am_module/loanlvl/am_tasking/components/OffersSection.vue'
+// Hyper UI currency input component
+// Path: src/components/ui/UiCurrencyInput.vue
+import UiCurrencyInput from '@/components/ui/UiCurrencyInput.vue'
+// Import jQuery for date picker initialization
+import $ from 'jquery'
+import 'bootstrap-datepicker'
 
 const props = withDefaults(defineProps<{ hubId: number; masterCollapsed?: boolean }>(), { masterCollapsed: false })
 const emit = defineEmits<{ (e: 'delete'): void }>()
@@ -213,6 +256,10 @@ const { emitTaskAdded, emitTaskDeleted, emitTaskUpdated } = useDataRefresh(props
 const tasks = ref<ReoTask[]>([])
 const busy = ref(false)
 const newType = ref<ReoTaskType | ''>('')
+// REO completion data
+const reoData = ref<any>(null)
+// Date picker refs
+const closeDateInput = ref<HTMLInputElement | null>(null)
 // Allow multiple subtasks to be expanded at the same time
 const localExpandedIds = ref<Set<number>>(new Set())
 const userInteracted = ref(false)
@@ -311,6 +358,99 @@ function leftEdgeStyle(tp: ReoTaskType): Record<string, string> {
 // Load tasks from API
 async function loadTasks() {
   tasks.value = await store.listReoTasks(props.hubId, true)
+}
+
+// WHAT: Load REO outcome data
+// WHY: Need access to completion fields like close date and gross purchase price
+async function loadReoData() {
+  try {
+    const response = await http.get(`/am/outcomes/reo/?asset_hub_id=${props.hubId}`)
+    if (response.data && response.data.length > 0) {
+      reoData.value = response.data[0]
+    } else {
+      // No REO outcome exists yet, create one
+      const payload = { asset_hub_id: props.hubId }
+      const createResponse = await http.post('/am/outcomes/reo/', payload)
+      reoData.value = createResponse.data
+    }
+  } catch (err: any) {
+    console.error('Failed to load/create REO data:', err)
+    reoData.value = {
+      asset_hub: null,
+      actual_close_date: null,
+      gross_purchase_price: null
+    }
+  }
+}
+
+// WHAT: Convert US date format to backend format
+// WHY: Backend expects yyyy-mm-dd but users see mm/dd/yyyy
+function convertToBackendDate(usDate: string): string {
+  if (!usDate) return ''
+  try {
+    const [month, day, year] = usDate.split('/')
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+  } catch {
+    return usDate
+  }
+}
+
+// WHAT: Convert backend date format to US display format
+// WHY: Display mm/dd/yyyy to users but store yyyy-mm-dd
+function convertToDisplayDate(backendDate: string): string {
+  if (!backendDate) return ''
+  try {
+    const [year, month, day] = backendDate.split('-')
+    return `${month}/${day}/${year}`
+  } catch {
+    return backendDate
+  }
+}
+
+// WHAT: Handle close date input from text field
+// WHY: Convert display format to backend format and save
+function handleCloseDateInput(event: Event) {
+  const target = event.target as HTMLInputElement
+  const displayDate = target.value
+  const backendDate = convertToBackendDate(displayDate)
+  updateReoField('actual_close_date', backendDate)
+}
+
+// WHAT: Handle proceeds changes from UiCurrencyInput component
+// WHY: Save proceeds values with built-in debouncing
+function handleProceedsChange(value: string) {
+  updateReoField('gross_purchase_price', value)
+}
+
+// WHAT: Update REO completion fields
+// WHY: Save completion data when user enters close date or proceeds
+async function updateReoField(fieldName: string, value: string) {
+  try {
+    if (!reoData.value || !reoData.value.asset_hub) {
+      await loadReoData()
+    }
+    
+    if (!reoData.value?.asset_hub) {
+      throw new Error('Unable to create or find REO outcome')
+    }
+    
+    let processedValue = value || null
+    if (fieldName === 'gross_purchase_price' && processedValue) {
+      const numValue = parseFloat(processedValue)
+      processedValue = isNaN(numValue) ? null : numValue.toString()
+    }
+    
+    const payload = { [fieldName]: processedValue }
+    await http.patch(`/am/outcomes/reo/${reoData.value.asset_hub}/`, payload)
+    
+    // Update local data immediately
+    if (reoData.value) {
+      reoData.value[fieldName] = processedValue
+    }
+  } catch (err: any) {
+    console.error(`Failed to update ${fieldName}:`, err)
+    alert(`Failed to update ${fieldName}. Please try again.`)
+  }
 }
 
 // Add a new task of a given type
@@ -417,7 +557,11 @@ function handleDocClick(e: MouseEvent) {
   if (menuOpen.value && root && !root.contains(e.target as Node)) menuOpen.value = false
   if (addMenuOpen.value && addRoot && !addRoot.contains(e.target as Node)) addMenuOpen.value = false
 }
-onMounted(() => { document.addEventListener('click', handleDocClick); loadTasks() })
+onMounted(() => { 
+  document.addEventListener('click', handleDocClick); 
+  loadTasks();
+  loadReoData();
+})
 onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
 
 </script>

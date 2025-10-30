@@ -39,15 +39,15 @@
 
 <script setup lang="ts">
 import { withDefaults, defineProps } from 'vue'
-import LoanDetails from '@/views/acq_module/loanlvl/components/loandetails.vue'
-import TotalDebt from '@/views/acq_module/loanlvl/components/totaldebt.vue'
-import Origination from '@/views/acq_module/loanlvl/components/origination.vue'
-import Foreclosure from '@/views/acq_module/loanlvl/components/foreclosure.vue'
-import Bankruptcy from '@/views/acq_module/loanlvl/components/bankruptcy.vue'
-import LossMitigation from '@/views/acq_module/loanlvl/components/lossmitigation.vue'
-import T12CashFlow from '@/views/acq_module/loanlvl/components/t12cashflow.vue'
-import RehabHoldbacks from '@/views/acq_module/loanlvl/components/rehabholdbacks.vue'
-import ServicingNotes from '@/views/acq_module/loanlvl/components/servicingnotes.vue'
+import LoanDetails from '@/views/acq_module/loanlvl/components/servicing/loandetails.vue'
+import TotalDebt from '@/views/acq_module/loanlvl/components/servicing/totaldebt.vue'
+import Origination from '@/views/acq_module/loanlvl/components/servicing/origination.vue'
+import Foreclosure from '@/views/acq_module/loanlvl/components/servicing/foreclosure.vue'
+import Bankruptcy from '@/views/acq_module/loanlvl/components/servicing/bankruptcy.vue'
+import LossMitigation from '@/views/acq_module/loanlvl/components/servicing/lossmitigation.vue'
+import T12CashFlow from '@/views/acq_module/loanlvl/components/servicing/t12cashflow.vue'
+import RehabHoldbacks from '@/views/acq_module/loanlvl/components/servicing/rehabholdbacks.vue'
+import ServicingNotes from '@/views/acq_module/loanlvl/components/servicing/servicingnotes.vue'
 
 withDefaults(defineProps<{
   row?: Record<string, any> | null

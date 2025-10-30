@@ -142,6 +142,36 @@ class AMMetrics(models.Model):
         help_text="Bucketed delinquency status derived from ServicerLoanData dates.",
     )
 
+    # Final liquidation proceeds (centralized across all outcome tracks)
+    final_proceeds = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Final gross liquidation proceeds from any outcome track (REO, Short Sale, FC, etc.)",
+    )
+    
+    proceeds_source = models.CharField(
+        max_length=20,
+        choices=[
+            ('reo', 'REO Sale'),
+            ('short_sale', 'Short Sale'),
+            ('foreclosure', 'Foreclosure Sale'),
+            ('dil', 'Deed in Lieu'),
+            ('modification', 'Loan Modification'),
+            ('other', 'Other'),
+        ],
+        null=True,
+        blank=True,
+        help_text="Which outcome track generated the final proceeds",
+    )
+    
+    proceeds_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date when final proceeds were realized",
+    )
+
    
 
     # Audit timestamps (auto-maintained)
@@ -169,6 +199,9 @@ class AMMetrics(models.Model):
         # Common query accelerators (only on existing fields)
         indexes = [
             models.Index(fields=["asset_hub"]),
+            models.Index(fields=["asset_hub", "final_proceeds"]),
+            models.Index(fields=["proceeds_source", "final_proceeds"]),
+            models.Index(fields=["proceeds_date"]),
         ]
 
         ordering = ["-updated_at"]
@@ -279,6 +312,83 @@ class AMMetrics(models.Model):
         # Return the bucket to allow calling code to surface it immediately.
         return bucket
 
+    def update_final_proceeds(self) -> tuple[float | None, str | None, date | None]:
+        """Update final_proceeds from the appropriate outcome track.
+        
+        Automatically detects which outcome track has proceeds and copies
+        the value to the centralized final_proceeds field.
+        
+        Returns
+        -------
+        tuple[float | None, str | None, date | None]
+            The proceeds amount, source, and date that were set.
+        """
+        if not self.asset_hub_id:
+            return None, None, None
+            
+        proceeds = None
+        source = None
+        proceeds_date = None
+        
+        # Check REO track
+        if hasattr(self.asset_hub, 'reo_data') and self.asset_hub.reo_data.gross_purchase_price:
+            proceeds = float(self.asset_hub.reo_data.gross_purchase_price)
+            source = 'reo'
+            proceeds_date = self.asset_hub.reo_data.actual_close_date
+            
+        # Check Short Sale track
+        elif hasattr(self.asset_hub, 'short_sale') and self.asset_hub.short_sale.gross_proceeds:
+            proceeds = float(self.asset_hub.short_sale.gross_proceeds)
+            source = 'short_sale'
+            proceeds_date = self.asset_hub.short_sale.short_sale_date
+            
+        # Check Foreclosure Sale track
+        elif hasattr(self.asset_hub, 'fc_sale') and self.asset_hub.fc_sale.fc_sale_price:
+            proceeds = float(self.asset_hub.fc_sale.fc_sale_price)
+            source = 'foreclosure'
+            proceeds_date = self.asset_hub.fc_sale.fc_sale_actual_date
+            
+        # Check Modification Note Sale track
+        elif hasattr(self.asset_hub, 'modification') and self.asset_hub.modification.note_sale_proceeds:
+            proceeds = float(self.asset_hub.modification.note_sale_proceeds)
+            source = 'modification'
+            proceeds_date = self.asset_hub.modification.note_sale_date
+            
+        # Update the centralized fields
+        self.final_proceeds = proceeds
+        self.proceeds_source = source
+        self.proceeds_date = proceeds_date
+        
+        # Save only the proceeds fields to avoid triggering full audit
+        self.save(update_fields=['final_proceeds', 'proceeds_source', 'proceeds_date', 'updated_at'])
+        
+        return proceeds, source, proceeds_date
+
+    @property
+    def has_final_proceeds(self) -> bool:
+        """Check if this asset has final liquidation proceeds recorded."""
+        return self.final_proceeds is not None and self.final_proceeds > 0
+
+    @classmethod
+    def get_asset_proceeds(cls, asset_hub) -> tuple[float | None, str | None, date | None]:
+        """Class method to get final proceeds for any asset hub.
+        
+        Parameters
+        ----------
+        asset_hub : AssetIdHub
+            The asset hub to get proceeds for
+            
+        Returns
+        -------
+        tuple[float | None, str | None, date | None]
+            The proceeds amount, source, and date (or None values if no proceeds)
+        """
+        try:
+            metrics = cls.objects.get(asset_hub=asset_hub)
+            return float(metrics.final_proceeds) if metrics.final_proceeds else None, metrics.proceeds_source, metrics.proceeds_date
+        except cls.DoesNotExist:
+            return None, None, None
+
     # ---------------------------------------------------------------
     # Field-level change tracking
     # ---------------------------------------------------------------
@@ -293,7 +403,7 @@ class AMMetrics(models.Model):
 
     # Fields we track at a field-level (extend as needed)
     # Track only existing fields; extend as you add more columns
-    TRACKED_FIELDS = ("asset_hub", "delinquency_status")
+    TRACKED_FIELDS = ("asset_hub", "delinquency_status", "final_proceeds", "proceeds_source", "proceeds_date")
 
     def set_actor(self, user) -> None:
         """Attach the acting user to the instance for the next save()."""
@@ -1636,6 +1746,20 @@ class Modification(models.Model):
         blank=True,
         help_text="Down payment of the modification (optional).",
     )
+    
+    note_sale_proceeds = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Gross proceeds from note sale (when modification track leads to note sale).",
+    )
+    
+    note_sale_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date of the note sale (optional).",
+    )
 
     class Meta:
         verbose_name = "Loan Modification"
@@ -1695,6 +1819,7 @@ class ModificationTask(models.Model):
         Executed = "mod_executed", "Executed"
         Re_Performing = "mod_rpl", "Re-Performing"
         Failed = "mod_failed", "Failed"
+        Note_Sale = "note_sale", "Note Sale"
 
     # Direct link to the asset hub for simplified querying.
     asset_hub = models.ForeignKey(

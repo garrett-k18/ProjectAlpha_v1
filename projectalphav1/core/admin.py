@@ -11,6 +11,7 @@ from .models.assumptions import (
     FCStatus,
     FCTimelines,
     CommercialUnits,
+    HOAAssumption,
 )
 from core.models import (
     DebtFacility,
@@ -25,6 +26,7 @@ from core.models import (
     FCStatus,
     FCTimelines,
     CommercialUnits,
+    HOAAssumption,
     LlDataEnrichment,
     Valuation,
     Photo,
@@ -398,6 +400,27 @@ class CommercialUnitsAdmin(admin.ModelAdmin):
     )
     search_fields = ('units',)
     ordering = ('units',)
+    readonly_fields = ('created_at', 'updated_at')
+    
+    # No fieldsets: show all fields by default
+    list_per_page = 5
+
+
+@admin.register(HOAAssumption)
+class HOAAssumptionAdmin(admin.ModelAdmin):
+    """Admin configuration for HOAAssumption model.
+    
+    What this does:
+    - Manages HOA fee assumptions by property type
+    - Displays property types and their associated monthly HOA fees
+    - Used for estimating ongoing carrying costs in financial calculations
+    """
+    list_display = (
+        'property_type', 'monthly_hoa_fee', 'notes', 'created_at', 'updated_at'
+    )
+    list_filter = ('property_type',)
+    search_fields = ('property_type', 'notes')
+    ordering = ('property_type',)
     readonly_fields = ('created_at', 'updated_at')
     
     # No fieldsets: show all fields by default

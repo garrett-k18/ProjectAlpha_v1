@@ -12,14 +12,9 @@
         />
       </div>
 
-      <!-- Right Column: Placeholder for additional model components -->
+      <!-- Right Column: Investment Metrics -->
       <div class="col-lg-6">
-        <div class="card">
-          <div class="card-body">
-            <h5 class="card-title">Model Outputs</h5>
-            <p class="text-muted">Additional modeling components will be added here.</p>
-          </div>
-        </div>
+        <InvestmentMetrics :row="row" :assetId="assetId" />
       </div>
     </div>
   </div>
@@ -30,6 +25,7 @@
 import { withDefaults, defineProps, ref, onMounted } from 'vue'
 import AssumptionsSummary from '@/views/acq_module/loanlvl/components/model/assumptionsSummary.vue'
 import AssetSnapshot from '@/views/acq_module/loanlvl/components/model/assetSnapshot.vue'
+import InvestmentMetrics from '@/views/acq_module/loanlvl/components/InvestmentMetrics.vue'
 
 const props = withDefaults(defineProps<{
   row?: Record<string, any> | null

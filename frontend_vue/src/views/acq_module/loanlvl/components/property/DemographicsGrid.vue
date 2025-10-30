@@ -6,14 +6,14 @@
     - Columns represent distance rings (1, 3, 5 miles). Rows represent metrics.
     - For now this is populated with placeholder values; data wiring comes later.
   -->
-  <div class="card h-100 d-flex flex-column">
+  <div class="card">
     <!-- Header patterned after Hyper UI cards used across the dashboards -->
     <div class="d-flex card-header justify-content-between align-items-center">
       <h4 class="header-title mb-0">Demographics</h4>
      </div>
 
     <!-- Body: compact table with responsive wrapper -->
-    <div class="card-body pt-0 flex-grow-1 overflow-auto">
+    <div class="card-body">
       <!-- Optional loading placeholder rows -->
       <div v-if="loading" class="mb-2">
         <div v-for="n in 4" :key="n" class="placeholder-glow mb-1">

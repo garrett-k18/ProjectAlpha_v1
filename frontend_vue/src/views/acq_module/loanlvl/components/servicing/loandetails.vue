@@ -87,7 +87,7 @@
    */
   import { defineComponent, computed, ref, watch } from 'vue'
   import type { PropType } from 'vue'
-  import http from '@/lib/http' // centralized Axios instance
+  import http from '../../../../../lib/http' // centralized Axios instance
   
   export default defineComponent({
     name: 'LoanDetails',

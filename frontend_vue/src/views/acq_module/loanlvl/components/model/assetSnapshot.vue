@@ -87,9 +87,9 @@
 
 import { computed } from 'vue'
 // Reusable badge UI + centralized tone tokens
-import UiBadge from '@/components/ui/UiBadge.vue'
-import type { BadgeToneKey } from '@/config/badgeTokens'
-import { getPropertyTypeBadgeTone, getOccupancyBadgeTone, getAssetStatusBadgeTone, getProductTypeBadgeTone } from '@/config/badgeTokens'
+import UiBadge from '../../../../../components/ui/UiBadge.vue'
+import type { BadgeToneKey } from '../../../../../config/badgeTokens'
+import { getPropertyTypeBadgeTone, getOccupancyBadgeTone, getAssetStatusBadgeTone, getProductTypeBadgeTone } from '../../../../../config/badgeTokens'
 
 // Props - row object containing asset data
 const props = defineProps<{

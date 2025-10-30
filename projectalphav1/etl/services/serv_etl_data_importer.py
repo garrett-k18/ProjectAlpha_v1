@@ -24,8 +24,8 @@ from django.utils.dateparse import parse_date
 
 from acq_module.models.seller import SellerRawData, Seller, Trade
 from core.models import AssetIdHub
-from .ai_seller_matcher import AISellerMatcher
-from .ai_mapper import validate_choice_value
+from etl.services.serv_etl_ai_seller_matcher import AISellerMatcher
+from etl.services.serv_etl_ai_mapper import validate_choice_value
 
 logger = logging.getLogger(__name__)
 

@@ -22,7 +22,7 @@ from typing import Optional
 from django.core.management.base import BaseCommand, CommandError
 
 # Import ETL modules
-from .etl import (
+from etl.services import (
     OutlookScanner,
     SellerIdentifier,
     AIColumnMapper,

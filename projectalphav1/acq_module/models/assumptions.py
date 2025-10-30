@@ -2,6 +2,7 @@
 
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
+from decimal import Decimal, InvalidOperation
 from .seller import Trade, SellerRawData
 
 
@@ -221,7 +222,7 @@ class TradeLevelAssumption(models.Model):
     acq_dd_cost = models.DecimalField(max_digits=10, decimal_places=2, default=150.00, null=True, blank=True, help_text="Acquisition due diligence cost in dollars per loan")
     acq_tax_title_cost = models.DecimalField(max_digits=10, decimal_places=2, default=100.00, null=True, blank=True, help_text="Acquisition tax/title cost in dollars per loan")
     
-    # Asset management fees (percentage as decimal)
+    # Liq Fees (percentage as decimal)
     am_fee_pct = models.DecimalField(max_digits=6, decimal_places=4, default=0.01, null=True, blank=True, help_text="Asset management fee as decimal (e.g., 0.01 = 1%)")
     
     
@@ -243,3 +244,178 @@ class TradeLevelAssumption(models.Model):
     
     def __str__(self):
         return f"Trade Assumptions for {self.trade.trade_name}"
+
+
+class NoteSaleAssumption(models.Model):
+    """Model to store note sale discount factors.
+    
+    What this does:
+    - Each record represents a single discount factor for a specific metric and range
+    - Factor types: Balance, Maturity, FICO, etc.
+    - Index order determines calculation sequence (1-5)
+    - Simple, flexible structure allows unlimited factor combinations
+    
+    How it works:
+    - Create multiple records for different factor types and ranges
+    - Each record has min/max range and discount factor
+    - Final percentage = base_percentage * (all matching discount factors)
+    - Index order ensures consistent calculation sequence
+    """
+    
+    class FactorType(models.TextChoices):
+        """Factor types for note sale calculations."""
+        BALANCE = 'BALANCE', 'Current Balance'
+        MATURITY = 'MATURITY', 'Months to Maturity'
+        FICO = 'FICO', 'FICO Score'
+        LTV = 'LTV', 'Loan-to-Value Ratio'
+        PROPERTY_TYPE = 'PROPERTY_TYPE', 'Property Type'
+    
+    # Factor type dropdown
+    factor_type = models.CharField(
+        max_length=20,
+        choices=FactorType.choices,
+        help_text="Type of factor this discount applies to"
+    )
+    
+    # Descriptive name for this factor
+    factor_name = models.CharField(
+        max_length=100,
+        help_text="Descriptive name (e.g., 'High Balance Premium', 'Poor Credit Discount')"
+    )
+    
+    # Index order for calculation sequence (1-5)
+    index_order = models.IntegerField(
+        default=1,
+        help_text="Calculation order (1-5, lower numbers calculated first)"
+    )
+    
+    # Range values (flexible to handle different data types)
+    range_min = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Minimum value for this range (null = no minimum)"
+    )
+    range_max = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Maximum value for this range (null = no maximum)"
+    )
+    
+    # String value for non-numeric factors (e.g., property type)
+    range_value = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True,
+        help_text="Exact value match for string factors (e.g., 'SFR', 'Condo')"
+    )
+    
+    # The discount factor for this range
+    discount_factor = models.DecimalField(
+        max_digits=6,
+        decimal_places=4,
+        default=1.0000,
+        help_text="Discount factor (e.g., 0.9000 = 90%, 1.1000 = 110%)"
+    )
+    
+    # Priority for overlapping ranges within same factor type
+    priority = models.IntegerField(
+        default=0,
+        help_text="Priority when multiple ranges match same factor type (higher wins)"
+    )
+    
+    # Optional notes
+    notes = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Additional notes about this discount factor"
+    )
+    
+    # Active flag to enable/disable factors
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Whether this discount factor is currently active"
+    )
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Note Sale Assumption"
+        verbose_name_plural = "Note Sale Assumptions"
+        ordering = ['index_order', 'factor_type', '-priority', 'factor_name']
+        indexes = [
+            models.Index(fields=['factor_type', 'is_active']),
+            models.Index(fields=['index_order', 'priority']),
+            models.Index(fields=['range_min', 'range_max']),
+        ]
+        db_table = 'note_sale_assumptions'
+    
+    def __str__(self):
+        return f"{self.factor_name} ({self.get_factor_type_display()}: {self.discount_factor:.1%})"
+    
+    def matches_value(self, value) -> bool:
+        """Check if this discount factor applies to the given value.
+        
+        Args:
+            value: The value to check (could be numeric or string)
+            
+        Returns:
+            bool: True if this discount factor applies to the value
+        """
+        # Handle string/exact value matches (e.g., property type)
+        if self.range_value is not None:
+            return str(value).upper() == self.range_value.upper()
+        
+        # Handle numeric range matches
+        try:
+            numeric_value = Decimal(str(value))
+            
+            # Check minimum range
+            if self.range_min is not None and numeric_value < self.range_min:
+                return False
+                
+            # Check maximum range
+            if self.range_max is not None and numeric_value > self.range_max:
+                return False
+                
+            return True
+            
+        except (ValueError, TypeError, InvalidOperation):
+            # If value can't be converted to Decimal, no match
+            return False
+    
+    @classmethod
+    def get_applicable_factors(cls, factor_type: str, value, base_percentage: Decimal = Decimal('1.0000')) -> Decimal:
+        """Get all applicable discount factors for a specific factor type and value.
+        
+        Args:
+            factor_type: The type of factor (e.g., 'BALANCE', 'FICO')
+            value: The value to match against
+            base_percentage: Base percentage to start with
+            
+        Returns:
+            Decimal: Final percentage after applying all matching factors
+        """
+        # Get all active factors for this type, ordered by priority
+        factors = cls.objects.filter(
+            factor_type=factor_type,
+            is_active=True
+        ).order_by('-priority', '-id')
+        
+        # Find the first (highest priority) matching factor
+        for factor in factors:
+            if factor.matches_value(value):
+                discount = (
+                    factor.discount_factor
+                    if isinstance(factor.discount_factor, Decimal)
+                    else Decimal(str(factor.discount_factor))
+                )
+                return (base_percentage * discount).quantize(Decimal('0.0001'))
+        
+        # If no factors match, return base percentage unchanged
+        return base_percentage

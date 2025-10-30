@@ -2,7 +2,14 @@
   <!-- Subtle secondary-colored border (no fill) to match the Modification pill -->
   <b-card class="w-100 h-100 border border-1 border-secondary rounded-2 shadow-sm">
     <template #header>
-      <div class="d-flex align-items-center justify-content-between">
+      <div
+        class="d-flex align-items-center justify-content-between"
+        role="button"
+        :aria-expanded="!collapsed"
+        title="Toggle sub tasks"
+        style="cursor: pointer;"
+        @click="localCollapsed = !localCollapsed"
+      >
         <h5 class="mb-0 d-flex align-items-center">
           <i class="fas fa-pen-alt me-2" style="color: #198754;"></i>
           <UiBadge tone="modification-green" size="lg">Modification</UiBadge>
@@ -35,7 +42,7 @@
       </div>
     </template>
     <!-- Two-column layout: Subtasks | Notes -->
-    <div class="p-3">
+    <div class="p-3" v-show="!collapsed">
       <div class="row g-3">
         <!-- Left Column: Subtasks -->
         <div class="col-md-6">
@@ -96,7 +103,38 @@
             </div>
           </div>
           <div v-if="expandedId === t.id || expandedId === 'all'" class="mt-2 p-2 border-top">
-            <div class="small text-muted">Task data fields can be added here</div>
+            <!-- WHAT: Note Sale completion fields for Note Sale task -->
+            <!-- WHY: Capture final proceeds and sale date when note is sold -->
+            <div v-if="t.task_type === 'note_sale'" class="mb-3">
+              <div class="row g-2">
+                <div class="col-md-6">
+                  <label class="form-label small">Note Sale Date</label>
+                  <input 
+                    ref="noteSaleDateInput"
+                    type="text" 
+                    class="form-control form-control-sm date" 
+                    data-toggle="date-picker" 
+                    data-single-date-picker="true" 
+                    :value="convertToDisplayDate(modificationData?.note_sale_date || '')"
+                    @input="handleNoteSaleDateInput"
+                    placeholder="Select date" 
+                    spellcheck="false"
+                  />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label small">Gross Sale Proceeds</label>
+                  <UiCurrencyInput 
+                    :model-value="modificationData?.note_sale_proceeds || ''"
+                    @update:model-value="handleNoteSaleProceedsChange"
+                    prefix="$"
+                    :debounce-ms="1000"
+                    size="sm"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+            </div>
+            <div v-else class="small text-muted">Task data fields can be added here</div>
             <!-- TODO: Add task-specific form fields here -->
             <div class="d-flex justify-content-end mt-2">
               <button
@@ -164,6 +202,12 @@ import UiBadge from '@/components/ui/UiBadge.vue'
 import type { BadgeToneKey } from '@/config/badgeTokens'
 import { useDataRefresh } from '@/composables/useDataRefresh'
 import EditableDate from '@/components/ui/EditableDate.vue'
+// Hyper UI currency input component
+// Path: src/components/ui/UiCurrencyInput.vue
+import UiCurrencyInput from '@/components/ui/UiCurrencyInput.vue'
+// Import jQuery for date picker initialization
+import $ from 'jquery'
+import 'bootstrap-datepicker'
 // Feature-local notes component (moved for AM Tasking scope)
 // Path: src/views/am_module/loanlvl/am_tasking/components/SubtaskNotes.vue
 import SubtaskNotes from '@/views/am_module/loanlvl/am_tasking/components/SubtaskNotes.vue'
@@ -189,6 +233,10 @@ const addMenuRef = ref<HTMLElement | null>(null)
 const tasks = ref<ModificationTask[]>([])
 const localExpandedId = ref<number | null>(null)
 const userInteracted = ref(false)
+// Modification completion data
+const modificationData = ref<any>(null)
+// Date picker refs
+const noteSaleDateInput = ref<HTMLInputElement | null>(null)
 
 watch(() => props.masterCollapsed, (newVal: boolean) => {
   if (newVal) {
@@ -225,7 +273,101 @@ const { emitTaskAdded, emitTaskDeleted, emitTaskUpdated } = useDataRefresh(props
 // Load subtasks on mount
 onMounted(async () => {
   tasks.value = await store.listModificationTasks(props.hubId, true)
+  await loadModificationData()
 })
+
+// WHAT: Load Modification outcome data
+// WHY: Need access to completion fields like note sale date and proceeds
+async function loadModificationData() {
+  try {
+    const response = await http.get(`/am/outcomes/modification/?asset_hub_id=${props.hubId}`)
+    if (response.data && response.data.length > 0) {
+      modificationData.value = response.data[0]
+    } else {
+      // No Modification outcome exists yet, create one
+      const payload = { asset_hub_id: props.hubId }
+      const createResponse = await http.post('/am/outcomes/modification/', payload)
+      modificationData.value = createResponse.data
+    }
+  } catch (err: any) {
+    console.error('Failed to load/create modification data:', err)
+    modificationData.value = {
+      asset_hub: null,
+      note_sale_date: null,
+      note_sale_proceeds: null
+    }
+  }
+}
+
+// WHAT: Convert US date format to backend format
+// WHY: Backend expects yyyy-mm-dd but users see mm/dd/yyyy
+function convertToBackendDate(usDate: string): string {
+  if (!usDate) return ''
+  try {
+    const [month, day, year] = usDate.split('/')
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+  } catch {
+    return usDate
+  }
+}
+
+// WHAT: Convert backend date format to US display format
+// WHY: Display mm/dd/yyyy to users but store yyyy-mm-dd
+function convertToDisplayDate(backendDate: string): string {
+  if (!backendDate) return ''
+  try {
+    const [year, month, day] = backendDate.split('-')
+    return `${month}/${day}/${year}`
+  } catch {
+    return backendDate
+  }
+}
+
+// WHAT: Handle note sale date input from text field
+// WHY: Convert display format to backend format and save
+function handleNoteSaleDateInput(event: Event) {
+  const target = event.target as HTMLInputElement
+  const displayDate = target.value
+  const backendDate = convertToBackendDate(displayDate)
+  updateModificationField('note_sale_date', backendDate)
+}
+
+// WHAT: Handle note sale proceeds changes from UiCurrencyInput component
+// WHY: Save proceeds values with built-in debouncing
+function handleNoteSaleProceedsChange(value: string) {
+  updateModificationField('note_sale_proceeds', value)
+}
+
+// WHAT: Update Modification completion fields
+// WHY: Save completion data when user enters note sale date or proceeds
+async function updateModificationField(fieldName: string, value: string) {
+  try {
+    if (!modificationData.value || !modificationData.value.asset_hub) {
+      await loadModificationData()
+    }
+    
+    if (!modificationData.value?.asset_hub) {
+      throw new Error('Unable to create or find Modification outcome')
+    }
+    
+    let processedValue = value || null
+    if (fieldName === 'note_sale_proceeds' && processedValue) {
+      const numValue = parseFloat(processedValue)
+      processedValue = isNaN(numValue) ? null : numValue.toString()
+    }
+    
+    const payload = { [fieldName]: processedValue }
+    await http.patch(`/am/outcomes/modification/${modificationData.value.asset_hub}/`, payload)
+    
+    // Update local data immediately
+    if (modificationData.value) {
+      modificationData.value[fieldName] = processedValue
+    }
+  } catch (err: any) {
+    console.error(`Failed to update ${fieldName}:`, err)
+    alert(`Failed to update ${fieldName}. Please try again.`)
+  }
+}
 
 // ---------- Subtasks helpers ----------
 const taskOptions: ReadonlyArray<{ value: ModificationTaskType; label: string }> = [
@@ -233,6 +375,7 @@ const taskOptions: ReadonlyArray<{ value: ModificationTaskType; label: string }>
   { value: 'mod_executed', label: 'Executed' },
   { value: 'mod_rpl', label: 'Re-Performing' },
   { value: 'mod_failed', label: 'Failed' },
+  { value: 'note_sale', label: 'Note Sale' },
 ]
 function labelFor(tp: ModificationTaskType): string {
   const m = taskOptions.find(o => o.value === tp)
@@ -311,6 +454,7 @@ function badgeClass(tp: ModificationTaskType): BadgeToneKey {
     mod_executed: 'success',
     mod_rpl: 'primary',
     mod_failed: 'danger',
+    note_sale: 'success',
   }
   return map[tp]
 }
