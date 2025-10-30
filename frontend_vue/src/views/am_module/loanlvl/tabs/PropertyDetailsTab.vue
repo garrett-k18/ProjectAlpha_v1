@@ -10,7 +10,7 @@
 <script setup lang="ts">
 import { withDefaults, defineProps } from 'vue'
 // Reuse existing propertydetails component which renders from provided row
-import PropertyDetails from '@/views/acq_module/loanlvl/components/propertydetails.vue'
+import PropertyDetails from '@/views/acq_module/loanlvl/components/property/propertydetails.vue'
 
 withDefaults(defineProps<{ row?: Record<string, any> | null; assetHubId?: string | number | null }>(), {
   row: null,

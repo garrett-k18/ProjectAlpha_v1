@@ -6,13 +6,14 @@ from typing import Optional
 from acq_module.models.seller import SellerRawData
 from acq_module.models.assumptions import NoteSaleAssumption
 from core.models.valuations import Valuation
+from acq_module.logic.outcome_logic import fcoutcomeLogic
 
 
 def fc_sale_proceeds(asset_hub_id: int) -> Decimal:
     """Calculate foreclosure sale proceeds for an asset.
     
     Returns the minimum of:
-    1. Total debt from SellerRawData
+    1. Forecasted total debt from fcoutcomeLogic
     2. Initial UW internal valuation (INTERNAL_INITIAL_UW source) asis_value, or
        seller as-is value if initial UW valuation is not available
     
@@ -20,17 +21,22 @@ def fc_sale_proceeds(asset_hub_id: int) -> Decimal:
         asset_hub_id: The AssetIdHub primary key
         
     Returns:
-        Decimal: Minimum of total debt and valuation, or Decimal('0.00') if data is missing
+        Decimal: Minimum of forecasted total debt and valuation, or Decimal('0.00') if data is missing
     """
-    # Get the seller raw data for this asset to find total debt and seller as-is value
+    # Get forecasted total debt using outcome logic
+    outcome_logic = fcoutcomeLogic()
+    total_debt = outcome_logic.forecasted_total_debt(asset_hub_id)
+    
+    if total_debt <= 0:
+        return Decimal('0.00')
+    
+    # Get the seller raw data for this asset to find seller as-is value (fallback for valuation)
     raw = (
         SellerRawData.objects
         .filter(asset_hub_id=asset_hub_id)
-        .only('total_debt', 'seller_asis_value')
+        .only('seller_asis_value')
         .first()
     )
-    if not raw or raw.total_debt is None:
-        return Decimal('0.00')
     
     # Try to get initial UW valuation first
     initial_uw_valuation = (
@@ -47,26 +53,20 @@ def fc_sale_proceeds(asset_hub_id: int) -> Decimal:
     asset_value = None
     if initial_uw_valuation and initial_uw_valuation.asis_value:
         asset_value = initial_uw_valuation.asis_value
-    elif raw.seller_asis_value:
+    elif raw and raw.seller_asis_value:
         asset_value = raw.seller_asis_value
     
     if not asset_value or asset_value <= 0:
         return Decimal('0.00')
     
-    # Convert to Decimal if needed
-    total_debt = (
-        raw.total_debt
-        if isinstance(raw.total_debt, Decimal)
-        else Decimal(str(raw.total_debt))
-    )
-    
+    # Convert asset value to Decimal if needed
     asset_val = (
         asset_value
         if isinstance(asset_value, Decimal)
         else Decimal(str(asset_value))
     )
     
-    # Return the minimum of the two values
+    # Return the minimum of forecasted total debt and asset valuation
     return min(total_debt, asset_val).quantize(Decimal('0.01'))
 
 
