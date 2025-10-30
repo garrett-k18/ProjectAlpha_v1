@@ -18,6 +18,7 @@ from decimal import Decimal
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
 from ..models.seller import SellerRawData
+from ..logic.ll_metrics import get_single_asset_metrics
 
 
 @dataclass
@@ -97,52 +98,15 @@ class ModelRecommendationService:
     
     def _get_asset_metrics(self) -> Dict:
         """
-        Calculate key metrics for the asset.
+        Calculate key metrics for the asset using backend ll_metrics functions.
         
         Returns:
             Dict of calculated metrics
         """
-        ltv = self._calculate_ltv()
-        tdtv = self._calculate_tdtv()
-        
-        return {
-            'ltv': float(ltv) if ltv else None,
-            'tdtv': float(tdtv) if tdtv else None,
-            'has_equity': self._has_equity_cushion(),
-            'is_delinquent': (self.asset.months_dlq or 0) > 0,
-            'is_foreclosure': self.asset.fc_flag or False,
-            'delinquency_months': self.asset.months_dlq or 0,
-        }
+        # Use existing backend calculation functions for consistency
+        # This ensures we don't duplicate logic and calculations match across the system
+        return get_single_asset_metrics(self.asset.asset_hub_id)
     
-    def _calculate_ltv(self) -> Optional[Decimal]:
-        """Calculate Loan-to-Value ratio based on as-is value"""
-        total_debt = self.asset.calculate_total_debt()
-        asis_value = self.asset.seller_asis_value
-        
-        if not total_debt or not asis_value or asis_value <= 0:
-            return None
-        
-        return (total_debt / asis_value) * 100
-    
-    def _calculate_tdtv(self) -> Optional[Decimal]:
-        """Calculate Total Debt to Value ratio based on ARV"""
-        total_debt = self.asset.calculate_total_debt()
-        arv_value = self.asset.seller_arv_value
-        
-        if not total_debt or not arv_value or arv_value <= 0:
-            return None
-        
-        return (total_debt / arv_value) * 100
-    
-    def _has_equity_cushion(self) -> bool:
-        """Determine if asset has positive equity"""
-        total_debt = self.asset.calculate_total_debt()
-        asis_value = self.asset.seller_asis_value
-        
-        if not total_debt or not asis_value:
-            return False
-        
-        return asis_value > total_debt
     
     def _calculate_recommendations(self) -> List[ModelRecommendation]:
         """
@@ -164,10 +128,11 @@ class ModelRecommendationService:
             for key, meta in self.MODEL_DEFINITIONS.items()
         }
         
-        # Get asset metrics
-        ltv = self._calculate_ltv()
-        months_dlq = self.asset.months_dlq or 0
-        fc_flag = self.asset.fc_flag or False
+        # Get asset metrics using backend calculations
+        metrics = self._get_asset_metrics()
+        ltv = metrics.get('ltv')
+        months_dlq = metrics.get('months_dlq', 0)
+        fc_flag = metrics.get('is_foreclosure', False)
         asset_status = self.asset.asset_status
         
         # ====================================================================

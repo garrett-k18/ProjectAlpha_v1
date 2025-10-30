@@ -48,30 +48,90 @@
             </div>
           </div>
           <div class="col-md-6">
-            <div class="d-flex align-items-baseline gap-2">
-              <span class="text-muted">Months Delinquent:</span>
-              <span class="fw-bold" :class="monthsDelinquentClass">{{ formatMonthsDelinquent(row?.months_dlq) }}</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="row g-2 mb-3">
-          <div class="col-md-6">
-            <div class="d-flex align-items-baseline gap-2">
-              <span class="text-muted">FC Flag:</span>
-              <span class="fw-bold" :class="fcFlagClass">{{ formatFcFlag(row?.fc_flag) }}</span>
-            </div>
-          </div>
-          <div class="col-md-6">
             <!-- Reserved for future field -->
           </div>
         </div>
 
         <!-- Valuation Range -->
-        <div class="mb-2">
+        <div class="mb-3">
           <div class="d-flex align-items-baseline gap-2">
             <span class="text-muted">Seller Valuation Range:</span>
             <span class="fw-bold">{{ formatValuationRange(row?.seller_asis_value, row?.seller_arv_value) }}</span>
+          </div>
+        </div>
+
+        <!-- Smart Analysis Section -->
+        <div class="border-top pt-3">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <i class="mdi mdi-brain text-primary"></i>
+            <span class="fw-semibold text-primary">Smart Analysis</span>
+            <div v-if="loadingRecommendations" class="spinner-border spinner-border-sm text-primary ms-auto" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </div>
+          </div>
+          
+          <!-- Loading state -->
+          <div v-if="loadingRecommendations" class="text-center py-2">
+            <span class="text-muted small">Analyzing asset characteristics...</span>
+          </div>
+
+          <!-- Asset Metrics Display - All on one line -->
+          <div v-else-if="recommendations && recommendations.metrics" class="mb-2">
+            <div class="d-flex flex-wrap gap-1 align-items-center">
+              <!-- Delinquency Status - Always show -->
+              <span v-if="recommendations.metrics.is_delinquent" class="badge bg-warning">
+                <i class="mdi mdi-clock-alert me-1"></i>{{ recommendations.metrics.delinquency_months }}mo DLQ
+              </span>
+              <span v-else class="badge bg-success">
+                <i class="mdi mdi-check me-1"></i>Current
+              </span>
+              
+              <!-- FC Flag Status - Always show -->
+              <span v-if="recommendations.metrics.is_foreclosure" class="badge bg-danger">
+                <i class="mdi mdi-gavel me-1"></i>FC Active
+              </span>
+              <span v-else class="badge bg-light text-dark border">
+                <i class="mdi mdi-shield-check me-1"></i>No FC
+              </span>
+              
+              <!-- Equity Position -->
+              <span v-if="recommendations.metrics.has_equity" class="badge bg-success">
+                <i class="mdi mdi-trending-up me-1"></i>Has Equity
+              </span>
+              <span v-else-if="recommendations.metrics.has_equity === false" class="badge bg-danger">
+                <i class="mdi mdi-trending-down me-1"></i>Underwater
+              </span>
+              
+              <!-- Financial Metrics - Same line -->
+              <span v-if="recommendations.metrics.ltv !== null" class="badge bg-light text-dark border small">
+                LTV: <strong>{{ recommendations.metrics.ltv.toFixed(1) }}%</strong>
+              </span>
+              <span v-if="recommendations.metrics.tdtv !== null" class="badge bg-light text-dark border small">
+                TDTV: <strong>{{ recommendations.metrics.tdtv.toFixed(1) }}%</strong>
+              </span>
+            </div>
+          </div>
+          
+          <!-- Fallback display when no recommendations loaded yet -->
+          <div v-else-if="!loadingRecommendations" class="mb-2">
+            <div class="d-flex flex-wrap gap-1 align-items-center mb-2">
+              <!-- Show basic info from row data as fallback -->
+              <span v-if="row?.months_dlq && row.months_dlq > 0" class="badge bg-warning">
+                <i class="mdi mdi-clock-alert me-1"></i>{{ row.months_dlq }}mo DLQ
+              </span>
+              <span v-else class="badge bg-success">
+                <i class="mdi mdi-check me-1"></i>Current
+              </span>
+              
+              <span v-if="row?.fc_flag" class="badge bg-danger">
+                <i class="mdi mdi-gavel me-1"></i>FC Active
+              </span>
+              <span v-else class="badge bg-light text-dark border">
+                <i class="mdi mdi-shield-check me-1"></i>No FC
+              </span>
+              
+              <small class="text-muted ms-2">Loading detailed analysis...</small>
+            </div>
           </div>
         </div>
       </div>
@@ -91,9 +151,11 @@ import UiBadge from '../../../../../components/ui/UiBadge.vue'
 import type { BadgeToneKey } from '../../../../../config/badgeTokens'
 import { getPropertyTypeBadgeTone, getOccupancyBadgeTone, getAssetStatusBadgeTone, getProductTypeBadgeTone } from '../../../../../config/badgeTokens'
 
-// Props - row object containing asset data
+// Props - row object containing asset data and recommendations
 const props = defineProps<{
   row?: Record<string, any> | null
+  recommendations?: any | null
+  loadingRecommendations?: boolean
 }>()
 
 /**
@@ -131,56 +193,7 @@ function formatPercent(value: any): string {
   }
 }
 
-/**
- * Format FC flag as Yes/No with appropriate styling
- */
-function formatFcFlag(value: any): string {
-  if (value == null || value === '') return '—'
-  // Handle boolean or string values
-  if (value === true || value === 'true' || value === 'Yes' || value === 'Y') {
-    return 'Yes'
-  }
-  if (value === false || value === 'false' || value === 'No' || value === 'N') {
-    return 'No'
-  }
-  return String(value)
-}
 
-/**
- * Format months delinquent with proper handling
- */
-function formatMonthsDelinquent(value: any): string {
-  if (value == null || value === '' || isNaN(Number(value))) {
-    return '—'
-  }
-  const months = Number(value)
-  if (months === 0) return 'Current'
-  if (months === 1) return '1 month'
-  return `${months} months`
-}
-
-/**
- * CSS class for FC flag styling
- */
-const fcFlagClass = computed(() => {
-  const flag = formatFcFlag(props.row?.fc_flag)
-  if (flag === 'Yes') return 'text-danger'
-  if (flag === 'No') return 'text-success'
-  return ''
-})
-
-/**
- * CSS class for months delinquent styling
- */
-const monthsDelinquentClass = computed(() => {
-  const value = props.row?.months_dlq
-  if (value == null || value === '' || isNaN(Number(value))) return ''
-  
-  const months = Number(value)
-  if (months === 0) return 'text-success' // Current - green
-  if (months <= 3) return 'text-warning' // 1-3 months - yellow
-  return 'text-danger' // 4+ months - red
-})
 
 /**
  * Format valuation range (As-Is to ARV)

@@ -221,11 +221,14 @@ class TradeLevelAssumption(models.Model):
     acq_legal_cost = models.DecimalField(max_digits=10, decimal_places=2, default=300.00, null=True, blank=True, help_text="Acquisition legal cost in dollars per loan")
     acq_dd_cost = models.DecimalField(max_digits=10, decimal_places=2, default=150.00, null=True, blank=True, help_text="Acquisition due diligence cost in dollars per loan")
     acq_tax_title_cost = models.DecimalField(max_digits=10, decimal_places=2, default=100.00, null=True, blank=True, help_text="Acquisition tax/title cost in dollars per loan")
+    acq_broker_fees = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, null=True, blank=True, help_text="Acquisition broker fees in dollars per loan")
+    acq_other_costs = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, null=True, blank=True, help_text="Acquisition other costs in dollars per loan")
     
     # Liq Fees (percentage as decimal)
-    am_fee_pct = models.DecimalField(max_digits=6, decimal_places=4, default=0.01, null=True, blank=True, help_text="Asset management fee as decimal (e.g., 0.01 = 1%)")
-    
-    
+    liq_am_fee_pct = models.DecimalField(max_digits=6, decimal_places=4, default=0.01, null=True, blank=True, help_text="Asset management fee as decimal (e.g., 0.01 = 1%)")
+    liq_broker_cc_pct = models.DecimalField(max_digits=6, decimal_places=4, default=0.01, null=True, blank=True, help_text="Broker closing cost as decimal (e.g., 0.01 = 1%)")
+    liq_tax_transfer_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, null=True, blank=True, help_text="Tax transfer cost in dollars per loan")
+    liq_title_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, null=True, blank=True, help_text="Title cost in dollars per loan")
     
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
@@ -419,3 +422,579 @@ class NoteSaleAssumption(models.Model):
         
         # If no factors match, return base percentage unchanged
         return base_percentage
+
+
+# =============================================================================
+# UTILITY AND PROPERTY MANAGEMENT ASSUMPTION MODELS
+# =============================================================================
+
+class PropertyTypeAssumption(models.Model):
+    """
+    Property type-based assumptions for utilities and property management costs.
+    
+    What this does:
+    - Stores default assumptions for each property type (SFR, Condo, etc.)
+    - Used as fallback when state-specific or square footage-based assumptions are not available
+    - Provides baseline costs per property type
+    
+    How it works:
+    - One record per property type
+    - Contains all utility and property management cost assumptions
+    - Used in assumption workflow priority: sqft -> state -> property type
+    """
+    
+    # Property type matching SellerRawData.PropertyType choices
+    property_type = models.CharField(
+        max_length=20,
+        choices=SellerRawData.PropertyType.choices,
+        unique=True,
+        help_text="Property type matching SellerRawData.PropertyType choices"
+    )
+    
+    # Utility assumptions (monthly costs in dollars)
+    utility_electric_monthly = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        help_text="Monthly electric utility cost in dollars"
+    )
+    utility_gas_monthly = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        help_text="Monthly gas utility cost in dollars"
+    )
+    utility_water_monthly = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        help_text="Monthly water utility cost in dollars"
+    )
+    utility_sewer_monthly = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        help_text="Monthly sewer utility cost in dollars"
+    )
+    utility_trash_monthly = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        help_text="Monthly trash utility cost in dollars"
+    )
+    utility_other_monthly = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        help_text="Monthly other utility costs in dollars"
+    )
+    
+    # Property management assumptions (monthly costs in dollars)
+    property_management_monthly = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        help_text="Monthly property management cost in dollars"
+    )
+    repairs_maintenance_monthly = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        help_text="Monthly repairs and maintenance cost in dollars"
+    )
+    marketing_monthly = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        help_text="Monthly marketing cost in dollars"
+    )
+    
+    # One-time costs (in dollars)
+    trashout_cost = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        help_text="One-time trashout cost in dollars"
+    )
+    renovation_cost = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        help_text="One-time renovation cost in dollars"
+    )
+    security_cost_monthly = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        help_text="Monthly security cost in dollars"
+    )
+    landscaping_monthly = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        help_text="Monthly landscaping cost in dollars"
+    )
+    pool_maintenance_monthly = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        help_text="Monthly pool maintenance cost in dollars"
+    )
+    
+    # Metadata
+    notes = models.TextField(
+        blank=True, 
+        null=True, 
+        help_text="Additional notes about these property type assumptions"
+    )
+    is_active = models.BooleanField(
+        default=True, 
+        help_text="Whether these assumptions are currently active"
+    )
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Property Type Assumption"
+        verbose_name_plural = "Property Type Assumptions"
+        db_table = 'property_type_assumptions'
+        ordering = ['property_type']
+        indexes = [
+            models.Index(fields=['property_type']),
+            models.Index(fields=['is_active']),
+        ]
+    
+    def __str__(self):
+        return f"{self.get_property_type_display()} Assumptions"
+    
+    def total_monthly_utilities(self) -> Decimal:
+        """Calculate total monthly utility costs."""
+        return (
+            self.utility_electric_monthly + 
+            self.utility_gas_monthly + 
+            self.utility_water_monthly + 
+            self.utility_sewer_monthly + 
+            self.utility_trash_monthly + 
+            self.utility_other_monthly
+        ).quantize(Decimal('0.01'))
+    
+    def total_monthly_property_management(self) -> Decimal:
+        """Calculate total monthly property management costs."""
+        return (
+            self.property_management_monthly + 
+            self.repairs_maintenance_monthly + 
+            self.marketing_monthly + 
+            self.security_cost_monthly + 
+            self.landscaping_monthly + 
+            self.pool_maintenance_monthly
+        ).quantize(Decimal('0.01'))
+    
+    def total_one_time_costs(self) -> Decimal:
+        """Calculate total one-time costs."""
+        return (
+            self.trashout_cost + 
+            self.renovation_cost
+        ).quantize(Decimal('0.01'))
+
+
+class SquareFootageAssumption(models.Model):
+    """
+    Square footage-based assumptions for utilities and property management costs.
+    
+    What this does:
+    - Stores per-square-foot cost assumptions
+    - Separate tables for residential vs commercial properties
+    - Used as primary assumption source when square footage is available
+    
+    How it works:
+    - Define cost per square foot for different ranges
+    - Multiply by actual property square footage
+    - Highest priority in assumption workflow
+    """
+    
+    class PropertyCategory(models.TextChoices):
+        RESIDENTIAL = 'RESIDENTIAL', 'Residential'
+        COMMERCIAL = 'COMMERCIAL', 'Commercial'
+    
+    # Property category (residential vs commercial)
+    property_category = models.CharField(
+        max_length=20,
+        choices=PropertyCategory.choices,
+        help_text="Property category: Residential or Commercial"
+    )
+    
+    # Square footage range
+    sqft_min = models.IntegerField(
+        help_text="Minimum square footage for this range (inclusive)"
+    )
+    sqft_max = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Maximum square footage for this range (inclusive). Null = no maximum"
+    )
+    
+    # Utility assumptions (cost per square foot per month)
+    utility_electric_per_sqft = models.DecimalField(
+        max_digits=8, 
+        decimal_places=4, 
+        default=Decimal('0.0000'),
+        help_text="Electric cost per square foot per month"
+    )
+    utility_gas_per_sqft = models.DecimalField(
+        max_digits=8, 
+        decimal_places=4, 
+        default=Decimal('0.0000'),
+        help_text="Gas cost per square foot per month"
+    )
+    utility_water_per_sqft = models.DecimalField(
+        max_digits=8, 
+        decimal_places=4, 
+        default=Decimal('0.0000'),
+        help_text="Water cost per square foot per month"
+    )
+    utility_sewer_per_sqft = models.DecimalField(
+        max_digits=8, 
+        decimal_places=4, 
+        default=Decimal('0.0000'),
+        help_text="Sewer cost per square foot per month"
+    )
+    utility_trash_per_sqft = models.DecimalField(
+        max_digits=8, 
+        decimal_places=4, 
+        default=Decimal('0.0000'),
+        help_text="Trash cost per square foot per month"
+    )
+    utility_other_per_sqft = models.DecimalField(
+        max_digits=8, 
+        decimal_places=4, 
+        default=Decimal('0.0000'),
+        help_text="Other utility cost per square foot per month"
+    )
+    
+    # Property management assumptions (cost per square foot per month)
+    property_management_per_sqft = models.DecimalField(
+        max_digits=8, 
+        decimal_places=4, 
+        default=Decimal('0.0000'),
+        help_text="Property management cost per square foot per month"
+    )
+    repairs_maintenance_per_sqft = models.DecimalField(
+        max_digits=8, 
+        decimal_places=4, 
+        default=Decimal('0.0000'),
+        help_text="Repairs and maintenance cost per square foot per month"
+    )
+    marketing_per_sqft = models.DecimalField(
+        max_digits=8, 
+        decimal_places=4, 
+        default=Decimal('0.0000'),
+        help_text="Marketing cost per square foot per month"
+    )
+    security_cost_per_sqft = models.DecimalField(
+        max_digits=8, 
+        decimal_places=4, 
+        default=Decimal('0.0000'),
+        help_text="Security cost per square foot per month"
+    )
+    landscaping_per_sqft = models.DecimalField(
+        max_digits=8, 
+        decimal_places=4, 
+        default=Decimal('0.0000'),
+        help_text="Landscaping cost per square foot per month"
+    )
+    pool_maintenance_per_sqft = models.DecimalField(
+        max_digits=8, 
+        decimal_places=4, 
+        default=Decimal('0.0000'),
+        help_text="Pool maintenance cost per square foot per month"
+    )
+    
+    # One-time costs (cost per square foot)
+    trashout_per_sqft = models.DecimalField(
+        max_digits=8, 
+        decimal_places=4, 
+        default=Decimal('0.0000'),
+        help_text="Trashout cost per square foot (one-time)"
+    )
+    renovation_per_sqft = models.DecimalField(
+        max_digits=8, 
+        decimal_places=4, 
+        default=Decimal('0.0000'),
+        help_text="Renovation cost per square foot (one-time)"
+    )
+    
+    # Metadata
+    description = models.CharField(
+        max_length=200,
+        help_text="Description of this square footage range"
+    )
+    notes = models.TextField(
+        blank=True, 
+        null=True, 
+        help_text="Additional notes about these square footage assumptions"
+    )
+    is_active = models.BooleanField(
+        default=True, 
+        help_text="Whether these assumptions are currently active"
+    )
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Square Footage Assumption"
+        verbose_name_plural = "Square Footage Assumptions"
+        db_table = 'square_footage_assumptions'
+        ordering = ['property_category', 'sqft_min']
+        indexes = [
+            models.Index(fields=['property_category', 'sqft_min', 'sqft_max']),
+            models.Index(fields=['is_active']),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(sqft_min__gte=0),
+                name='sqft_min_non_negative'
+            ),
+            models.CheckConstraint(
+                check=models.Q(sqft_max__isnull=True) | models.Q(sqft_max__gte=models.F('sqft_min')),
+                name='sqft_max_gte_min'
+            ),
+        ]
+    
+    def __str__(self):
+        max_display = f"{self.sqft_max:,}" if self.sqft_max else "∞"
+        return f"{self.get_property_category_display()}: {self.sqft_min:,} - {max_display} sqft"
+    
+    def matches_square_footage(self, square_footage: int) -> bool:
+        """Check if this assumption applies to the given square footage."""
+        if square_footage < self.sqft_min:
+            return False
+        if self.sqft_max is not None and square_footage > self.sqft_max:
+            return False
+        return True
+    
+    def calculate_monthly_costs(self, square_footage: int) -> dict:
+        """Calculate monthly costs for the given square footage."""
+        sqft = Decimal(str(square_footage))
+        
+        return {
+            'utility_electric': (self.utility_electric_per_sqft * sqft).quantize(Decimal('0.01')),
+            'utility_gas': (self.utility_gas_per_sqft * sqft).quantize(Decimal('0.01')),
+            'utility_water': (self.utility_water_per_sqft * sqft).quantize(Decimal('0.01')),
+            'utility_sewer': (self.utility_sewer_per_sqft * sqft).quantize(Decimal('0.01')),
+            'utility_trash': (self.utility_trash_per_sqft * sqft).quantize(Decimal('0.01')),
+            'utility_other': (self.utility_other_per_sqft * sqft).quantize(Decimal('0.01')),
+            'property_management': (self.property_management_per_sqft * sqft).quantize(Decimal('0.01')),
+            'repairs_maintenance': (self.repairs_maintenance_per_sqft * sqft).quantize(Decimal('0.01')),
+            'marketing': (self.marketing_per_sqft * sqft).quantize(Decimal('0.01')),
+            'security_cost': (self.security_cost_per_sqft * sqft).quantize(Decimal('0.01')),
+            'landscaping': (self.landscaping_per_sqft * sqft).quantize(Decimal('0.01')),
+            'pool_maintenance': (self.pool_maintenance_per_sqft * sqft).quantize(Decimal('0.01')),
+        }
+    
+    def calculate_one_time_costs(self, square_footage: int) -> dict:
+        """Calculate one-time costs for the given square footage."""
+        sqft = Decimal(str(square_footage))
+        
+        return {
+            'trashout': (self.trashout_per_sqft * sqft).quantize(Decimal('0.01')),
+            'renovation': (self.renovation_per_sqft * sqft).quantize(Decimal('0.01')),
+        }
+
+
+class UnitBasedAssumption(models.Model):
+    """
+    Unit-based assumptions for multifamily properties.
+    
+    What this does:
+    - Stores per-unit cost assumptions for multifamily properties
+    - Used when square footage is not available but unit count is
+    - Applies to properties with multiple units (2-4 Family, Multifamily 5+)
+    
+    How it works:
+    - Define cost per unit for different unit count ranges
+    - Multiply by actual unit count
+    - Used in assumption workflow when square footage is not available
+    """
+    
+    # Unit count range
+    units_min = models.IntegerField(
+        help_text="Minimum unit count for this range (inclusive)"
+    )
+    units_max = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Maximum unit count for this range (inclusive). Null = no maximum"
+    )
+    
+    # Utility assumptions (cost per unit per month)
+    utility_electric_per_unit = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        help_text="Electric cost per unit per month"
+    )
+    utility_gas_per_unit = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        help_text="Gas cost per unit per month"
+    )
+    utility_water_per_unit = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        help_text="Water cost per unit per month"
+    )
+    utility_sewer_per_unit = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        help_text="Sewer cost per unit per month"
+    )
+    utility_trash_per_unit = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        help_text="Trash cost per unit per month"
+    )
+    utility_other_per_unit = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        help_text="Other utility cost per unit per month"
+    )
+    
+    # Property management assumptions (cost per unit per month)
+    property_management_per_unit = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        help_text="Property management cost per unit per month"
+    )
+    repairs_maintenance_per_unit = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        help_text="Repairs and maintenance cost per unit per month"
+    )
+    marketing_per_unit = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        help_text="Marketing cost per unit per month"
+    )
+    security_cost_per_unit = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        help_text="Security cost per unit per month"
+    )
+    landscaping_per_unit = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        help_text="Landscaping cost per unit per month"
+    )
+    pool_maintenance_per_unit = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        help_text="Pool maintenance cost per unit per month"
+    )
+    
+    # One-time costs (cost per unit)
+    trashout_per_unit = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        help_text="Trashout cost per unit (one-time)"
+    )
+    renovation_per_unit = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        help_text="Renovation cost per unit (one-time)"
+    )
+    
+    # Metadata
+    description = models.CharField(
+        max_length=200,
+        help_text="Description of this unit count range"
+    )
+    notes = models.TextField(
+        blank=True, 
+        null=True, 
+        help_text="Additional notes about these unit-based assumptions"
+    )
+    is_active = models.BooleanField(
+        default=True, 
+        help_text="Whether these assumptions are currently active"
+    )
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Unit Based Assumption"
+        verbose_name_plural = "Unit Based Assumptions"
+        db_table = 'unit_based_assumptions'
+        ordering = ['units_min']
+        indexes = [
+            models.Index(fields=['units_min', 'units_max']),
+            models.Index(fields=['is_active']),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(units_min__gte=1),
+                name='units_min_positive'
+            ),
+            models.CheckConstraint(
+                check=models.Q(units_max__isnull=True) | models.Q(units_max__gte=models.F('units_min')),
+                name='units_max_gte_min'
+            ),
+        ]
+    
+    def __str__(self):
+        max_display = f"{self.units_max}" if self.units_max else "∞"
+        return f"{self.units_min} - {max_display} units"
+    
+    def matches_unit_count(self, unit_count: int) -> bool:
+        """Check if this assumption applies to the given unit count."""
+        if unit_count < self.units_min:
+            return False
+        if self.units_max is not None and unit_count > self.units_max:
+            return False
+        return True
+    
+    def calculate_monthly_costs(self, unit_count: int) -> dict:
+        """Calculate monthly costs for the given unit count."""
+        units = Decimal(str(unit_count))
+        
+        return {
+            'utility_electric': (self.utility_electric_per_unit * units).quantize(Decimal('0.01')),
+            'utility_gas': (self.utility_gas_per_unit * units).quantize(Decimal('0.01')),
+            'utility_water': (self.utility_water_per_unit * units).quantize(Decimal('0.01')),
+            'utility_sewer': (self.utility_sewer_per_unit * units).quantize(Decimal('0.01')),
+            'utility_trash': (self.utility_trash_per_unit * units).quantize(Decimal('0.01')),
+            'utility_other': (self.utility_other_per_unit * units).quantize(Decimal('0.01')),
+            'property_management': (self.property_management_per_unit * units).quantize(Decimal('0.01')),
+            'repairs_maintenance': (self.repairs_maintenance_per_unit * units).quantize(Decimal('0.01')),
+            'marketing': (self.marketing_per_unit * units).quantize(Decimal('0.01')),
+            'security_cost': (self.security_cost_per_unit * units).quantize(Decimal('0.01')),
+            'landscaping': (self.landscaping_per_unit * units).quantize(Decimal('0.01')),
+            'pool_maintenance': (self.pool_maintenance_per_unit * units).quantize(Decimal('0.01')),
+        }
+    
+    def calculate_one_time_costs(self, unit_count: int) -> dict:
+        """Calculate one-time costs for the given unit count."""
+        units = Decimal(str(unit_count))
+        
+        return {
+            'trashout': (self.trashout_per_unit * units).quantize(Decimal('0.01')),
+            'renovation': (self.renovation_per_unit * units).quantize(Decimal('0.01')),
+        }

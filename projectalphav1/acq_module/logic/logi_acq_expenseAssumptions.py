@@ -4,7 +4,8 @@ from decimal import Decimal
 from typing import Optional
 
 from acq_module.models.seller import SellerRawData
-from acq_module.models.assumptions import LoanLevelAssumption
+from acq_module.models.assumptions import LoanLevelAssumption, TradeLevelAssumption
+from am_module.models.boarded_data import BlendedOutcomeModel
 from core.models.assumptions import StateReference, HOAAssumption
 from core.models.valuations import Valuation
 
@@ -193,17 +194,121 @@ def monthly_hoa(asset_hub_id: int) -> Decimal:
     return hoa_fee.quantize(Decimal('0.01'))
 
 
+def acq_broker_fee(asset_hub_id: int) -> Decimal:
+    """Calculate acquisition broker fee for an asset.
+    
+    Multiplies the broker fee percentage from trade-level assumptions by the purchase price.
+    The broker fee percentage is stored in TradeLevelAssumption.acq_broker_fees as a decimal
+    (e.g., 0.02 for 2%).
+    
+    Args:
+        asset_hub_id: The AssetIdHub primary key identifying the asset
+        
+    Returns:
+        Decimal: The calculated broker fee amount, or Decimal('0.00') if data is missing
+    """
+    # Import purchase_price function from the purchase price module
+    from .logi_acq_purchasePrice import purchase_price
+    
+    # Get the purchase price for this asset
+    price = purchase_price(asset_hub_id)
+    if price <= 0:
+        # No purchase price available, so no broker fee
+        return Decimal('0.00')
+    
+    # Get the seller raw data to find the associated trade
+    seller_data = (
+        SellerRawData.objects
+        .filter(asset_hub_id=asset_hub_id)
+        .only('trade')
+        .first()
+    )
+    if not seller_data or not seller_data.trade:
+        # Asset not associated with a trade, so no trade-level assumptions
+        return Decimal('0.00')
+    
+    # Get the trade-level assumptions for this asset's trade
+    trade_assumptions = (
+        TradeLevelAssumption.objects
+        .filter(trade=seller_data.trade)
+        .only('acq_broker_fees')
+        .first()
+    )
+    if not trade_assumptions or trade_assumptions.acq_broker_fees is None:
+        # No broker fee percentage specified in assumptions
+        return Decimal('0.00')
+    
+    # Convert broker fee percentage to Decimal if needed
+    broker_fee_pct = (
+        trade_assumptions.acq_broker_fees
+        if isinstance(trade_assumptions.acq_broker_fees, Decimal)
+        else Decimal(str(trade_assumptions.acq_broker_fees))
+    )
+    
+    # Calculate broker fee as percentage of purchase price
+    broker_fee_amount = (price * broker_fee_pct).quantize(Decimal('0.01'))
+    
+    return broker_fee_amount
+
+
+def acq_fee_other(asset_hub_id: int) -> Decimal:
+    """Calculate acquisition other fee for an asset.
+    
+    Multiplies the other fee percentage from trade-level assumptions by the purchase price.
+    The other fee percentage is stored in TradeLevelAssumption.acq_other_costs as a decimal
+    (e.g., 0.01 for 1%).
+    
+    Args:
+        asset_hub_id: The AssetIdHub primary key identifying the asset
+        
+    Returns:
+        Decimal: The calculated other fee amount, or Decimal('0.00') if data is missing
+    """
+    # Import purchase_price function from the purchase price module
+    from .logi_acq_purchasePrice import purchase_price
+    
+    # Get the purchase price for this asset
+    price = purchase_price(asset_hub_id)
+    if price <= 0:
+        # No purchase price available, so no other fee
+        return Decimal('0.00')
+    
+    # Get the seller raw data to find the associated trade
+    seller_data = (
+        SellerRawData.objects
+        .filter(asset_hub_id=asset_hub_id)
+        .only('trade')
+        .first()
+    )
+    if not seller_data or not seller_data.trade:
+        # Asset not associated with a trade, so no trade-level assumptions
+        return Decimal('0.00')
+    
+    # Get the trade-level assumptions for this asset's trade
+    trade_assumptions = (
+        TradeLevelAssumption.objects
+        .filter(trade=seller_data.trade)
+        .only('acq_other_costs')
+        .first()
+    )
+    if not trade_assumptions or trade_assumptions.acq_other_costs is None:
+        # No other fee percentage specified in assumptions
+        return Decimal('0.00')
+    
+    # Convert other fee percentage to Decimal if needed
+    other_fee_pct = (
+        trade_assumptions.acq_other_costs
+        if isinstance(trade_assumptions.acq_other_costs, Decimal)
+        else Decimal(str(trade_assumptions.acq_other_costs))
+    )
+    
+    # Calculate other fee as percentage of purchase price
+    other_fee_amount = (price * other_fee_pct).quantize(Decimal('0.01'))
+    
+    return other_fee_amount
+
 """
 
-def acq_broker_fee
-def acq_fee_other
-def acq_dd_cost
-def acq_legal_cost
-def acq_tax_title_cost
-def liq_tax_transfer
-def liq_title_expense
-def liq_broker_fees
-def liq_am_fees
 def utiliy_electric
 def utiliy_gas
 def utiliy_water

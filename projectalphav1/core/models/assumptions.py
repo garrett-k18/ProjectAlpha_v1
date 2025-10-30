@@ -94,6 +94,95 @@ class StateReference(models.Model):
         help_text="Average value adjustment (as decimal: 0.0028 = 0.28%, range: -100% to +100%)"
     )
     
+    # State-specific utility costs (monthly averages in dollars)
+    utility_electric_avg = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        help_text="Average monthly electric utility cost in dollars"
+    )
+    utility_gas_avg = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        help_text="Average monthly gas utility cost in dollars"
+    )
+    utility_water_avg = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        help_text="Average monthly water utility cost in dollars"
+    )
+    utility_sewer_avg = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        help_text="Average monthly sewer utility cost in dollars"
+    )
+    utility_trash_avg = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        help_text="Average monthly trash utility cost in dollars"
+    )
+    utility_other_avg = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        help_text="Average monthly other utility costs in dollars"
+    )
+    
+    # State-specific property management costs (monthly averages in dollars)
+    property_management_avg = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        help_text="Average monthly property management cost in dollars"
+    )
+    repairs_maintenance_avg = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        help_text="Average monthly repairs and maintenance cost in dollars"
+    )
+    marketing_avg = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        help_text="Average monthly marketing cost in dollars"
+    )
+    security_cost_avg = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        help_text="Average monthly security cost in dollars"
+    )
+    landscaping_avg = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        help_text="Average monthly landscaping cost in dollars"
+    )
+    pool_maintenance_avg = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        help_text="Average monthly pool maintenance cost in dollars"
+    )
+    
+    # State-specific one-time costs (averages in dollars)
+    trashout_cost_avg = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        help_text="Average one-time trashout cost in dollars"
+    )
+    renovation_cost_avg = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        help_text="Average one-time renovation cost in dollars"
+    )
 
 
     # Timestamps

@@ -3,7 +3,7 @@ from django.utils.html import format_html
 
 # All valuation models moved to core
 from .models.seller import Seller, Trade, SellerRawData
-from .models.assumptions import LoanLevelAssumption, TradeLevelAssumption, StaticModelAssumptions, NoteSaleAssumption  # StaticModelAssumptions is DEPRECATED
+from .models.assumptions import LoanLevelAssumption, TradeLevelAssumption, StaticModelAssumptions, NoteSaleAssumption, PropertyTypeAssumption, SquareFootageAssumption, UnitBasedAssumption  # StaticModelAssumptions is DEPRECATED
 """
 NOTE: Valuation models have been unified.
 
@@ -261,3 +261,131 @@ class LlDataEnrichmentAdmin(admin.ModelAdmin):
         'seller_raw_data__seller', 'seller_raw_data__trade',
     )
     list_per_page = 5
+
+
+# =============================================================================
+# UTILITY AND PROPERTY MANAGEMENT ASSUMPTION ADMINS
+# =============================================================================
+
+@admin.register(PropertyTypeAssumption)
+class PropertyTypeAssumptionAdmin(admin.ModelAdmin):
+    """Admin for property type-based utility and property management assumptions."""
+    list_display = (
+        'property_type', 'total_monthly_utilities', 'total_monthly_property_management', 
+        'total_one_time_costs', 'is_active', 'updated_at'
+    )
+    list_filter = ('property_type', 'is_active')
+    search_fields = ('property_type', 'notes')
+    ordering = ('property_type',)
+    
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('property_type', 'is_active', 'notes')
+        }),
+        ('Monthly Utility Costs', {
+            'fields': (
+                'utility_electric_monthly', 'utility_gas_monthly', 'utility_water_monthly',
+                'utility_sewer_monthly', 'utility_trash_monthly', 'utility_other_monthly'
+            )
+        }),
+        ('Monthly Property Management Costs', {
+            'fields': (
+                'property_management_monthly', 'repairs_maintenance_monthly', 'marketing_monthly',
+                'security_cost_monthly', 'landscaping_monthly', 'pool_maintenance_monthly'
+            )
+        }),
+        ('One-Time Costs', {
+            'fields': ('trashout_cost', 'renovation_cost')
+        }),
+    )
+    
+    def total_monthly_utilities(self, obj):
+        """Display total monthly utility costs."""
+        return f"${obj.total_monthly_utilities():,.2f}"
+    total_monthly_utilities.short_description = "Total Monthly Utilities"
+    
+    def total_monthly_property_management(self, obj):
+        """Display total monthly property management costs."""
+        return f"${obj.total_monthly_property_management():,.2f}"
+    total_monthly_property_management.short_description = "Total Monthly Prop Mgmt"
+    
+    def total_one_time_costs(self, obj):
+        """Display total one-time costs."""
+        return f"${obj.total_one_time_costs():,.2f}"
+    total_one_time_costs.short_description = "Total One-Time Costs"
+
+
+@admin.register(SquareFootageAssumption)
+class SquareFootageAssumptionAdmin(admin.ModelAdmin):
+    """Admin for square footage-based utility and property management assumptions."""
+    list_display = (
+        'property_category', 'sqft_range', 'description', 'is_active', 'updated_at'
+    )
+    list_filter = ('property_category', 'is_active')
+    search_fields = ('description', 'notes')
+    ordering = ('property_category', 'sqft_min')
+    
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('property_category', 'sqft_min', 'sqft_max', 'description', 'is_active', 'notes')
+        }),
+        ('Per Square Foot Monthly Utility Costs', {
+            'fields': (
+                'utility_electric_per_sqft', 'utility_gas_per_sqft', 'utility_water_per_sqft',
+                'utility_sewer_per_sqft', 'utility_trash_per_sqft', 'utility_other_per_sqft'
+            )
+        }),
+        ('Per Square Foot Monthly Property Management Costs', {
+            'fields': (
+                'property_management_per_sqft', 'repairs_maintenance_per_sqft', 'marketing_per_sqft',
+                'security_cost_per_sqft', 'landscaping_per_sqft', 'pool_maintenance_per_sqft'
+            )
+        }),
+        ('Per Square Foot One-Time Costs', {
+            'fields': ('trashout_per_sqft', 'renovation_per_sqft')
+        }),
+    )
+    
+    def sqft_range(self, obj):
+        """Display square footage range."""
+        max_display = f"{obj.sqft_max:,}" if obj.sqft_max else "∞"
+        return f"{obj.sqft_min:,} - {max_display} sqft"
+    sqft_range.short_description = "Square Footage Range"
+
+
+@admin.register(UnitBasedAssumption)
+class UnitBasedAssumptionAdmin(admin.ModelAdmin):
+    """Admin for unit-based utility and property management assumptions."""
+    list_display = (
+        'unit_range', 'description', 'is_active', 'updated_at'
+    )
+    list_filter = ('is_active',)
+    search_fields = ('description', 'notes')
+    ordering = ('units_min',)
+    
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('units_min', 'units_max', 'description', 'is_active', 'notes')
+        }),
+        ('Per Unit Monthly Utility Costs', {
+            'fields': (
+                'utility_electric_per_unit', 'utility_gas_per_unit', 'utility_water_per_unit',
+                'utility_sewer_per_unit', 'utility_trash_per_unit', 'utility_other_per_unit'
+            )
+        }),
+        ('Per Unit Monthly Property Management Costs', {
+            'fields': (
+                'property_management_per_unit', 'repairs_maintenance_per_unit', 'marketing_per_unit',
+                'security_cost_per_unit', 'landscaping_per_unit', 'pool_maintenance_per_unit'
+            )
+        }),
+        ('Per Unit One-Time Costs', {
+            'fields': ('trashout_per_unit', 'renovation_per_unit')
+        }),
+    )
+    
+    def unit_range(self, obj):
+        """Display unit count range."""
+        max_display = f"{obj.units_max}" if obj.units_max else "∞"
+        return f"{obj.units_min} - {max_display} units"
+    unit_range.short_description = "Unit Count Range"

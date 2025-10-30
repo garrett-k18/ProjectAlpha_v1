@@ -113,6 +113,145 @@ def get_ltv_scatter_data(seller_id: int, trade_id: int) -> List[LtvDataItem]:
 
 
 # -------------------------------------------------------------------------------------------------
+# TDTV (Total Debt to Value) Calculations
+# -------------------------------------------------------------------------------------------------
+
+class TdtvDataItem(TypedDict):
+    """Type definition for TDTV data items returned by get_tdtv_data."""
+    id: str
+    total_debt: Decimal
+    seller_arv_value: Decimal
+    tdtv: Decimal
+
+
+def get_tdtv_data(seller_id: int, trade_id: int) -> List[TdtvDataItem]:
+    """Calculate TDTV (Total Debt to Value) for each loan in the selected pool.
+    
+    TDTV is calculated as total_debt / seller_arv_value.
+    
+    Args:
+        seller_id: Seller primary key to filter by.
+        trade_id: Trade primary key to filter by.
+        
+    Returns:
+        List of dictionaries containing id, total_debt, seller_arv_value, and tdtv
+    
+    Notes:
+        - TDTV is expressed as a percentage (0-100)
+        - If seller_arv_value is zero or null, tdtv will be null to avoid division by zero
+        - Calculation is done in the database for efficiency
+    """
+    # Get the base queryset for the selected seller and trade
+    qs = sellertrade_qs(seller_id, trade_id)
+    
+    # Annotate with TDTV calculation
+    # Convert to percentage and round to 1 decimal place
+    # Handle division by zero by using Case/When
+    qs = qs.annotate(
+        tdtv=Case(
+            # When denominator exists and is not zero
+            When(
+                seller_arv_value__gt=0,
+                then=ExpressionWrapper(
+                    (F('total_debt') * 100) / F('seller_arv_value'),
+                    output_field=DecimalField(max_digits=7, decimal_places=1)
+                )
+            ),
+            # Otherwise null
+            default=Value(None, output_field=DecimalField(max_digits=7, decimal_places=1))
+        )
+    )
+    
+    # Select only the fields we need for the frontend
+    # Coalesce null values to zero for numeric fields
+    result = []
+    for item in qs:
+        result.append({
+            'id': str(item.id),
+            'total_debt': item.total_debt or Decimal('0.00'),
+            'seller_arv_value': item.seller_arv_value or Decimal('0.00'),
+            'tdtv': item.tdtv  # Keep as null if calculation wasn't possible
+        })
+    
+    return result
+
+
+# -------------------------------------------------------------------------------------------------
+# Individual Asset Metrics (for single asset analysis)
+# -------------------------------------------------------------------------------------------------
+
+def get_single_asset_metrics(asset_id: int) -> Dict[str, Any]:
+    """Calculate key metrics for a single asset.
+    
+    Args:
+        asset_id: SellerRawData asset_hub_id (primary key)
+        
+    Returns:
+        Dict containing calculated metrics:
+        - ltv: Loan to Value percentage
+        - tdtv: Total Debt to Value percentage  
+        - days_dlq: Days delinquent
+        - months_dlq: Months delinquent (calculated from days)
+        - is_delinquent: Boolean if asset is delinquent
+        - is_foreclosure: Boolean if FC flag is active
+        - has_equity: Boolean if asset has positive equity
+    """
+    try:
+        # Get the asset record using asset_hub as the primary key
+        asset = SellerRawData.objects.get(asset_hub=asset_id)
+        
+        # Calculate LTV (current_balance / seller_asis_value)
+        ltv = None
+        if asset.seller_asis_value and asset.seller_asis_value > 0:
+            ltv = float((asset.current_balance or Decimal('0')) / asset.seller_asis_value * 100)
+        
+        # Calculate TDTV (total_debt / seller_arv_value)
+        tdtv = None
+        if asset.seller_arv_value and asset.seller_arv_value > 0:
+            tdtv = float((asset.total_debt or Decimal('0')) / asset.seller_arv_value * 100)
+        
+        # Calculate days delinquent
+        days_dlq = 0
+        if asset.as_of_date and asset.next_due_date:
+            delta = asset.as_of_date - asset.next_due_date
+            days_dlq = delta.days
+        
+        # Calculate months delinquent (approximate: days / 30)
+        months_dlq = max(0, days_dlq // 30) if days_dlq > 0 else 0
+        
+        # Determine status flags
+        is_delinquent = days_dlq > 0
+        is_foreclosure = bool(asset.fc_flag) if hasattr(asset, 'fc_flag') else False
+        
+        # Determine if asset has equity (LTV < 100%)
+        has_equity = ltv is not None and ltv < 100
+        
+        return {
+            'ltv': ltv,
+            'tdtv': tdtv,
+            'days_dlq': days_dlq,
+            'months_dlq': months_dlq,
+            'is_delinquent': is_delinquent,
+            'is_foreclosure': is_foreclosure,
+            'has_equity': has_equity,
+            'delinquency_months': months_dlq,  # Alias for compatibility
+        }
+        
+    except SellerRawData.DoesNotExist:
+        # Return null metrics if asset not found
+        return {
+            'ltv': None,
+            'tdtv': None,
+            'days_dlq': 0,
+            'months_dlq': 0,
+            'is_delinquent': False,
+            'is_foreclosure': False,
+            'has_equity': None,
+            'delinquency_months': 0,
+        }
+
+
+# -------------------------------------------------------------------------------------------------
 # Days Delinquent (days_dlq)
 # -------------------------------------------------------------------------------------------------
 
