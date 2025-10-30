@@ -60,12 +60,19 @@ from .views.trade_status_api import (
 )
 from .views.view_acq_directImport import import_seller_tape
 from .views.asset_actions_api import drop_asset, restore_asset
+from .views.view_acq_modelRecs import (
+    get_asset_model_recommendations,
+    bulk_model_recommendations,
+)
 
 # This defines the URL patterns for the acq_module app.
 urlpatterns = [
     # Asset actions (drop/restore)
     path('assets/<int:asset_id>/drop/', drop_asset, name='api_drop_asset'),
     path('assets/<int:asset_id>/restore/', restore_asset, name='api_restore_asset'),
+    # Model recommendations
+    path('assets/<int:asset_id>/model-recommendations/', get_asset_model_recommendations, name='api_asset_model_recommendations'),
+    path('model-recommendations/bulk/', bulk_model_recommendations, name='api_bulk_model_recommendations'),
     # Get data for a specific seller and trade
     re_path(r'^raw-data/(?P<seller_id>\d+)/(?P<trade_id>\d+)/$', get_seller_trade_data, name='api_get_seller_trade_data'),
     # Get all trades for a specific seller
