@@ -1,6 +1,6 @@
 from django.db import models
 from django.conf import settings
-from .assumptions import StateReference
+from .model_co_assumptions import StateReference
 
 class MasterCRM(models.Model):
     """Unified Master CRM directory entry (broker-first, now generalized).

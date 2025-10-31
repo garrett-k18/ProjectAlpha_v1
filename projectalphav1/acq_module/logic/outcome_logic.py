@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import Optional
 
-from acq_module.models.seller import SellerRawData
+from acq_module.models.model_acq_seller import SellerRawData
 
 
 class FCServicingFees:

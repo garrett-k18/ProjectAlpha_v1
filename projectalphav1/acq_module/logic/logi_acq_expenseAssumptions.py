@@ -3,10 +3,10 @@
 from decimal import Decimal
 from typing import Optional
 
-from acq_module.models.seller import SellerRawData
-from acq_module.models.assumptions import LoanLevelAssumption, TradeLevelAssumption
+from acq_module.models.model_acq_seller import SellerRawData
+from acq_module.models.model_acq_assumptions import LoanLevelAssumption, TradeLevelAssumption
 from am_module.models.boarded_data import BlendedOutcomeModel
-from core.models.assumptions import StateReference, HOAAssumption
+from core.models.model_co_assumptions import StateReference, HOAAssumption
 from core.models.valuations import Valuation
 
 

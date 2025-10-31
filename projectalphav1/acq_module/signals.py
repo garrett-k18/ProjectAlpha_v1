@@ -17,7 +17,7 @@ from django.db.models.signals import post_save
 from django.db import transaction
 from django.dispatch import receiver
 
-from .models.seller import SellerRawData
+from .models.model_acq_seller import SellerRawData
 from core.services.geocoding import geocode_row
 
 

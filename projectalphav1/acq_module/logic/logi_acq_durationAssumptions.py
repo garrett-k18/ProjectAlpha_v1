@@ -12,8 +12,8 @@ from typing import Any, Dict, List, Optional
 
 from django.db.models import Prefetch, Sum
 
-from acq_module.models.seller import SellerRawData
-from core.models.assumptions import FCStatus, FCTimelines, StateReference
+from acq_module.models.model_acq_seller import SellerRawData
+from core.models.model_co_assumptions import FCStatus, FCTimelines, StateReference
 from .logi_acq_expenseAssumptions import (
     monthly_insurance_for_asset,
     monthly_tax_for_asset,
@@ -35,8 +35,8 @@ def get_asset_fc_timeline(asset_id: int) -> Dict[str, Any]:
 
     Source of truth:
     - Asset state from `acq_module.models.seller.SellerRawData.state` (PK is hub/asset id)
-    - Timelines from `core.models.assumptions.FCTimelines` filtered by state
-    - Status order/display from `core.models.assumptions.FCStatus`
+    - Timelines from `core.models.model_co_assumptions.FCTimelines` filtered by state
+    - Status order/display from `core.models.model_co_assumptions.FCStatus`
     - totalDurationDays: sum of non-null duration_days across all statuses
     """
 

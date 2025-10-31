@@ -3,7 +3,7 @@ from django.views.decorators.csrf import ensure_csrf_cookie  # WHAT: forces CSRF
 from django.db import transaction  # WHAT: ensure atomic updates across trade + asset rows (docs: https://docs.djangoproject.com/en/stable/topics/db/transactions/)
 from rest_framework.decorators import api_view  # WHAT: DRF decorator enabling function-based API views
 from rest_framework import status  # WHAT: HTTP status code constants for clarity
-from ..models.seller import Trade, SellerRawData  # WHAT: Trade drives lifecycle; SellerRawData holds per-asset acquisition status used by AM module
+from ..models.model_acq_seller import Trade, SellerRawData  # WHAT: Trade drives lifecycle; SellerRawData holds per-asset acquisition status used by AM module
 
 
 def _serialize_choices():

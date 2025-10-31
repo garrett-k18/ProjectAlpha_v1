@@ -22,7 +22,7 @@ import numpy as np
 from django.db import transaction
 from django.utils.dateparse import parse_date
 
-from acq_module.models.seller import SellerRawData, Seller, Trade
+from acq_module.models.model_acq_seller import SellerRawData, Seller, Trade
 from core.models import AssetIdHub
 from etl.services.serv_etl_ai_seller_matcher import AISellerMatcher
 from etl.services.serv_etl_ai_mapper import validate_choice_value

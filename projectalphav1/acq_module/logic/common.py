@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from django.db.models import QuerySet
 
-from ..models.seller import SellerRawData
+from ..models.model_acq_seller import SellerRawData
 
 
 def sellertrade_qs(seller_id: int, trade_id: int, view: str = 'snapshot') -> QuerySet[SellerRawData]:

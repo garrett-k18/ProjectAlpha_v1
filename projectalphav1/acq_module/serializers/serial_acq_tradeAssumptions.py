@@ -2,7 +2,7 @@
 
 from rest_framework import serializers
 
-from ..models.assumptions import TradeLevelAssumption
+from ..models.model_acq_assumptions import TradeLevelAssumption
 from core.models import Servicer
 
 

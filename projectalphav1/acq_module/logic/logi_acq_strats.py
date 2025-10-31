@@ -466,7 +466,7 @@ def property_type_stratification_categorical(
       }
     """
     # Local import to avoid any potential circular import issues on app load
-    from ..models.seller import SellerRawData
+    from ..models.model_acq_seller import SellerRawData
 
     # Base queryset filtered by selection; exclude null/blank property types to be safe
     qs = (
@@ -567,7 +567,7 @@ def occupancy_stratification_categorical(
     - Coalesce to avoid NULL in sums: https://docs.djangoproject.com/en/stable/ref/models/database-functions/#coalesce
     """
     # Local import to avoid circulars at app load time
-    from ..models.seller import SellerRawData
+    from ..models.model_acq_seller import SellerRawData
     from django.db.models.functions import Coalesce as CoalesceFunc
 
     # Base queryset filtered by selection; treat null/blank occupancy as "Unknown"
@@ -843,7 +843,7 @@ def judicial_stratification_dynamic(
     
     Each item includes counts and sums of relevant financial metrics.
     """
-    from core.models.assumptions import StateReference
+    from core.models.model_co_assumptions import StateReference
     
     # Get the base queryset for this seller+trade combination
     qs = sellertrade_qs(seller_id, trade_id)

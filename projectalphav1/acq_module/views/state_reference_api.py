@@ -1,6 +1,6 @@
 from django.http import JsonResponse
 from rest_framework.decorators import api_view
-from core.models.assumptions import StateReference
+from core.models.model_co_assumptions import StateReference
 
 @api_view(['GET'])
 def get_judicial_states(request):

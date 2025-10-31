@@ -3,8 +3,8 @@
 from decimal import Decimal
 from typing import Optional
 
-from acq_module.models.seller import SellerRawData
-from acq_module.models.assumptions import NoteSaleAssumption
+from acq_module.models.model_acq_seller import SellerRawData
+from acq_module.models.model_acq_assumptions import NoteSaleAssumption
 from core.models.valuations import Valuation
 from acq_module.logic.outcome_logic import fcoutcomeLogic
 

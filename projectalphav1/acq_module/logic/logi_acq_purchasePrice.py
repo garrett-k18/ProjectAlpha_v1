@@ -2,7 +2,7 @@
 
 from decimal import Decimal
 
-from acq_module.models.seller import SellerRawData
+from acq_module.models.model_acq_seller import SellerRawData
 from am_module.models.boarded_data import BlendedOutcomeModel
 
 

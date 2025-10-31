@@ -19,7 +19,7 @@ from rest_framework.authentication import TokenAuthentication
 from rest_framework.response import Response
 from rest_framework import status
 
-from acq_module.models.seller import SellerRawData
+from acq_module.models.model_acq_seller import SellerRawData
 
 
 @api_view(['POST'])

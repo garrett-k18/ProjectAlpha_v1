@@ -21,7 +21,7 @@ from django.conf.urls.static import static
 from django.views.generic import TemplateView, RedirectView
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    path('admin/', admin.site.urls),  # Use standard Django admin
     path('api/acq/', include('acq_module.urls')),
     path('api/', include('am_module.urls')),
     path('api/core/', include('core.urls')),  # Core module API endpoints (assumptions, etc.)

@@ -20,7 +20,7 @@ from django.core.management.base import BaseCommand, CommandError  # WHAT: Base 
 from django.db import transaction  # WHAT: Ensure database writes occur atomically per row.
 from django.utils.dateparse import parse_date  # WHAT: Gracefully parse ISO formatted dates.
 
-from acq_module.models.seller import Seller, Trade, SellerRawData  # WHAT: Domain models targeted by the import.
+from acq_module.models.model_acq_seller import Seller, Trade, SellerRawData  # WHAT: Domain models targeted by the import.
 from core.models import AssetIdHub  # WHAT: Master hub model required for SellerRawData primary keys.
 
 

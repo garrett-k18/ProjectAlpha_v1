@@ -1,4 +1,4 @@
-from acq_module.models.seller import SellerRawData
+from acq_module.models.model_acq_seller import SellerRawData
 
 # Get distinct occupancy values
 occupancy_values = SellerRawData.objects.values_list('occupancy', flat=True).distinct()

@@ -1,6 +1,6 @@
 # Acquisition Module Models
-from .seller import Seller, Trade, SellerRawData
-from .assumptions import LoanLevelAssumption, StaticModelAssumptions, TradeLevelAssumption, NoteSaleAssumption, PropertyTypeAssumption, SquareFootageAssumption, UnitBasedAssumption
+from .model_acq_seller import Seller, Trade, SellerRawData
+from .model_acq_assumptions import LoanLevelAssumption, StaticModelAssumptions, TradeLevelAssumption, NoteSaleAssumption
 
 __all__ = [
     'Seller',
@@ -10,7 +10,4 @@ __all__ = [
     'StaticModelAssumptions',
     'TradeLevelAssumption',
     'NoteSaleAssumption',
-    'PropertyTypeAssumption',
-    'SquareFootageAssumption',
-    'UnitBasedAssumption',
 ]

@@ -15,7 +15,7 @@ from am_module.serializers.serial_am_servicerData import ServicerLoanDataSeriali
 from am_module.models.servicers import ServicerLoanData
 
 # Import acquisitions models to surface photos linked to SellerRawData (via sellertape_id)
-from acq_module.models.seller import SellerRawData, Trade
+from acq_module.models.model_acq_seller import SellerRawData, Trade
 from core.models.attachments import Photo
 from core.models import AssetIdHub
 from rest_framework import serializers, status

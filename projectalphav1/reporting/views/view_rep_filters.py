@@ -7,7 +7,7 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.db.models import Count, F
-from acq_module.models.seller import Trade
+from acq_module.models.model_acq_seller import Trade
 
 
 @api_view(['GET'])

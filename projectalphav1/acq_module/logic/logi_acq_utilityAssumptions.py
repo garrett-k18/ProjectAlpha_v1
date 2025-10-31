@@ -15,13 +15,13 @@ from decimal import Decimal
 from typing import Dict, Optional, Tuple
 from django.db.models import Q
 
-from acq_module.models.seller import SellerRawData
-from acq_module.models.assumptions import (
+from acq_module.models.model_acq_seller import SellerRawData
+from core.models.model_co_assumptions import (
     PropertyTypeAssumption,
     SquareFootageAssumption,
-    UnitBasedAssumption
+    UnitBasedAssumption,
+    StateReference
 )
-from core.models.assumptions import StateReference
 
 
 class UtilityAssumptionWorkflow:
@@ -147,17 +147,21 @@ class UtilityAssumptionWorkflow:
         
         property_category = self.get_property_category()
         
-        # Find matching square footage assumption
-        assumptions = SquareFootageAssumption.objects.filter(
-            property_category=property_category,
-            is_active=True
-        ).order_by('sqft_min')
-        
-        for assumption in assumptions:
-            if assumption.matches_square_footage(square_footage):
-                return assumption
-        
-        return None
+        # Get the first active square footage assumption for the property category
+        # Since we no longer use ranges, we just need one assumption per category
+        try:
+            return SquareFootageAssumption.objects.get(
+                property_category=property_category,
+                is_active=True
+            )
+        except SquareFootageAssumption.DoesNotExist:
+            return None
+        except SquareFootageAssumption.MultipleObjectsReturned:
+            # If multiple exist, get the first one ordered by description
+            return SquareFootageAssumption.objects.filter(
+                property_category=property_category,
+                is_active=True
+            ).order_by('description').first()
     
     def get_unit_based_assumption(self) -> Optional[UnitBasedAssumption]:
         """

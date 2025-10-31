@@ -28,8 +28,8 @@ from django.db.models import (
 from django.db.models.functions import Coalesce, Cast, Extract
 
 from .common import sellertrade_qs
-from core.models.assumptions import StateReference
-from acq_module.models.seller import SellerRawData
+from core.models.model_co_assumptions import StateReference
+from acq_module.models.model_acq_seller import SellerRawData
 from core.models.propertycfs import HistoricalPropertyCashFlow
 
 

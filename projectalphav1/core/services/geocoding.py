@@ -32,7 +32,7 @@ except Exception:
         _GeocodioCls = None  # type: ignore
 
 # App model import: `SellerRawData` contains the address fields we need
-from acq_module.models.seller import SellerRawData
+from acq_module.models.model_acq_seller import SellerRawData
 from core.models import LlDataEnrichment
 
 # ---------------------------------------------------------------------------
@@ -336,7 +336,7 @@ def geocode_markers_for_seller_trade(seller_id: int, trade_id: int) -> Dict[str,
                     # Ensure asset_hub mirrors the raw row's hub
                     if getattr(enr_obj, 'asset_hub_id', None) is None:
                         try:
-                            from acq_module.models.seller import SellerRawData as _SRD
+                            from acq_module.models.model_acq_seller import SellerRawData as _SRD
                             _raw = _SRD.objects.only('asset_hub_id').get(pk=r["id"])
                             if getattr(_raw, 'asset_hub_id', None) is not None:
                                 enr_obj.asset_hub_id = _raw.asset_hub_id
@@ -443,7 +443,7 @@ def geocode_row(row_id: int) -> Optional[Tuple[float, float]]:
         # Ensure asset_hub mirrors the raw row's hub
         if getattr(enr_obj, 'asset_hub_id', None) is None:
             try:
-                from acq_module.models.seller import SellerRawData as _SRD
+                from acq_module.models.model_acq_seller import SellerRawData as _SRD
                 _raw = _SRD.objects.only('asset_hub_id').get(pk=row_id)
                 if getattr(_raw, 'asset_hub_id', None) is not None:
                     enr_obj.asset_hub_id = _raw.asset_hub_id

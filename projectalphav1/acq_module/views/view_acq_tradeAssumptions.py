@@ -11,8 +11,8 @@ from rest_framework.response import Response
 from rest_framework import status
 import logging
 
-from ..models.assumptions import TradeLevelAssumption
-from ..models.seller import Trade
+from ..models.model_acq_assumptions import TradeLevelAssumption
+from ..models.model_acq_seller import Trade
 from ..serializers import TradeLevelAssumptionSerializer
 
 # Module-level logger

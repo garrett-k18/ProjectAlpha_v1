@@ -20,7 +20,7 @@ from typing import Dict, List, Optional
 
 import anthropic
 
-from acq_module.models.seller import SellerRawData
+from acq_module.models.model_acq_seller import SellerRawData
 
 logger = logging.getLogger(__name__)
 

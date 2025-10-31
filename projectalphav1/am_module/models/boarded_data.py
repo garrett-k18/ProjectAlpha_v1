@@ -8,7 +8,7 @@
 
 from django.db import models
 from django.utils import timezone
-from acq_module.models.seller import SellerRawData
+from acq_module.models.model_acq_seller import SellerRawData
 import re
 
 # Blended Outcome Model (One-to-one with AssetIdHub)

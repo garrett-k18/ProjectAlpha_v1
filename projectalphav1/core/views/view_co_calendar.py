@@ -32,8 +32,8 @@ from rest_framework import status, viewsets
 from django.db.models import Q
 
 # Import models that contain date fields
-from acq_module.models.seller import SellerRawData, Seller, Trade
-from acq_module.models.assumptions import TradeLevelAssumption
+from acq_module.models.model_acq_seller import SellerRawData, Seller, Trade
+from acq_module.models.model_acq_assumptions import TradeLevelAssumption
 from am_module.models.servicers import ServicerLoanData as ServicerData
 from core.models import CalendarEvent
 from core.serializers.serial_co_calendar import (

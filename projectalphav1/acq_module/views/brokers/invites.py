@@ -45,7 +45,7 @@ from rest_framework import status, serializers
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.db.models import Q
 
-from ...models.seller import SellerRawData
+from ...models.model_acq_seller import SellerRawData
 from core.models.valuations import Valuation
 from core.models.attachments import Photo, Document
 from core.models.crm import MasterCRM

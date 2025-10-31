@@ -13,7 +13,7 @@ from __future__ import annotations
 from typing import Optional
 from django.db.models import QuerySet, Q, F, Value, Case, When, CharField
 from django.db.models.functions import Concat
-from ..models.seller import SellerRawData
+from ..models.model_acq_seller import SellerRawData
 
 # Fields used by quick filter 'q' - common searchable text fields
 QUICK_FILTER_FIELDS = (

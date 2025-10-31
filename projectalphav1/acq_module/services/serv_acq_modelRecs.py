@@ -17,7 +17,7 @@ Business Rules:
 from decimal import Decimal
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
-from ..models.seller import SellerRawData
+from ..models.model_acq_seller import SellerRawData
 from ..logic.ll_metrics import get_single_asset_metrics
 
 

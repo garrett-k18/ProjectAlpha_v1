@@ -30,7 +30,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
 import logging
-from ..models.seller import Seller, Trade, SellerRawData
+from ..models.model_acq_seller import Seller, Trade, SellerRawData
 from ..logic.common import sellertrade_qs
 from ..serializers.serial_acq_dataTable import (
     SellerRawDataRowSerializer,

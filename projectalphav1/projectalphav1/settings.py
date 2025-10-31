@@ -327,3 +327,5 @@ SESSION_COOKIE_SECURE = True  # Always require HTTPS for session cookies
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# Using standard Django admin interface
+

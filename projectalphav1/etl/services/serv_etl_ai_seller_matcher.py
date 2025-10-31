@@ -22,7 +22,7 @@ from pathlib import Path
 import anthropic
 from django.db import transaction
 
-from acq_module.models.seller import Seller, Trade
+from acq_module.models.model_acq_seller import Seller, Trade
 
 logger = logging.getLogger(__name__)
 

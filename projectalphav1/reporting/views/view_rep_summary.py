@@ -6,7 +6,7 @@
 
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from acq_module.models.seller import SellerRawData
+from acq_module.models.model_acq_seller import SellerRawData
 from reporting.logic.logic_rep_metrics import calculate_summary_metrics
 from reporting.logic.logic_rep_filters import apply_filters
 

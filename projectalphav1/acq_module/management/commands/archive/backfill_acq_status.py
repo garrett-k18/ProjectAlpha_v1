@@ -1,5 +1,5 @@
 from django.core.management.base import BaseCommand
-from acq_module.models.seller import SellerRawData
+from acq_module.models.model_acq_seller import SellerRawData
 
 class Command(BaseCommand):
     help = 'Backfill acq_status for all SellerRawData records to BOARD'
