@@ -110,8 +110,8 @@ class SellerRawDataAdmin(admin.ModelAdmin):
 @admin.register(LoanLevelAssumption)
 class LoanLevelAssumptionAdmin(admin.ModelAdmin):
     """Admin configuration for LoanLevelAssumption model"""
-    list_display = ('seller_raw_data', 'months_to_resolution', 'probability_of_cure', 'probability_of_foreclosure')
-    list_filter = ('seller_raw_data__seller', 'seller_raw_data__trade')
+    list_display = ('asset_hub', 'acquisition_price', 'months_to_resolution', 'probability_of_cure', 'probability_of_foreclosure', 'fc_duration_override_months')
+    list_filter = ('asset_hub__acq_raw__seller', 'asset_hub__acq_raw__trade')
     list_per_page = 5
 
 # ============================================================================

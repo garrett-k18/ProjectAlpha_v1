@@ -106,14 +106,18 @@ MIDDLEWARE = [
 'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-# WHAT: Inject development-only CSRF bypass middleware at the top of the stack when DEBUG is true
-# WHY: Allows local Vue dev server POSTs without CSRF token friction while keeping production secure
-# WHERE: Placed before SecurityMiddleware so request flag is set ahead of CSRF processing
-# HOW: Uses documented request attribute `_dont_enforce_csrf_checks`
+# WHAT: Inject development-only CSRF and Auth bypass middleware at the top of the stack when DEBUG is true
+# WHY: Allows local Vue dev server POSTs without CSRF token friction and API calls without auth tokens
+# WHERE: Placed before SecurityMiddleware so request flags are set ahead of processing
+# HOW: Uses documented request attributes `_dont_enforce_csrf_checks` and custom `_dev_bypass_auth`
 if DEBUG:
     MIDDLEWARE.insert(
         0,
         'projectalphav1.middleware.dev_csrf_bypass.DevCSRFBuypassMiddleware',
+    )
+    MIDDLEWARE.insert(
+        1,
+        'projectalphav1.middleware.dev_auth_bypass.DevAuthBypassMiddleware',
     )
 
 ROOT_URLCONF = 'projectalphav1.urls'
@@ -121,7 +125,10 @@ ROOT_URLCONF = 'projectalphav1.urls'
 TEMPLATES = [
 {
 'BACKEND': 'django.template.backends.django.DjangoTemplates',
-'DIRS': [BASE_DIR.parent / 'frontend_vue' / 'dist'],
+'DIRS': [
+    BASE_DIR / 'templates',  # Custom admin templates
+    BASE_DIR.parent / 'frontend_vue' / 'dist'
+],
 'APP_DIRS': True,
 'OPTIONS': {
 'context_processors': [

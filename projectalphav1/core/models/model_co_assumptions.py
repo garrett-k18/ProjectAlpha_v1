@@ -24,7 +24,7 @@ class Servicer(models.Model):
     thirdparty_fee = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     reo_fee = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     reo_days = models.IntegerField(null=True, blank=True)
-    liqfee_pct = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    liqfee_pct = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True, help_text="Liquidation fee percentage as decimal (e.g., 0.015 = 1.5%)")
     liqfee_flat = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
         
     # Timestamps

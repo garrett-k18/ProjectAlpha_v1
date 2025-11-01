@@ -1,0 +1,313 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block title %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block branding %}
+<h1 id="site-name"><a href="{% url 'admin:index' %}">{{ site_header|default:_('Django administration') }}</a></h1>
+{% endblock %}
+
+{% block nav-global %}{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    {% if user.is_active and user.is_staff %}
+        <div id="content-related">
+            <div class="module" id="recent-actions-module">
+                <h2>{% trans 'Recent actions' %}</h2>
+                <h3>{% trans 'My actions' %}</h3>
+                {% load log %}
+                {% get_admin_log 10 as admin_log for_user user %}
+                {% if not admin_log %}
+                    <p>{% trans 'None available' %}</p>
+                {% else %}
+                    <ul class="actionlist">
+                        {% for entry in admin_log %}
+                            <li class="{% if entry.is_addition %}addlink{% endif %}{% if entry.is_change %}changelink{% endif %}{% if entry.is_deletion %}deletelink{% endif %}">
+                                {% if entry.is_deletion or not entry.get_admin_url %}
+                                    {{ entry.object_repr }}
+                                {% else %}
+                                    <a href="{{ entry.get_admin_url }}">{{ entry.object_repr }}</a>
+                                {% endif %}
+                                <br>
+                                {% if entry.content_type %}
+                                    <span class="mini quiet">{% filter capfirst %}{{ entry.content_type.name }}{% endfilter %}</span>
+                                {% else %}
+                                    <span class="mini quiet">{% trans 'Unknown content' %}</span>
+                                {% endif %}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+            </div>
+        </div>
+
+        <div id="content-main">
+            <style>
+                .model-group {
+                    background: #f8f9fa;
+                    border: 1px solid #dee2e6;
+                    border-radius: 6px;
+                    margin-bottom: 15px;
+                    overflow: hidden;
+                }
+                .model-group h2 {
+                    background: linear-gradient(135deg, #417690 0%, #2c5282 100%);
+                    color: white;
+                    margin: 0;
+                    padding: 10px 15px;
+                    font-size: 16px;
+                    font-weight: 600;
+                    border-bottom: 1px solid #dee2e6;
+                }
+                .model-group .models {
+                    padding: 10px 15px;
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                    gap: 8px;
+                }
+                .model-item {
+                    background: white;
+                    border: 1px solid #e9ecef;
+                    border-radius: 4px;
+                    padding: 8px 12px;
+                    transition: all 0.2s ease;
+                }
+                .model-item:hover {
+                    border-color: #417690;
+                    box-shadow: 0 1px 4px rgba(65, 118, 144, 0.1);
+                    transform: translateY(-1px);
+                }
+                .model-item h3 {
+                    margin: 0 0 6px 0;
+                    font-size: 14px;
+                    color: #2c5282;
+                    font-weight: 600;
+                }
+                .model-item .actions {
+                    display: flex;
+                    gap: 6px;
+                }
+                .model-item .actions a {
+                    padding: 4px 8px;
+                    border-radius: 3px;
+                    text-decoration: none;
+                    font-size: 11px;
+                    font-weight: 500;
+                    transition: all 0.2s ease;
+                }
+                .model-item .actions .addlink {
+                    background: #28a745;
+                    color: white;
+                }
+                .model-item .actions .addlink:hover {
+                    background: #218838;
+                }
+                .model-item .actions .changelink {
+                    background: #417690;
+                    color: white;
+                }
+                .model-item .actions .changelink:hover {
+                    background: #2c5282;
+                }
+                .empty-group {
+                    color: #6c757d;
+                    font-style: italic;
+                    text-align: center;
+                    padding: 20px;
+                }
+            </style>
+
+            <!-- Capital Management -->
+            <div class="model-group">
+                <h2>💰 Capital Management</h2>
+                <div class="models">
+                    {% for model in app_list %}
+                        {% if model.app_label == 'core' %}
+                            {% for model_info in model.models %}
+                                {% if 'debt' in model_info.object_name|lower or 'fund' in model_info.object_name|lower or 'investor' in model_info.object_name|lower %}
+                                    <div class="model-item">
+                                        <h3>{{ model_info.name }}</h3>
+                                        <div class="actions">
+                                            {% if model_info.add_url %}<a href="{{ model_info.add_url }}" class="addlink">{% trans 'Add' %}</a>{% endif %}
+                                            {% if model_info.admin_url %}<a href="{{ model_info.admin_url }}" class="changelink">{% trans 'Change' %}</a>{% endif %}
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Assumptions & References -->
+            <div class="model-group">
+                <h2>⚙️ Assumptions & References</h2>
+                <div class="models">
+                    {% for model in app_list %}
+                        {% if model.app_label == 'core' %}
+                            {% for model_info in model.models %}
+                                {% if 'servicer' in model_info.object_name|lower or 'state' in model_info.object_name|lower or 'assumption' in model_info.object_name|lower or 'foreclosure' in model_info.object_name|lower or 'commercial' in model_info.object_name|lower or 'hoa' in model_info.object_name|lower %}
+                                    <div class="model-item">
+                                        <h3>{{ model_info.name }}</h3>
+                                        <div class="actions">
+                                            {% if model_info.add_url %}<a href="{{ model_info.add_url }}" class="addlink">{% trans 'Add' %}</a>{% endif %}
+                                            {% if model_info.admin_url %}<a href="{{ model_info.admin_url }}" class="changelink">{% trans 'Change' %}</a>{% endif %}
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                        {% endif %}
+                        {% if model.app_label == 'acq_module' %}
+                            {% for model_info in model.models %}
+                                {% if 'assumption' in model_info.object_name|lower %}
+                                    <div class="model-item">
+                                        <h3>{{ model_info.name }}</h3>
+                                        <div class="actions">
+                                            {% if model_info.add_url %}<a href="{{ model_info.add_url }}" class="addlink">{% trans 'Add' %}</a>{% endif %}
+                                            {% if model_info.admin_url %}<a href="{{ model_info.admin_url }}" class="changelink">{% trans 'Change' %}</a>{% endif %}
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Assets & Valuations -->
+            <div class="model-group">
+                <h2>🏢 Assets & Valuations</h2>
+                <div class="models">
+                    {% for model in app_list %}
+                        {% if model.app_label == 'core' %}
+                            {% for model_info in model.models %}
+                                {% if 'asset' in model_info.object_name|lower or 'valuation' in model_info.object_name|lower or 'photo' in model_info.object_name|lower or 'document' in model_info.object_name|lower or 'comparable' in model_info.object_name|lower %}
+                                    <div class="model-item">
+                                        <h3>{{ model_info.name }}</h3>
+                                        <div class="actions">
+                                            {% if model_info.add_url %}<a href="{{ model_info.add_url }}" class="addlink">{% trans 'Add' %}</a>{% endif %}
+                                            {% if model_info.admin_url %}<a href="{{ model_info.admin_url }}" class="changelink">{% trans 'Change' %}</a>{% endif %}
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Acquisition Data -->
+            <div class="model-group">
+                <h2>📊 Acquisition Data</h2>
+                <div class="models">
+                    {% for model in app_list %}
+                        {% if model.app_label == 'acq_module' %}
+                            {% for model_info in model.models %}
+                                {% if 'seller' in model_info.object_name|lower or 'trade' in model_info.object_name|lower %}
+                                    <div class="model-item">
+                                        <h3>{{ model_info.name }}</h3>
+                                        <div class="actions">
+                                            {% if model_info.add_url %}<a href="{{ model_info.add_url }}" class="addlink">{% trans 'Add' %}</a>{% endif %}
+                                            {% if model_info.admin_url %}<a href="{{ model_info.admin_url }}" class="changelink">{% trans 'Change' %}</a>{% endif %}
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Transactions & Cash Flow -->
+            <div class="model-group">
+                <h2>💵 Transactions & Cash Flow</h2>
+                <div class="models">
+                    {% for model in app_list %}
+                        {% if model.app_label == 'core' %}
+                            {% for model_info in model.models %}
+                                {% if 'transaction' in model_info.object_name|lower or 'cash' in model_info.object_name|lower or 'property' in model_info.object_name|lower and 'cash' in model_info.object_name|lower %}
+                                    <div class="model-item">
+                                        <h3>{{ model_info.name }}</h3>
+                                        <div class="actions">
+                                            {% if model_info.add_url %}<a href="{{ model_info.add_url }}" class="addlink">{% trans 'Add' %}</a>{% endif %}
+                                            {% if model_info.admin_url %}<a href="{{ model_info.admin_url }}" class="changelink">{% trans 'Change' %}</a>{% endif %}
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Commercial Property Data -->
+            <div class="model-group">
+                <h2>🏘️ Commercial Property Data</h2>
+                <div class="models">
+                    {% for model in app_list %}
+                        {% if model.app_label == 'core' %}
+                            {% for model_info in model.models %}
+                                {% if 'unit' in model_info.object_name|lower or 'rent' in model_info.object_name|lower or 'lease' in model_info.object_name|lower %}
+                                    <div class="model-item">
+                                        <h3>{{ model_info.name }}</h3>
+                                        <div class="actions">
+                                            {% if model_info.add_url %}<a href="{{ model_info.add_url }}" class="addlink">{% trans 'Add' %}</a>{% endif %}
+                                            {% if model_info.admin_url %}<a href="{{ model_info.admin_url }}" class="changelink">{% trans 'Change' %}</a>{% endif %}
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- CRM & Calendar -->
+            <div class="model-group">
+                <h2>📇 CRM & Calendar</h2>
+                <div class="models">
+                    {% for model in app_list %}
+                        {% if model.app_label == 'core' %}
+                            {% for model_info in model.models %}
+                                {% if 'crm' in model_info.object_name|lower or 'calendar' in model_info.object_name|lower or 'enrichment' in model_info.object_name|lower %}
+                                    <div class="model-item">
+                                        <h3>{{ model_info.name }}</h3>
+                                        <div class="actions">
+                                            {% if model_info.add_url %}<a href="{{ model_info.add_url }}" class="addlink">{% trans 'Add' %}</a>{% endif %}
+                                            {% if model_info.admin_url %}<a href="{{ model_info.admin_url }}" class="changelink">{% trans 'Change' %}</a>{% endif %}
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Other Apps -->
+            {% for model in app_list %}
+                {% if model.app_label != 'core' and model.app_label != 'acq_module' %}
+                    <div class="model-group">
+                        <h2>📋 {{ model.name }}</h2>
+                        <div class="models">
+                            {% for model_info in model.models %}
+                                <div class="model-item">
+                                    <h3>{{ model_info.name }}</h3>
+                                    <div class="actions">
+                                        {% if model_info.add_url %}<a href="{{ model_info.add_url }}" class="addlink">{% trans 'Add' %}</a>{% endif %}
+                                        {% if model_info.admin_url %}<a href="{{ model_info.admin_url }}" class="changelink">{% trans 'Change' %}</a>{% endif %}
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endif %}
+            {% endfor %}
+
+        </div>
+    {% else %}
+        <p>{% trans "You don't have permission to view or edit anything." %}</p>
+    {% endif %}
+</div>
+{% endblock %}

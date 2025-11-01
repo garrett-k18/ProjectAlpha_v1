@@ -10,53 +10,36 @@
     <div class="card mb-3">
       <div class="card-body">
         <h5 class="card-title mb-3">Asset Snapshot</h5>
-        <!-- Intro banner: classification badges (top-left) -->
+        
+        <!-- Classification Badges -->
         <div class="mb-3">
           <div class="d-flex flex-wrap align-items-center gap-2">
-            <!-- Asset Status (moved to front) -->
             <UiBadge :tone="assetStatusTone" size="md" :label="row?.asset_status ?? '—'" ariaLabel="Asset Status" />
-            <!-- Property Type -->
             <UiBadge :tone="propertyTypeTone" size="md" :label="row?.property_type ?? '—'" ariaLabel="Property Type" />
-            <!-- Product Type -->
             <UiBadge :tone="productTypeTone" size="md" :label="row?.product_type ?? '—'" ariaLabel="Product Type" />
-            <!-- Occupancy -->
             <UiBadge :tone="occupancyTone" size="md" :label="occupancyLabel" ariaLabel="Occupancy" />
           </div>
         </div>
         
-        <!-- Financial Metrics -->
-        <div class="row g-2 mb-3">
-          <div class="col-md-6">
-            <div class="d-flex align-items-baseline gap-2">
-              <span class="text-muted">Current Balance:</span>
+        <!-- Financial Metrics Card -->
+        <div class="financial-metrics-card p-3 mb-3 bg-light rounded">
+          <div class="d-flex flex-column gap-2">
+            <div class="d-flex justify-content-between align-items-baseline">
+              <span class="text-muted small">Current Balance:</span>
               <span class="fw-bold">{{ formatCurrency(row?.current_balance) }}</span>
             </div>
-          </div>
-          <div class="col-md-6">
-            <div class="d-flex align-items-baseline gap-2">
-              <span class="text-muted">Interest Rate:</span>
+            <div class="d-flex justify-content-between align-items-baseline">
+              <span class="text-muted small">Interest Rate:</span>
               <span class="fw-bold">{{ formatPercent(row?.interest_rate) }}</span>
             </div>
-          </div>
-        </div>
-
-        <div class="row g-2 mb-3">
-          <div class="col-md-6">
-            <div class="d-flex align-items-baseline gap-2">
-              <span class="text-muted">Total Debt:</span>
+            <div class="d-flex justify-content-between align-items-baseline">
+              <span class="text-muted small">Total Debt:</span>
               <span class="fw-bold">{{ formatCurrency(row?.total_debt) }}</span>
             </div>
-          </div>
-          <div class="col-md-6">
-            <!-- Reserved for future field -->
-          </div>
-        </div>
-
-        <!-- Valuation Range -->
-        <div class="mb-3">
-          <div class="d-flex align-items-baseline gap-2">
-            <span class="text-muted">Seller Valuation Range:</span>
-            <span class="fw-bold">{{ formatValuationRange(row?.seller_asis_value, row?.seller_arv_value) }}</span>
+            <div class="d-flex justify-content-between align-items-baseline">
+              <span class="text-muted small">Seller Valuation:</span>
+              <span class="fw-bold">{{ formatValuationRange(row?.seller_asis_value, row?.seller_arv_value) }}</span>
+            </div>
           </div>
         </div>
 
@@ -158,13 +141,19 @@ const props = defineProps<{
   loadingRecommendations?: boolean
 }>()
 
-/**
- * Format currency values with proper fallback for null/undefined
- */
+// WHAT: Debug logging to track recommendations data flow
+// WHY: Help diagnose why Smart Analysis isn't loading
+console.log('[assetSnapshot] Component mounted/updated', {
+  hasRow: !!props.row,
+  hasRecommendations: !!props.recommendations,
+  loadingRecommendations: props.loadingRecommendations,
+  recommendations: props.recommendations,
+  metrics: props.recommendations?.metrics
+})
+
+// Formatting helpers
 function formatCurrency(value: any): string {
-  if (value == null || value === '' || isNaN(Number(value))) {
-    return '—'
-  }
+  if (value == null || value === '' || isNaN(Number(value))) return '—'
   try {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -177,15 +166,9 @@ function formatCurrency(value: any): string {
   }
 }
 
-/**
- * Format percentage values (interest rates)
- */
 function formatPercent(value: any): string {
-  if (value == null || value === '' || isNaN(Number(value))) {
-    return '—'
-  }
+  if (value == null || value === '' || isNaN(Number(value))) return '—'
   try {
-    // Assuming backend stores as decimal (0.0450 = 4.50%)
     const percent = Number(value) * 100
     return `${percent.toFixed(2)}%`
   } catch {
@@ -193,34 +176,18 @@ function formatPercent(value: any): string {
   }
 }
 
-
-
-/**
- * Format valuation range (As-Is to ARV)
- */
 function formatValuationRange(asisValue: any, arvValue: any): string {
   const asis = formatCurrency(asisValue)
   const arv = formatCurrency(arvValue)
   
-  // If both values are missing, show single dash
   if (asis === '—' && arv === '—') return '—'
-  
-  // If one is missing, show the available one
   if (asis === '—') return arv
   if (arv === '—') return asis
-  
-  // If both available, show range
-  if (asis === arv) return asis // Same value, no need for range
+  if (asis === arv) return asis
   return `${asis} - ${arv}`
 }
 
-/**
- * Badge tones
- * - Property Type uses centralized helper mapping (badgeTokens.getPropertyTypeBadgeTone)
- * - Occupancy mirrors grid enum colors: Occupied=success, Vacant=danger, Unknown=warning
- * - Asset Status mirrors grid enum colors: NPL=danger, REO=secondary, PERF=success, RPL=info
- * - Product Type uses a simple stable palette; adjust in badgeTokens if we standardize further
- */
+// Badge tone computed properties
 const propertyTypeTone = computed<BadgeToneKey>(() => getPropertyTypeBadgeTone(props.row?.property_type))
 
 const occupancyTone = computed<BadgeToneKey>(() => getOccupancyBadgeTone(props.row?.occupancy))
@@ -236,22 +203,30 @@ const productTypeTone = computed<BadgeToneKey>(() => getProductTypeBadgeTone(pro
 </script>
 
 <style scoped>
-/* Ensure consistent spacing and alignment */
-.asset-snapshot .row {
-  margin-left: 0;
-  margin-right: 0;
+/* Card styling */
+.asset-snapshot .card {
+  min-height: 500px;
+  height: 100%;
 }
 
-.asset-snapshot .col-md-6 {
-  padding-left: 0;
-  padding-right: 0.75rem;
+.asset-snapshot .card-body {
+  padding: 1.25rem;
 }
 
-/* Responsive text sizing */
+/* Financial metrics card */
+.financial-metrics-card {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* Spacing */
+.asset-snapshot .mb-3 {
+  margin-bottom: 1.25rem !important;
+}
+
+/* Responsive adjustments */
 @media (max-width: 768px) {
-  .asset-snapshot .col-md-6 {
-    padding-right: 0;
-    margin-bottom: 0.5rem;
+  .asset-snapshot .card {
+    min-height: auto;
   }
 }
 </style>

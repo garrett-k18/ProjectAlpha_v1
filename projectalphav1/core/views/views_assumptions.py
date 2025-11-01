@@ -73,6 +73,7 @@ class StateReferenceViewSet(DevAuthBypassMixin, viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
     lookup_field = "state_code"  # Use state_code instead of id for lookups
+    pagination_class = None  # Disable pagination - only ~51 states, return all at once
 
     def get_queryset(self):
         """Get all state references, optionally filtered by query params"""

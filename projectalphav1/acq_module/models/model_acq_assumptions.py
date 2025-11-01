@@ -8,19 +8,29 @@ from .model_acq_seller import Trade, SellerRawData
 
 class LoanLevelAssumption(models.Model):
     """Model to store assumptions for individual loan-level calculations"""
-    seller_raw_data = models.ForeignKey(SellerRawData, on_delete=models.CASCADE, related_name='loan_assumptions')
+    # WHAT: Foreign key to AssetIdHub (not SellerRawData)
+    # WHY: Join directly with asset hub for better data consistency
+    asset_hub = models.ForeignKey('core.AssetIdHub', on_delete=models.CASCADE, related_name='loan_assumptions')
     
     # Timeline assumptions
-    months_to_resolution = models.IntegerField(help_text="Estimated months to resolve the loan")
+    months_to_resolution = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Estimated months to resolve the loan"
+    )
     probability_of_cure = models.DecimalField(
         max_digits=5, 
         decimal_places=4,
+        null=True,
+        blank=True,
         validators=[MinValueValidator(0), MaxValueValidator(1)],
         help_text="Probability between 0 and 1"
     )
     probability_of_foreclosure = models.DecimalField(
         max_digits=5, 
         decimal_places=4,
+        null=True,
+        blank=True,
         validators=[MinValueValidator(0), MaxValueValidator(1)],
         help_text="Probability between 0 and 1"
     )
@@ -29,18 +39,36 @@ class LoanLevelAssumption(models.Model):
     recovery_percentage = models.DecimalField(
         max_digits=5, 
         decimal_places=4,
+        null=True,
+        blank=True,
         validators=[MinValueValidator(0), MaxValueValidator(1)],
         help_text="Expected recovery percentage of principal"
     )
-    monthly_carrying_cost = models.DecimalField(max_digits=10, decimal_places=2)
-    legal_costs = models.DecimalField(max_digits=10, decimal_places=2)
-    foreclosure_costs = models.DecimalField(max_digits=10, decimal_places=2)
-    property_preservation_cost = models.DecimalField(max_digits=10, decimal_places=2)
+    monthly_carrying_cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    legal_costs = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    foreclosure_costs = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    property_preservation_cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     
     # REO assumptions (if foreclosure)
-    estimated_reo_months = models.IntegerField(default=0)
-    estimated_rehab_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    estimated_reo_months = models.IntegerField(default=0, null=True, blank=True)
+    estimated_rehab_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0, null=True, blank=True)
     estimated_resale_value = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    
+    # FC duration override (user adjustment in months)
+    fc_duration_override_months = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="User override to adjust FC duration in months (positive adds months, negative subtracts months from calculated FC duration). NULL means no override."
+    )
+    
+    # Acquisition price (user-entered or calculated)
+    acquisition_price = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="User-entered acquisition price for this asset. If not set, will be calculated from trade assumptions."
+    )
     
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
@@ -51,12 +79,12 @@ class LoanLevelAssumption(models.Model):
         verbose_name_plural = "Loan Level Assumptions"
         ordering = ['-created_at']
         indexes = [
-            models.Index(fields=['seller_raw_data']),
+            models.Index(fields=['asset_hub']),
         ]
         db_table = 'loan_level_assumptions'
     
     def __str__(self):
-        return f"Assumption for Loan {self.seller_raw_data.id}"
+        return f"Assumption for Asset Hub {self.asset_hub_id}"
 
 
 class StaticModelAssumptions(models.Model):
@@ -196,7 +224,7 @@ class TradeLevelAssumption(models.Model):
     # Trade dates
     bid_date = models.DateField(null=True, blank=True, help_text="Date the bid was submitted")
     settlement_date = models.DateField(null=True, blank=True, help_text="Expected or actual settlement date")
-    servicing_transfer_date = models.DateField(null=True, blank=True, help_text="Date servicing transfers to new servicer")
+    servicing_transfer_date = models.DateField(null=True, blank=True, help_text="Date servicing transfers to new servicer (defaults to settlement_date + 30 days if not set)")
     
     # Trade-specific financial assumptions
     pctUPB = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="Purchase price as percentage of UPB")
@@ -247,6 +275,35 @@ class TradeLevelAssumption(models.Model):
     
     def __str__(self):
         return f"Trade Assumptions for {self.trade.trade_name}"
+    
+    @property
+    def effective_servicing_transfer_date(self):
+        """
+        Get the effective servicing transfer date with fallback logic.
+        
+        What: Returns servicing_transfer_date if set, otherwise calculates as settlement_date + 30 days
+        Why: Provide default behavior when servicing_transfer_date is not explicitly set
+        Where: Used by service layer for timeline calculations
+        How: Checks if servicing_transfer_date exists, if not calculates from settlement_date
+        
+        Returns:
+            date: The servicing_transfer_date if set, or settlement_date + 30 days if settlement_date exists,
+                  or None if neither is available
+        """
+        # WHAT: Return explicit servicing_transfer_date if set
+        # WHY: User-specified value takes priority
+        if self.servicing_transfer_date:
+            return self.servicing_transfer_date
+        
+        # WHAT: Calculate fallback as settlement_date + 30 days
+        # WHY: Default behavior when servicing_transfer_date not set
+        if self.settlement_date:
+            from datetime import timedelta
+            return self.settlement_date + timedelta(days=30)
+        
+        # WHAT: Return None if neither date is available
+        # WHY: Cannot calculate without settlement_date
+        return None
 
 
 class NoteSaleAssumption(models.Model):

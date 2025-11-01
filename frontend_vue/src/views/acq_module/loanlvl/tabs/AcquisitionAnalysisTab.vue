@@ -1,14 +1,22 @@
 <template>
   <div class="acquisition-analysis-tab">
-    <!-- Asset Snapshot spanning full width -->
-    <AssetSnapshot :row="row" :recommendations="recommendations" :loading-recommendations="loadingRecommendations" />
+    <div class="row g-3">
+      <!-- Asset Snapshot - 20% width -->
+      <div class="col-md-3 col-xl-2">
+        <AssetSnapshot :row="row" :recommendations="recommendations" :loading-recommendations="loadingRecommendations" />
+      </div>
 
-    <!-- Model Outcomes Component -->
-    <ModelOutcomes 
-      :recommendations="recommendations" 
-      :loading-recommendations="loadingRecommendations"
-      @models-changed="handleModelsChanged"
-    />
+      <!-- Model Outcomes and Model Cards - 80% width -->
+      <div class="col-md-9 col-xl-10">
+        <ModelOutcomes 
+          :recommendations="recommendations" 
+          :loading-recommendations="loadingRecommendations"
+          :row="row"
+          :asset-id="assetId"
+          @models-changed="handleModelsChanged"
+        />
+      </div>
+    </div>
   </div>
   
 </template>
@@ -44,11 +52,20 @@ async function fetchRecommendations() {
 
   loadingRecommendations.value = true
   try {
-    const response = await http.get(`/${props.module}/assets/${props.assetId}/model-recommendations/`)
+    const url = `/${props.module}/assets/${props.assetId}/model-recommendations/`
+    console.log('[AcquisitionAnalysisTab] Fetching recommendations from:', url)
+    const response = await http.get(url)
     recommendations.value = response.data
     console.log('[AcquisitionAnalysisTab] Received recommendations:', recommendations.value)
-  } catch (error) {
+    console.log('[AcquisitionAnalysisTab] Metrics:', recommendations.value?.metrics)
+  } catch (error: any) {
     console.error('[AcquisitionAnalysisTab] Failed to fetch recommendations:', error)
+    console.error('[AcquisitionAnalysisTab] Error details:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+      url: error.config?.url
+    })
     recommendations.value = null
   } finally {
     loadingRecommendations.value = false

@@ -60,9 +60,12 @@ from .views.trade_status_api import (
 )
 from .views.view_acq_directImport import import_seller_tape
 from .views.asset_actions_api import drop_asset, restore_asset
-from .views.view_acq_modelRecs import (
+from .views.view_acq_model import (
     get_asset_model_recommendations,
     bulk_model_recommendations,
+    get_fc_model_timeline_sums,
+    update_fc_duration_override,
+    update_acquisition_price,
 )
 
 # This defines the URL patterns for the acq_module app.
@@ -73,6 +76,10 @@ urlpatterns = [
     # Model recommendations
     path('assets/<int:asset_id>/model-recommendations/', get_asset_model_recommendations, name='api_asset_model_recommendations'),
     path('model-recommendations/bulk/', bulk_model_recommendations, name='api_bulk_model_recommendations'),
+    # FC model timeline sums
+    path('assets/<int:asset_id>/fc-model-sums/', get_fc_model_timeline_sums, name='api_fc_model_timeline_sums'),
+    path('assets/<int:asset_id>/fc-duration-override/', update_fc_duration_override, name='api_fc_duration_override'),
+    path('assets/<int:asset_id>/acquisition-price/', update_acquisition_price, name='api_update_acquisition_price'),
     # Get data for a specific seller and trade
     re_path(r'^raw-data/(?P<seller_id>\d+)/(?P<trade_id>\d+)/$', get_seller_trade_data, name='api_get_seller_trade_data'),
     # Get all trades for a specific seller

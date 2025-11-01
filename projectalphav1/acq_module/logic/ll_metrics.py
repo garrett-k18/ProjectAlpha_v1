@@ -197,8 +197,8 @@ def get_single_asset_metrics(asset_id: int) -> Dict[str, Any]:
         - has_equity: Boolean if asset has positive equity
     """
     try:
-        # Get the asset record using asset_hub as the primary key
-        asset = SellerRawData.objects.get(asset_hub=asset_id)
+        # Get the asset record using asset_hub_id as the primary key
+        asset = SellerRawData.objects.get(asset_hub_id=asset_id)
         
         # Calculate LTV (current_balance / seller_asis_value)
         ltv = None
