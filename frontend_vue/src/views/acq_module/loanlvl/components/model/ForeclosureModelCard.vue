@@ -162,107 +162,110 @@
         <div class="row g-3">
           <!-- Timelines Column -->
           <div class="col-md-3">
-            <h6 class="fw-semibold text-body mb-2">
-              <i class="mdi mdi-clock-outline me-2 text-warning"></i>
-              Timelines
-            </h6>
-            <div class="d-flex flex-column gap-2">
-          <div class="d-flex align-items-baseline gap-2">
-            <small class="text-muted d-block" style="min-width: 140px;">Servicing Transfer:</small>
-            <span class="fw-semibold text-dark">
-              {{ timelineData.servicing_transfer_months != null ? timelineData.servicing_transfer_months : '—' }} months
-            </span>
-          </div>
-          
-          <!-- UI OPTION A: Inline +/- Controls -->
-          <div v-if="!uiOptionB" class="d-flex align-items-baseline gap-2">
-            <small class="text-muted d-block" style="min-width: 140px;">Foreclosure:</small>
-            <div class="d-flex align-items-center gap-2">
-              <span class="fw-semibold text-dark">
-                {{ timelineData.foreclosure_months != null ? timelineData.foreclosure_months : '—' }} months
-              </span>
-              <div class="btn-group btn-group-sm fc-duration-controls" role="group">
-                <button
-                  type="button"
-                  class="btn btn-outline-secondary"
-                  @click="adjustFcDuration(-1)"
-                  :disabled="loadingTimelines || timelineData.foreclosure_months_base == null"
-                  title="Subtract 1 month"
-                >
-                  <i v-if="loadingTimelines" class="mdi mdi-refresh mdi-spin"></i>
-                  <i v-else class="mdi mdi-minus"></i>
-                </button>
-                <button
-                  type="button"
-                  class="btn btn-outline-secondary"
-                  @click="adjustFcDuration(1)"
-                  :disabled="loadingTimelines || timelineData.foreclosure_months_base == null"
-                  title="Add 1 month"
-                >
-                  <i v-if="loadingTimelines" class="mdi mdi-refresh mdi-spin"></i>
-                  <i v-else class="mdi mdi-plus"></i>
-                </button>
+            <div class="p-3 bg-light rounded border h-100">
+              <h6 class="fw-semibold text-body mb-2">
+                <i class="mdi mdi-clock-outline me-2 text-warning"></i>
+                Timelines
+              </h6>
+              <div class="d-flex flex-column gap-2">
+                <div class="d-flex align-items-baseline gap-2">
+                  <small class="text-muted d-block" style="min-width: 140px;">Servicing Transfer:</small>
+                  <span class="fw-semibold text-dark">
+                    {{ timelineData.servicing_transfer_months != null ? timelineData.servicing_transfer_months : '—' }} months
+                  </span>
+                </div>
+                
+                <!-- UI OPTION A: Inline +/- Controls -->
+                <div v-if="!uiOptionB" class="d-flex align-items-baseline gap-2">
+                  <small class="text-muted d-block" style="min-width: 140px;">Foreclosure:</small>
+                  <div class="d-flex align-items-center gap-2">
+                    <span class="fw-semibold text-dark">
+                      {{ timelineData.foreclosure_months != null ? timelineData.foreclosure_months : '—' }} months
+                    </span>
+                    <div class="btn-group btn-group-sm fc-duration-controls" role="group">
+                      <button
+                        type="button"
+                        class="btn btn-outline-secondary"
+                        @click="adjustFcDuration(-1)"
+                        :disabled="loadingTimelines || timelineData.foreclosure_months_base == null"
+                        title="Subtract 1 month"
+                      >
+                        <i v-if="loadingTimelines" class="mdi mdi-refresh mdi-spin"></i>
+                        <i v-else class="mdi mdi-minus"></i>
+                      </button>
+                      <button
+                        type="button"
+                        class="btn btn-outline-secondary"
+                        @click="adjustFcDuration(1)"
+                        :disabled="loadingTimelines || timelineData.foreclosure_months_base == null"
+                        title="Add 1 month"
+                      >
+                        <i v-if="loadingTimelines" class="mdi mdi-refresh mdi-spin"></i>
+                        <i v-else class="mdi mdi-plus"></i>
+                      </button>
+                    </div>
+                    <span v-if="timelineData.fc_duration_override_months != null && timelineData.fc_duration_override_months !== 0" 
+                          class="badge" 
+                          :class="timelineData.fc_duration_override_months > 0 ? 'bg-success' : 'bg-danger'"
+                          style="font-size: 0.7rem;">
+                      {{ timelineData.fc_duration_override_months > 0 ? '+' : '' }}{{ timelineData.fc_duration_override_months }}
+                    </span>
+                  </div>
+                </div>
+                
+                <!-- UI OPTION B: Display Format -->
+                <div v-if="uiOptionB" class="d-flex align-items-baseline gap-2">
+                  <small class="text-muted d-block" style="min-width: 140px;">Foreclosure:</small>
+                  <div class="d-flex align-items-center gap-2">
+                    <span class="fw-semibold text-dark">
+                      {{ timelineData.foreclosure_months_base != null ? timelineData.foreclosure_months_base : '—' }} months
+                    </span>
+                    <span v-if="timelineData.fc_duration_override_months != null && timelineData.fc_duration_override_months !== 0" 
+                          class="text-muted small">
+                      [Override: 
+                      <span :class="timelineData.fc_duration_override_months > 0 ? 'text-success' : 'text-danger'">
+                        {{ timelineData.fc_duration_override_months > 0 ? '+' : '' }}{{ timelineData.fc_duration_override_months }}
+                      </span>]
+                    </span>
+                    <span v-if="timelineData.foreclosure_months_base != null" class="fw-bold text-primary">
+                      → {{ timelineData.foreclosure_months != null ? timelineData.foreclosure_months : '—' }} months
+                    </span>
+                    <div class="btn-group btn-group-sm fc-duration-controls ms-2" role="group">
+                      <button
+                        type="button"
+                        class="btn btn-outline-secondary"
+                        @click="adjustFcDuration(-1)"
+                        :disabled="loadingTimelines || timelineData.foreclosure_months_base == null"
+                        title="Subtract 1 month"
+                      >
+                        <i v-if="loadingTimelines" class="mdi mdi-refresh mdi-spin"></i>
+                        <i v-else class="mdi mdi-minus"></i>
+                      </button>
+                      <button
+                        type="button"
+                        class="btn btn-outline-secondary"
+                        @click="adjustFcDuration(1)"
+                        :disabled="loadingTimelines || timelineData.foreclosure_months_base == null"
+                        title="Add 1 month"
+                      >
+                        <i v-if="loadingTimelines" class="mdi mdi-refresh mdi-spin"></i>
+                        <i v-else class="mdi mdi-plus"></i>
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <span v-if="timelineData.fc_duration_override_months != null && timelineData.fc_duration_override_months !== 0" 
-                    class="badge" 
-                    :class="timelineData.fc_duration_override_months > 0 ? 'bg-success' : 'bg-danger'"
-                    style="font-size: 0.7rem;">
-                {{ timelineData.fc_duration_override_months > 0 ? '+' : '' }}{{ timelineData.fc_duration_override_months }}
-              </span>
-            </div>
-          </div>
-          
-          <!-- UI OPTION B: Display Format -->
-          <div v-if="uiOptionB" class="d-flex align-items-baseline gap-2">
-            <small class="text-muted d-block" style="min-width: 140px;">Foreclosure:</small>
-            <div class="d-flex align-items-center gap-2">
-              <span class="fw-semibold text-dark">
-                {{ timelineData.foreclosure_months_base != null ? timelineData.foreclosure_months_base : '—' }} months
-              </span>
-              <span v-if="timelineData.fc_duration_override_months != null && timelineData.fc_duration_override_months !== 0" 
-                    class="text-muted small">
-                [Override: 
-                <span :class="timelineData.fc_duration_override_months > 0 ? 'text-success' : 'text-danger'">
-                  {{ timelineData.fc_duration_override_months > 0 ? '+' : '' }}{{ timelineData.fc_duration_override_months }}
-                </span>]
-              </span>
-              <span v-if="timelineData.foreclosure_months_base != null" class="fw-bold text-primary">
-                → {{ timelineData.foreclosure_months != null ? timelineData.foreclosure_months : '—' }} months
-              </span>
-              <div class="btn-group btn-group-sm fc-duration-controls ms-2" role="group">
-                <button
-                  type="button"
-                  class="btn btn-outline-secondary"
-                  @click="adjustFcDuration(-1)"
-                  :disabled="loadingTimelines || timelineData.foreclosure_months_base == null"
-                  title="Subtract 1 month"
-                >
-                  <i v-if="loadingTimelines" class="mdi mdi-refresh mdi-spin"></i>
-                  <i v-else class="mdi mdi-minus"></i>
-                </button>
-                <button
-                  type="button"
-                  class="btn btn-outline-secondary"
-                  @click="adjustFcDuration(1)"
-                  :disabled="loadingTimelines || timelineData.foreclosure_months_base == null"
-                  title="Add 1 month"
-                >
-                  <i v-if="loadingTimelines" class="mdi mdi-refresh mdi-spin"></i>
-                  <i v-else class="mdi mdi-plus"></i>
-                </button>
-              </div>
-            </div>
-          </div>
             </div>
           </div>
           
           <!-- Acquisition Costs Column -->
           <div class="col-md-3">
-            <h6 class="fw-semibold text-body mb-2">
-              <i class="mdi mdi-briefcase-outline me-2 text-info"></i>
-              Acquisition Costs
-            </h6>
-            <div class="d-flex flex-column gap-2">
+            <div class="p-3 bg-light rounded border h-100">
+              <h6 class="fw-semibold text-body mb-2">
+                <i class="mdi mdi-briefcase-outline me-2 text-info"></i>
+                Acquisition Costs
+              </h6>
+              <div class="d-flex flex-column gap-2">
               <div class="d-flex align-items-baseline gap-2">
                 <small class="text-muted d-block" style="min-width: 140px;">Broker Fee:</small>
                 <span class="fw-bold text-dark">{{ formatCurrency(timelineData.acq_broker_fees || 0) }}</span>
@@ -284,15 +287,17 @@
                 <span class="fw-bold text-dark">{{ formatCurrency(timelineData.acq_tax_title || 0) }}</span>
               </div>
             </div>
+            </div>
           </div>
           
           <!-- Carry Costs Column -->
           <div class="col-md-3">
-            <h6 class="fw-semibold text-body mb-2">
-              <i class="mdi mdi-cash-multiple me-2 text-warning"></i>
-              Carry Costs
-            </h6>
-            <div class="d-flex flex-column gap-2">
+            <div class="p-3 bg-light rounded border h-100">
+              <h6 class="fw-semibold text-body mb-2">
+                <i class="mdi mdi-cash-multiple me-2 text-warning"></i>
+                Carry Costs
+              </h6>
+              <div class="d-flex flex-column gap-2">
               <div class="d-flex align-items-baseline gap-2">
                 <small class="text-muted d-block" style="min-width: 140px;">Servicing Fees:</small>
                 <span class="fw-bold text-dark">{{ formatCurrency(expenses.servicingFees) }}</span>
@@ -310,15 +315,17 @@
                 <span class="fw-bold text-dark">{{ formatCurrency(expenses.legalCost) }}</span>
               </div>
             </div>
+            </div>
           </div>
           
           <!-- Liquidation Expenses Column -->
           <div class="col-md-3">
-            <h6 class="fw-semibold text-body mb-2">
-              <i class="mdi mdi-gavel me-2 text-warning"></i>
-              Liquidation Expenses
-            </h6>
-            <div class="d-flex flex-column gap-2">
+            <div class="p-3 bg-light rounded border h-100">
+              <h6 class="fw-semibold text-body mb-2">
+                <i class="mdi mdi-gavel me-2 text-warning"></i>
+                Liquidation Expenses
+              </h6>
+              <div class="d-flex flex-column gap-2">
               <div class="d-flex align-items-baseline gap-2">
                 <small class="text-muted d-block" style="min-width: 160px;">Servicer Liquidation Fee:</small>
                 <span class="fw-bold text-dark">{{ formatCurrency(timelineData.servicer_liquidation_fee || 0) }}</span>
@@ -327,6 +334,7 @@
                 <small class="text-muted d-block" style="min-width: 160px;">AM Liquidation Fee:</small>
                 <span class="fw-bold text-dark">{{ formatCurrency(timelineData.am_liquidation_fee || 0) }}</span>
               </div>
+            </div>
             </div>
           </div>
         </div>

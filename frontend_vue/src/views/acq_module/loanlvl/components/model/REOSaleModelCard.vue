@@ -49,6 +49,33 @@
     </div>
 
     <div v-show="!collapsed" class="card-body">
+      <!-- REO Scenario Toggle -->
+      <div class="mb-3">
+        <div class="d-flex align-items-center gap-2">
+          <span class="fw-semibold text-body me-2">REO Scenario:</span>
+          <div class="btn-group" role="group" aria-label="REO Scenario Toggle">
+            <button
+              type="button"
+              class="btn btn-sm"
+              :class="reoScenario === 'as_is' ? 'btn-primary' : 'btn-outline-primary'"
+              @click="reoScenario = 'as_is'"
+            >
+              <i class="mdi mdi-home me-1"></i>
+              As-Is
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm"
+              :class="reoScenario === 'rehab' ? 'btn-primary' : 'btn-outline-primary'"
+              @click="reoScenario = 'rehab'"
+            >
+              <i class="mdi mdi-hammer-wrench me-1"></i>
+              ARV
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- Financial Summary KPIs -->
       <div class="mb-4">
         <div class="row g-3">
@@ -83,16 +110,16 @@
           <div class="col-md-2">
             <div class="text-center p-2 bg-light rounded h-100">
               <small class="text-muted d-block">MOIC</small>
-              <span class="fw-bold" :class="(reoScenario === 'as_is' ? timelineData.moic_asis : timelineData.moic_rehab) != null && (reoScenario === 'as_is' ? timelineData.moic_asis : timelineData.moic_rehab) >= 1 ? 'text-success' : 'text-danger'">
-                {{ (reoScenario === 'as_is' ? timelineData.moic_asis : timelineData.moic_rehab) != null ? (reoScenario === 'as_is' ? timelineData.moic_asis : timelineData.moic_rehab).toFixed(2) + 'x' : '—' }}
+              <span class="fw-bold" :class="(reoScenario === 'as_is' ? timelineData.moic_asis : timelineData.moic_rehab) != null && (reoScenario === 'as_is' ? timelineData.moic_asis : timelineData.moic_rehab)! >= 1 ? 'text-success' : 'text-danger'">
+                {{ (reoScenario === 'as_is' ? timelineData.moic_asis : timelineData.moic_rehab) != null ? (reoScenario === 'as_is' ? timelineData.moic_asis : timelineData.moic_rehab)!.toFixed(2) + 'x' : '—' }}
               </span>
             </div>
           </div>
           <div class="col-md-2">
             <div class="text-center p-2 bg-light rounded h-100">
               <small class="text-muted d-block">Annualized ROI</small>
-              <span class="fw-bold" :class="(reoScenario === 'as_is' ? timelineData.annualized_roi_asis : timelineData.annualized_roi_rehab) != null && (reoScenario === 'as_is' ? timelineData.annualized_roi_asis : timelineData.annualized_roi_rehab) >= 0 ? 'text-success' : 'text-danger'">
-                {{ (reoScenario === 'as_is' ? timelineData.annualized_roi_asis : timelineData.annualized_roi_rehab) != null ? ((reoScenario === 'as_is' ? timelineData.annualized_roi_asis : timelineData.annualized_roi_rehab) * 100).toFixed(1) + '%' : '—' }}
+              <span class="fw-bold" :class="(reoScenario === 'as_is' ? timelineData.annualized_roi_asis : timelineData.annualized_roi_rehab) != null && (reoScenario === 'as_is' ? timelineData.annualized_roi_asis : timelineData.annualized_roi_rehab)! >= 0 ? 'text-success' : 'text-danger'">
+                {{ (reoScenario === 'as_is' ? timelineData.annualized_roi_asis : timelineData.annualized_roi_rehab) != null ? ((reoScenario === 'as_is' ? timelineData.annualized_roi_asis : timelineData.annualized_roi_rehab)! * 100).toFixed(1) + '%' : '—' }}
               </span>
             </div>
           </div>
@@ -154,33 +181,6 @@
             </div>
           </div>
           <!-- Second column removed - probability moved to header -->
-        </div>
-      </div>
-
-      <!-- REO Scenario Toggle -->
-      <div class="mb-4">
-        <div class="d-flex align-items-center gap-2">
-          <span class="fw-semibold text-body me-2">REO Scenario:</span>
-          <div class="btn-group" role="group" aria-label="REO Scenario Toggle">
-            <button
-              type="button"
-              class="btn btn-sm"
-              :class="reoScenario === 'as_is' ? 'btn-primary' : 'btn-outline-primary'"
-              @click="reoScenario = 'as_is'"
-            >
-              <i class="mdi mdi-home me-1"></i>
-              As-Is
-            </button>
-            <button
-              type="button"
-              class="btn btn-sm"
-              :class="reoScenario === 'rehab' ? 'btn-primary' : 'btn-outline-primary'"
-              @click="reoScenario = 'rehab'"
-            >
-              <i class="mdi mdi-hammer-wrench me-1"></i>
-              Rehab
-            </button>
-          </div>
         </div>
       </div>
 
