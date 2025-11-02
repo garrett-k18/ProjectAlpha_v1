@@ -53,25 +53,23 @@
         :row="row"
         :assetId="assetId"
         :is-only-selected-model="selectedModels.size === 1"
+        :shared-acquisition-price="sharedAcquisitionPrice"
         @assumptions-changed="handleFcAssumptionsChanged"
         @probability-changed="handleFcProbabilityChanged"
+        @acquisition-price-changed="handleAcquisitionPriceChanged"
       />
     </div>
 
     <div v-if="selectedModels.has('reo_sale')" class="col-12">
-      <div class="card border-primary">
-        <div class="card-header bg-primary-subtle">
-          <h5 class="mb-0 d-flex align-items-center">
-            <i class="fas fa-house-chimney me-2 text-primary"></i>
-            REO Sale Model
-            <span class="badge bg-primary ms-2">{{ modelProbabilities.reo_sale }}% Probability</span>
-          </h5>
-        </div>
-        <div class="card-body">
-          <p class="text-muted">REO Sale model detailed inputs will go here (rehab costs, holding period, resale value)</p>
-          <!-- TODO: Add detailed assumption inputs -->
-        </div>
-      </div>
+      <REOSaleModelCard 
+        :row="row"
+        :assetId="assetId"
+        :is-only-selected-model="selectedModels.size === 1"
+        :shared-acquisition-price="sharedAcquisitionPrice"
+        @assumptions-changed="handleReoAssumptionsChanged"
+        @probability-changed="handleReoProbabilityChanged"
+        @acquisition-price-changed="handleAcquisitionPriceChanged"
+      />
     </div>
 
     <div v-if="selectedModels.has('mod_reperform')" class="col-12">
@@ -111,6 +109,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch, onMounted } from 'vue'
 import ForeclosureModelCard from './ForeclosureModelCard.vue'
+import REOSaleModelCard from './REOSaleModelCard.vue'
 
 // WHAT: Props for the ModelOutcomes component
 const props = defineProps<{
@@ -162,6 +161,10 @@ const modelProbabilities = reactive<Record<string, number>>({
   mod_reperform: 0,
   short_sale: 0
 })
+
+// WHAT: Shared acquisition price across all models
+// WHY: Ensure acquisition price stays synchronized between all model cards
+const sharedAcquisitionPrice = ref<number>(0)
 
 // WHAT: Computed property to check if we have recommendations from backend
 const hasRecommendations = computed(() => {
@@ -258,6 +261,35 @@ function handleFcProbabilityChanged(probability: number) {
   emit('modelsChanged', selectedModels.value, modelProbabilities)
   
   console.log('[ModelOutcomes] FC Sale probability changed:', probability)
+}
+
+// WHAT: Handle REO Sale assumptions change from REOSaleModelCard
+function handleReoAssumptionsChanged(assumptions: any) {
+  // Store REO assumptions for future use
+  console.log('[ModelOutcomes] REO assumptions changed:', assumptions)
+  // TODO: Implement assumptions storage/persistence logic
+}
+
+// WHAT: Handle REO Sale probability change from REOSaleModelCard
+function handleReoProbabilityChanged(probability: number) {
+  // Update local REO Sale probability
+  modelProbabilities.reo_sale = probability
+  
+  // WHAT: Save probabilities to localStorage
+  // WHY: Persist probability values across page refreshes
+  saveSelectedModels()
+  
+  // Emit changes to parent
+  emit('modelsChanged', selectedModels.value, modelProbabilities)
+  
+  console.log('[ModelOutcomes] REO Sale probability changed:', probability)
+}
+
+// WHAT: Handle acquisition price change from any model card
+// WHY: Synchronize acquisition price across all model cards
+function handleAcquisitionPriceChanged(price: number) {
+  sharedAcquisitionPrice.value = price
+  console.log('[ModelOutcomes] Acquisition price changed:', price)
 }
 
 // WHAT: Get localStorage key for this asset

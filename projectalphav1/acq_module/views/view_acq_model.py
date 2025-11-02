@@ -17,6 +17,7 @@ from django.shortcuts import get_object_or_404
 from ..models.model_acq_seller import SellerRawData
 from ..services.serv_acq_modelRecs import ModelRecommendationService
 from ..services.serv_acq_FCModel import get_fc_timeline_sums, get_fc_expense_values
+from ..services.serv_acq_REOModel import get_reo_timeline_sums, get_reo_expense_values
 from ..models.model_acq_assumptions import LoanLevelAssumption
 
 
@@ -168,10 +169,31 @@ def get_fc_model_timeline_sums(request, asset_id):
             "foreclosure_months_base": 5.9,
             "fc_duration_override_months": 0,
             "total_timeline_months": 8.4,
+            "acq_broker_fees": 1000.00,
+            "acq_other_fees": 500.00,
+            "acq_legal": 300.00,
+            "acq_dd": 150.00,
+            "acq_tax_title": 100.00,
             "servicing_fees": 500.00,
             "taxes": 250.00,
             "insurance": 150.00,
-            "legal_cost": 2000.00
+            "legal_cost": 2000.00,
+            "servicer_liquidation_fee": 1200.00,
+            "am_liquidation_fee": 0.00,
+            "total_costs": 6150.00,
+            "expected_recovery": 85000.00,
+            "acquisition_price": 50000.00,
+            "net_pl": 28850.00,
+            "moic": 1.52,
+            "annualized_roi": 0.482,
+            "purchase_of_currentBalance": 95.2,
+            "purchase_of_totalDebt": 61.0,
+            "purchase_of_sellerAsIs": 33.4,
+            "purchase_of_internalUWAsIs": null,
+            "base_currentBalance": 52562.00,
+            "base_totalDebt": 81979.00,
+            "base_sellerAsIs": 149500.00,
+            "base_internalUWAsIs": null
         }
     """
     # Get asset or 404
@@ -201,6 +223,84 @@ def get_fc_model_timeline_sums(request, asset_id):
         return Response(
             {
                 'error': 'Failed to calculate FC timeline sums and expense values',
+                'detail': str(e)
+            },
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes(get_permission_classes())
+def get_reo_model_timeline_sums(request, asset_id):
+    """
+    Get REO sale model timeline sums and expense values for a specific asset.
+    
+    GET /api/acq/assets/<asset_id>/reo-model-sums/
+    
+    Returns:
+        {
+            "servicing_transfer_months": 1,
+            "foreclosure_months": 12,
+            "reo_marketing_months": 6,
+            "total_timeline_months": 19,
+            "acq_broker_fees": 1000.00,
+            "acq_other_fees": 500.00,
+            "acq_legal": 300.00,
+            "acq_dd": 150.00,
+            "acq_tax_title": 100.00,
+            "servicing_fees": 500.00,
+            "taxes": 500.00,
+            "insurance": 300.00,
+            "legal_cost": 2000.00,
+            "reo_holding_costs": 1500.00,
+            "listing_commission": 6000.00,
+            "closing_costs": 2500.00,
+            "am_liquidation_fee": 1500.00,
+            "total_costs": 15350.00,
+            "expected_recovery": 95000.00,
+            "acquisition_price": 50000.00,
+            "net_pl": 29650.00,
+            "moic": 1.45,
+            "annualized_roi": 0.287,
+            "purchase_of_currentBalance": 95.2,
+            "purchase_of_totalDebt": 61.0,
+            "purchase_of_sellerAsIs": 33.4,
+            "purchase_of_internalUWAsIs": null,
+            "base_currentBalance": 52562.00,
+            "base_totalDebt": 81979.00,
+            "base_sellerAsIs": 149500.00,
+            "base_internalUWAsIs": null
+        }
+    """
+    # Get asset or 404
+    asset = get_object_or_404(SellerRawData, asset_hub_id=asset_id)
+    
+    try:
+        # WHAT: Get timeline sums using REO service
+        # WHY: Fetch REO timeline duration data (servicing, FC, REO marketing)
+        timeline_sums = get_reo_timeline_sums(asset.asset_hub_id)
+        
+        # WHAT: Get expense values using REO service, passing timeline durations
+        # WHY: Fetch expense data from models, including REO-specific costs
+        expense_values = get_reo_expense_values(
+            asset.asset_hub_id, 
+            total_timeline_months=timeline_sums.get('total_timeline_months'),
+            servicing_transfer_months=timeline_sums.get('servicing_transfer_months'),
+            foreclosure_months=timeline_sums.get('foreclosure_months'),
+            reo_renovation_months=timeline_sums.get('reo_renovation_months'),
+            reo_marketing_months=timeline_sums.get('reo_marketing_months')
+        )
+        
+        # WHAT: Merge timeline and expense data into single response
+        # WHY: Frontend expects all REO model data in one endpoint
+        response_data = {**timeline_sums, **expense_values}
+        
+        return Response(response_data, status=status.HTTP_200_OK)
+    
+    except Exception as e:
+        return Response(
+            {
+                'error': 'Failed to calculate REO timeline sums and expense values',
                 'detail': str(e)
             },
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -280,6 +380,189 @@ def update_fc_duration_override(request, asset_id):
         return Response(
             {
                 'error': 'Failed to update FC duration override',
+                'detail': str(e),
+                'traceback': traceback.format_exc() if settings.DEBUG else None
+            },
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST', 'PUT'])
+@permission_classes(get_permission_classes())
+def update_reo_fc_duration_override(request, asset_id):
+    """
+    Update REO FC duration override for a specific asset.
+    
+    POST/PUT /api/acq/assets/<asset_id>/reo-fc-duration-override/
+    
+    Request Body:
+        {
+            "reo_fc_duration_override_months": 2  // Positive adds months, negative subtracts
+        }
+    """
+    asset = get_object_or_404(SellerRawData, asset_hub_id=asset_id)
+    override_value = request.data.get('reo_fc_duration_override_months')
+    
+    if override_value is None:
+        return Response(
+            {'error': 'reo_fc_duration_override_months is required'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        asset_hub_id = asset.asset_hub_id if asset.asset_hub else None
+        if not asset_hub_id:
+            return Response(
+                {'error': 'Asset does not have an associated AssetIdHub'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        loan_assumption = LoanLevelAssumption.objects.filter(asset_hub_id=asset_hub_id).first()
+        
+        if loan_assumption:
+            loan_assumption.reo_fc_duration_override_months = int(override_value)
+            loan_assumption.save()
+        else:
+            loan_assumption = LoanLevelAssumption.objects.create(
+                asset_hub_id=asset_hub_id,
+                reo_fc_duration_override_months=int(override_value)
+            )
+        
+        return Response(
+            {
+                'success': True,
+                'reo_fc_duration_override_months': loan_assumption.reo_fc_duration_override_months,
+                'message': 'REO FC duration override updated successfully'
+            },
+            status=status.HTTP_200_OK
+        )
+    except Exception as e:
+        import traceback
+        return Response(
+            {
+                'error': 'Failed to update REO FC duration override',
+                'detail': str(e),
+                'traceback': traceback.format_exc() if settings.DEBUG else None
+            },
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST', 'PUT'])
+@permission_classes(get_permission_classes())
+def update_reo_renovation_override(request, asset_id):
+    """
+    Update REO renovation duration override for a specific asset.
+    
+    POST/PUT /api/acq/assets/<asset_id>/reo-renovation-override/
+    
+    Request Body:
+        {
+            "reo_renovation_override_months": 3  // Positive adds months, negative subtracts
+        }
+    """
+    asset = get_object_or_404(SellerRawData, asset_hub_id=asset_id)
+    override_value = request.data.get('reo_renovation_override_months')
+    
+    if override_value is None:
+        return Response(
+            {'error': 'reo_renovation_override_months is required'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        asset_hub_id = asset.asset_hub_id if asset.asset_hub else None
+        if not asset_hub_id:
+            return Response(
+                {'error': 'Asset does not have an associated AssetIdHub'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        loan_assumption = LoanLevelAssumption.objects.filter(asset_hub_id=asset_hub_id).first()
+        
+        if loan_assumption:
+            loan_assumption.reo_renovation_override_months = int(override_value)
+            loan_assumption.save()
+        else:
+            loan_assumption = LoanLevelAssumption.objects.create(
+                asset_hub_id=asset_hub_id,
+                reo_renovation_override_months=int(override_value)
+            )
+        
+        return Response(
+            {
+                'success': True,
+                'reo_renovation_override_months': loan_assumption.reo_renovation_override_months,
+                'message': 'REO renovation duration override updated successfully'
+            },
+            status=status.HTTP_200_OK
+        )
+    except Exception as e:
+        import traceback
+        return Response(
+            {
+                'error': 'Failed to update REO renovation duration override',
+                'detail': str(e),
+                'traceback': traceback.format_exc() if settings.DEBUG else None
+            },
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST', 'PUT'])
+@permission_classes(get_permission_classes())
+def update_reo_marketing_override(request, asset_id):
+    """
+    Update REO marketing duration override for a specific asset.
+    
+    POST/PUT /api/acq/assets/<asset_id>/reo-marketing-override/
+    
+    Request Body:
+        {
+            "reo_marketing_override_months": 1  // Positive adds months, negative subtracts
+        }
+    """
+    asset = get_object_or_404(SellerRawData, asset_hub_id=asset_id)
+    override_value = request.data.get('reo_marketing_override_months')
+    
+    if override_value is None:
+        return Response(
+            {'error': 'reo_marketing_override_months is required'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        asset_hub_id = asset.asset_hub_id if asset.asset_hub else None
+        if not asset_hub_id:
+            return Response(
+                {'error': 'Asset does not have an associated AssetIdHub'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        loan_assumption = LoanLevelAssumption.objects.filter(asset_hub_id=asset_hub_id).first()
+        
+        if loan_assumption:
+            loan_assumption.reo_marketing_override_months = int(override_value)
+            loan_assumption.save()
+        else:
+            loan_assumption = LoanLevelAssumption.objects.create(
+                asset_hub_id=asset_hub_id,
+                reo_marketing_override_months=int(override_value)
+            )
+        
+        return Response(
+            {
+                'success': True,
+                'reo_marketing_override_months': loan_assumption.reo_marketing_override_months,
+                'message': 'REO marketing duration override updated successfully'
+            },
+            status=status.HTTP_200_OK
+        )
+    except Exception as e:
+        import traceback
+        return Response(
+            {
+                'error': 'Failed to update REO marketing duration override',
                 'detail': str(e),
                 'traceback': traceback.format_exc() if settings.DEBUG else None
             },

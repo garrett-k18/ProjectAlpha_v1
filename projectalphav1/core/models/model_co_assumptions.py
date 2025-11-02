@@ -1,6 +1,7 @@
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from decimal import Decimal
+from core.models.model_co_lookupTables import PropertyType
 
 class Servicer(models.Model):
     """Model to store servicer information for loan servicing"""
@@ -418,9 +419,11 @@ class HOAAssumption(models.Model):
     - Used to estimate ongoing carrying costs for properties
     """
     
-    # Property type (free text field for residential property types that have HOA fees)
+    # Property type using centralized choices from lookupTables
+    # This ensures consistency with SellerRawData and other models
     property_type = models.CharField(
         max_length=20,
+        choices=PropertyType.choices,
         unique=True,
         help_text="Property type (typically residential types like SFR, Condo, Townhouse, etc.)"
     )
@@ -471,21 +474,8 @@ class PropertyTypeAssumption(models.Model):
     - Used in assumption workflow priority: sqft -> state -> property type
     """
     
-    # Property type choices - defining them here to avoid circular imports
-    class PropertyType(models.TextChoices):
-        SFR = 'SFR', 'SFR'
-        MANUFACTURED = 'Manufactured', 'Manufactured'
-        CONDO = 'Condo', 'Condo'
-        TOWNHOUSE = 'Townhouse', 'Townhouse'
-        TWO_TO_FOUR = '2-4 Family', '2-4 Family'
-        LAND = 'Land', 'Land'
-        MULTIFAMILY = 'Multifamily 5+', 'Multifamily 5+'
-        INDUSTRIAL = 'Industrial', 'Industrial'
-        MIXED_USE = 'Mixed Use', 'Mixed Use'
-        STORAGE = 'Storage', 'Storage'
-        HEALTHCARE = 'Healthcare', 'Healthcare'
-    
-    # Property type field using local choices
+    # Property type field using centralized choices from lookupTables
+    # This ensures consistency with SellerRawData, HOAAssumption, and other models
     property_type = models.CharField(
         max_length=20,
         choices=PropertyType.choices,
@@ -494,92 +484,109 @@ class PropertyTypeAssumption(models.Model):
     )
     
     # Utility assumptions (monthly costs in dollars)
+    # All fields are nullable to allow flexibility in defining only relevant assumptions per property type
     utility_electric_monthly = models.DecimalField(
         max_digits=10, 
         decimal_places=2, 
-        default=Decimal('0.00'),
+        null=True,
+        blank=True,
         help_text="Monthly electric utility cost in dollars"
     )
     utility_gas_monthly = models.DecimalField(
         max_digits=10, 
         decimal_places=2, 
-        default=Decimal('0.00'),
+        null=True,
+        blank=True,
         help_text="Monthly gas utility cost in dollars"
     )
     utility_water_monthly = models.DecimalField(
         max_digits=10, 
         decimal_places=2, 
-        default=Decimal('0.00'),
+        null=True,
+        blank=True,
         help_text="Monthly water utility cost in dollars"
     )
     utility_sewer_monthly = models.DecimalField(
         max_digits=10, 
         decimal_places=2, 
-        default=Decimal('0.00'),
+        null=True,
+        blank=True,
         help_text="Monthly sewer utility cost in dollars"
     )
     utility_trash_monthly = models.DecimalField(
         max_digits=10, 
         decimal_places=2, 
-        default=Decimal('0.00'),
+        null=True,
+        blank=True,
         help_text="Monthly trash utility cost in dollars"
     )
     utility_other_monthly = models.DecimalField(
         max_digits=10, 
         decimal_places=2, 
-        default=Decimal('0.00'),
+        null=True,
+        blank=True,
         help_text="Monthly other utility costs in dollars"
     )
     
     # Property management assumptions (monthly costs in dollars)
+    # All fields are nullable to allow flexibility in defining only relevant assumptions per property type
     property_management_monthly = models.DecimalField(
         max_digits=10, 
         decimal_places=2, 
-        default=Decimal('0.00'),
+        null=True,
+        blank=True,
         help_text="Monthly property management cost in dollars"
     )
     repairs_maintenance_monthly = models.DecimalField(
         max_digits=10, 
         decimal_places=2, 
-        default=Decimal('0.00'),
+        null=True,
+        blank=True,
         help_text="Monthly repairs and maintenance cost in dollars"
     )
     marketing_monthly = models.DecimalField(
         max_digits=10, 
         decimal_places=2, 
-        default=Decimal('0.00'),
+        null=True,
+        blank=True,
         help_text="Monthly marketing cost in dollars"
     )
     
     # One-time costs (in dollars)
+    # All fields are nullable to allow flexibility in defining only relevant assumptions per property type
     trashout_cost = models.DecimalField(
         max_digits=10, 
         decimal_places=2, 
-        default=Decimal('0.00'),
+        null=True,
+        blank=True,
         help_text="One-time trashout cost in dollars"
     )
     renovation_cost = models.DecimalField(
         max_digits=10, 
         decimal_places=2, 
-        default=Decimal('0.00'),
+        null=True,
+        blank=True,
         help_text="One-time renovation cost in dollars"
     )
     security_cost_monthly = models.DecimalField(
         max_digits=10, 
         decimal_places=2, 
-        default=Decimal('0.00'),
+        null=True,
+        blank=True,
         help_text="Monthly security cost in dollars"
     )
     landscaping_monthly = models.DecimalField(
         max_digits=10, 
         decimal_places=2, 
-        default=Decimal('0.00'),
+        null=True,
+        blank=True,
         help_text="Monthly landscaping cost in dollars"
     )
     pool_maintenance_monthly = models.DecimalField(
         max_digits=10, 
         decimal_places=2, 
-        default=Decimal('0.00'),
+        null=True,
+        blank=True,
         help_text="Monthly pool maintenance cost in dollars"
     )
     
@@ -674,92 +681,109 @@ class SquareFootageAssumption(models.Model):
     )
     
     # Utility assumptions (cost per square foot per month)
+    # All fields are nullable to allow flexibility in defining only relevant assumptions per category
     utility_electric_per_sqft = models.DecimalField(
         max_digits=8, 
         decimal_places=4, 
-        default=Decimal('0.0000'),
+        null=True,
+        blank=True,
         help_text="Electric cost per square foot per month"
     )
     utility_gas_per_sqft = models.DecimalField(
         max_digits=8, 
         decimal_places=4, 
-        default=Decimal('0.0000'),
+        null=True,
+        blank=True,
         help_text="Gas cost per square foot per month"
     )
     utility_water_per_sqft = models.DecimalField(
         max_digits=8, 
         decimal_places=4, 
-        default=Decimal('0.0000'),
+        null=True,
+        blank=True,
         help_text="Water cost per square foot per month"
     )
     utility_sewer_per_sqft = models.DecimalField(
         max_digits=8, 
         decimal_places=4, 
-        default=Decimal('0.0000'),
+        null=True,
+        blank=True,
         help_text="Sewer cost per square foot per month"
     )
     utility_trash_per_sqft = models.DecimalField(
         max_digits=8, 
         decimal_places=4, 
-        default=Decimal('0.0000'),
+        null=True,
+        blank=True,
         help_text="Trash cost per square foot per month"
     )
     utility_other_per_sqft = models.DecimalField(
         max_digits=8, 
         decimal_places=4, 
-        default=Decimal('0.0000'),
+        null=True,
+        blank=True,
         help_text="Other utility cost per square foot per month"
     )
     
     # Property management assumptions (cost per square foot per month)
+    # All fields are nullable to allow flexibility in defining only relevant assumptions per category
     property_management_per_sqft = models.DecimalField(
         max_digits=8, 
         decimal_places=4, 
-        default=Decimal('0.0000'),
+        null=True,
+        blank=True,
         help_text="Property management cost per square foot per month"
     )
     repairs_maintenance_per_sqft = models.DecimalField(
         max_digits=8, 
         decimal_places=4, 
-        default=Decimal('0.0000'),
+        null=True,
+        blank=True,
         help_text="Repairs and maintenance cost per square foot per month"
     )
     marketing_per_sqft = models.DecimalField(
         max_digits=8, 
         decimal_places=4, 
-        default=Decimal('0.0000'),
+        null=True,
+        blank=True,
         help_text="Marketing cost per square foot per month"
     )
     security_cost_per_sqft = models.DecimalField(
         max_digits=8, 
         decimal_places=4, 
-        default=Decimal('0.0000'),
+        null=True,
+        blank=True,
         help_text="Security cost per square foot per month"
     )
     landscaping_per_sqft = models.DecimalField(
         max_digits=8, 
         decimal_places=4, 
-        default=Decimal('0.0000'),
+        null=True,
+        blank=True,
         help_text="Landscaping cost per square foot per month"
     )
     pool_maintenance_per_sqft = models.DecimalField(
         max_digits=8, 
         decimal_places=4, 
-        default=Decimal('0.0000'),
+        null=True,
+        blank=True,
         help_text="Pool maintenance cost per square foot per month"
     )
     
     # One-time costs (cost per square foot)
+    # All fields are nullable to allow flexibility in defining only relevant assumptions per category
     trashout_per_sqft = models.DecimalField(
         max_digits=8, 
         decimal_places=4, 
-        default=Decimal('0.0000'),
+        null=True,
+        blank=True,
         help_text="Trashout cost per square foot (one-time)"
     )
     renovation_per_sqft = models.DecimalField(
         max_digits=8, 
         decimal_places=4, 
-        default=Decimal('0.0000'),
+        null=True,
+        blank=True,
         help_text="Renovation cost per square foot (one-time)"
     )
     

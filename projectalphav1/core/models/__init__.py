@@ -3,6 +3,7 @@ from .capital import DebtFacility, JVEquityPartner, CoInvestor, InvestorContribu
 from .crm import MasterCRM
 from .asset_id_hub import AssetIdHub
 from .model_co_assumptions import Servicer, StateReference, FCStatus, FCTimelines, CommercialUnits, HOAAssumption, PropertyTypeAssumption, SquareFootageAssumption, UnitBasedAssumption
+from .model_co_lookupTables import PropertyType
 from .enrichment import LlDataEnrichment
 from .valuations import Valuation
 from .attachments import Photo, Document
@@ -30,6 +31,7 @@ __all__ = [
     'PropertyTypeAssumption',
     'SquareFootageAssumption',
     'UnitBasedAssumption',
+    'PropertyType',
     'LlDataEnrichment', 
     'Valuation',
     'Photo',

@@ -15,10 +15,10 @@ from decimal import Decimal
 from acq_module.models.model_acq_seller import SellerRawData
 from acq_module.models.model_acq_assumptions import TradeLevelAssumption, LoanLevelAssumption
 from acq_module.logic.logi_acq_durationAssumptions import get_asset_fc_timeline
-from acq_module.logic.logi_acq_expenseAssumptions import monthly_tax_for_asset, monthly_insurance_for_asset
+from acq_module.logic.logi_acq_expenseAssumptions import monthly_tax_for_asset, monthly_insurance_for_asset, acq_broker_fee, acq_fee_other
 from acq_module.logic.logi_acq__proceedAssumptions import fc_sale_proceeds
-from acq_module.logic.logi_acq_purchasePrice import purchase_price
-from acq_module.logic.outcome_logic import fcoutcomeLogic
+from acq_module.logic.logi_acq_purchasePrice import purchase_price, purchase_price_metrics
+from acq_module.logic.logi_acq_outcomespecific import fcoutcomeLogic
 from core.models.model_co_assumptions import StateReference, Servicer
 
 
@@ -142,10 +142,12 @@ def get_fc_timeline_sums(asset_hub_id: int, reference_date: Optional[date] = Non
         proceeds = fc_sale_proceeds(asset_hub_id)
         if proceeds is not None:
             expected_recovery = float(proceeds)
-    except Exception:
+    except Exception as e:
         # WHAT: If calculation fails, leave as None
         # WHY: Don't break the API if proceeds calculation fails
-        pass
+        # print(f"ERROR calculating FC sale proceeds: {str(e)}")
+        import traceback
+        traceback.print_exc()
     
     # WHAT: Get acquisition price for this asset
     # WHY: Need to display and allow editing in frontend
@@ -154,8 +156,10 @@ def get_fc_timeline_sums(asset_hub_id: int, reference_date: Optional[date] = Non
         price = purchase_price(asset_hub_id)
         if price is not None:
             acq_price = float(price)
-    except Exception:
-        pass
+    except Exception as e:
+        # print(f"ERROR calculating acquisition price: {str(e)}")
+        import traceback
+        traceback.print_exc()
     
     return {
         'servicing_transfer_months': servicing_transfer_months,
@@ -202,10 +206,36 @@ def get_fc_expense_values(
     
     Returns:
         Dict with keys:
-        - servicing_fees: Optional[float] - Total servicing fees (board + 120day*servicing_months + fc*fc_months + liquidation_fee)
+        Acquisition Costs:
+        - acq_broker_fees: Optional[float] - Broker fees (percentage of purchase price from acq_broker_fee)
+        - acq_other_fees: Optional[float] - Other fees (percentage of purchase price from acq_fee_other)
+        - acq_legal: Optional[float] - Legal cost (flat fee per asset from TradeLevelAssumption.acq_legal_cost)
+        - acq_dd: Optional[float] - Due diligence cost (flat fee per asset from TradeLevelAssumption.acq_dd_cost)
+        - acq_tax_title: Optional[float] - Tax/title cost (flat fee per asset from TradeLevelAssumption.acq_tax_title_cost)
+        Carry Costs:
+        - servicing_fees: Optional[float] - Servicing fees (board + 120day*servicing_months + fc*fc_months)
         - taxes: Optional[float] - Total property tax amount (monthly * total_timeline_months if provided)
         - insurance: Optional[float] - Total insurance amount (monthly * total_timeline_months if provided)
         - legal_cost: Optional[float] - FC legal fees from state reference table
+        Liquidation Expenses:
+        - servicer_liquidation_fee: Optional[float] - Servicer liquidation fee = MAX(flat_fee, pct_fee * proceeds)
+        - am_liquidation_fee: Optional[float] - Asset Manager liquidation fee (from logi_acq_outcomespecific.fc_am_liq_fee)
+        Calculated Totals:
+        - total_costs: float - Sum of all expenses (acquisition costs + carry costs + liquidation expenses)
+        - expected_recovery: Optional[float] - FC sale proceeds (from logi_acq__proceedAssumptions.fc_sale_proceeds)
+        - acquisition_price: Optional[float] - Purchase price (from logi_acq_purchasePrice.purchase_price)
+        - net_pl: Optional[float] - Net P&L (Expected Recovery - Total Costs - Acquisition Price)
+        - moic: Optional[float] - Multiple on Invested Capital (Expected Proceeds / (Acquisition Price + Total Costs))
+        - annualized_roi: Optional[float] - Annualized ROI (((NetPL / Total Costs) + 1) ^ (12 / duration) - 1)
+        - purchase_of_currentBalance: Optional[float] - Purchase price as % of current balance
+        - purchase_of_totalDebt: Optional[float] - Purchase price as % of total debt
+        - purchase_of_sellerAsIs: Optional[float] - Purchase price as % of seller as-is value
+        - purchase_of_internalUWAsIs: Optional[float] - Purchase price as % of internal UW as-is value
+        Base Values (for live frontend calculations):
+        - base_currentBalance: Optional[float] - Current balance amount
+        - base_totalDebt: Optional[float] - Total debt amount
+        - base_sellerAsIs: Optional[float] - Seller as-is value amount
+        - base_internalUWAsIs: Optional[float] - Internal UW as-is value amount
     """
     # WHAT: Get asset's SellerRawData to access state and trade
     # WHY: Need state for legal fees and trade for servicer
@@ -213,14 +243,96 @@ def get_fc_expense_values(
     
     # WHAT: Initialize expense values with None
     # WHY: Return None if data not available
+    # Acquisition Costs
+    acq_broker_fees = None
+    acq_other_fees = None
+    acq_legal = None
+    acq_dd = None
+    acq_tax_title = None
+    # Carry Costs
     servicing_fees = None
     taxes = None
     insurance = None
     legal_cost = None
+    # Liquidation Expenses
+    servicer_liquidation_fee = None
+    am_liquidation_fee = None
     
-    # WHAT: Get servicing fees from Servicer model
-    # WHY: Calculate based on servicer's board fee, 120-day fee, FC fee, and liquidation fee
-    # HOW: servicing_fees = board_fee + (onetwentyday_fee * servicing_transfer_months) + (fc_fee * foreclosure_months) + liquidation_fee
+    # WHAT: Calculate Acquisition Costs
+    # WHY: These are one-time costs incurred when acquiring the asset
+    # HOW: Broker fee and other fees are percentages of purchase price; legal, DD, and tax/title are flat fees per asset
+    # print(f"\n{'='*80}")
+    # print(f"ACQUISITION COSTS CALCULATION - Asset Hub ID: {asset_hub_id}")
+    # print(f"{'='*80}")
+    
+    # WHAT: Get broker fee (percentage of purchase price)
+    try:
+        broker_fee = acq_broker_fee(asset_hub_id)
+        if broker_fee > 0:
+            acq_broker_fees = broker_fee
+            # print(f"1. Broker Fee: ${acq_broker_fees:,.2f}")
+            pass
+        # else:
+            # print(f"1. Broker Fee: $0.00")
+    except Exception as e:
+        # print(f"1. Broker Fee: ERROR - {str(e)}")
+        pass
+    
+    # WHAT: Get other fees (percentage of purchase price)
+    try:
+        other_fee = acq_fee_other(asset_hub_id)
+        if other_fee > 0:
+            acq_other_fees = other_fee
+            # print(f"2. Other Fees: ${acq_other_fees:,.2f}")
+            pass
+        # else:
+            # print(f"2. Other Fees: $0.00")
+    except Exception as e:
+        # print(f"2. Other Fees: ERROR - {str(e)}")
+        pass
+    
+    # WHAT: Get flat per-asset fees from TradeLevelAssumption
+    # WHY: Legal, DD, and tax/title costs are applied to all assets in the trade
+    if raw_data and raw_data.trade:
+        try:
+            trade_assumption = TradeLevelAssumption.objects.filter(trade=raw_data.trade).first()
+            if trade_assumption:
+                if trade_assumption.acq_legal_cost:
+                    acq_legal = Decimal(str(trade_assumption.acq_legal_cost))
+                    # print(f"3. Legal Cost: ${acq_legal:,.2f}")
+                else:
+                    # print(f"3. Legal Cost: $0.00 (not set)")
+                    pass
+                
+                if trade_assumption.acq_dd_cost:
+                    acq_dd = Decimal(str(trade_assumption.acq_dd_cost))
+                    # print(f"4. Due Diligence Cost: ${acq_dd:,.2f}")
+                else:
+                    # print(f"4. Due Diligence Cost: $0.00 (not set)")
+                    pass
+                
+                if trade_assumption.acq_tax_title_cost:
+                    acq_tax_title = Decimal(str(trade_assumption.acq_tax_title_cost))
+                    # print(f"5. Tax/Title Cost: ${acq_tax_title:,.2f}")
+                else:
+                    # print(f"5. Tax/Title Cost: $0.00 (not set)")
+                    pass
+            else:
+                # print(f"3-5. Legal, DD, Tax/Title: $0.00 (no TradeLevelAssumption found)")
+                pass
+        except Exception as e:
+            # print(f"3-5. Legal, DD, Tax/Title: ERROR - {str(e)}")
+            pass
+    else:
+        # print(f"3-5. Legal, DD, Tax/Title: $0.00 (no trade linked)")
+        pass
+    
+    # print(f"{'='*80}\n")
+    
+    # WHAT: Get servicing fees from Servicer model (Carry Costs only)
+    # WHY: Calculate based on servicer's board fee, 120-day fee, and FC fee
+    # HOW: servicing_fees = board_fee + (onetwentyday_fee * servicing_transfer_months) + (fc_fee * foreclosure_months)
+    # NOTE: Liquidation fee is calculated separately and returned as servicer_liquidation_fee
     if raw_data and raw_data.trade:
         try:
             # WHAT: Get TradeLevelAssumption to access servicer
@@ -230,9 +342,9 @@ def get_fc_expense_values(
             if trade_assumption and trade_assumption.servicer:
                 servicer = trade_assumption.servicer
                 
-                print(f"\n{'='*80}")
-                print(f"SERVICING FEES CALCULATION DEBUG - Asset Hub ID: {asset_hub_id}")
-                print(f"{'='*80}")
+                # print(f"\n{'='*80}")
+                # print(f"SERVICING FEES CALCULATION DEBUG - Asset Hub ID: {asset_hub_id}")
+                # print(f"{'='*80}")
                 
                 # WHAT: Start with board fee (one-time cost)
                 # WHY: Board fee is charged once when loan is boarded
@@ -241,7 +353,7 @@ def get_fc_expense_values(
                 if servicer.board_fee:
                     board_fee_value = Decimal(str(servicer.board_fee))
                     total_servicing_fees += board_fee_value
-                print(f"1. Board Fee (one-time): ${board_fee_value:,.2f}")
+                # print(f"1. Board Fee (one-time): ${board_fee_value:,.2f}")
                 
                 # WHAT: Add 120-day fee multiplied by servicing transfer duration
                 # WHY: 120-day fee applies during servicing transfer period
@@ -250,9 +362,10 @@ def get_fc_expense_values(
                     onetwentyday_fee_value = Decimal(str(servicer.onetwentyday_fee))
                     onetwentyday_total = onetwentyday_fee_value * Decimal(str(servicing_transfer_months))
                     total_servicing_fees += onetwentyday_total
-                    print(f"2. 120-Day Fee: ${onetwentyday_fee_value:,.2f} × {servicing_transfer_months} months = ${onetwentyday_total:,.2f}")
+                    # print(f"2. 120-Day Fee: ${onetwentyday_fee_value:,.2f} × {servicing_transfer_months} months = ${onetwentyday_total:,.2f}")
                 else:
-                    print(f"2. 120-Day Fee: $0.00 (fee: {servicer.onetwentyday_fee}, months: {servicing_transfer_months})")
+                    # print(f"2. 120-Day Fee: $0.00 (fee: {servicer.onetwentyday_fee}, months: {servicing_transfer_months})")
+                    pass
                 
                 # WHAT: Add FC fee multiplied by foreclosure duration
                 # WHY: FC fee applies during foreclosure period
@@ -261,38 +374,19 @@ def get_fc_expense_values(
                     fc_fee_value = Decimal(str(servicer.fc_fee))
                     fc_total = fc_fee_value * Decimal(str(foreclosure_months))
                     total_servicing_fees += fc_total
-                    print(f"3. FC Fee: ${fc_fee_value:,.2f} × {foreclosure_months} months = ${fc_total:,.2f}")
+                    # print(f"3. FC Fee: ${fc_fee_value:,.2f} × {foreclosure_months} months = ${fc_total:,.2f}")
                 else:
-                    print(f"3. FC Fee: $0.00 (fee: {servicer.fc_fee}, months: {foreclosure_months})")
+                    # print(f"3. FC Fee: $0.00 (fee: {servicer.fc_fee}, months: {foreclosure_months})")
+                    pass
                 
-                print(f"\n   Subtotal (before liquidation fee): ${total_servicing_fees:,.2f}")
-                
-                # WHAT: Add liquidation fee (charged at sale)
-                # WHY: Servicer charges liquidation fee = MAX(flat_fee, pct_fee * proceeds)
-                # HOW: Use fcoutcomeLogic to calculate liquidation fee
-                liq_fee = Decimal('0.00')
-                try:
-                    outcome_logic = fcoutcomeLogic()
-                    liq_fee = outcome_logic.fc_am_liq_fee(asset_hub_id)
-                    if liq_fee > 0:
-                        print(f"4. Liquidation Fee: ${liq_fee:,.2f}")
-                        print(f"   (Servicer liqfee_flat: ${servicer.liqfee_flat or 0:,.2f}, liqfee_pct: {servicer.liqfee_pct or 0})")
-                        total_servicing_fees += liq_fee
-                    else:
-                        print(f"4. Liquidation Fee: $0.00")
-                except Exception as e:
-                    # WHAT: If liquidation fee calc fails, continue without it
-                    # WHY: Don't break entire servicing fee calculation
-                    print(f"4. Liquidation Fee: ERROR - {str(e)}")
-                
-                print(f"\n   TOTAL SERVICING FEES: ${total_servicing_fees:,.2f}")
-                print(f"{'='*80}\n")
+                # print(f"\n   TOTAL SERVICING FEES (Carry Costs): ${total_servicing_fees:,.2f}")
+                # print(f"{'='*80}\n")
                 
                 servicing_fees = total_servicing_fees
         except Exception as e:
             # WHAT: If calculation fails, leave as None
             # WHY: Don't break the API if one calculation fails
-            print(f"ERROR calculating servicing fees: {str(e)}")
+            # print(f"ERROR calculating servicing fees: {str(e)}")
             import traceback
             traceback.print_exc()
             pass
@@ -337,10 +431,217 @@ def get_fc_expense_values(
         except Exception:
             pass
     
+    # WHAT: Calculate Servicer Liquidation Fee separately
+    # WHY: This is a liquidation expense, not a carry cost
+    # HOW: Use fcoutcomeLogic to calculate liquidation fee = MAX(flat_fee, pct_fee * proceeds)
+    if raw_data and raw_data.trade:
+        try:
+            trade_assumption = TradeLevelAssumption.objects.filter(trade=raw_data.trade).select_related('servicer').first()
+            if trade_assumption and trade_assumption.servicer:
+                # print(f"\n{'='*80}")
+                # print(f"SERVICER LIQUIDATION FEE CALCULATION - Asset Hub ID: {asset_hub_id}")
+                # print(f"{'='*80}")
+                
+                try:
+                    outcome_logic = fcoutcomeLogic()
+                    liq_fee = outcome_logic.fc_am_liq_fee(asset_hub_id)
+                    if liq_fee > 0:
+                        servicer_liquidation_fee = liq_fee
+                        servicer = trade_assumption.servicer
+                        # print(f"Liquidation Fee: ${liq_fee:,.2f}")
+                        # print(f"(Servicer liqfee_flat: ${servicer.liqfee_flat or 0:,.2f}, liqfee_pct: {servicer.liqfee_pct or 0})")
+                    else:
+                        # print(f"Liquidation Fee: $0.00")
+                        pass
+                except Exception as e:
+                    # print(f"Liquidation Fee: ERROR - {str(e)}")
+                    pass
+                
+                # print(f"{'='*80}\n")
+        except Exception:
+            pass
+    
+    # WHAT: Calculate AM Liquidation Fee
+    # WHY: Asset Manager charges a liquidation fee for managing the sale
+    # HOW: Use fcoutcomeLogic.fc_am_liq_fee() to calculate
+    # print(f"\n{'='*80}")
+    # print(f"CALLING fc_am_liq_fee() for asset_hub_id={asset_hub_id}")
+    # print(f"{'='*80}")
+    am_liquidation_fee = Decimal('0.00')
+    try:
+        outcome_logic = fcoutcomeLogic()
+        am_liq_fee = outcome_logic.fc_am_liq_fee(asset_hub_id)
+        am_liquidation_fee = am_liq_fee
+        # print(f"\n✓ AM Liquidation Fee returned: ${am_liquidation_fee:,.2f}")
+        if am_liquidation_fee == 0:
+            # print(f"⚠ WARNING: AM liquidation fee is $0.00 - check if servicer fees are configured")
+            pass
+        # print(f"{'='*80}\n")
+    except Exception as e:
+        # print(f"\n❌ ERROR calculating AM liquidation fee: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        # print(f"{'='*80}\n")
+    
+    # WHAT: Calculate total costs (sum of acquisition costs + carry costs + liquidation expenses)
+    # WHY: Centralize calculation in backend instead of frontend
+    total_costs = Decimal('0.00')
+    # Acquisition Costs
+    if acq_broker_fees is not None:
+        total_costs += acq_broker_fees
+    if acq_other_fees is not None:
+        total_costs += acq_other_fees
+    if acq_legal is not None:
+        total_costs += acq_legal
+    if acq_dd is not None:
+        total_costs += acq_dd
+    if acq_tax_title is not None:
+        total_costs += acq_tax_title
+    # Carry Costs
+    if servicing_fees is not None:
+        total_costs += servicing_fees
+    if taxes is not None:
+        total_costs += taxes
+    if insurance is not None:
+        total_costs += insurance
+    if legal_cost is not None:
+        total_costs += legal_cost
+    # Liquidation Expenses
+    if servicer_liquidation_fee is not None:
+        total_costs += servicer_liquidation_fee
+    if am_liquidation_fee is not None:
+        total_costs += am_liquidation_fee
+    
+    # WHAT: Get expected recovery (FC sale proceeds)
+    # WHY: Need this for Net PL calculation
+    expected_recovery = None
+    try:
+        proceeds = fc_sale_proceeds(asset_hub_id)
+        if proceeds is not None:
+            expected_recovery = proceeds
+    except Exception as e:
+        # print(f"ERROR calculating expected recovery for Net PL: {str(e)}")
+        pass
+    
+    # WHAT: Get acquisition price
+    # WHY: Need this for Net PL calculation
+    acquisition_price = None
+    try:
+        acq_price = purchase_price(asset_hub_id)
+        if acq_price is not None:
+            acquisition_price = acq_price
+    except Exception as e:
+        # print(f"ERROR getting acquisition price for Net PL: {str(e)}")
+        pass
+    
+    # WHAT: Get purchase price metrics (ratios) and base values
+    # WHY: Display acquisition price as % of key metrics for context, and provide base values for live updates
+    price_metrics = {}
+    base_values = {
+        'base_currentBalance': None,
+        'base_totalDebt': None,
+        'base_sellerAsIs': None,
+        'base_internalUWAsIs': None
+    }
+    try:
+        price_metrics = purchase_price_metrics(asset_hub_id)
+        # print(f"\nPurchase Price Metrics:")
+        # print(f"  - % of Current Balance: {price_metrics.get('purchase_of_currentBalance')}%")
+        # print(f"  - % of Total Debt: {price_metrics.get('purchase_of_totalDebt')}%")
+        # print(f"  - % of Seller As-Is: {price_metrics.get('purchase_of_sellerAsIs')}%")
+        # print(f"  - % of Internal UW As-Is: {price_metrics.get('purchase_of_internalUWAsIs')}%")
+        
+        # WHAT: Also get base values for frontend live calculations
+        # WHY: Frontend needs these to recalculate percentages as user types
+        if raw_data:
+            base_values['base_currentBalance'] = float(raw_data.current_balance) if raw_data.current_balance else None
+            base_values['base_totalDebt'] = float(raw_data.total_debt) if raw_data.total_debt else None
+            base_values['base_sellerAsIs'] = float(raw_data.seller_asis_value) if raw_data.seller_asis_value else None
+            
+            # WHAT: Get internal UW as-is value from Valuation for base
+            from core.models.valuations import Valuation
+            try:
+                internal_val = Valuation.objects.filter(
+                    asset_hub_id=asset_hub_id, 
+                    source='INTERNAL_INITIAL_UW'
+                ).only('asis_value').first()
+                if internal_val and internal_val.asis_value:
+                    base_values['base_internalUWAsIs'] = float(internal_val.asis_value)
+            except Exception:
+                pass
+    except Exception as e:
+        # print(f"ERROR calculating purchase price metrics: {str(e)}")
+        pass
+    
+    # WHAT: Calculate Net PL
+    # WHY: Net PL = Expected Recovery - Total Costs - Acquisition Price
+    # HOW: Centralize this calculation in backend for consistency
+    net_pl = None
+    if expected_recovery is not None and acquisition_price is not None:
+        net_pl = expected_recovery - total_costs - acquisition_price
+    
+    # WHAT: Calculate MOIC (Multiple on Invested Capital)
+    # WHY: MOIC = Total Inflows / Total Outflows = Expected Proceeds / (Acquisition Price + Total Costs)
+    # HOW: Shows how many times the investment is returned
+    moic = None
+    if expected_recovery is not None and acquisition_price is not None:
+        total_outflows = acquisition_price + total_costs
+        if total_outflows > 0:
+            moic = expected_recovery / total_outflows
+            # print(f"\nMOIC: ${expected_recovery:,.2f} / (${acquisition_price:,.2f} + ${total_costs:,.2f}) = {moic:.2f}x")
+    
+    # WHAT: Calculate Annualized ROI
+    # WHY: Annualized ROI = ((NetPL / Gross Cost) + 1) ^ (12 / total_duration) - 1
+    #      where Gross Cost = Acquisition Price + Total Expenses
+    # HOW: Annualizes the return to show yearly percentage return
+    annualized_roi = None
+    if net_pl is not None and acquisition_price is not None and total_timeline_months and total_timeline_months > 0:
+        # WHAT: Calculate Gross Cost (total invested capital)
+        # WHY: This is acquisition price + all expenses
+        gross_cost = acquisition_price + total_costs
+        if gross_cost > 0:
+            # WHAT: Calculate base return ratio (Net PL / Gross Cost)
+            return_ratio = net_pl / gross_cost
+            # WHAT: Add 1 to convert from percentage to growth multiplier
+            growth_factor = float(return_ratio) + 1.0
+            # WHAT: Calculate exponent as 12 / duration (for full year annualization)
+            # WHY: Converts the return to an annual basis
+            exponent = 12.0 / float(total_timeline_months)
+            # WHAT: Apply exponent and subtract 1 to get annualized percentage
+            annualized_roi = (growth_factor ** exponent) - 1.0
+            # print(f"Annualized ROI: ((${net_pl:,.2f} / (${acquisition_price:,.2f} + ${total_costs:,.2f})) + 1) ^ (12 / {total_timeline_months}) - 1 = {annualized_roi:.4f} ({annualized_roi * 100:.2f}%)")
+    
     return {
+        # WHAT: Acquisition Costs (one-time costs when acquiring asset)
+        'acq_broker_fees': float(acq_broker_fees) if acq_broker_fees is not None else None,
+        'acq_other_fees': float(acq_other_fees) if acq_other_fees is not None else None,
+        'acq_legal': float(acq_legal) if acq_legal is not None else None,
+        'acq_dd': float(acq_dd) if acq_dd is not None else None,
+        'acq_tax_title': float(acq_tax_title) if acq_tax_title is not None else None,
+        # WHAT: Carry Costs (ongoing expenses during FC process)
         'servicing_fees': float(servicing_fees) if servicing_fees is not None else None,
         'taxes': float(taxes) if taxes is not None else None,
         'insurance': float(insurance) if insurance is not None else None,
-        'legal_cost': float(legal_cost) if legal_cost is not None else None
+        'legal_cost': float(legal_cost) if legal_cost is not None else None,
+        # WHAT: Liquidation Expenses (costs incurred at sale)
+        'servicer_liquidation_fee': float(servicer_liquidation_fee) if servicer_liquidation_fee is not None else None,
+        'am_liquidation_fee': float(am_liquidation_fee) if am_liquidation_fee is not None else None,
+        # WHAT: Calculated totals
+        'total_costs': float(total_costs),
+        'expected_recovery': float(expected_recovery) if expected_recovery is not None else None,
+        'acquisition_price': float(acquisition_price) if acquisition_price is not None else None,
+        'net_pl': float(net_pl) if net_pl is not None else None,
+        'moic': float(moic) if moic is not None else None,
+        'annualized_roi': float(annualized_roi) if annualized_roi is not None else None,
+        # WHAT: Purchase price metrics (ratios as percentages)
+        'purchase_of_currentBalance': float(price_metrics.get('purchase_of_currentBalance')) if price_metrics.get('purchase_of_currentBalance') is not None else None,
+        'purchase_of_totalDebt': float(price_metrics.get('purchase_of_totalDebt')) if price_metrics.get('purchase_of_totalDebt') is not None else None,
+        'purchase_of_sellerAsIs': float(price_metrics.get('purchase_of_sellerAsIs')) if price_metrics.get('purchase_of_sellerAsIs') is not None else None,
+        'purchase_of_internalUWAsIs': float(price_metrics.get('purchase_of_internalUWAsIs')) if price_metrics.get('purchase_of_internalUWAsIs') is not None else None,
+        # WHAT: Base values for live metric calculation on frontend
+        'base_currentBalance': base_values['base_currentBalance'],
+        'base_totalDebt': base_values['base_totalDebt'],
+        'base_sellerAsIs': base_values['base_sellerAsIs'],
+        'base_internalUWAsIs': base_values['base_internalUWAsIs']
     }
 

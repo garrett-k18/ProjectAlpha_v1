@@ -54,11 +54,28 @@ class LoanLevelAssumption(models.Model):
     estimated_rehab_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0, null=True, blank=True)
     estimated_resale_value = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
     
-    # FC duration override (user adjustment in months)
+    # FC duration override (user adjustment in months) - for FC Sale model
     fc_duration_override_months = models.IntegerField(
         null=True,
         blank=True,
-        help_text="User override to adjust FC duration in months (positive adds months, negative subtracts months from calculated FC duration). NULL means no override."
+        help_text="User override to adjust FC duration in months for FC Sale model (positive adds months, negative subtracts months from calculated FC duration). NULL means no override."
+    )
+    
+    # REO-specific overrides (independent timeline adjustments for REO Sale model)
+    reo_fc_duration_override_months = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="User override to adjust FC duration in months for REO Sale model (positive adds months, negative subtracts months). NULL means no override."
+    )
+    reo_renovation_override_months = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="User override to adjust REO renovation duration in months (positive adds months, negative subtracts months). NULL means no override."
+    )
+    reo_marketing_override_months = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="User override to adjust REO marketing duration in months (positive adds months, negative subtracts months). NULL means no override."
     )
     
     # Acquisition price (user-entered or calculated)
@@ -249,8 +266,8 @@ class TradeLevelAssumption(models.Model):
     acq_legal_cost = models.DecimalField(max_digits=10, decimal_places=2, default=300.00, null=True, blank=True, help_text="Acquisition legal cost in dollars per loan")
     acq_dd_cost = models.DecimalField(max_digits=10, decimal_places=2, default=150.00, null=True, blank=True, help_text="Acquisition due diligence cost in dollars per loan")
     acq_tax_title_cost = models.DecimalField(max_digits=10, decimal_places=2, default=100.00, null=True, blank=True, help_text="Acquisition tax/title cost in dollars per loan")
-    acq_broker_fees = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, null=True, blank=True, help_text="Acquisition broker fees in dollars per loan")
-    acq_other_costs = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, null=True, blank=True, help_text="Acquisition other costs in dollars per loan")
+    acq_broker_fees = models.DecimalField(max_digits=10, decimal_places=4, default=0.00, null=True, blank=True, help_text="Acquisition broker fees in dollars per loan")
+    acq_other_costs = models.DecimalField(max_digits=10, decimal_places=4, default=0.00, null=True, blank=True, help_text="Acquisition other costs in dollars per loan")
     
     # Liq Fees (percentage as decimal)
     liq_am_fee_pct = models.DecimalField(max_digits=6, decimal_places=4, default=0.01, null=True, blank=True, help_text="Asset management fee as decimal (e.g., 0.01 = 1%)")

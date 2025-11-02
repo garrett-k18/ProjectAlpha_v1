@@ -64,7 +64,11 @@ from .views.view_acq_model import (
     get_asset_model_recommendations,
     bulk_model_recommendations,
     get_fc_model_timeline_sums,
+    get_reo_model_timeline_sums,
     update_fc_duration_override,
+    update_reo_fc_duration_override,
+    update_reo_renovation_override,
+    update_reo_marketing_override,
     update_acquisition_price,
 )
 
@@ -79,6 +83,12 @@ urlpatterns = [
     # FC model timeline sums
     path('assets/<int:asset_id>/fc-model-sums/', get_fc_model_timeline_sums, name='api_fc_model_timeline_sums'),
     path('assets/<int:asset_id>/fc-duration-override/', update_fc_duration_override, name='api_fc_duration_override'),
+    # REO model timeline sums
+    path('assets/<int:asset_id>/reo-model-sums/', get_reo_model_timeline_sums, name='api_reo_model_timeline_sums'),
+    path('assets/<int:asset_id>/reo-fc-duration-override/', update_reo_fc_duration_override, name='api_reo_fc_duration_override'),
+    path('assets/<int:asset_id>/reo-renovation-override/', update_reo_renovation_override, name='api_reo_renovation_override'),
+    path('assets/<int:asset_id>/reo-marketing-override/', update_reo_marketing_override, name='api_reo_marketing_override'),
+    # Shared acquisition price endpoint
     path('assets/<int:asset_id>/acquisition-price/', update_acquisition_price, name='api_update_acquisition_price'),
     # Get data for a specific seller and trade
     re_path(r'^raw-data/(?P<seller_id>\d+)/(?P<trade_id>\d+)/$', get_seller_trade_data, name='api_get_seller_trade_data'),

@@ -1,18 +1,18 @@
 <template>
   <!--
-    ForeclosureModelCard.vue
-    What: Comprehensive foreclosure sale model card with all FC-related inputs and assumptions
-    Why: Consolidate scattered foreclosure information into one clear, concise card
-    Where: frontend_vue/src/views/acq_module/loanlvl/components/model/ForeclosureModelCard.vue
-    How: Combines existing FC data with detailed model assumptions and calculations
+    REOSaleModelCard.vue
+    What: Comprehensive REO sale model card with all REO-related inputs and assumptions
+    Why: Display REO sale scenario with timelines, costs, and financial metrics
+    Where: frontend_vue/src/views/acq_module/loanlvl/components/model/REOSaleModelCard.vue
+    How: Combines REO data with detailed model assumptions and calculations
   -->
   <div class="card border-primary">
     <div class="card-header bg-primary-subtle">
       <div class="d-flex align-items-center justify-content-between">
           <h5 class="mb-0 d-flex align-items-center">
-            <i class="fas fa-gavel me-2 text-primary"></i>
-            Foreclosure Model
-            <span class="badge bg-primary ms-2">{{ fcProbability }}% Probability</span>
+            <i class="fas fa-home me-2 text-primary"></i>
+            REO Sale Model
+            <span class="badge bg-primary ms-2">{{ reoProbability }}% Probability</span>
           </h5>
         <div class="d-flex gap-2">
           <!-- Collapse/Expand button -->
@@ -56,7 +56,7 @@
             <div class="text-center p-2 bg-light rounded h-100">
               <small class="text-muted d-block">Total Duration</small>
               <span class="fw-bold text-primary">
-                {{ timelineData.total_timeline_months != null ? timelineData.total_timeline_months : '—' }} months
+                {{ calculatedTotalDuration != null ? calculatedTotalDuration : '—' }} months
               </span>
             </div>
           </div>
@@ -137,11 +137,11 @@
             <div class="d-flex align-items-center gap-2">
               <label class="form-label fw-semibold mb-0">
                 <i class="mdi mdi-percent me-1 text-primary"></i>
-                FC Sale Probability:
+                REO Sale Probability:
               </label>
               <div class="input-group" style="max-width: 180px;">
                 <input
-                  v-model.number="fcProbability"
+                  v-model.number="reoProbability"
                   type="number"
                   class="form-control form-control-sm text-end fw-bold"
                   min="0"
@@ -157,175 +157,218 @@
         </div>
       </div>
 
+      <!-- REO Scenario Toggle -->
+      <div class="mb-4">
+        <div class="d-flex align-items-center gap-2">
+          <span class="fw-semibold text-body me-2">REO Scenario:</span>
+          <div class="btn-group" role="group" aria-label="REO Scenario Toggle">
+            <button
+              type="button"
+              class="btn btn-sm"
+              :class="reoScenario === 'as_is' ? 'btn-primary' : 'btn-outline-primary'"
+              @click="reoScenario = 'as_is'"
+            >
+              <i class="mdi mdi-home me-1"></i>
+              As-Is
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm"
+              :class="reoScenario === 'rehab' ? 'btn-primary' : 'btn-outline-primary'"
+              @click="reoScenario = 'rehab'"
+            >
+              <i class="mdi mdi-hammer-wrench me-1"></i>
+              Rehab
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- Timelines, Acquisition Costs, Carry Costs, and Liquidation Expenses Section -->
       <div class="mb-4">
         <div class="row g-3">
           <!-- Timelines Column -->
           <div class="col-md-3">
-            <h6 class="fw-semibold text-body mb-2">
-              <i class="mdi mdi-clock-outline me-2 text-warning"></i>
-              Timelines
-            </h6>
-            <div class="d-flex flex-column gap-2">
-          <div class="d-flex align-items-baseline gap-2">
-            <small class="text-muted d-block" style="min-width: 140px;">Servicing Transfer:</small>
-            <span class="fw-semibold text-dark">
-              {{ timelineData.servicing_transfer_months != null ? timelineData.servicing_transfer_months : '—' }} months
-            </span>
-          </div>
-          
-          <!-- UI OPTION A: Inline +/- Controls -->
-          <div v-if="!uiOptionB" class="d-flex align-items-baseline gap-2">
-            <small class="text-muted d-block" style="min-width: 140px;">Foreclosure:</small>
-            <div class="d-flex align-items-center gap-2">
-              <span class="fw-semibold text-dark">
-                {{ timelineData.foreclosure_months != null ? timelineData.foreclosure_months : '—' }} months
-              </span>
-              <div class="btn-group btn-group-sm fc-duration-controls" role="group">
-                <button
-                  type="button"
-                  class="btn btn-outline-secondary"
-                  @click="adjustFcDuration(-1)"
-                  :disabled="loadingTimelines || timelineData.foreclosure_months_base == null"
-                  title="Subtract 1 month"
-                >
-                  <i v-if="loadingTimelines" class="mdi mdi-refresh mdi-spin"></i>
-                  <i v-else class="mdi mdi-minus"></i>
-                </button>
-                <button
-                  type="button"
-                  class="btn btn-outline-secondary"
-                  @click="adjustFcDuration(1)"
-                  :disabled="loadingTimelines || timelineData.foreclosure_months_base == null"
-                  title="Add 1 month"
-                >
-                  <i v-if="loadingTimelines" class="mdi mdi-refresh mdi-spin"></i>
-                  <i v-else class="mdi mdi-plus"></i>
-                </button>
+            <div class="p-3 bg-light rounded border h-100">
+              <h6 class="fw-semibold text-body mb-2">
+                <i class="mdi mdi-clock-outline me-2 text-warning"></i>
+                Timelines
+              </h6>
+              <div class="d-flex flex-column gap-2">
+                <div class="d-flex align-items-baseline gap-2">
+                  <small class="text-muted d-block" style="min-width: 140px;">Servicing Transfer:</small>
+                  <span class="fw-semibold text-dark">
+                    {{ timelineData.servicing_transfer_months != null ? timelineData.servicing_transfer_months : '—' }} months
+                  </span>
+                </div>
+                
+                <!-- Foreclosure with +/- controls -->
+                <div class="d-flex align-items-baseline gap-2">
+                  <small class="text-muted d-block" style="min-width: 140px;">Foreclosure:</small>
+                  <div class="d-flex align-items-center gap-2">
+                    <span class="fw-semibold text-dark">
+                      {{ timelineData.foreclosure_months != null ? timelineData.foreclosure_months : '—' }} months
+                    </span>
+                    <div class="btn-group btn-group-sm reo-duration-controls" role="group">
+                      <button
+                        type="button"
+                        class="btn btn-outline-secondary"
+                        @click="adjustReoFcDuration(-1)"
+                        :disabled="loadingTimelines || timelineData.foreclosure_months_base == null"
+                        title="Subtract 1 month"
+                      >
+                        <i v-if="loadingTimelines" class="mdi mdi-refresh mdi-spin"></i>
+                        <i v-else class="mdi mdi-minus"></i>
+                      </button>
+                      <button
+                        type="button"
+                        class="btn btn-outline-secondary"
+                        @click="adjustReoFcDuration(1)"
+                        :disabled="loadingTimelines || timelineData.foreclosure_months_base == null"
+                        title="Add 1 month"
+                      >
+                        <i v-if="loadingTimelines" class="mdi mdi-refresh mdi-spin"></i>
+                        <i v-else class="mdi mdi-plus"></i>
+                      </button>
+                    </div>
+                    <span v-if="timelineData.reo_fc_duration_override_months != null && timelineData.reo_fc_duration_override_months !== 0" 
+                          class="badge" 
+                          :class="timelineData.reo_fc_duration_override_months > 0 ? 'bg-success' : 'bg-danger'"
+                          style="font-size: 0.7rem;">
+                      {{ timelineData.reo_fc_duration_override_months > 0 ? '+' : '' }}{{ timelineData.reo_fc_duration_override_months }}
+                    </span>
+                  </div>
+                </div>
+                
+                <!-- REO Marketing with +/- controls -->
+                <div class="d-flex align-items-baseline gap-2">
+                  <small class="text-muted d-block" style="min-width: 140px;">REO Marketing:</small>
+                  <div class="d-flex align-items-center gap-2">
+                    <span class="fw-semibold text-dark">
+                      {{ timelineData.reo_marketing_months != null ? timelineData.reo_marketing_months : '—' }} months
+                    </span>
+                    <div class="btn-group btn-group-sm reo-duration-controls" role="group">
+                      <button
+                        type="button"
+                        class="btn btn-outline-secondary"
+                        @click="adjustReoMarketingDuration(-1)"
+                        :disabled="loadingTimelines || timelineData.reo_marketing_months_base == null"
+                        title="Subtract 1 month"
+                      >
+                        <i v-if="loadingTimelines" class="mdi mdi-refresh mdi-spin"></i>
+                        <i v-else class="mdi mdi-minus"></i>
+                      </button>
+                      <button
+                        type="button"
+                        class="btn btn-outline-secondary"
+                        @click="adjustReoMarketingDuration(1)"
+                        :disabled="loadingTimelines || timelineData.reo_marketing_months_base == null"
+                        title="Add 1 month"
+                      >
+                        <i v-if="loadingTimelines" class="mdi mdi-refresh mdi-spin"></i>
+                        <i v-else class="mdi mdi-plus"></i>
+                      </button>
+                    </div>
+                    <span v-if="timelineData.reo_marketing_override_months != null && timelineData.reo_marketing_override_months !== 0" 
+                          class="badge" 
+                          :class="timelineData.reo_marketing_override_months > 0 ? 'bg-success' : 'bg-danger'"
+                          style="font-size: 0.7rem;">
+                      {{ timelineData.reo_marketing_override_months > 0 ? '+' : '' }}{{ timelineData.reo_marketing_override_months }}
+                    </span>
+                  </div>
+                </div>
               </div>
-              <span v-if="timelineData.fc_duration_override_months != null && timelineData.fc_duration_override_months !== 0" 
-                    class="badge" 
-                    :class="timelineData.fc_duration_override_months > 0 ? 'bg-success' : 'bg-danger'"
-                    style="font-size: 0.7rem;">
-                {{ timelineData.fc_duration_override_months > 0 ? '+' : '' }}{{ timelineData.fc_duration_override_months }}
-              </span>
-            </div>
-          </div>
-          
-          <!-- UI OPTION B: Display Format -->
-          <div v-if="uiOptionB" class="d-flex align-items-baseline gap-2">
-            <small class="text-muted d-block" style="min-width: 140px;">Foreclosure:</small>
-            <div class="d-flex align-items-center gap-2">
-              <span class="fw-semibold text-dark">
-                {{ timelineData.foreclosure_months_base != null ? timelineData.foreclosure_months_base : '—' }} months
-              </span>
-              <span v-if="timelineData.fc_duration_override_months != null && timelineData.fc_duration_override_months !== 0" 
-                    class="text-muted small">
-                [Override: 
-                <span :class="timelineData.fc_duration_override_months > 0 ? 'text-success' : 'text-danger'">
-                  {{ timelineData.fc_duration_override_months > 0 ? '+' : '' }}{{ timelineData.fc_duration_override_months }}
-                </span>]
-              </span>
-              <span v-if="timelineData.foreclosure_months_base != null" class="fw-bold text-primary">
-                → {{ timelineData.foreclosure_months != null ? timelineData.foreclosure_months : '—' }} months
-              </span>
-              <div class="btn-group btn-group-sm fc-duration-controls ms-2" role="group">
-                <button
-                  type="button"
-                  class="btn btn-outline-secondary"
-                  @click="adjustFcDuration(-1)"
-                  :disabled="loadingTimelines || timelineData.foreclosure_months_base == null"
-                  title="Subtract 1 month"
-                >
-                  <i v-if="loadingTimelines" class="mdi mdi-refresh mdi-spin"></i>
-                  <i v-else class="mdi mdi-minus"></i>
-                </button>
-                <button
-                  type="button"
-                  class="btn btn-outline-secondary"
-                  @click="adjustFcDuration(1)"
-                  :disabled="loadingTimelines || timelineData.foreclosure_months_base == null"
-                  title="Add 1 month"
-                >
-                  <i v-if="loadingTimelines" class="mdi mdi-refresh mdi-spin"></i>
-                  <i v-else class="mdi mdi-plus"></i>
-                </button>
-              </div>
-            </div>
-          </div>
             </div>
           </div>
           
           <!-- Acquisition Costs Column -->
           <div class="col-md-3">
-            <h6 class="fw-semibold text-body mb-2">
-              <i class="mdi mdi-briefcase-outline me-2 text-info"></i>
-              Acquisition Costs
-            </h6>
-            <div class="d-flex flex-column gap-2">
-              <div class="d-flex align-items-baseline gap-2">
-                <small class="text-muted d-block" style="min-width: 140px;">Broker Fee:</small>
-                <span class="fw-bold text-dark">{{ formatCurrency(timelineData.acq_broker_fees || 0) }}</span>
-              </div>
-              <div class="d-flex align-items-baseline gap-2">
-                <small class="text-muted d-block" style="min-width: 140px;">Other Fees:</small>
-                <span class="fw-bold text-dark">{{ formatCurrency(timelineData.acq_other_fees || 0) }}</span>
-              </div>
-              <div class="d-flex align-items-baseline gap-2">
-                <small class="text-muted d-block" style="min-width: 140px;">Legal Cost:</small>
-                <span class="fw-bold text-dark">{{ formatCurrency(timelineData.acq_legal || 0) }}</span>
-              </div>
-              <div class="d-flex align-items-baseline gap-2">
-                <small class="text-muted d-block" style="min-width: 140px;">Due Diligence:</small>
-                <span class="fw-bold text-dark">{{ formatCurrency(timelineData.acq_dd || 0) }}</span>
-              </div>
-              <div class="d-flex align-items-baseline gap-2">
-                <small class="text-muted d-block" style="min-width: 140px;">Tax/Title:</small>
-                <span class="fw-bold text-dark">{{ formatCurrency(timelineData.acq_tax_title || 0) }}</span>
+            <div class="p-3 bg-light rounded border h-100">
+              <h6 class="fw-semibold text-body mb-2">
+                <i class="mdi mdi-briefcase-outline me-2 text-info"></i>
+                Acquisition Costs
+              </h6>
+              <div class="d-flex flex-column gap-2">
+                <div class="d-flex align-items-baseline gap-2">
+                  <small class="text-muted d-block" style="min-width: 140px;">Broker Fee:</small>
+                  <span class="fw-bold text-dark">{{ formatCurrency(liveBrokerFee) }}</span>
+                </div>
+                <div class="d-flex align-items-baseline gap-2">
+                  <small class="text-muted d-block" style="min-width: 140px;">Other Fees:</small>
+                  <span class="fw-bold text-dark">{{ formatCurrency(liveOtherFee) }}</span>
+                </div>
+                <div class="d-flex align-items-baseline gap-2">
+                  <small class="text-muted d-block" style="min-width: 140px;">Legal Cost:</small>
+                  <span class="fw-bold text-dark">{{ formatCurrency(timelineData.acq_legal || 0) }}</span>
+                </div>
+                <div class="d-flex align-items-baseline gap-2">
+                  <small class="text-muted d-block" style="min-width: 140px;">Due Diligence:</small>
+                  <span class="fw-bold text-dark">{{ formatCurrency(timelineData.acq_dd || 0) }}</span>
+                </div>
+                <div class="d-flex align-items-baseline gap-2">
+                  <small class="text-muted d-block" style="min-width: 140px;">Tax/Title:</small>
+                  <span class="fw-bold text-dark">{{ formatCurrency(timelineData.acq_tax_title || 0) }}</span>
+                </div>
               </div>
             </div>
           </div>
           
           <!-- Carry Costs Column -->
           <div class="col-md-3">
-            <h6 class="fw-semibold text-body mb-2">
-              <i class="mdi mdi-cash-multiple me-2 text-warning"></i>
-              Carry Costs
-            </h6>
-            <div class="d-flex flex-column gap-2">
-              <div class="d-flex align-items-baseline gap-2">
-                <small class="text-muted d-block" style="min-width: 140px;">Servicing Fees:</small>
-                <span class="fw-bold text-dark">{{ formatCurrency(expenses.servicingFees) }}</span>
-              </div>
-              <div class="d-flex align-items-baseline gap-2">
-                <small class="text-muted d-block" style="min-width: 140px;">Taxes:</small>
-                <span class="fw-bold text-dark">{{ formatCurrency(expenses.taxes) }}</span>
-              </div>
-              <div class="d-flex align-items-baseline gap-2">
-                <small class="text-muted d-block" style="min-width: 140px;">Insurance:</small>
-                <span class="fw-bold text-dark">{{ formatCurrency(expenses.insurance) }}</span>
-              </div>
-              <div class="d-flex align-items-baseline gap-2">
-                <small class="text-muted d-block" style="min-width: 140px;">Legal Cost:</small>
-                <span class="fw-bold text-dark">{{ formatCurrency(expenses.legalCost) }}</span>
+            <div class="p-3 bg-light rounded border h-100">
+              <h6 class="fw-semibold text-body mb-2">
+                <i class="mdi mdi-cash-multiple me-2 text-warning"></i>
+                Carry Costs
+              </h6>
+              <div class="d-flex flex-column gap-2">
+                <div class="d-flex align-items-baseline gap-2">
+                  <small class="text-muted d-block" style="min-width: 140px;">Servicing Fees:</small>
+                  <span class="fw-bold text-dark">{{ formatCurrency(expenses.servicingFees) }}</span>
+                </div>
+                <div class="d-flex align-items-baseline gap-2">
+                  <small class="text-muted d-block" style="min-width: 140px;">Taxes:</small>
+                  <span class="fw-bold text-dark">{{ formatCurrency(expenses.taxes) }}</span>
+                </div>
+                <div class="d-flex align-items-baseline gap-2">
+                  <small class="text-muted d-block" style="min-width: 140px;">Insurance:</small>
+                  <span class="fw-bold text-dark">{{ formatCurrency(expenses.insurance) }}</span>
+                </div>
+                <div class="d-flex align-items-baseline gap-2">
+                  <small class="text-muted d-block" style="min-width: 140px;">Legal Cost:</small>
+                  <span class="fw-bold text-dark">{{ formatCurrency(expenses.legalCost) }}</span>
+                </div>
+                <div class="d-flex align-items-baseline gap-2">
+                  <small class="text-muted d-block" style="min-width: 140px;">REO Holding Costs:</small>
+                  <span class="fw-bold text-dark">{{ formatCurrency(timelineData.reo_holding_costs || 0) }}</span>
+                </div>
+                <div class="d-flex align-items-baseline gap-2">
+                  <small class="text-muted d-block" style="min-width: 140px;">Trashout:</small>
+                  <span class="fw-bold text-dark">{{ formatCurrency(timelineData.trashout_cost || 0) }}</span>
+                </div>
               </div>
             </div>
           </div>
           
           <!-- Liquidation Expenses Column -->
           <div class="col-md-3">
-            <h6 class="fw-semibold text-body mb-2">
-              <i class="mdi mdi-gavel me-2 text-warning"></i>
-              Liquidation Expenses
-            </h6>
-            <div class="d-flex flex-column gap-2">
-              <div class="d-flex align-items-baseline gap-2">
-                <small class="text-muted d-block" style="min-width: 160px;">Servicer Liquidation Fee:</small>
-                <span class="fw-bold text-dark">{{ formatCurrency(timelineData.servicer_liquidation_fee || 0) }}</span>
-              </div>
-              <div class="d-flex align-items-baseline gap-2">
-                <small class="text-muted d-block" style="min-width: 160px;">AM Liquidation Fee:</small>
-                <span class="fw-bold text-dark">{{ formatCurrency(timelineData.am_liquidation_fee || 0) }}</span>
+            <div class="p-3 bg-light rounded border h-100">
+              <h6 class="fw-semibold text-body mb-2">
+                <i class="mdi mdi-gavel me-2 text-warning"></i>
+                Liquidation Expenses
+              </h6>
+              <div class="d-flex flex-column gap-2">
+                <div class="d-flex align-items-baseline gap-2">
+                  <small class="text-muted d-block" style="min-width: 160px;">Broker Fees:</small>
+                  <span class="fw-bold text-dark">{{ formatCurrency(timelineData.broker_fees || 0) }}</span>
+                </div>
+                <div class="d-flex align-items-baseline gap-2">
+                  <small class="text-muted d-block" style="min-width: 160px;">Servicer Liquidation Fee:</small>
+                  <span class="fw-bold text-dark">{{ formatCurrency(timelineData.servicer_liquidation_fee || 0) }}</span>
+                </div>
+                <div class="d-flex align-items-baseline gap-2">
+                  <small class="text-muted d-block" style="min-width: 160px;">AM Liquidation Fee:</small>
+                  <span class="fw-bold text-dark">{{ formatCurrency(timelineData.am_liquidation_fee || 0) }}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -347,11 +390,11 @@
 import { computed, reactive, ref, watch, onMounted } from 'vue'
 import http from '@/lib/http'
 
-// WHAT: Props for the ForeclosureModelCard component
+// WHAT: Props for the REOSaleModelCard component
 const props = defineProps<{
-  // WHAT: Row data containing existing foreclosure information from SellerRawData
+  // WHAT: Row data containing existing REO information from SellerRawData
   row?: Record<string, any> | null
-  // WHAT: Asset ID for fetching additional FC data if needed
+  // WHAT: Asset ID for fetching additional REO data if needed
   assetId?: string | number | null
   // WHAT: Whether this is the only selected model (auto-sets to 100% if true)
   isOnlySelectedModel?: boolean
@@ -361,39 +404,40 @@ const props = defineProps<{
 
 // WHAT: Emits for parent component communication
 const emit = defineEmits<{
-  assumptionsChanged: [assumptions: FcAssumptions]
+  assumptionsChanged: [assumptions: ReoAssumptions]
   probabilityChanged: [probability: number]
   acquisitionPriceChanged: [price: number]
 }>()
 
-// WHAT: Interface for foreclosure model assumptions (simplified - keeping for compatibility)
-interface FcAssumptions {
-  // Minimal assumptions kept for compatibility
-  expectedBidPrice: number
+// WHAT: Interface for REO model assumptions
+interface ReoAssumptions {
+  expectedSalePrice: number
   // WHAT: Expense fields
   servicingFees: number
   taxes: number
   insurance: number
   legalCost: number
+  reoHoldingCosts: number
 }
 
 // WHAT: Reactive state for component
 const collapsed = ref(false)
 
-// WHAT: UI option toggle - false = Option A (inline +/-), true = Option B (display format)
-// WHY: Allow user to see and compare both UI designs
-const uiOptionB = ref(false)
-
-// WHAT: FC Sale probability (auto-sets to 100% if only model selected)
-const fcProbability = ref<number>(0)
+// WHAT: REO Sale probability (auto-sets to 100% if only model selected)
+const reoProbability = ref<number>(0)
 
 // WHAT: Timeline data from backend API
 const timelineData = reactive<{
   servicing_transfer_months: number | null
-  foreclosure_days: number | null
   foreclosure_months: number | null
   foreclosure_months_base: number | null
-  fc_duration_override_months: number | null
+  reo_fc_duration_override_months: number | null
+  reo_renovation_months: number | null
+  reo_renovation_months_base: number | null
+  reo_renovation_override_months: number | null
+  reo_marketing_months: number | null
+  reo_marketing_months_base: number | null
+  reo_marketing_override_months: number | null
   total_timeline_months: number | null
   expected_recovery: number | null
   acquisition_price: number | null
@@ -403,12 +447,18 @@ const timelineData = reactive<{
   acq_legal: number | null
   acq_dd: number | null
   acq_tax_title: number | null
+  // WHAT: Acquisition fee percentages for live calculation
+  acq_broker_fee_pct: number | null
+  acq_other_fee_pct: number | null
   // WHAT: Carry Cost values from backend models
   servicing_fees: number | null
   taxes: number | null
   insurance: number | null
   legal_cost: number | null
+  reo_holding_costs: number | null
+  trashout_cost: number | null
   // WHAT: Liquidation Expense values from backend models
+  broker_fees: number | null
   servicer_liquidation_fee: number | null
   am_liquidation_fee: number | null
   // WHAT: Calculated financial metrics from backend
@@ -428,10 +478,15 @@ const timelineData = reactive<{
   base_internalUWAsIs: number | null
 }>({
   servicing_transfer_months: null,
-  foreclosure_days: null,
   foreclosure_months: null,
   foreclosure_months_base: null,
-  fc_duration_override_months: null,
+  reo_fc_duration_override_months: null,
+  reo_renovation_months: null,
+  reo_renovation_months_base: null,
+  reo_renovation_override_months: null,
+  reo_marketing_months: null,
+  reo_marketing_months_base: null,
+  reo_marketing_override_months: null,
   total_timeline_months: null,
   expected_recovery: null,
   acquisition_price: null,
@@ -440,10 +495,15 @@ const timelineData = reactive<{
   acq_legal: null,
   acq_dd: null,
   acq_tax_title: null,
+  acq_broker_fee_pct: null,
+  acq_other_fee_pct: null,
   servicing_fees: null,
   taxes: null,
   insurance: null,
   legal_cost: null,
+  reo_holding_costs: null,
+  trashout_cost: null,
+  broker_fees: null,
   servicer_liquidation_fee: null,
   am_liquidation_fee: null,
   total_costs: null,
@@ -462,6 +522,10 @@ const timelineData = reactive<{
 
 // WHAT: Loading state for timeline data
 const loadingTimelines = ref(false)
+
+// WHAT: REO scenario toggle (As-Is vs Rehab)
+// WHY: Allow user to switch between different REO scenarios
+const reoScenario = ref<'as_is' | 'rehab'>('as_is')
 
 // WHAT: Editable acquisition price - computed to directly use shared parent value
 // WHY: Ensure both models use literally the same value, not separate synced copies
@@ -483,6 +547,20 @@ const formattedAcquisitionPrice = computed(() => {
   return acquisitionPrice.value.toLocaleString('en-US')
 })
 
+// WHAT: Computed properties for live acquisition fee calculations
+// WHY: Update broker and other fees in real-time as acquisition price changes
+const liveBrokerFee = computed(() => {
+  const price = acquisitionPrice.value || 0
+  const pct = timelineData.acq_broker_fee_pct || 0
+  return price * pct
+})
+
+const liveOtherFee = computed(() => {
+  const price = acquisitionPrice.value || 0
+  const pct = timelineData.acq_other_fee_pct || 0
+  return price * pct
+})
+
 // WHAT: Handler for acquisition price input
 // WHY: Parse formatted input and update raw numeric value
 function handleAcquisitionPriceInput(event: Event) {
@@ -496,13 +574,14 @@ function handleAcquisitionPriceInput(event: Event) {
   acquisitionPrice.value = numericValue ? parseInt(numericValue, 10) : 0
 }
 
-// WHAT: Minimal assumptions (kept for compatibility with Financial Summary)
-const assumptions = reactive<FcAssumptions>({
-  expectedBidPrice: 0,
+// WHAT: Minimal assumptions (kept for compatibility)
+const assumptions = reactive<ReoAssumptions>({
+  expectedSalePrice: 0,
   servicingFees: 0,
   taxes: 0,
   insurance: 0,
-  legalCost: 0
+  legalCost: 0,
+  reoHoldingCosts: 0
 })
 
 // WHAT: Expense fields for the Expenses section
@@ -532,20 +611,25 @@ watch(() => [
   assumptions.taxes = expenses.taxes
   assumptions.insurance = expenses.insurance
   assumptions.legalCost = expenses.legalCost
+  assumptions.reoHoldingCosts = timelineData.reo_holding_costs ?? 0
   emitChanges()
 }, { deep: true })
 
-// WHAT: Computed property to extract foreclosure data from row
-const fcData = computed(() => {
-  return props.row ? {
-    fc_flag: props.row.fc_flag,
-    fc_first_legal_date: props.row.fc_first_legal_date,
-    fc_referred_date: props.row.fc_referred_date,
-    fc_judgement_date: props.row.fc_judgement_date,
-    fc_scheduled_sale_date: props.row.fc_scheduled_sale_date,
-    fc_sale_date: props.row.fc_sale_date,
-    fc_starting: props.row.fc_starting
-  } : null
+// WHAT: Computed property for total duration based on REO scenario
+// WHY: As-Is scenario excludes renovation, Rehab includes it
+const calculatedTotalDuration = computed(() => {
+  const servicing = timelineData.servicing_transfer_months || 0
+  const foreclosure = timelineData.foreclosure_months || 0
+  const renovation = timelineData.reo_renovation_months || 0
+  const marketing = timelineData.reo_marketing_months || 0
+  
+  // WHAT: For As-Is scenario, exclude renovation duration
+  if (reoScenario.value === 'as_is') {
+    return servicing + foreclosure + marketing
+  } else {
+    // WHAT: For Rehab scenario, include renovation duration
+    return servicing + foreclosure + renovation + marketing
+  }
 })
 
 // WHAT: Computed property to display total costs from backend
@@ -600,40 +684,80 @@ const liveMetrics = computed(() => {
 const validationMessages = computed(() => {
   const messages: string[] = []
   
-  if (fcProbability.value < 0 || fcProbability.value > 100) {
-    messages.push('FC Sale probability must be between 0% and 100%')
+  if (reoProbability.value < 0 || reoProbability.value > 100) {
+    messages.push('REO Sale probability must be between 0% and 100%')
   }
   
   return messages
 })
 
-// WHAT: Function to adjust FC duration by increment/decrement
-// WHY: Allow users to adjust FC duration with +/- buttons
-async function adjustFcDuration(change: number) {
+// WHAT: Function to adjust REO FC duration by increment/decrement
+// WHY: Allow users to adjust REO FC duration independently from FC Sale model
+async function adjustReoFcDuration(change: number) {
   if (!props.assetId) {
-    console.warn('[ForeclosureModelCard] No assetId provided, cannot adjust FC duration')
+    console.warn('[REOSaleModelCard] No assetId provided, cannot adjust REO FC duration')
     return
   }
 
-  // WHAT: Calculate new override value
-  // WHY: Apply the change to the current override (or start from 0 if no override)
-  const currentOverride = timelineData.fc_duration_override_months || 0
+  const currentOverride = timelineData.reo_fc_duration_override_months || 0
   const newOverride = currentOverride + change
 
-  // WHAT: Save the new override value to backend
-  // WHY: Persist user adjustments
   try {
     loadingTimelines.value = true
-    await http.post(`/acq/assets/${props.assetId}/fc-duration-override/`, {
-      fc_duration_override_months: newOverride
+    await http.post(`/acq/assets/${props.assetId}/reo-fc-duration-override/`, {
+      reo_fc_duration_override_months: newOverride
     })
-
-    // WHAT: Refresh timeline data to get updated values
-    // WHY: Ensure UI reflects backend-calculated totals
     await fetchTimelineData()
   } catch (error) {
-    console.error('[ForeclosureModelCard] Failed to update FC duration override:', error)
-    // TODO: Show user-friendly error message
+    console.error('[REOSaleModelCard] Failed to update REO FC duration override:', error)
+  } finally {
+    loadingTimelines.value = false
+  }
+}
+
+// WHAT: Function to adjust REO renovation duration by increment/decrement
+// WHY: Allow users to adjust renovation timeline for REO properties
+async function adjustReoRenovationDuration(change: number) {
+  if (!props.assetId) {
+    console.warn('[REOSaleModelCard] No assetId provided, cannot adjust REO renovation duration')
+    return
+  }
+
+  const currentOverride = timelineData.reo_renovation_override_months || 0
+  const newOverride = currentOverride + change
+
+  try {
+    loadingTimelines.value = true
+    await http.post(`/acq/assets/${props.assetId}/reo-renovation-override/`, {
+      reo_renovation_override_months: newOverride
+    })
+    await fetchTimelineData()
+  } catch (error) {
+    console.error('[REOSaleModelCard] Failed to update REO renovation duration override:', error)
+  } finally {
+    loadingTimelines.value = false
+  }
+}
+
+// WHAT: Function to adjust REO marketing duration by increment/decrement
+// WHY: Allow users to adjust marketing timeline based on market conditions
+async function adjustReoMarketingDuration(change: number) {
+  if (!props.assetId) {
+    console.warn('[REOSaleModelCard] No assetId provided, cannot adjust REO marketing duration')
+    return
+  }
+
+  const currentOverride = timelineData.reo_marketing_override_months || 0
+  const newOverride = currentOverride + change
+
+  try {
+    loadingTimelines.value = true
+    await http.post(`/acq/assets/${props.assetId}/reo-marketing-override/`, {
+      reo_marketing_override_months: newOverride
+    })
+    await fetchTimelineData()
+  } catch (error) {
+    console.error('[REOSaleModelCard] Failed to update REO marketing duration override:', error)
   } finally {
     loadingTimelines.value = false
   }
@@ -642,13 +766,13 @@ async function adjustFcDuration(change: number) {
 // WHAT: Function to fetch timeline data from backend API
 async function fetchTimelineData() {
   if (!props.assetId) {
-    console.warn('[ForeclosureModelCard] No assetId provided, cannot fetch timeline data')
+    console.warn('[REOSaleModelCard] No assetId provided, cannot fetch timeline data')
     return
   }
 
   loadingTimelines.value = true
   try {
-    const response = await http.get(`/acq/assets/${props.assetId}/fc-model-sums/`)
+    const response = await http.get(`/acq/assets/${props.assetId}/reo-model-sums/`)
     Object.assign(timelineData, response.data)
     
     // WHAT: Sync acquisition price to local state
@@ -657,7 +781,7 @@ async function fetchTimelineData() {
       acquisitionPrice.value = response.data.acquisition_price
     }
   } catch (error) {
-    console.error('[ForeclosureModelCard] Failed to fetch timeline data:', error)
+    console.error('[REOSaleModelCard] Failed to fetch timeline data:', error)
     // Keep null values on error
   } finally {
     loadingTimelines.value = false
@@ -668,7 +792,7 @@ async function fetchTimelineData() {
 // WHY: Persist user-entered acquisition price
 async function saveAcquisitionPrice() {
   if (!props.assetId) {
-    console.warn('[ForeclosureModelCard] No assetId provided, cannot save acquisition price')
+    console.warn('[REOSaleModelCard] No assetId provided, cannot save acquisition price')
     return
   }
 
@@ -677,7 +801,7 @@ async function saveAcquisitionPrice() {
       acquisition_price: acquisitionPrice.value || 0
     })
     
-    console.log('[ForeclosureModelCard] Acquisition price saved:', acquisitionPrice.value)
+    console.log('[REOSaleModelCard] Acquisition price saved:', acquisitionPrice.value)
     
     // Note: No need to emit here, already emitting on every value change via computed setter
     
@@ -685,7 +809,7 @@ async function saveAcquisitionPrice() {
     // WHY: Acquisition price affects other calculations (broker fees, etc.)
     await fetchTimelineData()
   } catch (error) {
-    console.error('[ForeclosureModelCard] Failed to save acquisition price:', error)
+    console.error('[REOSaleModelCard] Failed to save acquisition price:', error)
   }
 }
 
@@ -700,15 +824,6 @@ const formatCurrency = (value: number | null | undefined): string => {
   }).format(value)
 }
 
-const formatDate = (value: any): string => {
-  if (!value) return 'N/A'
-  try {
-    return new Date(value).toLocaleDateString('en-US')
-  } catch {
-    return 'N/A'
-  }
-}
-
 // WHAT: Function to emit changes to parent component
 function emitChanges() {
   emit('assumptionsChanged', { ...assumptions })
@@ -716,7 +831,7 @@ function emitChanges() {
 
 // WHAT: Function to handle probability change
 function handleProbabilityChange() {
-  emit('probabilityChanged', fcProbability.value)
+  emit('probabilityChanged', reoProbability.value)
 }
 
 // WHAT: Watch for changes in assumptions and emit to parent
@@ -726,9 +841,9 @@ watch(assumptions, () => {
 
 // WHAT: Watch for isOnlySelectedModel prop - auto-set to 100% if only model selected
 watch(() => props.isOnlySelectedModel, (isOnly) => {
-  if (isOnly && fcProbability.value !== 100) {
-    fcProbability.value = 100
-    emit('probabilityChanged', fcProbability.value)
+  if (isOnly && reoProbability.value !== 100) {
+    reoProbability.value = 100
+    emit('probabilityChanged', reoProbability.value)
   }
 }, { immediate: true })
 
@@ -745,15 +860,10 @@ onMounted(() => {
     fetchTimelineData()
   }
 })
-
-// WHAT: Initialize with existing FC data if available
-if (fcData.value?.fc_starting) {
-  assumptions.expectedBidPrice = Number(fcData.value.fc_starting) || assumptions.expectedBidPrice
-}
 </script>
 
 <style scoped>
-/* WHAT: Component-specific styles for ForeclosureModelCard */
+/* WHAT: Component-specific styles for REOSaleModelCard */
 .card-header {
   border-bottom: 1px solid rgba(13, 110, 253, 0.2);
 }
@@ -775,13 +885,13 @@ if (fcData.value?.fc_starting) {
   background-color: #f8f9fa !important;
 }
 
-/* WHAT: Smaller FC duration control buttons */
-.fc-duration-controls {
+/* WHAT: Smaller REO duration control buttons */
+.reo-duration-controls {
   /* WHAT: Make the button group itself smaller */
   font-size: 0.7rem;
 }
 
-.fc-duration-controls .btn {
+.reo-duration-controls .btn {
   /* WHAT: Smaller padding for compact buttons */
   padding: 0.15rem 0.35rem !important;
   /* WHAT: Smaller line height */
@@ -792,7 +902,7 @@ if (fcData.value?.fc_starting) {
   min-width: auto;
 }
 
-.fc-duration-controls .btn i {
+.reo-duration-controls .btn i {
   /* WHAT: Smaller icon size */
   font-size: 0.85rem;
 }
@@ -811,3 +921,4 @@ input[type="number"] {
   appearance: textfield;
 }
 </style>
+

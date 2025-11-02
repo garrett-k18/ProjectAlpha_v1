@@ -3,6 +3,7 @@
 from django.db import models
 from django.utils import timezone
 import re
+from core.models.model_co_lookupTables import PropertyType
 
 
 class Seller(models.Model):
@@ -98,19 +99,8 @@ class Trade(models.Model):
 class SellerRawData(models.Model):
     # Django 3.0+ enumeration types for choices
     # Docs: https://docs.djangoproject.com/en/stable/ref/models/fields/#enumeration-types
-    class PropertyType(models.TextChoices):
-        SFR = 'SFR', 'SFR'
-        MANUFACTURED = 'Manufactured', 'Manufactured'
-        CONDO = 'Condo', 'Condo'
-        TOWNHOUSE = 'Townhouse', 'Townhouse'
-        TWO_TO_FOUR = '2-4 Family', '2-4 Family'
-        LAND = 'Land', 'Land'
-        MULTIFAMILY = 'Multifamily 5+', 'Multifamily 5+'
-        INDUSTRIAL = 'Industrial', 'Industrial'
-        MIXED_USE = 'Mixed Use', 'Mixed Use'
-        STORAGE = 'Storage', 'Storage'
-        HEALTHCARE = 'Healthcare', 'Healthcare'
-
+    # NOTE: PropertyType is imported from core.lookupTables for consistency across all models
+    
     class ProductType(models.TextChoices):
         BPL = 'BPL', 'BPL'
         HECM = 'HECM', 'HECM'
