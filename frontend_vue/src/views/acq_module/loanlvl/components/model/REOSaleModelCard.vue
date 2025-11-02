@@ -14,7 +14,27 @@
             REO Sale Model
             <span class="badge bg-primary ms-2">{{ reoProbability }}% Probability</span>
           </h5>
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 align-items-center">
+          <!-- REO Sale Probability Input -->
+          <div class="d-flex align-items-center gap-2">
+            <label class="form-label fw-semibold mb-0 text-body">
+              Probability:
+            </label>
+            <div class="input-group" style="max-width: 100px;">
+              <input
+                v-model.number="reoProbability"
+                type="number"
+                class="form-control form-control-sm text-end fw-bold"
+                min="0"
+                max="100"
+                step="1"
+                placeholder="0"
+                @input="handleProbabilityChange"
+              />
+              <span class="input-group-text">%</span>
+            </div>
+          </div>
+          
           <!-- Collapse/Expand button -->
           <button
             type="button"
@@ -41,7 +61,7 @@
           <div class="col-md-2">
             <div class="text-center p-2 bg-light rounded h-100">
               <small class="text-muted d-block">Expected Proceeds</small>
-              <span class="fw-bold text-success">{{ formatCurrency(timelineData.expected_recovery || 0) }}</span>
+              <span class="fw-bold text-success">{{ formatCurrency(reoScenario === 'as_is' ? (timelineData.expected_proceeds_asis || 0) : (timelineData.expected_proceeds_arv || 0)) }}</span>
             </div>
           </div>
           <div class="col-md-2">
@@ -63,16 +83,16 @@
           <div class="col-md-2">
             <div class="text-center p-2 bg-light rounded h-100">
               <small class="text-muted d-block">MOIC</small>
-              <span class="fw-bold text-info">
-                {{ timelineData.moic != null ? timelineData.moic.toFixed(2) + 'x' : '—' }}
+              <span class="fw-bold" :class="(reoScenario === 'as_is' ? timelineData.moic_asis : timelineData.moic_rehab) != null && (reoScenario === 'as_is' ? timelineData.moic_asis : timelineData.moic_rehab) >= 1 ? 'text-success' : 'text-danger'">
+                {{ (reoScenario === 'as_is' ? timelineData.moic_asis : timelineData.moic_rehab) != null ? (reoScenario === 'as_is' ? timelineData.moic_asis : timelineData.moic_rehab).toFixed(2) + 'x' : '—' }}
               </span>
             </div>
           </div>
           <div class="col-md-2">
             <div class="text-center p-2 bg-light rounded h-100">
               <small class="text-muted d-block">Annualized ROI</small>
-              <span class="fw-bold" :class="timelineData.annualized_roi != null && timelineData.annualized_roi >= 0 ? 'text-success' : 'text-danger'">
-                {{ timelineData.annualized_roi != null ? (timelineData.annualized_roi * 100).toFixed(1) + '%' : '—' }}
+              <span class="fw-bold" :class="(reoScenario === 'as_is' ? timelineData.annualized_roi_asis : timelineData.annualized_roi_rehab) != null && (reoScenario === 'as_is' ? timelineData.annualized_roi_asis : timelineData.annualized_roi_rehab) >= 0 ? 'text-success' : 'text-danger'">
+                {{ (reoScenario === 'as_is' ? timelineData.annualized_roi_asis : timelineData.annualized_roi_rehab) != null ? ((reoScenario === 'as_is' ? timelineData.annualized_roi_asis : timelineData.annualized_roi_rehab) * 100).toFixed(1) + '%' : '—' }}
               </span>
             </div>
           </div>
@@ -133,27 +153,7 @@
               </span>
             </div>
           </div>
-          <div class="col-md-6">
-            <div class="d-flex align-items-center gap-2">
-              <label class="form-label fw-semibold mb-0">
-                <i class="mdi mdi-percent me-1 text-primary"></i>
-                REO Sale Probability:
-              </label>
-              <div class="input-group" style="max-width: 180px;">
-                <input
-                  v-model.number="reoProbability"
-                  type="number"
-                  class="form-control form-control-sm text-end fw-bold"
-                  min="0"
-                  max="100"
-                  step="1"
-                  placeholder="0"
-                  @input="handleProbabilityChange"
-                />
-                <span class="input-group-text">%</span>
-              </div>
-            </div>
-          </div>
+          <!-- Second column removed - probability moved to header -->
         </div>
       </div>
 
@@ -236,6 +236,44 @@
                           :class="timelineData.reo_fc_duration_override_months > 0 ? 'bg-success' : 'bg-danger'"
                           style="font-size: 0.7rem;">
                       {{ timelineData.reo_fc_duration_override_months > 0 ? '+' : '' }}{{ timelineData.reo_fc_duration_override_months }}
+                    </span>
+                  </div>
+                </div>
+                
+                <!-- REO Renovation with +/- controls (only shown in Rehab scenario) -->
+                <div v-if="reoScenario === 'rehab'" class="d-flex align-items-baseline gap-2">
+                  <small class="text-muted d-block" style="min-width: 140px;">REO Renovation:</small>
+                  <div class="d-flex align-items-center gap-2">
+                    <span class="fw-semibold text-dark">
+                      {{ timelineData.reo_renovation_months != null ? timelineData.reo_renovation_months : '—' }} months
+                    </span>
+                    <div class="btn-group btn-group-sm reo-duration-controls" role="group">
+                      <button
+                        type="button"
+                        class="btn btn-outline-secondary"
+                        @click="adjustReoRenovationDuration(-1)"
+                        :disabled="loadingTimelines"
+                        title="Subtract 1 month"
+                      >
+                        <i v-if="loadingTimelines" class="mdi mdi-refresh mdi-spin"></i>
+                        <i v-else class="mdi mdi-minus"></i>
+                      </button>
+                      <button
+                        type="button"
+                        class="btn btn-outline-secondary"
+                        @click="adjustReoRenovationDuration(1)"
+                        :disabled="loadingTimelines"
+                        title="Add 1 month"
+                      >
+                        <i v-if="loadingTimelines" class="mdi mdi-refresh mdi-spin"></i>
+                        <i v-else class="mdi mdi-plus"></i>
+                      </button>
+                    </div>
+                    <span v-if="timelineData.reo_renovation_override_months != null && timelineData.reo_renovation_override_months !== 0" 
+                          class="badge" 
+                          :class="timelineData.reo_renovation_override_months > 0 ? 'bg-success' : 'bg-danger'"
+                          style="font-size: 0.7rem;">
+                      {{ timelineData.reo_renovation_override_months > 0 ? '+' : '' }}{{ timelineData.reo_renovation_override_months }}
                     </span>
                   </div>
                 </div>
@@ -341,9 +379,15 @@
                   <small class="text-muted d-block" style="min-width: 140px;">REO Holding Costs:</small>
                   <span class="fw-bold text-dark">{{ formatCurrency(timelineData.reo_holding_costs || 0) }}</span>
                 </div>
-                <div class="d-flex align-items-baseline gap-2">
+                <!-- Trashout (As-Is only) -->
+                <div v-if="reoScenario === 'as_is'" class="d-flex align-items-baseline gap-2">
                   <small class="text-muted d-block" style="min-width: 140px;">Trashout:</small>
                   <span class="fw-bold text-dark">{{ formatCurrency(timelineData.trashout_cost || 0) }}</span>
+                </div>
+                <!-- Renovation Cost (Rehab only) -->
+                <div v-if="reoScenario === 'rehab'" class="d-flex align-items-baseline gap-2">
+                  <small class="text-muted d-block" style="min-width: 140px;">Renovation Cost:</small>
+                  <span class="fw-bold text-dark">{{ formatCurrency(timelineData.renovation_cost || 0) }}</span>
                 </div>
               </div>
             </div>
@@ -359,15 +403,15 @@
               <div class="d-flex flex-column gap-2">
                 <div class="d-flex align-items-baseline gap-2">
                   <small class="text-muted d-block" style="min-width: 160px;">Broker Fees:</small>
-                  <span class="fw-bold text-dark">{{ formatCurrency(timelineData.broker_fees || 0) }}</span>
+                  <span class="fw-bold text-dark">{{ formatCurrency(reoScenario === 'as_is' ? (timelineData.broker_fees || 0) : (timelineData.broker_fees_arv || 0)) }}</span>
                 </div>
                 <div class="d-flex align-items-baseline gap-2">
                   <small class="text-muted d-block" style="min-width: 160px;">Servicer Liquidation Fee:</small>
-                  <span class="fw-bold text-dark">{{ formatCurrency(timelineData.servicer_liquidation_fee || 0) }}</span>
+                  <span class="fw-bold text-dark">{{ formatCurrency(reoScenario === 'as_is' ? (timelineData.servicer_liquidation_fee || 0) : (timelineData.servicer_liquidation_fee_arv || 0)) }}</span>
                 </div>
                 <div class="d-flex align-items-baseline gap-2">
                   <small class="text-muted d-block" style="min-width: 160px;">AM Liquidation Fee:</small>
-                  <span class="fw-bold text-dark">{{ formatCurrency(timelineData.am_liquidation_fee || 0) }}</span>
+                  <span class="fw-bold text-dark">{{ formatCurrency(reoScenario === 'as_is' ? (timelineData.am_liquidation_fee || 0) : (timelineData.am_liquidation_fee_arv || 0)) }}</span>
                 </div>
               </div>
             </div>
@@ -440,6 +484,8 @@ const timelineData = reactive<{
   reo_marketing_override_months: number | null
   total_timeline_months: number | null
   expected_recovery: number | null
+  expected_proceeds_asis: number | null
+  expected_proceeds_arv: number | null
   acquisition_price: number | null
   // WHAT: Acquisition Cost values from backend models
   acq_broker_fees: number | null
@@ -457,12 +503,27 @@ const timelineData = reactive<{
   legal_cost: number | null
   reo_holding_costs: number | null
   trashout_cost: number | null
-  // WHAT: Liquidation Expense values from backend models
+  renovation_cost: number | null
+  // WHAT: Liquidation Expense values from backend models - As-Is
   broker_fees: number | null
   servicer_liquidation_fee: number | null
   am_liquidation_fee: number | null
-  // WHAT: Calculated financial metrics from backend
+  // WHAT: Liquidation Expense values - Rehab/ARV
+  broker_fees_arv: number | null
+  servicer_liquidation_fee_arv: number | null
+  am_liquidation_fee_arv: number | null
+  // WHAT: Calculated financial metrics from backend - As-Is
   total_costs: number | null
+  total_costs_asis: number | null
+  net_pl_asis: number | null
+  moic_asis: number | null
+  annualized_roi_asis: number | null
+  // WHAT: Calculated financial metrics - Rehab
+  total_costs_rehab: number | null
+  net_pl_rehab: number | null
+  moic_rehab: number | null
+  annualized_roi_rehab: number | null
+  // WHAT: Legacy fields
   net_pl: number | null
   moic: number | null
   annualized_roi: number | null
@@ -489,6 +550,8 @@ const timelineData = reactive<{
   reo_marketing_override_months: null,
   total_timeline_months: null,
   expected_recovery: null,
+  expected_proceeds_asis: null,
+  expected_proceeds_arv: null,
   acquisition_price: null,
   acq_broker_fees: null,
   acq_other_fees: null,
@@ -503,13 +566,25 @@ const timelineData = reactive<{
   legal_cost: null,
   reo_holding_costs: null,
   trashout_cost: null,
+  renovation_cost: null,
   broker_fees: null,
   servicer_liquidation_fee: null,
   am_liquidation_fee: null,
+  broker_fees_arv: null,
+  servicer_liquidation_fee_arv: null,
+  am_liquidation_fee_arv: null,
   total_costs: null,
+  total_costs_asis: null,
+  total_costs_rehab: null,
   net_pl: null,
+  net_pl_asis: null,
+  net_pl_rehab: null,
   moic: null,
+  moic_asis: null,
+  moic_rehab: null,
   annualized_roi: null,
+  annualized_roi_asis: null,
+  annualized_roi_rehab: null,
   purchase_of_currentBalance: null,
   purchase_of_totalDebt: null,
   purchase_of_sellerAsIs: null,
@@ -632,21 +707,27 @@ const calculatedTotalDuration = computed(() => {
   }
 })
 
-// WHAT: Computed property to display total costs from backend
-// WHY: Use backend-calculated value instead of frontend calculation
+// WHAT: Computed property to display total costs based on scenario
+// WHY: Use backend-calculated value for As-Is or Rehab
 const calculatedTotalCosts = computed(() => {
-  return timelineData.total_costs || 0
+  return reoScenario.value === 'as_is' 
+    ? (timelineData.total_costs_asis || 0)
+    : (timelineData.total_costs_rehab || 0)
 })
 
 // WHAT: Computed property to display net PL with real-time updates
-// WHY: Net PL = Expected Recovery - Total Costs - Acquisition Price
-// HOW: Use local acquisitionPrice for real-time updates as user types
+// WHY: Net PL = Expected Proceeds - Total Costs - Acquisition Price
+// HOW: Use correct proceeds and costs based on scenario (As-Is vs Rehab), update in real-time with acquisition price changes
 const calculatedNetRecovery = computed(() => {
-  const expectedRecovery = timelineData.expected_recovery || 0
-  const totalCosts = timelineData.total_costs || 0
+  const expectedProceeds = reoScenario.value === 'as_is' 
+    ? (timelineData.expected_proceeds_asis || 0)
+    : (timelineData.expected_proceeds_arv || 0)
+  const totalCosts = reoScenario.value === 'as_is'
+    ? (timelineData.total_costs_asis || 0)
+    : (timelineData.total_costs_rehab || 0)
   const acqPrice = acquisitionPrice.value || 0
   
-  return expectedRecovery - totalCosts - acqPrice
+  return expectedProceeds - totalCosts - acqPrice
 })
 
 // WHAT: Computed properties for live-updating purchase price metrics

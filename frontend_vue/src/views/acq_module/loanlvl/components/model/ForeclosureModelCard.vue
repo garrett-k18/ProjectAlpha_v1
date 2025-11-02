@@ -12,9 +12,29 @@
           <h5 class="mb-0 d-flex align-items-center">
             <i class="fas fa-gavel me-2 text-primary"></i>
             Foreclosure Model
-            <span class="badge bg-primary ms-2">{{ fcProbability }}% Probability</span>
+            <span class="badge bg-primary ms-2">{{ fcProbability }}Probability</span>
           </h5>
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 align-items-center">
+          <!-- FC Sale Probability Input -->
+          <div class="d-flex align-items-center gap-2">
+            <label class="form-label fw-semibold mb-0 text-body">
+              Probability:
+            </label>
+            <div class="input-group" style="max-width: 100px;">
+              <input
+                v-model.number="fcProbability"
+                type="number"
+                class="form-control form-control-sm text-end fw-bold"
+                min="0"
+                max="100"
+                step="1"
+                placeholder="0"
+                @input="handleProbabilityChange"
+              />
+              <span class="input-group-text">%</span>
+            </div>
+          </div>
+          
           <!-- Collapse/Expand button -->
           <button
             type="button"
@@ -133,27 +153,7 @@
               </span>
             </div>
           </div>
-          <div class="col-md-6">
-            <div class="d-flex align-items-center gap-2">
-              <label class="form-label fw-semibold mb-0">
-                <i class="mdi mdi-percent me-1 text-primary"></i>
-                FC Sale Probability:
-              </label>
-              <div class="input-group" style="max-width: 180px;">
-                <input
-                  v-model.number="fcProbability"
-                  type="number"
-                  class="form-control form-control-sm text-end fw-bold"
-                  min="0"
-                  max="100"
-                  step="1"
-                  placeholder="0"
-                  @input="handleProbabilityChange"
-                />
-                <span class="input-group-text">%</span>
-              </div>
-            </div>
-          </div>
+          <!-- Second column removed - probability moved to header -->
         </div>
       </div>
 

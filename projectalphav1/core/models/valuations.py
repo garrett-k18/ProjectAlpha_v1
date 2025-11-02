@@ -5,22 +5,6 @@ from django.conf import settings
 from decimal import Decimal
 from datetime import date
 
-# ============================================================
-# PHASE 2: MODEL DELETED
-# InternalValuation model has been removed from the codebase.
-# Migration 0026_delete_internalvaluation.py successfully deployed.
-# REPLACEMENT: Use Valuation model with source field
-# ============================================================
-
-
-# ============================================================
-# PHASE 2: MODEL DELETED
-# BrokerValues model has been removed from the codebase.
-# Migration 0025_delete_brokervalues.py successfully deployed.
-# REPLACEMENT: Use Valuation model with source field
-# ============================================================
-
-
 class ValuationGradeReference(models.Model):
     """Reference table containing allowable valuation grades."""
 
@@ -78,8 +62,6 @@ class ValuationGradeReference(models.Model):
 
 class Valuation(models.Model):
     """
-    Unified valuation model that combines InternalValuation and BrokerValues.
-    
     This model stores all property valuations with a source tag to differentiate
     between internal, broker, third-party, and other valuation sources.
     """

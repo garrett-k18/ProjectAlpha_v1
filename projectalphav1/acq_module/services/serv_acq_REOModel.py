@@ -16,10 +16,11 @@ from acq_module.models.model_acq_seller import SellerRawData
 from acq_module.models.model_acq_assumptions import TradeLevelAssumption, LoanLevelAssumption
 from acq_module.logic.logi_acq_durationAssumptions import get_asset_fc_timeline
 from acq_module.logic.logi_acq_expenseAssumptions import monthly_tax_for_asset, monthly_insurance_for_asset, acq_broker_fee, acq_fee_other
-from acq_module.logic.logi_acq__proceedAssumptions import reo_asis_proceeds
+from acq_module.logic.logi_acq__proceedAssumptions import reo_asis_proceeds, reo_arv_proceeds
 from acq_module.logic.logi_acq_purchasePrice import purchase_price, purchase_price_metrics
 from acq_module.logic.logi_acq_outcomespecific import fcoutcomeLogic
 from core.models.model_co_assumptions import StateReference, Servicer, HOAAssumption, PropertyTypeAssumption, SquareFootageAssumption
+from core.models.valuations import Valuation
 
 
 def get_reo_timeline_sums(asset_hub_id: int, reference_date: Optional[date] = None) -> Dict[str, Any]:
@@ -265,6 +266,7 @@ def get_reo_expense_values(
     legal_cost = Decimal('0.0')
     reo_holding_costs = Decimal('0.0')
     trashout_cost = Decimal('0.0')
+    renovation_cost = Decimal('0.0')
     broker_fees = Decimal('0.0')
     servicer_liquidation_fee = Decimal('0.0')
     
@@ -498,25 +500,108 @@ def get_reo_expense_values(
         import traceback
         traceback.print_exc()
     
-    # WHAT: Get REO sale proceeds for closing cost calculations
-    expected_recovery = Decimal('0.0')
+    # WHAT: Calculate renovation cost (for Rehab scenario)
+    # WHY: Cost to renovate property before REO sale
+    # HOW: Priority 1 - Internal UW rehab estimate, 2 - Square footage model, 3 - Property type model
+    try:
+        print(f"\n=== RENOVATION COST CALCULATION ===")
+        property_type = raw_data.property_type if raw_data else None
+        square_feet = raw_data.sq_ft if raw_data else None
+        
+        print(f"Property Type: {property_type}, Square Feet: {square_feet}")
+        
+        # WHAT: Priority 1 - Check for Internal Initial UW valuation rehab estimate
+        # WHY: Most accurate if underwriter provided specific rehab estimate
+        try:
+            internal_uw_val = Valuation.objects.filter(
+                asset_hub_id=asset_hub_id,
+                source='internalInitialUW'
+            ).only('rehab_est_total').first()
+            
+            print(f"Internal UW Valuation found: {internal_uw_val is not None}")
+            if internal_uw_val:
+                print(f"rehab_est_total value: {internal_uw_val.rehab_est_total}")
+            
+            if internal_uw_val and internal_uw_val.rehab_est_total:
+                renovation_cost = Decimal(str(internal_uw_val.rehab_est_total))
+                print(f"✓ Renovation Cost (Internal UW Estimate): ${renovation_cost:,.2f}")
+            else:
+                print(f"No Internal UW rehab estimate found - will try square footage model")
+        except Exception as e:
+            print(f"ERROR getting Internal UW rehab estimate: {str(e)}")
+            import traceback
+            traceback.print_exc()
+        
+        # WHAT: Priority 2 - Try square footage model if no UW estimate and square feet available
+        if renovation_cost == 0 and square_feet and square_feet > 0:
+            try:
+                sqft_record = SquareFootageAssumption.objects.filter(
+                    property_category='RESIDENTIAL',
+                    is_active=True
+                ).first()
+                if sqft_record and sqft_record.renovation_per_sqft:
+                    renovation_cost = Decimal(str(square_feet)) * sqft_record.renovation_per_sqft
+                    print(f"Renovation Cost (Square Foot Model - RESIDENTIAL): {square_feet} sqft * ${sqft_record.renovation_per_sqft:.4f}/sqft = ${renovation_cost:,.2f}")
+                else:
+                    print(f"No active RESIDENTIAL SquareFootageAssumption with renovation_per_sqft found")
+            except Exception as e:
+                print(f"ERROR using square footage model: {str(e)}")
+        
+        # WHAT: Priority 3 - Fall back to property type assumption
+        if renovation_cost == 0 and property_type:
+            try:
+                prop_type_record = PropertyTypeAssumption.objects.filter(property_type__iexact=property_type).first()
+                if prop_type_record and prop_type_record.renovation_cost:
+                    renovation_cost = prop_type_record.renovation_cost
+                    print(f"Renovation Cost (Property Type Model): ${renovation_cost:,.2f}")
+                else:
+                    print(f"No PropertyTypeAssumption with renovation_cost found for property type: {property_type}")
+            except Exception as e:
+                print(f"ERROR using property type model: {str(e)}")
+        
+        print(f"Final Renovation Cost: ${renovation_cost:,.2f}")
+        print(f"=== END RENOVATION COST ===\n")
+        
+    except Exception as e:
+        print(f"ERROR calculating renovation cost: {str(e)}")
+        import traceback
+        traceback.print_exc()
+    
+    # WHAT: Get REO sale proceeds (As-Is)
+    # WHY: Expected proceeds = Internal UW As-Is value (priority 1) or Seller As-Is value (priority 2)
+    expected_proceeds_asis = Decimal('0.0')
     try:
         proceeds = reo_asis_proceeds(asset_hub_id)
         if proceeds is not None:
-            expected_recovery = proceeds
+            expected_proceeds_asis = proceeds
+            print(f"Expected Proceeds (REO As-Is): ${expected_proceeds_asis:,.2f}")
     except Exception as e:
-        print(f"ERROR calculating REO proceeds: {str(e)}")
+        print(f"ERROR calculating REO As-Is proceeds: {str(e)}")
+    
+    # WHAT: Get REO sale proceeds (ARV - After Repair Value)
+    # WHY: Expected proceeds for Rehab scenario = Internal UW ARV (priority 1) or Seller ARV (priority 2)
+    expected_proceeds_arv = Decimal('0.0')
+    try:
+        proceeds_arv = reo_arv_proceeds(asset_hub_id)
+        if proceeds_arv is not None:
+            expected_proceeds_arv = proceeds_arv
+            print(f"Expected Proceeds (REO ARV): ${expected_proceeds_arv:,.2f}")
+    except Exception as e:
+        print(f"ERROR calculating REO ARV proceeds: {str(e)}")
+    
+    # WHAT: Use As-Is proceeds as default (frontend will toggle between As-Is and ARV)
+    expected_proceeds = expected_proceeds_asis
     
     # WHAT: Calculate broker fees
     # WHY: Broker fees for REO sale calculated as percentage from state reference table × expected proceeds
     broker_fees = Decimal('0.0')
-    if raw_data.state and expected_recovery > 0:
+    if raw_data.state and expected_proceeds > 0:
         try:
             state_ref = StateReference.objects.filter(state_code=raw_data.state).first()
             if state_ref and state_ref.broker_closing_cost_fees_avg:
                 broker_fee_pct = state_ref.broker_closing_cost_fees_avg
-                broker_fees = broker_fee_pct * expected_recovery
-                print(f"Broker Fees (State {raw_data.state}): {broker_fee_pct} × ${expected_recovery:,.2f} = ${broker_fees:,.2f}")
+                broker_fees = broker_fee_pct * expected_proceeds
+                print(f"Broker Fees (State {raw_data.state}): {broker_fee_pct} × ${expected_proceeds:,.2f} = ${broker_fees:,.2f}")
         except Exception as e:
             print(f"ERROR getting broker fees: {str(e)}")
     
@@ -535,8 +620,8 @@ def get_reo_expense_values(
                 
                 # WHAT: Get percentage fee option
                 pct_fee = Decimal('0.0')
-                if servicer.liqfee_pct and expected_recovery > 0:
-                    pct_fee = (servicer.liqfee_pct * expected_recovery).quantize(Decimal('0.01'))
+                if servicer.liqfee_pct and expected_proceeds > 0:
+                    pct_fee = (servicer.liqfee_pct * expected_proceeds).quantize(Decimal('0.01'))
                 
                 # WHAT: Take the maximum of the two options
                 servicer_liquidation_fee = max(flat_fee, pct_fee)
@@ -579,53 +664,146 @@ def get_reo_expense_values(
             acq_other_fee_pct = trade_assumption.acq_other_costs or Decimal('0.0')
     
     # WHAT: Calculate AM liquidation fee
-    # WHY: Asset manager's fee at liquidation
+    # WHY: Asset manager's fee at REO liquidation
+    # HOW: Use MAX(flat fee, percentage fee × REO proceeds) - same logic as servicer liq fee
     am_liquidation_fee = Decimal('0.0')
-    try:
-        am_liq_fee = fcoutcomeLogic.fc_am_liq_fee(asset_hub_id, expected_recovery)
-        if am_liq_fee is not None:
-            am_liquidation_fee = am_liq_fee
-            print(f"AM Liquidation Fee: ${am_liquidation_fee:,.2f}")
-    except Exception as e:
-        print(f"ERROR calculating AM liquidation fee: {str(e)}")
+    if raw_data.trade:
+        try:
+            trade_assumption = TradeLevelAssumption.objects.filter(trade=raw_data.trade).first()
+            if trade_assumption and trade_assumption.servicer:
+                servicer = trade_assumption.servicer
+                
+                # WHAT: Get flat fee option
+                flat_fee = servicer.liqfee_flat or Decimal('0.0')
+                
+                # WHAT: Get percentage fee option
+                pct_fee = Decimal('0.0')
+                if servicer.liqfee_pct and expected_proceeds > 0:
+                    pct_fee = (servicer.liqfee_pct * expected_proceeds).quantize(Decimal('0.01'))
+                
+                # WHAT: Take the maximum of the two options
+                am_liquidation_fee = max(flat_fee, pct_fee)
+                print(f"AM Liquidation Fee: MAX(${flat_fee:,.2f}, ${pct_fee:,.2f}) = ${am_liquidation_fee:,.2f}")
+        except Exception as e:
+            print(f"ERROR calculating AM liquidation fee: {str(e)}")
     
-    # WHAT: Calculate total costs
-    # WHY: Sum all expenses for net PL calculation
-    total_costs = (
+    # WHAT: Calculate fees for Rehab scenario (based on ARV proceeds)
+    # WHY: Liquidation fees in Rehab are based on higher ARV proceeds, not As-Is
+    broker_fees_arv = Decimal('0.0')
+    servicer_liquidation_fee_arv = Decimal('0.0')
+    am_liquidation_fee_arv = Decimal('0.0')
+    
+    if expected_proceeds_arv > 0:
+        # WHAT: Recalculate broker fees for ARV
+        if raw_data.state:
+            try:
+                state_ref = StateReference.objects.filter(state_code=raw_data.state).first()
+                if state_ref and state_ref.broker_closing_cost_fees_avg:
+                    broker_fee_pct = state_ref.broker_closing_cost_fees_avg
+                    broker_fees_arv = broker_fee_pct * expected_proceeds_arv
+                    print(f"Broker Fees ARV (State {raw_data.state}): {broker_fee_pct} × ${expected_proceeds_arv:,.2f} = ${broker_fees_arv:,.2f}")
+            except Exception as e:
+                print(f"ERROR calculating ARV broker fees: {str(e)}")
+        
+        # WHAT: Recalculate servicer liquidation fee for ARV
+        if raw_data.trade:
+            try:
+                trade_assumption = TradeLevelAssumption.objects.filter(trade=raw_data.trade).first()
+                if trade_assumption and trade_assumption.servicer:
+                    servicer = trade_assumption.servicer
+                    flat_fee = servicer.liqfee_flat or Decimal('0.0')
+                    pct_fee = (servicer.liqfee_pct * expected_proceeds_arv).quantize(Decimal('0.01')) if servicer.liqfee_pct else Decimal('0.0')
+                    servicer_liquidation_fee_arv = max(flat_fee, pct_fee)
+                    print(f"Servicer Liquidation Fee ARV: MAX(${flat_fee:,.2f}, ${pct_fee:,.2f}) = ${servicer_liquidation_fee_arv:,.2f}")
+            except Exception as e:
+                print(f"ERROR calculating ARV servicer liquidation fee: {str(e)}")
+        
+        # WHAT: Recalculate AM liquidation fee for ARV
+        if raw_data.trade:
+            try:
+                trade_assumption = TradeLevelAssumption.objects.filter(trade=raw_data.trade).first()
+                if trade_assumption and trade_assumption.servicer:
+                    servicer = trade_assumption.servicer
+                    flat_fee = servicer.liqfee_flat or Decimal('0.0')
+                    pct_fee = (servicer.liqfee_pct * expected_proceeds_arv).quantize(Decimal('0.01')) if servicer.liqfee_pct else Decimal('0.0')
+                    am_liquidation_fee_arv = max(flat_fee, pct_fee)
+                    print(f"AM Liquidation Fee ARV: MAX(${flat_fee:,.2f}, ${pct_fee:,.2f}) = ${am_liquidation_fee_arv:,.2f}")
+            except Exception as e:
+                print(f"ERROR calculating ARV AM liquidation fee: {str(e)}")
+    
+    # WHAT: Calculate total costs for As-Is scenario
+    # WHY: Sum all expenses including trashout (no renovation cost)
+    total_costs_asis = (
         acq_broker_fees + acq_other_fees + acq_legal + acq_dd + acq_tax_title +
         servicing_fees + taxes + insurance + legal_cost + reo_holding_costs + trashout_cost +
         broker_fees + servicer_liquidation_fee + am_liquidation_fee
     )
-    print(f"\nTotal Costs: ${total_costs:,.2f}")
+    print(f"\nTotal Costs (As-Is): ${total_costs_asis:,.2f}")
     
-    # WHAT: Calculate Net PL
-    # WHY: Net PL = Expected Recovery - Total Costs - Acquisition Price
-    net_pl = None
-    if expected_recovery is not None and acquisition_price is not None:
-        net_pl = expected_recovery - total_costs - acquisition_price
-        print(f"Net PL: ${expected_recovery:,.2f} - ${total_costs:,.2f} - ${acquisition_price:,.2f} = ${net_pl:,.2f}")
+    # WHAT: Calculate total costs for Rehab scenario
+    # WHY: Sum all expenses including renovation cost (no trashout), using ARV-based fees
+    total_costs_rehab = (
+        acq_broker_fees + acq_other_fees + acq_legal + acq_dd + acq_tax_title +
+        servicing_fees + taxes + insurance + legal_cost + reo_holding_costs + renovation_cost +
+        broker_fees_arv + servicer_liquidation_fee_arv + am_liquidation_fee_arv
+    )
+    print(f"Total Costs (Rehab): ${total_costs_rehab:,.2f}")
     
-    # WHAT: Calculate MOIC (Multiple on Invested Capital)
-    # WHY: MOIC = Total Inflows / Total Outflows = Expected Proceeds / (Acquisition Price + Total Costs)
-    moic = None
-    if expected_recovery is not None and acquisition_price is not None:
-        total_outflows = acquisition_price + total_costs
-        if total_outflows > 0:
-            moic = expected_recovery / total_outflows
-            print(f"\nMOIC: ${expected_recovery:,.2f} / (${acquisition_price:,.2f} + ${total_costs:,.2f}) = {moic:.2f}x")
+    # WHAT: Default to As-Is for backward compatibility
+    total_costs = total_costs_asis
     
-    # WHAT: Calculate Annualized ROI
-    # WHY: Annualized ROI = ((NetPL / Gross Cost) + 1) ^ (12 / total_duration) - 1
-    annualized_roi = None
-    if net_pl is not None and acquisition_price is not None and total_timeline_months and total_timeline_months > 0:
-        # WHAT: Calculate Gross Cost (total invested capital)
-        gross_cost = acquisition_price + total_costs
-        if gross_cost > 0:
-            return_ratio = net_pl / gross_cost
-            growth_factor = float(return_ratio) + 1.0
-            exponent = 12.0 / float(total_timeline_months)
-            annualized_roi = (growth_factor ** exponent) - 1.0
-            print(f"Annualized ROI: ((${net_pl:,.2f} / (${acquisition_price:,.2f} + ${total_costs:,.2f})) + 1) ^ (12 / {total_timeline_months}) - 1 = {annualized_roi:.4f} ({annualized_roi * 100:.2f}%)")
+    # WHAT: Calculate metrics for As-Is scenario
+    net_pl_asis = None
+    moic_asis = None
+    annualized_roi_asis = None
+    
+    if expected_proceeds_asis is not None and acquisition_price is not None:
+        net_pl_asis = expected_proceeds_asis - total_costs_asis - acquisition_price
+        print(f"\nNet PL (As-Is): ${expected_proceeds_asis:,.2f} - ${total_costs_asis:,.2f} - ${acquisition_price:,.2f} = ${net_pl_asis:,.2f}")
+        
+        total_outflows_asis = acquisition_price + total_costs_asis
+        if total_outflows_asis > 0:
+            moic_asis = expected_proceeds_asis / total_outflows_asis
+            print(f"MOIC (As-Is): ${expected_proceeds_asis:,.2f} / ${total_outflows_asis:,.2f} = {moic_asis:.2f}x")
+        
+        if total_timeline_months and total_timeline_months > 0:
+            gross_cost_asis = acquisition_price + total_costs_asis
+            if gross_cost_asis > 0:
+                return_ratio = net_pl_asis / gross_cost_asis
+                growth_factor = float(return_ratio) + 1.0
+                exponent = 12.0 / float(total_timeline_months)
+                annualized_roi_asis = (growth_factor ** exponent) - 1.0
+                print(f"Annualized ROI (As-Is): {annualized_roi_asis:.4f} ({annualized_roi_asis * 100:.2f}%)")
+    
+    # WHAT: Calculate metrics for Rehab scenario
+    net_pl_rehab = None
+    moic_rehab = None
+    annualized_roi_rehab = None
+    
+    if expected_proceeds_arv is not None and acquisition_price is not None:
+        net_pl_rehab = expected_proceeds_arv - total_costs_rehab - acquisition_price
+        print(f"\nNet PL (Rehab): ${expected_proceeds_arv:,.2f} - ${total_costs_rehab:,.2f} - ${acquisition_price:,.2f} = ${net_pl_rehab:,.2f}")
+        
+        total_outflows_rehab = acquisition_price + total_costs_rehab
+        if total_outflows_rehab > 0:
+            moic_rehab = expected_proceeds_arv / total_outflows_rehab
+            print(f"MOIC (Rehab): ${expected_proceeds_arv:,.2f} / ${total_outflows_rehab:,.2f} = {moic_rehab:.2f}x")
+        
+        # WHAT: Rehab scenario uses different total duration (includes renovation)
+        if total_timeline_months and total_timeline_months > 0:
+            gross_cost_rehab = acquisition_price + total_costs_rehab
+            if gross_cost_rehab > 0:
+                return_ratio = net_pl_rehab / gross_cost_rehab
+                growth_factor = float(return_ratio) + 1.0
+                exponent = 12.0 / float(total_timeline_months)
+                annualized_roi_rehab = (growth_factor ** exponent) - 1.0
+                print(f"Annualized ROI (Rehab): {annualized_roi_rehab:.4f} ({annualized_roi_rehab * 100:.2f}%)")
+    
+    # WHAT: Default to As-Is values for backward compatibility
+    total_costs = total_costs_asis
+    net_pl = net_pl_asis
+    moic = moic_asis
+    annualized_roi = annualized_roi_asis
     
     # WHAT: Get purchase price metrics (ratios as percentages)
     price_metrics = {}
@@ -643,7 +821,7 @@ def get_reo_expense_values(
             base_values['base_totalDebt'] = float(raw_data.total_debt) if raw_data.total_debt else None
             base_values['base_sellerAsIs'] = float(raw_data.seller_asis_value) if raw_data.seller_asis_value else None
             
-            from core.models.valuations import Valuation
+            # WHAT: Valuation is already imported at top of file
             try:
                 internal_val = Valuation.objects.filter(
                     asset_hub_id=asset_hub_id, 
@@ -673,14 +851,32 @@ def get_reo_expense_values(
         'legal_cost': float(legal_cost) if legal_cost is not None else None,
         'reo_holding_costs': float(reo_holding_costs) if reo_holding_costs is not None else None,
         'trashout_cost': float(trashout_cost) if trashout_cost is not None else None,
-        # WHAT: Liquidation Expenses (costs incurred at REO sale)
+        'renovation_cost': float(renovation_cost) if renovation_cost is not None else None,
+        # WHAT: Liquidation Expenses (costs incurred at REO sale) - As-Is values
         'broker_fees': float(broker_fees) if broker_fees is not None else None,
         'servicer_liquidation_fee': float(servicer_liquidation_fee) if servicer_liquidation_fee is not None else None,
         'am_liquidation_fee': float(am_liquidation_fee) if am_liquidation_fee is not None else None,
-        # WHAT: Calculated totals
+        # WHAT: Liquidation Expenses - Rehab/ARV values
+        'broker_fees_arv': float(broker_fees_arv) if broker_fees_arv is not None else None,
+        'servicer_liquidation_fee_arv': float(servicer_liquidation_fee_arv) if servicer_liquidation_fee_arv is not None else None,
+        'am_liquidation_fee_arv': float(am_liquidation_fee_arv) if am_liquidation_fee_arv is not None else None,
+        # WHAT: Calculated totals - As-Is scenario
         'total_costs': float(total_costs),
-        'expected_recovery': float(expected_recovery) if expected_recovery is not None else None,
+        'total_costs_asis': float(total_costs_asis),
+        'net_pl_asis': float(net_pl_asis) if net_pl_asis is not None else None,
+        'moic_asis': float(moic_asis) if moic_asis is not None else None,
+        'annualized_roi_asis': float(annualized_roi_asis) if annualized_roi_asis is not None else None,
+        # WHAT: Calculated totals - Rehab scenario
+        'total_costs_rehab': float(total_costs_rehab),
+        'net_pl_rehab': float(net_pl_rehab) if net_pl_rehab is not None else None,
+        'moic_rehab': float(moic_rehab) if moic_rehab is not None else None,
+        'annualized_roi_rehab': float(annualized_roi_rehab) if annualized_roi_rehab is not None else None,
+        # WHAT: Expected proceeds for both scenarios
+        'expected_recovery': float(expected_proceeds) if expected_proceeds is not None else None,
+        'expected_proceeds_asis': float(expected_proceeds_asis) if expected_proceeds_asis is not None else None,
+        'expected_proceeds_arv': float(expected_proceeds_arv) if expected_proceeds_arv is not None else None,
         'acquisition_price': float(acquisition_price) if acquisition_price is not None else None,
+        # WHAT: Legacy fields for backward compatibility
         'net_pl': float(net_pl) if net_pl is not None else None,
         'moic': float(moic) if moic is not None else None,
         'annualized_roi': float(annualized_roi) if annualized_roi is not None else None,
