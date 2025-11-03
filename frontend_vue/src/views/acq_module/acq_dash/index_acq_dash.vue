@@ -228,6 +228,23 @@
         <TradeDetailsModal
           v-model:bidDate="bidDateModel"
           v-model:settlementDate="settlementDateModel"
+          v-model:servicingTransferDate="servicingTransferDateModel"
+          v-model:targetIrr="targetIrrModel"
+          v-model:discountRate="discountRateModel"
+          v-model:perfRplHoldPeriod="perfRplHoldPeriodModel"
+          v-model:modRate="modRateModel"
+          v-model:modLegalTerm="modLegalTermModel"
+          v-model:modAmortTerm="modAmortTermModel"
+          v-model:maxModLtv="maxModLtvModel"
+          v-model:modIoFlag="modIoFlagModel"
+          v-model:modDownPmt="modDownPmtModel"
+          v-model:modOrigCost="modOrigCostModel"
+          v-model:modSetupDuration="modSetupDurationModel"
+          v-model:modHoldDuration="modHoldDurationModel"
+          v-model:acqLegalCost="acqLegalCostModel"
+          v-model:acqDdCost="acqDdCostModel"
+          v-model:acqTaxTitleCost="acqTaxTitleCostModel"
+          v-model:amFeePct="amFeePctModel"
           :disabled="dateFieldsLoading"
           @changed="autosaveDateChanges"
         />
@@ -356,18 +373,34 @@ export default {
       tradeOptionsError,
     } = storeToRefs(acqStore);
 
-    // Trade dates form state
+    // WHAT: Trade assumptions form state - all fields from TradeDetailsModal
+    // WHY: Need reactive references for all form fields to enable two-way binding
+    // Trade dates
     const bidDateModel = ref<string>('')
     const settlementDateModel = ref<string>('')
-    const originalBidDate = ref<string>('')
-    const originalSettlementDate = ref<string>('')
-    const dateFieldsLoading = ref<boolean>(false)
+    const servicingTransferDateModel = ref<string>('')
+    // Financial assumptions
+    const targetIrrModel = ref<number | string>('')
+    const discountRateModel = ref<number | string>('')
+    const perfRplHoldPeriodModel = ref<number | string>('')
+    // Modification assumptions
+    const modRateModel = ref<number | string>('')
+    const modLegalTermModel = ref<number | string>('')
+    const modAmortTermModel = ref<number | string>('')
+    const maxModLtvModel = ref<number | string>('')
+    const modIoFlagModel = ref<boolean>(false)
+    const modDownPmtModel = ref<number | string>('')
+    const modOrigCostModel = ref<number | string>('')
+    const modSetupDurationModel = ref<number | string>('')
+    const modHoldDurationModel = ref<number | string>('')
+    // Acquisition costs
+    const acqLegalCostModel = ref<number | string>('')
+    const acqDdCostModel = ref<number | string>('')
+    const acqTaxTitleCostModel = ref<number | string>('')
+    // Asset management fees
+    const amFeePctModel = ref<number | string>('')
     
-    // Track if there are unsaved date changes
-    const hasDateChanges = computed(() => {
-      return bidDateModel.value !== originalBidDate.value || 
-             settlementDateModel.value !== originalSettlementDate.value
-    })
+    const dateFieldsLoading = ref<boolean>(false)
 
     // Shared selection state via Pinia stores
     // Use computed accessors that delegate to store actions to avoid
@@ -429,28 +462,68 @@ export default {
       }
     })
 
-    // Update local date models from store
+    // WHAT: Update local form models from store
+    // WHY: Load saved assumptions when trade is selected
     function updateLocalDateModels() {
       const assumptions = tradeAssumptionsStore.assumptions
       if (assumptions) {
-        // Format date strings to YYYY-MM-DD for input[type="date"]
+        // WHAT: Load all form fields from store assumptions
+        // Trade dates
         bidDateModel.value = assumptions.bid_date ? assumptions.bid_date.substring(0, 10) : ''
         settlementDateModel.value = assumptions.settlement_date ? assumptions.settlement_date.substring(0, 10) : ''
-        
-        // Store original values to detect changes
-        originalBidDate.value = bidDateModel.value
-        originalSettlementDate.value = settlementDateModel.value
+        servicingTransferDateModel.value = assumptions.servicing_transfer_date ? assumptions.servicing_transfer_date.substring(0, 10) : ''
+        // Financial assumptions
+        targetIrrModel.value = assumptions.target_irr ?? ''
+        discountRateModel.value = assumptions.discount_rate ?? ''
+        perfRplHoldPeriodModel.value = assumptions.perf_rpl_hold_period ?? ''
+        // Modification assumptions
+        modRateModel.value = assumptions.mod_rate ?? ''
+        modLegalTermModel.value = assumptions.mod_legal_term ?? ''
+        modAmortTermModel.value = assumptions.mod_amort_term ?? ''
+        maxModLtvModel.value = assumptions.max_mod_ltv ?? ''
+        modIoFlagModel.value = assumptions.mod_io_flag ?? false
+        modDownPmtModel.value = assumptions.mod_down_pmt ?? ''
+        modOrigCostModel.value = assumptions.mod_orig_cost ?? ''
+        modSetupDurationModel.value = assumptions.mod_setup_duration ?? ''
+        modHoldDurationModel.value = assumptions.mod_hold_duration ?? ''
+        // Acquisition costs
+        acqLegalCostModel.value = assumptions.acq_legal_cost ?? ''
+        acqDdCostModel.value = assumptions.acq_dd_cost ?? ''
+        acqTaxTitleCostModel.value = assumptions.acq_tax_title_cost ?? ''
+        // Asset management fees
+        amFeePctModel.value = assumptions.am_fee_pct ?? ''
       } else {
         resetLocalDateModels()
       }
     }
     
-    // Reset local date models
+    // WHAT: Reset local form models
+    // WHY: Clear all fields when switching trades or sellers
     function resetLocalDateModels() {
+      // Trade dates
       bidDateModel.value = ''
       settlementDateModel.value = ''
-      originalBidDate.value = ''
-      originalSettlementDate.value = ''
+      servicingTransferDateModel.value = ''
+      // Financial assumptions
+      targetIrrModel.value = ''
+      discountRateModel.value = ''
+      perfRplHoldPeriodModel.value = ''
+      // Modification assumptions
+      modRateModel.value = ''
+      modLegalTermModel.value = ''
+      modAmortTermModel.value = ''
+      maxModLtvModel.value = ''
+      modIoFlagModel.value = false
+      modDownPmtModel.value = ''
+      modOrigCostModel.value = ''
+      modSetupDurationModel.value = ''
+      modHoldDurationModel.value = ''
+      // Acquisition costs
+      acqLegalCostModel.value = ''
+      acqDdCostModel.value = ''
+      acqTaxTitleCostModel.value = ''
+      // Asset management fees
+      amFeePctModel.value = ''
     }
     
     // Handlers for date input changes
@@ -462,24 +535,42 @@ export default {
       // Optional validation could be added here
     }
     
-    // Save date changes to the backend
+    // WHAT: Save all trade assumption changes to the backend
+    // WHY: Persist user-entered values for all form fields
     async function saveDateChanges() {
       if (!selectedTradeId.value) return
       
       dateFieldsLoading.value = true
       
+      // WHAT: Build payload with all form fields
       const data = {
+        // Trade dates
         bid_date: bidDateModel.value || null,
         settlement_date: settlementDateModel.value || null,
+        servicing_transfer_date: servicingTransferDateModel.value || null,
+        // Financial assumptions
+        target_irr: targetIrrModel.value || null,
+        discount_rate: discountRateModel.value || null,
+        perf_rpl_hold_period: perfRplHoldPeriodModel.value || null,
+        // Modification assumptions
+        mod_rate: modRateModel.value || null,
+        mod_legal_term: modLegalTermModel.value || null,
+        mod_amort_term: modAmortTermModel.value || null,
+        max_mod_ltv: maxModLtvModel.value || null,
+        mod_io_flag: modIoFlagModel.value,
+        mod_down_pmt: modDownPmtModel.value || null,
+        mod_orig_cost: modOrigCostModel.value || null,
+        mod_setup_duration: modSetupDurationModel.value || null,
+        mod_hold_duration: modHoldDurationModel.value || null,
+        // Acquisition costs
+        acq_legal_cost: acqLegalCostModel.value || null,
+        acq_dd_cost: acqDdCostModel.value || null,
+        acq_tax_title_cost: acqTaxTitleCostModel.value || null,
+        // Asset management fees
+        am_fee_pct: amFeePctModel.value || null,
       }
       
       const success = await tradeAssumptionsStore.updateAssumptions(selectedTradeId.value, data)
-      
-      if (success) {
-        // Update our original values to match current values
-        originalBidDate.value = bidDateModel.value
-        originalSettlementDate.value = settlementDateModel.value
-      }
       
       dateFieldsLoading.value = false
       return success
@@ -653,11 +744,33 @@ export default {
       handleImportSuccess,
       docItems,
       gridRowsLoaded,
-      // Date fields
+      // WHAT: All form field models for TradeDetailsModal
+      // Trade dates
       bidDateModel,
       settlementDateModel,
+      servicingTransferDateModel,
+      // Financial assumptions
+      targetIrrModel,
+      discountRateModel,
+      perfRplHoldPeriodModel,
+      // Modification assumptions
+      modRateModel,
+      modLegalTermModel,
+      modAmortTermModel,
+      maxModLtvModel,
+      modIoFlagModel,
+      modDownPmtModel,
+      modOrigCostModel,
+      modSetupDurationModel,
+      modHoldDurationModel,
+      // Acquisition costs
+      acqLegalCostModel,
+      acqDdCostModel,
+      acqTaxTitleCostModel,
+      // Asset management fees
+      amFeePctModel,
+      // Loading state
       dateFieldsLoading,
-      hasDateChanges,
       // Modal state
       showTradeDetailsModal,
       showTradeDocumentsModal,

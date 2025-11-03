@@ -249,6 +249,9 @@ def get_fc_expense_values(
     acq_legal = None
     acq_dd = None
     acq_tax_title = None
+    # WHAT: Acquisition fee percentages for frontend live calculation
+    acq_broker_fee_pct = None
+    acq_other_fee_pct = None
     # Carry Costs
     servicing_fees = None
     taxes = None
@@ -265,26 +268,36 @@ def get_fc_expense_values(
     # print(f"ACQUISITION COSTS CALCULATION - Asset Hub ID: {asset_hub_id}")
     # print(f"{'='*80}")
     
-    # WHAT: Get broker fee (percentage of purchase price)
+    # WHAT: Get broker fee and percentage (for live frontend calculation)
     try:
         broker_fee = acq_broker_fee(asset_hub_id)
         if broker_fee > 0:
             acq_broker_fees = broker_fee
             # print(f"1. Broker Fee: ${acq_broker_fees:,.2f}")
             pass
+        # WHAT: Also fetch the percentage for frontend live calculation
+        if raw_data and raw_data.trade:
+            trade_assumptions = TradeLevelAssumption.objects.filter(trade=raw_data.trade).only('acq_broker_fees').first()
+            if trade_assumptions and trade_assumptions.acq_broker_fees is not None:
+                acq_broker_fee_pct = float(trade_assumptions.acq_broker_fees)
         # else:
             # print(f"1. Broker Fee: $0.00")
     except Exception as e:
         # print(f"1. Broker Fee: ERROR - {str(e)}")
         pass
     
-    # WHAT: Get other fees (percentage of purchase price)
+    # WHAT: Get other fees and percentage (for live frontend calculation)
     try:
         other_fee = acq_fee_other(asset_hub_id)
         if other_fee > 0:
             acq_other_fees = other_fee
             # print(f"2. Other Fees: ${acq_other_fees:,.2f}")
             pass
+        # WHAT: Also fetch the percentage for frontend live calculation
+        if raw_data and raw_data.trade:
+            trade_assumptions = TradeLevelAssumption.objects.filter(trade=raw_data.trade).only('acq_other_costs').first()
+            if trade_assumptions and trade_assumptions.acq_other_costs is not None:
+                acq_other_fee_pct = float(trade_assumptions.acq_other_costs)
         # else:
             # print(f"2. Other Fees: $0.00")
     except Exception as e:
@@ -618,6 +631,9 @@ def get_fc_expense_values(
         'acq_legal': float(acq_legal) if acq_legal is not None else None,
         'acq_dd': float(acq_dd) if acq_dd is not None else None,
         'acq_tax_title': float(acq_tax_title) if acq_tax_title is not None else None,
+        # WHAT: Return percentages for frontend live calculation
+        'acq_broker_fee_pct': acq_broker_fee_pct,
+        'acq_other_fee_pct': acq_other_fee_pct,
         # WHAT: Carry Costs (ongoing expenses during FC process)
         'servicing_fees': float(servicing_fees) if servicing_fees is not None else None,
         'taxes': float(taxes) if taxes is not None else None,

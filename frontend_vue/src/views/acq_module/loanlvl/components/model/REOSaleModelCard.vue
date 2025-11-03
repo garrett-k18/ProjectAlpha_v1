@@ -110,16 +110,16 @@
           <div class="col-md-2">
             <div class="text-center p-2 bg-light rounded h-100">
               <small class="text-muted d-block">MOIC</small>
-              <span class="fw-bold" :class="(reoScenario === 'as_is' ? timelineData.moic_asis : timelineData.moic_rehab) != null && (reoScenario === 'as_is' ? timelineData.moic_asis : timelineData.moic_rehab)! >= 1 ? 'text-success' : 'text-danger'">
-                {{ (reoScenario === 'as_is' ? timelineData.moic_asis : timelineData.moic_rehab) != null ? (reoScenario === 'as_is' ? timelineData.moic_asis : timelineData.moic_rehab)!.toFixed(2) + 'x' : '—' }}
+              <span class="fw-bold" :class="liveMOIC >= 1 ? 'text-success' : 'text-danger'">
+                {{ liveMOIC.toFixed(2) }}x
               </span>
             </div>
           </div>
           <div class="col-md-2">
             <div class="text-center p-2 bg-light rounded h-100">
               <small class="text-muted d-block">Annualized ROI</small>
-              <span class="fw-bold" :class="(reoScenario === 'as_is' ? timelineData.annualized_roi_asis : timelineData.annualized_roi_rehab) != null && (reoScenario === 'as_is' ? timelineData.annualized_roi_asis : timelineData.annualized_roi_rehab)! >= 0 ? 'text-success' : 'text-danger'">
-                {{ (reoScenario === 'as_is' ? timelineData.annualized_roi_asis : timelineData.annualized_roi_rehab) != null ? ((reoScenario === 'as_is' ? timelineData.annualized_roi_asis : timelineData.annualized_roi_rehab)! * 100).toFixed(1) + '%' : '—' }}
+              <span class="fw-bold" :class="liveAnnualizedROI >= 0 ? 'text-success' : 'text-danger'">
+                {{ (liveAnnualizedROI * 100).toFixed(1) }}%
               </span>
             </div>
           </div>
@@ -127,60 +127,59 @@
       </div>
 
       <!-- Key Inputs Section -->
-      <div class="mb-4 p-3 bg-light rounded border">
-        <div class="row g-3">
-          <div class="col-md-6">
-            <div class="d-flex align-items-center gap-2 mb-2">
-              <label class="form-label fw-semibold mb-0">
-                <i class="mdi mdi-currency-usd me-1 text-primary"></i>
-                Acquisition Price:
-              </label>
-              <div class="input-group" style="max-width: 180px;">
-                <span class="input-group-text">$</span>
-                <input
-                  type="text"
-                  class="form-control form-control-sm text-end fw-bold"
-                  :value="formattedAcquisitionPrice"
-                  @input="handleAcquisitionPriceInput"
-                  @blur="saveAcquisitionPrice"
-                  @keyup.enter="saveAcquisitionPrice"
-                  placeholder="0"
-                />
-              </div>
-            </div>
-            <!-- Purchase Price Metrics -->
-            <div class="d-flex flex-wrap gap-2 ms-4 mt-2">
-              <span 
-                v-if="liveMetrics.currentBalance != null" 
-                class="badge bg-info-subtle text-info border border-info"
-                style="font-weight: 500; font-size: 0.75rem;"
-              >
-                {{ liveMetrics.currentBalance }}% of Current Balance
-              </span>
-              <span 
-                v-if="liveMetrics.totalDebt != null" 
-                class="badge bg-warning-subtle text-warning border border-warning"
-                style="font-weight: 500; font-size: 0.75rem;"
-              >
-                {{ liveMetrics.totalDebt }}% of Total Debt
-              </span>
-              <span 
-                v-if="liveMetrics.sellerAsIs != null" 
-                class="badge bg-success-subtle text-success border border-success"
-                style="font-weight: 500; font-size: 0.75rem;"
-              >
-                {{ liveMetrics.sellerAsIs }}% of Seller As-Is
-              </span>
-              <span 
-                v-if="liveMetrics.internalUWAsIs != null" 
-                class="badge bg-primary-subtle text-primary border border-primary"
-                style="font-weight: 500; font-size: 0.75rem;"
-              >
-                {{ liveMetrics.internalUWAsIs }}% of UW As-Is
-              </span>
-            </div>
+      <div class="mb-4 p-3 bg-light rounded border text-center acquisition-price-card">
+        <h6 class="text-uppercase text-muted small fw-semibold mb-3">
+          Key Assumption
+        </h6>
+        <div class="d-inline-flex align-items-center gap-2 mb-3">
+          <label class="form-label fw-semibold mb-0 fs-5 text-muted">
+            Acquisition Price
+          </label>
+          <div class="input-group editable-input-highlight" style="max-width: 220px;">
+            <span class="input-group-text fs-5 bg-transparent border-0 text-muted pe-1">$</span>
+            <input
+              type="text"
+              class="form-control form-control-lg text-center fw-bold fs-4 bg-transparent border-0 editable-price-value"
+              style="box-shadow: none; cursor: text;"
+              :value="formattedAcquisitionPrice"
+              @input="handleAcquisitionPriceInput"
+              @blur="saveAcquisitionPrice"
+              @keyup.enter="saveAcquisitionPrice"
+              placeholder="Click to edit"
+            />
           </div>
-          <!-- Second column removed - probability moved to header -->
+        </div>
+
+        <!-- Purchase Price Metrics -->
+        <div class="d-flex flex-wrap justify-content-center gap-2">
+          <span 
+            v-if="liveMetrics.currentBalance != null" 
+            class="badge bg-info-subtle text-info border border-info"
+            style="font-weight: 500; font-size: 0.8rem; padding: 0.5em 0.8em;"
+          >
+            {{ liveMetrics.currentBalance }}% of Current Balance
+          </span>
+          <span 
+            v-if="liveMetrics.totalDebt != null" 
+            class="badge bg-warning-subtle text-warning border border-warning"
+            style="font-weight: 500; font-size: 0.8rem; padding: 0.5em 0.8em;"
+          >
+            {{ liveMetrics.totalDebt }}% of Total Debt
+          </span>
+          <span 
+            v-if="liveMetrics.sellerAsIs != null" 
+            class="badge bg-success-subtle text-success border border-success"
+            style="font-weight: 500; font-size: 0.8rem; padding: 0.5em 0.8em;"
+          >
+            {{ liveMetrics.sellerAsIs }}% of Seller As-Is
+          </span>
+          <span 
+            v-if="liveMetrics.internalUWAsIs != null" 
+            class="badge bg-primary-subtle text-primary border border-primary"
+            style="font-weight: 500; font-size: 0.8rem; padding: 0.5em 0.8em;"
+          >
+            {{ liveMetrics.internalUWAsIs }}% of UW As-Is
+          </span>
         </div>
       </div>
 
@@ -707,12 +706,26 @@ const calculatedTotalDuration = computed(() => {
   }
 })
 
-// WHAT: Computed property to display total costs based on scenario
-// WHY: Use backend-calculated value for As-Is or Rehab
+// WHAT: Computed property to display total costs based on scenario with live updates
+// WHY: Total costs includes broker/other fees which depend on acquisition price, so needs to update in real-time
+// HOW: Start with backend total_costs, then subtract old broker/other fees and add live ones
 const calculatedTotalCosts = computed(() => {
-  return reoScenario.value === 'as_is' 
+  // WHAT: Get base total costs from backend (scenario-dependent)
+  const baseTotalCosts = reoScenario.value === 'as_is' 
     ? (timelineData.total_costs_asis || 0)
     : (timelineData.total_costs_rehab || 0)
+  
+  // WHAT: Subtract the backend-calculated broker and other fees (which used old acquisition price)
+  const oldBrokerFee = timelineData.acq_broker_fees || 0
+  const oldOtherFee = timelineData.acq_other_fees || 0
+  
+  // WHAT: Add the live-calculated broker and other fees (using current acquisition price)
+  const newBrokerFee = liveBrokerFee.value || 0
+  const newOtherFee = liveOtherFee.value || 0
+  
+  // WHAT: Calculate adjusted total costs
+  // WHY: Replace old fees with new fees to reflect current acquisition price
+  return baseTotalCosts - oldBrokerFee - oldOtherFee + newBrokerFee + newOtherFee
 })
 
 // WHAT: Computed property to display net PL with real-time updates
@@ -759,6 +772,51 @@ const liveMetrics = computed(() => {
       ? ((price / timelineData.base_internalUWAsIs) * 100).toFixed(1)
       : null
   }
+})
+
+// WHAT: Computed property for live-updating MOIC (Multiple on Invested Capital)
+// WHY: Update MOIC in real-time as acquisition price changes
+// HOW: MOIC = (Expected Proceeds) / (Total Costs + Acquisition Price)
+const liveMOIC = computed(() => {
+  const expectedProceeds = reoScenario.value === 'as_is' 
+    ? (timelineData.expected_proceeds_asis || 0)
+    : (timelineData.expected_proceeds_arv || 0)
+  const totalCosts = reoScenario.value === 'as_is'
+    ? (timelineData.total_costs_asis || 0)
+    : (timelineData.total_costs_rehab || 0)
+  const acqPrice = acquisitionPrice.value || 0
+  const totalOutflows = totalCosts + acqPrice
+  
+  if (totalOutflows <= 0 || expectedProceeds <= 0) {
+    return 0
+  }
+  
+  return expectedProceeds / totalOutflows
+})
+
+// WHAT: Computed property for live-updating Annualized ROI
+// WHY: Update Annualized ROI in real-time as acquisition price changes
+// HOW: Annualized ROI = ((Net PL / Gross Cost) + 1) ^ (12 / total_duration) - 1
+const liveAnnualizedROI = computed(() => {
+  const expectedProceeds = reoScenario.value === 'as_is' 
+    ? (timelineData.expected_proceeds_asis || 0)
+    : (timelineData.expected_proceeds_arv || 0)
+  const totalCosts = reoScenario.value === 'as_is'
+    ? (timelineData.total_costs_asis || 0)
+    : (timelineData.total_costs_rehab || 0)
+  const acqPrice = acquisitionPrice.value || 0
+  const grossCost = acqPrice + totalCosts
+  const netPL = expectedProceeds - totalCosts - acqPrice
+  const totalDuration = calculatedTotalDuration.value || 1 // Avoid division by zero
+  
+  if (grossCost <= 0 || totalDuration <= 0) {
+    return 0
+  }
+  
+  const returnRatio = (netPL / grossCost) + 1
+  const annualizedROI = Math.pow(returnRatio, 12 / totalDuration) - 1
+  
+  return annualizedROI
 })
 
 // WHAT: Computed property for validation messages
@@ -1000,6 +1058,36 @@ input[type="number"]::-webkit-outer-spin-button {
 input[type="number"] {
   -moz-appearance: textfield;
   appearance: textfield;
+}
+
+/* WHAT: Visual hint that acquisition price is editable */
+.acquisition-price-card {
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.acquisition-price-card:hover {
+  background-color: #e9ecef !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* WHAT: Style the acquisition price value to show it's editable */
+.editable-price-value {
+  color: #0d6efd !important;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-thickness: 2px;
+}
+
+.editable-price-value:hover {
+  background-color: rgba(13, 110, 253, 0.03) !important;
+  color: #0b5ed7 !important;
+}
+
+.editable-price-value:focus {
+  background-color: rgba(13, 110, 253, 0.05) !important;
+  color: #0b5ed7 !important;
+  text-decoration: none;
 }
 </style>
 

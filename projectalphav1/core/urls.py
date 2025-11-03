@@ -40,6 +40,10 @@ from core.views.crm_api import (
     LegalViewSet,
     ServicerViewSet,
 )
+from core.views.view_co_valuations import (
+    create_or_update_valuation,
+    get_valuations,
+)
 
 # Create a router and register our viewsets
 router = DefaultRouter()
@@ -82,4 +86,8 @@ urlpatterns = [
     path('lease-comp-rent-roll/<int:asset_hub_id>/', LeaseComparableRentRollListView.as_view(), name='lease-comp-rent-roll-list'),
     path('rent-roll/<int:asset_hub_id>/', RentRollListView.as_view(), name='rent-roll-list'),
     path('historical-cashflow/<int:asset_hub_id>/', HistoricalPropertyCashFlowListView.as_view(), name='historical-cashflow-list'),
+    
+    # Valuation endpoints - Create/Update/Get valuations for assets
+    path('valuations/<int:asset_hub_id>/', create_or_update_valuation, name='valuation-create-update'),
+    path('valuations/<int:asset_hub_id>/list/', get_valuations, name='valuation-list'),
 ]

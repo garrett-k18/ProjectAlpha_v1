@@ -137,57 +137,107 @@
                     <thead class="table-light">
                       <tr>
                         <th>Address</th>
-                        <th>Seller AIV - ARV</th>
-                        <th>BPO AIV - ARV</th>
-                        <th>Broker AIV - ARV</th>
-                        <th>Internal AIV - ARV</th>
-                        <th>Variance</th>
-                        <th>Status</th>
-                        <th>Actions</th>
+                        <th class="text-center">Quick Links</th>
+                        <th class="text-center">Seller AIV - ARV</th>
+                        <th class="text-center">BPO AIV - ARV</th>
+                        <th class="text-center">Broker AIV - ARV</th>
+                        <th class="text-center">Internal AIV - ARV</th>
+                        <th class="text-center">Variance</th>
+                        <th class="text-center">Status</th>
+                        <th class="text-center">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       <tr v-if="!rows || rows.length === 0">
-                        <td colspan="8" class="text-center text-muted py-3">
+                        <td colspan="9" class="text-center text-muted py-3">
                           No assets to display
                         </td>
                       </tr>
                       <tr v-for="asset in (rows as any[])" :key="asset.asset_hub_id">
                         <td>
-                          <div class="fw-semibold">{{ formatAddress(asset) }}</div>
-                          <div class="text-muted small">{{ formatCityState(asset) }}</div>
+                          <div class="fw-semibold address-link" @click="openLoanModal(asset)">
+                            {{ formatAddress(asset) }}
+                          </div>
+                          <div class="small address-link address-link-secondary" @click="openLoanModal(asset)">
+                            {{ formatCityState(asset) }}
+                          </div>
                         </td>
-                        <td>
+                        <td class="text-center py-1">
+                          <!-- WHAT: 3rd Party Site Links - stacked vertically with minimal spacing -->
+                          <div class="d-flex flex-column align-items-center" style="gap: 1px; line-height: 1.3;">
+                            <a 
+                              :href="getZillowUrl(asset)" 
+                              target="_blank" 
+                              class="third-party-link small"
+                              @click.stop
+                            >
+                              Zillow <i class="ri-external-link-line"></i>
+                            </a>
+                            <a 
+                              :href="getRedfinUrl(asset)" 
+                              target="_blank" 
+                              class="third-party-link small"
+                              @click.stop
+                            >
+                              Redfin <i class="ri-external-link-line"></i>
+                            </a>
+                            <a 
+                              :href="getRealtorUrl(asset)" 
+                              target="_blank" 
+                              class="third-party-link small"
+                              @click.stop
+                            >
+                              Realtor <i class="ri-external-link-line"></i>
+                            </a>
+                          </div>
+                        </td>
+                        <td class="text-center">
                           <span>{{ formatCurrency(asset.seller_asis_value as number) }}</span>
-                          <span class="mx-1">-</span>
+                          <span class="mx-2"> - </span>
                           <span>{{ formatCurrency(asset.seller_arv_value as number) }}</span>
                         </td>
-                        <td>
+                        <td class="text-center">
                           <span>{{ formatCurrency(asset.additional_asis_value as number) }}</span>
-                          <span class="mx-1">-</span>
+                          <span class="mx-2"> - </span>
                           <span>{{ formatCurrency(asset.additional_arv_value as number) }}</span>
                         </td>
-                        <td>
+                        <td class="text-center">
                           <span>{{ formatCurrency(asset.broker_asis_value as number) }}</span>
-                          <span class="mx-1">-</span>
+                          <span class="mx-2"> - </span>
                           <span>{{ formatCurrency(asset.broker_arv_value as number) }}</span>
                         </td>
-                        <td>
-                          <span>{{ formatCurrency(asset.internal_initial_uw_asis_value as number) }}</span>
-                          <span class="mx-1">-</span>
-                          <span>{{ formatCurrency(asset.internal_initial_uw_arv_value as number) }}</span>
+                        <td class="text-center">
+                          <!-- WHAT: Editable Internal UW Initial As-Is Value - styled to blend in -->
+                          <input
+                            type="text"
+                            class="editable-value-inline"
+                            :value="formatCurrencyForInput(asset.internal_initial_uw_asis_value)"
+                            @blur="(e) => saveInternalUW(asset, 'asis', e)"
+                            @keyup.enter="(e) => saveInternalUW(asset, 'asis', e)"
+                            placeholder="-"
+                          />
+                          <span style="margin: 0 0px;"> - </span>
+                          <!-- WHAT: Editable Internal UW Initial ARV Value - styled to blend in -->
+                          <input
+                            type="text"
+                            class="editable-value-inline"
+                            :value="formatCurrencyForInput(asset.internal_initial_uw_arv_value)"
+                            @blur="(e) => saveInternalUW(asset, 'arv', e)"
+                            @keyup.enter="(e) => saveInternalUW(asset, 'arv', e)"
+                            placeholder="-"
+                          />
                         </td>
-                        <td>
+                        <td class="text-center">
                           <span :class="varianceClass(calculateVariance(asset))">
                             {{ formatPercent(calculateVariance(asset)) }}
                           </span>
                         </td>
-                        <td>
+                        <td class="text-center">
                           <span class="badge" :class="statusBadgeClass(getValuationStatus(asset))">
                             {{ getValuationStatus(asset) }}
                           </span>
                         </td>
-                        <td>
+                        <td class="text-center">
                           <button class="btn btn-sm btn-light me-1" title="View Details">
                             <i class="ri-eye-line"></i>
                           </button>
@@ -369,6 +419,43 @@
         </div>
       </b-col>
     </b-row>
+
+    <!-- Loan-Level Modal - Match exact structure from main acquisitions dashboard -->
+    <BModal
+      v-model="showLoanModal"
+      size="xl"
+      body-class="p-0 bg-body text-body"
+      dialog-class="product-details-dialog"
+      content-class="product-details-content bg-body text-body"
+      hide-footer
+    >
+      <!-- Custom header with asset ID and address -->
+      <template #header>
+        <div class="d-flex align-items-center w-100">
+          <h5 class="modal-title mb-0">
+            <div class="lh-sm"><span class="fw-bold">{{ modalIdText }}</span></div>
+            <div class="text-muted lh-sm"><span class="fw-bold text-dark fs-4">{{ modalAddrText }}</span></div>
+          </h5>
+          <div class="ms-auto">
+            <button
+              type="button"
+              class="btn-close"
+              @click="showLoanModal = false"
+              aria-label="Close"
+            ></button>
+          </div>
+        </div>
+      </template>
+      <!-- Render loan-level component with v-if and :key for proper re-mounting -->
+      <LoanLevelIndex
+        v-if="selectedId"
+        :key="`loan-${selectedId}`"
+        :assetId="selectedId"
+        :row="selectedRow"
+        :address="selectedAddr"
+        :standalone="false"
+      />
+    </BModal>
   </Layout>
 </template>
 
@@ -378,12 +465,21 @@ import { storeToRefs } from 'pinia'
 import { useAcqSelectionsStore } from '@/stores/acqSelections'
 import { useAgGridRowsStore } from '@/stores/agGridRows'
 import Layout from '@/components/layouts/layout.vue'
+import { BModal } from 'bootstrap-vue-next'
+import LoanLevelIndex from '@/views/acq_module/loanlvl/loanlvl_index.vue'
+import http from '@/lib/http'
 
 // Stores
 const acqStore = useAcqSelectionsStore()
 const { selectedSellerId, selectedTradeId, sellerOptions, tradeOptions } = storeToRefs(acqStore)
 const gridStore = useAgGridRowsStore()
 const { rows } = storeToRefs(gridStore)
+
+// WHAT: Modal state for loan-level details
+const showLoanModal = ref<boolean>(false)
+const selectedId = ref<string | null>(null)
+const selectedRow = ref<any>(null)
+const selectedAddr = ref<string | null>(null)
 
 // Computed
 const hasSelection = computed(() => !!selectedSellerId.value && !!selectedTradeId.value)
@@ -395,6 +491,31 @@ const currentSellerName = computed(() => {
 const currentTradeName = computed(() => {
   const trade = tradeOptions.value.find(t => t.id === selectedTradeId.value)
   return trade?.trade_name || 'Unknown'
+})
+
+// WHAT: Computed modal ID text (first line of modal header)
+// WHY: Show asset ID and trade name in header
+const modalIdText = computed<string>(() => {
+  const id = selectedId.value ? String(selectedId.value) : ''
+  const r: any = selectedRow.value || {}
+  const tradeName = String(r.trade_name ?? r.trade?.trade_name ?? r.tradeName ?? '').trim()
+  const line = [id, tradeName].filter(Boolean).join(' / ')
+  return line || 'Asset'
+})
+
+// WHAT: Computed modal address text (second line of modal header)
+// WHY: Show full address without ZIP in header
+const modalAddrText = computed<string>(() => {
+  const r: any = selectedRow.value || {}
+  const street = String(r.street_address ?? r.property_address ?? r.address ?? '').trim()
+  const city = String(r.property_city ?? r.city ?? '').trim()
+  const state = String(r.property_state ?? r.state ?? '').trim()
+  const locality = [city, state].filter(Boolean).join(', ')
+  const built = [street, locality].filter(Boolean).join(', ')
+  if (built) return built
+  const rawAddr = selectedAddr.value ? String(selectedAddr.value) : ''
+  // Strip trailing ZIP if present
+  return rawAddr.replace(/,?\s*\d{5}(?:-\d{4})?$/, '')
 })
 
 // Valuation metrics (calculated from grid rows)
@@ -458,25 +579,99 @@ function calculateVariance(asset: any): number | null {
   return (broker - seller) / seller
 }
 
-// Determine valuation status based on available data
+// WHAT: Determine valuation status based on available data
+// WHY: Show appropriate status tag for each asset's valuation completion
 function getValuationStatus(asset: any): string {
   const hasSeller = asset.seller_asis_value != null
+  const hasBPO = asset.additional_asis_value != null
   const hasBroker = asset.broker_asis_value != null
   const hasInternal = asset.internal_initial_uw_asis_value != null
   
-  if (hasSeller && hasBroker && hasInternal) {
+  // WHAT: If all valuations complete, check for variance issues
+  if (hasSeller && hasBPO && hasBroker && hasInternal) {
     const variance = calculateVariance(asset)
     if (variance && Math.abs(variance) > 0.1) return 'Review'
     return 'Approved'
   }
-  if (!hasBroker) return 'Pending BPO'
+  
+  // WHAT: Check what's missing and show appropriate pending status
+  if (!hasBPO) return 'Pending BPO'
+  if (!hasBroker) return 'Pending Broker'
   if (!hasInternal) return 'Pending UW'
+  
   return 'In Progress'
 }
 
 function formatCurrency(val: number | null): string {
   if (val == null) return '-'
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val)
+}
+
+// WHAT: Format currency for input field (with $ symbol and commas)
+// WHY: Display values in familiar currency format
+function formatCurrencyForInput(val: number | null): string {
+  if (val == null) return ''
+  return '$' + new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(val)
+}
+
+// WHAT: Save Internal UW Initial valuation to backend
+// WHY: Persist user-entered values to the Valuation model
+// HOW: Parse input, send to API endpoint, refresh data
+async function saveInternalUW(asset: any, field: 'asis' | 'arv', event: Event) {
+  const input = event.target as HTMLInputElement
+  // WHAT: Remove dollar signs and commas from input
+  const valueStr = input.value.replace(/[$,]/g, '')
+  
+  // WHAT: If empty, skip save
+  if (!valueStr || valueStr.trim() === '') {
+    return
+  }
+  
+  // WHAT: Parse to number
+  const numValue = parseFloat(valueStr)
+  if (isNaN(numValue)) {
+    console.error('[ValuationCenter] Invalid number:', valueStr)
+    return
+  }
+  
+  // WHAT: Get asset hub ID
+  const assetHubId = asset.asset_hub_id || asset.id
+  if (!assetHubId) {
+    console.error('[ValuationCenter] No asset hub ID found')
+    return
+  }
+  
+  try {
+    // WHAT: Build payload for Internal Initial UW valuation
+    const payload: any = {
+      source: 'internalInitialUW',
+      value_date: new Date().toISOString().split('T')[0], // Today's date
+    }
+    
+    // WHAT: Set the appropriate field (asis_value or arv_value)
+    if (field === 'asis') {
+      payload.asis_value = numValue
+    } else {
+      payload.arv_value = numValue
+    }
+    
+    // WHAT: Send to backend API
+    const response = await http.post(`/core/valuations/${assetHubId}/`, payload)
+    
+    // WHAT: Update local data with response
+    if (response.data) {
+      if (field === 'asis') {
+        asset.internal_initial_uw_asis_value = response.data.asis_value
+      } else {
+        asset.internal_initial_uw_arv_value = response.data.arv_value
+      }
+    }
+    
+    console.log('[ValuationCenter] Saved Internal UW value:', response.data)
+  } catch (error) {
+    console.error('[ValuationCenter] Failed to save Internal UW value:', error)
+    // TODO: Show user-friendly error message
+  }
 }
 
 // Format address from asset data
@@ -491,6 +686,47 @@ function formatCityState(asset: any): string {
   const state = asset.property_state || asset.state || ''
   if (!city && !state) return ''
   return `${city}${city && state ? ', ' : ''}${state}`
+}
+
+// WHAT: Generate Zillow URL for the property
+// WHY: Allow users to quickly view property on Zillow
+// HOW: Build search URL using address, city, state
+function getZillowUrl(asset: any): string {
+  const street = formatAddress(asset)
+  const cityState = formatCityState(asset)
+  const fullAddress = `${street}, ${cityState}`.replace(/\s+/g, '-').replace(/,/g, '')
+  return `https://www.zillow.com/homes/${encodeURIComponent(fullAddress)}_rb/`
+}
+
+// WHAT: Generate Redfin URL for the property
+// WHY: Allow users to quickly view property on Redfin
+// HOW: Build URL in format: /STATE/City/Street-Address
+function getRedfinUrl(asset: any): string {
+  const street = formatAddress(asset).replace(/\s+/g, '-')
+  const city = (asset.property_city || asset.city || '').replace(/\s+/g, '-')
+  const state = (asset.property_state || asset.state || '').toUpperCase()
+  
+  if (!street || !city || !state) {
+    return 'https://www.redfin.com'
+  }
+  
+  return `https://www.redfin.com/${state}/${city}/${street}`
+}
+
+// WHAT: Generate Realtor.com URL for the property
+// WHY: Allow users to quickly view property on Realtor.com
+// HOW: Build URL in format: /realestateandhomes-detail/Street_City_State_ZIP
+function getRealtorUrl(asset: any): string {
+  const street = formatAddress(asset).replace(/\s+/g, '-')
+  const city = (asset.property_city || asset.city || '').replace(/\s+/g, '-')
+  const state = (asset.property_state || asset.state || '').toUpperCase()
+  const zip = asset.property_zip || asset.zip || asset.zipcode || ''
+  
+  if (!street || !city || !state || !zip) {
+    return 'https://www.realtor.com'
+  }
+  
+  return `https://www.realtor.com/realestateandhomes-detail/${street}_${city}_${state}_${zip}`
 }
 
 function formatPercent(val: number | null): string {
@@ -523,6 +759,19 @@ function statusBadgeClass(status: string): string {
   return map[status] || 'bg-secondary'
 }
 
+// WHAT: Open loan-level modal for a specific asset
+// WHY: Allow users to view detailed loan information by clicking on address
+function openLoanModal(asset: any) {
+  // WHAT: Set selected asset details
+  selectedId.value = asset.seller_loan_id || asset.id || String(asset.asset_hub_id)
+  selectedRow.value = asset
+  selectedAddr.value = formatAddress(asset)
+  
+  // WHAT: Open the modal
+  showLoanModal.value = true
+  console.log('[ValuationCenter] Opening loan modal for:', selectedId.value, selectedAddr.value)
+}
+
 onMounted(() => {
   // Load data if needed
   if (hasSelection.value && (!rows.value || rows.value.length === 0)) {
@@ -532,5 +781,101 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* Additional styling if needed */
+/* WHAT: Clickable address link styling */
+/* WHY: Make addresses look clickable and navigate to loan details */
+.address-link {
+  color: #0d6efd;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.address-link:hover {
+  color: #0b5ed7;
+  text-decoration: underline;
+}
+
+/* WHAT: Secondary address link styling (city/state) - blue like main address */
+/* WHY: Make both address lines clearly clickable and consistent */
+.address-link-secondary {
+  color: #0d6efd !important;
+  font-weight: 400;
+}
+
+.address-link-secondary:hover {
+  color: #0b5ed7 !important;
+  text-decoration: underline;
+}
+
+/* WHAT: 3rd party site link styling - compact */
+/* WHY: Make external links visually consistent and appealing with minimal spacing */
+.third-party-link {
+  color: #0d6efd;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  line-height: 1.1;
+  padding: 0;
+  margin: 0;
+  display: inline-block;
+}
+
+.third-party-link:hover {
+  color: #0b5ed7;
+  text-decoration: underline;
+}
+
+.third-party-link i {
+  font-size: 0.7rem;
+  opacity: 0.7;
+  margin-left: 2px;
+}
+
+/* WHAT: Editable inline value styling - blend with table text */
+/* WHY: Make editable fields look seamless, only showing they're editable via color and underline */
+.editable-value-inline {
+  /* WHAT: Remove all borders and background to blend in */
+  border: none;
+  background: transparent;
+  padding: 0;
+  
+  /* WHAT: Match table text styling */
+  font-family: inherit;
+  font-size: inherit;
+  text-align: center;
+  
+  /* WHAT: Blue color with underline to indicate editability */
+  color: #0d6efd;
+  text-decoration: underline;
+  text-decoration-style: solid;
+  text-underline-offset: 2px;
+  
+  /* WHAT: Set width to accommodate currency values */
+  width: 90px;
+  display: inline-block;
+  
+  /* WHAT: Smooth cursor transition */
+  cursor: text;
+  transition: all 0.2s ease;
+}
+
+/* WHAT: Hover state - slightly darker blue */
+.editable-value-inline:hover {
+  color: #0b5ed7;
+  text-decoration-thickness: 2px;
+}
+
+/* WHAT: Focus state - remove outline, keep underline, slightly bolder */
+.editable-value-inline:focus {
+  outline: none;
+  color: #0a58ca;
+  text-decoration-thickness: 2px;
+  font-weight: 500;
+}
+
+/* WHAT: Placeholder styling to match empty cells */
+.editable-value-inline::placeholder {
+  color: #6c757d;
+  opacity: 0.5;
+}
 </style>

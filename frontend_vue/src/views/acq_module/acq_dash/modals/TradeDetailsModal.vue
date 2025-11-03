@@ -341,20 +341,23 @@
 
       <!-- AM Fee Percentage -->
       <div class="col-12 col-md-4 mb-3">
-        <label for="tdm-am-fee-pct" class="form-label fw-medium">AM Fee (decimal)</label>
-        <input
-          id="tdm-am-fee-pct"
-          type="number"
-          step="0.0001"
-          min="0"
-          class="form-control"
-          :disabled="disabled"
-          :value="amFeePctLocal"
-          @input="onAmFeePctInput($event)"
-          @change="emitChanged()"
-          placeholder="0.01"
-        />
-        <small class="form-text text-muted">e.g., 0.01 = 1%</small>
+        <label for="tdm-am-fee-pct" class="form-label fw-medium">AM Fee</label>
+        <div class="input-group">
+          <input
+            id="tdm-am-fee-pct"
+            type="number"
+            step="0.01"
+            min="0"
+            class="form-control"
+            :disabled="disabled"
+            :value="amFeePctLocal"
+            @input="onAmFeePctInput($event)"
+            @change="emitChanged()"
+            placeholder="1.00"
+          />
+          <span class="input-group-text">%</span>
+        </div>
+        <small class="form-text text-muted">Enter as percentage (e.g., 1.00 for 1%)</small>
       </div>
     </div>
   </div>
@@ -416,8 +419,8 @@ const props = defineProps<{
   /** Acquisition tax/title cost in dollars per loan */
   acqTaxTitleCost?: number | string
   
-  // Asset Management Fees (percentage as decimal)
-  /** AM fee as decimal (e.g., 0.01 for 1%) */
+  // Asset Management Fees (stored as decimal but displayed as percentage)
+  /** AM fee stored as decimal (e.g., 0.01) but displayed as percentage (e.g., 1) */
   amFeePct?: number | string
   
   /** Disable inputs while saving */
@@ -482,7 +485,20 @@ const acqLegalCostLocal = computed(() => props.acqLegalCost ?? '')
 const acqDdCostLocal = computed(() => props.acqDdCost ?? '')
 const acqTaxTitleCostLocal = computed(() => props.acqTaxTitleCost ?? '')
 
-const amFeePctLocal = computed(() => props.amFeePct ?? '')
+// WHAT: Convert AM Fee from decimal to percentage for display
+// WHY: User expects to see and enter percentages (e.g., 1%) not decimals (e.g., 0.01)
+// HOW: Multiply decimal by 100 to get percentage; return empty string if no value
+const amFeePctLocal = computed(() => {
+  if (props.amFeePct === null || props.amFeePct === undefined || props.amFeePct === '') {
+    return ''
+  }
+  // WHAT: Convert decimal to percentage (0.01 -> 1)
+  const numValue = typeof props.amFeePct === 'string' ? parseFloat(props.amFeePct) : props.amFeePct
+  if (isNaN(numValue)) {
+    return ''
+  }
+  return numValue * 100
+})
 
 // Input handlers - Trade Dates
 function onBidInput(ev: Event) {
@@ -580,9 +596,28 @@ function onAcqTaxTitleCostInput(ev: Event) {
 }
 
 // Input handlers - Asset Management Fees
+// WHAT: Handle AM Fee input and convert from percentage to decimal
+// WHY: User enters percentage (1) but backend expects decimal (0.01)
+// HOW: Divide input by 100 to convert percentage to decimal
 function onAmFeePctInput(ev: Event) {
   const v = (ev.target as HTMLInputElement)?.value ?? ''
-  emit('update:amFeePct', v)
+  
+  // WHAT: If empty, emit empty string
+  if (v === '' || v === null || v === undefined) {
+    emit('update:amFeePct', '')
+    return
+  }
+  
+  // WHAT: Convert percentage to decimal (1 -> 0.01)
+  const percentageValue = parseFloat(v)
+  if (isNaN(percentageValue)) {
+    emit('update:amFeePct', '')
+    return
+  }
+  
+  // WHAT: Divide by 100 to convert percentage to decimal
+  const decimalValue = percentageValue / 100
+  emit('update:amFeePct', decimalValue)
 }
 
 // Generic change signal emitter
