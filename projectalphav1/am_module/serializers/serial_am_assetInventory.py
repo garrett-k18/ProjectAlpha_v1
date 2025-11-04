@@ -76,7 +76,12 @@ class AssetInventoryRowSerializer(serializers.Serializer):
     # ========== Status Fields ==========
     asset_status = serializers.CharField(
         allow_null=True,
-        help_text='Legacy asset status field'
+        help_text='Legacy asset status field (SellerRawData.asset_status - displays as "Asset Class" in grid)'
+    )
+    asset_master_status = serializers.CharField(
+        source='asset_hub.asset_status',
+        allow_null=True,
+        help_text='Canonical master status from AssetIdHub (ACTIVE/LIQUIDATED - displays as "Asset Master Status" with editable dropdown)'
     )
     lifecycle_status = serializers.CharField(
         source='_computed_lifecycle_status',

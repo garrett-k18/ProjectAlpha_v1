@@ -106,6 +106,47 @@ class AssetInventoryViewSet(ViewSet):
         ser = AssetInventoryRowSerializer(enriched_asset)
         return Response(ser.data)
 
+    def partial_update(self, request: Request, pk: int | str | None = None):
+        """
+        Update asset fields including asset_master_status from AssetIdHub.
+        
+        URL: PATCH /api/am/assets/<id>/
+        Body: { "asset_master_status": "ACTIVE" | "LIQUIDATED" }
+        
+        WHAT: Allow frontend grid to update AssetIdHub.asset_status via PATCH
+        WHY: Asset Master Status needs to be editable from the grid dropdown
+        HOW: Fetch asset, update asset_hub.asset_status, return enriched data
+        
+        Docs: https://www.django-rest-framework.org/api-guide/viewsets/#marking-extra-actions-for-routing
+        """
+        asset = get_object_or_404(
+            SellerRawData.objects.select_related("asset_hub"),
+            pk=pk,
+            acq_status=Trade.Status.BOARD,
+        )
+        
+        # WHAT: Extract asset_master_status from request and validate against AssetStatus choices
+        asset_master_status = request.data.get('asset_master_status')
+        if asset_master_status is not None:
+            # WHY: Validate that the provided status is one of the allowed choices
+            valid_statuses = [choice[0] for choice in AssetIdHub.AssetStatus.choices]
+            if asset_master_status not in valid_statuses:
+                return Response(
+                    {"detail": f"Invalid asset_master_status. Must be one of: {', '.join(valid_statuses)}"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # HOW: Update the asset_hub.asset_status field and save
+            hub = asset.asset_hub
+            hub.asset_status = asset_master_status
+            hub.save(update_fields=['asset_status', 'updated_at'])
+        
+        # WHAT: Return enriched asset data so frontend can refresh the row
+        enricher = AssetInventoryEnricher()
+        enriched_asset = enricher.enrich(asset)
+        ser = AssetInventoryRowSerializer(enriched_asset)
+        return Response(ser.data)
+
     @action(detail=True, methods=['get'])
     def servicing(self, request: Request, pk: int | str | None = None):
         """Return the latest ServicerLoanData for a boarded asset by AM asset id.
@@ -248,19 +289,25 @@ class AssetInventoryViewSet(ViewSet):
 
 @api_view(['GET'])
 def asset_dashboard_stats(request):
+    """Return aggregate counts for Asset Management dashboard stats card.
+    
+    WHAT: Count boarded assets by master status (Active vs Liquidated)
+    WHY: Dashboard needs high-level metrics for portfolio overview
+    HOW: Query SellerRawData with BOARD status, group by AssetIdHub.asset_status
+    """
     active_assets_count = (
         SellerRawData.objects
         .filter(
-            acq_status=SellerRawData.AcquisitionStatus.BOARD,
-            asset_hub__asset_status=AssetIdHub.AssetStatus.ACTIVE,
+            acq_status=Trade.Status.BOARD,  # FIELD: acq_status references Trade.Status enum
+            asset_hub__asset_status=AssetIdHub.AssetStatus.ACTIVE,  # FIELD: asset_hub.asset_status (master status)
         )
         .count()
     )
     liquidated_assets_count = (
         SellerRawData.objects
         .filter(
-            acq_status=SellerRawData.AcquisitionStatus.BOARD,
-            asset_hub__asset_status=AssetIdHub.AssetStatus.LIQUIDATED,
+            acq_status=Trade.Status.BOARD,  # FIELD: acq_status references Trade.Status enum
+            asset_hub__asset_status=AssetIdHub.AssetStatus.LIQUIDATED,  # FIELD: asset_hub.asset_status (master status)
         )
         .count()
     )

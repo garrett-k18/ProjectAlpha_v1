@@ -69,10 +69,12 @@
         :quickFilterText="quickFilter"
         :rowSelection="{ mode: 'multiRow', checkboxes: false, headerCheckbox: false, enableClickSelection: true }"
         :animateRows="true"
+        :loading="loading"
         overlayNoRowsTemplate="No assets found"
         overlayLoadingTemplate="Loading assets…"
         @grid-ready="onGridReady"
         @sort-changed="onSortChanged"
+        @cell-value-changed="onAssetMasterStatusChanged"
       />
 
       <!-- Bottom-right pagination controls -->
@@ -154,6 +156,7 @@ import LoanLevelIndex from '@/views/am_module/loanlvl_index.vue'
 import ActionsCell from '@/views/acq_module/acq_dash/components/ActionsCell.vue'
 import BadgeCell from '@/views/acq_module/acq_dash/components/BadgeCell.vue'
 import http from '@/lib/http'
+// assetStatusEnumMap: Badge styling for asset_status field (displayed as "Asset Class" in grid)
 import { propertyTypeEnumMap, occupancyEnumMap, assetStatusEnumMap } from '@/config/badgeTokens'
 
 // Constant columns (always shown, pinned left first)
@@ -163,7 +166,7 @@ const constantColumns: ColDef[] = [
     colId: 'actions',
     pinned: 'left',
     width: 220,
-    minWidth: 160,
+    minWidth: 210,  // Keep fixed width for Actions column (has buttons)
     lockPosition: true,
     suppressMovable: true,
     sortable: false,
@@ -176,7 +179,6 @@ const constantColumns: ColDef[] = [
     headerName: 'Servicer ID',
     field: 'servicer_id',
     colId: 'servicer_id',
-    minWidth: 140,
     pinned: 'left',
     // WHAT: Surface the external servicer identifier that asset managers reference daily
     // WHY: Product guidance indicates hub PKs are rarely used operationally; servicer IDs are the primary lookup key
@@ -191,20 +193,8 @@ const constantColumns: ColDef[] = [
     },
   },
   {
-    headerName: 'Status',
-    field: 'asset_status',
-    minWidth: 120,
-    pinned: 'left',
-    cellRenderer: BadgeCell as any,
-    cellRendererParams: {
-      mode: 'enum',
-      enumMap: assetStatusEnumMap,
-    },
-  },
-  {
     headerName: 'Property Address',
     colId: 'address',
-    minWidth: 260,
     wrapHeaderText: true,
     autoHeaderHeight: true,
     headerClass: ['ag-left-aligned-header', 'text-start'],
@@ -222,12 +212,12 @@ const constantColumns: ColDef[] = [
 
 // Additional columns (vary by view) as a named map to avoid fragile index references
 // Each key is a stable identifier used by presets below.
+// No minWidth set - let AG Grid auto-size based on content (header vs data, whichever is longer)
 const cols: Record<string, ColDef> = {
   // ZIP intentionally omitted per latest serializer change
   propertyType: {
     headerName: 'Property Type',
     field: 'property_type',
-    minWidth: 140,
     cellRenderer: BadgeCell as any,
     cellRendererParams: {
       mode: 'enum',
@@ -237,62 +227,83 @@ const cols: Record<string, ColDef> = {
   occupancy: {
     headerName: 'Occupancy',
     field: 'occupancy',
-    minWidth: 130,
     cellRenderer: BadgeCell as any,
     cellRendererParams: {
       mode: 'enum',
       enumMap: occupancyEnumMap,
     },
   },
-  trade: { headerName: 'Trade', field: 'trade_name', minWidth: 160, cellClass: 'text-start' },
-  lifecycleStatus: { headerName: 'Lifecycle Status', field: 'lifecycle_status', minWidth: 150 },
-  arvSeller: { headerName: 'ARV (Seller)', field: 'seller_arv_value', valueFormatter: currencyFormatter, minWidth: 140 },
-  asIsSeller: { headerName: 'As-Is (Seller)', field: 'seller_asis_value', valueFormatter: currencyFormatter, minWidth: 140 },
-  acqCost: { headerName: 'Acq Cost', field: 'acq_cost', valueFormatter: currencyFormatter, minWidth: 130 },
-  totalExpenses: { headerName: 'Total Expenses', field: 'total_expenses', valueFormatter: currencyFormatter, minWidth: 150 },
-  totalHold: { headerName: 'Total Hold (days)', field: 'total_hold', minWidth: 150 },
-  exitDate: { headerName: 'Exit Date', field: 'exit_date', valueFormatter: dateFormatter, minWidth: 140 },
-  expectedGrossProceeds: { headerName: 'Gross Proceeds', field: 'expected_gross_proceeds', valueFormatter: currencyFormatter, minWidth: 150 },
-  expectedNetProceeds: { headerName: 'Net Proceeds', field: 'expected_net_proceeds', valueFormatter: currencyFormatter, minWidth: 150 },
-  expectedPL: { headerName: 'Expected P/L', field: 'expected_pl', valueFormatter: currencyFormatter, minWidth: 140 },
-  expectedCF: { headerName: 'Expected CF', field: 'expected_cf', valueFormatter: currencyFormatter, minWidth: 140 },
-  expectedIRR: { headerName: 'IRR %', field: 'expected_irr', valueFormatter: percentFormatter, minWidth: 110 },
-  expectedMOIC: { headerName: 'MOIC', field: 'expected_moic', valueFormatter: moicFormatter, minWidth: 110 },
-  expectedNPV: { headerName: 'NPV', field: 'expected_npv', valueFormatter: currencyFormatter, minWidth: 140 },
+  trade: { headerName: 'Trade', field: 'trade_name', cellClass: 'text-start' },
+  // FIELD: asset_status → Renamed display as "Asset Class" and moved to right of Trade (unpinned)
+  assetClass: {
+    headerName: 'Asset Class',
+    field: 'asset_status',  // Backend field: asset_status (SellerRawData)
+    cellRenderer: BadgeCell as any,
+    cellRendererParams: {
+      mode: 'enum',
+      enumMap: assetStatusEnumMap,  // Uses assetStatusEnumMap for badge styling
+    },
+  },
+  // FIELD: asset_master_status → Master lifecycle status from AssetIdHub (ACTIVE/LIQUIDATED)
+  assetMasterStatus: {
+    headerName: 'Asset Master Status',
+    field: 'asset_master_status',  // Backend field: asset_hub.asset_status
+    editable: true,  // WHAT: Enable inline editing with dropdown
+    cellEditor: 'agSelectCellEditor',  // WHAT: AG Grid built-in dropdown editor (Docs: https://www.ag-grid.com/javascript-data-grid/cell-editors/#select-cell-editor)
+    cellEditorParams: {
+      values: ['ACTIVE', 'LIQUIDATED'],  // WHAT: AssetIdHub.AssetStatus choices from backend model
+    },
+  },
+  lifecycleStatus: { headerName: 'Lifecycle Status', field: 'lifecycle_status' },
+  arvSeller: { headerName: 'ARV (Seller)', field: 'seller_arv_value', valueFormatter: currencyFormatter },
+  asIsSeller: { headerName: 'As-Is (Seller)', field: 'seller_asis_value', valueFormatter: currencyFormatter },
+  acqCost: { headerName: 'Acq Cost', field: 'acq_cost', valueFormatter: currencyFormatter },
+  totalExpenses: { headerName: 'Total Expenses', field: 'total_expenses', valueFormatter: currencyFormatter },
+  totalHold: { headerName: 'Total Hold (days)', field: 'total_hold' },
+  exitDate: { headerName: 'Exit Date', field: 'exit_date', valueFormatter: dateFormatter },
+  expectedGrossProceeds: { headerName: 'Gross Proceeds', field: 'expected_gross_proceeds', valueFormatter: currencyFormatter },
+  expectedNetProceeds: { headerName: 'Net Proceeds', field: 'expected_net_proceeds', valueFormatter: currencyFormatter },
+  expectedPL: { headerName: 'Expected P/L', field: 'expected_pl', valueFormatter: currencyFormatter },
+  expectedCF: { headerName: 'Expected CF', field: 'expected_cf', valueFormatter: currencyFormatter },
+  expectedIRR: { headerName: 'IRR %', field: 'expected_irr', valueFormatter: percentFormatter },
+  expectedMOIC: { headerName: 'MOIC', field: 'expected_moic', valueFormatter: moicFormatter },
+  expectedNPV: { headerName: 'NPV', field: 'expected_npv', valueFormatter: currencyFormatter },
  
   // ---- Servicing (nested under servicer_loan_data) ----
-  sAsOfDate: { headerName: 'As Of', minWidth: 120, valueGetter: (p:any) => p.data?.servicer_loan_data?.as_of_date, valueFormatter: dateFormatter },
-  sCurrentBalance: { headerName: 'Current Balance', minWidth: 140, valueGetter: (p:any) => p.data?.servicer_loan_data?.current_balance, valueFormatter: currencyFormatter },
-  sInterestRate: { headerName: 'Interest Rate', minWidth: 120, valueGetter: (p:any) => p.data?.servicer_loan_data?.interest_rate, valueFormatter: (p:any) => (p.value == null ? '' : `${(Number(p.value) * 100).toFixed(2)}%`) },
-  sNextDueDate: { headerName: 'Next Due Date', minWidth: 140, valueGetter: (p:any) => p.data?.servicer_loan_data?.next_due_date, valueFormatter: dateFormatter },
-  sTotalDebt: { headerName: 'Total Debt', minWidth: 140, valueGetter: (p:any) => p.data?.servicer_loan_data?.total_debt, valueFormatter: currencyFormatter },
-  sInvestorId: { headerName: 'Investor ID', minWidth: 120, valueGetter: (p:any) => p.data?.servicer_loan_data?.investor_id },
-  sServicerId: { headerName: 'Servicer ID', minWidth: 120, valueGetter: (p:any) => p.data?.servicer_loan_data?.servicer_id },
-  sFCStatus: { headerName: 'FC Status', minWidth: 140, valueGetter: (p:any) => p.data?.servicer_loan_data?.fc_status },
-  sBKStatus: { headerName: 'BK Status', minWidth: 140, valueGetter: (p:any) => p.data?.servicer_loan_data?.bk_current_status },
-  sLossMitStatus: { headerName: 'Loss Mit Status', minWidth: 160, valueGetter: (p:any) => p.data?.servicer_loan_data?.loss_mitigation_status },
-  sCurrentPI: { headerName: 'Current P&I', minWidth: 130, valueGetter: (p:any) => p.data?.servicer_loan_data?.current_pi, valueFormatter: currencyFormatter },
-  sCurrentTI: { headerName: 'Current T&I', minWidth: 130, valueGetter: (p:any) => p.data?.servicer_loan_data?.current_ti, valueFormatter: currencyFormatter },
-  sPITI: { headerName: 'PITI', minWidth: 130, valueGetter: (p:any) => p.data?.servicer_loan_data?.piti, valueFormatter: currencyFormatter },
+  sAsOfDate: { headerName: 'As Of', valueGetter: (p:any) => p.data?.servicer_loan_data?.as_of_date, valueFormatter: dateFormatter },
+  sCurrentBalance: { headerName: 'Current Balance', valueGetter: (p:any) => p.data?.servicer_loan_data?.current_balance, valueFormatter: currencyFormatter },
+  sInterestRate: { headerName: 'Interest Rate', valueGetter: (p:any) => p.data?.servicer_loan_data?.interest_rate, valueFormatter: (p:any) => (p.value == null ? '' : `${(Number(p.value) * 100).toFixed(2)}%`) },
+  sNextDueDate: { headerName: 'Next Due Date', valueGetter: (p:any) => p.data?.servicer_loan_data?.next_due_date, valueFormatter: dateFormatter },
+  sTotalDebt: { headerName: 'Total Debt', valueGetter: (p:any) => p.data?.servicer_loan_data?.total_debt, valueFormatter: currencyFormatter },
+  sInvestorId: { headerName: 'Investor ID', valueGetter: (p:any) => p.data?.servicer_loan_data?.investor_id },
+  sServicerId: { headerName: 'Servicer ID', valueGetter: (p:any) => p.data?.servicer_loan_data?.servicer_id },
+  sFCStatus: { headerName: 'FC Status', valueGetter: (p:any) => p.data?.servicer_loan_data?.fc_status },
+  sBKStatus: { headerName: 'BK Status', valueGetter: (p:any) => p.data?.servicer_loan_data?.bk_current_status },
+  sLossMitStatus: { headerName: 'Loss Mit Status', valueGetter: (p:any) => p.data?.servicer_loan_data?.loss_mitigation_status },
+  sCurrentPI: { headerName: 'Current P&I', valueGetter: (p:any) => p.data?.servicer_loan_data?.current_pi, valueFormatter: currencyFormatter },
+  sCurrentTI: { headerName: 'Current T&I', valueGetter: (p:any) => p.data?.servicer_loan_data?.current_ti, valueFormatter: currencyFormatter },
+  sPITI: { headerName: 'PITI', valueGetter: (p:any) => p.data?.servicer_loan_data?.piti, valueFormatter: currencyFormatter },
   // Additional BK/FC/Loss Mit detail
-  sBKFiledDate: { headerName: 'BK Filed', minWidth: 130, valueGetter: (p:any) => p.data?.servicer_loan_data?.bk_filed_date, valueFormatter: dateFormatter },
-  sBKDischargeDate: { headerName: 'BK Discharge', minWidth: 140, valueGetter: (p:any) => p.data?.servicer_loan_data?.bk_discharge_date, valueFormatter: dateFormatter },
-  sBKDismissedDate: { headerName: 'BK Dismissed', minWidth: 140, valueGetter: (p:any) => p.data?.servicer_loan_data?.bk_dismissed_date, valueFormatter: dateFormatter },
-  sFCScheduledSaleDate: { headerName: 'FC Scheduled Sale', minWidth: 170, valueGetter: (p:any) => p.data?.servicer_loan_data?.scheduled_fc_sale_date, valueFormatter: dateFormatter },
-  sFCActualSaleDate: { headerName: 'FC Actual Sale', minWidth: 150, valueGetter: (p:any) => p.data?.servicer_loan_data?.actual_fc_sale_date, valueFormatter: dateFormatter },
-  sFCBAStatusDate: { headerName: 'FC BA Status Date', minWidth: 170, valueGetter: (p:any) => p.data?.servicer_loan_data?.foreclosure_business_area_status_date, valueFormatter: dateFormatter },
-  sFCBAStatus: { headerName: 'FC BA Status', minWidth: 160, valueGetter: (p:any) => p.data?.servicer_loan_data?.foreclosure_business_area_status },
-  sLossMitStartDate: { headerName: 'Loss Mit Start', minWidth: 150, valueGetter: (p:any) => p.data?.servicer_loan_data?.loss_mitigation_start_date, valueFormatter: dateFormatter },
-  sLoanModDate: { headerName: 'Loan Mod Date', minWidth: 140, valueGetter: (p:any) => p.data?.servicer_loan_data?.loan_modification_date, valueFormatter: dateFormatter },
-  sRepayPlanStatus: { headerName: 'Repay Plan Status', minWidth: 170, valueGetter: (p:any) => p.data?.servicer_loan_data?.repayment_plan_status },
-  internal_initial_uw_asis_value: { headerName: 'Underwritten AIV', field: 'internal_initial_uw_asis_value', valueFormatter: currencyFormatter, minWidth: 140 },
-  internal_initial_uw_arv_value: { headerName: 'Underwritten ARV', field: 'internal_initial_uw_arv_value', valueFormatter: currencyFormatter, minWidth: 140 },
+  sBKFiledDate: { headerName: 'BK Filed', valueGetter: (p:any) => p.data?.servicer_loan_data?.bk_filed_date, valueFormatter: dateFormatter },
+  sBKDischargeDate: { headerName: 'BK Discharge', valueGetter: (p:any) => p.data?.servicer_loan_data?.bk_discharge_date, valueFormatter: dateFormatter },
+  sBKDismissedDate: { headerName: 'BK Dismissed', valueGetter: (p:any) => p.data?.servicer_loan_data?.bk_dismissed_date, valueFormatter: dateFormatter },
+  sFCScheduledSaleDate: { headerName: 'FC Scheduled Sale', valueGetter: (p:any) => p.data?.servicer_loan_data?.scheduled_fc_sale_date, valueFormatter: dateFormatter },
+  sFCActualSaleDate: { headerName: 'FC Actual Sale', valueGetter: (p:any) => p.data?.servicer_loan_data?.actual_fc_sale_date, valueFormatter: dateFormatter },
+  sFCBAStatusDate: { headerName: 'FC BA Status Date', valueGetter: (p:any) => p.data?.servicer_loan_data?.foreclosure_business_area_status_date, valueFormatter: dateFormatter },
+  sFCBAStatus: { headerName: 'FC BA Status', valueGetter: (p:any) => p.data?.servicer_loan_data?.foreclosure_business_area_status },
+  sLossMitStartDate: { headerName: 'Loss Mit Start', valueGetter: (p:any) => p.data?.servicer_loan_data?.loss_mitigation_start_date, valueFormatter: dateFormatter },
+  sLoanModDate: { headerName: 'Loan Mod Date', valueGetter: (p:any) => p.data?.servicer_loan_data?.loan_modification_date, valueFormatter: dateFormatter },
+  sRepayPlanStatus: { headerName: 'Repay Plan Status', valueGetter: (p:any) => p.data?.servicer_loan_data?.repayment_plan_status },
+  internal_initial_uw_asis_value: { headerName: 'Underwritten AIV', field: 'internal_initial_uw_asis_value', valueFormatter: currencyFormatter },
+  internal_initial_uw_arv_value: { headerName: 'Underwritten ARV', field: 'internal_initial_uw_arv_value', valueFormatter: currencyFormatter },
 }
 
 // Presets now reference the named columns for clarity and stability
 const presets: Record<string, ColDef[]> = {
   snapshot: [
     cols.trade,
+    cols.assetClass,  // FIELD: asset_status (renamed to "Asset Class" display, positioned after Trade)
+    cols.assetMasterStatus,  // FIELD: asset_master_status (editable dropdown from AssetIdHub)
     cols.propertyType,
     cols.internal_initial_uw_asis_value,
     cols.internal_initial_uw_arv_value,
@@ -347,7 +358,10 @@ function applyView() {
   columnDefs.value = [...constantColumns, ...presets[activeView.value]]
 
   // Re-apply sort because visible columns changed
-  nextTick(() => onSortChanged())
+  nextTick(() => {
+    onSortChanged()
+    updateGridSize()  // WHAT: Autosize columns after view switch so address and other columns fit content
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -426,6 +440,54 @@ function onRowAction(action: string, row: any): void {
   }
 }
 
+// WHAT: Handle inline editing of Asset Master Status dropdown in the grid
+// WHY: Users need to update AssetIdHub.asset_status (ACTIVE/LIQUIDATED) directly from the grid
+// HOW: Extract asset ID and new value, PATCH to backend, refresh row data on success
+async function onAssetMasterStatusChanged(params: any): Promise<void> {
+  const row = params.data
+  const newValue = params.newValue
+  const oldValue = params.oldValue
+  
+  // WHAT: Skip update if value hasn't actually changed
+  if (newValue === oldValue) return
+  
+  const assetId = getAssetHubIdFromRow(row)
+  if (!assetId) {
+    console.error('[AssetGrid] Cannot update asset_master_status: missing asset ID')
+    return
+  }
+  
+  try {
+    // WHAT: Send PATCH request to update asset_master_status on the backend
+    // Docs: https://axios-http.com/docs/api_intro
+    const { data } = await http.patch(`/am/assets/${assetId}/`, {
+      asset_master_status: newValue,
+    })
+    
+    // WHAT: Update the row in the grid with the fresh data from backend
+    // WHY: Ensures any computed fields are refreshed and grid stays in sync
+    const api = gridApi.value
+    if (api) {
+      const rowNode = api.getRowNode(String(assetId))
+      if (rowNode) {
+        rowNode.setData(data)
+      }
+    }
+    
+    console.debug(`[AssetGrid] Updated asset_master_status: ${assetId} → ${newValue}`)
+  } catch (err) {
+    console.error('[AssetGrid] Failed to update asset_master_status:', err)
+    // WHAT: Revert cell value on error so grid shows accurate state
+    const api = gridApi.value
+    if (api) {
+      const rowNode = api.getRowNode(String(assetId))
+      if (rowNode) {
+        rowNode.setDataValue('asset_master_status', oldValue)
+      }
+    }
+  }
+}
+
 // Modal lifecycle + shortcut
 function onModalShown(): void {
   document.addEventListener('keydown', onKeydown as any)
@@ -460,14 +522,14 @@ const router = useRouter()
 const defaultColDef: ColDef = {
   resizable: true,
   filter: true,
-  wrapHeaderText: true,
-  autoHeaderHeight: true,
+  // No minWidth - let AG Grid auto-size based on content (header vs data, whichever is longer)
+  wrapHeaderText: true,  // Headers wrap to multiple lines if needed
+  autoHeaderHeight: true,  // Header height adjusts automatically to fit wrapped text
   // Center-align headers and cell content for consistent presentation
   headerClass: 'text-center',
   cellClass: 'text-center',
   floatingFilter: false,
   menuTabs: ['filterMenuTab'],
-  minWidth: 120,
 }
 
 // Live data from API
@@ -533,23 +595,24 @@ const gridStyle = computed(() => (
 ))
 
 function updateGridSize(): void {
+  // WHAT: Delay autosizing to ensure AG Grid has fully rendered row data
+  // WHY: Autosizing immediately after setting rowData sizes based on headers only, not content
+  // HOW: Use setTimeout to allow grid to render, then autosize all columns to fit longest content
   nextTick(() => {
-    try {
-      const api = gridApi.value as any
-      if (!api) return
-      // In fullscreen, autosize to content; allow horizontal scroll otherwise
-      if (isFullWindow.value) {
+    setTimeout(() => {
+      try {
+        const api = gridApi.value as any
+        if (!api) return
         api.autoSizeAllColumns?.() || api.columnApi?.autoSizeAllColumns?.()
-      } else {
-        // Do not call sizeColumnsToFit so columns can exceed width and enable horizontal scroll
-      }
-    } catch {}
+      } catch {}
+    }, 50)
   })
 }
 
 function onGridReady(e: GridReadyEvent) {
   gridApi.value = e.api
-  updateGridSize()
+  // WHAT: Don't call updateGridSize here - let it happen after data loads in fetchRows
+  // WHY: Autosizing before data loads causes columns to size based only on headers, not content
   fetchRows()
 }
 
@@ -710,27 +773,19 @@ function onSortChanged(): void {
   }
 }
 
-// WHAT: Keep AG Grid overlay messaging synchronized with loading and dataset size so users see "Loading" on initial fetch
-// WHY: Prevents the default "No assets found" overlay from flashing before data arrives, improving perceived performance
-// HOW: Show loading overlay while network requests are active, fall back to no-rows overlay for empty datasets, and hide overlay when rows exist
+// WHAT: Keep AG Grid overlay messaging synchronized with dataset size (loading handled by :loading prop in v32+)
+// WHY: Display appropriate "No assets found" message when dataset is empty
+// HOW: Show no-rows overlay for empty datasets, hide overlay when rows exist
+// NOTE: Loading state now handled by :loading prop (AG Grid v32+ deprecates api.showLoadingOverlay)
 function syncGridOverlay(): void {
   const api = gridApi.value
   if (!api) return
-  if (loading.value) {
-    api.showLoadingOverlay()
-    return
-  }
-  if (rowData.value.length === 0) {
+  if (rowData.value.length === 0 && !loading.value) {
     api.showNoRowsOverlay()
     return
   }
   api.hideOverlay()
 }
-
-// WHAT: React to loading flag flips so the overlay transitions between "Loading" and "No assets found" states automatically
-watch(loading, () => {
-  syncGridOverlay()
-})
 
 // WHAT: Re-evaluate overlay once new row data arrives because empty arrays should display the no-rows overlay while populated arrays should hide overlays entirely
 watch(rowData, () => {

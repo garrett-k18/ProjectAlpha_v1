@@ -129,3 +129,4 @@ class AssetIdHub(models.Model):
             pass
 
         return False
+
