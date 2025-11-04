@@ -44,6 +44,16 @@ from core.views.view_co_valuations import (
     create_or_update_valuation,
     get_valuations,
 )
+from core.views.view_co_egnyteDoc import (
+    upload_document,
+    list_documents,
+    download_document,
+    delete_document,
+    create_folder,
+    search_documents,
+    create_share_link,
+    get_file_info,
+)
 
 # Create a router and register our viewsets
 router = DefaultRouter()
@@ -90,4 +100,14 @@ urlpatterns = [
     # Valuation endpoints - Create/Update/Get valuations for assets
     path('valuations/<int:asset_hub_id>/', create_or_update_valuation, name='valuation-create-update'),
     path('valuations/<int:asset_hub_id>/list/', get_valuations, name='valuation-list'),
+    
+    # Document Management endpoints - Egnyte integration
+    path('documents/upload/', upload_document, name='document-upload'),
+    path('documents/list/', list_documents, name='document-list'),
+    path('documents/download/', download_document, name='document-download'),
+    path('documents/delete/', delete_document, name='document-delete'),
+    path('documents/folder/create/', create_folder, name='folder-create'),
+    path('documents/search/', search_documents, name='document-search'),
+    path('documents/share/', create_share_link, name='document-share'),
+    path('documents/info/', get_file_info, name='document-info'),
 ]

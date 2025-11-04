@@ -9,7 +9,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status
-from core.services.macro_metrics_clean import (
+from core.services.serv_co_macroMetrics import (
     get_mortgage_rate_30_year,
     get_10_year_treasury,
     get_fed_funds_rate,

@@ -336,3 +336,9 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 # Using standard Django admin interface
 
+# Egnyte Configuration
+# Docs: https://developers.egnyte.com/docs
+# For production, set EGNYTE_DOMAIN and EGNYTE_API_TOKEN in Railway environment variables
+EGNYTE_DOMAIN = os.getenv('EGNYTE_DOMAIN', 'projectalpha.egnyte.com')  # Dev fallback
+EGNYTE_API_TOKEN = os.getenv('EGNYTE_API_TOKEN', 'AQwSAJABFxAlFsjfoyiJDVllDycavVifmm3dPjQBaZwWvV4Vb3GJCpFS9aDyrybA')  # Dev fallback
+
