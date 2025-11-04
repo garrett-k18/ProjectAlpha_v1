@@ -148,34 +148,62 @@ WSGI_APPLICATION = 'projectalphav1.wsgi.application'
 # Docs reviewed:
 # * dj-database-url: https://github.com/jazzband/dj-database-url
 
-# Use Railway DB in production (via DATABASE_URL env var), local DB in development
+# Use DATABASE_URL in production (Railway with Neon), local DB in development
 if os.environ.get('DATABASE_URL'):
-    # Production (Railway) - PostgreSQL via DATABASE_URL
-    # Parse the Railway DATABASE_URL and configure both connections to point to production
-    railway_db_config = dj_database_url.parse(
+    # Production - PostgreSQL via DATABASE_URL (Neon)
+    # Parse the DATABASE_URL and configure both connections to point to production
+    # Docs reviewed: https://neon.tech/docs/connect/connection-errors#unsupported-startup-parameter
+    db_config = dj_database_url.parse(
         os.environ.get('DATABASE_URL'),
         conn_max_age=600,
-        ssl_require=False,
+        ssl_require=True,  # Neon requires SSL
     )
     
-    # Configure default connection with core schema search path
-    DATABASES = {
-        'default': {
-            **railway_db_config,
-            'OPTIONS': {
-                # Include seller_data so admin queries on default can join to seller tables
-                'options': '-c search_path=core,seller_data,public'
+    # Check if this is a Neon database (contains 'neon.tech' in host)
+    is_neon = 'neon.tech' in db_config.get('HOST', '')
+    
+    if is_neon:
+        # Neon: Use unpooled connection and set search_path via session parameter
+        # Remove '-pooler' from hostname for unpooled connection
+        db_config['HOST'] = db_config['HOST'].replace('-pooler', '')
+        
+        # Configure default connection with core schema search path
+        DATABASES = {
+            'default': {
+                **db_config,
+                'OPTIONS': {
+                    # Set search_path using session parameter (Neon-compatible)
+                    'options': '-c search_path=core,seller_data,public'
+                },
             },
-        },
-        # The seller_data schema database connection (same Railway DB, different schema)
-        'seller_data': {
-            **railway_db_config,
-            'OPTIONS': {
-                # Include core so seller_data connection can see non-seller tables
-                'options': '-c search_path=seller_data,core,public'
+            # The seller_data schema database connection (same DB, different schema)
+            'seller_data': {
+                **db_config,
+                'OPTIONS': {
+                    # Set search_path using session parameter (Neon-compatible)
+                    'options': '-c search_path=seller_data,core,public'
+                },
             },
-        },
-    }
+        }
+    else:
+        # Railway or other PostgreSQL: use standard configuration
+        DATABASES = {
+            'default': {
+                **db_config,
+                'OPTIONS': {
+                    # Include seller_data so admin queries on default can join to seller tables
+                    'options': '-c search_path=core,seller_data,public'
+                },
+            },
+            # The seller_data schema database connection (same DB, different schema)
+            'seller_data': {
+                **db_config,
+                'OPTIONS': {
+                    # Include core so seller_data connection can see non-seller tables
+                    'options': '-c search_path=seller_data,core,public'
+                },
+            },
+        }
 else:
     # Development (Local) - PostgreSQL with separate schema connections
     DATABASES = {
