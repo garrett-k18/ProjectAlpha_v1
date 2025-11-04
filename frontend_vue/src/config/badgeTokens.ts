@@ -18,32 +18,33 @@
 // ============================================================================
 
 /**
- * Master pill dimensions - Change these values to adjust all badge sizes globally
+ * Master badge dimensions - Change these values to adjust all badge sizes globally
+ * UPDATED: Changed from rounded pills to square badges for more professional/serious tone
  */
 const PILL_DIMENSIONS = {
   xs: {
     paddingX: '0.5rem',    // px-2 equivalent
     paddingY: '0.125rem',  // Tight vertical padding
     fontSize: '0.5rem',    // Very small text
-    borderRadius: '9999px' // Full rounded pill
+    borderRadius: '0.25rem' // Slightly rounded square (more professional)
   },
   sm: {
     paddingX: '0.5rem',    // px-2 equivalent  
     paddingY: '0.2rem',    // Current production padding
     fontSize: '0.7rem',    // Current production font size
-    borderRadius: '9999px' // Full rounded pill
+    borderRadius: '0.25rem' // Slightly rounded square (more professional)
   },
   md: {
     paddingX: '0.75rem',   // px-3 equivalent
     paddingY: '0.25rem',   // Medium padding
     fontSize: '0.75rem',   // Medium font size
-    borderRadius: '9999px' // Full rounded pill
+    borderRadius: '0.25rem' // Slightly rounded square (more professional)
   },
   lg: {
     paddingX: '1rem',      // px-4 equivalent
     paddingY: '0.375rem',  // Large padding
     fontSize: '0.875rem',  // Large font size
-    borderRadius: '9999px' // Full rounded pill
+    borderRadius: '0.375rem' // Slightly rounded square (more professional)
   }
 } as const;
 
@@ -102,25 +103,26 @@ export type BadgeToneKey =
 /**
  * Badge size configurations built from master PILL_DIMENSIONS
  * EDIT PILL_DIMENSIONS above to change all badge sizes globally
+ * UPDATED: Changed from rounded-pill to rounded for square badge style
  */
 export const badgeSizeMap: Record<BadgeSizeKey, BadgeVisualConfig> = {
   xs: {
-    classes: 'badge rounded-pill fw-semibold d-inline-flex align-items-center justify-content-center',
+    classes: 'badge rounded fw-semibold d-inline-flex align-items-center justify-content-center',
     ariaLabel: undefined,
     inlineStyles: `line-height: 1; padding: ${PILL_DIMENSIONS.xs.paddingY} ${PILL_DIMENSIONS.xs.paddingX}; font-size: ${PILL_DIMENSIONS.xs.fontSize}; border-radius: ${PILL_DIMENSIONS.xs.borderRadius};`,
   },
   sm: {
-    classes: 'badge rounded-pill fw-semibold d-inline-flex align-items-center justify-content-center',
+    classes: 'badge rounded fw-semibold d-inline-flex align-items-center justify-content-center',
     ariaLabel: undefined,
     inlineStyles: `line-height: 1; padding: ${PILL_DIMENSIONS.sm.paddingY} ${PILL_DIMENSIONS.sm.paddingX}; font-size: ${PILL_DIMENSIONS.sm.fontSize}; border-radius: ${PILL_DIMENSIONS.sm.borderRadius};`,
   },
   md: {
-    classes: 'badge rounded-pill fw-semibold d-inline-flex align-items-center justify-content-center',
+    classes: 'badge rounded fw-semibold d-inline-flex align-items-center justify-content-center',
     ariaLabel: undefined,
     inlineStyles: `line-height: 1; padding: ${PILL_DIMENSIONS.md.paddingY} ${PILL_DIMENSIONS.md.paddingX}; font-size: ${PILL_DIMENSIONS.md.fontSize}; border-radius: ${PILL_DIMENSIONS.md.borderRadius};`,
   },
   lg: {
-    classes: 'badge rounded-pill fw-bold d-inline-flex align-items-center justify-content-center',
+    classes: 'badge rounded fw-bold d-inline-flex align-items-center justify-content-center',
     ariaLabel: undefined,
     inlineStyles: `line-height: 1; padding: ${PILL_DIMENSIONS.lg.paddingY} ${PILL_DIMENSIONS.lg.paddingX}; font-size: ${PILL_DIMENSIONS.lg.fontSize}; border-radius: ${PILL_DIMENSIONS.lg.borderRadius};`,
   },
@@ -519,4 +521,30 @@ export const modificationFlagEnumMap: Record<string, { label: string; color: str
   'Yes': { label: 'Yes', color: 'bg-info text-white', title: 'Modification Flag' },
   'No': { label: 'No', color: 'bg-secondary text-white', title: 'Modification Flag' },
   '—': { label: '—', color: 'bg-secondary text-white', title: 'Modification Flag' },
+};
+
+/**
+ * AG Grid enum map for Active Tracks (outcome workflows)
+ * EDIT: Add new track types for AG Grid here
+ */
+export const activeTracksEnumMap: Record<string, { label: string; color: string; title: string }> = {
+  'DIL': { label: 'DIL', color: 'bg-primary', title: 'Deed in Lieu' },
+  'Modification': { label: 'Modification', color: 'bg-success', title: 'Loan Modification' },
+  'REO': { label: 'REO', color: 'bg-info', title: 'Real Estate Owned' },
+  'FC': { label: 'FC', color: 'bg-danger', title: 'Foreclosure Sale' },
+  'Short Sale': { label: 'Short Sale', color: 'bg-warning text-dark', title: 'Short Sale' },
+};
+
+/**
+ * Color mapping for Active Tasks based on outcome type prefix
+ * WHAT: Maps outcome type prefixes to badge colors for task display
+ * WHY: Active Tasks shows "DIL: Owner/Heirs contacted" - we color based on the DIL prefix
+ * HOW: Extract prefix before colon, look up color, use full text as badge label
+ */
+export const activeTasksColorMap: Record<string, string> = {
+  'DIL': 'bg-primary',
+  'Modification': 'bg-success',
+  'REO': 'bg-info',
+  'FC': 'bg-danger',
+  'Short Sale': 'bg-warning text-dark',
 };

@@ -185,6 +185,8 @@ class AssetInventoryEnricher:
         obj._computed_delinquency_status = self.get_delinquency_status(obj)
         obj._computed_seller_name = self.get_seller_name(obj)
         obj._computed_trade_name = self.get_trade_name(obj)
+        obj._computed_active_tracks = self.get_active_tracks(obj)  # FIELD: active_tracks - comma-separated list of active outcome types (DIL, Modification, etc.)
+        obj._computed_active_tasks = self.get_active_tasks(obj)  # FIELD: active_tasks - comma-separated list of active tasks (e.g., "DIL: Owner/Heirs contacted")
 
         # Servicer data
         obj._computed_servicer_loan_data = self.get_servicer_loan_data(obj)
@@ -309,6 +311,120 @@ class AssetInventoryEnricher:
             return annotated
         trade = getattr(obj, 'trade', None)
         return getattr(trade, 'trade_name', None)
+
+    def get_active_tracks(self, obj: SellerRawData) -> str | None:
+        """
+        Return comma-separated list of active outcome tracks (DIL, Modification, REO, FC, Short Sale).
+
+        WHAT: Identify which outcome types have active 1:1 records for this asset
+        WHY: Dashboard "Active Tracks" field shows all active workflow types for quick status overview
+        HOW: Check for existence of each outcome model (DIL, Modification, REO, FCSale, ShortSale) on the hub
+
+        Returns:
+            Comma-separated string like "DIL, Modification" or None if no active tracks
+        """
+        hub = getattr(obj, 'asset_hub', None)
+        if not hub:
+            return None
+
+        # WHAT: Map outcome model related names to their display labels
+        # WHY: These are the 1:1 outcome models that indicate active workflows
+        # HOW: Check hasattr on hub for each related_name, collect labels for existing records
+        tracks = []
+        
+        # Check each outcome type (all are 1:1 with asset_hub)
+        if hasattr(hub, 'dil') and getattr(hub, 'dil', None) is not None:
+            tracks.append('DIL')
+        
+        if hasattr(hub, 'modification') and getattr(hub, 'modification', None) is not None:
+            tracks.append('Modification')
+        
+        if hasattr(hub, 'reo_data') and getattr(hub, 'reo_data', None) is not None:
+            tracks.append('REO')
+        
+        if hasattr(hub, 'fc_sale') and getattr(hub, 'fc_sale', None) is not None:
+            tracks.append('FC')
+        
+        if hasattr(hub, 'short_sale') and getattr(hub, 'short_sale', None) is not None:
+            tracks.append('Short Sale')
+
+        # WHAT: Return comma-separated string or None for empty
+        return ', '.join(tracks) if tracks else None
+
+    def get_active_tasks(self, obj: SellerRawData) -> str | None:
+        """
+        Return comma-separated list of active tasks with outcome type prefix (e.g., "DIL: Owner/Heirs contacted").
+
+        WHAT: Identify current active tasks across all outcome types for this asset
+        WHY: Dashboard "Active Tasks" field shows granular workflow progress beyond just outcome existence
+        HOW: Query each outcome's related tasks, collect latest/active task per outcome type with readable labels
+
+        Returns:
+            Comma-separated string like "DIL: Owner/Heirs contacted, Modification: Drafted" or None if no active tasks
+        """
+        hub = getattr(obj, 'asset_hub', None)
+        if not hub:
+            return None
+
+        # WHAT: Collect active tasks from each outcome type
+        # WHY: Each outcome type has different task models and status labels
+        # HOW: Check for existence of outcome, then query its related tasks to find most recent active one
+        tasks = []
+        
+        # DIL Tasks
+        if hasattr(hub, 'dil') and getattr(hub, 'dil', None) is not None:
+            try:
+                # Get most recent DIL task
+                dil_task = hub.dil_tasks.order_by('-created_at').first()
+                if dil_task and dil_task.task_type:
+                    # Convert task_type enum to readable label
+                    label = dil_task.get_task_type_display() if hasattr(dil_task, 'get_task_type_display') else dil_task.task_type
+                    tasks.append(f'DIL: {label}')
+            except Exception:
+                pass
+        
+        # Modification Tasks
+        if hasattr(hub, 'modification') and getattr(hub, 'modification', None) is not None:
+            try:
+                mod_task = hub.modification_tasks.order_by('-created_at').first()
+                if mod_task and mod_task.task_type:
+                    label = mod_task.get_task_type_display() if hasattr(mod_task, 'get_task_type_display') else mod_task.task_type
+                    tasks.append(f'Modification: {label}')
+            except Exception:
+                pass
+        
+        # REO Tasks
+        if hasattr(hub, 'reo_data') and getattr(hub, 'reo_data', None) is not None:
+            try:
+                reo_task = hub.reo_tasks.order_by('-created_at').first()
+                if reo_task and reo_task.task_type:
+                    label = reo_task.get_task_type_display() if hasattr(reo_task, 'get_task_type_display') else reo_task.task_type
+                    tasks.append(f'REO: {label}')
+            except Exception:
+                pass
+        
+        # FC Tasks
+        if hasattr(hub, 'fc_sale') and getattr(hub, 'fc_sale', None) is not None:
+            try:
+                fc_task = hub.fc_tasks.order_by('-created_at').first()
+                if fc_task and fc_task.task_type:
+                    label = fc_task.get_task_type_display() if hasattr(fc_task, 'get_task_type_display') else fc_task.task_type
+                    tasks.append(f'FC: {label}')
+            except Exception:
+                pass
+        
+        # Short Sale Tasks
+        if hasattr(hub, 'short_sale') and getattr(hub, 'short_sale', None) is not None:
+            try:
+                ss_task = hub.short_sale_tasks.order_by('-created_at').first()
+                if ss_task and ss_task.task_type:
+                    label = ss_task.get_task_type_display() if hasattr(ss_task, 'get_task_type_display') else ss_task.task_type
+                    tasks.append(f'Short Sale: {label}')
+            except Exception:
+                pass
+
+        # WHAT: Return comma-separated string or None for empty
+        return ', '.join(tasks) if tasks else None
 
     # ========== Servicer Data ==========
 

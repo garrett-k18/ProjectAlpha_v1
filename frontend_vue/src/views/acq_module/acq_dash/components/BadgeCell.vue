@@ -1,19 +1,29 @@
 <template>
   <!--
-    Pill badge renderer for AG Grid cells.
+    Badge renderer for AG Grid cells.
     - Uses Bootstrap/Hyper UI badge classes (no custom CSS) for consistency.
     - Accepts AG Grid params via `params` prop (Vue 3 cell renderer contract).
-    - Displays a rounded-pill badge with contextual color based on boolean/enum value.
+    - Displays square/slightly rounded badges with contextual color based on boolean/enum value.
+    - Supports multi-badge mode for comma-separated values (e.g., "DIL, Modification")
     - Empty/unknown values render as an empty string to keep grid clean.
+    - UPDATED: Changed from rounded-pill to rounded for more professional/serious tone
   -->
-  <!--
-    Increase visual size using Bootstrap utilities:
-    - px-3 / py-1: larger pill body
-    - fs-6: larger font size (utility uses !important to override .badge)
-    - fw-semibold: slightly heavier weight for readability
-  -->
-  <span v-if="badge" class="badge rounded-pill px-3 py-1 fs-6 fw-semibold" :class="badge.color" :title="badge.title">
-    {{ badge.label }}
+  <!-- Multi-badge mode: render multiple small badges with gap -->
+  <span v-if="badges.length > 1" class="d-inline-flex gap-1 flex-wrap">
+    <span 
+      v-for="(b, idx) in badges" 
+      :key="idx" 
+      class="badge rounded fw-semibold" 
+      :class="[b.color, sizeClass]"
+      :style="sizeStyle"
+      :title="b.title"
+    >
+      {{ b.label }}
+    </span>
+  </span>
+  <!-- Single badge mode -->
+  <span v-else-if="badges.length === 1" class="badge rounded fw-semibold" :class="[badges[0].color, sizeClass]" :style="sizeStyle" :title="badges[0].title">
+    {{ badges[0].label }}
   </span>
   <span v-else></span>
 </template>
@@ -43,35 +53,112 @@ function toBoolLike(v: unknown): boolean | null {
 }
 
 /**
- * Badge config computed from value and optional renderer params.
- * params.cellRendererParams can specify:
- * - mode: 'boolean' | 'enum'
- * - enumMap: Record<string, { label: string; color: string; title?: string }>
+ * Badge size styles based on size parameter ('xs' | 'sm' | 'md' | 'lg')
+ * WHAT: Maps size keys to inline CSS for consistent badge dimensions (square style with slight rounding)
+ * WHY: Allows small badges for multi-badge cells vs. larger single badges
+ * HOW: Returns CSS string for padding, font-size, border-radius based on badgeTokens.ts presets
  */
-const badge = computed(() => {
+const sizeStyle = computed(() => {
+  const p = props.params || {}
+  const size = p?.colDef?.cellRendererParams?.size || p?.cellRendererParams?.size || 'md'
+  
+  // Size presets matching badgeTokens.ts PILL_DIMENSIONS (square badges with slight rounding)
+  const sizeMap: Record<string, string> = {
+    xs: 'padding: 0.125rem 0.5rem; font-size: 0.5rem; border-radius: 0.25rem;',
+    sm: 'padding: 0.2rem 0.5rem; font-size: 0.7rem; border-radius: 0.25rem;',  // Small preset
+    md: 'padding: 0.25rem 0.75rem; font-size: 0.75rem; border-radius: 0.25rem;',
+    lg: 'padding: 0.375rem 1rem; font-size: 0.875rem; border-radius: 0.375rem;',
+  }
+  
+  return sizeMap[size] || sizeMap.md
+})
+
+/**
+ * Legacy size class for backward compatibility (can be removed if not needed)
+ */
+const sizeClass = computed(() => {
+  const p = props.params || {}
+  const size = p?.colDef?.cellRendererParams?.size || p?.cellRendererParams?.size
+  // Return empty string - we use inline styles now
+  return ''
+})
+
+/**
+ * Badge configs computed from value and optional renderer params.
+ * params.cellRendererParams can specify:
+ * - mode: 'boolean' | 'enum' | 'multi' | 'multi-prefix'
+ * - enumMap: Record<string, { label: string; color: string; title?: string }> (for 'enum' and 'multi' modes)
+ * - colorMap: Record<string, string> (for 'multi-prefix' mode - maps prefix to color class)
+ * - size: 'xs' | 'sm' | 'md' | 'lg'
+ */
+const badges = computed(() => {
   const p = props.params || {}
   const value = p.value
   const mode = p?.colDef?.cellRendererParams?.mode || p?.cellRendererParams?.mode
   const enumMap = p?.colDef?.cellRendererParams?.enumMap || p?.cellRendererParams?.enumMap || {}
 
+  // Multi mode: split comma-separated values and render multiple badges
+  // WHAT: Supports fields like "DIL, Modification" with individual colored pills
+  // WHY: Active Tracks field contains multiple workflow types per asset
+  // HOW: Split by comma, trim, look up each value in enumMap, return array of badge configs
+  if (mode === 'multi') {
+    if (value === null || value === undefined || value === '') return []
+    const values = String(value).split(',').map(v => v.trim()).filter(v => v.length > 0)
+    const result = []
+    for (const val of values) {
+      const found = enumMap[val] || enumMap[val.toLowerCase?.()] || enumMap[String(val).toLowerCase?.()]
+      if (found) {
+        result.push({
+          label: found.label ?? val,
+          color: found.color ?? 'bg-secondary',
+          title: found.title ?? val
+        })
+      }
+    }
+    return result
+  }
+
+  // Multi-prefix mode: split comma-separated values, color by prefix before colon
+  // WHAT: Supports fields like "DIL: Owner/Heirs contacted, Modification: Drafted"
+  // WHY: Active Tasks field contains outcome prefix + task description
+  // HOW: Split by comma, extract prefix before ":", look up color from colorMap, use full text as label
+  if (mode === 'multi-prefix') {
+    if (value === null || value === undefined || value === '') return []
+    const colorMap = p?.colDef?.cellRendererParams?.colorMap || p?.cellRendererParams?.colorMap || {}
+    const values = String(value).split(',').map(v => v.trim()).filter(v => v.length > 0)
+    const result = []
+    for (const val of values) {
+      // Extract prefix before colon (e.g., "DIL" from "DIL: Owner contacted")
+      const colonIndex = val.indexOf(':')
+      const prefix = colonIndex > 0 ? val.substring(0, colonIndex).trim() : val
+      const color = colorMap[prefix] || 'bg-secondary'
+      result.push({
+        label: val,  // Full text including prefix and description
+        color: color,
+        title: val
+      })
+    }
+    return result
+  }
+
   // Boolean mode: render Yes/No pills based on common truthy/falsy values
   if (mode === 'boolean') {
     const b = toBoolLike(value)
-    if (b === null) return null
+    if (b === null) return []
     // Allow overrides via cellRendererParams for color theming
     const yesColor = p?.colDef?.cellRendererParams?.booleanYesColor || p?.cellRendererParams?.booleanYesColor || 'bg-danger'
     const noColor = p?.colDef?.cellRendererParams?.booleanNoColor || p?.cellRendererParams?.booleanNoColor || 'bg-warning text-dark'
-    return b
+    return [b
       ? { label: 'Yes', color: yesColor, title: 'True' }
-      : { label: 'No', color: noColor, title: 'False' }
+      : { label: 'No', color: noColor, title: 'False' }]
   }
 
   // Enum mode: look up by string key (case-insensitive)
   // WHAT: Strict enum matching - no fallbacks, no guessing
   // WHY: If data not in backend, don't display anything (user requirement)
-  // HOW: Return null if value not found in enumMap
+  // HOW: Return empty array if value not found in enumMap
   if (mode === 'enum') {
-    if (value === null || value === undefined || value === '') return null
+    if (value === null || value === undefined || value === '') return []
     const key = String(value).trim()
     // Try exact match, then case-insensitive
     const found = enumMap[key] || enumMap[key.toLowerCase?.()] || enumMap[String(value).toLowerCase?.()]
@@ -80,21 +167,21 @@ const badge = computed(() => {
       const label = found.label ?? key
       const color = found.color ?? 'bg-warning text-dark'
       const adjustedColor = String(label).trim().toLowerCase() === 'default' ? 'bg-warning text-dark' : color
-      return { label, color: adjustedColor, title: found.title ?? key }
+      return [{ label, color: adjustedColor, title: found.title ?? key }]
     }
-    // NO FALLBACK: If enum value not in map, return null (show nothing)
-    return null
+    // NO FALLBACK: If enum value not in map, return empty array (show nothing)
+    return []
   }
 
   // If mode is unspecified, try boolean detection first
   const b = toBoolLike(value)
   if (b !== null) {
-    return b
+    return [b
       ? { label: 'Yes', color: 'bg-primary', title: 'True' }
-      : { label: 'No', color: 'bg-warning text-dark', title: 'False' }
+      : { label: 'No', color: 'bg-warning text-dark', title: 'False' }]
   }
   
-  // NO FALLBACK: If no mode specified and not boolean, return null (show nothing)
-  return null
+  // NO FALLBACK: If no mode specified and not boolean, return empty array (show nothing)
+  return []
 })
 </script>

@@ -157,7 +157,9 @@ import ActionsCell from '@/views/acq_module/acq_dash/components/ActionsCell.vue'
 import BadgeCell from '@/views/acq_module/acq_dash/components/BadgeCell.vue'
 import http from '@/lib/http'
 // assetStatusEnumMap: Badge styling for asset_status field (displayed as "Asset Class" in grid)
-import { propertyTypeEnumMap, occupancyEnumMap, assetStatusEnumMap } from '@/config/badgeTokens'
+// activeTracksEnumMap: Badge styling for active_tracks field (DIL, Modification, REO, FC, Short Sale)
+// activeTasksColorMap: Color mapping for active_tasks field based on outcome type prefix
+import { propertyTypeEnumMap, occupancyEnumMap, assetStatusEnumMap, activeTracksEnumMap, activeTasksColorMap } from '@/config/badgeTokens'
 
 // Constant columns (always shown, pinned left first)
 const constantColumns: ColDef[] = [
@@ -254,6 +256,41 @@ const cols: Record<string, ColDef> = {
       values: ['ACTIVE', 'LIQUIDATED'],  // WHAT: AssetIdHub.AssetStatus choices from backend model
     },
   },
+  // FIELD: active_tracks → Comma-separated list of active outcome workflows (DIL, Modification, REO, FC, Short Sale)
+  activeTracks: {
+    headerName: 'Active Tracks',
+    field: 'active_tracks',  // Backend field: computed from outcome model existence checks (DIL, Modification, REO, FC, Short Sale)
+    // WHAT: Fixed width at 160px - badges will wrap to multiple rows within this space
+    // WHY: Multi-badge cells look better with wrapping instead of expanding horizontally to fit all badges on one line
+    // HOW: This column is explicitly excluded from autoSizeColumns() in updateGridSize() function to preserve this width
+    width: 160,
+    suppressSizeToFit: false,  // Not needed since we exclude from autoSizeColumns explicitly
+    wrapText: true,  // WHAT: Enable wrapping so badges can flow to multiple rows
+    autoHeight: true,  // WHAT: Auto-adjust row height to accommodate wrapped badges (critical for multi-row badge display)
+    cellRenderer: BadgeCell as any,  // WHAT: Render multiple small badges for each track
+    cellRendererParams: {
+      mode: 'multi',  // WHAT: Multi-badge mode splits comma-separated values ("DIL, Modification") into individual badges
+      enumMap: activeTracksEnumMap,  // WHAT: Maps each track type (DIL, Modification, REO, FC, Short Sale) to badge colors
+      size: 'sm',  // WHAT: Small preset from badgeTokens.ts for compact square badges (0.7rem font, tight padding)
+    },
+  },
+  // FIELD: active_tasks → Current active tasks with outcome prefix (e.g., "DIL: Owner/Heirs contacted")
+  activeTasks: {
+    headerName: 'Active Tasks',
+    field: 'active_tasks',  // Backend field: computed from latest task per outcome type
+    // WHAT: Fixed width - task badges will wrap within this space
+    // WHY: Task descriptions can be long; wrapping provides better readability than horizontal expansion
+    // HOW: This column is explicitly excluded from autoSizeColumns() in updateGridSize() function
+    width: 200,
+    wrapText: true,  // WHAT: Enable wrapping for long task descriptions
+    autoHeight: true,  // WHAT: Auto-adjust row height to fit wrapped badges
+    cellRenderer: BadgeCell as any,  // WHAT: Render multiple small badges for each task
+    cellRendererParams: {
+      mode: 'multi-prefix',  // WHAT: Multi-prefix mode handles "DIL: Owner contacted" format - colors by prefix
+      colorMap: activeTasksColorMap,  // WHAT: Maps outcome prefixes (DIL, Modification, etc.) to badge colors
+      size: 'sm',  // WHAT: Small preset from badgeTokens.ts for compact square badges
+    },
+  },
   lifecycleStatus: { headerName: 'Lifecycle Status', field: 'lifecycle_status' },
   arvSeller: { headerName: 'ARV (Seller)', field: 'seller_arv_value', valueFormatter: currencyFormatter },
   asIsSeller: { headerName: 'As-Is (Seller)', field: 'seller_asis_value', valueFormatter: currencyFormatter },
@@ -304,6 +341,8 @@ const presets: Record<string, ColDef[]> = {
     cols.trade,
     cols.assetClass,  // FIELD: asset_status (renamed to "Asset Class" display, positioned after Trade)
     cols.assetMasterStatus,  // FIELD: asset_master_status (editable dropdown from AssetIdHub)
+    cols.activeTracks,  // FIELD: active_tracks (comma-separated outcome types: DIL, Modification, REO, FC, Short Sale)
+    cols.activeTasks,  // FIELD: active_tasks (current tasks with outcome prefix: "DIL: Owner/Heirs contacted")
     cols.propertyType,
     cols.internal_initial_uw_asis_value,
     cols.internal_initial_uw_arv_value,
@@ -595,15 +634,35 @@ const gridStyle = computed(() => (
 ))
 
 function updateGridSize(): void {
-  // WHAT: Delay autosizing to ensure AG Grid has fully rendered row data
-  // WHY: Autosizing immediately after setting rowData sizes based on headers only, not content
-  // HOW: Use setTimeout to allow grid to render, then autosize all columns to fit longest content
+  // WHAT: Delay autosizing to ensure AG Grid has fully rendered row data, then autosize columns selectively
+  // WHY: Some columns need fixed widths with wrapping (Active Tracks), while others should expand to fit content
+  // HOW: Use setTimeout + nextTick, filter out fixed-width columns, then call autoSizeColumns on remaining columns
   nextTick(() => {
     setTimeout(() => {
       try {
         const api = gridApi.value as any
         if (!api) return
-        api.autoSizeAllColumns?.() || api.columnApi?.autoSizeAllColumns?.()
+        
+        // WHAT: Exclude specific columns from autosizing to preserve their fixed widths
+        // WHY: Active Tracks column displays multi-badge cells that should wrap within a fixed width (160px)
+        //      Active Tasks column displays text that should wrap within a fixed width (200px)
+        //      - autoSizeAllColumns() would expand these columns to fit content on one line, defeating the wrap behavior
+        //      - We want content to wrap to multiple rows within the fixed width instead of expanding horizontally
+        // HOW: Filter column list by colId, excluding these columns before calling autoSizeColumns
+        // FUTURE: Add other column IDs to this array if they need fixed widths
+        const fixedWidthColumns = ['active_tracks', 'active_tasks']
+        
+        const allColumns = api.getColumns?.() || []
+        const columnsToAutosize = allColumns
+          .filter((col: any) => !fixedWidthColumns.includes(col.getColId()))
+          .map((col: any) => col.getColId())
+        
+        // WHAT: Call autoSizeColumns with filtered list instead of autoSizeAllColumns
+        // WHY: autoSizeColumns(columnIds) respects our exclusion list; autoSizeAllColumns does not
+        // RESULT: Most columns expand to fit content, Active Tracks stays at 120px and wraps badges
+        if (columnsToAutosize.length > 0) {
+          api.autoSizeColumns?.(columnsToAutosize) || api.columnApi?.autoSizeColumns?.(columnsToAutosize)
+        }
       } catch {}
     }, 50)
   })

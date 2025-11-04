@@ -95,6 +95,18 @@ class AssetInventoryRowSerializer(serializers.Serializer):
         allow_null=True,
         help_text='Cached delinquency bucket from AMMetrics'
     )
+    active_tracks = serializers.CharField(
+        source='_computed_active_tracks',
+        read_only=True,
+        allow_null=True,
+        help_text='Comma-separated list of active outcome tracks (DIL, Modification, REO, FC, Short Sale)'
+    )
+    active_tasks = serializers.CharField(
+        source='_computed_active_tasks',
+        read_only=True,
+        allow_null=True,
+        help_text='Comma-separated list of active tasks with outcome prefix (e.g., "DIL: Owner/Heirs contacted")'
+    )
 
     # ========== Property Address Fields ==========
     street_address = serializers.CharField()
