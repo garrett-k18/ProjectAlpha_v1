@@ -49,6 +49,8 @@ body.auth-fluid-pages[data-sidenav-size="condensed"] {
 }
 
 // Authentication fluid
+// To change the background image, replace the image path below with your desired image
+// Example: background: url("../images/your-custom-background.jpg") center;
 .auth-fluid {
     position: relative;
     display: flex;
@@ -56,7 +58,7 @@ body.auth-fluid-pages[data-sidenav-size="condensed"] {
     min-height: 100vh;
     flex-direction: row;
     align-items: stretch;
-    background: url("../images/bg-auth.jpg") center;
+    background: url("../images/svg/startup.svg") center;
     background-size: cover;
 
     .auth-fluid-form-box {

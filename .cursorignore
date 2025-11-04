@@ -1,0 +1,10 @@
+# Cursor-specific ignore patterns
+# This file allows you to override .gitignore for Cursor's indexing
+
+# We want Cursor to see .env files for development purposes
+# (they remain in .gitignore for git version control)
+!.env
+!.env.local
+!.env.*.local
+!.env.development
+

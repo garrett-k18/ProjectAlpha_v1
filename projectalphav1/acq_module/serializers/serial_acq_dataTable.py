@@ -189,37 +189,36 @@ class SellerRawDataRowSerializer(serializers.Serializer):
     def _latest_val_by_source(self, obj, source: str):
         """Return latest Valuation row for the object's asset_hub and given source.
         
-        We order by value_date then created_at to get the most recent record.
+        Uses prefetched data from asset_hub.valuations to avoid N+1 queries.
+        The queryset uses prefetch_related('asset_hub__valuations') to load
+        ALL valuations in ONE database query.
         """
         hub = getattr(obj, 'asset_hub', None)
-        print(f"[Valuation Debug] SellerRawData id={getattr(obj, 'id', None)}, asset_hub={hub}")
         if hub is None:
-            print(f"[Valuation Debug] No asset_hub for SellerRawData id={getattr(obj, 'id', None)}")
             return None
         
-        valuations = (
-            Valuation.objects
-            .filter(asset_hub=hub, source=source)
-            .order_by('-value_date', '-created_at')
+        # Use prefetched valuations (already in memory) - NO new query!
+        # Filter and sort in Python instead of hitting the database
+        valuations = [
+            v for v in hub.valuations.all()  # Uses prefetched data
+            if v.source == source
+        ]
+        
+        if not valuations:
+            return None
+        
+        # Sort by value_date (desc), then created_at (desc) - most recent first
+        valuations.sort(
+            key=lambda v: (v.value_date or '', v.created_at or ''),
+            reverse=True
         )
-        print(f"[Valuation Debug] Hub {hub.id}, source='{source}', found {valuations.count()} valuations")
         
-        result = valuations.first()
-        if result:
-            print(f"[Valuation Debug] Selected valuation id={result.id}, asis_value={result.asis_value}, arv_value={result.arv_value}")
-        else:
-            # Log all sources available for this hub to see what we actually have
-            all_sources = list(Valuation.objects.filter(asset_hub=hub).values_list('source', flat=True).distinct())
-            print(f"[Valuation Debug] No valuation found for source='{source}'. Available sources: {all_sources}")
-        
-        return result
+        return valuations[0] if valuations else None
     
     # Broker valuation getters
     def get_broker_asis_value(self, obj):
         v = self._latest_val_by_source(obj, 'broker')
-        result = getattr(v, 'asis_value', None) if v else None
-        print(f"[Valuation Debug] get_broker_asis_value for SellerRawData id={getattr(obj, 'id', None)}: {result}")
-        return result
+        return getattr(v, 'asis_value', None) if v else None
     
     def get_broker_arv_value(self, obj):
         v = self._latest_val_by_source(obj, 'broker')
@@ -232,9 +231,7 @@ class SellerRawDataRowSerializer(serializers.Serializer):
     # Internal Initial UW valuation getters
     def get_internal_initial_uw_asis_value(self, obj):
         v = self._latest_val_by_source(obj, 'internalInitialUW')
-        result = getattr(v, 'asis_value', None) if v else None
-        print(f"[Valuation Debug] get_internal_initial_uw_asis_value for SellerRawData id={getattr(obj, 'id', None)}: {result}")
-        return result
+        return getattr(v, 'asis_value', None) if v else None
     
     def get_internal_initial_uw_arv_value(self, obj):
         v = self._latest_val_by_source(obj, 'internalInitialUW')

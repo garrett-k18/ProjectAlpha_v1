@@ -1,3 +1,0 @@
-# Legacy placeholder for ETL dependencies.
-# All packages have been consolidated into requirements.txt.
-# Keep this file to avoid deployment scripts failing on missing path.

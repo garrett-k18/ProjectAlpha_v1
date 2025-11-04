@@ -7,9 +7,6 @@
 
                 <!-- Logo -->
                 <div class="auth-brand text-center text-lg-start">
-                    <router-link to="/home" class="logo-dark">
-                        <span><img src="@/assets/images/logo-dark.png" alt="dark logo" height="22"></span>
-                    </router-link>
                     <router-link to="/home" class="logo-light">
                         <span><img src="@/assets/images/logo.png" alt="logo" height="22"></span>
                     </router-link>
@@ -48,23 +45,12 @@
                                 <i class="mdi mdi-login"></i> {{ loading ? 'Logging in...' : 'Log In' }}
                             </b-button>
                         </div>
-                        <!-- social-->
+                        <!-- Phone Number Sign In Option - To Be Implemented -->
                         <div class="text-center mt-4">
-                            <p class="text-muted font-16">Sign in with</p>
-                            <ul class="social-list list-inline mt-3">
-                                <li class="list-inline-item">
-                                    <a href="javascript: void(0);" class="social-list-item border-primary text-primary"><i class="mdi mdi-facebook"></i></a>
-                                </li>
-                                <li class="list-inline-item">
-                                    <a href="javascript: void(0);" class="social-list-item border-danger text-danger"><i class="mdi mdi-google"></i></a>
-                                </li>
-                                <li class="list-inline-item">
-                                    <a href="javascript: void(0);" class="social-list-item border-info text-info"><i class="mdi mdi-twitter"></i></a>
-                                </li>
-                                <li class="list-inline-item">
-                                    <a href="javascript: void(0);" class="social-list-item border-secondary text-secondary"><i class="mdi mdi-github"></i></a>
-                                </li>
-                            </ul>
+                            <p class="text-muted font-16">Or</p>
+                            <b-button variant="outline-primary" class="w-100" disabled>
+                                <i class="mdi mdi-phone"></i> Sign In with Phone Number (Coming Soon)
+                            </b-button>
                         </div>
                     </b-form>
                     <!-- end form-->
@@ -84,12 +70,7 @@
     <!-- Auth fluid right content -->
     <div class="auth-fluid-right text-center">
         <div class="auth-user-testimonial">
-            <h2 class="mb-3">I love the color!</h2>
-            <p class="lead"><i class="mdi mdi-format-quote-open"></i> It's a elegent templete. I love it very much! . <i class="mdi mdi-format-quote-close"></i>
-            </p>
-            <p>
-                - Hyper Admin User
-            </p>
+            <!-- Testimonial content removed -->
         </div> <!-- end auth-user-testimonial-->
     </div>
     <!-- end Auth fluid right content -->

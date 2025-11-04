@@ -59,12 +59,12 @@ def build_queryset(
     if not seller_id or not trade_id:
         return SellerRawData.objects.none()
     
-    # Base queryset with necessary joins for valuations
+    # Base queryset with necessary joins
     qs = (
         SellerRawData.objects
         .filter(seller_id=seller_id, trade_id=trade_id)
         .select_related('seller', 'trade', 'asset_hub')  # Optimize joins for serializer access
-        .prefetch_related('asset_hub__valuations')  # Bring valuations into memory for serializer
+        .prefetch_related('asset_hub__valuations')  # Load ALL valuations in ONE query (not per-row)
         .annotate(  # Annotate borrower full names so serializer stays thin (no formatting logic)
             borrower1_full_name=Case(
                 # Both last and first present -> join as "Last, First"

@@ -25,7 +25,7 @@ from rest_framework.authentication import SessionAuthentication
 from am_module.models.am_data import AMNote
 
 class StandardResultsSetPagination(PageNumberPagination):
-    page_size = 50
+    page_size = 50  # Match frontend default page size
     page_size_query_param = 'page_size'
     max_page_size = 500
 
