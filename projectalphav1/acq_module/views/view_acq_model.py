@@ -62,8 +62,10 @@ def get_asset_model_recommendations(request, asset_id):
             }
         }
     """
-    # Get asset or 404
-    asset = get_object_or_404(SellerRawData, asset_hub_id=asset_id)
+    # WHAT: Get asset by primary key (which is asset_hub in this model)
+    # WHY: SellerRawData uses asset_hub as its primary key, so pk lookup is most explicit
+    # HOW: get_object_or_404 raises 404 if not found
+    asset = get_object_or_404(SellerRawData, pk=asset_id)
     
     try:
         # Generate recommendations using service
@@ -196,8 +198,10 @@ def get_fc_model_timeline_sums(request, asset_id):
             "base_internalUWAsIs": null
         }
     """
-    # Get asset or 404
-    asset = get_object_or_404(SellerRawData, asset_hub_id=asset_id)
+    # WHAT: Get asset by primary key (which is asset_hub in this model)
+    # WHY: SellerRawData uses asset_hub as its primary key, so pk lookup is most explicit
+    # HOW: get_object_or_404 raises 404 if not found
+    asset = get_object_or_404(SellerRawData, pk=asset_id)
     
     try:
         # WHAT: Get timeline sums using service
@@ -272,8 +276,10 @@ def get_reo_model_timeline_sums(request, asset_id):
             "base_internalUWAsIs": null
         }
     """
-    # Get asset or 404
-    asset = get_object_or_404(SellerRawData, asset_hub_id=asset_id)
+    # WHAT: Get asset by primary key (which is asset_hub in this model)
+    # WHY: SellerRawData uses asset_hub as its primary key, so pk lookup is most explicit
+    # HOW: get_object_or_404 raises 404 if not found
+    asset = get_object_or_404(SellerRawData, pk=asset_id)
     
     try:
         # WHAT: Get timeline sums using REO service
@@ -327,8 +333,10 @@ def update_fc_duration_override(request, asset_id):
             "message": "FC duration override updated successfully"
         }
     """
-    # Get asset or 404
-    asset = get_object_or_404(SellerRawData, asset_hub_id=asset_id)
+    # WHAT: Get asset by primary key (which is asset_hub in this model)
+    # WHY: SellerRawData uses asset_hub as its primary key, so pk lookup is most explicit
+    # HOW: get_object_or_404 raises 404 if not found
+    asset = get_object_or_404(SellerRawData, pk=asset_id)
     
     override_value = request.data.get('fc_duration_override_months')
     
@@ -400,7 +408,8 @@ def update_reo_fc_duration_override(request, asset_id):
             "reo_fc_duration_override_months": 2  // Positive adds months, negative subtracts
         }
     """
-    asset = get_object_or_404(SellerRawData, asset_hub_id=asset_id)
+    # WHAT: Get asset by primary key (which is asset_hub in this model)
+    asset = get_object_or_404(SellerRawData, pk=asset_id)
     override_value = request.data.get('reo_fc_duration_override_months')
     
     if override_value is None:
@@ -461,7 +470,8 @@ def update_reo_renovation_override(request, asset_id):
             "reo_renovation_override_months": 3  // Positive adds months, negative subtracts
         }
     """
-    asset = get_object_or_404(SellerRawData, asset_hub_id=asset_id)
+    # WHAT: Get asset by primary key (which is asset_hub in this model)
+    asset = get_object_or_404(SellerRawData, pk=asset_id)
     override_value = request.data.get('reo_renovation_override_months')
     
     if override_value is None:
@@ -522,7 +532,8 @@ def update_reo_marketing_override(request, asset_id):
             "reo_marketing_override_months": 1  // Positive adds months, negative subtracts
         }
     """
-    asset = get_object_or_404(SellerRawData, asset_hub_id=asset_id)
+    # WHAT: Get asset by primary key (which is asset_hub in this model)
+    asset = get_object_or_404(SellerRawData, pk=asset_id)
     override_value = request.data.get('reo_marketing_override_months')
     
     if override_value is None:
@@ -590,8 +601,10 @@ def update_acquisition_price(request, asset_id):
             "message": "Acquisition price updated successfully"
         }
     """
-    # Get asset or 404
-    asset = get_object_or_404(SellerRawData, asset_hub_id=asset_id)
+    # WHAT: Get asset by primary key (which is asset_hub in this model)
+    # WHY: SellerRawData uses asset_hub as its primary key, so pk lookup is most explicit
+    # HOW: get_object_or_404 raises 404 if not found
+    asset = get_object_or_404(SellerRawData, pk=asset_id)
     
     acquisition_price_value = request.data.get('acquisition_price')
     

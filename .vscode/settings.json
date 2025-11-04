@@ -90,5 +90,8 @@
             "username": "postgres",
             "password": "uGIhhiytWLIqaQZWoPzehiyGetRLeBgL"
         }
-    ]
+    ],
+    "python.defaultInterpreterPath": "${workspaceFolder}\\projectalphav1\\.venv\\Scripts\\python.exe",
+    "python.terminal.activateEnvironment": true,
+    "python.terminal.activateEnvInCurrentTerminal": true
 }

@@ -238,16 +238,25 @@ def list_trades_by_seller(request, seller_id: int):
 
 @api_view(["GET"])
 def get_seller_raw_by_id(request, id: int):
-    """Return a single SellerRawData row using DRF serializer; {} if not found."""
+    """
+    Return a single SellerRawData row using DRF serializer; {} if not found.
+    
+    IMPORTANT: SellerRawData uses asset_hub as primary_key=True (OneToOne with AssetIdHub).
+    This means SellerRawData.pk == asset_hub_id, and there is NO separate 'id' field.
+    The 'id' parameter in this endpoint IS the asset_hub_id.
+    """
     try:
-        raw_data = SellerRawData.objects.select_related('seller', 'trade', 'asset_hub').get(id=id)
+        # WHAT: Use pk (which is asset_hub_id) instead of 'id' field (which doesn't exist)
+        # WHY: SellerRawData uses asset_hub OneToOneField as primary key
+        raw_data = SellerRawData.objects.select_related('seller', 'trade', 'asset_hub').get(pk=id)
         serializer = SellerRawDataDetailSerializer(raw_data)
         return Response(serializer.data)
     except SellerRawData.DoesNotExist:
+        logger.warning(f"SellerRawData with asset_hub_id={id} not found")
         return Response({}, status=404)
     except Exception as e:
-        logger.error(f"Failed to fetch SellerRawData {id}: {e}")
-        return Response({}, status=500)
+        logger.error(f"Failed to fetch SellerRawData with asset_hub_id={id}: {e}", exc_info=True)
+        return Response({"error": str(e)}, status=500)
 
 
 @api_view(["GET"])  # State selection options

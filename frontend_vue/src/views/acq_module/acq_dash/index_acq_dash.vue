@@ -124,7 +124,7 @@
 
     <b-row class="g-2 mt-2" v-if="gridRowsLoaded">
       <b-col class="col-12">
-        <VectorMap />
+        <VectorMap @open-loan="onOpenLoan" />
       </b-col>
     </b-row>
 

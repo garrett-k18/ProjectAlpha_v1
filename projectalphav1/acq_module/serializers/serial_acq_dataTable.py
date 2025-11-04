@@ -270,7 +270,14 @@ class SellerRawDataDetailSerializer(serializers.ModelSerializer):
     """
     Detailed serializer for a single SellerRawData record.
     Used by loan-level detail views and modals.
+    
+    IMPORTANT: SellerRawData uses asset_hub as primary_key=True (OneToOne with AssetIdHub).
+    This means there is NO 'id' field - we must use SerializerMethodField to expose asset_hub_id as 'id'.
     """
+    
+    # WHAT: Expose asset_hub_id as 'id' for frontend consistency
+    # WHY: SellerRawData uses asset_hub OneToOneField as primary key, so Django doesn't create 'id' field
+    id = serializers.SerializerMethodField()
     
     # Include hub-level commercial flag for loan-level UI
     is_commercial = serializers.SerializerMethodField()
@@ -308,6 +315,15 @@ class SellerRawDataDetailSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at',
         ]
 
+    def get_id(self, obj):
+        """
+        Return the Asset Hub ID (SellerRawData PK).
+        
+        SellerRawData model uses asset_hub OneToOneField as primary_key=True,
+        so Django doesn't create a standard 'id' field. Always use asset_hub_id.
+        """
+        return getattr(obj, 'asset_hub_id', None) or getattr(obj, 'pk', None)
+    
     def get_is_commercial(self, obj):
         """Return boolean commercial tag from AssetIdHub for detail view."""
         try:
