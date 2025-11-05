@@ -12,7 +12,7 @@ from .commercial import UnitMix, RentRoll
 from .valuations import ComparableProperty, SalesComparable, LeaseComparable, LeaseComparableUnitMix, LeaseComparableRentRoll
 from .propertycfs import HistoricalPropertyCashFlow
 from .calendar_events import CalendarEvent
-from .model_co_generalLedger import GeneralLedgerEntries
+from .model_co_generalLedger import GeneralLedgerEntries, ChartOfAccounts
 
 __all__ = [
     'DebtFacility',
@@ -49,4 +49,5 @@ __all__ = [
     'HistoricalPropertyCashFlow',
     'CalendarEvent',
     'GeneralLedgerEntries',
+    'ChartOfAccounts',
 ]

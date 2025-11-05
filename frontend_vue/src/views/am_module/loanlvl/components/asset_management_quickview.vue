@@ -29,63 +29,51 @@
         {{ loadError }}
       </div>
 
-      <!-- Main quickview content once data is ready -->
-      <div v-else class="d-flex flex-column gap-4">
-        <!-- Active track badges -->
-        <section>
-          <div class="d-flex align-items-center justify-content-between mb-2">
-            <h6 class="text-muted text-uppercase small fw-semibold mb-0">Active Tracks</h6>
-            <span class="badge bg-light text-dark">{{ activeTracksCount }}</span>
+      <!-- Main quickview content once data is ready - Simplified layout showing tracks and their tasks -->
+      <div v-else class="d-flex flex-column gap-3">
+        <!-- Quick summary stats at the top -->
+        <div class="d-flex gap-3 mb-2">
+          <div class="flex-fill text-center p-2 bg-light rounded">
+            <div class="fs-4 fw-bold text-primary">{{ activeTracksCount }}</div>
+            <small class="text-muted">Active Tracks</small>
           </div>
-          <div v-if="activeTrackBadges.length" class="d-flex flex-wrap gap-2">
-            <UiBadge
-              v-for="badge in activeTrackBadges"
-              :key="badge.key"
-              :tone="badge.tone"
-              size="sm"
-              :label="badge.label"
-            />
+          <div class="flex-fill text-center p-2 bg-light rounded">
+            <div class="fs-4 fw-bold text-success">{{ totalTaskCount }}</div>
+            <small class="text-muted">Total Tasks</small>
           </div>
-          <div v-else class="text-muted small">No tracks started yet.</div>
-        </section>
+        </div>
 
-        <!-- Task counts by track -->
-        <section>
-          <div class="d-flex align-items-center justify-content-between mb-2">
-            <h6 class="text-muted text-uppercase small fw-semibold mb-0">Task Totals</h6>
-            <span class="badge bg-light text-dark">{{ totalTaskCount }}</span>
-          </div>
-          <div v-if="trackSummaries.length" class="d-flex flex-column gap-2">
-            <div
-              v-for="summary in trackSummaries"
-              :key="summary.key"
-              class="d-flex align-items-center justify-content-between rounded border px-3 py-2"
-            >
-              <div class="d-flex flex-column">
-                <span class="fw-semibold">{{ summary.title }}</span>
-                <small class="text-muted">{{ summary.subtitle }}</small>
+        <!-- Show each active track as a simple card with its tasks listed -->
+        <div v-if="trackSummaries.length" class="d-flex flex-column gap-2">
+          <div
+            v-for="summary in trackSummaries"
+            :key="summary.key"
+            class="card mb-0 shadow-none border"
+          >
+            <div class="card-body p-3">
+              <!-- Track name and task count -->
+              <div class="d-flex align-items-center justify-content-between mb-2">
+                <div class="d-flex align-items-center gap-2">
+                  <UiBadge :tone="summary.tone" size="sm" :label="summary.title" />
+                  <span class="text-muted small">{{ summary.subtitle }}</span>
+                </div>
+                <span class="badge bg-light text-dark">{{ summary.countLabel }}</span>
               </div>
-              <UiBadge :tone="summary.tone" size="sm" :label="summary.countLabel" />
+              
+              <!-- Latest task for this track -->
+              <div v-if="getLatestTaskForTrack(summary.key)" class="text-muted small">
+                <i class="ri-history-line me-1"></i>
+                {{ getLatestTaskForTrack(summary.key) }}
+              </div>
             </div>
           </div>
-          <div v-else class="text-muted small">No open tasks recorded for this asset.</div>
-        </section>
+        </div>
 
-        <!-- Latest task activity pulled per track -->
-        <section>
-          <h6 class="text-muted text-uppercase small fw-semibold mb-2">Latest Updates</h6>
-          <div v-if="latestTaskBadges.length" class="d-flex flex-column gap-2">
-            <div
-              v-for="item in latestTaskBadges"
-              :key="item.key"
-              class="d-flex flex-wrap align-items-center gap-2 border rounded px-3 py-2"
-            >
-              <UiBadge :tone="item.tone" size="sm" :label="item.label" />
-              <small class="text-muted">{{ item.timestamp }}</small>
-            </div>
-          </div>
-          <div v-else class="text-muted small">No recent task updates captured.</div>
-        </section>
+        <!-- Empty state when no tracks exist -->
+        <div v-else class="text-center text-muted py-3">
+          <i class="ri-inbox-line fs-2 d-block mb-2"></i>
+          <p class="mb-0">No active tracks or tasks</p>
+        </div>
       </div>
     </div>
   </div>
@@ -501,31 +489,32 @@ const trackSummaries = computed(() => {
 const totalTaskCount = computed(() => trackSummaries.value.reduce((sum, summary) => sum + Number(summary.countLabel), 0))
 
 /**
- * WHAT: Latest task badge list showing the most recent update per track.
- * WHY: Gives AM users a pulse check without opening the full track cards.
- * HOW: Sorts each task list by created_at (desc) and maps to badge descriptors.
+ * WHAT: Helper function to get the latest task description for a given track.
+ * WHY: Shows the most recent activity for each track inline within the track card.
+ * HOW: Extracts the outcome type from the summary key, finds the latest task by created_at timestamp.
+ * @param summaryKey - The key from trackSummaries (format: "summary-{type}")
+ * @returns Formatted string with task label and timestamp, or null if no tasks exist.
  */
-const latestTaskBadges = computed(() => {
-  return outcomeTypes
-    .filter((type) => activeOutcomeMap.value[type])
-    .map((type) => {
-      const tasks = tasksByType.value[type] ?? []
-      if (!tasks.length) return null
-      const sorted = [...tasks].sort((a, b) => {
-        const aTime = a.created_at ? Date.parse(a.created_at) : 0
-        const bTime = b.created_at ? Date.parse(b.created_at) : 0
-        return bTime - aTime
-      })
-      const latest = sorted[0]
-      return {
-        key: `latest-${type}-${latest.id}`,
-        label: `${trackLabel(type)}: ${taskLabelFor(type, latest)}`,
-        tone: taskToneFor(type, latest),
-        timestamp: formatTimestamp(latest.created_at ?? latest.updated_at ?? null),
-      }
-    })
-    .filter((item): item is { key: string; label: string; tone: BadgeToneKey; timestamp: string } => item !== null)
-})
+function getLatestTaskForTrack(summaryKey: string): string | null {
+  // Extract outcome type from the summary key (e.g., "summary-dil" -> "dil")
+  const type = summaryKey.replace('summary-', '') as OutcomeType
+  const tasks = tasksByType.value[type] ?? []
+  
+  if (!tasks.length) return null
+  
+  // Sort tasks by created_at timestamp (most recent first)
+  const sorted = [...tasks].sort((a, b) => {
+    const aTime = a.created_at ? Date.parse(a.created_at) : 0
+    const bTime = b.created_at ? Date.parse(b.created_at) : 0
+    return bTime - aTime
+  })
+  
+  const latest = sorted[0]
+  const label = taskLabelFor(type, latest)
+  const timestamp = formatTimestamp(latest.created_at ?? latest.updated_at ?? null)
+  
+  return `Latest: ${label} (${timestamp})`
+}
 
 /**
  * WHAT: Watcher to reload quickview whenever the selected hub id changes.

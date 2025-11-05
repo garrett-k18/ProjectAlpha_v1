@@ -34,6 +34,10 @@ class LLTransactionSummary(models.Model):
         help_text='Actual purchase price paid'
     )
     
+    gross_purchase_price_realized = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        help_text='Actual gross purchase price paid'
+    )
     # ------------------------------
     # Acquisition Costs (Realized)
     # ------------------------------

@@ -22,6 +22,7 @@ class GeneralLedgerEntries(models.Model):
     
     entry = models.CharField(
         max_length=100,
+        unique=True,
         db_index=True,
         help_text='General ledger entry identifier or reference number'
     )
@@ -281,3 +282,47 @@ class GeneralLedgerEntries(models.Model):
         """
         return self.debit_amount == self.credit_amount
 
+  # ------------------------------
+  # Chart of Accounts
+  # ------------------------------
+
+class ChartOfAccounts(models.Model):
+    """
+    WHAT: Model for storing chart of accounts
+    WHY: Need a comprehensive record of all accounts for financial reporting and audit trails
+    HOW: Captures all relevant account details including name, number, and type
+    """
+    account_number = models.CharField(
+        max_length=50,
+        unique=True,
+        db_index=True,
+        help_text='Chart of accounts number for this account'
+    )
+    account_name = models.CharField(
+        max_length=255,
+        help_text='Name of the account from the chart of accounts'
+    )
+    account_type = models.CharField(
+        max_length=50,
+        help_text='Type of account (e.g., Asset, Liability, Equity, Revenue, Expense)'
+    )
+    transaction_table_reference = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text='Reference to the LLTransactionSummary/LLCashFlowSeries field this account maps to'
+    )
+ 
+    class Meta:
+        db_table = 'chart_of_accounts'
+        verbose_name = 'Chart of Accounts'
+        verbose_name_plural = 'Chart of Accounts'
+        ordering = ['account_number']
+    
+    def __str__(self):
+        """
+        WHAT: String representation of ChartOfAccounts
+        WHY: Human-readable display in admin and debugging
+        HOW: Returns account number and name
+        """
+        return f"{self.account_number} - {self.account_name}"
