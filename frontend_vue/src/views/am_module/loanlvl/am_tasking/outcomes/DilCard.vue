@@ -96,7 +96,10 @@
             </div>
             <div class="d-flex align-items-center small text-muted gap-2">
               <span class="me-2">
-                Started: 
+                <!-- Display date label based on task type -->
+                <template v-if="t.task_type === 'dil_executed'">Executed Date:</template>
+                <template v-else-if="t.task_type === 'dil_drafted'">Drafted Date:</template>
+                <template v-else>Date:</template>
                 <EditableDate 
                   :model-value="t.task_started" 
                   @update:model-value="(newDate) => updateTaskStarted(t.id, newDate)"
