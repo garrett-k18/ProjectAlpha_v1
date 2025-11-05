@@ -113,28 +113,24 @@
             <!-- NOD/NOI specific date fields -->
             <div v-if="t.task_type === 'nod_noi'" class="row g-3 mb-3">
               <div class="col-md-6">
-                <label class="form-label small">NOD/NOI Sent Date</label>
-                <input 
-                  type="text" 
-                  class="form-control form-control-sm date" 
-                  data-toggle="date-picker" 
-                  data-single-date-picker="true"
-                  :value="getTaskField(t, 'nod_noi_sent_date')"
-                  @change="(e) => updateTaskField(t.id, 'nod_noi_sent_date', (e.target as HTMLInputElement).value)"
-                  placeholder="Select date"
-                >
+                <label class="form-label small text-muted">NOD/NOI Sent Date</label>
+                <div class="d-block">
+                  <EditableDate
+                    :model-value="getTaskField(t, 'nod_noi_sent_date') || ''"
+                    @update:model-value="(newDate) => updateTaskField(t.id, 'nod_noi_sent_date', newDate)"
+                    title="Click to edit NOD/NOI sent date"
+                  />
+                </div>
               </div>
               <div class="col-md-6">
-                <label class="form-label small">NOD/NOI Expire Date</label>
-                <input 
-                  type="text" 
-                  class="form-control form-control-sm date" 
-                  data-toggle="date-picker" 
-                  data-single-date-picker="true"
-                  :value="getTaskField(t, 'nod_noi_expire_date')"
-                  @change="(e) => updateTaskField(t.id, 'nod_noi_expire_date', (e.target as HTMLInputElement).value)"
-                  placeholder="Select date"
-                >
+                <label class="form-label small text-muted">NOD/NOI Expire Date</label>
+                <div class="d-block">
+                  <EditableDate
+                    :model-value="getTaskField(t, 'nod_noi_expire_date') || ''"
+                    @update:model-value="(newDate) => updateTaskField(t.id, 'nod_noi_expire_date', newDate)"
+                    title="Click to edit NOD/NOI expire date"
+                  />
+                </div>
               </div>
             </div>
             <!-- WHAT: Sale completion fields for Sold task -->
@@ -142,21 +138,17 @@
             <div v-else-if="t.task_type === 'sold'" class="mb-3">
               <div class="row g-2">
                 <div class="col-md-6">
-                  <label class="form-label small">Sale Date</label>
-                  <input 
-                    ref="saleDateInput"
-                    type="text" 
-                    class="form-control form-control-sm date" 
-                    data-toggle="date-picker" 
-                    data-single-date-picker="true" 
-                    :value="convertToDisplayDate(fcData?.fc_sale_actual_date || '')"
-                    @input="handleSaleDateInput"
-                    placeholder="Select date" 
-                    spellcheck="false"
-                  />
+                  <label class="form-label small text-muted">Sale Date</label>
+                  <div class="d-block">
+                    <EditableDate
+                      :model-value="fcData?.fc_sale_actual_date || ''"
+                      @update:model-value="handleSaleDateChange"
+                      title="Click to edit sale date"
+                    />
+                  </div>
                 </div>
                 <div class="col-md-6">
-                  <label class="form-label small">Gross Sale Proceeds</label>
+                  <label class="form-label small text-muted">Gross Sale Proceeds</label>
                   <UiCurrencyInput 
                     :model-value="fcData?.fc_sale_price || ''"
                     @update:model-value="handleSalePriceChange"
@@ -263,8 +255,6 @@ const tasks = ref<FcTask[]>([])
 const localExpandedId = ref<number | null>(null)
 // FC completion data
 const fcData = ref<any>(null)
-// Date picker refs
-const saleDateInput = ref<HTMLInputElement | null>(null)
 // WHAT: Track if user has manually interacted with tasks after master expand
 // WHY: Allow individual task collapse even when master is expanded
 const userInteracted = ref(false)
@@ -359,13 +349,10 @@ function convertToDisplayDate(backendDate: string): string {
   }
 }
 
-// WHAT: Handle sale date input from text field
-// WHY: Convert display format to backend format and save
-function handleSaleDateInput(event: Event) {
-  const target = event.target as HTMLInputElement
-  const displayDate = target.value
-  const backendDate = convertToBackendDate(displayDate)
-  updateFcField('fc_sale_actual_date', backendDate)
+// WHAT: Handle sale date changes from EditableDate component
+// WHY: Save sale date value directly (EditableDate already provides backend format)
+function handleSaleDateChange(newDate: string) {
+  updateFcField('fc_sale_actual_date', newDate)
 }
 
 // WHAT: Handle sale price changes from UiCurrencyInput component

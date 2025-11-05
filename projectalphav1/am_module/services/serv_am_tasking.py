@@ -12,11 +12,13 @@ from am_module.models.am_data import (
     DILTask,
     ShortSaleTask,
     ModificationTask,
+    NoteSaleTask,
     FCSale,
     REOData,
     DIL,
     ShortSale,
     Modification,
+    NoteSale,
 )
 
 
@@ -55,6 +57,7 @@ def get_task_metrics(hub_id: int) -> Dict[str, Any]:
         DILTask: ['owner_contacted', 'no_cooperation', 'dil_drafted', 'dil_executed'],
         ShortSaleTask: ['list_price_accepted', 'listed', 'under_contract', 'sold'],
         ModificationTask: ['mod_drafted', 'mod_executed', 'mod_rpl', 'mod_failed'],
+        NoteSaleTask: ['potential_note_sale', 'out_to_market', 'pending_sale', 'sold'],
     }
     
     # WHAT: Define which task types actually close the track
@@ -66,6 +69,7 @@ def get_task_metrics(hub_id: int) -> Dict[str, Any]:
         DILTask: ['dil_executed'],
         ShortSaleTask: ['sold'],
         ModificationTask: ['mod_failed'],  # Only 'failed' closes track, not 're-performing'
+        NoteSaleTask: ['sold'],
     }
     
     active_tasks = []
@@ -175,6 +179,7 @@ def _serialize_task_pills(task_data_list: List[Dict[str, Any]], is_completed: bo
             'shortsale': 'Sh.Sale',
             'dil': 'DIL',
             'reo': 'REO',
+            'notesale': 'Note Sale',
         }
         track_prefix = track_prefix_map.get(outcome_type, outcome_type.upper())
         
@@ -223,6 +228,7 @@ def _get_outcome_tone(outcome_type: str) -> str:
         'dil': 'primary',
         'shortsale': 'warning',
         'modification': 'modification-green',
+        'notesale': 'secondary',
     }
     result = tone_map.get(outcome_type, 'secondary')
     print(f"DEBUG: get_outcome_tone({outcome_type}) = {result}")
@@ -292,6 +298,13 @@ def get_active_outcome_tracks(hub_id: int) -> Dict[str, Any]:
             'completion_types': ['failed'],  # Note: Could also include 'started' as completion
             'label': 'Modification',
             'tone': 'modification-green',
+        },
+        'note_sale': {
+            'outcome_model': NoteSale,
+            'task_model': NoteSaleTask,
+            'completion_types': ['sold'],
+            'label': 'Note Sale',
+            'tone': 'secondary',
         },
     }
     
@@ -421,6 +434,17 @@ def get_track_milestones(hub_id: int) -> List[Dict[str, Any]]:
                 'marketing',      # Marketing
                 'under_contract', # Under Contract
                 'sold',          # Sold (completion)
+            ]
+        },
+        'note_sale': {
+            'label': 'Note Sale',
+            'tone': 'secondary',
+            'task_model': NoteSaleTask,
+            'sequence': [
+                'potential_note_sale', # Potential Note Sale
+                'out_to_market',       # Out to Market
+                'pending_sale',        # Pending Sale
+                'sold',               # Sold (completion)
             ]
         }
     }
@@ -589,6 +613,10 @@ def _format_task_label(task_type: str) -> str:
         'trashout': 'Trashout',
         'renovation': 'Renovation',
         'marketing': 'Marketing',
+        # Note Sale labels
+        'potential_note_sale': 'Potential Note Sale',
+        'out_to_market': 'Out to Market',
+        'pending_sale': 'Pending Sale',
     }
     return label_map.get(task_type.lower(), task_type.title())
 

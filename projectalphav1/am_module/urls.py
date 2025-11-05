@@ -11,6 +11,7 @@ from am_module.views.view_am_taskOutcomes import (
     DILViewSet, DILTaskViewSet,
     ShortSaleViewSet, ShortSaleTaskViewSet,
     ModificationViewSet, ModificationTaskViewSet,
+    NoteSaleViewSet, NoteSaleTaskViewSet,
     REOScopeViewSet,
     OffersViewSet,
     TaskMetricsView,
@@ -32,6 +33,8 @@ router.register(r'outcomes/short-sale', ShortSaleViewSet, basename='am-short-sal
 router.register(r'outcomes/short-sale-tasks', ShortSaleTaskViewSet, basename='am-short-sale-tasks')
 router.register(r'outcomes/modification', ModificationViewSet, basename='am-modification')
 router.register(r'outcomes/modification-tasks', ModificationTaskViewSet, basename='am-modification-tasks')
+router.register(r'outcomes/note-sale', NoteSaleViewSet, basename='am-note-sale')
+router.register(r'outcomes/note-sale-tasks', NoteSaleTaskViewSet, basename='am-note-sale-tasks')
 router.register(r'outcomes/reo-scopes', REOScopeViewSet, basename='am-reo-scopes')
 router.register(r'outcomes/offers', OffersViewSet, basename='am-offers')
 

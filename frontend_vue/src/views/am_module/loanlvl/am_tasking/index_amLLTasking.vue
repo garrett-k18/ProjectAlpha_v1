@@ -154,6 +154,9 @@
               <button class="track-option" @click="selectTrack('reo')" :disabled="ensureBusy">
                 <UiBadge tone="info" size="md">REO</UiBadge>
               </button>
+              <button class="track-option" @click="selectTrack('note_sale')" :disabled="ensureBusy">
+                <UiBadge tone="secondary" size="md">Note Sale</UiBadge>
+              </button>
             </div>
           </div>
         </div>
@@ -165,6 +168,7 @@
         <ReoCard v-if="visibleOutcomes.reo" :hubId="hubId!" :masterCollapsed="tracksCollapsed" @delete="() => requestDelete('reo')" />
         <ShortSaleCard v-if="visibleOutcomes.short_sale" :hubId="hubId!" :masterCollapsed="tracksCollapsed" @delete="() => requestDelete('short_sale')" />
         <ModificationCard v-if="visibleOutcomes.modification" :hubId="hubId!" :masterCollapsed="tracksCollapsed" @delete="() => requestDelete('modification')" />
+        <NoteSaleCard v-if="visibleOutcomes.note_sale" :hubId="hubId!" :masterCollapsed="tracksCollapsed" @delete="() => requestDelete('note_sale')" />
         
         <div v-if="!anyVisibleOutcome" class="no-tracks">
           <i class="fas fa-info-circle"></i>
@@ -224,6 +228,7 @@ import FcCard from '@/views/am_module/loanlvl/am_tasking/outcomes/FcCard.vue'
 import ReoCard from '@/views/am_module/loanlvl/am_tasking/outcomes/ReoCard.vue'
 import ShortSaleCard from '@/views/am_module/loanlvl/am_tasking/outcomes/ShortSaleCard.vue'
 import ModificationCard from '@/views/am_module/loanlvl/am_tasking/outcomes/ModificationCard.vue'
+import NoteSaleCard from '@/views/am_module/loanlvl/am_tasking/outcomes/NoteSaleCard.vue'
 import { useAmOutcomesStore, type OutcomeType } from '@/stores/outcomes'
 // Recent Activity widget (feature-local). Path: views/.../am_tasking/components/recent-activity.vue
 import RecentActivity, { type ActivityItem } from '@/views/am_module/loanlvl/am_tasking/components/recent-activity.vue'
@@ -573,7 +578,7 @@ const ensureBusy = ref(false)
 const selectedOutcome = ref<OutcomeType | ''>('')
 const showTrackMenu = ref(false)
 const trackMenuRef = ref<HTMLElement | null>(null)
-const visibleOutcomes = ref<Record<OutcomeType, boolean>>({ dil: false, fc: false, reo: false, short_sale: false, modification: false })
+const visibleOutcomes = ref<Record<OutcomeType, boolean>>({ dil: false, fc: false, reo: false, short_sale: false, modification: false, note_sale: false })
 const anyVisibleOutcome = computed(() => Object.values(visibleOutcomes.value).some(Boolean))
 // WHAT: Track whether outcome cards are collapsed or expanded
 // WHY: Allow users to hide/show all outcome cards at once
@@ -600,6 +605,7 @@ function trackLabel(t: OutcomeType): string {
     case 'dil': return 'Deed-in-Lieu'
     case 'fc': return 'Foreclosure'
     case 'reo': return 'REO'
+    case 'note_sale': return 'Note Sale'
     default: return t
   }
 }
@@ -612,6 +618,7 @@ function trackTone(t: OutcomeType): import('@/config/badgeTokens').BadgeToneKey 
     case 'dil': return 'primary'
     case 'fc': return 'danger'
     case 'reo': return 'info'
+    case 'note_sale': return 'secondary'
     default: return 'secondary'
   }
 }
@@ -690,6 +697,18 @@ const modificationToneMap: Record<import('@/stores/outcomes').ModificationTaskTy
   mod_rpl: 'primary',
   mod_failed: 'danger',
 }
+const noteSaleTaskLabel: Record<import('@/stores/outcomes').NoteSaleTaskType, string> = {
+  potential_note_sale: 'Potential Note Sale',
+  out_to_market: 'Out to Market',
+  pending_sale: 'Pending Sale',
+  sold: 'Sold',
+}
+const noteSaleToneMap: Record<import('@/stores/outcomes').NoteSaleTaskType, BadgeToneKey> = {
+  potential_note_sale: 'secondary',
+  out_to_market: 'info',
+  pending_sale: 'warning',
+  sold: 'success',
+}
 
 type BadgeToneKey = import('@/config/badgeTokens').BadgeToneKey
 type PillItem = { key: string; label: string; tone: BadgeToneKey }
@@ -755,6 +774,15 @@ const activeTaskItems = computed<PillItem[]>(() => {
     if (latest) {
       const tp = latest.task_type as import('@/stores/outcomes').ModificationTaskType
       items.push({ key: `mod-${latest.id}`, label: `Mod: ${modificationTaskLabel[tp] ?? latest.task_type}`, tone: modificationToneMap[tp] })
+    }
+  }
+  // Note Sale
+  if (visibleOutcomes.value.note_sale) {
+    const list = outcomesStore.noteSaleTasksByHub[id] ?? []
+    const latest = pickLatest(list)
+    if (latest) {
+      const tp = latest.task_type as import('@/stores/outcomes').NoteSaleTaskType
+      items.push({ key: `note-sale-${latest.id}`, label: `Note Sale: ${noteSaleTaskLabel[tp] ?? latest.task_type}`, tone: noteSaleToneMap[tp] })
     }
   }
   return items
@@ -891,10 +919,10 @@ async function confirmDelete() {
 // WHY: On page load/refresh, we need to restore the visible track cards
 // HOW: Fetches each outcome type and sets visibility flag if it exists
 async function refreshVisible() {
-  visibleOutcomes.value = { dil: false, fc: false, reo: false, short_sale: false, modification: false }
+  visibleOutcomes.value = { dil: false, fc: false, reo: false, short_sale: false, modification: false, note_sale: false }
   const id = hubId.value
   if (!id) return
-  const types: OutcomeType[] = ['dil', 'fc', 'reo', 'short_sale', 'modification']
+  const types: OutcomeType[] = ['dil', 'fc', 'reo', 'short_sale', 'modification', 'note_sale']
   for (const t of types) {
     try {
       const exists = await outcomesStore.fetchOutcome(id, t)
@@ -905,6 +933,7 @@ async function refreshVisible() {
         else if (t === 'reo') await outcomesStore.listReoTasks(id)
         else if (t === 'short_sale') await outcomesStore.listShortSaleTasks(id)
         else if (t === 'dil') await outcomesStore.listDilTasks(id)
+        else if (t === 'note_sale') await outcomesStore.listNoteSaleTasks(id)
         else if (t === 'modification') await outcomesStore.listModificationTasks(id)
       }
     } catch (err) {

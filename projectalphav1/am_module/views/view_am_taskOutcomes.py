@@ -23,6 +23,7 @@ from am_module.models.am_data import (
     DIL, DILTask,
     ShortSale, ShortSaleTask,
     Modification, ModificationTask,
+    NoteSale, NoteSaleTask,
     REOScope,
     Offers,
 )
@@ -32,6 +33,7 @@ from am_module.serializers.serial_am_outcomes import (
     DILSerializer, DILTaskSerializer,
     ShortSaleSerializer, ShortSaleTaskSerializer,
     ModificationSerializer, ModificationTaskSerializer,
+    NoteSaleSerializer, NoteSaleTaskSerializer,
     REOScopeSerializer,
     OffersSerializer,
 )
@@ -184,6 +186,29 @@ class ModificationTaskViewSet(_TaskBaseViewSet):
     queryset = ModificationTask.objects.all().select_related('asset_hub', 'modification')
     serializer_class = ModificationTaskSerializer
     parent_field_name = 'modification'
+
+
+class NoteSaleViewSet(_OutcomeBaseViewSet):
+    """
+    WHAT: ViewSet for NoteSale outcome (1:1 with AssetIdHub)
+    WHY: Provide API endpoints for managing note sale outcomes
+    WHERE: Used by Note Sale outcome cards in asset management
+    HOW: Extends _OutcomeBaseViewSet with standard CRUD operations
+    """
+    queryset = NoteSale.objects.all().select_related('asset_hub', 'trading_partner')
+    serializer_class = NoteSaleSerializer
+
+
+class NoteSaleTaskViewSet(_TaskBaseViewSet):
+    """
+    WHAT: ViewSet for NoteSaleTask workflow tasks (many-to-one with NoteSale)
+    WHY: Provide API endpoints for managing note sale workflow tasks
+    WHERE: Used by Note Sale task management in asset management
+    HOW: Extends _TaskBaseViewSet with filtering and CRUD operations
+    """
+    queryset = NoteSaleTask.objects.all().select_related('asset_hub', 'note_sale')
+    serializer_class = NoteSaleTaskSerializer
+    parent_field_name = 'note_sale'
 
 
 class OffersViewSet(viewsets.ModelViewSet):

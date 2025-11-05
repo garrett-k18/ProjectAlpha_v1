@@ -21,13 +21,14 @@ import http from '@/lib/http'
 export type DilTaskType = 'owner_contacted' | 'no_cooperation' | 'dil_drafted' | 'dil_executed'
 
 // Allow a generic start for any outcome
-export type OutcomeType = 'dil' | 'fc' | 'reo' | 'short_sale' | 'modification'
+export type OutcomeType = 'dil' | 'fc' | 'reo' | 'short_sale' | 'modification' | 'note_sale'
 const outcomePath: Record<OutcomeType, string> = {
   dil: 'dil',
   fc: 'fc',
   reo: 'reo',
   short_sale: 'short-sale',
   modification: 'modification',
+  note_sale: 'note-sale',
 }
 
 // FC Task support
@@ -63,6 +64,18 @@ export interface ModificationTask {
   asset_hub: number
   modification: number
   task_type: ModificationTaskType
+  task_started: string | null
+  created_at: string
+  updated_at: string
+}
+
+// Note Sale Task support
+export type NoteSaleTaskType = 'potential_note_sale' | 'out_to_market' | 'pending_sale' | 'sold'
+export interface NoteSaleTask {
+  id: number
+  asset_hub: number
+  note_sale: number
+  task_type: NoteSaleTaskType
   task_started: string | null
   created_at: string
   updated_at: string
@@ -138,6 +151,14 @@ export interface ModificationOutcome {
   modification_down_payment: string | null
 }
 
+// Note Sale interface
+export interface NoteSaleOutcome {
+  asset_hub: number
+  sold_date: string | null
+  proceeds: string | null
+  trading_partner: number | null
+}
+
 export interface DilTask {
   id: number
   asset_hub: number
@@ -184,6 +205,7 @@ interface StateShape {
   fcByHub: Record<number, FcSale | null>
   shortSaleByHub: Record<number, ShortSaleOutcome | null>
   modificationByHub: Record<number, ModificationOutcome | null>
+  noteSaleByHub: Record<number, NoteSaleOutcome | null>
   // tasks by hub id
   dilTasksByHub: Record<number, DilTask[]>
   // REO tasks by hub id
@@ -194,6 +216,8 @@ interface StateShape {
   shortSaleTasksByHub: Record<number, ShortSaleTask[]>
   // Modification tasks by hub id
   modificationTasksByHub: Record<number, ModificationTask[]>
+  // Note Sale tasks by hub id
+  noteSaleTasksByHub: Record<number, NoteSaleTask[]>
   // loading + error per hub for fine-grained UI control
   loadingDil: Record<number, boolean>
   loadingDilTasks: Record<number, boolean>
@@ -201,12 +225,14 @@ interface StateShape {
   loadingFcTasks: Record<number, boolean>
   loadingShortSaleTasks: Record<number, boolean>
   loadingModificationTasks: Record<number, boolean>
+  loadingNoteSaleTasks: Record<number, boolean>
   errorDil: Record<number, string | null>
   errorDilTasks: Record<number, string | null>
   errorReoTasks: Record<number, string | null>
   errorFcTasks: Record<number, string | null>
   errorShortSaleTasks: Record<number, string | null>
   errorModificationTasks: Record<number, string | null>
+  errorNoteSaleTasks: Record<number, string | null>
 }
 
 export const useAmOutcomesStore = defineStore('amOutcomes', {
@@ -216,23 +242,27 @@ export const useAmOutcomesStore = defineStore('amOutcomes', {
     fcByHub: {},
     shortSaleByHub: {},
     modificationByHub: {},
+    noteSaleByHub: {},
     dilTasksByHub: {},
     reoTasksByHub: {},
     fcTasksByHub: {},
     shortSaleTasksByHub: {},
     modificationTasksByHub: {},
+    noteSaleTasksByHub: {},
     loadingDil: {},
     loadingDilTasks: {},
     loadingReoTasks: {},
     loadingFcTasks: {},
     loadingShortSaleTasks: {},
     loadingModificationTasks: {},
+    loadingNoteSaleTasks: {},
     errorDil: {},
     errorDilTasks: {},
     errorReoTasks: {},
     errorFcTasks: {},
     errorShortSaleTasks: {},
     errorModificationTasks: {},
+    errorNoteSaleTasks: {},
     // dynamic extension: attach caches for other outcomes
     // REO scopes cache keyed by `${hubId}:${taskId || 0}:${scopeKind || ''}`
     // Keep loading and error maps with same key
@@ -262,6 +292,7 @@ export const useAmOutcomesStore = defineStore('amOutcomes', {
       else if (type === 'reo') this.reoByHub[hubId] = res.data as ReoData
       else if (type === 'short_sale') this.shortSaleByHub[hubId] = res.data as ShortSaleOutcome
       else if (type === 'modification') this.modificationByHub[hubId] = res.data as ModificationOutcome
+      else if (type === 'note_sale') this.noteSaleByHub[hubId] = res.data as NoteSaleOutcome
       return res.data
     },
 
@@ -819,6 +850,103 @@ export const useAmOutcomesStore = defineStore('amOutcomes', {
       } finally {
         this.loadingModificationTasks[hubId] = false
       }
+    },
+
+    // -----------------------------
+    // Note Sale Tasks helpers
+    // -----------------------------
+    async listNoteSaleTasks(hubId: number, force = false): Promise<NoteSaleTask[]> {
+      if (!force && this.noteSaleTasksByHub[hubId] !== undefined) return this.noteSaleTasksByHub[hubId]
+      try {
+        this.loadingNoteSaleTasks[hubId] = true
+        this.errorNoteSaleTasks[hubId] = null
+        const res = await http.get<NoteSaleTask[]>('/am/outcomes/note-sale-tasks/', { params: { asset_hub_id: hubId } })
+        const items = Array.isArray(res.data) ? res.data : []
+        const itemsSorted = [...items].sort((a, b) => {
+          const aT = Date.parse(a.created_at)
+          const bT = Date.parse(b.created_at)
+          if (!isNaN(aT) && !isNaN(bT)) return bT - aT
+          return (b.id ?? 0) - (a.id ?? 0)
+        })
+        this.noteSaleTasksByHub[hubId] = itemsSorted
+        return itemsSorted
+      } catch (err: any) {
+        const msg = err?.response?.data?.detail || err?.message || 'Failed to load Note Sale tasks'
+        this.errorNoteSaleTasks[hubId] = msg
+        throw err
+      } finally {
+        this.loadingNoteSaleTasks[hubId] = false
+      }
+    },
+    async createNoteSaleTask(hubId: number, taskType: NoteSaleTaskType): Promise<NoteSaleTask> {
+      try {
+        this.loadingNoteSaleTasks[hubId] = true
+        this.errorNoteSaleTasks[hubId] = null
+        // Ensure parent NoteSale outcome exists
+        await this.ensureOutcome(hubId, 'note_sale')
+        const res = await http.post<NoteSaleTask>('/am/outcomes/note-sale-tasks/', {
+          asset_hub_id: hubId,
+          note_sale: hubId,
+          task_type: taskType,
+        })
+        const current = this.noteSaleTasksByHub[hubId] ?? []
+        const next = [res.data, ...current]
+        const seen = new Set<number>()
+        this.noteSaleTasksByHub[hubId] = next.filter(t => {
+          if (seen.has(t.id)) return false
+          seen.add(t.id)
+          return true
+        })
+        return res.data
+      } catch (err: any) {
+        const msg = err?.response?.data?.detail || err?.message || 'Failed to create Note Sale task'
+        this.errorNoteSaleTasks[hubId] = msg
+        throw err
+      } finally {
+        this.loadingNoteSaleTasks[hubId] = false
+      }
+    },
+    async deleteNoteSaleTask(hubId: number, taskId: number): Promise<void> {
+      try {
+        this.loadingNoteSaleTasks[hubId] = true
+        this.errorNoteSaleTasks[hubId] = null
+        await http.delete(`/am/outcomes/note-sale-tasks/${taskId}/`, { params: { asset_hub_id: hubId } })
+        const list = this.noteSaleTasksByHub[hubId] ?? []
+        this.noteSaleTasksByHub[hubId] = list.filter(t => t.id !== taskId)
+      } catch (err: any) {
+        const msg = err?.response?.data?.detail || err?.message || 'Failed to delete Note Sale task'
+        this.errorNoteSaleTasks[hubId] = msg
+        throw err
+      } finally {
+        this.loadingNoteSaleTasks[hubId] = false
+      }
+    },
+    async fetchNoteSale(hubId: number, force = false): Promise<NoteSaleOutcome | null> {
+      if (!force && this.noteSaleByHub[hubId] !== undefined) return this.noteSaleByHub[hubId]
+      try {
+        const res = await http.get<NoteSaleOutcome[]>('/am/outcomes/note-sale/', { params: { asset_hub_id: hubId } })
+        const items = Array.isArray(res.data) ? res.data : []
+        this.noteSaleByHub[hubId] = items.length > 0 ? items[0] : null
+        return this.noteSaleByHub[hubId]
+      } catch (err: any) {
+        console.error('Failed to fetch Note Sale:', err)
+        this.noteSaleByHub[hubId] = null
+        return null
+      }
+    },
+    async ensureNoteSale(hubId: number): Promise<NoteSaleOutcome> {
+      return this.ensureOutcome(hubId, 'note_sale') as Promise<NoteSaleOutcome>
+    },
+    async patchNoteSale(hubId: number, payload: Partial<NoteSaleOutcome>): Promise<NoteSaleOutcome> {
+      const res = await http.patch<NoteSaleOutcome>(`/am/outcomes/note-sale/${hubId}/`, payload)
+      this.noteSaleByHub[hubId] = res.data
+      return res.data
+    },
+    getNoteSale(hubId: number): NoteSaleOutcome | null {
+      return this.noteSaleByHub[hubId] ?? null
+    },
+    getNoteSaleTasks(hubId: number): NoteSaleTask[] {
+      return this.noteSaleTasksByHub[hubId] ?? []
     },
   },
 })

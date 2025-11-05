@@ -110,21 +110,17 @@
             <div v-if="t.task_type === 'sold'" class="mb-3">
               <div class="row g-2">
                 <div class="col-md-6">
-                  <label class="form-label small">Sale Date</label>
-                  <input 
-                    ref="saleDateInput"
-                    type="text" 
-                    class="form-control form-control-sm date" 
-                    data-toggle="date-picker" 
-                    data-single-date-picker="true" 
-                    :value="convertToDisplayDate(shortSaleData?.short_sale_date || '')"
-                    @input="handleDateInput"
-                    placeholder="Select date" 
-                    spellcheck="false"
-                  />
+                  <label class="form-label small text-muted">Sale Date</label>
+                  <div class="d-block">
+                    <EditableDate
+                      :model-value="shortSaleData?.short_sale_date || ''"
+                      @update:model-value="handleDateChange"
+                      title="Click to edit sale date"
+                    />
+                  </div>
                 </div>
                 <div class="col-md-6">
-                  <label class="form-label small">Gross Proceeds</label>
+                  <label class="form-label small text-muted">Gross Proceeds</label>
                   <UiCurrencyInput 
                     :model-value="shortSaleData?.gross_proceeds || ''"
                     @update:model-value="handleCurrencyChange"
@@ -141,21 +137,17 @@
             <div v-else-if="t.task_type === 'listed'" class="mb-3">
               <div class="row g-2">
                 <div class="col-md-6">
-                  <label class="form-label small">List Date</label>
-                  <input 
-                    ref="listDateInput"
-                    type="text" 
-                    class="form-control form-control-sm date" 
-                    data-toggle="date-picker" 
-                    data-single-date-picker="true" 
-                    :value="convertToDisplayDate(shortSaleData?.short_sale_list_date || '')"
-                    @input="handleListDateInput"
-                    placeholder="Select date" 
-                    spellcheck="false"
-                  />
+                  <label class="form-label small text-muted">List Date</label>
+                  <div class="d-block">
+                    <EditableDate
+                      :model-value="shortSaleData?.short_sale_list_date || ''"
+                      @update:model-value="handleListDateChange"
+                      title="Click to edit list date"
+                    />
+                  </div>
                 </div>
                 <div class="col-md-6">
-                  <label class="form-label small">List Price</label>
+                  <label class="form-label small text-muted">List Price</label>
                   <UiCurrencyInput 
                     :model-value="shortSaleData?.short_sale_list_price || ''"
                     @update:model-value="handleListPriceChange"
@@ -237,13 +229,10 @@
 </template>
 
 <script setup lang="ts">
-import { withDefaults, defineProps, ref, computed, watch, onMounted, onBeforeUnmount, defineEmits, nextTick } from 'vue'
+import { withDefaults, defineProps, ref, computed, watch, onMounted, onBeforeUnmount, defineEmits } from 'vue'
 import { useAmOutcomesStore, type ShortSaleTask, type ShortSaleTaskType } from '@/stores/outcomes'
 import http from '@/lib/http'
 import { useDataRefresh } from '@/composables/useDataRefresh'
-// Import jQuery for date picker initialization
-import $ from 'jquery'
-import 'bootstrap-datepicker'
 // Reusable editable date component with inline picker
 // Path: src/components/ui/EditableDate.vue
 import EditableDate from '@/components/ui/EditableDate.vue'
@@ -291,9 +280,6 @@ const expandedId = computed(() => {
 })
 // Short Sale completion data
 const shortSaleData = ref<any>(null)
-// Date picker refs
-const saleDateInput = ref<HTMLInputElement | null>(null)
-const listDateInput = ref<HTMLInputElement | null>(null)
 // Reference to offers section component
 const offersSection = ref<any>(null)
 function handleDocClick(e: MouseEvent) {
@@ -305,7 +291,6 @@ function handleDocClick(e: MouseEvent) {
 onMounted(() => document.addEventListener('click', handleDocClick))
 onBeforeUnmount(() => {
   document.removeEventListener('click', handleDocClick)
-  cleanupDatePicker()
 })
 
 // WHAT: Setup data refresh functionality
@@ -321,52 +306,6 @@ async function load() {
   tasks.value = await store.listShortSaleTasks(props.hubId, true)
   // Load Short Sale outcome data for completion fields
   await loadShortSaleData()
-  // Initialize date picker after data is loaded
-  await nextTick()
-  initializeDatePicker()
-}
-
-// WHAT: Initialize Bootstrap date picker
-// WHY: Enable calendar popup for date selection
-function initializeDatePicker() {
-  // Initialize sale date picker
-  if (saleDateInput.value) {
-    $(saleDateInput.value).datepicker({
-      format: 'mm/dd/yyyy',
-      autoclose: true,
-      todayHighlight: true,
-      orientation: 'bottom auto'
-    }).on('changeDate', function(e: any) {
-      const selectedDate = e.format('mm/dd/yyyy')
-      const backendDate = convertToBackendDate(selectedDate)
-      updateShortSaleField('short_sale_date', backendDate, false)
-    })
-  }
-  
-  // Initialize list date picker
-  if (listDateInput.value) {
-    $(listDateInput.value).datepicker({
-      format: 'mm/dd/yyyy',
-      autoclose: true,
-      todayHighlight: true,
-      orientation: 'bottom auto'
-    }).on('changeDate', function(e: any) {
-      const selectedDate = e.format('mm/dd/yyyy')
-      const backendDate = convertToBackendDate(selectedDate)
-      updateShortSaleField('short_sale_list_date', backendDate, false)
-    })
-  }
-}
-
-// WHAT: Cleanup date picker on unmount
-// WHY: Prevent memory leaks
-function cleanupDatePicker() {
-  if (saleDateInput.value) {
-    $(saleDateInput.value).datepicker('destroy')
-  }
-  if (listDateInput.value) {
-    $(listDateInput.value).datepicker('destroy')
-  }
 }
 
 // WHAT: Load Short Sale outcome data
@@ -427,19 +366,10 @@ function convertToDisplayDate(backendDate: string): string {
   }
 }
 
-// WHAT: Handle date input from text field
-// WHY: Convert display format to backend format and save
-function handleDateInput(event: Event) {
-  const target = event.target as HTMLInputElement
-  const displayDate = target.value
-  const backendDate = convertToBackendDate(displayDate)
-  updateShortSaleField('short_sale_date', backendDate, false)
-}
-
-// WHAT: Handle date changes from EditableDate component
+// WHAT: Handle sale date changes from EditableDate component
 // WHY: EditableDate already provides yyyy-mm-dd format
-function handleDateChange(backendDate: string) {
-  updateShortSaleField('short_sale_date', backendDate, false)
+function handleDateChange(newDate: string) {
+  updateShortSaleField('short_sale_date', newDate, false)
 }
 
 // WHAT: Handle currency changes from UiCurrencyInput component
@@ -448,13 +378,10 @@ function handleCurrencyChange(value: string) {
   updateShortSaleField('gross_proceeds', value, false)
 }
 
-// WHAT: Handle list date input from text field
-// WHY: Convert display format to backend format and save
-function handleListDateInput(event: Event) {
-  const target = event.target as HTMLInputElement
-  const displayDate = target.value
-  const backendDate = convertToBackendDate(displayDate)
-  updateShortSaleField('short_sale_list_date', backendDate, false)
+// WHAT: Handle list date changes from EditableDate component
+// WHY: EditableDate already provides yyyy-mm-dd format
+function handleListDateChange(newDate: string) {
+  updateShortSaleField('short_sale_list_date', newDate, false)
 }
 
 // WHAT: Handle list price changes from UiCurrencyInput component
@@ -540,19 +467,9 @@ function onSelectPill(tp: ShortSaleTaskType) {
     })
     .finally(() => { busy.value = false; addMenuOpen.value = false })
 }
-async function toggleExpand(id: number) { 
+function toggleExpand(id: number) { 
   userInteracted.value = true
   localExpandedId.value = localExpandedId.value === id ? null : id 
-  // WHAT: Initialize date picker when Sold task is expanded
-  // WHY: Date picker input only exists when task is expanded
-  if (localExpandedId.value === id) {
-    await nextTick()
-    // Initialize for sold and listed tasks
-    const task = tasks.value.find(t => t.id === id)
-    if (task?.task_type === 'sold' || task?.task_type === 'listed') {
-      initializeDatePicker()
-    }
-  }
 }
 function isoDate(iso: string | null): string { 
   if (!iso) return 'N/A'

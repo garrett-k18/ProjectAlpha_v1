@@ -159,6 +159,7 @@ class AMMetrics(models.Model):
             ('foreclosure', 'Foreclosure Sale'),
             ('dil', 'Deed in Lieu'),
             ('modification', 'Loan Modification'),
+            ('note_sale', 'Note Sale'),
             ('other', 'Other'),
         ],
         null=True,
@@ -353,6 +354,12 @@ class AMMetrics(models.Model):
             proceeds = float(self.asset_hub.modification.note_sale_proceeds)
             source = 'modification'
             proceeds_date = self.asset_hub.modification.note_sale_date
+            
+        # Check Note Sale track
+        elif hasattr(self.asset_hub, 'note_sale') and self.asset_hub.note_sale.proceeds:
+            proceeds = float(self.asset_hub.note_sale.proceeds)
+            source = 'note_sale'
+            proceeds_date = self.asset_hub.note_sale.sold_date
             
         # Update the centralized fields
         self.final_proceeds = proceeds
@@ -742,12 +749,14 @@ class AMNote(models.Model):
     OUTCOME_REO = "reo"
     OUTCOME_SHORT_SALE = "short_sale"
     OUTCOME_MODIFICATION = "modification"
+    OUTCOME_NOTE_SALE = "note_sale"
     OUTCOME_CHOICES = (
         (OUTCOME_DIL, "Deed-in-Lieu"),
         (OUTCOME_FC, "Foreclosure"),
         (OUTCOME_REO, "REO"),
         (OUTCOME_SHORT_SALE, "Short Sale"),
         (OUTCOME_MODIFICATION, "Modification"),
+        (OUTCOME_NOTE_SALE, "Note Sale"),
     )
     context_outcome = models.CharField(
         max_length=32,
@@ -1896,6 +1905,267 @@ class ModificationTask(models.Model):
                 field_name = field.name
                 old_value = original_values.get(field_name)
                 new_value = getattr(self, field_name)
+                # Only log if value actually changed
+                if old_value != new_value:
+                    AuditLog.log_change(
+                        instance=self,
+                        field_name=field_name,
+                        old_value=old_value,
+                        new_value=new_value,
+                        changed_by=actor,
+                        asset_hub=self.asset_hub
+                    )
+
+
+class NoteSale(models.Model):
+    """
+    WHAT: Data about a Note Sale outcome (hub-keyed 1:1).
+    WHY: Track sale of performing or re-performing notes to trading partners
+    WHERE: Asset Management module, separate outcome track
+    HOW: Links to AssetIdHub with OneToOne relationship and MasterCRM for trading partner
+    """
+    
+    # WHAT: Primary key linking to the asset hub
+    # WHY: Ensures 1:1 relationship between asset and Note Sale outcome
+    # HOW: OneToOneField with PROTECT to prevent orphaned data
+    asset_hub = models.OneToOneField(
+        'core.AssetIdHub',
+        on_delete=models.PROTECT,
+        primary_key=True,
+        related_name='note_sale',
+        help_text='1:1 with hub; Note Sale keyed by AssetIdHub.',
+    )
+    
+    # WHAT: Date when the note was sold
+    # WHY: Track timeline of note sale transaction
+    # HOW: DateField, optional to allow tracking before sale is complete
+    sold_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date when the note was sold (optional).",
+    )
+    
+    # WHAT: Gross proceeds received from note sale
+    # WHY: Track financial outcome of the sale
+    # HOW: DecimalField with precision for large dollar amounts
+    proceeds = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Gross proceeds received from the note sale (optional).",
+    )
+    
+    # WHAT: Trading partner who purchased the note
+    # WHY: Track buyer relationship for future business
+    # HOW: ForeignKey to MasterCRM filtered by trading_partner tag
+    trading_partner = models.ForeignKey(
+        'core.MasterCRM',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='note_sales',
+        help_text="Trading partner who purchased the note (optional, filtered by tag='trading_partner').",
+    )
+    
+    class Meta:
+        verbose_name = "Note Sale"
+        verbose_name_plural = "Note Sales"
+    
+    # WHAT: Change tracking infrastructure
+    # WHY: Support audit logging for all field changes
+    # HOW: Private attribute to hold acting user, accessed via set_actor() method
+    _actor = None
+    
+    def set_actor(self, user):
+        """
+        WHAT: Set the user who is making changes to this record.
+        WHY: Enable attribution of changes for audit logging
+        HOW: Stores user in private _actor attribute
+        """
+        self._actor = user
+    
+    def save(self, *args, **kwargs):
+        """
+        WHAT: Save with automatic audit logging for all field changes.
+        WHY: Maintain complete change history for compliance and debugging
+        HOW: Capture original values, save record, then log diffs to AuditLog
+        """
+        # WHAT: Extract actor from kwargs or instance attribute
+        # WHY: Support both passing actor as kwarg or via set_actor() method
+        actor = kwargs.pop('actor', None) or self._actor
+        
+        # WHAT: Capture original field values before save
+        # WHY: Need baseline to compute what changed after save
+        # HOW: Fetch existing record from DB if this is an update
+        if self.pk:
+            try:
+                original = self.__class__.objects.get(pk=self.pk)
+                original_values = {field.name: getattr(original, field.name) for field in self._meta.fields}
+            except self.__class__.DoesNotExist:
+                original_values = {}
+        else:
+            original_values = {}
+        
+        # WHAT: Persist the record to database
+        # WHY: Save must happen before we can log changes
+        super().save(*args, **kwargs)
+        
+        # WHAT: Log changes for all fields that actually changed
+        # WHY: Create audit trail for compliance and debugging
+        # HOW: Compare each field's old vs new value and create AuditLog entry if different
+        if original_values:
+            for field in self._meta.fields:
+                field_name = field.name
+                old_value = original_values.get(field_name)
+                new_value = getattr(self, field_name)
+                
+                # Only log if value actually changed
+                if old_value != new_value:
+                    AuditLog.log_change(
+                        instance=self,
+                        field_name=field_name,
+                        old_value=old_value,
+                        new_value=new_value,
+                        changed_by=actor,
+                        asset_hub=self.asset_hub,
+                    )
+
+
+class NoteSaleTask(models.Model):
+    """
+    WHAT: Note Sale workflow task linked to a NoteSale record.
+    WHY: Track progression of note sale from initial interest through closing
+    WHERE: Asset Management module, Note Sale outcome track
+    HOW: Many-to-one relationship with NoteSale using Django TextChoices for stages
+    
+    Uses Django's TextChoices for well-defined stage values. Each stage represents
+    a milestone in the note sale process.
+    Docs reviewed: https://docs.djangoproject.com/en/stable/ref/models/fields/#enumeration-types
+    """
+    
+    # WHAT: Enumeration of allowed task types for Note Sale workflow
+    # WHY: Provide type-safe, well-defined stages with consistent value/label mapping
+    # HOW: Django's TextChoices pattern for single source of truth
+    class TaskType(models.TextChoices):
+        """
+        WHAT: Canonical Note Sale task types and their display labels.
+        WHY: Define workflow stages for note sale process
+        HOW: TextChoices provides value, label pairs
+        """
+        POTENTIAL_NOTE_SALE = "potential_note_sale", "Potential Note Sale"
+        OUT_TO_MARKET = "out_to_market", "Out to Market"
+        PENDING_SALE = "pending_sale", "Pending Sale"
+        SOLD = "sold", "Sold"
+    
+    # WHAT: Direct link to the asset hub for simplified querying.
+    # WHY: Enable efficient filtering of tasks by asset without joining through outcome
+    # HOW: ForeignKey with related_name for reverse lookups
+    asset_hub = models.ForeignKey(
+        'core.AssetIdHub',
+        on_delete=models.PROTECT,
+        related_name='note_sale_tasks',
+        help_text='The asset hub this note sale task belongs to.',
+    )
+    
+    # WHAT: Link to the NoteSale outcome record
+    # WHY: Many tasks can be associated with one Note Sale outcome
+    # HOW: ForeignKey with PROTECT to prevent orphaned tasks
+    note_sale = models.ForeignKey(
+        'am_module.NoteSale',
+        on_delete=models.PROTECT,
+        related_name='tasks',
+        help_text='The NoteSale record this task is associated with (many-to-one).',
+    )
+    
+    # WHAT: Selected workflow stage for this task
+    # WHY: Track which milestone this task represents
+    # HOW: CharField with TaskType.choices constraint
+    task_type = models.CharField(
+        max_length=32,
+        choices=TaskType.choices,
+        help_text='Note Sale workflow stage for this task.',
+    )
+    
+    # WHAT: User-editable start date for tracking when this task actually began
+    # WHY: Track timeline of each workflow stage
+    # HOW: DateField, defaults to today if not specified during creation
+    task_started = models.DateField(
+        null=True,
+        blank=True,
+        help_text='Date when this task was started (defaults to today if not specified).'
+    )
+    
+    # WHAT: Minimal audit timestamps for record tracking
+    # WHY: Track when tasks are created and modified
+    # HOW: auto_now_add for creation, auto_now for updates
+    created_at = models.DateTimeField(auto_now_add=True, help_text="When this task was created.")
+    updated_at = models.DateTimeField(auto_now=True, help_text="When this task was last updated.")
+    
+    class Meta:
+        verbose_name = "Note Sale Task"
+        verbose_name_plural = "Note Sale Tasks"
+        # WHAT: Unique constraint to prevent duplicate task types per asset
+        # WHY: Each asset should only have one task per stage (e.g., only one "Sold" task)
+        # HOW: UniqueConstraint on combination of asset_hub and task_type
+        constraints = [
+            models.UniqueConstraint(fields=['asset_hub', 'task_type'], name='note_sale_task_unique_type_per_asset'),
+        ]
+    
+    # WHAT: Change tracking infrastructure
+    # WHY: Support audit logging for all field changes
+    # HOW: Private attribute to hold acting user, accessed via set_actor() method
+    _actor = None
+    
+    def set_actor(self, user):
+        """
+        WHAT: Set the user who is making changes to this record.
+        WHY: Enable attribution of changes for audit logging
+        HOW: Stores user in private _actor attribute
+        """
+        self._actor = user
+    
+    def save(self, *args, **kwargs):
+        """
+        WHAT: Save with automatic audit logging for all field changes.
+        WHY: Maintain complete change history for compliance and debugging
+        HOW: Capture original values, save record, then log diffs to AuditLog
+        """
+        # WHAT: Extract actor from kwargs or instance attribute
+        # WHY: Support both passing actor as kwarg or via set_actor() method
+        actor = kwargs.pop('actor', None) or self._actor
+        
+        # WHAT: Capture original field values before save
+        # WHY: Need baseline to compute what changed after save
+        # HOW: Fetch existing record from DB if this is an update
+        if self.pk:
+            try:
+                original = self.__class__.objects.get(pk=self.pk)
+                original_values = {field.name: getattr(original, field.name) for field in self._meta.fields}
+            except self.__class__.DoesNotExist:
+                original_values = {}
+        else:
+            original_values = {}
+        
+        # WHAT: Default task_started to today if not provided
+        # WHY: Auto-populate start date for convenience
+        # HOW: Check if task_started is None and set to current date
+        if not self.task_started:
+            self.task_started = timezone.now().date()
+        
+        # WHAT: Persist the record to database
+        # WHY: Save must happen before we can log changes
+        super().save(*args, **kwargs)
+        
+        # WHAT: Log changes for all fields that actually changed
+        # WHY: Create audit trail for compliance and debugging
+        # HOW: Compare each field's old vs new value and create AuditLog entry if different
+        if original_values:
+            for field in self._meta.fields:
+                field_name = field.name
+                old_value = original_values.get(field_name)
+                new_value = getattr(self, field_name)
+                
                 # Only log if value actually changed
                 if old_value != new_value:
                     AuditLog.log_change(

@@ -17,6 +17,7 @@ from am_module.models.am_data import (
     DIL, DILTask,
     ShortSale, ShortSaleTask,
     Modification, ModificationTask,
+    NoteSale, NoteSaleTask,
     REOScope,
     Offers,
 )
@@ -350,6 +351,87 @@ class ModificationTaskSerializer(serializers.ModelSerializer):
         if hub and task_type:
             qs = ModificationTask.objects.filter(asset_hub=hub, task_type=task_type)
             if self.instance:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise serializers.ValidationError('A task with this type already exists for this asset.')
+        return attrs
+
+
+class NoteSaleSerializer(serializers.ModelSerializer):
+    """
+    WHAT: Serializer for NoteSale outcome model (1:1 with AssetIdHub)
+    WHY: Provide API interface for note sale data with validation
+    WHERE: Used by note sale API endpoints
+    HOW: Thin wrapper around NoteSale model, handles asset_hub_id conversion
+    """
+    # WHAT: Write-only field to accept asset_hub_id in requests
+    # WHY: Cleaner API - clients send asset_hub_id, we map to asset_hub FK
+    # HOW: Uses custom _AssetHubPKField helper
+    asset_hub_id = _AssetHubPKField()
+
+    class Meta:
+        model = NoteSale
+        fields = [
+            'asset_hub', 'asset_hub_id',
+            'sold_date', 'proceeds', 'trading_partner',
+        ]
+        read_only_fields = ['asset_hub']
+
+    def create(self, validated_data: Dict[str, Any]):
+        """
+        WHAT: Create or update NoteSale (idempotent due to 1:1 relationship)
+        WHY: Get-or-create ensures we don't try to create duplicate records
+        HOW: If record exists, update its fields; otherwise create new
+        """
+        asset_hub = validated_data.get('asset_hub')
+        obj, _ = NoteSale.objects.get_or_create(asset_hub=asset_hub, defaults=validated_data)
+        if _ is False:
+            # Record already existed, update provided fields
+            for k, v in validated_data.items():
+                setattr(obj, k, v)
+            obj.save()
+        return obj
+
+
+class NoteSaleTaskSerializer(serializers.ModelSerializer):
+    """
+    WHAT: Serializer for NoteSaleTask model (many-to-one with NoteSale)
+    WHY: Provide API interface for note sale workflow tasks with validation
+    WHERE: Used by note sale task API endpoints
+    HOW: Validates task uniqueness per asset and ensures consistency with note sale outcome
+    """
+    # WHAT: Write-only field to accept asset_hub_id in requests
+    # WHY: Cleaner API - clients send asset_hub_id, we map to asset_hub FK
+    # HOW: Uses custom _AssetHubPKField helper
+    asset_hub_id = _AssetHubPKField()
+
+    class Meta:
+        model = NoteSaleTask
+        fields = ['id', 'asset_hub', 'asset_hub_id', 'note_sale', 'task_type', 'task_started', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'asset_hub', 'created_at', 'updated_at']
+
+    def validate(self, attrs: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        WHAT: Validate NoteSaleTask data before save
+        WHY: Ensure data integrity and prevent duplicate tasks
+        HOW: Check that note_sale matches asset_hub and task_type is unique per asset
+        """
+        # WHAT: Ensure note_sale outcome belongs to same asset_hub
+        # WHY: Prevent cross-asset data corruption
+        # HOW: Compare asset_hub_id of note_sale with provided asset_hub
+        ns = attrs.get('note_sale')
+        hub = attrs.get('asset_hub')
+        if ns and hub and ns.asset_hub_id != hub.id:
+            raise serializers.ValidationError('NoteSale outcome and asset_hub mismatch.')
+        
+        # WHAT: Ensure no duplicate task types per asset
+        # WHY: Each asset should only have one task per type (e.g., only one "Sold" task)
+        # HOW: Query for existing tasks with same asset_hub and task_type
+        task_type = attrs.get('task_type') or getattr(self.instance, 'task_type', None)
+        if hub and task_type:
+            qs = NoteSaleTask.objects.filter(asset_hub=hub, task_type=task_type)
+            if self.instance:
+                # Exclude current instance when updating
                 qs = qs.exclude(pk=self.instance.pk)
             if qs.exists():
                 raise serializers.ValidationError('A task with this type already exists for this asset.')

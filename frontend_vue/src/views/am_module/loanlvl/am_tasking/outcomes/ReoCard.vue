@@ -128,21 +128,17 @@
             <div v-else-if="t.task_type === 'sold'" class="mb-3">
               <div class="row g-2 mb-3">
                 <div class="col-md-6">
-                  <label class="form-label small">Close Date</label>
-                  <input 
-                    ref="closeDateInput"
-                    type="text" 
-                    class="form-control form-control-sm date" 
-                    data-toggle="date-picker" 
-                    data-single-date-picker="true" 
-                    :value="convertToDisplayDate(reoData?.actual_close_date || '')"
-                    @input="handleCloseDateInput"
-                    placeholder="Select date" 
-                    spellcheck="false"
-                  />
+                  <label class="form-label small text-muted">Close Date</label>
+                  <div class="d-block">
+                    <EditableDate
+                      :model-value="reoData?.actual_close_date || ''"
+                      @update:model-value="handleCloseDateChange"
+                      title="Click to edit close date"
+                    />
+                  </div>
                 </div>
                 <div class="col-md-6">
-                  <label class="form-label small">Gross Sale Proceeds</label>
+                  <label class="form-label small text-muted">Gross Sale Proceeds</label>
                   <UiCurrencyInput 
                     :model-value="reoData?.gross_purchase_price || ''"
                     @update:model-value="handleProceedsChange"
@@ -258,8 +254,6 @@ const busy = ref(false)
 const newType = ref<ReoTaskType | ''>('')
 // REO completion data
 const reoData = ref<any>(null)
-// Date picker refs
-const closeDateInput = ref<HTMLInputElement | null>(null)
 // Allow multiple subtasks to be expanded at the same time
 const localExpandedIds = ref<Set<number>>(new Set())
 const userInteracted = ref(false)
@@ -407,13 +401,10 @@ function convertToDisplayDate(backendDate: string): string {
   }
 }
 
-// WHAT: Handle close date input from text field
-// WHY: Convert display format to backend format and save
-function handleCloseDateInput(event: Event) {
-  const target = event.target as HTMLInputElement
-  const displayDate = target.value
-  const backendDate = convertToBackendDate(displayDate)
-  updateReoField('actual_close_date', backendDate)
+// WHAT: Handle close date changes from EditableDate component
+// WHY: EditableDate already provides yyyy-mm-dd format
+function handleCloseDateChange(newDate: string) {
+  updateReoField('actual_close_date', newDate)
 }
 
 // WHAT: Handle proceeds changes from UiCurrencyInput component

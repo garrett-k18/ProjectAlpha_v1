@@ -108,21 +108,17 @@
             <div v-if="t.task_type === 'note_sale'" class="mb-3">
               <div class="row g-2">
                 <div class="col-md-6">
-                  <label class="form-label small">Note Sale Date</label>
-                  <input 
-                    ref="noteSaleDateInput"
-                    type="text" 
-                    class="form-control form-control-sm date" 
-                    data-toggle="date-picker" 
-                    data-single-date-picker="true" 
-                    :value="convertToDisplayDate(modificationData?.note_sale_date || '')"
-                    @input="handleNoteSaleDateInput"
-                    placeholder="Select date" 
-                    spellcheck="false"
-                  />
+                  <label class="form-label small text-muted">Note Sale Date</label>
+                  <div class="d-block">
+                    <EditableDate
+                      :model-value="modificationData?.note_sale_date || ''"
+                      @update:model-value="handleNoteSaleDateChange"
+                      title="Click to edit note sale date"
+                    />
+                  </div>
                 </div>
                 <div class="col-md-6">
-                  <label class="form-label small">Gross Sale Proceeds</label>
+                  <label class="form-label small text-muted">Gross Sale Proceeds</label>
                   <UiCurrencyInput 
                     :model-value="modificationData?.note_sale_proceeds || ''"
                     @update:model-value="handleNoteSaleProceedsChange"
@@ -235,8 +231,6 @@ const localExpandedId = ref<number | null>(null)
 const userInteracted = ref(false)
 // Modification completion data
 const modificationData = ref<any>(null)
-// Date picker refs
-const noteSaleDateInput = ref<HTMLInputElement | null>(null)
 
 watch(() => props.masterCollapsed, (newVal: boolean) => {
   if (newVal) {
@@ -323,13 +317,10 @@ function convertToDisplayDate(backendDate: string): string {
   }
 }
 
-// WHAT: Handle note sale date input from text field
-// WHY: Convert display format to backend format and save
-function handleNoteSaleDateInput(event: Event) {
-  const target = event.target as HTMLInputElement
-  const displayDate = target.value
-  const backendDate = convertToBackendDate(displayDate)
-  updateModificationField('note_sale_date', backendDate)
+// WHAT: Handle note sale date changes from EditableDate component
+// WHY: EditableDate already provides yyyy-mm-dd format
+function handleNoteSaleDateChange(newDate: string) {
+  updateModificationField('note_sale_date', newDate)
 }
 
 // WHAT: Handle note sale proceeds changes from UiCurrencyInput component
