@@ -4,8 +4,11 @@ builder = "nixpacks"
 [build.nixpacksPhase]
 cmds = [
     "python -m pip install --upgrade pip",
-    "pip install --no-cache-dir -r requirements.txt"
+    "pip install -r requirements.txt"
 ]
+
+# NOTE: If you encounter stale cache issues, temporarily add --no-cache-dir to pip install
+# or clear Railway cache: Railway Dashboard → Service → Settings → Clear Build Cache
 
 [deploy]
 startCommand = "python manage.py migrate && python manage.py collectstatic --noinput && gunicorn projectalphav1.wsgi:application --bind 0.0.0.0:$PORT"
