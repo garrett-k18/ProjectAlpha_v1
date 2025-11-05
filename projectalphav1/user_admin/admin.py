@@ -1,8 +1,11 @@
 from django.contrib import admin
+from django.contrib.auth.models import User
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from datetime import timedelta
 from django.utils import timezone
 
 from .models.externalauth import BrokerTokenAuth, BrokerPortalToken
+from .models.user_profile import UserProfile
 
 
 @admin.register(BrokerTokenAuth)

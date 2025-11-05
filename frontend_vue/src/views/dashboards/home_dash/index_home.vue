@@ -21,16 +21,15 @@
     <!-- Stats Row - Key metrics tiles -->
     <StatsWidget />
 
-    <!-- Condensed Calendar & Macro Rates Row -->
+    <!-- 
+      Note: Macro Rates Widget removed - Financial Ticker Banner moved to footer
+      The ticker provides auto-scrolling market indicators at the bottom of all pages
+    -->
+    
+    <!-- Calendar Widget (full width now that Macro Rates is removed) -->
     <b-row class="mt-1">
-      <!-- Calendar Widget -->
-      <b-col cols="12" lg="8">
+      <b-col cols="12">
         <HomeCalendarWidget />
-      </b-col>
-      
-      <!-- Macro Rates Widget -->
-      <b-col cols="12" lg="4">
-        <MacroRatesWidget />
       </b-col>
     </b-row>
 
@@ -90,8 +89,6 @@
 import Layout from "@/components/layouts/layout.vue";
 // Condensed calendar widget for homepage (modular, reusable)
 import HomeCalendarWidget from '@/components/widgets/HomeCalendarWidget.vue'
-// Macro rates widget - displays economic indicators from FRED API
-import MacroRatesWidget from './components/MacroRatesWidget.vue'
 // Stats widget - key metrics tiles (Assets, Tasks, Brokers, Docs)
 import StatsWidget from './components/StatsWidget.vue'
 // Django auth store for user data
@@ -104,7 +101,6 @@ export default {
   components: {
     Layout,
     HomeCalendarWidget,
-    MacroRatesWidget,
     StatsWidget,
   },
   // Options API state for simplicity and broad compatibility across the app

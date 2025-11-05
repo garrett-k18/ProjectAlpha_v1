@@ -1,8 +1,7 @@
 <template>
   <!-- Footer-->
   <footer class="footer footer-alt">
-    <p class="text-muted">2018 - {{ year }} © Hyper - Coderthemes.com
-    </p>
+    <!-- Footer content removed -->
   </footer>
 </template>
 

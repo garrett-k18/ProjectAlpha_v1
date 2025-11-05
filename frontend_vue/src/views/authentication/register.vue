@@ -34,20 +34,29 @@
 
                             <b-form @submit.prevent="register">
 
-                                <div v-if="error" class="text-danger text-center mb-2">Please enter valid details</div>
+                                <div v-if="error" class="text-danger text-center mb-2">
+                                    {{ errorMessage || 'Please enter valid details' }}
+                                </div>
+                                <div v-if="loading" class="text-center mb-2">
+                                    <b-spinner small variant="primary"></b-spinner> Creating account...
+                                </div>
 
-                                <b-form-group label="Full Name" label-for="fullname" class="mb-3">
-                                    <b-form-input type="text" v-model="name" id="fullname" placeholder="Enter your name" />
+                                <b-form-group label="First Name" label-for="firstname" class="mb-3">
+                                    <b-form-input type="text" v-model="first_name" id="firstname" placeholder="Enter your first name" required />
+                                </b-form-group>
+
+                                <b-form-group label="Last Name" label-for="lastname" class="mb-3">
+                                    <b-form-input type="text" v-model="last_name" id="lastname" placeholder="Enter your last name" required />
                                 </b-form-group>
 
                                 <b-form-group label="Email address" label-for="emailaddress" class="mb-3">
-                                    <b-form-input type="email" v-model="email" id="emailaddress" placeholder="Enter your email" />
+                                    <b-form-input type="email" v-model="email" id="emailaddress" placeholder="Enter your email" required />
                                 </b-form-group>
 
                                 <div class="mb-3">
                                     <label for="password" class="form-label">Password</label>
                                     <div class="input-group input-group-merge">
-                                        <b-form-input type="password" v-model="password" id="password" placeholder="Enter your password" />
+                                        <b-form-input type="password" v-model="password" id="password" placeholder="Enter your password (min 8 characters)" required />
                                         <div class="input-group-text" data-password="false">
                                             <span class="password-eye"></span>
                                         </div>
@@ -91,28 +100,58 @@
 </template>
 
 <script lang="ts">
-import { useFakeAuthStore } from "@/stores/fakeAuth";
+// Import our custom Django auth store instead of fake auth
+// Using the real Django backend for user registration
+import { useDjangoAuthStore } from "@/stores/djangoAuth";
 import router from "@/router";
 import DefaultLayout from '@/components/layouts/default-layout.vue';
 import Footer2 from '@/components/layouts/partials/footer-2.vue';
 
 export default {
-    components: { Footer2,DefaultLayout },
+    components: { Footer2, DefaultLayout },
     data() {
         return {
-            useFakeAuth: useFakeAuthStore(),
-            name: '',
+            // Use our Django auth store for real authentication
+            djangoAuth: useDjangoAuthStore(),
+            first_name: '',
+            last_name: '',
             email: '',
             password: '',
-            error: false
+            error: false,
+            errorMessage: '',
+            loading: false
         }
     },
     methods: {
-        register() {
-            if (this.useFakeAuth.register(this.name, this.email, this.password)) {
-                return router.push('/')
+        /**
+         * Register a new user using the Django backend API
+         * Calls the /api/auth/register/ endpoint with user details
+         * On success, automatically logs in the user and redirects to home
+         */
+        async register() {
+            // Reset error state
+            this.error = false;
+            this.errorMessage = '';
+            this.loading = true;
+            
+            try {
+                // Call Django backend register endpoint
+                await this.djangoAuth.register(
+                    this.first_name,
+                    this.last_name,
+                    this.email,
+                    this.password
+                );
+                
+                // Registration successful, redirect to home page
+                this.loading = false;
+                return router.push('/');
+            } catch (error) {
+                // Display error message from backend
+                this.error = true;
+                this.errorMessage = this.djangoAuth.error || 'Registration failed. Please try again.';
+                this.loading = false;
             }
-            this.error = true
         }
     }
 }

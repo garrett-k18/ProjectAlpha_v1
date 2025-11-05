@@ -51,15 +51,15 @@
 
 <script setup lang="ts">
 import { withDefaults, defineProps, computed } from 'vue'
-// Import components
+// Import components (now using shared components from general folder for reusability across modules)
 import PropertyMap from '@/components/PropertyMap.vue'
-import PropertyDetails from '@/views/acq_module/loanlvl/components/property/propertydetails.vue'
-import DemographicsGrid from '@/views/acq_module/loanlvl/components/property/DemographicsGrid.vue'
-import TaxAnalysis from '@/views/acq_module/loanlvl/components/property/TaxAnalysis.vue'
-import ConditionAssessment from '@/views/acq_module/loanlvl/components/property/ConditionAssessment.vue'
-import ComparableSales from '@/views/acq_module/loanlvl/components/property/ComparableSales.vue'
-import NeighborhoodInsights from '@/views/acq_module/loanlvl/components/property/NeighborhoodInsights.vue'
-import RiskAssessment from '@/views/acq_module/loanlvl/components/property/RiskAssessment.vue'
+import PropertyDetails from '@/components/property_tabs_components/propertydetails.vue'
+import DemographicsGrid from '@/components/property_tabs_components/DemographicsGrid.vue'
+import TaxAnalysis from '@/components/property_tabs_components/TaxAnalysis.vue'
+import ConditionAssessment from '@/components/property_tabs_components/ConditionAssessment.vue'
+import ComparableSales from '@/components/property_tabs_components/ComparableSales.vue'
+import NeighborhoodInsights from '@/components/property_tabs_components/NeighborhoodInsights.vue'
+import RiskAssessment from '@/components/property_tabs_components/RiskAssessment.vue'
 
 // Keep props consistent with other tabs so parent can pass row/assetId
 const props = withDefaults(defineProps<{

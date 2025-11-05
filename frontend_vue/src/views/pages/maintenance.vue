@@ -43,7 +43,9 @@
     </div>
     <!-- end page -->
 
-    <footer class="footer footer-alt"> 2018 - {{ year }} © Hyper - Coderthemes.com </footer>
+    <footer class="footer footer-alt">
+      <!-- Footer content removed -->
+    </footer>
 </div>
 </template>
 

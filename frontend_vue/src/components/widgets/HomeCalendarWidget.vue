@@ -185,6 +185,8 @@
 import "bootstrap-datepicker";
 // Import jQuery (required by bootstrap-datepicker)
 import $ from "jquery";
+// Import centralized axios instance for API calls
+import axios from '@/lib/http';
 
 /**
  * Interface for calendar event data structure
@@ -236,8 +238,7 @@ export default {
       // editingEventId: ID of the event being edited (null when creating new event)
       editingEventId: null as number | null,
       
-      // events: Array of all calendar events (stored in component state)
-      // In production, this should sync with backend API or localStorage
+      // events: Array of all calendar events (fetched from backend API)
       events: [] as CalendarEvent[],
       
       // nextId: Counter for generating unique event IDs
@@ -251,7 +252,17 @@ export default {
         { name: 'Warning', value: 'bg-warning' },
         { name: 'Danger', value: 'bg-danger' },
         { name: 'Secondary', value: 'bg-secondary' },
-      ]
+      ],
+      
+      // Event color mapping from backend to frontend
+      // Matches the main calendar app's color scheme
+      eventColorMap: {
+        'actual_liquidation': 'bg-success',     // Green - actual FC sales
+        'projected_liquidation': 'bg-warning',  // Yellow - projected FC sales
+        'bid_date': 'bg-info',                  // Cyan - bid deadlines
+        'settlement_date': 'bg-secondary',      // Dark - settlements
+        'milestone': 'bg-danger',               // Red - other milestones
+      } as Record<string, string>
     };
   },
   
@@ -432,6 +443,41 @@ export default {
     },
     
     /**
+     * getEventColor: Maps backend event category to Bootstrap color class
+     * @param category - Backend event category (e.g., 'actual_liquidation')
+     * @returns Bootstrap color class (e.g., 'bg-success')
+     */
+    getEventColor(category: string): string {
+      return this.eventColorMap[category] || 'bg-primary';
+    },
+    
+    /**
+     * fetchCalendarEvents: Loads events from Django backend API
+     * Fetches from /api/core/calendar/events/ and maps to component format
+     */
+    async fetchCalendarEvents() {
+      try {
+        const response = await axios.get('/core/calendar/events/');
+        
+        // Map backend events to our component format
+        this.events = response.data.map((event: any) => ({
+          id: event.id,
+          title: event.title,
+          date: event.date,  // Backend sends YYYY-MM-DD
+          time: 'All Day',   // Backend events are all-day events
+          description: event.description || '',
+          category: this.getEventColor(event.category)
+        }));
+        
+        console.log(`HomeCalendarWidget: Loaded ${this.events.length} events from backend`);
+      } catch (error) {
+        console.error('HomeCalendarWidget: Failed to fetch events:', error);
+        // Fall back to empty array if API fails
+        this.events = [];
+      }
+    },
+    
+    /**
      * saveToLocalStorage: Persists events to browser localStorage
      * Allows events to survive page reloads
      */
@@ -442,6 +488,7 @@ export default {
     
     /**
      * loadFromLocalStorage: Loads events from localStorage on component mount
+     * NOTE: This is now only used as a fallback. Primary source is backend API.
      */
     loadFromLocalStorage() {
       const stored = localStorage.getItem('calendarEvents');
@@ -463,11 +510,11 @@ export default {
   
   /**
    * mounted: Lifecycle hook called when component is mounted to DOM
-   * Sets up the datepicker and loads saved events
+   * Sets up the datepicker and loads events from backend
    */
-  mounted() {
-    // Load events from localStorage
-    this.loadFromLocalStorage();
+  async mounted() {
+    // Fetch events from backend API (same as main calendar app)
+    await this.fetchCalendarEvents();
     
     // Initialize bootstrap-datepicker and bind changeDate event
     // The changeDate event fires when user clicks a date in the calendar

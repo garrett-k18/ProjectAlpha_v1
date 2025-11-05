@@ -1,25 +1,19 @@
 <template>
   <footer class="footer">
-    <div class="container-fluid">
-      <div class="row">
-        <div class="col-md-6">
-          {{ year }}
-          © Hyper - Coderthemes.com
-        </div>
-        <div class="col-md-6">
-          <div class="text-md-end footer-links d-none d-md-block">
-            <a href="javascript: void(0);">About</a>
-            <a href="javascript: void(0);">Support</a>
-            <a href="javascript: void(0);">Contact Us</a>
-          </div>
-        </div>
-      </div>
-    </div>
+    <!-- Financial Ticker Tape Banner - Moved to footer for less visual clutter -->
+    <FinancialTicker />
   </footer>
 </template>
 
 <script lang="ts">
+// Import financial ticker component for footer display
+import FinancialTicker from '@/components/FinancialTicker.vue'
+
 export default {
+  // Register FinancialTicker component
+  components: {
+    FinancialTicker
+  },
   data() {
     return {
       year: new Date().getFullYear()
