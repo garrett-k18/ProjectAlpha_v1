@@ -4,7 +4,7 @@ builder = "nixpacks"
 [build.nixpacksPhase]
 cmds = [
     "python -m pip install --upgrade pip",
-    "pip install -r requirements.txt"
+    "pip install --no-cache-dir -r requirements.txt"
 ]
 
 [deploy]
@@ -17,5 +17,6 @@ restartPolicyMaxRetries = 3
 [deploy.envVars]
 # Railway will use DATABASE_URL from your environment
 DJANGO_SETTINGS_MODULE = "projectalphav1.settings"
+PYTHONUNBUFFERED = "1"
 
 
