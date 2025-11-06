@@ -1033,7 +1033,7 @@ class REOtask(models.Model):
     task_started = models.DateField(
         null=True,
         blank=True,
-        default=timezone.now,
+        default=date.today,
         help_text='Date when this task was started (defaults to today).'
     )
 
@@ -1237,7 +1237,7 @@ class FCTask(models.Model):
     task_started = models.DateField(
         null=True,
         blank=True,
-        default=timezone.now,
+        default=date.today,
         help_text='Date when this task was started (defaults to today).'
     )
 
@@ -1421,7 +1421,7 @@ class DILTask(models.Model):
     task_started = models.DateField(
         null=True,
         blank=True,
-        default=timezone.now,
+        default=date.today,
         help_text='Date when this task was started (defaults to today).'
     )
 
@@ -1616,7 +1616,7 @@ class ShortSaleTask(models.Model):
     task_started = models.DateField(
         null=True,
         blank=True,
-        default=timezone.now,
+        default=date.today,
         help_text='Date when this task was started (defaults to today).'
     )
 
@@ -1861,7 +1861,7 @@ class ModificationTask(models.Model):
     task_started = models.DateField(
         null=True,
         blank=True,
-        default=timezone.now,
+        default=date.today,
         help_text='Date when this task was started (defaults to today).'
     )
 
@@ -1947,7 +1947,7 @@ class NoteSale(models.Model):
     sold_date = models.DateField(
         null=True,
         blank=True,
-        default=timezone.now,
+        default=date.today,
         help_text="Date when the note was sold (defaults to today).",
     )
     
