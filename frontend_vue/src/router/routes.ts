@@ -185,6 +185,12 @@ const dashboardRoutes = [
                 meta: {authRequired: true},
                 component: () => import('@/views/dashboards/reporting/index_reporting.vue'),
             },
+            {
+                name: 'Servicing',
+                path: 'servicing',
+                meta: {authRequired: true},
+                component: () => import('@/views/dashboards/servicing/index_servicing.vue'),
+            },
 
         ]
     }

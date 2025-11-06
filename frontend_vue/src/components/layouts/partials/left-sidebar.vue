@@ -74,6 +74,13 @@
           </router-link>
         </li>
 
+        <li class="side-nav-item">
+          <router-link to="/servicing" class="side-nav-link side-nav-link-ref">
+            <i class="uil-dollar-sign"></i>
+            <span> Servicing </span>
+          </router-link>
+        </li>
+
         <li class="side-nav-title">Apps</li>
 
         <li class="side-nav-item">

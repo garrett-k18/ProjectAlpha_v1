@@ -15,6 +15,7 @@
                 <router-link to="/acquisitions" class="dropdown-item side-nav-link-ref">Acquisitions</router-link>
                 <router-link to="/asset-mgmt" class="dropdown-item side-nav-link-ref">Asset Mgmt</router-link>
                 <router-link to="/projects" class="dropdown-item side-nav-link-ref">Tasking</router-link>
+                <router-link to="/servicing" class="dropdown-item side-nav-link-ref">Servicing</router-link>
               </template>
 
             </b-dropdown>
