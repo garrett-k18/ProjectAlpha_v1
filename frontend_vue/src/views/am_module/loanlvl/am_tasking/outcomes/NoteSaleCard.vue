@@ -462,14 +462,27 @@ async function autoPopulateSoldTask() {
 }
 
 onMounted(async () => {
-  // Load tasks and outcome when card mounts
-  await store.listNoteSaleTasks(props.hubId)
+  // WHAT: Load data in specific order
+  // WHY: Must load outcome FIRST before auto-populating to avoid overwriting saved data
+  
+  // Step 1: Load outcome data first
   await store.fetchNoteSale(props.hubId, true)
-  // Load trading partners for dropdown
+  
+  // Step 2: Load tasks
+  await store.listNoteSaleTasks(props.hubId)
+  
+  // Step 3: Load trading partners for dropdown
   await tradingPartnersStore.fetchPartners()
   
-  // WHAT: Auto-populate Sold task if it exists
-  // WHY: User might have already created Sold task
+  // Step 4: Initialize local values from loaded outcome
+  const outcome = noteSale.value
+  if (outcome) {
+    soldDateLocal.value = outcome.sold_date
+    proceedsLocal.value = formatNumberWithCommas((outcome.proceeds || '').toString().replace(/[^0-9.]/g, ''))
+    tradingPartnerLocal.value = outcome.trading_partner
+  }
+  
+  // Step 5: ONLY NOW auto-populate if Sold task exists and fields are still empty
   const hasSoldTask = tasks.value.some(t => t.task_type === 'sold')
   if (hasSoldTask) {
     await autoPopulateSoldTask()
