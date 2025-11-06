@@ -124,6 +124,7 @@ import http from '@/lib/http'
 // WHAT: Component props
 // WHY: Control modal visibility and specify which type of contact to create
 // HOW: show controls modal display, contactType determines endpoint and validation
+// NOTE: 'contractor' maps to 'vendor' tag in MasterCRM model
 const props = withDefaults(defineProps<{
   show: boolean
   contactType: 'legal' | 'servicer' | 'agent' | 'contractor' | 'title_company'
@@ -226,9 +227,19 @@ const apiEndpoint = computed(() => {
 
 // WHAT: Determine if we need to manually set tag in payload
 // WHY: Some endpoints auto-set tag (legal, servicer), others need explicit tag
-// HOW: Return true for agent, contractor, title_company
+// HOW: Return true for agent, contractor (vendor), title_company
 const needsManualTag = computed(() => {
   return ['agent', 'contractor', 'title_company'].includes(props.contactType)
+})
+
+// WHAT: Map frontend contactType to actual MasterCRM tag value
+// WHY: 'contractor' in UI maps to 'vendor' tag in database
+// HOW: Return correct tag string for MasterCRM.ContactTag enum
+const actualTag = computed(() => {
+  if (props.contactType === 'contractor') {
+    return 'vendor'
+  }
+  return props.contactType
 })
 
 /**
@@ -281,9 +292,9 @@ async function createContact() {
     
     // WHAT: Add tag for endpoints that require manual tag setting
     // WHY: Some endpoints (legal, servicer) auto-set tag; others need it explicitly
-    // HOW: Check needsManualTag computed property
+    // HOW: Check needsManualTag computed property and use actualTag (contractor→vendor)
     if (needsManualTag.value) {
-      payload.tag = props.contactType
+      payload.tag = actualTag.value
     }
     
     console.log('Creating CRM contact:', { type: props.contactType, payload })

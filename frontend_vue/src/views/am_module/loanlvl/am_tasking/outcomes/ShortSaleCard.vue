@@ -42,11 +42,10 @@
       </div>
     </template>
 
-    <!-- Two-column layout: Subtasks | Notes -->
+    <!-- WHAT: Single column layout for Subtasks only -->
+    <!-- WHY: Notes moved to master notes section -->
+    <!-- HOW: Removed two-column wrapper, subtasks take full width -->
     <div class="p-3" v-show="!collapsed">
-      <div class="row g-3">
-        <!-- Left Column: Subtasks -->
-        <div class="col-md-6">
           <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
             <h5 class="mb-0 fw-bold text-body">Sub Tasks</h5>
             <div class="position-relative" ref="addMenuRef">
@@ -154,10 +153,11 @@
               
               <!-- WHAT: Reusable offers section -->
               <!-- WHY: Shared component for offers management -->
+              <!-- HOW: Listed tasks allow offers, not readonly -->
               <OffersSection 
                 :hub-id="hubId" 
                 offer-source="short_sale"
-                :readonly="t.task_type === 'under_contract'"
+                :readonly="false"
                 ref="offersSection"
                 @task-created="handleTaskCreated"
               />
@@ -180,16 +180,6 @@
         </div>
       </div>
       <div v-else class="text-muted small">No subtasks yet. Use Add Task to create one.</div>
-        </div>
-
-        <!-- Right Column: Shared Notes for this Outcome -->
-        <div class="col-md-6">
-          <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
-            <h5 class="mb-0 fw-bold text-body">Notes</h5>
-          </div>
-          <SubtaskNotes :hubId="props.hubId" outcome="short_sale" :taskType="null" :taskId="null" />
-        </div>
-      </div>
     </div>
   </b-card>
 

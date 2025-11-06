@@ -41,11 +41,10 @@
         </div>
       </div>
     </template>
-    <!-- Two-column layout: Subtasks | Notes -->
+    <!-- WHAT: Single column layout for Subtasks only -->
+    <!-- WHY: Notes moved to master notes section -->
+    <!-- HOW: Removed two-column wrapper, subtasks take full width -->
     <div class="p-3" v-show="!collapsed">
-      <div class="row g-3">
-        <!-- Left Column: Subtasks -->
-        <div class="col-md-6">
       <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
         <h5 class="mb-0 fw-bold text-body">Sub Tasks</h5>
         <div class="position-relative" ref="addMenuRef">
@@ -96,35 +95,11 @@
             </div>
           </div>
           <div v-if="expandedId === t.id || expandedId === 'all'" class="mt-2 p-2 border-top">
-            <!-- WHAT: Note Sale completion fields for Note Sale task -->
-            <!-- WHY: Capture final proceeds and sale date when note is sold -->
-            <div v-if="t.task_type === 'note_sale'" class="mb-3">
-              <div class="row g-2">
-                <div class="col-md-6">
-                  <label class="form-label small text-muted">Note Sale Date</label>
-                  <div class="d-block">
-                    <EditableDate
-                      :model-value="modificationData?.note_sale_date || ''"
-                      @update:model-value="handleNoteSaleDateChange"
-                      title="Click to edit note sale date"
-                    />
-                  </div>
-                </div>
-                <div class="col-md-6">
-                  <label class="form-label small text-muted">Gross Sale Proceeds</label>
-                  <UiCurrencyInput 
-                    :model-value="modificationData?.note_sale_proceeds || ''"
-                    @update:model-value="handleNoteSaleProceedsChange"
-                    prefix="$"
-                    :debounce-ms="1000"
-                    size="sm"
-                    placeholder="0.00"
-                  />
-                </div>
-              </div>
-            </div>
-            <div v-else class="small text-muted">Task data fields can be added here</div>
-            <!-- TODO: Add task-specific form fields here -->
+            <!-- WHAT: Task-specific fields for modification tasks -->
+            <!-- WHY: Different task types may have different data requirements -->
+            <!-- HOW: Placeholder for future modification-specific fields -->
+            <div class="small text-muted">Task data fields can be added here</div>
+            <!-- TODO: Add task-specific form fields for modification workflow -->
             <div class="d-flex justify-content-end mt-2">
               <button
                 type="button"
@@ -140,16 +115,6 @@
         </div>
       </div>
       <div v-else class="text-muted small">No subtasks yet. Use Add Task to create one.</div>
-        </div>
-
-        <!-- Right Column: Shared Notes for this Outcome -->
-        <div class="col-md-6">
-          <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
-            <h5 class="mb-0 fw-bold text-body">Notes</h5>
-          </div>
-          <SubtaskNotes :hubId="props.hubId" outcome="modification" :taskType="null" :taskId="null" />
-        </div>
-      </div>
     </div>
   </b-card>
 
@@ -310,20 +275,9 @@ function convertToDisplayDate(backendDate: string): string {
   }
 }
 
-// WHAT: Handle note sale date changes from EditableDate component
-// WHY: EditableDate already provides yyyy-mm-dd format
-function handleNoteSaleDateChange(newDate: string) {
-  updateModificationField('note_sale_date', newDate)
-}
-
-// WHAT: Handle note sale proceeds changes from UiCurrencyInput component
-// WHY: Save proceeds values with built-in debouncing
-function handleNoteSaleProceedsChange(value: string) {
-  updateModificationField('note_sale_proceeds', value)
-}
-
 // WHAT: Update Modification completion fields
-// WHY: Save completion data when user enters note sale date or proceeds
+// WHY: Save modification data when user enters field values
+// HOW: PATCH to modification outcome endpoint with updated field
 async function updateModificationField(fieldName: string, value: string) {
   try {
     if (!modificationData.value || !modificationData.value.asset_hub) {
@@ -354,12 +308,14 @@ async function updateModificationField(fieldName: string, value: string) {
 }
 
 // ---------- Subtasks helpers ----------
+// WHAT: Valid modification task types
+// WHY: Define available subtask options for modification workflow
+// HOW: Array of task type values and labels for UI
 const taskOptions: ReadonlyArray<{ value: ModificationTaskType; label: string }> = [
   { value: 'mod_drafted', label: 'Drafted' },
   { value: 'mod_executed', label: 'Executed' },
   { value: 'mod_rpl', label: 'Re-Performing' },
   { value: 'mod_failed', label: 'Failed' },
-  { value: 'note_sale', label: 'Note Sale' },
 ]
 function labelFor(tp: ModificationTaskType): string {
   const m = taskOptions.find(o => o.value === tp)
@@ -433,12 +389,14 @@ async function confirmDeleteTask() {
 }
 
 function badgeClass(tp: ModificationTaskType): BadgeToneKey {
+  // WHAT: Map modification task types to badge colors
+  // WHY: Visual consistency across modification workflow
+  // HOW: Match task type to appropriate badge tone
   const map: Record<ModificationTaskType, BadgeToneKey> = {
     mod_drafted: 'info',
     mod_executed: 'success',
     mod_rpl: 'primary',
     mod_failed: 'danger',
-    note_sale: 'success',
   }
   return map[tp]
 }

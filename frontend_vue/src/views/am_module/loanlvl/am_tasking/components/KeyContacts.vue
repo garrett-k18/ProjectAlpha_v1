@@ -10,8 +10,8 @@
       <h4 class="header-title mb-0">Key Contacts</h4>
       <i class="mdi mdi-account-multiple text-muted"></i>
     </div>
-    <div class="card-body py-2">
-      <div class="row g-2">
+    <div class="card-body py-1">
+      <div class="row g-1">
         <!-- Legal Contact Column -->
         <div class="col-6">
           <LegalContactCard 

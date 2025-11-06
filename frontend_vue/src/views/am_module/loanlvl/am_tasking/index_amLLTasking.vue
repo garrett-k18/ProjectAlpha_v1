@@ -162,17 +162,30 @@
         </div>
       </div>
 
-      <div class="track-outcomes">
-        <DilCard v-if="visibleOutcomes.dil" :hubId="hubId!" :masterCollapsed="tracksCollapsed" @delete="() => requestDelete('dil')" />
-        <FcCard v-if="visibleOutcomes.fc" :hubId="hubId!" :masterCollapsed="tracksCollapsed" @delete="() => requestDelete('fc')" />
-        <ReoCard v-if="visibleOutcomes.reo" :hubId="hubId!" :masterCollapsed="tracksCollapsed" @delete="() => requestDelete('reo')" />
-        <ShortSaleCard v-if="visibleOutcomes.short_sale" :hubId="hubId!" :masterCollapsed="tracksCollapsed" @delete="() => requestDelete('short_sale')" />
-        <ModificationCard v-if="visibleOutcomes.modification" :hubId="hubId!" :masterCollapsed="tracksCollapsed" @delete="() => requestDelete('modification')" />
-        <NoteSaleCard v-if="visibleOutcomes.note_sale" :hubId="hubId!" :masterCollapsed="tracksCollapsed" @delete="() => requestDelete('note_sale')" />
+      <!-- WHAT: Two-column layout - Outcomes | Master Notes -->
+      <!-- WHY: Consolidate all notes into single section instead of per-outcome -->
+      <!-- HOW: Row with two equal columns using Bootstrap grid -->
+      <div class="row g-3">
+        <!-- Left Column: Track Outcomes -->
+        <div class="col-lg-6">
+          <div class="track-outcomes">
+            <DilCard v-if="visibleOutcomes.dil" :hubId="hubId!" :masterCollapsed="tracksCollapsed" @delete="() => requestDelete('dil')" />
+            <FcCard v-if="visibleOutcomes.fc" :hubId="hubId!" :masterCollapsed="tracksCollapsed" @delete="() => requestDelete('fc')" />
+            <ReoCard v-if="visibleOutcomes.reo" :hubId="hubId!" :masterCollapsed="tracksCollapsed" @delete="() => requestDelete('reo')" />
+            <ShortSaleCard v-if="visibleOutcomes.short_sale" :hubId="hubId!" :masterCollapsed="tracksCollapsed" @delete="() => requestDelete('short_sale')" />
+            <ModificationCard v-if="visibleOutcomes.modification" :hubId="hubId!" :masterCollapsed="tracksCollapsed" @delete="() => requestDelete('modification')" />
+            <NoteSaleCard v-if="visibleOutcomes.note_sale" :hubId="hubId!" :masterCollapsed="tracksCollapsed" @delete="() => requestDelete('note_sale')" />
+            
+            <div v-if="!anyVisibleOutcome" class="no-tracks">
+              <i class="fas fa-info-circle"></i>
+              Pick a track above to create its card for this asset.
+            </div>
+          </div>
+        </div>
         
-        <div v-if="!anyVisibleOutcome" class="no-tracks">
-          <i class="fas fa-info-circle"></i>
-          Pick a track above to create its card for this asset.
+        <!-- Right Column: Master Notes Section -->
+        <div class="col-lg-6">
+          <MasterNotesSection v-if="hubId" :hubId="hubId" />
         </div>
       </div>
     </div>
@@ -236,6 +249,10 @@ import RecentActivity, { type ActivityItem } from '@/views/am_module/loanlvl/am_
 import UpcomingDeadlines from '@/views/am_module/loanlvl/am_tasking/components/milestonesCard.vue'
 // Key Contacts widget (feature-local). Path: views/.../am_tasking/components/KeyContacts.vue
 import KeyContacts from '@/views/am_module/loanlvl/am_tasking/components/KeyContacts.vue'
+// WHAT: Master notes section component - consolidated notes for all outcomes
+// WHY: Replace individual notes sections in each outcome card with single master panel
+// WHERE: views/am_module/loanlvl/am_tasking/components/MasterNotesSection.vue
+import MasterNotesSection from '@/views/am_module/loanlvl/am_tasking/components/MasterNotesSection.vue'
 // Event bus for auto-refresh functionality
 import { eventBus, refreshHubData } from '@/lib/eventBus'
 
@@ -672,16 +689,20 @@ const shortSaleToneMap: Record<import('@/stores/outcomes').ShortSaleTaskType, Ba
   under_contract: 'primary',
   sold: 'success',
 }
-// Align DIL labels with subtask labels used in DilCard.vue (consistency across UI)
+// WHAT: Align DIL labels with subtask labels used in DilCard.vue (consistency across UI)
+// WHY: Provide human-readable labels and badge colors for all DIL task types
+// HOW: Complete mappings for all valid DilTaskType values: pursuing_dil, owner_contacted, dil_failed, dil_drafted, dil_executed
 const dilTaskLabel: Record<import('@/stores/outcomes').DilTaskType, string> = {
+  pursuing_dil: 'Pursuing DIL',
   owner_contacted: 'Borrowers/Heirs contacted',
-  no_cooperation: 'No Cooperation',
+  dil_failed: 'DIL Failed',
   dil_drafted: 'DIL Drafted',
   dil_executed: 'DIL Executed',
 }
 const dilToneMap: Record<import('@/stores/outcomes').DilTaskType, BadgeToneKey> = {
+  pursuing_dil: 'info',
   owner_contacted: 'primary',
-  no_cooperation: 'secondary',
+  dil_failed: 'danger',
   dil_drafted: 'warning',
   dil_executed: 'success',
 }

@@ -34,6 +34,7 @@ from core.views.macro_metrics_api_new import (
     get_cpi_api
 )
 from core.views.crm_api import (
+    MasterCRMViewSet,
     InvestorViewSet,
     BrokerViewSet,
     TradingPartnerViewSet,
@@ -70,11 +71,17 @@ router.register(r'calendar/events/custom', CustomCalendarEventViewSet, basename=
 
 # Register CRM viewsets for Investors, Brokers, Trading Partners, Legal, Servicers
 # These provide tag-filtered views of the MasterCRM model
+# WHAT: Specific CRM endpoints registered FIRST for proper URL matching
+# WHY: DRF router checks patterns in order, specific routes must come before generic
 router.register(r'crm/investors', InvestorViewSet, basename='crm-investors')
 router.register(r'crm/brokers', BrokerViewSet, basename='crm-brokers')
 router.register(r'crm/trading-partners', TradingPartnerViewSet, basename='crm-trading-partners')
 router.register(r'crm/legal', LegalViewSet, basename='crm-legal')
 router.register(r'crm/servicers', ServicerViewSet, basename='crm-servicers')
+# WHAT: Generic MasterCRM endpoint for creating contacts of any type (agent, contractor, title_company)
+# WHY: Used by CreateCrmContactModal for contact types that don't have dedicated endpoints
+# HOW: Accepts tag parameter in POST body to set contact type, registered LAST as fallback
+router.register(r'crm', MasterCRMViewSet, basename='crm')
 
 # The API URLs are now determined automatically by the router
 urlpatterns = [

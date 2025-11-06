@@ -4,26 +4,27 @@
   <!-- WHY: Cleaner UI with interactive reveal of contact information -->
   <!-- HOW: CSS 3D transforms with Vue reactive state for flip control -->
   <!-- LINKED TO: Vendor CRM tag -->
-  <!-- WHAT: Wrapper with relative position and z-index:1 -->
-  <!-- WHY: Create stacking context for card but allow dropdown to escape it -->
-  <div class="flip-card" @click="flipCard" style="position: relative; z-index: 1;">
+  <!-- WHAT: Dynamic z-index - increases when dropdown is open -->
+  <!-- WHY: Ensure dropdown appears above all other cards in the grid -->
+  <!-- HOW: Use computed z-index that increases to 10000 when assignMenuOpen is true -->
+  <div class="flip-card" @click="flipCard" :style="{ position: 'relative', zIndex: assignMenuOpen ? 10000 : 1 }">
     <div class="flip-card-inner" :class="{ 'flipped': isFlipped }">
       
       <!-- FRONT SIDE - Title + Firm name -->
       <div class="flip-card-front card border-primary mb-3 bg-secondary-subtle shadow-sm rounded-2">
-        <div class="card-body p-2 position-relative">
+        <div class="card-body p-1 position-relative">
           <!-- Title in top left corner -->
-          <div class="position-absolute top-0 start-0 p-2">
+          <div class="position-absolute top-0 start-0 p-1">
             <div class="small text-muted fw-bold">Contractor</div>
           </div>
           <!-- Center content with firm name -->
-          <div class="d-flex align-items-center justify-content-center h-100 pt-3">
+          <div class="d-flex align-items-center justify-content-center h-100 pt-2">
             <div class="text-center">
-              <i class="fas fa-hard-hat text-primary mb-2" style="font-size: 1.5rem;"></i>
-              <div class="fw-bold text-dark">
+              <i class="fas fa-hard-hat text-primary mb-1" style="font-size: 1.2rem;"></i>
+              <div class="fw-bold text-dark small">
                 {{ contact?.firm || label || 'Contractor' }}
               </div>
-              <div class="small text-muted">Click to view contact</div>
+              <div class="small text-muted" style="font-size: 0.7rem;">Click to view</div>
             </div>
           </div>
         </div>
@@ -31,14 +32,14 @@
       
       <!-- BACK SIDE - Full contact information -->
       <div class="flip-card-back card border-primary mb-3 bg-secondary-subtle shadow-sm rounded-2">
-        <div class="card-body p-2">
+        <div class="card-body p-1">
           <!-- Section title with button -->
-          <div class="d-flex justify-content-between align-items-center mb-2">
+          <div class="d-flex justify-content-between align-items-center mb-1">
             <div class="small text-muted fw-bold">Contractor</div>
             <div class="position-relative" ref="assignMenuRef">
               <button 
-                class="btn btn-sm btn-outline-primary px-2 py-0" 
-                style="font-size: 0.65rem;" 
+                class="btn btn-sm btn-outline-primary px-1 py-0" 
+                style="font-size: 0.6rem;" 
                 :title="contact ? 'Re-assign Contractor' : 'Assign Contractor'"
                 @click.stop="toggleAssignMenu"
               >
@@ -88,24 +89,26 @@
           </div>
           <!-- Contractor contact info -->
           <div class="text-center">
-            <div class="d-flex flex-column gap-1">
+            <div class="d-flex flex-column" style="gap: 0.25rem;">
               <!-- Firm name -->
-              <div class="small fw-bold text-dark">
+              <div class="small fw-bold text-dark" style="font-size: 0.8rem;">
                 {{ contact?.firm || label || 'Contractor' }}
               </div>
               <!-- Contact details: email and phone on single line -->
-              <div class="d-flex justify-content-center gap-3 flex-wrap">
+              <div class="d-flex justify-content-center gap-2 flex-wrap">
                 <a 
                   v-if="contact?.email" 
                   :href="`mailto:${contact.email}`" 
-                  class="small text-primary text-decoration-none"
+                  class="text-primary text-decoration-none"
+                  style="font-size: 0.7rem;"
                 >
                   {{ contact.email }}
                 </a>
                 <a 
                   v-if="contact?.phone" 
                   :href="`tel:${contact.phone}`" 
-                  class="small text-primary text-decoration-none"
+                  class="text-primary text-decoration-none"
+                  style="font-size: 0.7rem;"
                 >
                   {{ contact.phone }}
                 </a>
@@ -181,13 +184,19 @@ async function toggleAssignMenu() {
 }
 
 /**
- * Fetch all contractor contacts from CRM
- * Uses the /core/crm/vendors/ endpoint which filters by tag='vendor'
+ * WHAT: Fetch all contractor contacts from CRM
+ * WHY: Contractors are stored with tag='vendor' in MasterCRM
+ * HOW: Query generic /core/crm/ endpoint with tag=vendor filter
  */
 async function fetchContractorContacts() {
   try {
     loadingContractors.value = true
-    const res = await http.get<{ results: CrmContact[] } | CrmContact[]>('/core/crm/vendors/')
+    // WHAT: Query MasterCRM with tag=vendor filter
+    // WHY: Contractors use the 'vendor' tag in the database
+    // WHERE: /api/core/crm/?tag=vendor endpoint
+    const res = await http.get<{ results: CrmContact[] } | CrmContact[]>('/core/crm/', {
+      params: { tag: 'vendor' }
+    })
     // DRF returns paginated response: {count, next, previous, results}
     // Extract results array from paginated response
     contractorContacts.value = Array.isArray(res.data) 
@@ -265,7 +274,7 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
 .flip-card-inner {
   position: relative;
   width: 100%;
-  height: 100px; /* Fixed height to prevent overlap */
+  height: 75px; /* Reduced height for more compact cards */
   text-align: center;
   transition: transform 0.6s;
   transform-style: preserve-3d;
@@ -278,7 +287,7 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
 .flip-card-front, .flip-card-back {
   position: absolute;
   width: 100%;
-  height: 100px; /* Fixed height for consistent flip animation */
+  height: 75px; /* Reduced height for more compact cards */
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
 }

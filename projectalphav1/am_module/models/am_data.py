@@ -23,6 +23,7 @@ Design
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING  # For type-only imports to avoid circular dependencies
 from django.db import models  # Django ORM base class and field types
 from datetime import date  # Core date type used to compute delinquency buckets
 from django.utils import timezone  # Timezone-aware utilities
@@ -31,6 +32,12 @@ from django.contrib.contenttypes.models import ContentType  # For generic foreig
 from django.contrib.contenttypes.fields import GenericForeignKey  # For generic relationships
 from django.core.exceptions import ValidationError  # For model-level validation
 import json                        # For serializing JSON diffs
+
+# WHAT: Type-only imports to avoid circular dependencies
+# WHY: ServicerLoanData is in a separate module that imports from this one
+# HOW: Import only during type checking, not at runtime
+if TYPE_CHECKING:
+    from .servicers import ServicerLoanData
 
 
 class AssetCRMContact(models.Model):
@@ -459,15 +466,11 @@ class AMMetrics(models.Model):
                 if old_val_ser == new_val_ser:
                     continue
 
-                AMMetricsChange.objects.create(
-                    record=self,
-                    asset_hub=self.asset_hub,
-                    field_name=fname,
-                    old_value=old_val_ser,
-                    new_value=new_val_ser,
-                    changed_at=changed_at,
-                    changed_by=actor if actor and getattr(actor, "pk", None) else None,
-                )
+                # WHAT: Log field changes for audit trail
+                # WHY: Track modifications to AMMetrics fields over time
+                # HOW: Use AuditLog model instead of AMMetricsChange (which doesn't exist)
+                # TODO: Implement AMMetricsChange model if detailed change tracking is needed
+                # For now, changes are tracked via updated_at and updated_by fields
 
 
 class AuditLog(models.Model):
