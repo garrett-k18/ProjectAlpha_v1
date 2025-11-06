@@ -22,6 +22,7 @@ class MasterCRM(models.Model):
         LEGAL = "legal", "Legal"
         VENDOR = "vendor", "Vendor"
         SERVICER = "servicer", "Servicer"
+        TITLE_COMPANY = "title_company", "Title Company"
     
     firm = models.CharField(max_length=255, blank=True, null=True)
     contact_name = models.CharField(max_length=255, blank=True, null=True)

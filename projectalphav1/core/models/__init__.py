@@ -1,6 +1,6 @@
 # All models moved to core for hub-first architecture
 from .capital import DebtFacility, JVEquityPartner, CoInvestor, InvestorContribution, InvestorDistribution, Fund
-from .crm import MasterCRM
+from .model_co_crm import MasterCRM
 from .asset_id_hub import AssetIdHub
 from .model_co_assumptions import Servicer, StateReference, FCStatus, FCTimelines, CommercialUnits, HOAAssumption, PropertyTypeAssumption, SquareFootageAssumption, UnitBasedAssumption
 from .model_co_lookupTables import PropertyType

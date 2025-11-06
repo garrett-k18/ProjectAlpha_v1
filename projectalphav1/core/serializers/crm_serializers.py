@@ -12,7 +12,7 @@ Docs Reviewed
 """
 
 from rest_framework import serializers
-from core.models.crm import MasterCRM
+from core.models.model_co_crm import MasterCRM
 from core.models.model_co_assumptions import StateReference
 
 

@@ -248,8 +248,9 @@ onMounted(() => document.addEventListener('click', handleDocClick))
 onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
 
 const taskOptions: Array<{ value: DilTaskType; label: string }> = [
+  { value: 'pursuing_dil', label: 'Pursuing DIL' },
   { value: 'owner_contacted', label: 'Borrowers/Heirs Cooperation' },
-  { value: 'no_cooperation', label: 'No Cooperation' },
+  { value: 'dil_failed', label: 'DIL Failed' },
   { value: 'dil_drafted', label: 'Drafted' },
   { value: 'dil_executed', label: 'Executed' },
 ]
@@ -269,8 +270,9 @@ const existingTypes = computed<Set<DilTaskType>>(() => new Set(tasks.value.map(t
 // Map DIL task types to UiBadge tones so all pills follow our shared badge template.
 function pillTone(tp: DilTaskType): import('@/config/badgeTokens').BadgeToneKey {
   const m: Record<DilTaskType, import('@/config/badgeTokens').BadgeToneKey> = {
+    pursuing_dil: 'info',
     owner_contacted: 'primary',
-    no_cooperation: 'secondary',
+    dil_failed: 'danger',
     dil_drafted: 'warning',
     dil_executed: 'success',
   }
@@ -280,8 +282,9 @@ function pillTone(tp: DilTaskType): import('@/config/badgeTokens').BadgeToneKey 
 // Left border color per DIL task type
 function itemBorderClass(tp: DilTaskType): string {
   const map: Record<DilTaskType, string> = {
+    pursuing_dil: 'border-start border-2 border-info',
     owner_contacted: 'border-start border-2 border-primary',
-    no_cooperation: 'border-start border-2 border-secondary',
+    dil_failed: 'border-start border-2 border-danger',
     dil_drafted: 'border-start border-2 border-warning',
     dil_executed: 'border-start border-2 border-success',
   }
@@ -291,8 +294,9 @@ function itemBorderClass(tp: DilTaskType): string {
 // Robust left-edge stripe using inset box-shadow + Bootstrap CSS vars with fallbacks
 function leftEdgeStyle(tp: DilTaskType): Record<string, string> {
   const colorMap: Record<DilTaskType, string> = {
+    pursuing_dil: 'var(--bs-info, #0dcaf0)',
     owner_contacted: 'var(--bs-primary, #0d6efd)',
-    no_cooperation: 'var(--bs-secondary, #6c757d)',
+    dil_failed: 'var(--bs-danger, #dc3545)',
     dil_drafted: 'var(--bs-warning, #ffc107)',
     dil_executed: 'var(--bs-success, #198754)',
   }

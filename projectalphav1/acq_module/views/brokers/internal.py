@@ -31,7 +31,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 
-from core.models.crm import MasterCRM
+from core.models.model_co_crm import MasterCRM
 from core.models import StateReference
 from ...services.brokers import (
     get_broker_stats_dict,

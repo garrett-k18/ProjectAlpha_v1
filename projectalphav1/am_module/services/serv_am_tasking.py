@@ -54,7 +54,7 @@ def get_task_metrics(hub_id: int) -> Dict[str, Any]:
     TASK_SEQUENCES = {
         FCTask: ['nod_noi', 'fc_filing', 'mediation', 'judgement', 'redemption', 'sale_scheduled', 'sold'],
         REOtask: ['eviction', 'trashout', 'renovation', 'marketing', 'under_contract', 'sold'],
-        DILTask: ['owner_contacted', 'no_cooperation', 'dil_drafted', 'dil_executed'],
+        DILTask: ['pursuing_dil', 'owner_contacted', 'dil_failed', 'dil_drafted', 'dil_executed'],
         ShortSaleTask: ['list_price_accepted', 'listed', 'under_contract', 'sold'],
         ModificationTask: ['mod_drafted', 'mod_executed', 'mod_rpl', 'mod_failed'],
         NoteSaleTask: ['potential_note_sale', 'out_to_market', 'pending_sale', 'sold'],
@@ -417,8 +417,9 @@ def get_track_milestones(hub_id: int) -> List[Dict[str, Any]]:
             'tone': 'primary',
             'task_model': DILTask,
             'sequence': [
+                'pursuing_dil',             # Pursuing DIL
                 'owner_contacted',          # Owner/Heirs contacted
-                'no_cooperation',           # No Cooperation
+                'dil_failed',               # DIL Failed
                 'dil_drafted',              # DIL Drafted
                 'dil_executed',             # DIL Executed (completion)
             ]
@@ -534,7 +535,9 @@ def get_track_milestones(hub_id: int) -> List[Dict[str, Any]]:
                 'listed': 14,           # 14 days after price acceptance
                 'under_contract': 45,   # 45 days to get under contract
                 # DIL intervals
-                'no_cooperation': 21,       # 21 days if no cooperation
+                'pursuing_dil': 14,         # 14 days for initial pursuit
+                'owner_contacted': 7,       # 7 days after contact
+                'dil_failed': 21,           # 21 days if DIL process fails
                 'dil_drafted': 14,          # 14 days to draft documents
                 'dil_executed': 30,         # 30 days to execute
                 # REO intervals
@@ -604,8 +607,9 @@ def _format_task_label(task_type: str) -> str:
         'listed': 'Listed',
         'under_contract': 'Under Contract',
         # DIL labels
+        'pursuing_dil': 'Pursuing DIL',
         'owner_contacted': 'Owner/Heirs Contacted',
-        'no_cooperation': 'No Cooperation',
+        'dil_failed': 'DIL Failed',
         'dil_drafted': 'Drafted',
         'dil_executed': 'Executed',
         # REO labels

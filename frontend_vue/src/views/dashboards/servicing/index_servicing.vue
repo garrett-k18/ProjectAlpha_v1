@@ -1,6 +1,7 @@
 <template>
-  <div class="container-fluid">
-    <!-- Page Title -->
+  <Layout>
+    <div class="container-fluid">
+      <!-- Page Title -->
     <div class="row">
       <div class="col-12">
         <div class="page-title-box">
@@ -377,14 +378,19 @@
       </div>
     </div>
 
-  </div>
+    </div>
+  </Layout>
 </template>
 
 <script>
 import ApexCharts from 'apexcharts';
+import Layout from "@/components/layouts/layout.vue";
 
 export default {
   name: 'ServicingDashboard',
+  components: {
+    Layout
+  },
   
   data() {
     return {

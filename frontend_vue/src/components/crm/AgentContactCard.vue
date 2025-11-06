@@ -4,7 +4,10 @@
   <!-- WHY: Cleaner UI with interactive reveal of contact information -->
   <!-- HOW: CSS 3D transforms with Vue reactive state for flip control -->
   <!-- LINKED TO: Broker CRM tag -->
-  <div class="flip-card" @click="flipCard">
+  <!-- WHAT: Dynamic z-index - increases when dropdown is open -->
+  <!-- WHY: Ensure dropdown appears above all other cards in the grid -->
+  <!-- HOW: Use computed z-index that increases to 10000 when assignMenuOpen is true -->
+  <div class="flip-card" @click="flipCard" :style="{ position: 'relative', zIndex: assignMenuOpen ? 10000 : 1 }">
     <div class="flip-card-inner" :class="{ 'flipped': isFlipped }">
       
       <!-- FRONT SIDE - Title + Firm name -->
@@ -46,9 +49,18 @@
               <div 
                 v-if="assignMenuOpen" 
                 class="card shadow-sm mt-1" 
-                style="position: absolute; right: 0; min-width: 280px; max-height: 300px; overflow-y: auto; z-index: 1060;"
+                style="position: absolute; right: 0; min-width: 280px; max-height: 300px; overflow-y: auto; z-index: 9999;"
               >
                 <div class="list-group list-group-flush">
+                  <!-- Create New button -->
+                  <button
+                    type="button"
+                    class="list-group-item list-group-item-action p-2 small border-bottom bg-primary-subtle"
+                    @click="openCreateModal"
+                  >
+                    <i class="fas fa-plus-circle me-2 text-primary"></i>
+                    <span class="fw-bold text-primary">Create New Agent</span>
+                  </button>
                   <!-- Loading state -->
                   <div v-if="loadingAgents" class="p-3 text-center text-muted small">
                     <i class="fas fa-spinner fa-spin me-1"></i>
@@ -104,12 +116,21 @@
       
     </div>
   </div>
+  
+  <!-- Create CRM Contact Modal -->
+  <CreateCrmContactModal 
+    :show="showCreateModal" 
+    contact-type="agent"
+    @close="showCreateModal = false"
+    @created="handleContactCreated"
+  />
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import type { CrmContact } from '@/stores/outcomes'
 import http from '@/lib/http'
+import CreateCrmContactModal from './CreateCrmContactModal.vue'
 
 // Props: contact details and optional custom label
 const props = defineProps<{
@@ -131,6 +152,11 @@ const assignMenuOpen = ref(false)
 const assignMenuRef = ref<HTMLElement | null>(null)
 const agentContacts = ref<CrmContact[]>([])
 const loadingAgents = ref(false)
+
+// WHAT: Create modal state
+// WHY: Control visibility of CreateCrmContactModal
+// HOW: Boolean ref toggled by openCreateModal function
+const showCreateModal = ref(false)
 
 /**
  * Toggle card flip animation
@@ -181,6 +207,31 @@ async function fetchAgentContacts() {
 function selectAgent(crmId: number) {
   emit('assign', crmId)
   assignMenuOpen.value = false
+}
+
+/**
+ * WHAT: Open create modal for new agent
+ * WHY: Allow users to create agents without leaving this screen
+ * HOW: Close dropdown, open CreateCrmContactModal
+ */
+function openCreateModal() {
+  assignMenuOpen.value = false
+  showCreateModal.value = true
+}
+
+/**
+ * WHAT: Handle newly created contact
+ * WHY: Auto-select and assign newly created agent
+ * HOW: Reload contacts list, then auto-select the new contact
+ */
+async function handleContactCreated(crmId: number) {
+  console.log('New agent created with ID:', crmId)
+  // WHAT: Reload agent contacts to include the new entry
+  // WHY: New agent needs to appear in dropdown for future selections
+  await fetchAgentContacts()
+  // WHAT: Auto-assign the newly created agent
+  // WHY: User probably wants to assign the contact they just created
+  emit('assign', crmId)
 }
 
 /**

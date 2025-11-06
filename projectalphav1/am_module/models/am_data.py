@@ -1387,9 +1387,10 @@ class DILTask(models.Model):
     """
 
     class TaskType(models.TextChoices):
+        PURSUING_DIL = "pursuing_dil", "Pursuing DIL"
         OWNER_CONTACTED = "owner_contacted", "Owner/Heirs contacted"
-        # Explicit tag when borrower/heirs are not cooperating
-        NO_COOPERATION = "no_cooperation", "No Cooperation"
+        # Explicit tag when DIL process fails
+        DIL_FAILED = "dil_failed", "DIL Failed"
         DRAFTED = "dil_drafted", "Drafted"
         EXECUTED = "dil_executed", "Executed"
 

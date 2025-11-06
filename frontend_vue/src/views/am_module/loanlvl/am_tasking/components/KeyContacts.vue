@@ -1,9 +1,9 @@
 <template>
   <!--
     WHAT: Key Contacts card displaying all primary contacts
-    WHY: Quick access to Legal, Servicer, Agent, and Contractor contacts
+    WHY: Quick access to Legal, Servicer, Agent, Contractor, and Title Company contacts
     WHERE: AM Tasking page, after Upcoming Deadlines
-    HOW: Displays all four contact card components in 2x2 grid
+    HOW: Displays all contact card components in grid layout
   -->
   <div class="card h-100">
     <div class="card-header d-flex align-items-center justify-content-between">
@@ -47,6 +47,15 @@
             @assign="handleAssignContractor"
           />
         </div>
+        
+        <!-- Title Company Contact Column -->
+        <div class="col-6">
+          <TitleCompanyContactCard 
+            :contact="titleCompanyContact" 
+            label="Title Company"
+            @assign="handleAssignTitleCompany"
+          />
+        </div>
       </div>
     </div>
   </div>
@@ -64,16 +73,22 @@ import ServicerContactCard from '@/components/crm/ServicerContactCard.vue'
 import AgentContactCard from '@/components/crm/AgentContactCard.vue'
 // Path: src/components/crm/ContractorContactCard.vue
 import ContractorContactCard from '@/components/crm/ContractorContactCard.vue'
+// Path: src/components/crm/TitleCompanyContactCard.vue
+import TitleCompanyContactCard from '@/components/crm/TitleCompanyContactCard.vue'
 
 const props = defineProps<{
   hubId: number
 }>()
 
 // Contact data from AssetCRMContact
+// WHAT: Reactive refs to hold contact data for each contact type
+// WHY: Store contact information for display and assignment
+// HOW: Loaded from AssetCRMContact API by role (legal, servicer, agent, contractor, title_company)
 const legalContact = ref<any>(null)
 const servicerContact = ref<any>(null)
 const agentContact = ref<any>(null)
 const contractorContact = ref<any>(null)
+const titleCompanyContact = ref<any>(null)
 
 /**
  * Load key contacts for this asset hub
@@ -133,6 +148,21 @@ async function loadContacts() {
       contractorContact.value = contractors[0].crm_details
     } else {
       contractorContact.value = null
+    }
+    
+    // WHAT: Load title company contact from AssetCRMContact
+    // WHY: Display assigned title company for this asset
+    // WHERE: /api/am/asset-crm-contacts/?asset_hub=X&role=title_company
+    const titleCompanyRes = await http.get(`/am/asset-crm-contacts/`, {
+      params: { asset_hub: props.hubId, role: 'title_company' }
+    })
+    
+    // Get first title company contact if exists
+    const titleCompanies = Array.isArray(titleCompanyRes.data) ? titleCompanyRes.data : titleCompanyRes.data.results || []
+    if (titleCompanies.length > 0) {
+      titleCompanyContact.value = titleCompanies[0].crm_details
+    } else {
+      titleCompanyContact.value = null
     }
   } catch (err: any) {
     console.error('Failed to load key contacts:', err)
@@ -247,6 +277,39 @@ async function handleAssignContractor(crmId: number) {
     console.error('Error response:', err.response?.data)
     console.error('Error status:', err.response?.status)
     alert(`Failed to assign contractor: ${err.response?.data?.detail || err.message}`)
+  }
+}
+
+/**
+ * WHAT: Handle title company contact assignment
+ * WHY: Create AssetCRMContact link with role='title_company'
+ * WHERE: POST /api/am/asset-crm-contacts/
+ * HOW: Send asset_hub_id, crm_id, and role='title_company' to API
+ */
+async function handleAssignTitleCompany(crmId: number) {
+  try {
+    console.log('Assigning title company contact:', { asset_hub_id: props.hubId, crm_id: crmId, role: 'title_company' })
+    
+    // WHAT: Create or update AssetCRMContact with role='title_company'
+    // WHY: Store title company assignment in junction table
+    // HOW: POST to /api/am/asset-crm-contacts/ with asset_hub_id, crm_id, and role
+    const response = await http.post(`/am/asset-crm-contacts/`, {
+      asset_hub_id: props.hubId,
+      crm_id: crmId,
+      role: 'title_company'
+    })
+    
+    console.log('Title company assignment successful:', response.data)
+    
+    // WHAT: Reload contacts to show updated title company
+    // WHY: Display newly assigned title company contact
+    // HOW: Call loadContacts() which fetches all contacts including title company
+    await loadContacts()
+  } catch (err: any) {
+    console.error('Failed to assign title company:', err)
+    console.error('Error response:', err.response?.data)
+    console.error('Error status:', err.response?.status)
+    alert(`Failed to assign title company: ${err.response?.data?.detail || err.message}`)
   }
 }
 

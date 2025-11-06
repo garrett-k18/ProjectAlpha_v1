@@ -18,7 +18,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from django.db.models import Q
 
-from core.models.crm import MasterCRM
+from core.models.model_co_crm import MasterCRM
 from core.serializers.crm_serializers import (
     MasterCRMSerializer,
     InvestorSerializer,

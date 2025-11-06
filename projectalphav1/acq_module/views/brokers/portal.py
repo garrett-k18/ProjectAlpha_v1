@@ -32,7 +32,7 @@ from rest_framework import status, serializers
 
 from ...models.model_acq_seller import SellerRawData
 from core.models.valuations import Valuation
-from core.models.crm import MasterCRM
+from core.models.model_co_crm import MasterCRM
 from ...services.brokers import list_assigned_loan_entries
 from user_admin.models import BrokerTokenAuth
 from user_admin.models.externalauth import BrokerPortalToken

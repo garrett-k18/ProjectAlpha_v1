@@ -6,7 +6,7 @@
 # - Partial updates: https://www.django-rest-framework.org/api-guide/serializers/#partial-updates
 
 from rest_framework import serializers
-from core.models.crm import MasterCRM
+from core.models.model_co_crm import MasterCRM
 
 
 class BrokercrmSerializer(serializers.ModelSerializer):
