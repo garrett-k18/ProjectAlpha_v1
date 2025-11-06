@@ -55,7 +55,7 @@ export function useRateStratCard(config: RateStratConfig) {
 
   const hasRows = computed<boolean>(() => Array.isArray(bands.value) && bands.value.length > 0)
 
-  const formatInt = (value: number): string => new Intl.NumberFormat(undefined, {
+  const formatInt = (value: number): string => new Intl.NumberFormat('en-US', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(value)

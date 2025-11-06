@@ -558,7 +558,7 @@ function currency0(p: any): string {
   const v = p.value
   const n = typeof v === 'number' ? v : parseFloat(String(v))
   if (Number.isNaN(n)) return ''
-  return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
 }
 function percentFmt(p: any): string { return p.value == null ? '' : `${(Number(p.value) * 100).toFixed(2)}%` }
 function dateFmt(p: any): string {

@@ -102,7 +102,7 @@ const hasRows = computed<boolean>(() => Array.isArray(bands.value) && bands.valu
 
 // Format helpers (display only; inputs use the global v-currency directive elsewhere)
 function formatInt(n: number): string {
-  return new Intl.NumberFormat(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n)
+  return new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n)
 }
 
 function formatCurrencyNoDecimals(n: number): string {

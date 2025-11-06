@@ -207,7 +207,7 @@ const pctStatesNonJudicial = computed<number>(() => 100 - pctStatesJudicial.valu
 
 // Number formatters
 function formatInt(n: number): string {
-  return new Intl.NumberFormat(undefined, { 
+  return new Intl.NumberFormat('en-US', { 
     minimumFractionDigits: 0, 
     maximumFractionDigits: 0 
   }).format(n)
@@ -215,7 +215,7 @@ function formatInt(n: number): string {
 
 function formatCurrency(n: number): string {
   // Format currency with full numbers and commas without $ sign
-  return new Intl.NumberFormat(undefined, {
+  return new Intl.NumberFormat('en-US', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0
   }).format(n)

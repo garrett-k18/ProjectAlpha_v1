@@ -209,7 +209,7 @@ function progressBadgeClass(completed: number, total: number): string {
 
 // Formatters
 function formatCurrency(n: number): string {
-  return new Intl.NumberFormat(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n || 0)
+  return new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n || 0)
 }
 
 // Lifecycle + watchers

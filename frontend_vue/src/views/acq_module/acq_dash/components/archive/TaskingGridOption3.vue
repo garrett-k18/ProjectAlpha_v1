@@ -160,7 +160,7 @@ function tileBorderClass(completed: number, total: number): string {
 // Formatters
 // Standard currency formatter (no decimals)
 function formatCurrency(n: number): string {
-  return new Intl.NumberFormat(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n || 0)
+  return new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n || 0)
 }
 
 // Compact currency formatter for tile (e.g., $1.2M)

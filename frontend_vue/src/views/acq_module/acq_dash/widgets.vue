@@ -129,7 +129,7 @@ export default defineComponent({
       // Return a USD currency formatted string with 2 decimals
       // Note: We keep formatting localized so caller can replace if needed
       try {
-        return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
       } catch (_e) {
         // Fallback minimal formatting
         return `$${(n || 0).toFixed(2)}`
@@ -189,7 +189,7 @@ export default defineComponent({
       }
       // For small numbers, show regular currency with 0 decimals
       try {
-        return `${sign}${new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(abs)}`
+        return `${sign}${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(abs)}`
       } catch (_e) {
         return `${sign}$${Math.round(abs)}`
       }

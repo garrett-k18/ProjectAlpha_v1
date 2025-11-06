@@ -322,7 +322,7 @@ const emptyBodyClasses = computed<string>(() => (isEmpty.value ? 'd-flex align-i
 
 // Display helpers
 function formatInt(n: number): string {
-  return new Intl.NumberFormat(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n)
+  return new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n)
 }
 
 function formatCurrencyNoDecimals(n: number): string {

@@ -114,7 +114,7 @@ const hasRows = computed<boolean>(() => Array.isArray(filteredBands.value) && fi
 
 // Format helpers (display only)
 function formatInt(n: number): string {
-  return new Intl.NumberFormat(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n)
+  return new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n)
 }
 
 function formatCurrencyNoDecimals(n: number): string {
