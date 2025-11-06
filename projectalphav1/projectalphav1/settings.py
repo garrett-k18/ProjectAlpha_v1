@@ -370,3 +370,59 @@ MEDIA_ROOT = BASE_DIR / 'media'
 EGNYTE_DOMAIN = os.getenv('EGNYTE_DOMAIN', 'projectalpha.egnyte.com')  # Dev fallback
 EGNYTE_API_TOKEN = os.getenv('EGNYTE_API_TOKEN', 'AQwSAJABFxAlFsjfoyiJDVllDycavVifmm3dPjQBaZwWvV4Vb3GJCpFS9aDyrybA')  # Dev fallback
 
+# WHAT: Optimized logging configuration
+# WHY: Reduce console output that can slow down API responses and frontend performance
+# HOW: Disable verbose SQL logging in DEBUG mode, reduce console chatter
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
+    'filters': {
+        'require_debug_false': {
+            '()': 'django.utils.log.RequireDebugFalse',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+            'level': 'WARNING' if DEBUG else 'ERROR',  # Reduced verbosity in DEBUG
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'WARNING',  # Only show warnings and errors
+            'propagate': False,
+        },
+        'django.db.backends': {
+            'handlers': ['console'],
+            'level': 'ERROR',  # Disable SQL query logging (major performance killer)
+            'propagate': False,
+        },
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'ERROR',  # Only log request errors
+            'propagate': False,
+        },
+        'django.server': {
+            'handlers': ['console'],
+            'level': 'ERROR',  # Only log server errors
+            'propagate': False,
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'WARNING',
+    },
+}
+

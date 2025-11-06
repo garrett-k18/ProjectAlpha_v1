@@ -134,17 +134,26 @@
                   </div>
                 </div>
                 <div class="col-12">
-                  <label class="form-label small text-muted">Trading Partner</label>
-                  <select
-                    class="form-select form-select-sm"
-                    v-model="tradingPartnerLocal"
-                    @change="onTradingPartnerChange"
-                  >
-                    <option :value="null">Select Trading Partner...</option>
-                    <option v-for="tp in tradingPartners" :key="tp.id" :value="tp.id">
-                      {{ tp.firm || tp.name || `TP ${tp.id}` }}
-                    </option>
-                  </select>
+                  <label class="form-label small text-muted">Buyer</label>
+                  <div class="form-control form-control-sm bg-light" style="cursor: not-allowed;">
+                    <template v-if="tradingPartnerLocal">
+                      <div v-if="buyerDetails" class="d-flex flex-wrap align-items-center gap-2 small">
+                        <span v-if="buyerDetails.firm" class="fw-semibold">{{ buyerDetails.firm }}</span>
+                        <span v-if="buyerDetails.name && buyerDetails.name !== buyerDetails.firm" class="text-muted">{{ buyerDetails.name }}</span>
+                        <span v-if="buyerDetails.email" class="text-muted">
+                          <i class="fas fa-envelope me-1"></i>
+                          <a :href="`mailto:${buyerDetails.email}`" class="text-decoration-none" @click.stop>{{ buyerDetails.email }}</a>
+                        </span>
+                        <span v-if="buyerDetails.phone" class="text-muted">
+                          <i class="fas fa-phone me-1"></i>{{ buyerDetails.phone }}
+                        </span>
+                      </div>
+                      <div v-else class="text-muted">
+                        TP #{{ tradingPartnerLocal }}
+                      </div>
+                    </template>
+                    <span v-else class="text-muted">No buyer</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -329,6 +338,13 @@ const proceedsLocal = ref<string>('')
 const tradingPartnerLocal = ref<number | null>(null)
 const tradingPartners = computed<TradingPartnerItem[]>(() => tradingPartnersStore.results)
 
+// WHAT: Get buyer details from trading partner ID
+// WHY: Display full buyer information (firm, contact, email, phone)
+const buyerDetails = computed(() => {
+  if (!tradingPartnerLocal.value) return null
+  return tradingPartners.value.find(tp => tp.id === tradingPartnerLocal.value) || null
+})
+
 // Debounce timers
 const saveTimers = ref<Record<string, number | undefined>>({})
 
@@ -356,10 +372,13 @@ function onSelectPill(tp: NoteSaleTaskType) {
     .finally(() => { tasksBusy.value = false; addMenuOpen.value = false })
 }
 
-function toggleExpand(id: number) { 
+async function toggleExpand(id: number) { 
   userInteracted.value = true
   localExpandedId.value = localExpandedId.value === id ? null : id
   if (localExpandedId.value === id) {
+    // WHAT: Get the task being expanded
+    const expandedTask = tasks.value.find(t => t.id === id)
+    
     // Initialize local values from outcome data
     const outcome = noteSale.value
     if (outcome) {
@@ -367,6 +386,78 @@ function toggleExpand(id: number) {
       proceedsLocal.value = formatNumberWithCommas((outcome.proceeds || '').toString().replace(/[^0-9.]/g, ''))
       tradingPartnerLocal.value = outcome.trading_partner
     }
+    
+    // WHAT: Auto-populate from accepted offer when expanding "Sold" task
+    // WHY: Streamline workflow - carry forward accepted offer details
+    if (expandedTask?.task_type === 'sold') {
+      await autoPopulateSoldTask()
+    }
+  }
+}
+
+// WHAT: Auto-populate Sold task from accepted offer
+// WHY: Streamline data entry when moving from Pending Sale to Sold
+async function autoPopulateSoldTask() {
+  try {
+    const outcome = noteSale.value
+    
+    // Only auto-populate if data is missing
+    if (outcome?.sold_date && outcome?.proceeds && outcome?.trading_partner) {
+      return // All fields already populated
+    }
+    
+    // Fetch accepted offer
+    const offersResponse = await http.get(`/am/outcomes/offers/?asset_hub_id=${props.hubId}&offer_source=note_sale&offer_status=accepted`)
+    const acceptedOffer = offersResponse.data.results?.[0] || offersResponse.data?.[0]
+    
+    if (!acceptedOffer) {
+      return // No accepted offer to pull from
+    }
+    
+    // Ensure outcome exists
+    if (!store.getNoteSale(props.hubId)) {
+      await store.ensureNoteSale(props.hubId)
+    }
+    
+    const updates: any = {}
+    
+    // WHAT: Auto-populate proceeds from accepted offer amount
+    if (!outcome?.proceeds && acceptedOffer.offer_price) {
+      updates.proceeds = acceptedOffer.offer_price
+      proceedsLocal.value = formatNumberWithCommas(acceptedOffer.offer_price.toString())
+    }
+    
+    // WHAT: Auto-populate sold date to today if not set
+    if (!outcome?.sold_date) {
+      const today = new Date().toISOString().split('T')[0]
+      updates.sold_date = today
+      soldDateLocal.value = today
+    }
+    
+    // WHAT: Auto-populate trading partner from accepted offer
+    if (!outcome?.trading_partner && acceptedOffer.trading_partner) {
+      updates.trading_partner = acceptedOffer.trading_partner
+      tradingPartnerLocal.value = acceptedOffer.trading_partner
+    }
+    
+    // Save all updates in one call
+    if (Object.keys(updates).length > 0) {
+      await store.patchNoteSale(props.hubId, updates)
+      await store.fetchNoteSale(props.hubId, true)
+      
+      // WHAT: Refresh local values to display immediately
+      // WHY: Ensure UI reflects the auto-populated data
+      const updatedOutcome = noteSale.value
+      if (updatedOutcome) {
+        soldDateLocal.value = updatedOutcome.sold_date
+        proceedsLocal.value = formatNumberWithCommas((updatedOutcome.proceeds || '').toString().replace(/[^0-9.]/g, ''))
+        tradingPartnerLocal.value = updatedOutcome.trading_partner
+      }
+      
+      console.log('Auto-populated Sold task from accepted offer:', updates)
+    }
+  } catch (err) {
+    console.error('Failed to auto-populate Sold task:', err)
   }
 }
 
@@ -376,7 +467,26 @@ onMounted(async () => {
   await store.fetchNoteSale(props.hubId, true)
   // Load trading partners for dropdown
   await tradingPartnersStore.fetchPartners()
+  
+  // WHAT: Auto-populate Sold task if it exists
+  // WHY: User might have already created Sold task
+  const hasSoldTask = tasks.value.some(t => t.task_type === 'sold')
+  if (hasSoldTask) {
+    await autoPopulateSoldTask()
+  }
 })
+
+// WHAT: Watch for new tasks being added
+// WHY: Auto-populate when Sold task is created
+watch(() => tasks.value, async (newTasks, oldTasks) => {
+  const oldSoldExists = oldTasks?.some(t => t.task_type === 'sold')
+  const newSoldExists = newTasks?.some(t => t.task_type === 'sold')
+  
+  // If Sold task was just added
+  if (!oldSoldExists && newSoldExists) {
+    await autoPopulateSoldTask()
+  }
+}, { deep: true })
 
 // Handle sold date change
 function onSoldDateChange(newDate: string) {
@@ -400,17 +510,6 @@ function onProceedsInput() {
       await store.ensureNoteSale(props.hubId)
     }
     await store.patchNoteSale(props.hubId, { proceeds: (numeric || null) as any })
-    await store.fetchNoteSale(props.hubId, true)
-  })
-}
-
-// Handle trading partner change
-function onTradingPartnerChange() {
-  debounceSave('trading_partner', async () => {
-    if (!store.getNoteSale(props.hubId)) {
-      await store.ensureNoteSale(props.hubId)
-    }
-    await store.patchNoteSale(props.hubId, { trading_partner: tradingPartnerLocal.value })
     await store.fetchNoteSale(props.hubId, true)
   })
 }
