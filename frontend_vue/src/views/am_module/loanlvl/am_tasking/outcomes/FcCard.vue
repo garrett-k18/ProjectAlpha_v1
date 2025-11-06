@@ -98,13 +98,6 @@
               <UiBadge :tone="badgeClass(t.task_type)" size="sm" class="me-2">{{ labelFor(t.task_type) }}</UiBadge>
             </div>
             <div class="d-flex align-items-center small text-muted gap-2">
-              <span class="me-2">
-                Started: 
-                <EditableDate 
-                  :model-value="t.task_started" 
-                  @update:model-value="(newDate) => updateTaskStarted(t.id, newDate)"
-                />
-              </span>
               <i :class="(expandedId === t.id || expandedId === 'all') ? 'fas fa-chevron-up' : 'fas fa-chevron-down'"></i>
             </div>
           </div>

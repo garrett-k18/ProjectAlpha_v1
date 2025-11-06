@@ -94,13 +94,6 @@
               <UiBadge :tone="badgeClass(t.task_type)" size="sm" class="me-2">{{ labelFor(t.task_type) }}</UiBadge>
             </div>
             <div class="d-flex align-items-center small text-muted">
-              <span class="me-3">
-                Started: 
-                <EditableDate 
-                  :model-value="t.task_started" 
-                  @update:model-value="(newDate) => updateTaskStarted(t.id, newDate)"
-                />
-              </span>
               <i :class="expandedIds.has(t.id) ? 'fas fa-chevron-up' : 'fas fa-chevron-down'"></i>
             </div>
           </div>
@@ -121,6 +114,8 @@
               <OffersSection
                 :hub-id="props.hubId"
                 offer-source="reo"
+                :readonly="t.task_type === 'under_contract'"
+                @task-created="handleTaskCreated"
               />
             </div>
             <!-- WHAT: Sale completion fields for Sold task -->
@@ -154,6 +149,7 @@
               <OffersSection
                 :hub-id="props.hubId"
                 offer-source="reo"
+                :readonly="true"
               />
             </div>
             <div v-else class="small text-muted mb-3">Task data fields can be added here</div>
@@ -352,6 +348,12 @@ function leftEdgeStyle(tp: ReoTaskType): Record<string, string> {
 // Load tasks from API
 async function loadTasks() {
   tasks.value = await store.listReoTasks(props.hubId, true)
+}
+
+// WHAT: Handle task-created event from OffersSection
+// WHY: Refresh tasks when auto-created from accepted offer
+async function handleTaskCreated() {
+  await loadTasks()
 }
 
 // WHAT: Load REO outcome data

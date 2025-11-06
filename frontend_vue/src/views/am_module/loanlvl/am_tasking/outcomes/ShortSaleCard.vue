@@ -94,13 +94,6 @@
               <UiBadge :tone="badgeClass(t.task_type)" size="sm" class="me-2">{{ labelFor(t.task_type) }}</UiBadge>
             </div>
             <div class="d-flex align-items-center small text-muted">
-              <span class="me-3">
-                Started: 
-                <EditableDate 
-                  :model-value="t.task_started" 
-                  @update:model-value="(newDate) => updateTaskStarted(t.id, newDate)"
-                />
-              </span>
               <i :class="(expandedId === t.id || expandedId === 'all') ? 'fas fa-chevron-up' : 'fas fa-chevron-down'"></i>
             </div>
           </div>
@@ -164,7 +157,9 @@
               <OffersSection 
                 :hub-id="hubId" 
                 offer-source="short_sale"
+                :readonly="t.task_type === 'under_contract'"
                 ref="offersSection"
+                @task-created="handleTaskCreated"
               />
             </div>
             <div v-else class="small text-muted mb-2">Task-specific fields for {{ labelFor(t.task_type) }}</div>
@@ -306,6 +301,12 @@ async function load() {
   tasks.value = await store.listShortSaleTasks(props.hubId, true)
   // Load Short Sale outcome data for completion fields
   await loadShortSaleData()
+}
+
+// WHAT: Handle task-created event from OffersSection
+// WHY: Refresh tasks when auto-created from accepted offer
+async function handleTaskCreated() {
+  await load()
 }
 
 // WHAT: Load Short Sale outcome data

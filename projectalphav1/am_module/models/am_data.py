@@ -2516,6 +2516,37 @@ class Offers(models.Model):
         buyer_ref = self.buyer_name or "Unknown Buyer"
         return f"${self.offer_price:,.2f} offer for {asset_ref} from {buyer_ref}"
     
+    def clean(self):
+        """
+        WHAT: Validate offer before saving
+        WHY: Enforce business rule - only one accepted offer per asset/source
+        HOW: Check for existing accepted offers excluding current instance
+        """
+        from django.core.exceptions import ValidationError
+        
+        # WHAT: Validate only one accepted offer per asset/source
+        # WHY: Business rule - cannot have multiple accepted offers
+        if self.offer_status == 'accepted':
+            existing_accepted = Offers.objects.filter(
+                asset_hub=self.asset_hub,
+                offer_source=self.offer_source,
+                offer_status='accepted'
+            ).exclude(pk=self.pk if self.pk else None)
+            
+            if existing_accepted.exists():
+                raise ValidationError({
+                    'offer_status': 'Only one offer can be marked as Accepted per asset and offer source. '
+                                   'Please change the status of the current accepted offer first.'
+                })
+    
+    def save(self, *args, **kwargs):
+        """
+        WHAT: Save offer with validation
+        WHY: Ensure business rules are enforced before persisting
+        """
+        self.full_clean()  # Run validation before saving
+        super().save(*args, **kwargs)
+    
     @property
     def net_offer_amount(self):
         """

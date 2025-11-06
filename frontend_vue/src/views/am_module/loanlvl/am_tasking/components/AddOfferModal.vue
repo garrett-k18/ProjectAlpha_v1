@@ -552,6 +552,24 @@ async function submitOffer() {
       return
     }
     
+    // WHAT: Validate only one offer can be accepted
+    // WHY: Business rule - only one accepted offer per asset/track
+    if (formData.value.offer_status === 'accepted') {
+      try {
+        const response = await http.get(`/am/outcomes/offers/?asset_hub_id=${props.hubId}&offer_source=${props.offerSource}`)
+        const existingOffers = response.data.results || response.data || []
+        const existingAccepted = existingOffers.find((o: any) => 
+          o.id !== props.editingOffer?.id && o.offer_status === 'accepted'
+        )
+        if (existingAccepted) {
+          alert('Only one offer can be marked as Accepted. Please change the current accepted offer status first.')
+          return
+        }
+      } catch (err) {
+        console.error('Failed to check existing offers:', err)
+      }
+    }
+    
     // Prepare offer data
     const offerData: any = {
       asset_hub_id: props.hubId,

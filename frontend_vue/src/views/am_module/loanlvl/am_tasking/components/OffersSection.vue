@@ -3,8 +3,9 @@
   <!-- WHY: Display and manage offers from various sources -->
   <div class="mt-3">
     <div class="d-flex justify-content-between align-items-center mb-2">
-      <h6 class="mb-0 text-muted">Current Offers</h6>
+      <h6 class="mb-0 text-muted">{{ props.readonly ? 'Accepted Offer' : 'Current Offers' }}</h6>
       <button 
+        v-if="!props.readonly"
         type="button" 
         class="btn btn-sm btn-outline-primary"
         @click="showAddOfferModal = true"
@@ -15,12 +16,12 @@
     </div>
     
     <!-- Offers list -->
-    <div v-if="offers.length === 0" class="text-muted small text-center py-2">
-      No offers received yet
+    <div v-if="displayedOffers.length === 0" class="text-muted small text-center py-2">
+      {{ props.readonly ? 'No accepted offer yet' : 'No offers received yet' }}
     </div>
     <div v-else class="offers-list">
       <div 
-        v-for="offer in offers.filter(o => o && o.id)" 
+        v-for="offer in displayedOffers" 
         :key="offer.id" 
         class="offer-item"
       >
@@ -31,7 +32,15 @@
             <!-- WHY: Allow status changes without opening full edit modal -->
             <div class="d-flex align-items-center gap-1">
               <span class="text-muted" style="font-size: 0.7rem;">Offer Status:</span>
-              <div class="dropdown position-relative">
+              <!-- WHAT: Read-only status badge in readonly mode -->
+              <!-- WHY: Don't allow editing in pending sale view -->
+              <template v-if="props.readonly">
+                <UiBadge :tone="getOfferStatusTone(offer.offer_status)" size="sm">
+                  {{ formatOfferStatus(offer.offer_status) }}
+                </UiBadge>
+              </template>
+              <!-- WHAT: Editable status dropdown in normal mode -->
+              <div v-else class="dropdown position-relative">
                 <button 
                   class="btn btn-sm p-0 border-0" 
                   type="button" 
@@ -87,7 +96,9 @@
               <span v-if="offer.seller_credits > 0" class="text-muted">${{ formatOfferPrice(offer.seller_credits) }} credits</span>
             </template>
           </div>
-          <div class="dropdown position-relative me-2">
+          <!-- WHAT: Hide edit/delete menu in readonly mode -->
+          <!-- WHY: Don't allow editing in pending sale view -->
+          <div v-if="!props.readonly" class="dropdown position-relative me-2">
             <button 
               class="btn btn-xs btn-outline-dark offer-menu-btn" 
               type="button" 
@@ -122,7 +133,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import http from '@/lib/http'
 import UiBadge from '@/components/ui/UiBadge.vue'
 import AddOfferModal from './AddOfferModal.vue'
@@ -132,9 +143,16 @@ import AddOfferModal from './AddOfferModal.vue'
 interface Props {
   hubId: number
   offerSource: 'short_sale' | 'reo' | 'note_sale'
+  readonly?: boolean // WHAT: Hide Add Offer button and disable editing for pending sale
 }
 
 const props = defineProps<Props>()
+
+// WHAT: Define emitted events
+// WHY: Notify parent when task is auto-created
+const emits = defineEmits<{
+  'task-created': []
+}>()
 
 // WHAT: Check if this is a note sale offer
 // WHY: Note sales have different fields than property sales
@@ -147,6 +165,17 @@ const showAddOfferModal = ref(false)
 const openDropdownId = ref<number | null>(null)
 const openStatusDropdownId = ref<number | null>(null)
 const editingOffer = ref<any>(null)
+
+// WHAT: Filter offers based on readonly mode
+// WHY: Show only accepted offers in readonly mode (pending sale), all offers otherwise
+const displayedOffers = computed(() => {
+  const validOffers = offers.value.filter(o => o && o.id)
+  if (props.readonly) {
+    // Only show accepted offers in readonly mode
+    return validOffers.filter(o => o.offer_status === 'accepted')
+  }
+  return validOffers
+})
 
 // WHAT: Load offers for this asset
 // WHY: Display current offers from various sources
@@ -299,12 +328,108 @@ function toggleStatusDropdown(offerId: number) {
 // WHY: Quick status changes without opening full edit modal
 async function updateOfferStatus(offerId: number, newStatus: string) {
   try {
+    // WHAT: Validate only one offer can be accepted
+    // WHY: Business rule - only one accepted offer per asset/track
+    if (newStatus === 'accepted') {
+      const existingAccepted = offers.value.find(o => o.id !== offerId && o.offer_status === 'accepted')
+      if (existingAccepted) {
+        alert('Only one offer can be marked as Accepted. Please change the current accepted offer status first.')
+        openStatusDropdownId.value = null
+        return
+      }
+    }
+    
     await http.patch(`/am/outcomes/offers/${offerId}/`, { offer_status: newStatus })
     openStatusDropdownId.value = null
     await loadOffers() // Refresh to show updated status
+    
+    // WHAT: Auto-create next task when offer is accepted
+    // WHY: Streamline workflow progression
+    if (newStatus === 'accepted') {
+      await autoCreateNextTask()
+    }
   } catch (err: any) {
     console.error('Failed to update offer status:', err)
     alert('Failed to update status. Please try again.')
+  }
+}
+
+// WHAT: Auto-create the next task when an offer is accepted
+// WHY: Streamline workflow - automatically progress to next stage
+async function autoCreateNextTask() {
+  try {
+    let taskEndpoint = ''
+    let taskPayload: any = {}
+    
+    // Determine which task to create based on offer source
+    if (props.offerSource === 'reo') {
+      // WHAT: Ensure REO outcome exists first
+      // WHY: REO tasks require reo FK
+      const reoResponse = await http.get(`/am/outcomes/reo/?asset_hub_id=${props.hubId}`)
+      const reoData = reoResponse.data.results?.[0] || reoResponse.data[0]
+      
+      if (!reoData) {
+        console.error('REO outcome not found - cannot create task')
+        return
+      }
+      
+      taskEndpoint = '/am/outcomes/reo-tasks/'
+      taskPayload = {
+        asset_hub_id: props.hubId,
+        reo: reoData.asset_hub,
+        task_type: 'under_contract',
+        task_started: new Date().toISOString().split('T')[0]
+      }
+    } else if (props.offerSource === 'short_sale') {
+      // WHAT: Ensure Short Sale outcome exists first
+      // WHY: Short Sale tasks require short_sale FK
+      const ssResponse = await http.get(`/am/outcomes/short-sale/?asset_hub_id=${props.hubId}`)
+      const ssData = ssResponse.data.results?.[0] || ssResponse.data[0]
+      
+      if (!ssData) {
+        console.error('Short Sale outcome not found - cannot create task')
+        return
+      }
+      
+      taskEndpoint = '/am/outcomes/short-sale-tasks/'
+      taskPayload = {
+        asset_hub_id: props.hubId,
+        short_sale: ssData.asset_hub,
+        task_type: 'under_contract',
+        task_started: new Date().toISOString().split('T')[0]
+      }
+    } else if (props.offerSource === 'note_sale') {
+      // WHAT: Ensure Note Sale outcome exists first
+      // WHY: Note Sale tasks require note_sale FK
+      const nsResponse = await http.get(`/am/outcomes/note-sale/?asset_hub_id=${props.hubId}`)
+      const nsData = nsResponse.data.results?.[0] || nsResponse.data[0]
+      
+      if (!nsData) {
+        console.error('Note Sale outcome not found - cannot create task')
+        return
+      }
+      
+      taskEndpoint = '/am/outcomes/note-sale-tasks/'
+      taskPayload = {
+        asset_hub_id: props.hubId,
+        note_sale: nsData.asset_hub,
+        task_type: 'pending_sale',
+        task_started: new Date().toISOString().split('T')[0]
+      }
+    }
+    
+    // WHAT: Create task directly without duplicate check
+    // WHY: Performance optimization - backend will reject duplicates anyway
+    // HOW: Let backend validation handle duplicate prevention
+    await http.post(taskEndpoint, taskPayload)
+    console.log(`Auto-created ${taskPayload.task_type} task for ${props.offerSource}`)
+    
+    // Emit event to parent to refresh tasks
+    emits('task-created')
+  } catch (err: any) {
+    console.error('Failed to auto-create task:', err)
+    console.error('Error details:', err.response?.data)
+    // Don't alert user - this is a background operation
   }
 }
 

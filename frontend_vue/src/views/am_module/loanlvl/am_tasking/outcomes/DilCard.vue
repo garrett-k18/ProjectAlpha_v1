@@ -95,16 +95,6 @@
               <UiBadge :tone="pillTone(t.task_type)" size="sm" class="me-2">{{ taskLabel(t.task_type) }}</UiBadge>
             </div>
             <div class="d-flex align-items-center small text-muted gap-2">
-              <span class="me-2">
-                <!-- Display date label based on task type -->
-                <template v-if="t.task_type === 'dil_executed'">Executed Date:</template>
-                <template v-else-if="t.task_type === 'dil_drafted'">Drafted Date:</template>
-                <template v-else>Date:</template>
-                <EditableDate 
-                  :model-value="t.task_started" 
-                  @update:model-value="(newDate) => updateTaskStarted(t.id, newDate)"
-                />
-              </span>
               <i :class="(expandedId === t.id || expandedId === 'all') ? 'fas fa-chevron-up' : 'fas fa-chevron-down'"></i>
             </div>
           </div>
