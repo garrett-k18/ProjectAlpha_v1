@@ -9,8 +9,10 @@ Documentation reviewed:
 - Django file uploads: https://docs.djangoproject.com/en/5.2/topics/http/file-uploads/
 - DRF APIView: https://www.django-rest-framework.org/api-guide/views/
 - Django management commands: https://docs.djangoproject.com/en/5.2/howto/custom-management-commands/
+- sys.executable: https://docs.python.org/3/library/sys.html#sys.executable
 """
 import os
+import sys
 import tempfile
 import subprocess
 from rest_framework.decorators import api_view
@@ -54,9 +56,11 @@ def import_seller_tape(request):
         seller_name = request.POST.get('seller_name', '').strip()
         trade_name = request.POST.get('trade_name', '').strip()
         dry_run = request.POST.get('dry_run', 'false').lower() == 'true'
+        no_ai = request.POST.get('no_ai', 'false').lower() == 'true'  # Disable AI column mapping for speed
+        limit_rows = request.POST.get('limit_rows', '').strip()  # Limit to N rows for testing
         
         # Debug logging
-        logger.info(f'Import request - seller_name: {seller_name}, trade_name: {trade_name}, dry_run: {dry_run}')
+        logger.info(f'Import request - seller_name: {seller_name}, trade_name: {trade_name}, dry_run: {dry_run}, no_ai: {no_ai}, limit_rows: {limit_rows}')
         logger.info(f'POST data: {dict(request.POST)}')
         
         # Validate seller name
@@ -88,13 +92,16 @@ def import_seller_tape(request):
             # Build management command arguments
             # WHAT: Construct command to call import_seller_data management command
             # WHY: Reuse existing ETL logic instead of duplicating code
-            # HOW: Use subprocess to call Django management command
+            # HOW: Use subprocess with sys.executable to ensure venv Python is used
+            # DOCS: sys.executable returns path to Python interpreter running Django server
             cmd = [
-                'python',
+                sys.executable,  # Use current Python interpreter (with venv packages)
+                '-u',  # Unbuffered output for real-time logging visibility
                 'manage.py',
                 'import_seller_data',
                 '--file', temp_file_path,
                 '--seller-name', seller_name,
+                '--auto-create',  # Always auto-create seller/trade from UI imports
             ]
             
             if trade_name:
@@ -103,18 +110,31 @@ def import_seller_tape(request):
             if dry_run:
                 cmd.append('--dry-run')
             
+            if no_ai:
+                cmd.append('--no-ai')  # Disable AI column mapping for faster imports
+            
+            if limit_rows:
+                cmd.extend(['--limit-rows', limit_rows])  # Limit rows for testing
+            
             # Execute management command
             # WHAT: Run the import command and capture output
             # WHY: Need to return results to frontend
-            # HOW: subprocess.run with capture_output=True
+            # HOW: subprocess.run with capture_output=True and unbuffered output
+            # TIMEOUT: 20 minutes for large files (600+ records with AI processing)
+            # NOTE: Output is buffered until completion - for real-time progress, consider WebSockets
             logger.info(f'Executing import command: {" ".join(cmd)}')
+            logger.info(f'Import starting at {__import__("datetime").datetime.now().isoformat()}')
+            
             result = subprocess.run(
                 cmd,
                 capture_output=True,
                 text=True,
                 cwd=os.path.dirname(os.path.dirname(os.path.dirname(__file__))),  # Project root
-                timeout=300  # 5 minute timeout
+                timeout=1200,  # 20 minute timeout for large imports with AI column mapping
+                env={**os.environ, 'PYTHONUNBUFFERED': '1'}  # Force unbuffered output
             )
+            
+            logger.info(f'Import completed at {__import__("datetime").datetime.now().isoformat()}')
             
             # Check if command succeeded
             if result.returncode == 0:
@@ -169,10 +189,26 @@ def import_seller_tape(request):
             except Exception as e:
                 logger.warning(f'Failed to delete temp file {temp_file_path}: {e}')
     
-    except subprocess.TimeoutExpired:
+    except subprocess.TimeoutExpired as timeout_err:
+        # WHAT: Handle timeout but return partial output for debugging
+        # WHY: User needs to see where the import got stuck
+        # HOW: Capture stdout/stderr from the TimeoutExpired exception
+        partial_output = ''
+        if hasattr(timeout_err, 'stdout') and timeout_err.stdout:
+            partial_output += 'STDOUT:\n' + timeout_err.stdout
+        if hasattr(timeout_err, 'stderr') and timeout_err.stderr:
+            partial_output += '\n\nSTDERR:\n' + timeout_err.stderr
+        
+        logger.error(f'Import timeout after 20 minutes. Partial output:\n{partial_output}')
+        
         return Response({
             'error': 'Import timeout',
-            'details': 'Import took longer than 5 minutes'
+            'details': (
+                'Import took longer than 20 minutes. '
+                'Check the output below to see where it got stuck.\n\n'
+                'Consider breaking the file into smaller batches or disabling AI with --no-ai flag.'
+            ),
+            'output': partial_output or 'No output captured before timeout'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     except Exception as e:

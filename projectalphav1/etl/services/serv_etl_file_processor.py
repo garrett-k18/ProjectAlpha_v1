@@ -188,9 +188,19 @@ class FileProcessor:
 
     def _read_csv(self, skip_rows: int, header: Any = 0) -> pd.DataFrame:
         """
-        WHAT: Read CSV file
-        WHY: Some sellers provide CSV instead of Excel
-        HOW: Use pandas read_csv with UTF-8 encoding
+        WHAT: Read CSV file with intelligent encoding detection
+        WHY: Some sellers provide CSV files in various encodings (UTF-8, Windows-1252, ISO-8859-1, etc.)
+        HOW: Try multiple encodings in order of likelihood, with detailed error reporting
+
+        ENCODING FALLBACK CHAIN:
+        1. utf-8-sig (UTF-8 with BOM handling) - most modern files
+        2. utf-8 (standard UTF-8) - common for exports
+        3. windows-1252 (CP1252) - Windows Excel exports, handles byte 0xa0 as non-breaking space
+        4. iso-8859-1 (Latin-1) - older files, handles bytes 0x80-0xFF
+        5. cp1252 (Windows code page) - alias for windows-1252
+        6. latin-1 - another alias for ISO-8859-1
+        
+        DOCS: https://pandas.pydata.org/docs/reference/api/pandas.read_csv.html
 
         Args:
             skip_rows: Rows to skip
@@ -198,16 +208,70 @@ class FileProcessor:
 
         Returns:
             DataFrame with CSV data
+        
+        Raises:
+            ValueError: If file cannot be read with any encoding
         """
-        df = pd.read_csv(
-            self.file_path,
-            skiprows=skip_rows,
-            header=header,
-            dtype=str,  # Read all as string initially
-            na_values=['', 'NA', 'N/A', 'null', 'NULL', 'None'],
-            encoding='utf-8-sig'  # Handle BOM in UTF-8 files
+        # List of encodings to try in order of likelihood
+        # Docs: https://docs.python.org/3/library/codecs.html#standard-encodings
+        encodings = [
+            'utf-8-sig',      # UTF-8 with BOM (most common modern format)
+            'utf-8',          # Standard UTF-8
+            'windows-1252',   # Windows Excel (handles 0xa0 as non-breaking space)
+            'iso-8859-1',     # Latin-1 (handles all single bytes)
+            'cp1252',         # Windows code page (common for legacy files)
+            'latin-1',        # Alias for ISO-8859-1
+        ]
+        
+        last_error = None
+        
+        # Try each encoding in sequence
+        for encoding in encodings:
+            try:
+                if self.stdout:
+                    self.stdout.write(f'      [FILE READ] Attempting to read CSV with encoding: {encoding}\n')
+                
+                # Attempt to read the CSV file with current encoding
+                df = pd.read_csv(
+                    self.file_path,
+                    skiprows=skip_rows,
+                    header=header,
+                    dtype=str,  # Read all as string initially for safer processing
+                    na_values=['', 'NA', 'N/A', 'null', 'NULL', 'None'],
+                    encoding=encoding,
+                    encoding_errors='strict'  # Fail fast if encoding doesn't match
+                )
+                
+                if self.stdout:
+                    self.stdout.write(f'      [SUCCESS] Successfully read CSV with encoding: {encoding}\n')
+                
+                return df
+                
+            except (UnicodeDecodeError, UnicodeError) as e:
+                # Store error for potential final error message
+                last_error = e
+                if self.stdout:
+                    self.stdout.write(
+                        f'      [ENCODING FAIL] {encoding} failed at position {getattr(e, "start", "unknown")}: '
+                        f'{str(e)[:100]}\n'
+                    )
+                continue  # Try next encoding
+                
+            except Exception as e:
+                # Non-encoding errors should fail immediately
+                if self.stdout:
+                    self.stdout.write(f'      [ERROR] Non-encoding error: {type(e).__name__}: {str(e)}\n')
+                raise
+        
+        # If we exhausted all encodings, raise a detailed error
+        error_msg = (
+            f'Failed to read CSV file with any supported encoding. '
+            f'Tried: {", ".join(encodings)}. '
+            f'Last error: {str(last_error)}'
         )
-        return df
+        if self.stdout:
+            self.stdout.write(f'      [FATAL] {error_msg}\n')
+        raise ValueError(error_msg)
 
     def _detect_header_row(self, df: pd.DataFrame) -> Tuple[int, int]:
         """

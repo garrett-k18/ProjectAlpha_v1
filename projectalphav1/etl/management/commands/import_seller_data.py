@@ -61,6 +61,7 @@ class Command(BaseCommand):
         parser.add_argument('--config', type=str, help='JSON config with column mappings')
         parser.add_argument('--sheet', type=str, default=0, help='Excel sheet (default: 0)')
         parser.add_argument('--skip-rows', type=int, default=0, help='Rows to skip (default: 0)')
+        parser.add_argument('--limit-rows', type=int, help='Limit to first N rows (for testing)')
         parser.add_argument('--dry-run', action='store_true', help='Preview without saving')
         parser.add_argument('--no-ai', action='store_true', help='Disable AI mapping')
         parser.add_argument('--batch-size', type=int, default=100, help='Batch size (default: 100)')
@@ -171,6 +172,14 @@ class Command(BaseCommand):
         # Read file
         processor = FileProcessor(file_path, password=password, stdout=self.stdout)
         df = processor.read(sheet=options.get('sheet', 0), skip_rows=options.get('skip_rows', 0))
+        
+        # Limit rows if requested (for testing)
+        limit_rows = options.get('limit_rows')
+        if limit_rows and limit_rows > 0:
+            original_count = len(df)
+            df = df.head(limit_rows)
+            self.stdout.write(self.style.WARNING(f'      [LIMIT] Processing only {len(df)} of {original_count} rows (testing mode)'))
+        
         self.stdout.write(self.style.SUCCESS(f'      [OK] Loaded {len(df)} rows, {len(df.columns)} columns'))
 
         # Map columns

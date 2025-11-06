@@ -90,7 +90,7 @@
             <small class="form-text text-muted">Auto-generated as "SellerName - MM.DD.YY" if blank</small>
           </div>
           <div class="col-12">
-            <div class="form-check">
+            <div class="form-check mb-2">
               <input
                 v-model="dryRun"
                 class="form-check-input"
@@ -101,6 +101,28 @@
                 Dry run (preview only, don't save to database)
               </label>
             </div>
+            <div class="form-check">
+              <input
+                v-model="noAi"
+                class="form-check-input"
+                type="checkbox"
+                id="noAiCheck"
+              />
+              <label class="form-check-label" for="noAiCheck">
+                Disable AI column mapping (faster for large files, uses default mapping)
+              </label>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Test Mode <span class="text-muted">(Limit Rows)</span></label>
+            <input
+              v-model="limitRows"
+              type="number"
+              class="form-control"
+              placeholder="e.g., 1 for testing"
+              min="1"
+            />
+            <small class="form-text text-muted">Process only first N rows (useful for testing without API costs)</small>
           </div>
         </div>
       </div>
@@ -194,6 +216,8 @@ const fileInput = ref<HTMLInputElement | null>(null) // WHAT: Hidden input refer
 const sellerName = ref('') // WHAT: Seller name used for backend processing
 const tradeName = ref('') // WHAT: Optional trade label override supplied by user
 const dryRun = ref(false) // WHAT: Checkbox state toggling preview-only mode
+const noAi = ref(false) // WHAT: Checkbox state to disable AI column mapping for faster imports
+const limitRows = ref<number | ''>('') // WHAT: Limit to first N rows for testing
 const sellerOptions = ref<SellerOption[]>([]) // WHAT: Cached list of seller dropdown options
 const selectedSellerId = ref<number | 'manual'>('manual') // WHAT: Currently chosen seller id or manual flag
 const sellersLoading = ref(false) // WHAT: Loading indicator while fetching seller options
@@ -306,12 +330,14 @@ async function startImport() {
     formData.append('seller_name', sellerName.value)
     if (tradeName.value) formData.append('trade_name', tradeName.value)
     formData.append('dry_run', dryRun.value.toString())
+    formData.append('no_ai', noAi.value.toString())
+    if (limitRows.value) formData.append('limit_rows', limitRows.value.toString())
 
     // Call backend API endpoint (to be created)
     const response = await axios.post('/acq/import-seller-tape/', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
-      // Allow lengthy ETL processing (3 minutes)
-      timeout: 180000,
+      // Allow lengthy ETL processing for large files (20 minutes for 600+ records)
+      timeout: 1200000,
     })
 
     // Success

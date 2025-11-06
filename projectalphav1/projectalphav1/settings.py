@@ -370,9 +370,10 @@ MEDIA_ROOT = BASE_DIR / 'media'
 EGNYTE_DOMAIN = os.getenv('EGNYTE_DOMAIN', 'projectalpha.egnyte.com')  # Dev fallback
 EGNYTE_API_TOKEN = os.getenv('EGNYTE_API_TOKEN', 'AQwSAJABFxAlFsjfoyiJDVllDycavVifmm3dPjQBaZwWvV4Vb3GJCpFS9aDyrybA')  # Dev fallback
 
-# WHAT: Optimized logging configuration
-# WHY: Reduce console output that can slow down API responses and frontend performance
-# HOW: Disable verbose SQL logging in DEBUG mode, reduce console chatter
+# WHAT: Balanced logging configuration - show errors and tracebacks without overwhelming detail
+# WHY: Need visibility into errors and import operations without drowning in SQL queries and request logs
+# HOW: Use INFO level for most loggers, ERROR for noisy ones (SQL/requests), include full tracebacks
+# DOCS: https://docs.djangoproject.com/en/5.2/topics/logging/
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -390,39 +391,69 @@ LOGGING = {
         'require_debug_false': {
             '()': 'django.utils.log.RequireDebugFalse',
         },
+        'require_debug_true': {
+            '()': 'django.utils.log.RequireDebugTrue',
+        },
     },
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
+            'formatter': 'verbose',  # Include timestamps and module names
+            'level': 'INFO',  # Show INFO, WARNING, ERROR - good balance
+        },
+        'console_simple': {
+            'class': 'logging.StreamHandler',
             'formatter': 'simple',
-            'level': 'WARNING' if DEBUG else 'ERROR',  # Reduced verbosity in DEBUG
+            'level': 'INFO',
         },
     },
     'loggers': {
+        # Django core logging - show important messages and errors
         'django': {
             'handlers': ['console'],
-            'level': 'WARNING',  # Only show warnings and errors
+            'level': 'INFO',  # Show INFO and above (no DEBUG spam)
             'propagate': False,
         },
+        # SQL query logging - only show errors (SQL logging is VERY verbose)
         'django.db.backends': {
             'handlers': ['console'],
-            'level': 'ERROR',  # Disable SQL query logging (major performance killer)
+            'level': 'ERROR',  # Only show database errors, not every query
             'propagate': False,
         },
+        # Request/response logging - show errors and warnings
         'django.request': {
             'handlers': ['console'],
-            'level': 'ERROR',  # Only log request errors
+            'level': 'ERROR',  # Only show request errors, not every request
             'propagate': False,
         },
+        # Development server logging - show errors
         'django.server': {
+            'handlers': ['console_simple'],
+            'level': 'ERROR',  # Only show server errors
+            'propagate': False,
+        },
+        # ETL module logging - IMPORTANT for imports, show everything
+        'etl': {
             'handlers': ['console'],
-            'level': 'ERROR',  # Only log server errors
+            'level': 'INFO',  # Show ETL progress, errors, and tracebacks
+            'propagate': False,
+        },
+        # Core module logging
+        'core': {
+            'handlers': ['console'],
+            'level': 'WARNING',  # Only warnings and errors
+            'propagate': False,
+        },
+        # AM module logging
+        'am_module': {
+            'handlers': ['console'],
+            'level': 'WARNING',  # Only warnings and errors
             'propagate': False,
         },
     },
     'root': {
         'handlers': ['console'],
-        'level': 'WARNING',
+        'level': 'INFO',  # Show INFO and above at root level
     },
 }
 
