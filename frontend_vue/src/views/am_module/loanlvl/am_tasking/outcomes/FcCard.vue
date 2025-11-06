@@ -104,13 +104,14 @@
           <!-- Expandable section for task-specific data fields -->
           <div v-if="expandedId === t.id || expandedId === 'all'" class="mt-2 p-2 border-top">
             <!-- NOD/NOI specific date fields -->
+            <!-- NOTE: These fields are on FCSale outcome, not FCTask -->
             <div v-if="t.task_type === 'nod_noi'" class="row g-3 mb-3">
               <div class="col-md-6">
                 <label class="form-label small text-muted">NOD/NOI Sent Date</label>
                 <div class="d-block">
                   <EditableDate
-                    :model-value="getTaskField(t, 'nod_noi_sent_date') || ''"
-                    @update:model-value="(newDate) => updateTaskField(t.id, 'nod_noi_sent_date', newDate)"
+                    :model-value="fcData?.nod_noi_sent_date || ''"
+                    @update:model-value="(newDate) => updateFcField('nod_noi_sent_date', newDate)"
                     title="Click to edit NOD/NOI sent date"
                   />
                 </div>
@@ -119,8 +120,8 @@
                 <label class="form-label small text-muted">NOD/NOI Expire Date</label>
                 <div class="d-block">
                   <EditableDate
-                    :model-value="getTaskField(t, 'nod_noi_expire_date') || ''"
-                    @update:model-value="(newDate) => updateTaskField(t.id, 'nod_noi_expire_date', newDate)"
+                    :model-value="fcData?.nod_noi_expire_date || ''"
+                    @update:model-value="(newDate) => updateFcField('nod_noi_expire_date', newDate)"
                     title="Click to edit NOD/NOI expire date"
                   />
                 </div>
@@ -299,21 +300,24 @@ async function load() {
 // WHY: Need access to completion fields like sale date and sale price
 async function loadFcData() {
   try {
-    const response = await http.get(`/am/outcomes/fc-sale/?asset_hub_id=${props.hubId}`)
+    const response = await http.get(`/am/outcomes/fc/?asset_hub_id=${props.hubId}`)
     if (response.data && response.data.length > 0) {
       fcData.value = response.data[0]
     } else {
       // No FC outcome exists yet, create one
       const payload = { asset_hub_id: props.hubId }
-      const createResponse = await http.post('/am/outcomes/fc-sale/', payload)
+      const createResponse = await http.post('/am/outcomes/fc/', payload)
       fcData.value = createResponse.data
     }
   } catch (err: any) {
     console.error('Failed to load/create FC data:', err)
+    console.error('Error details:', err.response?.data)
     fcData.value = {
       asset_hub: null,
       fc_sale_actual_date: null,
-      fc_sale_price: null
+      fc_sale_price: null,
+      nod_noi_sent_date: null,
+      nod_noi_expire_date: null
     }
   }
 }
@@ -363,6 +367,7 @@ async function updateFcField(fieldName: string, value: string) {
     }
     
     if (!fcData.value?.asset_hub) {
+      console.error('FC outcome not found after loadFcData:', fcData.value)
       throw new Error('Unable to create or find FC outcome')
     }
     
@@ -373,7 +378,7 @@ async function updateFcField(fieldName: string, value: string) {
     }
     
     const payload = { [fieldName]: processedValue }
-    await http.patch(`/am/outcomes/fc-sale/${fcData.value.asset_hub}/`, payload)
+    await http.patch(`/am/outcomes/fc/${fcData.value.asset_hub}/`, payload)
     
     // Update local data immediately
     if (fcData.value) {
@@ -433,23 +438,6 @@ async function updateTaskStarted(taskId: number, newDate: string) {
   } catch (err: any) {
     console.error('Failed to update task start date:', err)
     alert('Failed to update start date. Please try again.')
-  }
-}
-
-// Get task field value (for NOD/NOI date fields)
-function getTaskField(task: FcTask, fieldName: string): string | null {
-  return (task as any)[fieldName] || null
-}
-
-// Update any task field via PATCH request
-async function updateTaskField(taskId: number, fieldName: string, newValue: string) {
-  try {
-    await http.patch(`/am/outcomes/fc-tasks/${taskId}/`, { [fieldName]: newValue })
-    // Refresh tasks to show updated value
-    tasks.value = await store.listFcTasks(props.hubId, true)
-  } catch (err: any) {
-    console.error(`Failed to update ${fieldName}:`, err)
-    alert(`Failed to update ${fieldName}. Please try again.`)
   }
 }
 

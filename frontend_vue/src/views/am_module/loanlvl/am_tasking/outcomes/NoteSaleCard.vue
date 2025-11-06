@@ -372,27 +372,13 @@ function onSelectPill(tp: NoteSaleTaskType) {
     .finally(() => { tasksBusy.value = false; addMenuOpen.value = false })
 }
 
-async function toggleExpand(id: number) { 
+// WHAT: Toggle expand/collapse of a task
+// WHY: Show/hide task details without reloading data
+// HOW: Just toggle the expanded ID - data persists in local refs
+function toggleExpand(id: number) { 
   userInteracted.value = true
   localExpandedId.value = localExpandedId.value === id ? null : id
-  if (localExpandedId.value === id) {
-    // WHAT: Get the task being expanded
-    const expandedTask = tasks.value.find(t => t.id === id)
-    
-    // Initialize local values from outcome data
-    const outcome = noteSale.value
-    if (outcome) {
-      soldDateLocal.value = outcome.sold_date
-      proceedsLocal.value = formatNumberWithCommas((outcome.proceeds || '').toString().replace(/[^0-9.]/g, ''))
-      tradingPartnerLocal.value = outcome.trading_partner
-    }
-    
-    // WHAT: Auto-populate from accepted offer when expanding "Sold" task
-    // WHY: Streamline workflow - carry forward accepted offer details
-    if (expandedTask?.task_type === 'sold') {
-      await autoPopulateSoldTask()
-    }
-  }
+  // No data loading here - data is already loaded and synced via watchers
 }
 
 // WHAT: Auto-populate Sold task from accepted offer
@@ -522,14 +508,10 @@ watch(() => tasks.value, async (newTasks, oldTasks) => {
 watch(() => noteSale.value, (outcome) => {
   console.log('NoteSale watcher triggered, outcome:', outcome)
   if (outcome) {
-    // Only update if the task is expanded or we're showing the sold task
-    const hasSoldTask = tasks.value.some(t => t.task_type === 'sold')
-    if (hasSoldTask) {
-      console.log('Syncing local values from outcome watcher')
-      soldDateLocal.value = outcome.sold_date
-      proceedsLocal.value = formatNumberWithCommas((outcome.proceeds || '').toString().replace(/[^0-9.]/g, ''))
-      tradingPartnerLocal.value = outcome.trading_partner
-    }
+    console.log('Syncing local values from outcome watcher')
+    soldDateLocal.value = outcome.sold_date
+    proceedsLocal.value = formatNumberWithCommas((outcome.proceeds || '').toString().replace(/[^0-9.]/g, ''))
+    tradingPartnerLocal.value = outcome.trading_partner
   }
 }, { deep: true })
 
