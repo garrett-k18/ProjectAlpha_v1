@@ -348,7 +348,7 @@
             <span>Lock Screen</span>
           </b-dropdown-item>
 
-          <b-dropdown-item href="#">
+          <b-dropdown-item @click="handleLogout">
             <i class="ri-logout-box-line fs-18 align-middle me-1"></i>
             <span>Logout</span>
           </b-dropdown-item>
@@ -455,6 +455,23 @@ export default {
         if (document["exitFullscreen"]) {
           document["exitFullscreen"]();
         }
+      }
+    },
+    /**
+     * Handle user logout
+     * Calls the Django auth store logout method and redirects to login page
+     */
+    async handleLogout() {
+      try {
+        // Call the Django auth store logout method (clears token, user data, etc.)
+        await this.auth.logout();
+        
+        // Redirect to login page
+        this.$router.push('/auth/login');
+      } catch (error) {
+        console.error('Logout error:', error);
+        // Still redirect to login even if logout API call fails
+        this.$router.push('/auth/login');
       }
     },
   },

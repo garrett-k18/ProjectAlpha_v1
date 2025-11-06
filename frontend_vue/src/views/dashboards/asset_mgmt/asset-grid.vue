@@ -590,7 +590,7 @@ function currencyFormatter(params: ValueFormatterParams): string {
   const v = params.value
   const num = typeof v === 'number' ? v : parseFloat(String(v))
   if (Number.isNaN(num)) return v == null ? '' : String(v)
-  return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(num)
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(num)
 }
 
 function dateFormatter(params: ValueFormatterParams): string {
