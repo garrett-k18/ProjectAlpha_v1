@@ -22,8 +22,8 @@
     <StatsWidget />
 
     <!-- 
-      Note: Macro Rates Widget removed - Financial Ticker Banner moved to footer
-      The ticker provides auto-scrolling market indicators at the bottom of all pages
+      Note: Macro Rates Widget removed - Financial Ticker Banner shown at bottom of home page only
+      The ticker provides auto-scrolling market indicators (SOFR, Fed Funds, 30-Year Mortgage, etc.)
     -->
     
     <!-- Calendar Widget (full width now that Macro Rates is removed) -->
@@ -82,11 +82,16 @@
     </b-row>
   </Layout>
   <!-- End Layout wrapper -->
+  
+  <!-- Financial Ticker - Only shown on home page -->
+  <FinancialTicker />
 </template>
 
 <script lang="ts">
 // Import the shared Layout at the top-level per code standards
 import Layout from "@/components/layouts/layout.vue";
+// Financial ticker tape - auto-scrolling market indicators (home page only)
+import FinancialTicker from '@/components/FinancialTicker.vue'
 // Condensed calendar widget for homepage (modular, reusable)
 import HomeCalendarWidget from '@/components/widgets/HomeCalendarWidget.vue'
 // Stats widget - key metrics tiles (Assets, Tasks, Brokers, Docs)
@@ -100,6 +105,7 @@ export default {
   // Register child components locally
   components: {
     Layout,
+    FinancialTicker,
     HomeCalendarWidget,
     StatsWidget,
   },

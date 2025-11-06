@@ -14,8 +14,8 @@ from am_module.models.statebridgeservicing import (
 )
 from am_module.models.am_data import (
     AMMetrics, AuditLog, AssetCRMContact,
-    AMNote, REOData, FCSale, DIL, ShortSale, Modification,
-    REOtask, FCTask, DILTask, ShortSaleTask, ModificationTask,
+    AMNote, REOData, FCSale, DIL, ShortSale, Modification, NoteSale,
+    REOtask, FCTask, DILTask, ShortSaleTask, ModificationTask, NoteSaleTask,
     REOScope, Offers,
 )
 
@@ -259,6 +259,25 @@ class ModificationTaskAdmin(admin.ModelAdmin):
     list_per_page = 5
 
 
+@admin.register(NoteSaleTask)
+class NoteSaleTaskAdmin(admin.ModelAdmin):
+    """
+    WHAT: Admin interface for Note Sale Task workflow
+    WHY: Allow staff to view and manage note sale task progression
+    WHERE: Django admin at /admin/am_module/notesaletask/
+    HOW: Display key fields with filtering and search by asset
+    """
+    list_display = ('id', 'asset_hub', 'note_sale', 'task_type', 'task_started', 'created_at', 'updated_at')
+    list_filter = ('task_type', 'created_at')
+    search_fields = (
+        'asset_hub__am_boarded__sellertape_id',
+        'asset_hub__am_boarded__street_address',
+    )
+    ordering = ('-updated_at',)
+    list_select_related = ('asset_hub', 'note_sale')
+    list_per_page = 5
+
+
 @admin.register(AMMetrics)
 class AMMetricsAdmin(admin.ModelAdmin):
     list_display = ('id', 'asset_hub', 'updated_at', 'updated_by')
@@ -380,6 +399,38 @@ class ModificationAdmin(admin.ModelAdmin):
     ordering = ('-modification_date',)
     list_select_related = ('asset_hub',)
     list_per_page = 5
+
+
+@admin.register(NoteSale)
+class NoteSaleAdmin(admin.ModelAdmin):
+    """
+    WHAT: Admin interface for Note Sale outcome records
+    WHY: Allow staff to view and manage note sale data
+    WHERE: Django admin at /admin/am_module/notesale/
+    HOW: Display key fields with filtering and search by asset and trading partner
+    """
+    list_display = ('asset_hub', 'sold_date', 'proceeds', 'trading_partner_display', 'trading_partner')
+    list_filter = ('sold_date',)
+    search_fields = (
+        'asset_hub__am_boarded__sellertape_id',
+        'asset_hub__am_boarded__street_address',
+        'trading_partner__firm',
+        'trading_partner__contact_name',
+    )
+    ordering = ('-sold_date',)
+    list_select_related = ('asset_hub', 'trading_partner')
+    list_per_page = 5
+    
+    def trading_partner_display(self, obj):
+        """
+        WHAT: Display trading partner firm name or contact name
+        WHY: More readable than just showing the ID
+        HOW: Access related MasterCRM record
+        """
+        if obj.trading_partner:
+            return obj.trading_partner.firm or obj.trading_partner.contact_name or f"TP #{obj.trading_partner.id}"
+        return "—"
+    trading_partner_display.short_description = 'Trading Partner Name'
 
 
 @admin.register(AssetCRMContact)
