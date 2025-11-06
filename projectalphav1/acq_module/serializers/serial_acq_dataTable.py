@@ -35,7 +35,10 @@ class SellerRawDataRowSerializer(serializers.Serializer):
     # Asset Hub ID is the master identifier across the system.
     # WARNING: Never use `id = serializers.IntegerField(read_only=True)` - it will return undefined!
     id = serializers.SerializerMethodField()
-    sellertape_id = serializers.IntegerField(read_only=True)
+    # WHAT: Loan/Seller tape ID as CharField to handle various formats
+    # WHY: Loan IDs come in different formats: numbers, alphanumeric, with hyphens (e.g., '591-126709', 'ABC-123')
+    # HOW: CharField allows any format, matching the model definition
+    sellertape_id = serializers.CharField(allow_null=True, allow_blank=True)
     # Trade metadata for header/title usage in frontend
     # Expose the FK id directly and a readable trade_name from related Trade model
     trade_id = serializers.IntegerField(read_only=True, required=False)
