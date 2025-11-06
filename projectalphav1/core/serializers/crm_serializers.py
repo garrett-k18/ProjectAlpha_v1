@@ -72,6 +72,28 @@ class MasterCRMSerializer(serializers.ModelSerializer):
                 f"Invalid tag. Must be one of: {', '.join(MasterCRM.ContactTag.values)}"
             )
         return value
+    
+    def create(self, validated_data):
+        """
+        WHAT: Create MasterCRM instance with proper many-to-many handling
+        WHY: States is a M2M field that must be set after instance creation
+        WHERE: Called by DRF when POSTing to CRM endpoints
+        HOW: Pop states from validated_data, create instance, then set states
+        """
+        # WHAT: Extract states M2M field before creating instance
+        # WHY: M2M fields must be set after instance exists in DB
+        states = validated_data.pop('states', [])
+        
+        # WHAT: Create the MasterCRM instance with all other fields
+        # WHY: Instance must exist before M2M relationships can be set
+        instance = MasterCRM.objects.create(**validated_data)
+        
+        # WHAT: Set the many-to-many states relationship
+        # WHY: M2M requires instance to exist first
+        if states:
+            instance.states.set(states)
+        
+        return instance
 
 
 class InvestorSerializer(MasterCRMSerializer):

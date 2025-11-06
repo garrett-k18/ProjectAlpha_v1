@@ -96,6 +96,8 @@
               <span class="me-2">
                 <!-- Display date label based on task type -->
                 <template v-if="t.task_type === 'sold'">Sold Date:</template>
+                <template v-else-if="t.task_type === 'out_to_market'">Release Date:</template>
+                <template v-else-if="t.task_type === 'pending_sale'">Pending Date:</template>
                 <template v-else>Date:</template>
                 <EditableDate 
                   :model-value="t.task_started" 
@@ -382,7 +384,7 @@ onMounted(async () => {
   await store.listNoteSaleTasks(props.hubId)
   await store.fetchNoteSale(props.hubId, true)
   // Load trading partners for dropdown
-  await tradingPartnersStore.fetchTradingPartners()
+  await tradingPartnersStore.fetchPartners()
 })
 
 // Handle sold date change

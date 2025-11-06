@@ -39,7 +39,18 @@
               <template v-if="isNoteSale">
                 <!-- Trading Partner -->
                 <div class="col-12">
-                  <label class="form-label">Trading Partner</label>
+                  <label class="form-label d-flex justify-content-between align-items-center">
+                    <span>Trading Partner</span>
+                    <button 
+                      type="button" 
+                      class="btn btn-xs btn-outline-primary d-inline-flex align-items-center gap-1"
+                      style="font-size: 0.7rem; padding: 2px 8px;"
+                      @click="showAddTradingPartner = true"
+                    >
+                      <i class="fas fa-plus"></i>
+                      <span>Add New</span>
+                    </button>
+                  </label>
                   <select 
                     v-model="formData.trading_partner"
                     class="form-select form-select-sm"
@@ -49,6 +60,84 @@
                       {{ tp.firm || tp.name || `TP ${tp.id}` }}
                     </option>
                   </select>
+                </div>
+                
+                <!-- WHAT: Inline Trading Partner creation form -->
+                <!-- WHY: Allow quick creation without leaving modal -->
+                <div v-if="showAddTradingPartner" class="col-12">
+                  <div class="card border-primary">
+                    <div class="card-header bg-primary-subtle py-2">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">Add New Trading Partner</h6>
+                        <button 
+                          type="button" 
+                          class="btn-close btn-sm" 
+                          @click="cancelAddTradingPartner"
+                        ></button>
+                      </div>
+                    </div>
+                    <div class="card-body">
+                      <div class="row g-2">
+                        <div class="col-md-6">
+                          <label class="form-label small">Firm Name</label>
+                          <input 
+                            v-model="newTradingPartner.firm"
+                            type="text" 
+                            class="form-control form-control-sm" 
+                            placeholder="Enter firm name"
+                          />
+                        </div>
+                        <div class="col-md-6">
+                          <label class="form-label small">Contact Name</label>
+                          <input 
+                            v-model="newTradingPartner.contact_name"
+                            type="text" 
+                            class="form-control form-control-sm" 
+                            placeholder="Enter contact name"
+                          />
+                        </div>
+                        <div class="col-12">
+                          <small class="text-muted fst-italic">* At least firm name or contact name is recommended</small>
+                        </div>
+                        <div class="col-md-6">
+                          <label class="form-label small">Email</label>
+                          <input 
+                            v-model="newTradingPartner.email"
+                            type="email" 
+                            class="form-control form-control-sm" 
+                            placeholder="contact@firm.com"
+                          />
+                        </div>
+                        <div class="col-md-6">
+                          <label class="form-label small">Phone</label>
+                          <input 
+                            v-model="newTradingPartner.phone"
+                            type="tel" 
+                            class="form-control form-control-sm" 
+                            placeholder="(555) 123-4567"
+                          />
+                        </div>
+                        <div class="col-12 d-flex justify-content-end gap-2 mt-2">
+                          <button 
+                            type="button" 
+                            class="btn btn-sm btn-light"
+                            @click="cancelAddTradingPartner"
+                          >
+                            Cancel
+                          </button>
+                          <button 
+                            type="button" 
+                            class="btn btn-sm btn-primary"
+                            @click="saveTradingPartner"
+                            :disabled="isSavingTradingPartner || (!newTradingPartner.firm && !newTradingPartner.contact_name)"
+                          >
+                            <span v-if="isSavingTradingPartner" class="spinner-border spinner-border-sm me-1"></span>
+                            {{ isSavingTradingPartner ? 'Saving...' : 'Save' }}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </template>
               
@@ -182,7 +271,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch, onMounted, nextTick } from 'vue'
 import http from '@/lib/http'
 import UiCurrencyInput from '@/components/ui/UiCurrencyInput.vue'
 import EditableDate from '@/components/ui/EditableDate.vue'
@@ -222,6 +311,17 @@ const fileInput = ref<HTMLInputElement | null>(null)
 // WHY: Allow selection of trading partner who made the offer
 const tradingPartners = ref<any[]>([])
 
+// WHAT: Inline trading partner creation state
+// WHY: Allow adding new trading partners without leaving modal
+const showAddTradingPartner = ref(false)
+const isSavingTradingPartner = ref(false)
+const newTradingPartner = ref({
+  firm: '',
+  contact_name: '',
+  email: '',
+  phone: ''
+})
+
 // WHAT: Form data structure
 // WHY: Store all offer fields with default values
 const formData = ref({
@@ -245,29 +345,54 @@ watch(() => props.modelValue, async (newValue) => {
       await tradingPartnersStore.fetchTradingPartners()
       tradingPartners.value = tradingPartnersStore.results
     }
-    // Populate form if editing
+    
+    // WHAT: Use nextTick to ensure DOM is ready before populating
+    // WHY: Some components need to be mounted before they can receive values
+    await nextTick()
+    
+    // Populate form if editing (after reset and nextTick)
     if (props.editingOffer) {
+      console.log('Populating form with offer:', props.editingOffer)
       populateFormWithOffer(props.editingOffer)
+    } else {
+      // Only reset if not editing
+      resetForm()
     }
-  } else {
-    resetForm()
   }
 })
+
+// WHAT: Watch editingOffer changes
+// WHY: Update form when different offer is selected for editing
+watch(() => props.editingOffer, async (newOffer) => {
+  if (newOffer && props.modelValue) {
+    console.log('EditingOffer changed:', newOffer)
+    await nextTick()
+    populateFormWithOffer(newOffer)
+  }
+}, { deep: true })
 
 // WHAT: Populate form with existing offer data
 // WHY: Pre-fill form when editing an offer
 function populateFormWithOffer(offer: any) {
-  formData.value = {
-    offer_price: offer.offer_price?.toString() || '',
-    offer_date: offer.offer_date || '',
-    buyer_name: offer.buyer_name || '',
-    buyer_agent: offer.buyer_agent || '',
-    financing_type: offer.financing_type || '',
-    offer_status: offer.offer_status || '',
-    seller_credits: offer.seller_credits?.toString() || '',
-    trading_partner: offer.trading_partner || null,
-    notes: offer.notes || ''
-  }
+  console.log('Populating form with data:', {
+    offer_price: offer.offer_price,
+    offer_date: offer.offer_date,
+    buyer_name: offer.buyer_name,
+    trading_partner: offer.trading_partner,
+    offer_status: offer.offer_status
+  })
+  
+  formData.value.offer_price = offer.offer_price?.toString() || ''
+  formData.value.offer_date = offer.offer_date || ''
+  formData.value.buyer_name = offer.buyer_name || ''
+  formData.value.buyer_agent = offer.buyer_agent || ''
+  formData.value.financing_type = offer.financing_type || ''
+  formData.value.offer_status = offer.offer_status || ''
+  formData.value.seller_credits = offer.seller_credits?.toString() || ''
+  formData.value.trading_partner = offer.trading_partner || null
+  formData.value.notes = offer.notes || ''
+  
+  console.log('Form data after population:', formData.value)
 }
 
 // WHAT: Initialize trading partners if note sale
@@ -279,14 +404,101 @@ const tradingPartnersStore = useTradingPartnersStore()
 onMounted(async () => {
   if (isNoteSale) {
     // Load trading partners for dropdown
-    await tradingPartnersStore.fetchTradingPartners()
-    tradingPartners.value = tradingPartnersStore.results
+    await loadTradingPartners()
   }
 })
+
+// WHAT: Load trading partners from store/API
+// WHY: Populate dropdown with current trading partners
+async function loadTradingPartners() {
+  await tradingPartnersStore.fetchPartners()
+  tradingPartners.value = tradingPartnersStore.results
+}
+
+// WHAT: Cancel adding new trading partner
+// WHY: Reset form and hide inline creation UI
+function cancelAddTradingPartner() {
+  showAddTradingPartner.value = false
+  newTradingPartner.value = {
+    firm: '',
+    contact_name: '',
+    email: '',
+    phone: ''
+  }
+}
+
+// WHAT: Save new trading partner to backend
+// WHY: Create trading partner and add to dropdown
+async function saveTradingPartner() {
+  // WHAT: Validate that at least firm is provided for usability
+  // WHY: Trading partner without any identifier isn't useful
+  if (!newTradingPartner.value.firm && !newTradingPartner.value.contact_name) {
+    alert('Please enter at least a firm name or contact name.')
+    return
+  }
+  
+  try {
+    isSavingTradingPartner.value = true
+    
+    // WHAT: Prepare minimal payload - only send fields that have values
+    // WHY: All MasterCRM fields are nullable/optional, cleaner to omit empty fields
+    const payload: any = {}
+    
+    if (newTradingPartner.value.firm) {
+      payload.firm = newTradingPartner.value.firm
+    }
+    if (newTradingPartner.value.contact_name) {
+      payload.contact_name = newTradingPartner.value.contact_name
+    }
+    if (newTradingPartner.value.email) {
+      payload.email = newTradingPartner.value.email
+    }
+    if (newTradingPartner.value.phone) {
+      payload.phone = newTradingPartner.value.phone
+    }
+    
+    console.log('Creating trading partner with payload:', payload)
+    
+    // WHAT: POST to trading partners endpoint
+    // WHY: Create new MasterCRM record with trading_partner tag (auto-set by serializer)
+    const response = await http.post('/core/crm/trading-partners/', payload)
+    
+    console.log('Trading partner created:', response.data)
+    
+    // WHAT: Reload trading partners list
+    // WHY: Include newly created trading partner in dropdown
+    await loadTradingPartners()
+    
+    // WHAT: Auto-select the newly created trading partner
+    // WHY: UX convenience - they probably want to use the one they just created
+    formData.value.trading_partner = response.data.id
+    
+    // WHAT: Hide inline form and reset
+    cancelAddTradingPartner()
+    
+  } catch (err: any) {
+    console.error('Failed to create trading partner:', err)
+    console.error('Error response data:', err.response?.data)
+    console.error('Error status:', err.response?.status)
+    
+    // WHAT: Show detailed error message to user
+    // WHY: Help diagnose what went wrong
+    const errorMsg = err.response?.data?.detail 
+      || err.response?.data?.error
+      || JSON.stringify(err.response?.data)
+      || err.message 
+      || 'Unknown error occurred'
+    
+    alert(`Failed to create trading partner:\n\n${errorMsg}\n\nCheck console for details.`)
+  } finally {
+    isSavingTradingPartner.value = false
+  }
+}
 
 // WHAT: Close modal and notify parent
 // WHY: Update parent state and clean up form
 function closeModal() {
+  resetForm()
   emit('update:modelValue', false)
 }
 
