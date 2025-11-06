@@ -146,8 +146,18 @@ class ShortSaleSerializer(serializers.ModelSerializer):
 
 
 class OffersSerializer(serializers.ModelSerializer):
-    """Serializer for Offers model to track offers from various sources."""
+    """
+    WHAT: Serializer for Offers model to track offers from various sources
+    WHY: Support both property sale offers (REO/Short Sale) and note sale offers
+    WHERE: Used by offers API endpoints
+    HOW: Conditionally includes buyer fields or trading partner based on offer_source
+    """
     asset_hub_id = _AssetHubPKField()
+    
+    # WHAT: Read-only field to display trading partner name
+    # WHY: Frontend needs to show trading partner name without extra API calls
+    # HOW: SerializerMethodField that accesses related MasterCRM
+    trading_partner_name = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Offers
@@ -155,9 +165,20 @@ class OffersSerializer(serializers.ModelSerializer):
             'id', 'asset_hub', 'asset_hub_id', 'offer_source',
             'offer_price', 'offer_date', 'seller_credits',
             'financing_type', 'buyer_name', 'buyer_agent',
+            'trading_partner', 'trading_partner_name',
             'offer_status', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['asset_hub', 'created_at', 'updated_at']
+        read_only_fields = ['asset_hub', 'created_at', 'updated_at', 'trading_partner_name']
+    
+    def get_trading_partner_name(self, obj):
+        """
+        WHAT: Get trading partner display name from related MasterCRM
+        WHY: Show firm or contact name in frontend without extra API calls
+        HOW: Access related trading_partner and return firm or contact_name
+        """
+        if obj.trading_partner:
+            return obj.trading_partner.firm or obj.trading_partner.contact_name or f"TP #{obj.trading_partner.id}"
+        return None
 
 
 class ModificationSerializer(serializers.ModelSerializer):

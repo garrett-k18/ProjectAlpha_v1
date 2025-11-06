@@ -76,9 +76,16 @@
                 </ul>
               </div>
             </div>
-            <span v-if="offer.buyer_name" class="text-muted">{{ offer.buyer_name }}</span>
-            <span v-if="offer.financing_type" class="text-muted">{{ formatFinancingType(offer.financing_type) }}</span>
-            <span v-if="offer.seller_credits > 0" class="text-muted">${{ formatOfferPrice(offer.seller_credits) }} credits</span>
+            <!-- WHAT: Show different details based on offer source -->
+            <!-- WHY: Note sales have trading partner, property sales have buyer -->
+            <template v-if="isNoteSale">
+              <span v-if="offer.trading_partner_name" class="text-muted">{{ offer.trading_partner_name }}</span>
+            </template>
+            <template v-else>
+              <span v-if="offer.buyer_name" class="text-muted">{{ offer.buyer_name }}</span>
+              <span v-if="offer.financing_type" class="text-muted">{{ formatFinancingType(offer.financing_type) }}</span>
+              <span v-if="offer.seller_credits > 0" class="text-muted">${{ formatOfferPrice(offer.seller_credits) }} credits</span>
+            </template>
           </div>
           <div class="dropdown position-relative me-2">
             <button 
@@ -124,10 +131,14 @@ import AddOfferModal from './AddOfferModal.vue'
 // WHY: Receive hub ID and offer source from parent
 interface Props {
   hubId: number
-  offerSource: 'short_sale' | 'reo'
+  offerSource: 'short_sale' | 'reo' | 'note_sale'
 }
 
 const props = defineProps<Props>()
+
+// WHAT: Check if this is a note sale offer
+// WHY: Note sales have different fields than property sales
+const isNoteSale = props.offerSource === 'note_sale'
 
 // WHAT: Offers data and modal state
 // WHY: Manage offers display and modal interactions

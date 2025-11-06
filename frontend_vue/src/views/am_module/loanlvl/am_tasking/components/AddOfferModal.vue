@@ -26,60 +26,88 @@
               <!-- Offer Date -->
               <div class="col-md-6">
                 <label class="form-label">Offer Date</label>
-                <input 
-                  ref="offerDateInput"
-                  type="text" 
-                  class="form-control form-control-sm date" 
-                  data-toggle="date-picker" 
-                  data-single-date-picker="true" 
-                  :value="convertToDisplayDate(formData.offer_date)"
-                  @input="handleOfferDateInput"
-                  placeholder="Select date (optional)" 
-                  spellcheck="false"
-                />
+                <div class="form-control form-control-sm" style="border: 1px solid #dee2e6;">
+                  <EditableDate
+                    v-model="formData.offer_date"
+                    placeholder="Select date (optional)"
+                  />
+                </div>
               </div>
               
-              <!-- Buyer Name -->
-              <div class="col-md-6">
-                <label class="form-label">Buyer Name</label>
-                <input 
-                  v-model="formData.buyer_name"
-                  type="text" 
-                  class="form-control form-control-sm" 
-                  placeholder="Enter buyer name (optional)"
-                />
-              </div>
+              <!-- WHAT: Note Sale specific fields -->
+              <!-- WHY: Note sales use trading partner instead of buyer -->
+              <template v-if="isNoteSale">
+                <!-- Trading Partner -->
+                <div class="col-12">
+                  <label class="form-label">Trading Partner</label>
+                  <select 
+                    v-model="formData.trading_partner"
+                    class="form-select form-select-sm"
+                  >
+                    <option :value="null">Select Trading Partner (optional)</option>
+                    <option v-for="tp in tradingPartners" :key="tp.id" :value="tp.id">
+                      {{ tp.firm || tp.name || `TP ${tp.id}` }}
+                    </option>
+                  </select>
+                </div>
+              </template>
               
-              <!-- Buyer Agent -->
-              <div class="col-md-6">
-                <label class="form-label">Buyer Agent</label>
-                <input 
-                  v-model="formData.buyer_agent"
-                  type="text" 
-                  class="form-control form-control-sm" 
-                  placeholder="Enter agent name (optional)"
-                />
-              </div>
+              <!-- WHAT: Property sale specific fields -->
+              <!-- WHY: Property sales need buyer and financing details -->
+              <template v-else>
+                <!-- Buyer Name -->
+                <div class="col-md-6">
+                  <label class="form-label">Buyer Name</label>
+                  <input 
+                    v-model="formData.buyer_name"
+                    type="text" 
+                    class="form-control form-control-sm" 
+                    placeholder="Enter buyer name (optional)"
+                  />
+                </div>
+                
+                <!-- Buyer Agent -->
+                <div class="col-md-6">
+                  <label class="form-label">Buyer Agent</label>
+                  <input 
+                    v-model="formData.buyer_agent"
+                    type="text" 
+                    class="form-control form-control-sm" 
+                    placeholder="Enter agent name (optional)"
+                  />
+                </div>
+                
+                <!-- Financing Type -->
+                <div class="col-md-6">
+                  <label class="form-label">Financing Type</label>
+                  <select 
+                    v-model="formData.financing_type"
+                    class="form-select form-select-sm"
+                  >
+                    <option value="">Select financing type (optional)</option>
+                    <option value="cash">Cash</option>
+                    <option value="conventional">Conventional Financing</option>
+                    <option value="fha">FHA Financing</option>
+                    <option value="va">VA Financing</option>
+                    <option value="usda">USDA Financing</option>
+                    <option value="hard_money">Hard Money</option>
+                    <option value="other">Other Financing</option>
+                  </select>
+                </div>
+                
+                <!-- Seller Credits -->
+                <div class="col-md-6">
+                  <label class="form-label">Seller Credits</label>
+                  <UiCurrencyInput 
+                    v-model="formData.seller_credits"
+                    prefix="$"
+                    size="sm"
+                    placeholder="0.00"
+                  />
+                </div>
+              </template>
               
-              <!-- Financing Type -->
-              <div class="col-md-6">
-                <label class="form-label">Financing Type</label>
-                <select 
-                  v-model="formData.financing_type"
-                  class="form-select form-select-sm"
-                >
-                  <option value="">Select financing type (optional)</option>
-                  <option value="cash">Cash</option>
-                  <option value="conventional">Conventional Financing</option>
-                  <option value="fha">FHA Financing</option>
-                  <option value="va">VA Financing</option>
-                  <option value="usda">USDA Financing</option>
-                  <option value="hard_money">Hard Money</option>
-                  <option value="other">Other Financing</option>
-                </select>
-              </div>
-              
-              <!-- Offer Status -->
+              <!-- Offer Status (shown for all offer types) -->
               <div class="col-md-6">
                 <label class="form-label">Offer Status</label>
                 <select 
@@ -93,17 +121,6 @@
                   <option value="countered">Countered</option>
                   <option value="withdrawn">Withdrawn</option>
                 </select>
-              </div>
-              
-              <!-- Seller Credits -->
-              <div class="col-md-6">
-                <label class="form-label">Seller Credits</label>
-                <UiCurrencyInput 
-                  v-model="formData.seller_credits"
-                  prefix="$"
-                  size="sm"
-                  placeholder="0.00"
-                />
               </div>
               
               <!-- Document Upload -->
@@ -165,12 +182,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import http from '@/lib/http'
 import UiCurrencyInput from '@/components/ui/UiCurrencyInput.vue'
-// Import jQuery for date picker initialization
-import $ from 'jquery'
-import 'bootstrap-datepicker'
+import EditableDate from '@/components/ui/EditableDate.vue'
+import { useTradingPartnersStore } from '@/stores/tradingPartners'
 
 // WHAT: Component props
 // WHY: Receive modal state and asset hub ID from parent
@@ -178,7 +194,7 @@ interface Props {
   modelValue: boolean
   hubId: number
   editingOffer?: any
-  offerSource?: 'short_sale' | 'reo'
+  offerSource?: 'short_sale' | 'reo' | 'note_sale'
 }
 
 // WHAT: Component emits
@@ -192,12 +208,19 @@ interface Emits {
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
+// WHAT: Check if this is a note sale offer
+// WHY: Note sales have different fields than property sales
+const isNoteSale = props.offerSource === 'note_sale'
+
 // WHAT: Form state and file handling
 // WHY: Manage modal form data and file uploads
 const isSubmitting = ref(false)
 const uploadedFiles = ref<File[]>([])
 const fileInput = ref<HTMLInputElement | null>(null)
-const offerDateInput = ref<HTMLInputElement | null>(null)
+
+// WHAT: Trading partners list for note sale offers
+// WHY: Allow selection of trading partner who made the offer
+const tradingPartners = ref<any[]>([])
 
 // WHAT: Form data structure
 // WHY: Store all offer fields with default values
@@ -209,6 +232,7 @@ const formData = ref({
   financing_type: '',
   offer_status: '',
   seller_credits: '',
+  trading_partner: null as number | null,
   notes: ''
 })
 
@@ -216,16 +240,17 @@ const formData = ref({
 // WHY: Ensure clean state for each new offer
 watch(() => props.modelValue, async (newValue) => {
   if (newValue) {
+    // Load trading partners if note sale
+    if (isNoteSale && tradingPartners.value.length === 0) {
+      await tradingPartnersStore.fetchTradingPartners()
+      tradingPartners.value = tradingPartnersStore.results
+    }
     // Populate form if editing
     if (props.editingOffer) {
       populateFormWithOffer(props.editingOffer)
     }
-    // Initialize date picker when modal opens
-    await nextTick()
-    initializeDatePicker()
   } else {
     resetForm()
-    cleanupDatePicker()
   }
 })
 
@@ -240,20 +265,23 @@ function populateFormWithOffer(offer: any) {
     financing_type: offer.financing_type || '',
     offer_status: offer.offer_status || '',
     seller_credits: offer.seller_credits?.toString() || '',
+    trading_partner: offer.trading_partner || null,
     notes: offer.notes || ''
   }
 }
 
+// WHAT: Initialize trading partners if note sale
+// WHY: Need trading partner dropdown options
+const tradingPartnersStore = useTradingPartnersStore()
+
 // WHAT: Initialize and cleanup on mount/unmount
 // WHY: Proper lifecycle management
-onMounted(() => {
-  if (props.modelValue) {
-    initializeDatePicker()
+onMounted(async () => {
+  if (isNoteSale) {
+    // Load trading partners for dropdown
+    await tradingPartnersStore.fetchTradingPartners()
+    tradingPartners.value = tradingPartnersStore.results
   }
-})
-
-onBeforeUnmount(() => {
-  cleanupDatePicker()
 })
 
 // WHAT: Close modal and notify parent
@@ -273,6 +301,7 @@ function resetForm() {
     financing_type: '',
     offer_status: '',
     seller_credits: '',
+    trading_partner: null,
     notes: ''
   }
   uploadedFiles.value = []
@@ -312,17 +341,26 @@ async function submitOffer() {
     }
     
     // Prepare offer data
-    const offerData = {
+    const offerData: any = {
       asset_hub_id: props.hubId,
       offer_source: props.offerSource || 'short_sale',
       offer_price: parseFloat(formData.value.offer_price) || 0,
       offer_date: formData.value.offer_date || null,
-      buyer_name: formData.value.buyer_name || null,
-      buyer_agent: formData.value.buyer_agent || null,
-      financing_type: formData.value.financing_type || null,
       offer_status: formData.value.offer_status || 'pending',
-      seller_credits: parseFloat(formData.value.seller_credits) || 0,
       notes: formData.value.notes || null
+    }
+    
+    // WHAT: Add note sale specific fields
+    // WHY: Note sales use trading partner, not buyer details
+    if (isNoteSale) {
+      offerData.trading_partner = formData.value.trading_partner || null
+    } else {
+      // WHAT: Add property sale specific fields
+      // WHY: Property sales need buyer and financing details
+      offerData.buyer_name = formData.value.buyer_name || null
+      offerData.buyer_agent = formData.value.buyer_agent || null
+      offerData.financing_type = formData.value.financing_type || null
+      offerData.seller_credits = parseFloat(formData.value.seller_credits) || 0
     }
     
     console.log('Submitting offer:', offerData)
@@ -358,61 +396,4 @@ async function submitOffer() {
   }
 }
 
-// WHAT: Convert US date format to backend format
-// WHY: Backend expects yyyy-mm-dd but users see mm/dd/yyyy
-function convertToBackendDate(usDate: string): string {
-  if (!usDate) return ''
-  try {
-    const [month, day, year] = usDate.split('/')
-    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
-  } catch {
-    return usDate
-  }
-}
-
-// WHAT: Convert backend date format to US display format
-// WHY: Show users familiar mm/dd/yyyy format
-function convertToDisplayDate(backendDate: string): string {
-  if (!backendDate) return ''
-  try {
-    const [year, month, day] = backendDate.split('-')
-    return `${month}/${day}/${year}`
-  } catch {
-    return backendDate
-  }
-}
-
-// WHAT: Handle offer date input from text field
-// WHY: Convert display format to backend format and save
-function handleOfferDateInput(event: Event) {
-  const target = event.target as HTMLInputElement
-  const displayDate = target.value
-  const backendDate = convertToBackendDate(displayDate)
-  formData.value.offer_date = backendDate
-}
-
-// WHAT: Initialize Bootstrap date picker
-// WHY: Enable calendar popup for date selection
-function initializeDatePicker() {
-  if (offerDateInput.value) {
-    $(offerDateInput.value).datepicker({
-      format: 'mm/dd/yyyy',
-      autoclose: true,
-      todayHighlight: true,
-      orientation: 'bottom auto'
-    }).on('changeDate', function(e: any) {
-      const selectedDate = e.format('mm/dd/yyyy')
-      const backendDate = convertToBackendDate(selectedDate)
-      formData.value.offer_date = backendDate
-    })
-  }
-}
-
-// WHAT: Cleanup date picker on unmount
-// WHY: Prevent memory leaks
-function cleanupDatePicker() {
-  if (offerDateInput.value) {
-    $(offerDateInput.value).datepicker('destroy')
-  }
-}
 </script>

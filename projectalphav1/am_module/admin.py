@@ -476,12 +476,12 @@ class AuditLogAdmin(admin.ModelAdmin):
 class OffersAdmin(admin.ModelAdmin):
     """
     WHAT: Admin interface for managing offers from various sources
-    WHY: Allow staff to view and manage offers received for assets
+    WHY: Allow staff to view and manage offers received for assets (property sales and note sales)
     WHERE: Django admin interface
     HOW: Standard ModelAdmin with filtering and search capabilities
     """
     list_display = (
-        'id', 'asset_hub', 'offer_price', 'buyer_name', 'financing_type', 
+        'id', 'asset_hub', 'offer_price', 'buyer_or_partner_display', 'financing_type', 
         'offer_status', 'offer_date', 'offer_source', 'created_at'
     )
     list_filter = (
@@ -490,10 +490,11 @@ class OffersAdmin(admin.ModelAdmin):
     )
     search_fields = (
         'buyer_name', 'buyer_agent', 'asset_hub__servicer_id',
+        'trading_partner__firm', 'trading_partner__contact_name',
         'notes'
     )
     ordering = ('-offer_date', '-created_at')
-    list_select_related = ('asset_hub',)
+    list_select_related = ('asset_hub', 'trading_partner')
     readonly_fields = ('created_at', 'updated_at')
     list_per_page = 25
     
@@ -501,11 +502,16 @@ class OffersAdmin(admin.ModelAdmin):
         ('Offer Details', {
             'fields': ('asset_hub', 'offer_source', 'offer_price', 'offer_date')
         }),
-        ('Buyer Information', {
-            'fields': ('buyer_name', 'buyer_agent', 'financing_type')
+        ('Property Sale Information', {
+            'fields': ('buyer_name', 'buyer_agent', 'financing_type', 'seller_credits'),
+            'description': 'For REO and Short Sale offers only'
+        }),
+        ('Note Sale Information', {
+            'fields': ('trading_partner',),
+            'description': 'For Note Sale offers only'
         }),
         ('Status & Terms', {
-            'fields': ('offer_status', 'seller_credits', 'notes')
+            'fields': ('offer_status', 'notes')
         }),
         ('Timestamps', {
             'fields': ('created_at', 'updated_at'),
@@ -513,5 +519,18 @@ class OffersAdmin(admin.ModelAdmin):
         })
     )
     
+    def buyer_or_partner_display(self, obj):
+        """
+        WHAT: Display buyer name or trading partner based on offer source
+        WHY: More readable admin list view
+        HOW: Check offer_source and return appropriate name
+        """
+        if obj.offer_source == 'note_sale' and obj.trading_partner:
+            return obj.trading_partner.firm or obj.trading_partner.contact_name or f"TP #{obj.trading_partner.id}"
+        elif obj.buyer_name:
+            return obj.buyer_name
+        return "—"
+    buyer_or_partner_display.short_description = 'Buyer/Partner'
+    
     def get_queryset(self, request):
-        return super().get_queryset(request).select_related('asset_hub')
+        return super().get_queryset(request).select_related('asset_hub', 'trading_partner')

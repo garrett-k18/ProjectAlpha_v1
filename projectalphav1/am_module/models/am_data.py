@@ -2348,6 +2348,7 @@ class Offers(models.Model):
         choices=[
             ('short_sale', 'Short Sale'),
             ('reo', 'REO'),
+            ('note_sale', 'Note Sale'),
         ],
         help_text="Which track this offer came from"
     )
@@ -2405,6 +2406,18 @@ class Offers(models.Model):
         null=True,
         blank=True,
         help_text="Buyer's real estate agent (optional)"
+    )
+    
+    # WHAT: Trading partner for note sale offers
+    # WHY: Note sales are sold to trading partners, not individual buyers
+    # HOW: FK to MasterCRM filtered by trading_partner tag
+    trading_partner = models.ForeignKey(
+        'core.MasterCRM',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='note_sale_offers',
+        help_text="Trading partner who made the offer (for note sale offers only)"
     )
     
     # WHAT: Offer status and timeline

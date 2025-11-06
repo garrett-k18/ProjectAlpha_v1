@@ -106,8 +106,16 @@
             </div>
           </div>
           <div v-if="expandedId === t.id || expandedId === 'all'" class="mt-2 p-2 border-top">
+            <!-- WHAT: Offers section for Out to Market and Pending Sale tasks -->
+            <!-- WHY: Track offers received while note is being marketed -->
+            <div v-if="t.task_type === 'out_to_market' || t.task_type === 'pending_sale'" class="mb-3">
+              <OffersSection
+                :hub-id="props.hubId"
+                offer-source="note_sale"
+              />
+            </div>
             <!-- When the subtask is 'Sold', render extra fields -->
-            <div v-if="t.task_type === 'sold'" class="mb-2 p-1 bg-transparent">
+            <div v-else-if="t.task_type === 'sold'" class="mb-2 p-1 bg-transparent">
               <div class="row g-2">
                 <div class="col-md-6">
                   <label class="form-label small text-muted">Sold Date</label>
@@ -223,6 +231,9 @@ import EditableDate from '@/components/ui/EditableDate.vue'
 // Feature-local notes component (moved for AM Tasking scope)
 // Path: src/views/am_module/loanlvl/am_tasking/components/SubtaskNotes.vue
 import SubtaskNotes from '@/views/am_module/loanlvl/am_tasking/components/SubtaskNotes.vue'
+// Offers section for Out to Market tasks (shared component for offers management)
+// Path: src/views/am_module/loanlvl/am_tasking/components/OffersSection.vue
+import OffersSection from '@/views/am_module/loanlvl/am_tasking/components/OffersSection.vue'
 
 const props = withDefaults(defineProps<{ hubId: number; masterCollapsed?: boolean }>(), { masterCollapsed: false })
 const emit = defineEmits<{ (e: 'delete'): void }>()
