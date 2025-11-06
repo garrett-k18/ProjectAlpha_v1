@@ -490,13 +490,30 @@ watch(() => tasks.value, async (newTasks, oldTasks) => {
 
 // Handle sold date change
 function onSoldDateChange(newDate: string) {
+  console.log('onSoldDateChange called with:', newDate)
   soldDateLocal.value = newDate
   debounceSave('sold_date', async () => {
-    if (!store.getNoteSale(props.hubId)) {
-      await store.ensureNoteSale(props.hubId)
+    try {
+      console.log('Saving sold date to backend:', soldDateLocal.value)
+      console.log('Hub ID:', props.hubId)
+      
+      if (!store.getNoteSale(props.hubId)) {
+        console.log('Note Sale outcome not found, creating...')
+        await store.ensureNoteSale(props.hubId)
+      }
+      
+      console.log('Current Note Sale before patch:', store.getNoteSale(props.hubId))
+      const result = await store.patchNoteSale(props.hubId, { sold_date: soldDateLocal.value })
+      console.log('Sold date saved, backend response:', result)
+      
+      await store.fetchNoteSale(props.hubId, true)
+      console.log('Note Sale data refreshed:', store.getNoteSale(props.hubId))
+    } catch (err: any) {
+      console.error('Error saving sold date:', err)
+      console.error('Error response:', err.response?.data)
+      console.error('Error status:', err.response?.status)
+      alert(`Failed to save sold date: ${err.response?.data?.detail || err.message}`)
     }
-    await store.patchNoteSale(props.hubId, { sold_date: soldDateLocal.value })
-    await store.fetchNoteSale(props.hubId, true)
   })
 }
 
