@@ -479,10 +479,23 @@ onMounted(async () => {
   
   // Step 4: Initialize local values from loaded outcome
   const outcome = noteSale.value
+  console.log('NoteSale outcome loaded on mount:', outcome)
   if (outcome) {
+    console.log('Initializing local values:', {
+      sold_date: outcome.sold_date,
+      proceeds: outcome.proceeds,
+      trading_partner: outcome.trading_partner
+    })
     soldDateLocal.value = outcome.sold_date
     proceedsLocal.value = formatNumberWithCommas((outcome.proceeds || '').toString().replace(/[^0-9.]/g, ''))
     tradingPartnerLocal.value = outcome.trading_partner
+    console.log('Local values set:', {
+      soldDateLocal: soldDateLocal.value,
+      proceedsLocal: proceedsLocal.value,
+      tradingPartnerLocal: tradingPartnerLocal.value
+    })
+  } else {
+    console.log('No NoteSale outcome found on mount')
   }
   
   // Step 5: ONLY NOW auto-populate if Sold task exists and fields are still empty
@@ -501,6 +514,22 @@ watch(() => tasks.value, async (newTasks, oldTasks) => {
   // If Sold task was just added
   if (!oldSoldExists && newSoldExists) {
     await autoPopulateSoldTask()
+  }
+}, { deep: true })
+
+// WHAT: Watch for outcome data changes and sync to local state
+// WHY: When backend data updates, reflect it in the UI immediately
+watch(() => noteSale.value, (outcome) => {
+  console.log('NoteSale watcher triggered, outcome:', outcome)
+  if (outcome) {
+    // Only update if the task is expanded or we're showing the sold task
+    const hasSoldTask = tasks.value.some(t => t.task_type === 'sold')
+    if (hasSoldTask) {
+      console.log('Syncing local values from outcome watcher')
+      soldDateLocal.value = outcome.sold_date
+      proceedsLocal.value = formatNumberWithCommas((outcome.proceeds || '').toString().replace(/[^0-9.]/g, ''))
+      tradingPartnerLocal.value = outcome.trading_partner
+    }
   }
 }, { deep: true })
 
