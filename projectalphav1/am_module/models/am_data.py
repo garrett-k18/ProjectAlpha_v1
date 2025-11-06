@@ -1033,7 +1033,8 @@ class REOtask(models.Model):
     task_started = models.DateField(
         null=True,
         blank=True,
-        help_text='Date when this task was started (defaults to today if not specified).'
+        default=timezone.now,
+        help_text='Date when this task was started (defaults to today).'
     )
 
     # Minimal audit timestamps (used by serializers)
@@ -1236,7 +1237,8 @@ class FCTask(models.Model):
     task_started = models.DateField(
         null=True,
         blank=True,
-        help_text='Date when this task was started (defaults to today if not specified).'
+        default=timezone.now,
+        help_text='Date when this task was started (defaults to today).'
     )
 
     # Minimal audit timestamps
@@ -1419,7 +1421,8 @@ class DILTask(models.Model):
     task_started = models.DateField(
         null=True,
         blank=True,
-        help_text='Date when this task was started (defaults to today if not specified).'
+        default=timezone.now,
+        help_text='Date when this task was started (defaults to today).'
     )
 
     # Minimal audit timestamps
@@ -1613,7 +1616,8 @@ class ShortSaleTask(models.Model):
     task_started = models.DateField(
         null=True,
         blank=True,
-        help_text='Date when this task was started (defaults to today if not specified).'
+        default=timezone.now,
+        help_text='Date when this task was started (defaults to today).'
     )
 
     # Minimal audit timestamps
@@ -1857,7 +1861,8 @@ class ModificationTask(models.Model):
     task_started = models.DateField(
         null=True,
         blank=True,
-        help_text='Date when this task was started (defaults to today if not specified).'
+        default=timezone.now,
+        help_text='Date when this task was started (defaults to today).'
     )
 
     # Minimal audit timestamps
@@ -1938,11 +1943,12 @@ class NoteSale(models.Model):
     
     # WHAT: Date when the note was sold
     # WHY: Track timeline of note sale transaction
-    # HOW: DateField, optional to allow tracking before sale is complete
+    # HOW: DateField with default to today, but can be edited if entered late
     sold_date = models.DateField(
         null=True,
         blank=True,
-        help_text="Date when the note was sold (optional).",
+        default=timezone.now,
+        help_text="Date when the note was sold (defaults to today).",
     )
     
     # WHAT: Gross proceeds received from note sale
@@ -2089,11 +2095,12 @@ class NoteSaleTask(models.Model):
     
     # WHAT: User-editable start date for tracking when this task actually began
     # WHY: Track timeline of each workflow stage
-    # HOW: DateField, defaults to today if not specified during creation
+    # HOW: DateField with backend default to today
     task_started = models.DateField(
         null=True,
         blank=True,
-        help_text='Date when this task was started (defaults to today if not specified).'
+        default=timezone.now,
+        help_text='Date when this task was started (defaults to today).'
     )
     
     # WHAT: Minimal audit timestamps for record tracking

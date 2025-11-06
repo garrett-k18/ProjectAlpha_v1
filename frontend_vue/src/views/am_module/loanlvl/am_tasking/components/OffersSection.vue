@@ -377,8 +377,8 @@ async function autoCreateNextTask() {
       taskPayload = {
         asset_hub_id: props.hubId,
         reo: reoData.asset_hub,
-        task_type: 'under_contract',
-        task_started: new Date().toISOString().split('T')[0]
+        task_type: 'under_contract'
+        // task_started defaults to today via backend model default
       }
     } else if (props.offerSource === 'short_sale') {
       // WHAT: Ensure Short Sale outcome exists first
@@ -395,8 +395,8 @@ async function autoCreateNextTask() {
       taskPayload = {
         asset_hub_id: props.hubId,
         short_sale: ssData.asset_hub,
-        task_type: 'under_contract',
-        task_started: new Date().toISOString().split('T')[0]
+        task_type: 'under_contract'
+        // task_started defaults to today via backend model default
       }
     } else if (props.offerSource === 'note_sale') {
       // WHAT: Ensure Note Sale outcome exists first
@@ -413,8 +413,8 @@ async function autoCreateNextTask() {
       taskPayload = {
         asset_hub_id: props.hubId,
         note_sale: nsData.asset_hub,
-        task_type: 'pending_sale',
-        task_started: new Date().toISOString().split('T')[0]
+        task_type: 'pending_sale'
+        // task_started defaults to today via backend model default
       }
     }
     

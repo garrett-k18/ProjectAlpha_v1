@@ -399,11 +399,20 @@ async function toggleExpand(id: number) {
 // WHY: Streamline data entry when moving from Pending Sale to Sold
 async function autoPopulateSoldTask() {
   try {
+    // WHAT: Fetch fresh outcome data to check current values
+    // WHY: Ensure we have the latest data before deciding what to auto-populate
+    await store.fetchNoteSale(props.hubId, true)
     const outcome = noteSale.value
     
-    // Only auto-populate if data is missing
-    if (outcome?.sold_date && outcome?.proceeds && outcome?.trading_partner) {
-      return // All fields already populated
+    // WHAT: Check each field individually - don't overwrite if already set
+    // WHY: User might have manually set one field, we should preserve it
+    // NOTE: sold_date is now set by backend default, so we only auto-populate proceeds and trading_partner
+    const needsProceeds = !outcome?.proceeds
+    const needsTradingPartner = !outcome?.trading_partner
+    
+    // If all fields are already populated, skip
+    if (!needsProceeds && !needsTradingPartner) {
+      return
     }
     
     // Fetch accepted offer
@@ -421,24 +430,20 @@ async function autoPopulateSoldTask() {
     
     const updates: any = {}
     
-    // WHAT: Auto-populate proceeds from accepted offer amount
-    if (!outcome?.proceeds && acceptedOffer.offer_price) {
+    // WHAT: Auto-populate proceeds ONLY if empty
+    if (needsProceeds && acceptedOffer.offer_price) {
       updates.proceeds = acceptedOffer.offer_price
       proceedsLocal.value = formatNumberWithCommas(acceptedOffer.offer_price.toString())
     }
     
-    // WHAT: Auto-populate sold date to today if not set
-    if (!outcome?.sold_date) {
-      const today = new Date().toISOString().split('T')[0]
-      updates.sold_date = today
-      soldDateLocal.value = today
-    }
-    
-    // WHAT: Auto-populate trading partner from accepted offer
-    if (!outcome?.trading_partner && acceptedOffer.trading_partner) {
+    // WHAT: Auto-populate trading partner ONLY if empty
+    if (needsTradingPartner && acceptedOffer.trading_partner) {
       updates.trading_partner = acceptedOffer.trading_partner
       tradingPartnerLocal.value = acceptedOffer.trading_partner
     }
+    
+    // NOTE: sold_date is no longer auto-populated here
+    // It's set by backend default (timezone.now) when NoteSale record is created
     
     // Save all updates in one call
     if (Object.keys(updates).length > 0) {
@@ -453,8 +458,6 @@ async function autoPopulateSoldTask() {
         proceedsLocal.value = formatNumberWithCommas((updatedOutcome.proceeds || '').toString().replace(/[^0-9.]/g, ''))
         tradingPartnerLocal.value = updatedOutcome.trading_partner
       }
-      
-      console.log('Auto-populated Sold task from accepted offer:', updates)
     }
   } catch (err) {
     console.error('Failed to auto-populate Sold task:', err)
@@ -503,28 +506,17 @@ watch(() => tasks.value, async (newTasks, oldTasks) => {
 
 // Handle sold date change
 function onSoldDateChange(newDate: string) {
-  console.log('onSoldDateChange called with:', newDate)
   soldDateLocal.value = newDate
   debounceSave('sold_date', async () => {
     try {
-      console.log('Saving sold date to backend:', soldDateLocal.value)
-      console.log('Hub ID:', props.hubId)
-      
       if (!store.getNoteSale(props.hubId)) {
-        console.log('Note Sale outcome not found, creating...')
         await store.ensureNoteSale(props.hubId)
       }
       
-      console.log('Current Note Sale before patch:', store.getNoteSale(props.hubId))
-      const result = await store.patchNoteSale(props.hubId, { sold_date: soldDateLocal.value })
-      console.log('Sold date saved, backend response:', result)
-      
+      await store.patchNoteSale(props.hubId, { sold_date: soldDateLocal.value })
       await store.fetchNoteSale(props.hubId, true)
-      console.log('Note Sale data refreshed:', store.getNoteSale(props.hubId))
     } catch (err: any) {
       console.error('Error saving sold date:', err)
-      console.error('Error response:', err.response?.data)
-      console.error('Error status:', err.response?.status)
       alert(`Failed to save sold date: ${err.response?.data?.detail || err.message}`)
     }
   })
