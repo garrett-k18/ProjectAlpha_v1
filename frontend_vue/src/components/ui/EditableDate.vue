@@ -79,9 +79,11 @@ const displayText = computed(() => {
   }
   
   try {
-    // WHAT: Parse ISO date and format for display
+    // WHAT: Parse ISO date (YYYY-MM-DD) and format for display
     // WHY: Show user-friendly date format (e.g., "Nov 5, 2025" or "11/5/2025")
-    const date = new Date(props.modelValue)
+    // HOW: Parse as local date to avoid timezone conversion issues
+    const [year, month, day] = props.modelValue.split('-').map(Number)
+    const date = new Date(year, month - 1, day) // Month is 0-indexed
     // Use short date format (e.g., "11/5/2025")
     return date.toLocaleDateString('en-US', { 
       month: 'numeric', 
