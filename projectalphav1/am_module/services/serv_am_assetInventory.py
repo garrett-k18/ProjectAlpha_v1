@@ -76,7 +76,7 @@ def build_queryset(
     """
     qs = (
         SellerRawData.objects
-        .filter(acq_status=SellerRawData.AcquisitionStatus.BOARD)  # WHAT: Limit to assets promoted into AM module
+        .filter(trade__status='BOARD')  # WHAT: Limit to assets from trades that have been boarded (promoted into AM module)
         .select_related("asset_hub")
         .select_related("asset_hub__blended_outcome_model")
         .select_related("seller", "trade")  # HOW: ensure seller/trade names resolve without extra queries
