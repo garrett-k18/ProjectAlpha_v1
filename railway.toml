@@ -9,6 +9,7 @@ cmds = [
 
 # NOTE: If you encounter stale cache issues, temporarily add --no-cache-dir to pip install
 # or clear Railway cache: Railway Dashboard → Service → Settings → Clear Build Cache
+# Force rebuild: 2025-11-07 21:30 - Fixed BOARD status bug and migrated asset data
 
 [deploy]
 startCommand = "python manage.py migrate && python manage.py collectstatic --noinput && gunicorn projectalphav1.wsgi:application --bind 0.0.0.0:$PORT"
