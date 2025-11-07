@@ -24,6 +24,10 @@ from .views.view_seller_data import (
     get_delinquency_stratification,
     # LTV scatter chart data
     get_ltv_scatter_data_view,
+    # Completion summaries for centers
+    get_valuation_completion_summary,
+    get_collateral_completion_summary,
+    get_title_completion_summary,
 )
 from .views.state_reference_api import get_judicial_states
 from .views.photos_api import (
@@ -54,12 +58,15 @@ from .views.view_acq_tradeAssumptions import (
     get_trade_level_assumptions,
     update_trade_level_assumptions,
 )
-from .views.trade_status_api import (
+from .views.view_acq_status import (
+    # Trade-level status management
     get_trade_status,
     update_trade_status,
+    # Asset-level status management
+    drop_asset,
+    restore_asset,
 )
 from .views.view_acq_directImport import import_seller_tape
-from .views.asset_actions_api import drop_asset, restore_asset
 from .views.view_acq_model import (
     get_asset_model_recommendations,
     bulk_model_recommendations,
@@ -150,6 +157,10 @@ urlpatterns = [
     path('summary/state/sum-seller-asis-value/<int:seller_id>/<int:trade_id>/', get_sum_seller_asis_value_by_state, name='api_sum_seller_asis_value_by_state'),
     # Pool summary (single aggregate for top widgets)
     path('summary/pool/<int:seller_id>/<int:trade_id>/', get_pool_summary, name='api_pool_summary'),
+    # Center-specific completion summaries (counts by type)
+    path('summary/valuations/<int:seller_id>/<int:trade_id>/', get_valuation_completion_summary, name='api_valuation_completion_summary'),
+    path('summary/collateral/<int:seller_id>/<int:trade_id>/', get_collateral_completion_summary, name='api_collateral_completion_summary'),
+    path('summary/title/<int:seller_id>/<int:trade_id>/', get_title_completion_summary, name='api_title_completion_summary'),
     # Dynamic current balance stratification
     path('summary/strat/current-balance/<int:seller_id>/<int:trade_id>/', get_current_balance_stratification, name='api_current_balance_stratification'),
     # Dynamic total debt stratification

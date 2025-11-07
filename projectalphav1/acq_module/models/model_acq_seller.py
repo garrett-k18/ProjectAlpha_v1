@@ -74,26 +74,32 @@ class Trade(models.Model):
         ]
 
     def refresh_status_from_assets(self, commit: bool = True):
-        asset_statuses = set(self.seller_raw_data.values_list('acq_status', flat=True))
-        if self.status == self.Status.PASS and asset_statuses != {SellerRawData.AcquisitionStatus.DROP}:
-            # WHAT: keep trades manually flagged as PASS (archive) from reverting when asset statuses fluctuate
-            return
-        if not asset_statuses:
-            computed = self.Status.DD
-        elif asset_statuses == {SellerRawData.AcquisitionStatus.BOARD}:
-            computed = self.Status.BOARD
-        elif asset_statuses <= {SellerRawData.AcquisitionStatus.AWARDED, SellerRawData.AcquisitionStatus.BOARD}:
-            computed = self.Status.AWARDED
-        elif asset_statuses == {SellerRawData.AcquisitionStatus.PASS}:
-            computed = self.Status.PASS
-        elif asset_statuses == {SellerRawData.AcquisitionStatus.DROP}:
-            computed = self.Status.PASS
-        else:
-            computed = self.Status.DD
-        if self.status != computed:
-            self.status = computed
-            if commit:
-                self.save(update_fields=['status'])
+        """Update trade status based on active (KEEP) assets.
+        
+        WHAT: Check if trade has any active assets (acq_status=KEEP)
+        WHY: Trade status should reflect whether it has bidding-eligible assets
+        HOW: If all assets are DROPped, suggest archiving trade (PASS status)
+        
+        Note: This is a suggestion only. User controls trade status manually.
+        Asset-level status (KEEP/DROP) is independent of trade-level status.
+        """
+        # WHAT: Count active (KEEP) assets in this trade
+        # WHY: Determine if trade still has assets in the active pool
+        active_asset_count = self.seller_raw_data.filter(
+            acq_status=SellerRawData.AcquisitionStatus.KEEP
+        ).count()
+        
+        # WHAT: If all assets are dropped and trade not already archived, suggest archiving
+        # WHY: Empty trades should typically be archived (PASS status)
+        # HOW: Only auto-archive if trade is in DD/INDICATIVE (not AWARDED/BOARD/PASS)
+        if active_asset_count == 0:
+            # Don't auto-change if trade is already in terminal status (AWARDED, BOARD, PASS)
+            if self.status not in [self.Status.AWARDED, self.Status.BOARD, self.Status.PASS]:
+                computed = self.Status.PASS
+                if self.status != computed:
+                    self.status = computed
+                    if commit:
+                        self.save(update_fields=['status'])
 
 
 class SellerRawData(models.Model):
@@ -121,12 +127,13 @@ class SellerRawData(models.Model):
         PERF = 'PERF', 'PERF'    # Performing
         RPL = 'RPL', 'RPL'       # Re-Performing Loan
 
+    # Asset-level status choices
+    # WHAT: Simple binary status for asset-level filtering
+    # WHY: Assets are either in the active pool (KEEP) or excluded (DROP)
+    # HOW: Trade-level status controls the overall trade lifecycle (PASS, DD, AWARDED, BOARD)
     class AcquisitionStatus(models.TextChoices):
-        PASS = 'PASS', 'Pass'
-        DD = 'DD', 'Due Diligence'
-        DROP = 'DROP', 'Drop'
-        AWARDED = 'AWARDED', 'Awarded'
-        BOARD = 'BOARD', 'Boarded'
+        KEEP = 'KEEP', 'Keep'  # Default: asset is in active bidding pool
+        DROP = 'DROP', 'Drop'  # Asset is excluded from active bidding
     # WHAT: Hub-owned primary key - strict 1:1 with core.AssetIdHub
     # WHY: Aligns with hub-first architecture so this model's PK equals the hub ID
     # HOW: OneToOneField with primary_key=True (same pattern as BlendedOutcomeModel)
@@ -167,12 +174,15 @@ class SellerRawData(models.Model):
         null=True,
         blank=True,
     )
+    # WHAT: Asset-level acquisition status (KEEP or DROP)
+    # WHY: Simple binary flag to include/exclude assets from active pool
+    # HOW: Trade-level status (on Trade model) controls overall lifecycle (PASS, DD, AWARDED, BOARD)
     acq_status = models.CharField(
         max_length=20,
         choices=AcquisitionStatus.choices,
-        default=AcquisitionStatus.DD,
+        default=AcquisitionStatus.KEEP,
         db_index=True,
-        help_text='Acquisition lifecycle status (Pass, DD, Drop, Awarded, Board); defaults to Due Diligence.'
+        help_text='Asset-level status: KEEP (in active pool) or DROP (excluded). Trade-level status controls lifecycle.'
     )
     as_of_date = models.DateField(null=True, blank=True)
     
@@ -271,32 +281,11 @@ class SellerRawData(models.Model):
     mod_initial_balance = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)    
 
     # Timestamps
+    # WHAT: Automatic timestamp tracking for record creation and updates
+    # WHY: Track when assets are added to system and when they're modified
+    # HOW: Django auto_now_add for creation, auto_now for updates
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
-    # Drop/restore tracking fields
-    # WHAT: Track assets removed from active bidding
-    # WHY: Allow users to temporarily remove assets without deleting them
-    # HOW: Metadata fields for audit trail (status stored in acq_status)
-    drop_reason = models.CharField(
-        max_length=255,
-        blank=True,
-        null=True,
-        help_text='Reason for dropping asset'
-    )
-    drop_date = models.DateTimeField(
-        blank=True,
-        null=True,
-        help_text='When asset was dropped'
-    )
-    dropped_by = models.ForeignKey(
-        'auth.User',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='dropped_acq_assets',
-        help_text='User who dropped the asset'
-    )
 
     @property
     def is_dropped(self) -> bool:

@@ -45,18 +45,29 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 def total_assets(seller_id: int, trade_id: int) -> int:
     """Return the row count for the selected seller and trade.
+    
+    WHAT: Count active (KEEP) assets in the pool
+    WHY: Pool summary should only include assets in active bidding
+    HOW: sellertrade_qs() excludes DROP status by default
+    
+    Note: sellertrade_qs(view='snapshot') filters acq_status != DROP automatically
 
     Django docs (Aggregation/Count): https://docs.djangoproject.com/en/stable/topics/db/aggregation/
     """
-    # Start from the validated base queryset
+    # WHAT: Get queryset filtered to seller+trade, excluding dropped assets
+    # WHY: sellertrade_qs() defaults to view='snapshot' which excludes DROP status
+    # HOW: Filter applies acq_status != DROP automatically
     qs = sellertrade_qs(seller_id, trade_id)
+    
     try:
-        sample_count = qs.count()
+        # WHAT: Ask database for count of matching rows
+        # WHY: Efficient COUNT(*) query, returns int
+        count = qs.count()
     except Exception as e:
+        # WHY: Log error and return 0 if query fails
         logger.error("[pool-summary] queryset count failed seller=%s trade=%s: %s", seller_id, trade_id, e)
-        sample_count = 0
-    # Ask the database for the count (returns int)
-    count = qs.count()
+        count = 0
+    
     return count
     
 def total_current_balance(seller_id: int, trade_id: int) -> Decimal:
@@ -321,3 +332,172 @@ def sum_seller_asis_value_by_state(seller_id: int, trade_id: int) -> List[Dict[s
     )
     # Return list of dicts
     return list(aggregated)
+
+
+# ---------------------------------------------------------------------------
+# Valuation Completion Counts (by source)
+# ---------------------------------------------------------------------------
+
+def valuation_completion_summary(seller_id: int, trade_id: int) -> Dict[str, int]:
+    """Return counts of assets with valuations by source.
+    
+    WHAT: Count how many assets have valuations from each source
+    WHY: Valuation Center needs completion metrics per source type
+    HOW: Query both SellerRawData and Valuation models, count distinct assets
+    
+    Sources counted:
+    - seller: From SellerRawData.seller_asis_value (not null)
+    - broker: From Valuation where source='broker'
+    - bpo: From Valuation where source in ('BPOI', 'BPOE', 'desktop', 'appraisal') - count only 1 per asset
+    - internal_uw: From Valuation where source='internalInitialUW'
+    - reconciled: Assets with seller + (broker OR bpo) + internal_uw
+    
+    Output shape:
+        {
+          'seller_count': 500,        # Assets with seller_asis_value
+          'broker_count': 150,         # Assets with broker valuation
+          'bpo_count': 200,            # Assets with any BPO-type valuation
+          'internal_uw_count': 100,    # Assets with internal UW valuation
+          'reconciled_count': 75,      # Assets with all three sources
+        }
+    
+    Django docs:
+        - Aggregation: https://docs.djangoproject.com/en/stable/topics/db/aggregation/
+        - Q objects: https://docs.djangoproject.com/en/stable/topics/db/queries/#complex-lookups-with-q-objects
+    """
+    from django.db.models import Q, Exists, OuterRef
+    from core.models.valuations import Valuation
+    
+    # WHAT: Get base queryset of active assets (excludes DROP status)
+    # WHY: Only count valuations for assets in active bidding pool
+    qs = sellertrade_qs(seller_id, trade_id)
+    
+    # WHAT: Count assets with seller values (from SellerRawData)
+    # WHY: Seller provides initial as-is valuations on their tape
+    seller_count = qs.filter(seller_asis_value__isnull=False).count()
+    
+    # WHAT: Count assets with broker valuations (from Valuation model)
+    # WHY: Broker valuations are stored separately in unified Valuation table
+    # HOW: Check if asset_hub has related Valuation with source='broker'
+    broker_subquery = Valuation.objects.filter(
+        asset_hub=OuterRef('asset_hub'),
+        source=Valuation.Source.BROKER
+    )
+    broker_count = qs.filter(Exists(broker_subquery)).count()
+    
+    # WHAT: Count assets with ANY BPO-type valuation (BPOI, BPOE, desktop, appraisal)
+    # WHY: Multiple BPO sources possible, but only count 1 per asset
+    # HOW: Use Q objects to OR multiple source types, then check existence
+    bpo_sources = [
+        Valuation.Source.BPO_INTERIOR,
+        Valuation.Source.BPO_EXTERIOR,
+        Valuation.Source.DESKTOP,
+        Valuation.Source.APPRAISAL,
+    ]
+    bpo_subquery = Valuation.objects.filter(
+        asset_hub=OuterRef('asset_hub'),
+        source__in=bpo_sources
+    )
+    bpo_count = qs.filter(Exists(bpo_subquery)).count()
+    
+    # WHAT: Count assets with internal initial UW valuations
+    # WHY: Internal underwriting team provides initial valuations
+    # HOW: Check for Valuation with source='internalInitialUW'
+    internal_uw_subquery = Valuation.objects.filter(
+        asset_hub=OuterRef('asset_hub'),
+        source=Valuation.Source.INTERNAL_INITIAL_UW
+    )
+    internal_uw_count = qs.filter(Exists(internal_uw_subquery)).count()
+    
+    # WHAT: Count assets with ALL required valuations (reconciled)
+    # WHY: Reconciled means seller + (broker OR bpo) + internal UW all present
+    # HOW: Filter for assets meeting all three criteria
+    reconciled_count = qs.filter(
+        # Has seller value
+        seller_asis_value__isnull=False
+    ).filter(
+        # Has broker OR bpo valuation
+        Q(Exists(broker_subquery)) | Q(Exists(bpo_subquery))
+    ).filter(
+        # Has internal UW valuation
+        Exists(internal_uw_subquery)
+    ).count()
+    
+    return {
+        'seller_count': seller_count,
+        'broker_count': broker_count,
+        'bpo_count': bpo_count,
+        'internal_uw_count': internal_uw_count,
+        'reconciled_count': reconciled_count,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Collateral & Title Center Metrics (PLACEHOLDER - needs business logic definition)
+# ---------------------------------------------------------------------------
+
+def collateral_completion_summary(seller_id: int, trade_id: int) -> Dict[str, int]:
+    """Return collateral check completion counts.
+    
+    WHAT: Count assets with various collateral checks completed
+    WHY: Collateral Center needs completion metrics
+    HOW: TODO - Define what constitutes each check type
+    
+    PLACEHOLDER: Currently returns zeros - needs business logic definition:
+    - What is "ordered"? (collateral inspections ordered?)
+    - What is "photos"? (property photos received?)
+    - What is "repairs"? (repair estimates completed?)
+    - What is "reviewed"? (collateral reviews completed?)
+    
+    Output shape:
+        {
+          'ordered': 0,           # Collateral inspections ordered
+          'photos': 0,            # Properties with photos
+          'repairs': 0,           # Properties needing repairs
+          'repair_cost': 0,       # Total estimated repair cost
+          'reviewed': 0,          # Collateral reviews completed
+        }
+    """
+    # TODO: Implement actual business logic
+    # For now, return zeros as placeholders
+    return {
+        'ordered': 0,
+        'photos': 0,
+        'repairs': 0,
+        'repair_cost': 0,
+        'reviewed': 0,
+    }
+
+
+def title_completion_summary(seller_id: int, trade_id: int) -> Dict[str, int]:
+    """Return title check completion counts.
+    
+    WHAT: Count assets with various title checks completed
+    WHY: Title Center needs completion metrics
+    HOW: TODO - Define what constitutes each check type
+    
+    PLACEHOLDER: Currently returns zeros - needs business logic definition:
+    - What is "ordered"? (title searches ordered?)
+    - What is "clear"? (titles with no issues?)
+    - What is "issues"? (titles with problems?)
+    - What is "critical"? (titles with critical issues?)
+    - What is "reviewed"? (title reviews completed?)
+    
+    Output shape:
+        {
+          'ordered': 0,           # Title searches ordered
+          'clear': 0,             # Titles with no issues
+          'issues': 0,            # Titles with issues
+          'critical': 0,          # Titles with critical issues
+          'reviewed': 0,          # Title reviews completed
+        }
+    """
+    # TODO: Implement actual business logic
+    # For now, return zeros as placeholders
+    return {
+        'ordered': 0,
+        'clear': 0,
+        'issues': 0,
+        'critical': 0,
+        'reviewed': 0,
+    }

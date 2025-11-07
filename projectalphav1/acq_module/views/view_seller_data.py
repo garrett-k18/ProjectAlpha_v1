@@ -48,6 +48,9 @@ from ..logic.logi_acq_summaryStats import (
     sum_total_debt_by_state,
     sum_seller_asis_value_by_state,
     count_upb_td_val_summary,
+    valuation_completion_summary,
+    collateral_completion_summary,
+    title_completion_summary,
 )
 from ..logic.logi_acq_strats import (
     # Dynamic stratification helpers (NTILE with fallback)
@@ -395,3 +398,122 @@ def get_ltv_scatter_data_view(request, seller_id: int, trade_id: int):
         return JsonResponse(get_ltv_scatter_data(seller_id, trade_id), safe=False)
     except Exception:
         return JsonResponse([], safe=False)
+
+
+@api_view(["GET"])
+def get_valuation_completion_summary(request, seller_id: int, trade_id: int):
+    """Return valuation completion counts by source for Valuation Center.
+    
+    WHAT: Count assets with valuations from each source (seller, broker, BPO, internal UW)
+    WHY: Valuation Center needs completion metrics to show N/Total for each source
+    HOW: Call valuation_completion_summary() logic function, return as JSON
+    
+    GET /api/acq/summary/valuations/{seller_id}/{trade_id}/
+    
+    Response:
+        {
+          "seller_count": 500,        // Assets with seller_asis_value
+          "broker_count": 150,         // Assets with broker valuations
+          "bpo_count": 200,            // Assets with any BPO-type valuation
+          "internal_uw_count": 100,    // Assets with internal UW valuations
+          "reconciled_count": 75       // Assets with all three sources
+        }
+    
+    Note: All counts exclude DROP status assets automatically via sellertrade_qs()
+    """
+    try:
+        # WHAT: Get valuation counts from backend logic
+        # WHY: Single source of truth for all aggregations
+        # HOW: Call logic function that queries both SellerRawData and Valuation models
+        summary = valuation_completion_summary(seller_id, trade_id)
+        return JsonResponse(summary)
+    except Exception as e:
+        # WHAT: Log error and return zero counts on failure
+        # WHY: Frontend needs predictable response structure
+        logger.error(
+            "[valuation-summary] Failed seller=%s trade=%s: %s",
+            seller_id, trade_id, e
+        )
+        return JsonResponse({
+            'seller_count': 0,
+            'broker_count': 0,
+            'bpo_count': 0,
+            'internal_uw_count': 0,
+            'reconciled_count': 0,
+        })
+
+
+@api_view(["GET"])
+def get_collateral_completion_summary(request, seller_id: int, trade_id: int):
+    """Return collateral check completion counts for Collateral Center.
+    
+    WHAT: Count assets with collateral checks completed
+    WHY: Collateral Center needs completion metrics to show N/Total for each check type
+    HOW: Call collateral_completion_summary() logic function, return as JSON
+    
+    GET /api/acq/summary/collateral/{seller_id}/{trade_id}/
+    
+    Response:
+        {
+          "ordered": 0,           // Collateral inspections ordered
+          "photos": 0,            // Properties with photos
+          "repairs": 0,           // Properties needing repairs
+          "repair_cost": 0,       // Total estimated repair cost
+          "reviewed": 0           // Collateral reviews completed
+        }
+    
+    Note: All counts exclude DROP status assets automatically via sellertrade_qs()
+    """
+    try:
+        summary = collateral_completion_summary(seller_id, trade_id)
+        return JsonResponse(summary)
+    except Exception as e:
+        logger.error(
+            "[collateral-summary] Failed seller=%s trade=%s: %s",
+            seller_id, trade_id, e
+        )
+        return JsonResponse({
+            'ordered': 0,
+            'photos': 0,
+            'repairs': 0,
+            'repair_cost': 0,
+            'reviewed': 0,
+        })
+
+
+@api_view(["GET"])
+def get_title_completion_summary(request, seller_id: int, trade_id: int):
+    """Return title check completion counts for Title Center.
+    
+    WHAT: Count assets with title checks completed
+    WHY: Title Center needs completion metrics to show N/Total for each check type
+    HOW: Call title_completion_summary() logic function, return as JSON
+    
+    GET /api/acq/summary/title/{seller_id}/{trade_id}/
+    
+    Response:
+        {
+          "ordered": 0,           // Title searches ordered
+          "clear": 0,             // Titles with no issues
+          "issues": 0,            // Titles with issues
+          "critical": 0,          // Titles with critical issues
+          "reviewed": 0           // Title reviews completed
+        }
+    
+    Note: All counts exclude DROP status assets automatically via sellertrade_qs()
+    """
+    try:
+        summary = title_completion_summary(seller_id, trade_id)
+        return JsonResponse(summary)
+    except Exception as e:
+        logger.error(
+            "[title-summary] Failed seller=%s trade=%s: %s",
+            seller_id, trade_id, e
+        )
+        return JsonResponse({
+            'ordered': 0,
+            'clear': 0,
+            'issues': 0,
+            'critical': 0,
+            'reviewed': 0,
+        })

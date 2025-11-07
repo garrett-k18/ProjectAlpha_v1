@@ -132,6 +132,97 @@
               <!-- Overview Tab -->
               <div class="tab-pane show active" id="overview">
                 <h5 class="mb-3">Valuation Summary Table</h5>
+                
+                <!-- WHAT: Advanced Filters Section -->
+                <!-- WHY: Allow users to filter table by state, city, value ranges, etc. -->
+                <div class="card bg-light border mb-3">
+                  <div class="card-body py-2">
+                    <div class="row g-2 align-items-end">
+                      <!-- Search Box -->
+                      <div class="col-md-3">
+                        <label class="form-label small mb-1">Search Address</label>
+                        <input 
+                          v-model="filters.search" 
+                          type="text" 
+                          class="form-control form-control-sm" 
+                          placeholder="Search by address or city..."
+                          @input="applyFilters"
+                        />
+                      </div>
+                      
+                      <!-- State Filter -->
+                      <div class="col-md-2">
+                        <label class="form-label small mb-1">State</label>
+                        <select 
+                          v-model="filters.state" 
+                          class="form-select form-select-sm"
+                          @change="applyFilters"
+                        >
+                          <option value="">All States</option>
+                          <option v-for="state in availableStates" :key="state" :value="state">
+                            {{ state }}
+                          </option>
+                        </select>
+                      </div>
+                      
+                      <!-- City Filter -->
+                      <div class="col-md-2">
+                        <label class="form-label small mb-1">City</label>
+                        <input 
+                          v-model="filters.city" 
+                          type="text" 
+                          class="form-control form-control-sm" 
+                          placeholder="City..."
+                          @input="applyFilters"
+                        />
+                      </div>
+                      
+                      <!-- Value Range Min -->
+                      <div class="col-md-2">
+                        <label class="form-label small mb-1">Min Value</label>
+                        <input 
+                          v-model="filters.minValue" 
+                          type="number" 
+                          class="form-control form-control-sm" 
+                          placeholder="0"
+                          @input="applyFilters"
+                        />
+                      </div>
+                      
+                      <!-- Value Range Max -->
+                      <div class="col-md-2">
+                        <label class="form-label small mb-1">Max Value</label>
+                        <input 
+                          v-model="filters.maxValue" 
+                          type="number" 
+                          class="form-control form-control-sm" 
+                          placeholder="999999999"
+                          @input="applyFilters"
+                        />
+                      </div>
+                      
+                      <!-- Clear Filters Button -->
+                      <div class="col-md-1">
+                        <button 
+                          class="btn btn-sm btn-light w-100" 
+                          @click="clearFilters"
+                          title="Clear all filters"
+                        >
+                          <i class="ri-filter-off-line"></i>
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <!-- Filter Results Count -->
+                    <div class="mt-2 small text-muted">
+                      Showing {{ paginatedRows.length }} of {{ filteredRows.length }} assets
+                      <span v-if="filteredRows.length < (rows?.length || 0)">
+                        (filtered from {{ rows?.length || 0 }} total)
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                
                 <div class="table-responsive">
                   <table class="table table-centered table-hover mb-0">
                     <thead class="table-light">
@@ -148,12 +239,17 @@
                       </tr>
                     </thead>
                     <tbody>
-                      <tr v-if="!rows || rows.length === 0">
+                      <tr v-if="!filteredRows || filteredRows.length === 0">
                         <td colspan="9" class="text-center text-muted py-3">
-                          No assets to display
+                          <span v-if="filters.search || filters.state || filters.city || filters.minValue || filters.maxValue">
+                            No assets match your filters
+                          </span>
+                          <span v-else>
+                            No assets to display
+                          </span>
                         </td>
                       </tr>
-                      <tr v-for="asset in (rows as any[])" :key="asset.asset_hub_id">
+                      <tr v-for="asset in paginatedRows" :key="asset.asset_hub_id">
                         <td>
                           <div class="fw-semibold address-link" @click="openLoanModal(asset)">
                             {{ formatAddress(asset) }}
@@ -248,6 +344,71 @@
                       </tr>
                     </tbody>
                   </table>
+                </div>
+                
+                <!-- WHAT: Pagination Controls -->
+                <!-- WHY: Navigate through pages of results -->
+                <div v-if="filteredRows.length > pageSize" class="d-flex justify-content-between align-items-center mt-3">
+                  <div class="text-muted small">
+                    Showing {{ ((currentPage - 1) * pageSize) + 1 }} to {{ Math.min(currentPage * pageSize, filteredRows.length) }} of {{ filteredRows.length }} assets
+                  </div>
+                  
+                  <nav>
+                    <ul class="pagination pagination-sm mb-0">
+                      <!-- Previous Button -->
+                      <li class="page-item" :class="{ disabled: currentPage === 1 }">
+                        <button class="page-link" @click="goToPage(currentPage - 1)" :disabled="currentPage === 1">
+                          <i class="ri-arrow-left-s-line"></i>
+                        </button>
+                      </li>
+                      
+                      <!-- First Page -->
+                      <li v-if="currentPage > 3" class="page-item">
+                        <button class="page-link" @click="goToPage(1)">1</button>
+                      </li>
+                      <li v-if="currentPage > 4" class="page-item disabled">
+                        <span class="page-link">...</span>
+                      </li>
+                      
+                      <!-- Page Numbers (show 5 pages max) -->
+                      <li 
+                        v-for="page in visiblePages" 
+                        :key="page" 
+                        class="page-item" 
+                        :class="{ active: page === currentPage }"
+                      >
+                        <button class="page-link" @click="goToPage(page)">
+                          {{ page }}
+                        </button>
+                      </li>
+                      
+                      <!-- Last Page -->
+                      <li v-if="currentPage < totalPages - 3" class="page-item disabled">
+                        <span class="page-link">...</span>
+                      </li>
+                      <li v-if="currentPage < totalPages - 2" class="page-item">
+                        <button class="page-link" @click="goToPage(totalPages)">{{ totalPages }}</button>
+                      </li>
+                      
+                      <!-- Next Button -->
+                      <li class="page-item" :class="{ disabled: currentPage === totalPages }">
+                        <button class="page-link" @click="goToPage(currentPage + 1)" :disabled="currentPage === totalPages">
+                          <i class="ri-arrow-right-s-line"></i>
+                        </button>
+                      </li>
+                    </ul>
+                  </nav>
+                  
+                  <!-- Page Size Selector -->
+                  <div class="d-flex align-items-center">
+                    <label class="me-2 small mb-0">Per page:</label>
+                    <select v-model="pageSize" class="form-select form-select-sm" style="width: auto;" @change="currentPage = 1">
+                      <option :value="25">25</option>
+                      <option :value="50">50</option>
+                      <option :value="100">100</option>
+                      <option :value="200">200</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
@@ -481,9 +642,115 @@ const selectedId = ref<string | null>(null)
 const selectedRow = ref<any>(null)
 const selectedAddr = ref<string | null>(null)
 
+// WHAT: Pagination state
+// WHY: Control page display and navigation
+const currentPage = ref(1)
+const pageSize = ref(50)  // Default to 50 rows per page
+
+// WHAT: Filter state
+// WHY: Allow users to search and filter table data
+const filters = ref({
+  search: '',
+  state: '',
+  city: '',
+  minValue: null as number | null,
+  maxValue: null as number | null,
+})
+
+// WHAT: Pool summary data from backend API (single source of truth)
+// WHY: All aggregations should come from backend, not frontend grid
+// HOW: Fetch from /api/acq/summary/pool/{seller_id}/{trade_id}/
+const poolSummary = ref<any>(null)
+const poolLoading = ref(false)
+
 // Computed
 const hasSelection = computed(() => !!selectedSellerId.value && !!selectedTradeId.value)
-const totalAssets = computed(() => Array.isArray(rows.value) ? rows.value.length : 0)
+// WHAT: Total assets from backend pool summary (excludes dropped assets automatically)
+// WHY: Backend uses sellertrade_qs() which filters acq_status != DROP by default
+// HOW: Fetch from pool summary API, fallback to 0 if not loaded
+const totalAssets = computed(() => poolSummary.value?.assets ?? 0)
+
+// WHAT: Extract unique states from rows for filter dropdown
+// WHY: Populate state filter options
+const availableStates = computed(() => {
+  const states = new Set<string>()
+  if (rows.value) {
+    rows.value.forEach((row: any) => {
+      if (row.state) states.add(row.state)
+    })
+  }
+  return Array.from(states).sort()
+})
+
+// WHAT: Filtered rows based on user filters
+// WHY: Apply search and filter criteria to rows
+const filteredRows = computed(() => {
+  if (!rows.value) return []
+  
+  let filtered = rows.value
+  
+  // WHAT: Apply search filter (address or city)
+  if (filters.value.search) {
+    const searchLower = filters.value.search.toLowerCase()
+    filtered = filtered.filter((row: any) => {
+      const address = `${row.street_address || ''} ${row.city || ''} ${row.state || ''}`.toLowerCase()
+      return address.includes(searchLower)
+    })
+  }
+  
+  // WHAT: Apply state filter
+  if (filters.value.state) {
+    filtered = filtered.filter((row: any) => row.state === filters.value.state)
+  }
+  
+  // WHAT: Apply city filter
+  if (filters.value.city) {
+    const cityLower = filters.value.city.toLowerCase()
+    filtered = filtered.filter((row: any) => 
+      (row.city || '').toLowerCase().includes(cityLower)
+    )
+  }
+  
+  // WHAT: Apply min value filter (seller_asis_value)
+  if (filters.value.minValue != null && filters.value.minValue > 0) {
+    filtered = filtered.filter((row: any) => 
+      (row.seller_asis_value || 0) >= filters.value.minValue!
+    )
+  }
+  
+  // WHAT: Apply max value filter (seller_asis_value)
+  if (filters.value.maxValue != null && filters.value.maxValue > 0) {
+    filtered = filtered.filter((row: any) => 
+      (row.seller_asis_value || 0) <= filters.value.maxValue!
+    )
+  }
+  
+  return filtered
+})
+
+// WHAT: Total number of pages based on filtered results
+const totalPages = computed(() => Math.ceil(filteredRows.value.length / pageSize.value) || 1)
+
+// WHAT: Visible page numbers for pagination (show 5 pages max)
+const visiblePages = computed(() => {
+  const pages: number[] = []
+  const start = Math.max(1, currentPage.value - 2)
+  const end = Math.min(totalPages.value, currentPage.value + 2)
+  
+  for (let i = start; i <= end; i++) {
+    pages.push(i)
+  }
+  
+  return pages
+})
+
+// WHAT: Paginated rows for current page
+// WHY: Show only rows for current page
+const paginatedRows = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  const end = start + pageSize.value
+  return filteredRows.value.slice(start, end)
+})
 const currentSellerName = computed(() => {
   const seller = sellerOptions.value.find(s => s.id === selectedSellerId.value)
   return seller?.name || 'Unknown'
@@ -518,59 +785,50 @@ const modalAddrText = computed<string>(() => {
   return rawAddr.replace(/,?\s*\d{5}(?:-\d{4})?$/, '')
 })
 
-// Valuation metrics (calculated from grid rows)
-const valuationMetrics = computed(() => {
-  const assets = rows.value || []
-  const total = assets.length
-  
-  if (!total) return {
-    seller_count: 0,
-    seller_pct: 0,
-    bpo_count: 0,
-    bpo_pct: 0,
-    broker_count: 0,
-    broker_pct: 0,
-    internal_count: 0,
-    internal_pct: 0,
-    reconciled_count: 0,
-    reconciled_pct: 0,
-    variance_count: 0,
-    variance_pct: 0,
-  }
-  
-  const seller_count = assets.filter((a: any) => a.seller_asis_value != null).length
-  // BPO is stored in additional_asis_value field
-  const bpo_count = assets.filter((a: any) => a.additional_asis_value != null).length
-  // Broker values come from broker_asis_value field
-  const broker_count = assets.filter((a: any) => a.broker_asis_value != null).length
-  const internal_count = assets.filter((a: any) => a.internal_initial_uw_asis_value != null).length
-  const reconciled_count = assets.filter((a: any) => 
-    a.seller_asis_value != null && (a.broker_asis_value != null || a.additional_asis_value != null) && a.internal_initial_uw_asis_value != null
-  ).length
-  
-  // Count assets with >10% variance between any two valuation sources
-  const variance_count = assets.filter((a: any) => {
-    const variance = calculateVariance(a)
-    return variance != null && Math.abs(variance) > 0.1
-  }).length
-  
-  return {
-    seller_count,
-    seller_pct: Math.round((seller_count / total) * 100),
-    bpo_count,
-    bpo_pct: Math.round((bpo_count / total) * 100),
-    broker_count,
-    broker_pct: Math.round((broker_count / total) * 100),
-    internal_count,
-    internal_pct: Math.round((internal_count / total) * 100),
-    reconciled_count,
-    reconciled_pct: Math.round((reconciled_count / total) * 100),
-    variance_count,
-    variance_pct: Math.round((variance_count / total) * 100),
-  }
+// WHAT: Valuation metrics from backend API aggregations
+// WHY: Backend handles all counting/aggregation logic, frontend just displays
+// HOW: Query backend API for valuation completion counts per source
+const valuationMetrics = ref({
+  seller_count: 0,
+  seller_pct: 0,
+  bpo_count: 0,
+  bpo_pct: 0,
+  broker_count: 0,
+  broker_pct: 0,
+  internal_count: 0,
+  internal_pct: 0,
+  reconciled_count: 0,
+  reconciled_pct: 0,
+  variance_count: 0,
+  variance_pct: 0,
 })
 
 // Helper functions
+// WHAT: Apply filters and reset to page 1
+// WHY: User changed filter criteria, show first page of results
+function applyFilters() {
+  currentPage.value = 1
+}
+
+// WHAT: Clear all filters and reset pagination
+// WHY: User wants to see all data again
+function clearFilters() {
+  filters.value.search = ''
+  filters.value.state = ''
+  filters.value.city = ''
+  filters.value.minValue = null
+  filters.value.maxValue = null
+  currentPage.value = 1
+}
+
+// WHAT: Navigate to specific page
+// WHY: User clicks pagination controls
+function goToPage(page: number) {
+  if (page >= 1 && page <= totalPages.value) {
+    currentPage.value = page
+  }
+}
+
 // Calculate variance between seller and broker values
 function calculateVariance(asset: any): number | null {
   const seller = asset.seller_asis_value
@@ -772,10 +1030,101 @@ function openLoanModal(asset: any) {
   console.log('[ValuationCenter] Opening loan modal for:', selectedId.value, selectedAddr.value)
 }
 
-onMounted(() => {
-  // Load data if needed
+// WHAT: Fetch pool summary from backend API
+// WHY: Get total asset count and aggregations from backend (single source of truth)
+// HOW: Call /api/acq/summary/pool/{seller_id}/{trade_id}/
+async function fetchPoolSummary() {
+  if (!selectedSellerId.value || !selectedTradeId.value) {
+    poolSummary.value = null
+    return
+  }
+  
+  poolLoading.value = true
+  try {
+    const resp = await http.get(`/acq/summary/pool/${selectedSellerId.value}/${selectedTradeId.value}/`)
+    poolSummary.value = resp.data
+    console.log('[ValuationCenter] Pool summary loaded:', poolSummary.value)
+  } catch (err: any) {
+    console.error('[ValuationCenter] Failed to fetch pool summary:', err)
+    poolSummary.value = null
+  } finally {
+    poolLoading.value = false
+  }
+}
+
+// WHAT: Fetch valuation metrics from backend API
+// WHY: All aggregations should come from backend, not frontend grid
+// HOW: Call /api/acq/summary/valuations/{seller_id}/{trade_id}/
+async function fetchValuationMetrics() {
+  if (!selectedSellerId.value || !selectedTradeId.value) {
+    return
+  }
+  
+  try {
+    // WHAT: Fetch valuation counts from backend
+    // WHY: Backend queries SellerRawData and Valuation models for accurate counts
+    // HOW: GET request to valuation summary endpoint
+    const resp = await http.get(`/acq/summary/valuations/${selectedSellerId.value}/${selectedTradeId.value}/`)
+    const data = resp.data
+    
+    // WHAT: Calculate percentages using backend total assets count
+    // WHY: Denominator (totalAssets) comes from pool summary API
+    const total = totalAssets.value || 1  // Avoid division by zero
+    
+    // WHAT: Map backend response to frontend structure with percentages
+    // WHY: Frontend displays both count and percentage for each source
+    valuationMetrics.value = {
+      seller_count: data.seller_count || 0,
+      seller_pct: Math.round(((data.seller_count || 0) / total) * 100),
+      bpo_count: data.bpo_count || 0,
+      bpo_pct: Math.round(((data.bpo_count || 0) / total) * 100),
+      broker_count: data.broker_count || 0,
+      broker_pct: Math.round(((data.broker_count || 0) / total) * 100),
+      internal_count: data.internal_uw_count || 0,
+      internal_pct: Math.round(((data.internal_uw_count || 0) / total) * 100),
+      reconciled_count: data.reconciled_count || 0,
+      reconciled_pct: Math.round(((data.reconciled_count || 0) / total) * 100),
+      variance_count: 0,  // TODO: Backend should calculate variance count
+      variance_pct: 0,
+    }
+    
+    console.log('[ValuationCenter] Valuation metrics loaded from backend:', valuationMetrics.value)
+  } catch (err: any) {
+    console.error('[ValuationCenter] Failed to fetch valuation metrics:', err)
+    // WHAT: Set zeros on error
+    // WHY: Provide predictable fallback state
+    valuationMetrics.value = {
+      seller_count: 0,
+      seller_pct: 0,
+      bpo_count: 0,
+      bpo_pct: 0,
+      broker_count: 0,
+      broker_pct: 0,
+      internal_count: 0,
+      internal_pct: 0,
+      reconciled_count: 0,
+      reconciled_pct: 0,
+      variance_count: 0,
+      variance_pct: 0,
+    }
+  }
+}
+
+onMounted(async () => {
+  // WHAT: Load pool summary first (contains total asset count)
+  // WHY: Total assets needed for all percentage calculations
+  // HOW: Fetch from /api/acq/summary/pool/{seller_id}/{trade_id}/
+  await fetchPoolSummary()
+  
+  // WHAT: Load valuation metrics from backend
+  // WHY: All aggregations come from backend APIs, not grid data
+  // HOW: Fetch from /api/acq/summary/valuations/{seller_id}/{trade_id}/
+  await fetchValuationMetrics()
+  
+  // WHAT: Load grid data if needed (for display table only, not aggregations)
+  // WHY: Grid displays individual asset rows, but does NOT aggregate
   if (hasSelection.value && (!rows.value || rows.value.length === 0)) {
-    gridStore.fetchRows(selectedSellerId.value!, selectedTradeId.value!, 'all')
+    await gridStore.fetchRows(selectedSellerId.value!, selectedTradeId.value!, 'all')
   }
 })
 </script>

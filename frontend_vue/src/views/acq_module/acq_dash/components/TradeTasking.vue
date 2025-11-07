@@ -130,29 +130,38 @@ const metrics = ref({
   sum_seller_asis_value: 0,
 })
 
-// Derived counts from current grid rows
-const totalAssets = computed<number>(() => Array.isArray(gridRows.value) ? gridRows.value.length : 0)
-// WHAT: computed total of reconciled valuations across grid rows to drive Valuation Center progress UI
-// WHY: business requirement is to track only assets where all valuation sources have been reconciled
-// HOW: count rows with seller, at least one external (broker or bpo), and internal underwriting values present
-const valuesReconciled = computed<number>(() => {
-  // COMMENT: guard against undefined rows array coming from Pinia store
-  const rowsForCounting = gridRows.value || []
-  // COMMENT: iterate rows and retain only assets with all required valuation touchpoints populated
-  return rowsForCounting.filter((row: any) => {
-    // COMMENT: ensure seller valuation exists (baseline prerequisite for reconciliation)
-    const hasSellerValuation = row && row.seller_asis_value != null
-    // COMMENT: reconciliation accepts either broker or BPO valuation sources in addition to seller
-    const hasExternalValuation = row && (row.broker_asis_value != null || row.additional_asis_value != null)
-    // COMMENT: internal underwriting valuation must be present to finalize reconciliation
-    const hasInternalValuation = row && row.internal_initial_uw_asis_value != null
-    // COMMENT: only count the asset when all three valuation pillars are available
-    return Boolean(hasSellerValuation && hasExternalValuation && hasInternalValuation)
-  }).length
-})
-// TODO: Replace with real flags when backend fields are available
-const collateralCompleted = computed<number>(() => 0)
-const titleCompleted = computed<number>(() => 0)
+// WHAT: Pool summary from backend API (contains total asset count)
+// WHY: Single source of truth for total assets
+const poolSummary = ref<any>(null)
+
+// WHAT: Valuation completion summary from backend API
+// WHY: Get reconciled count from backend, not grid aggregation
+const valuationSummary = ref<any>(null)
+
+// WHAT: Collateral completion summary from backend API
+// WHY: Get collateral counts from backend, not grid aggregation
+const collateralSummary = ref<any>(null)
+
+// WHAT: Title completion summary from backend API
+// WHY: Get title counts from backend, not grid aggregation
+const titleSummary = ref<any>(null)
+
+// WHAT: Total assets from backend pool summary (excludes dropped assets automatically)
+// WHY: Backend uses sellertrade_qs() which filters acq_status != DROP by default
+// HOW: Use pool summary API, fallback to 0 if not loaded
+const totalAssets = computed<number>(() => poolSummary.value?.assets ?? 0)
+
+// WHAT: Reconciled valuations count from backend API
+// WHY: Backend calculates this correctly from Valuation and SellerRawData models
+const valuesReconciled = computed<number>(() => valuationSummary.value?.reconciled_count ?? 0)
+
+// WHAT: Collateral completed count from backend API
+// WHY: Backend calculates this from actual collateral check data
+const collateralCompleted = computed<number>(() => collateralSummary.value?.reviewed ?? 0)
+
+// WHAT: Title completed count from backend API
+// WHY: Backend calculates this from actual title check data
+const titleCompleted = computed<number>(() => titleSummary.value?.reviewed ?? 0)
 // DD Approved: all required checks complete for all rows
 const ddApproved = computed<boolean>(() => {
   const total = totalAssets.value
@@ -160,7 +169,8 @@ const ddApproved = computed<boolean>(() => {
   return valuesReconciled.value === total && collateralCompleted.value === total && titleCompleted.value === total
 })
 
-// Fetch pool summary for current selection
+// WHAT: Fetch all summary data from backend APIs
+// WHY: Single source of truth for all metrics - no frontend aggregation
 async function fetchMetrics() {
   if (!selectedSellerId.value || !selectedTradeId.value) {
     hasData.value = false
@@ -168,17 +178,38 @@ async function fetchMetrics() {
   }
   isLoading.value = true
   try {
-    const { data } = await axios.get(`/acq/summary/pool/${selectedSellerId.value}/${selectedTradeId.value}/`)
+    // WHAT: Fetch all summaries in parallel for efficiency
+    // WHY: All metrics come from backend APIs
+    const [poolResp, valuationResp, collateralResp, titleResp] = await Promise.all([
+      axios.get(`/acq/summary/pool/${selectedSellerId.value}/${selectedTradeId.value}/`),
+      axios.get(`/acq/summary/valuations/${selectedSellerId.value}/${selectedTradeId.value}/`),
+      axios.get(`/acq/summary/collateral/${selectedSellerId.value}/${selectedTradeId.value}/`),
+      axios.get(`/acq/summary/title/${selectedSellerId.value}/${selectedTradeId.value}/`),
+    ])
+    
+    // WHAT: Store pool summary (contains total asset count)
+    poolSummary.value = poolResp.data
     metrics.value = {
-      count: Number(data?.count ?? 0),
-      sum_current_balance: Number(data?.sum_current_balance ?? 0),
-      sum_total_debt: Number(data?.sum_total_debt ?? 0),
-      sum_seller_asis_value: Number(data?.sum_seller_asis_value ?? 0),
+      count: Number(poolResp.data?.assets ?? 0),
+      sum_current_balance: Number(poolResp.data?.current_balance ?? 0),
+      sum_total_debt: Number(poolResp.data?.total_debt ?? 0),
+      sum_seller_asis_value: Number(poolResp.data?.seller_asis_value ?? 0),
     }
+    
+    // WHAT: Store completion summaries
+    valuationSummary.value = valuationResp.data
+    collateralSummary.value = collateralResp.data
+    titleSummary.value = titleResp.data
+    
     hasData.value = true
   } catch (e) {
-    console.error('[TaskingGridOption1] Failed to load pool summary', e)
+    console.error('[TradeTasking] Failed to load summaries', e)
     hasData.value = false
+    // WHAT: Set defaults on error
+    poolSummary.value = null
+    valuationSummary.value = null
+    collateralSummary.value = null
+    titleSummary.value = null
   } finally {
     isLoading.value = false
   }

@@ -168,12 +168,14 @@ class SellerRawDataRowSerializer(serializers.Serializer):
     mod_rate = serializers.DecimalField(max_digits=6, decimal_places=4, allow_null=True)
     mod_initial_balance = serializers.DecimalField(max_digits=15, decimal_places=2, allow_null=True)
 
-    # Acquisition lifecycle status (Pass/DD/Drop/Awarded/Board) propagated to grid rows
+    # WHAT: Asset-level acquisition status (KEEP/DROP)
+    # WHY: Simple binary flag for active pool filtering
+    # HOW: Trade-level status on Trade model controls lifecycle (PASS, DD, AWARDED, BOARD)
     acq_status = serializers.CharField()
-    # Drop/restore tracking
+    # WHAT: Backward compatibility helper for is_dropped
+    # WHY: Grid may still reference is_dropped property
+    # HOW: SerializerMethodField computes from acq_status (DROP = True, KEEP = False)
     is_dropped = serializers.SerializerMethodField()
-    drop_reason = serializers.CharField(allow_null=True, allow_blank=True, required=False)
-    drop_date = serializers.DateTimeField(allow_null=True, required=False)
 
     # Unified valuation fields (from core.Valuation model)
     # Broker valuations (source='broker')

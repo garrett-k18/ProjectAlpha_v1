@@ -297,35 +297,119 @@ import { storeToRefs } from 'pinia'
 import { useAcqSelectionsStore } from '@/stores/acqSelections'
 import { useAgGridRowsStore } from '@/stores/agGridRows'
 import Layout from '@/components/layouts/layout.vue'
+import http from '@/lib/http'
 
 const acqStore = useAcqSelectionsStore()
 const { selectedSellerId, selectedTradeId, sellerOptions, tradeOptions } = storeToRefs(acqStore)
 const gridStore = useAgGridRowsStore()
 const { rows } = storeToRefs(gridStore)
 
+// WHAT: Pool summary data from backend API (single source of truth)
+// WHY: All aggregations should come from backend, not frontend grid
+// HOW: Fetch from /api/acq/summary/pool/{seller_id}/{trade_id}/
+const poolSummary = ref<any>(null)
+const poolLoading = ref(false)
+
 const hasSelection = computed(() => !!selectedSellerId.value && !!selectedTradeId.value)
-const totalAssets = computed(() => Array.isArray(rows.value) ? rows.value.length : 0)
+// WHAT: Total assets from backend pool summary (excludes dropped assets automatically)
+// WHY: Backend uses sellertrade_qs() which filters acq_status != DROP by default
+// HOW: Fetch from pool summary API, fallback to 0 if not loaded
+const totalAssets = computed(() => poolSummary.value?.assets ?? 0)
 const currentSellerName = computed(() => sellerOptions.value.find(s => s.id === selectedSellerId.value)?.name || 'Unknown')
 const currentTradeName = computed(() => tradeOptions.value.find(t => t.id === selectedTradeId.value)?.trade_name || 'Unknown')
 
-const metrics = computed(() => ({
-  ordered: 0,
-  ordered_pct: 0,
-  photos: 0,
-  photos_pct: 0,
-  repairs: 0,
-  repair_cost: 0,
-  reviewed: 0,
-  reviewed_pct: 0,
-}))
+// WHAT: Collateral metrics from backend API
+// WHY: All aggregations come from backend, not frontend grid
+const collateralMetrics = ref<any>(null)
+
+// WHAT: Computed metrics with percentages
+// WHY: Display both count and percentage for each metric
+const metrics = computed(() => {
+  if (!collateralMetrics.value) {
+    return {
+      ordered: 0,
+      ordered_pct: 0,
+      photos: 0,
+      photos_pct: 0,
+      repairs: 0,
+      repair_cost: 0,
+      reviewed: 0,
+      reviewed_pct: 0,
+    }
+  }
+  
+  const total = totalAssets.value || 1
+  return {
+    ordered: collateralMetrics.value.ordered || 0,
+    ordered_pct: Math.round(((collateralMetrics.value.ordered || 0) / total) * 100),
+    photos: collateralMetrics.value.photos || 0,
+    photos_pct: Math.round(((collateralMetrics.value.photos || 0) / total) * 100),
+    repairs: collateralMetrics.value.repairs || 0,
+    repair_cost: collateralMetrics.value.repair_cost || 0,
+    reviewed: collateralMetrics.value.reviewed || 0,
+    reviewed_pct: Math.round(((collateralMetrics.value.reviewed || 0) / total) * 100),
+  }
+})
 
 function formatCurrency(val: number): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val)
 }
 
-onMounted(() => {
+// WHAT: Fetch collateral metrics from backend API
+// WHY: All aggregations come from backend, not frontend grid
+// HOW: Call /api/acq/summary/collateral/{seller_id}/{trade_id}/
+async function fetchCollateralMetrics() {
+  if (!selectedSellerId.value || !selectedTradeId.value) {
+    collateralMetrics.value = null
+    return
+  }
+  
+  try {
+    const resp = await http.get(`/acq/summary/collateral/${selectedSellerId.value}/${selectedTradeId.value}/`)
+    collateralMetrics.value = resp.data
+    console.log('[CollateralCenter] Collateral metrics loaded:', collateralMetrics.value)
+  } catch (err: any) {
+    console.error('[CollateralCenter] Failed to fetch collateral metrics:', err)
+    collateralMetrics.value = null
+  }
+}
+
+// WHAT: Fetch pool summary from backend API
+// WHY: Get total asset count from backend (single source of truth)
+// HOW: Call /api/acq/summary/pool/{seller_id}/{trade_id}/
+async function fetchPoolSummary() {
+  if (!selectedSellerId.value || !selectedTradeId.value) {
+    poolSummary.value = null
+    return
+  }
+  
+  poolLoading.value = true
+  try {
+    const resp = await http.get(`/acq/summary/pool/${selectedSellerId.value}/${selectedTradeId.value}/`)
+    poolSummary.value = resp.data
+    console.log('[CollateralCenter] Pool summary loaded:', poolSummary.value)
+  } catch (err: any) {
+    console.error('[CollateralCenter] Failed to fetch pool summary:', err)
+    poolSummary.value = null
+  } finally {
+    poolLoading.value = false
+  }
+}
+
+onMounted(async () => {
+  // WHAT: Load pool summary first (contains total asset count)
+  // WHY: Total assets needed for all N/Total displays
+  // HOW: Fetch from /api/acq/summary/pool/{seller_id}/{trade_id}/
+  await fetchPoolSummary()
+  
+  // WHAT: Load collateral metrics from backend
+  // WHY: All aggregations come from backend APIs, not grid data
+  await fetchCollateralMetrics()
+  
+  // WHAT: Load grid data if needed (for display table only, not aggregations)
+  // WHY: Grid displays individual asset rows, but does NOT aggregate
   if (hasSelection.value && (!rows.value || rows.value.length === 0)) {
-    gridStore.fetchRows(selectedSellerId.value!, selectedTradeId.value!, 'all')
+    await gridStore.fetchRows(selectedSellerId.value!, selectedTradeId.value!, 'all')
   }
 })
 </script>
