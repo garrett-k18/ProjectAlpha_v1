@@ -748,33 +748,34 @@ function recalculateCarryCosts(skipReoHolding = false) {
     expenses.insurance = timelineData.insurance ?? 0
   }
   
-  // WHAT: Recalculate REO holding costs using individual components (reo_marketing_months ONLY)
-  // WHY: REO holding costs only accrue during REO Marketing phase, not entire timeline
+  // WHAT: Recalculate REO holding costs using individual components (renovation + marketing months)
+  // WHY: REO holding costs accrue during BOTH renovation and marketing phases
   // HOW: Calculate each component separately: HOA + Utilities + Property Preservation
   // NOTE: Skip if skipReoHolding flag is set (e.g., when only foreclosure duration changes)
-  if (!skipReoHolding && marketingMonths > 0 && (timelineData.monthly_hoa !== null || timelineData.monthly_utilities !== null || timelineData.monthly_property_preservation !== null)) {
+  const reoTotalMonths = renovationMonths + marketingMonths
+  if (!skipReoHolding && reoTotalMonths > 0 && (timelineData.monthly_hoa !== null || timelineData.monthly_utilities !== null || timelineData.monthly_property_preservation !== null)) {
     let reoHoldingTotal = 0
     let breakdown = []
     
-    // WHAT: Calculate HOA costs for marketing period only
+    // WHAT: Calculate HOA costs for renovation + marketing period
     if (timelineData.monthly_hoa !== null) {
-      const hoaCosts = Math.round(timelineData.monthly_hoa * marketingMonths * 100) / 100
+      const hoaCosts = Math.round(timelineData.monthly_hoa * reoTotalMonths * 100) / 100
       reoHoldingTotal += hoaCosts
-      breakdown.push(`HOA: $${timelineData.monthly_hoa}/month * ${marketingMonths} = $${hoaCosts.toFixed(2)}`)
+      breakdown.push(`HOA: $${timelineData.monthly_hoa}/month * ${reoTotalMonths} = $${hoaCosts.toFixed(2)}`)
     }
     
-    // WHAT: Calculate utilities costs for marketing period only
+    // WHAT: Calculate utilities costs for renovation + marketing period
     if (timelineData.monthly_utilities !== null) {
-      const utilityCosts = Math.round(timelineData.monthly_utilities * marketingMonths * 100) / 100
+      const utilityCosts = Math.round(timelineData.monthly_utilities * reoTotalMonths * 100) / 100
       reoHoldingTotal += utilityCosts
-      breakdown.push(`Utilities: $${timelineData.monthly_utilities}/month * ${marketingMonths} = $${utilityCosts.toFixed(2)}`)
+      breakdown.push(`Utilities: $${timelineData.monthly_utilities}/month * ${reoTotalMonths} = $${utilityCosts.toFixed(2)}`)
     }
     
-    // WHAT: Calculate property preservation costs for marketing period only
+    // WHAT: Calculate property preservation costs for renovation + marketing period
     if (timelineData.monthly_property_preservation !== null) {
-      const propPresCosts = Math.round(timelineData.monthly_property_preservation * marketingMonths * 100) / 100
+      const propPresCosts = Math.round(timelineData.monthly_property_preservation * reoTotalMonths * 100) / 100
       reoHoldingTotal += propPresCosts
-      breakdown.push(`Prop Pres: $${timelineData.monthly_property_preservation}/month * ${marketingMonths} = $${propPresCosts.toFixed(2)}`)
+      breakdown.push(`Prop Pres: $${timelineData.monthly_property_preservation}/month * ${reoTotalMonths} = $${propPresCosts.toFixed(2)}`)
     }
     
     // WHAT: Round final total to penny precision
@@ -782,7 +783,7 @@ function recalculateCarryCosts(skipReoHolding = false) {
     
     timelineData.reo_holding_costs = reoHoldingTotal
     expenses.reoHoldingCosts = reoHoldingTotal
-    console.log(`[REO] Recalculated REO holding costs: $${reoHoldingTotal.toFixed(2)} (${breakdown.join(', ')}) - REO Marketing months ONLY`)
+    console.log(`[REO] Recalculated REO holding costs: $${reoHoldingTotal.toFixed(2)} (${breakdown.join(', ')}) - Renovation: ${renovationMonths} + Marketing: ${marketingMonths} = ${reoTotalMonths} months`)
   } else {
     expenses.reoHoldingCosts = timelineData.reo_holding_costs ?? 0
   }
@@ -1081,9 +1082,9 @@ async function adjustReoRenovationDuration(change: number) {
   timelineData.total_timeline_months = servicingMonths + foreclosureMonths + timelineData.reo_renovation_months + marketingMonths
 
   // WHAT: Recalculate carry costs with new renovation duration
-  // WHY: Update taxes, insurance, and servicing fees instantly
-  // NOTE: REO holding costs should NOT change when renovation changes (only when REO Marketing changes)
-  recalculateCarryCosts(true)  // Skip REO holding cost recalculation
+  // WHY: Update taxes, insurance, servicing fees, and REO holding costs instantly
+  // NOTE: REO holding costs ARE affected by renovation duration (renovation + marketing = total REO time)
+  recalculateCarryCosts()  // Do NOT skip REO holding cost recalculation
 
   // WHAT: Save to backend (fire and forget)
   http.post(`/acq/assets/${props.assetId}/reo-renovation-override/`, {
@@ -1117,7 +1118,7 @@ async function adjustReoMarketingDuration(change: number) {
 
   // WHAT: Recalculate carry costs with new marketing duration
   // WHY: Update taxes, insurance, servicing fees, and REO holding costs instantly
-  // NOTE: REO holding costs SHOULD change when marketing changes (this is the ONLY duration that affects REO holding)
+  // NOTE: REO holding costs ARE affected by marketing duration (renovation + marketing = total REO time)
   recalculateCarryCosts()  // Do NOT skip REO holding cost recalculation
 
   // WHAT: Save to backend (fire and forget)
@@ -1217,18 +1218,12 @@ watch(() => props.isOnlySelectedModel, (isOnly) => {
 }, { immediate: true })
 
 // WHAT: Watch for assetId changes and fetch timeline data
+// WHY: immediate: true handles both initial load and subsequent changes, no need for onMounted
 watch(() => props.assetId, (newAssetId) => {
   if (newAssetId) {
     fetchTimelineData()
   }
 }, { immediate: true })
-
-// WHAT: Fetch timeline data on component mount
-onMounted(() => {
-  if (props.assetId) {
-    fetchTimelineData()
-  }
-})
 </script>
 
 <style scoped>

@@ -279,8 +279,16 @@ def get_reo_expense_values(
         reo_marketing_months: REO marketing duration in months
     
     Returns:
-        Dict with all expense values, acquisition costs, carry costs, liquidation expenses,
-        and calculated totals (total_costs, expected_recovery, net_pl, moic, annualized_roi)
+        Dict with raw expense data for frontend KPI calculations:
+        - Acquisition costs (broker fees, legal, due diligence, tax/title)
+        - Carry costs (servicing fees, taxes, insurance, legal, REO holding, trashout, renovation)
+        - Liquidation expenses (broker fees, servicer fee, AM fee)
+        - Monthly rates for instant recalculation (monthly_tax, monthly_insurance, etc.)
+        - Expected proceeds (As-Is and ARV)
+        - Acquisition price
+        
+        NOTE: Total Costs, Net PL, MOIC, and Annualized ROI are NOT calculated here.
+        These KPIs are calculated exclusively in the FRONTEND using instant recalculated values.
     """
     # WHAT: Initialize all expense variables
     servicing_fees = Decimal('0.0')
@@ -293,26 +301,32 @@ def get_reo_expense_values(
     broker_fees = Decimal('0.0')
     servicer_liquidation_fee = Decimal('0.0')
     
-    # WHAT: Get asset data
+    # WHAT: Get asset data with optimized queries
+    # WHY: Use select_related to fetch trade and servicer in a single query to avoid N+1
     raw_data = SellerRawData.objects.filter(asset_hub_id=asset_hub_id).select_related('trade').first()
     
     if not raw_data:
         print(f"No SellerRawData found for asset_hub_id {asset_hub_id}")
         return {}
     
+    # WHAT: Fetch TradeLevelAssumption ONCE and reuse throughout function
+    # WHY: PERFORMANCE - Avoid querying the same data 9+ times (N+1 query problem)
+    trade_assumption = None
+    servicer = None
+    if raw_data.trade:
+        trade_assumption = TradeLevelAssumption.objects.filter(trade=raw_data.trade).select_related('servicer').first()
+        if trade_assumption:
+            servicer = trade_assumption.servicer
+    
     # WHAT: Calculate servicing fees
     # WHY: Fees apply during servicing transfer, foreclosure, and REO phases
-    if raw_data.trade:
-        trade_assumption = TradeLevelAssumption.objects.filter(trade=raw_data.trade).first()
-        if trade_assumption and trade_assumption.servicer:
-            servicer = trade_assumption.servicer
-            
-            # WHAT: Calculate servicing fees components
-            # WHY: Different fees apply at different stages
-            board_fee = servicer.board_fee or Decimal('0.0')
-            onetwentyday_fee = servicer.onetwentyday_fee or Decimal('0.0')
-            fc_fee = servicer.fc_fee or Decimal('0.0')
-            reo_fee = servicer.reo_fee or Decimal('0.0')
+    if trade_assumption and servicer:
+        # WHAT: Calculate servicing fees components
+        # WHY: Different fees apply at different stages
+        board_fee = servicer.board_fee or Decimal('0.0')
+        onetwentyday_fee = servicer.onetwentyday_fee or Decimal('0.0')
+        fc_fee = servicer.fc_fee or Decimal('0.0')
+        reo_fee = servicer.reo_fee or Decimal('0.0')
             
             # WHAT: Calculate total REO duration (renovation + marketing)
             # WHY: REO fee applies during the entire REO period
@@ -461,15 +475,15 @@ def get_reo_expense_values(
             print(f"Total Monthly Holding Cost: ${monthly_holding:,.2f} (HOA: ${monthly_hoa:,.2f} + Utilities: ${monthly_utilities:,.2f} + Prop Pres: ${monthly_property_pres:,.2f})")
             
             # TODO: Add eviction duration to REO holding period calculation
-            # WHAT: Calculate REO holding duration (MARKETING ONLY - not renovation)
-            # WHY: Holding costs only accrue during marketing phase when property is actively being sold
-            # NOTE: Renovation is done by buyer/investor, not while holding for sale
-            reo_holding_duration = reo_marketing_months or 0
-            print(f"REO Holding Duration: {reo_holding_duration} months (Marketing ONLY - not renovation)")
+            # WHAT: Calculate REO holding duration (BOTH renovation + marketing)
+            # WHY: Holding costs (HOA, utilities, property preservation) accrue during entire REO ownership
+            # NOTE: Whether renovating or marketing, property still incurs HOA, utilities, maintenance costs
+            reo_holding_duration = (reo_renovation_months or 0) + (reo_marketing_months or 0)
+            print(f"REO Holding Duration: {reo_holding_duration} months (Renovation: {reo_renovation_months or 0} + Marketing: {reo_marketing_months or 0})")
             
-            # WHAT: Multiply monthly holding cost by marketing duration only
+            # WHAT: Multiply monthly holding cost by total REO duration (renovation + marketing)
             reo_holding_costs = monthly_holding * Decimal(reo_holding_duration)
-            print(f"REO Holding Costs: ${monthly_holding:,.2f}/month * {reo_holding_duration} marketing months = ${reo_holding_costs:,.2f}")
+            print(f"REO Holding Costs: ${monthly_holding:,.2f}/month * {reo_holding_duration} months = ${reo_holding_costs:,.2f}")
             print(f"=== END REO HOLDING COSTS ===\n")
             
             # WHAT: Store monthly rates for frontend recalculation (individual components)
@@ -800,6 +814,11 @@ def get_reo_expense_values(
     except Exception as e:
         print(f"ERROR calculating purchase price metrics: {str(e)}")
     
+    # WHAT: Return raw expense data for frontend calculations
+    # WHY: Frontend calculates ALL KPIs using instant recalculated carry costs
+    # BACKEND PROVIDES: Raw expense data, monthly rates for recalculation, static costs
+    # FRONTEND CALCULATES: Total Costs, Net PL, MOIC, Annualized ROI, Total Duration
+    # PATTERN: Hybrid calculation architecture - backend authority + frontend responsiveness
     return {
         # WHAT: Acquisition Costs (one-time costs when acquiring asset)
         'acq_broker_fees': float(acq_broker_fees) if acq_broker_fees is not None else None,

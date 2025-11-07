@@ -848,18 +848,12 @@ watch(() => props.isOnlySelectedModel, (isOnly) => {
 }, { immediate: true })
 
 // WHAT: Watch for assetId changes and fetch timeline data
+// WHY: immediate: true handles both initial load and subsequent changes, no need for onMounted
 watch(() => props.assetId, (newAssetId) => {
   if (newAssetId) {
     fetchTimelineData()
   }
 }, { immediate: true })
-
-// WHAT: Fetch timeline data on component mount
-onMounted(() => {
-  if (props.assetId) {
-    fetchTimelineData()
-  }
-})
 
 // WHAT: Initialize with existing FC data if available
 if (fcData.value?.fc_starting) {

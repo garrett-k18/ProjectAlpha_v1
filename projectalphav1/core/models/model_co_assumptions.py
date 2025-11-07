@@ -490,6 +490,7 @@ class PropertyTypeAssumption(models.Model):
         decimal_places=2, 
         null=True,
         blank=True,
+        default=None,
         help_text="Monthly electric utility cost in dollars"
     )
     utility_gas_monthly = models.DecimalField(
@@ -497,6 +498,7 @@ class PropertyTypeAssumption(models.Model):
         decimal_places=2, 
         null=True,
         blank=True,
+        default=None,
         help_text="Monthly gas utility cost in dollars"
     )
     utility_water_monthly = models.DecimalField(
@@ -504,6 +506,7 @@ class PropertyTypeAssumption(models.Model):
         decimal_places=2, 
         null=True,
         blank=True,
+        default=None,
         help_text="Monthly water utility cost in dollars"
     )
     utility_sewer_monthly = models.DecimalField(
@@ -511,6 +514,7 @@ class PropertyTypeAssumption(models.Model):
         decimal_places=2, 
         null=True,
         blank=True,
+        default=None,
         help_text="Monthly sewer utility cost in dollars"
     )
     utility_trash_monthly = models.DecimalField(
@@ -518,6 +522,7 @@ class PropertyTypeAssumption(models.Model):
         decimal_places=2, 
         null=True,
         blank=True,
+        default=None,
         help_text="Monthly trash utility cost in dollars"
     )
     utility_other_monthly = models.DecimalField(
@@ -525,6 +530,7 @@ class PropertyTypeAssumption(models.Model):
         decimal_places=2, 
         null=True,
         blank=True,
+        default=None,
         help_text="Monthly other utility costs in dollars"
     )
     
@@ -535,6 +541,7 @@ class PropertyTypeAssumption(models.Model):
         decimal_places=2, 
         null=True,
         blank=True,
+        default=None,
         help_text="Monthly property management cost in dollars"
     )
     repairs_maintenance_monthly = models.DecimalField(
@@ -542,6 +549,7 @@ class PropertyTypeAssumption(models.Model):
         decimal_places=2, 
         null=True,
         blank=True,
+        default=None,
         help_text="Monthly repairs and maintenance cost in dollars"
     )
     marketing_monthly = models.DecimalField(
@@ -549,6 +557,7 @@ class PropertyTypeAssumption(models.Model):
         decimal_places=2, 
         null=True,
         blank=True,
+        default=None,
         help_text="Monthly marketing cost in dollars"
     )
     
@@ -559,6 +568,7 @@ class PropertyTypeAssumption(models.Model):
         decimal_places=2, 
         null=True,
         blank=True,
+        default=None,
         help_text="One-time trashout cost in dollars"
     )
     renovation_cost = models.DecimalField(
@@ -566,6 +576,7 @@ class PropertyTypeAssumption(models.Model):
         decimal_places=2, 
         null=True,
         blank=True,
+        default=None,
         help_text="One-time renovation cost in dollars"
     )
     security_cost_monthly = models.DecimalField(
@@ -573,6 +584,7 @@ class PropertyTypeAssumption(models.Model):
         decimal_places=2, 
         null=True,
         blank=True,
+        default=None,
         help_text="Monthly security cost in dollars"
     )
     landscaping_monthly = models.DecimalField(
@@ -580,6 +592,7 @@ class PropertyTypeAssumption(models.Model):
         decimal_places=2, 
         null=True,
         blank=True,
+        default=None,
         help_text="Monthly landscaping cost in dollars"
     )
     pool_maintenance_monthly = models.DecimalField(
@@ -587,6 +600,7 @@ class PropertyTypeAssumption(models.Model):
         decimal_places=2, 
         null=True,
         blank=True,
+        default=None,
         help_text="Monthly pool maintenance cost in dollars"
     )
     
@@ -619,32 +633,32 @@ class PropertyTypeAssumption(models.Model):
         return f"{self.get_property_type_display()} Assumptions"
     
     def total_monthly_utilities(self) -> Decimal:
-        """Calculate total monthly utility costs."""
+        """Calculate total monthly utility costs, treating None as 0."""
         return (
-            self.utility_electric_monthly + 
-            self.utility_gas_monthly + 
-            self.utility_water_monthly + 
-            self.utility_sewer_monthly + 
-            self.utility_trash_monthly + 
-            self.utility_other_monthly
+            (self.utility_electric_monthly or Decimal('0.00')) + 
+            (self.utility_gas_monthly or Decimal('0.00')) + 
+            (self.utility_water_monthly or Decimal('0.00')) + 
+            (self.utility_sewer_monthly or Decimal('0.00')) + 
+            (self.utility_trash_monthly or Decimal('0.00')) + 
+            (self.utility_other_monthly or Decimal('0.00'))
         ).quantize(Decimal('0.01'))
     
     def total_monthly_property_management(self) -> Decimal:
-        """Calculate total monthly property management costs."""
+        """Calculate total monthly property management costs, treating None as 0."""
         return (
-            self.property_management_monthly + 
-            self.repairs_maintenance_monthly + 
-            self.marketing_monthly + 
-            self.security_cost_monthly + 
-            self.landscaping_monthly + 
-            self.pool_maintenance_monthly
+            (self.property_management_monthly or Decimal('0.00')) + 
+            (self.repairs_maintenance_monthly or Decimal('0.00')) + 
+            (self.marketing_monthly or Decimal('0.00')) + 
+            (self.security_cost_monthly or Decimal('0.00')) + 
+            (self.landscaping_monthly or Decimal('0.00')) + 
+            (self.pool_maintenance_monthly or Decimal('0.00'))
         ).quantize(Decimal('0.01'))
     
     def total_one_time_costs(self) -> Decimal:
-        """Calculate total one-time costs."""
+        """Calculate total one-time costs, treating None as 0."""
         return (
-            self.trashout_cost + 
-            self.renovation_cost
+            (self.trashout_cost or Decimal('0.00')) + 
+            (self.renovation_cost or Decimal('0.00'))
         ).quantize(Decimal('0.01'))
 
 

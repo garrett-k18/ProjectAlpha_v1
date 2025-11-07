@@ -24,22 +24,12 @@
           v-for="model in availableModels"
           :key="model.key"
           type="button"
-          class="btn btn-sm d-inline-flex align-items-center gap-2 px-3 py-2 position-relative"
-          :class="selectedModels.has(model.key) ? model.activeClass : 'btn-outline-secondary'"
+          class="btn btn-sm px-4 py-2 d-flex justify-content-center align-items-center position-relative rounded"
+          :class="selectedModels.has(model.key) ? 'btn-primary' : 'btn-outline-primary'"
           @click="toggleModel(model.key)"
         >
-          <i :class="model.icon"></i>
           <span>{{ model.label }}</span>
-          <i v-if="selectedModels.has(model.key)" class="mdi mdi-check-circle ms-1"></i>
-          <!-- Recommended badge -->
-          <span 
-            v-if="isModelRecommended(model.key)" 
-            class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-success"
-            style="font-size: 0.6rem; padding: 0.15rem 0.4rem;"
-            title="Recommended by system"
-          >
-            <i class="mdi mdi-star"></i>
-          </span>
+          <!-- Removed all icons -->
         </button>
       </div>
 
