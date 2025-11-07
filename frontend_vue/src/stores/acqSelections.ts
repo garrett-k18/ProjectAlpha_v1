@@ -273,7 +273,7 @@ export const useAcqSelectionsStore = defineStore('acqSelections', () => {
       console.debug('[acqSelections] fetching markers', { sellerId: sid, tradeId: tid })
       const resp = await http.get(`/acq/geocode/markers/${sid}/${tid}/`, {
         signal: currentController.signal as any,
-        timeout: 20000,
+        timeout: 120000,  // 2 minutes for initial geocoding of large datasets (658 addresses)
       })
       const data = resp.data as { markers: BackendMarker[]; count: number; source: string; error?: string }
       markers.value = Array.isArray(data.markers) ? data.markers : []

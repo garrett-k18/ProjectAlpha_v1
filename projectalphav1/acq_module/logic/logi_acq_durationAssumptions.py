@@ -7,6 +7,7 @@ Where: projectalphav1/acq_module/logic/logi_acq_durationAssumptions.py
 How: Plain functions that query models and shape dictionaries for serializers.
 """
 
+import logging
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
@@ -18,6 +19,9 @@ from .logi_acq_expenseAssumptions import (
     monthly_insurance_for_asset,
     monthly_tax_for_asset,
 )
+
+# Logger for foreclosure timeline calculations
+logger = logging.getLogger(__name__)
 
 
 def get_asset_fc_timeline(asset_id: int) -> Dict[str, Any]:
@@ -68,16 +72,28 @@ def get_asset_fc_timeline(asset_id: int) -> Dict[str, Any]:
             "durationDays": duration_by_status.get(s.id),
         })
 
-    # Compute total duration across statuses (sum non-null values). If none present, return None.
+    # Compute total duration across statuses (sum non-null values). If none present, fallback to StateReference.
     non_null = [d for d in duration_by_status.values() if d is not None]
     total = sum(non_null) if non_null else None
 
-    # Get REO marketing duration from StateReference
+    # WHAT: Get StateReference for REO marketing AND foreclosure fallback
+    # WHY: If FCTimelines not configured for this state, use StateReference.fc_state_months as default
+    # HOW: Query StateReference by state_code and use fc_state_months converted to days
     reo_marketing_months = None
     try:
         state_ref = StateReference.objects.filter(state_code=state_code).first()
         if state_ref:
             reo_marketing_months = state_ref.reo_marketing_duration
+            
+            # WHAT: If FCTimelines has no data (total is None), fallback to StateReference
+            # WHY: Newly imported assets don't have FCTimelines configured yet
+            # HOW: Use fc_state_months from StateReference, convert to days (months * 30.44)
+            if total is None and state_ref.fc_state_months:
+                total = round(state_ref.fc_state_months * 30.44)  # Convert months to days
+                logger.info(
+                    f'[FC TIMELINE] No FCTimelines for state {state_code}, '
+                    f'using StateReference default: {state_ref.fc_state_months} months ({total} days)'
+                )
     except StateReference.DoesNotExist:
         pass
 

@@ -229,6 +229,9 @@
           v-model:bidDate="bidDateModel"
           v-model:settlementDate="settlementDateModel"
           v-model:servicingTransferDate="servicingTransferDateModel"
+          v-model:servicerId="servicerIdModel"
+          :servicers="servicers"
+          :servicersLoading="servicersLoading"
           v-model:targetIrr="targetIrrModel"
           v-model:discountRate="discountRateModel"
           v-model:perfRplHoldPeriod="perfRplHoldPeriodModel"
@@ -379,6 +382,10 @@ export default {
     const bidDateModel = ref<string>('')
     const settlementDateModel = ref<string>('')
     const servicingTransferDateModel = ref<string>('')
+    // Servicer selection
+    const servicerIdModel = ref<number | null>(null)
+    const servicers = ref<Array<{ id: number; servicerName: string }>>([])
+    const servicersLoading = ref<boolean>(false)
     // Financial assumptions
     const targetIrrModel = ref<number | string>('')
     const discountRateModel = ref<number | string>('')
@@ -472,6 +479,8 @@ export default {
         bidDateModel.value = assumptions.bid_date ? assumptions.bid_date.substring(0, 10) : ''
         settlementDateModel.value = assumptions.settlement_date ? assumptions.settlement_date.substring(0, 10) : ''
         servicingTransferDateModel.value = assumptions.servicing_transfer_date ? assumptions.servicing_transfer_date.substring(0, 10) : ''
+        // Servicer selection
+        servicerIdModel.value = assumptions.servicer_id ?? null
         // Financial assumptions
         targetIrrModel.value = assumptions.target_irr ?? ''
         discountRateModel.value = assumptions.discount_rate ?? ''
@@ -504,6 +513,8 @@ export default {
       bidDateModel.value = ''
       settlementDateModel.value = ''
       servicingTransferDateModel.value = ''
+      // Servicer selection
+      servicerIdModel.value = null
       // Financial assumptions
       targetIrrModel.value = ''
       discountRateModel.value = ''
@@ -548,6 +559,8 @@ export default {
         bid_date: bidDateModel.value || null,
         settlement_date: settlementDateModel.value || null,
         servicing_transfer_date: servicingTransferDateModel.value || null,
+        // Servicer selection
+        servicer_id: servicerIdModel.value || null,
         // Financial assumptions
         target_irr: targetIrrModel.value || null,
         discount_rate: discountRateModel.value || null,
@@ -574,6 +587,34 @@ export default {
       
       dateFieldsLoading.value = false
       return success
+    }
+    
+    // WHAT: Fetch servicers list for the dropdown
+    // WHY: Load available servicers when component mounts
+    // HOW: Call the /api/core/servicers/ endpoint
+    async function fetchServicers() {
+      servicersLoading.value = true
+      try {
+        const resp = await fetch('/api/core/servicers/', {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include'
+        })
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+        const payload = await resp.json()
+        // WHAT: Normalize response to handle both array and paginated formats
+        // WHY: DRF can return either {results: [...]} or just [...]
+        servicers.value = Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload?.results)
+            ? payload.results
+            : []
+      } catch (err) {
+        console.error('[fetchServicers] Error loading servicers:', err)
+        servicers.value = []
+      } finally {
+        servicersLoading.value = false
+      }
     }
     
     // Auto-save function triggered on input change
@@ -607,6 +648,8 @@ export default {
 
     onMounted(async () => {
       await acqStore.fetchSellerOptions(true);
+      // WHAT: Fetch servicers list for trade assumptions modal
+      await fetchServicers();
       // WHAT: If a seller already selected (persisted in store), prime the trades list too.
       if (selectedSellerId.value) {
         await acqStore.fetchTradeOptions(selectedSellerId.value, true);
@@ -749,6 +792,10 @@ export default {
       bidDateModel,
       settlementDateModel,
       servicingTransferDateModel,
+      // Servicer selection
+      servicerIdModel,
+      servicers,
+      servicersLoading,
       // Financial assumptions
       targetIrrModel,
       discountRateModel,

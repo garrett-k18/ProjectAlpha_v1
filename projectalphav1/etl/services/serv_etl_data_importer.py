@@ -235,6 +235,17 @@ class DataImporter:
             )
             if self.stdout:
                 self.stdout.write(f'[OK] Created NEW Trade: {trade.trade_name} (ID: {trade.id})\n')
+            
+            # WHAT: Auto-create TradeLevelAssumption for new trade
+            # WHY: Required for timeline calculations and financial modeling
+            # HOW: Import and create with default values from model definition
+            from acq_module.models.model_acq_assumptions import TradeLevelAssumption
+            trade_assumption, created = TradeLevelAssumption.objects.get_or_create(
+                trade=trade,
+                defaults={}  # Use model defaults
+            )
+            if created and self.stdout:
+                self.stdout.write(f'[OK] Created TradeLevelAssumption for Trade ID: {trade.id}\n')
 
             return seller, trade
 
@@ -570,7 +581,16 @@ class DataImporter:
                         try:
                             with transaction.atomic():
                                 record_data['asset_hub'] = asset_hub
-                                SellerRawData.objects.create(**record_data)
+                                seller_raw = SellerRawData.objects.create(**record_data)
+                                
+                                # WHAT: Auto-create LoanLevelAssumption for each new asset
+                                # WHY: Required for duration overrides and loan-specific calculations
+                                # HOW: Import and create with default values, link to asset_hub
+                                from acq_module.models.model_acq_assumptions import LoanLevelAssumption
+                                LoanLevelAssumption.objects.get_or_create(
+                                    asset_hub=asset_hub,
+                                    defaults={}  # Use model defaults
+                                )
                             saved_count += 1
                         except Exception as insert_error:
                             logger.error(f'Error inserting SellerRawData for {sellertape_id}: {insert_error}')

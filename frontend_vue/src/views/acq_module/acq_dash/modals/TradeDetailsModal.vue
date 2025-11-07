@@ -61,6 +61,38 @@
       </div>
     </div>
 
+    <!-- Servicer Selection Section -->
+    <div class="row mb-4">
+      <div class="col-12">
+        <h5 class="mb-3 text-primary border-bottom pb-2">
+          <i class="mdi mdi-briefcase-account me-2"></i>Servicer
+        </h5>
+      </div>
+
+      <!-- Servicer Dropdown -->
+      <div class="col-12 col-md-6 mb-3">
+        <label for="tdm-servicer" class="form-label fw-medium">Servicer</label>
+        <select
+          id="tdm-servicer"
+          class="form-select"
+          :disabled="disabled || servicersLoading"
+          :value="servicerIdLocal"
+          @change="onServicerInput($event)"
+        >
+          <option :value="null">Select a servicer...</option>
+          <option v-for="servicer in servicers" :key="servicer.id" :value="servicer.id">
+            {{ servicer.servicerName }}
+          </option>
+        </select>
+        <small class="form-text text-muted">
+          <span v-if="servicersLoading" class="text-info">
+            <i class="mdi mdi-loading mdi-spin me-1"></i>Loading servicers...
+          </span>
+          <span v-else>Selected servicer for this trade</span>
+        </small>
+      </div>
+    </div>
+
     <!-- Financial Assumptions Section -->
     <div class="row mb-4">
       <div class="col-12">
@@ -373,6 +405,12 @@
 // ----------------------------------------------------------------------------------
 import { computed } from 'vue'
 
+// Servicer interface for dropdown options
+interface Servicer {
+  id: number
+  servicerName: string
+}
+
 // Props definition with v-model aliases for all trade assumption fields
 const props = defineProps<{
   // Trade Dates
@@ -382,6 +420,14 @@ const props = defineProps<{
   settlementDate?: string
   /** ISO date string: YYYY-MM-DD */
   servicingTransferDate?: string
+  
+  // Servicer Selection
+  /** Selected servicer ID */
+  servicerId?: number | null
+  /** List of available servicers for dropdown */
+  servicers?: Servicer[]
+  /** Loading state for servicers */
+  servicersLoading?: boolean
   
   // Financial Assumptions
   /** Target IRR as decimal (e.g., 0.15 for 15%) */
@@ -434,6 +480,9 @@ const emit = defineEmits<{
   (e: 'update:settlementDate', value: string): void
   (e: 'update:servicingTransferDate', value: string): void
   
+  // Servicer Selection
+  (e: 'update:servicerId', value: number | null): void
+  
   // Financial Assumptions
   (e: 'update:targetIrr', value: number | string): void
   (e: 'update:discountRate', value: number | string): void
@@ -466,6 +515,10 @@ const emit = defineEmits<{
 const bidDateLocal = computed(() => props.bidDate ?? '')
 const settlementDateLocal = computed(() => props.settlementDate ?? '')
 const servicingTransferDateLocal = computed(() => props.servicingTransferDate ?? '')
+
+// WHAT: Servicer selection local wrapper
+// WHY: Handle null/undefined servicer ID safely
+const servicerIdLocal = computed(() => props.servicerId ?? null)
 
 const targetIrrLocal = computed(() => props.targetIrr ?? '')
 const discountRateLocal = computed(() => props.discountRate ?? '')
@@ -514,6 +567,19 @@ function onSettlementInput(ev: Event) {
 function onServicingTransferInput(ev: Event) {
   const v = (ev.target as HTMLInputElement)?.value ?? ''
   emit('update:servicingTransferDate', v)
+}
+
+// Input handler - Servicer Selection
+// WHAT: Handle servicer dropdown selection
+// WHY: Update parent component with selected servicer ID
+// HOW: Convert string value to number, emit null if empty
+function onServicerInput(ev: Event) {
+  const v = (ev.target as HTMLSelectElement)?.value ?? ''
+  // WHAT: Convert to number or null
+  // WHY: Backend expects number ID or null
+  const servicerId = v === '' || v === 'null' ? null : parseInt(v, 10)
+  emit('update:servicerId', servicerId)
+  emitChanged()
 }
 
 // Input handlers - Financial Assumptions

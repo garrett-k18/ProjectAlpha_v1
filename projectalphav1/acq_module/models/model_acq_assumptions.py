@@ -229,13 +229,17 @@ class TradeLevelAssumption(models.Model):
     trade = models.ForeignKey(Trade, on_delete=models.CASCADE, related_name='trade_assumptions')
     
     # Optional: selected servicer for this trade
+    # WHAT: Default to StateBridge (id=1) for new trades
+    # WHY: StateBridge is the primary servicer
+    # HOW: Use default=1 to auto-select StateBridge when creating new trade assumptions
     servicer = models.ForeignKey(
         'core.Servicer',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
+        default=1,
         related_name='trade_level_assumptions',
-        help_text="Selected servicing company for this trade",
+        help_text="Selected servicing company for this trade (defaults to StateBridge)",
     )
     
     # Trade dates
@@ -298,25 +302,41 @@ class TradeLevelAssumption(models.Model):
         """
         Get the effective servicing transfer date with fallback logic.
         
-        What: Returns servicing_transfer_date if set, otherwise calculates as settlement_date + 30 days
+        What: Returns servicing_transfer_date if set, otherwise calculates using servicer's duration assumption
         Why: Provide default behavior when servicing_transfer_date is not explicitly set
         Where: Used by service layer for timeline calculations
-        How: Checks if servicing_transfer_date exists, if not calculates from settlement_date
+        How: Checks if servicing_transfer_date exists, if not uses servicer duration, fallback to 30 days
         
         Returns:
-            date: The servicing_transfer_date if set, or settlement_date + 30 days if settlement_date exists,
-                  or None if neither is available
+            date: The servicing_transfer_date if set, or settlement_date + servicer duration if available,
+                  or settlement_date + 30 days as final fallback, or None if settlement_date not available
         """
         # WHAT: Return explicit servicing_transfer_date if set
         # WHY: User-specified value takes priority
         if self.servicing_transfer_date:
             return self.servicing_transfer_date
         
-        # WHAT: Calculate fallback as settlement_date + 30 days
-        # WHY: Default behavior when servicing_transfer_date not set
+        # WHAT: Calculate fallback using servicer's servicing_transfer_duration assumption
+        # WHY: Default behavior when servicing_transfer_date not set - use servicer-specific assumption
         if self.settlement_date:
             from datetime import timedelta
-            return self.settlement_date + timedelta(days=30)
+            
+            # WHAT: Try to get servicing transfer duration from linked servicer
+            # WHY: Each servicer may have different transfer durations
+            # HOW: Check if servicer is linked and has servicing_transfer_duration value
+            duration_months = None
+            if self.servicer and self.servicer.servicing_transfer_duration:
+                duration_months = self.servicer.servicing_transfer_duration
+            
+            # WHAT: Convert duration from months to days (assuming 30.44 days per month for accuracy)
+            # WHY: settlement_date needs to be offset by days, not months
+            # HOW: If servicer duration exists, use it; otherwise default to 1 month (30 days)
+            if duration_months:
+                duration_days = int(duration_months * 30.44)  # Convert months to days
+            else:
+                duration_days = 30  # Default fallback: 30 days (~1 month)
+            
+            return self.settlement_date + timedelta(days=duration_days)
         
         # WHAT: Return None if neither date is available
         # WHY: Cannot calculate without settlement_date

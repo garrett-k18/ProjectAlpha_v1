@@ -251,6 +251,13 @@ def geocode_markers_for_seller_trade(seller_id: int, trade_id: int) -> Dict[str,
         - source:  "cache" | "live" | "mixed" | "none"
         - error:   optional error string (e.g., missing API key)
     """
+    import logging
+    import time
+    logger = logging.getLogger(__name__)
+    
+    start_time = time.time()
+    print(f'[GEOCODE SERVICE] Starting for seller={seller_id}, trade={trade_id}')
+    
     api_key = _env_api_key()
     if not api_key:
         return {
@@ -261,11 +268,14 @@ def geocode_markers_for_seller_trade(seller_id: int, trade_id: int) -> Dict[str,
         }
 
     # Query only the fields needed to compose addresses and labels for markers
+    query_start = time.time()
     rows = list(
         SellerRawData.objects
         .filter(Q(seller_id=seller_id) & Q(trade_id=trade_id))
         .values("asset_hub_id", "city", "state", "zip")
     )
+    query_time = time.time() - query_start
+    print(f'[GEOCODE SERVICE] Found {len(rows)} rows in {query_time:.2f}s')
 
     # Deduplicate by the most specific candidate to minimize geocoding calls
     # (and protect quotas)
@@ -285,10 +295,37 @@ def geocode_markers_for_seller_trade(seller_id: int, trade_id: int) -> Dict[str,
         })
 
     unique_addrs = list(addr_to_rows.keys())[:MAX_UNIQUE_ADDRESSES]
+    
+    dedup_time = time.time() - query_start
+    print(f'[GEOCODE SERVICE] Deduplicated to {len(unique_addrs)} unique addresses in {dedup_time:.2f}s')
+
+    # WHAT: Bulk-fetch ALL enrichment records for this seller/trade to avoid N+1 queries
+    # WHY: Querying in a loop causes 658+ individual queries (extremely slow)
+    # HOW: Single query with filter, build lookup dict by seller_raw_data_id
+    all_asset_ids = [r["id"] for row_list in addr_to_rows.values() for r in row_list]
+    enrichment_prefetch_start = time.time()
+    print(f'[GEOCODE SERVICE] Prefetching enrichments for {len(all_asset_ids)} asset IDs')
+    
+    try:
+        enrichments = LlDataEnrichment.objects.filter(
+            seller_raw_data_id__in=all_asset_ids
+        ).only("seller_raw_data_id", "geocode_lat", "geocode_lng", "geocode_used_address")
+        
+        # Build lookup dict: seller_raw_data_id -> enrichment object
+        enrichment_lookup = {e.seller_raw_data_id: e for e in enrichments}
+        enrichment_prefetch_time = time.time() - enrichment_prefetch_start
+        print(f'[GEOCODE SERVICE] Prefetched {len(enrichment_lookup)} enrichment records in {enrichment_prefetch_time:.2f}s')
+    except Exception as e:
+        print(f'[GEOCODE SERVICE ERROR] Failed to prefetch enrichments: {e}')
+        import traceback
+        traceback.print_exc()
+        # Fallback to empty lookup (will trigger API calls if needed)
+        enrichment_lookup = {}
 
     markers: List[Dict[str, Any]] = []
     any_api_calls = False
-
+    
+    enrichment_start = time.time()
     for norm in unique_addrs:
         # Use the first representative row for label/name; multiple ids may share address
         representative = addr_to_rows[norm][0]
@@ -297,9 +334,8 @@ def geocode_markers_for_seller_trade(seller_id: int, trade_id: int) -> Dict[str,
         persisted = None
         used_addr = None
         for r in addr_to_rows[norm]:
-            enr = LlDataEnrichment.objects.filter(seller_raw_data_id=r["id"]).only(
-                "geocode_lat", "geocode_lng", "geocode_used_address"
-            ).first()
+            # Use lookup dict instead of database query
+            enr = enrichment_lookup.get(r["id"])
             if enr and enr.geocode_lat is not None and enr.geocode_lng is not None:
                 try:
                     persisted = (float(enr.geocode_lat), float(enr.geocode_lng))
@@ -385,6 +421,11 @@ def geocode_markers_for_seller_trade(seller_id: int, trade_id: int) -> Dict[str,
         source = "api"
     else:
         source = "db"
+    
+    enrichment_time = time.time() - enrichment_start
+    total_time = time.time() - start_time
+    print(f'[GEOCODE SERVICE] Enrichment loop: {enrichment_time:.2f}s')
+    print(f'[GEOCODE SERVICE] TOTAL TIME: {total_time:.2f}s for {len(markers)} markers')
 
     return {
         "markers": markers,

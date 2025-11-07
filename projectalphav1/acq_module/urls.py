@@ -72,6 +72,17 @@ from .views.view_acq_model import (
     update_acquisition_price,
 )
 
+# Test endpoint to verify Django is responding
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+
+@api_view(['GET'])
+def test_logging(request):
+    print('\n\n=== TEST ENDPOINT CALLED ===')
+    print('Django is receiving requests!')
+    print('=== TEST ENDPOINT END ===\n\n')
+    return Response({'status': 'ok', 'message': 'Django is working!'})
+
 # This defines the URL patterns for the acq_module app.
 urlpatterns = [
     # Asset actions (drop/restore)
@@ -166,4 +177,6 @@ urlpatterns = [
     path('assets/<int:id>/fc-timeline/', AssetFCTimelineView.as_view(), name='api_asset_fc_timeline'),
     # Import seller tape endpoint
     path('import-seller-tape/', import_seller_tape, name='api_import_seller_tape'),
+    # Test endpoint to verify logging
+    path('test-logging/', test_logging, name='api_test_logging'),
 ]

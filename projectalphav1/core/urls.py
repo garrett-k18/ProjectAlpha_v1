@@ -39,7 +39,7 @@ from core.views.crm_api import (
     BrokerViewSet,
     TradingPartnerViewSet,
     LegalViewSet,
-    ServicerViewSet,
+    ServicerViewSet as ServicerCRMViewSet,
 )
 from core.views.view_co_valuations import (
     create_or_update_valuation,
@@ -77,7 +77,7 @@ router.register(r'crm/investors', InvestorViewSet, basename='crm-investors')
 router.register(r'crm/brokers', BrokerViewSet, basename='crm-brokers')
 router.register(r'crm/trading-partners', TradingPartnerViewSet, basename='crm-trading-partners')
 router.register(r'crm/legal', LegalViewSet, basename='crm-legal')
-router.register(r'crm/servicers', ServicerViewSet, basename='crm-servicers')
+router.register(r'crm/servicers', ServicerCRMViewSet, basename='crm-servicers')
 # WHAT: Generic MasterCRM endpoint for creating contacts of any type (agent, contractor, title_company)
 # WHY: Used by CreateCrmContactModal for contact types that don't have dedicated endpoints
 # HOW: Accepts tag parameter in POST body to set contact type, registered LAST as fallback

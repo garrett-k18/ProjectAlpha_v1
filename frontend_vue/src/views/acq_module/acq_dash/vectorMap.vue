@@ -112,10 +112,10 @@ export default {
         // High-visibility marker styling
         markerStyle: {
           initial: {
-            r: 6,
+            r: 4,  // Marker radius (reduced from 6 to 4 for smaller markers)
             fill: '#e83e8c',
             stroke: '#ffffff',
-            'stroke-width': 2,
+            'stroke-width': 1.5,  // Slightly thinner stroke to match smaller size
             'fill-opacity': 1
           },
           hover: {
@@ -179,17 +179,13 @@ export default {
         ? (this.acqStore as any).markers
         : ((this.acqStore as any).markers?.value ?? [])
       const safe = Array.isArray(raw) ? raw : []
-      console.debug('[VectorMap] markersForMap raw data:', { rawCount: safe.length, firstRaw: safe[0] })
       const out = safe
         .map((m: any) => {
           const lat = typeof m?.lat === 'string' ? parseFloat(m.lat) : m?.lat
           const lng = typeof m?.lng === 'string' ? parseFloat(m.lng) : m?.lng
-          const mapped = { latLng: [lat, lng], name: m?.name, id: m?.id }
-          console.debug('[VectorMap] Mapping marker:', { input: m, output: mapped })
-          return mapped
+          return { latLng: [lat, lng], name: m?.name, id: m?.id }
         })
         .filter((mk: any) => Number.isFinite(mk.latLng?.[0]) && Number.isFinite(mk.latLng?.[1]))
-      console.debug('[VectorMap] markersForMap final', { rawCount: safe.length, count: out.length, first: out[0] })
       return out
     },
     /**
@@ -240,8 +236,6 @@ export default {
      * HOW: Cross-reference marker ID with grid rows to get full asset data
      */
     handleMarkerTooltip(event, tooltip, index) {
-      console.log('[VectorMap] ===== handleMarkerTooltip FIRED =====', { event, tooltip, index })
-      
       try {
         // WHAT: Convert index to number (jsVectorMap passes it as string)
         // WHY: Array lookup requires numeric index
@@ -253,23 +247,10 @@ export default {
         const marker = this.markersForMap[numericIndex]
         const markerId = marker?.id
         
-        console.log('[VectorMap] Numeric index:', numericIndex)
-        console.log('[VectorMap] Our marker data:', marker)
-        console.log('[VectorMap] Marker ID:', markerId)
-        
-        // WHAT: Simple test - just show the marker name first
-        const testText = `TEST TOOLTIP\nMarker ${index}\nName: ${marker?.name || 'Unknown'}`
-        tooltip.text(testText)  // IMPORTANT: tooltip.text is a METHOD, not a property!
-        console.log('[VectorMap] Set tooltip text to:', testText)
-        
         // WHAT: Find the corresponding row in grid store using asset_hub_id
         const rows = Array.isArray((this.gridStore as any).rows)
           ? (this.gridStore as any).rows
           : ((this.gridStore as any).rows?.value ?? [])
-        
-        console.log('[VectorMap] Available rows:', rows.length)
-        console.log('[VectorMap] First row sample:', rows[0])
-        console.log('[VectorMap] Looking for marker ID:', markerId, 'Type:', typeof markerId)
         
         const asset = rows.find((row: any) => {
           const rowId = row?.id ?? row?.asset_hub_id
@@ -380,8 +361,6 @@ export default {
      */
     handleMarkerClick(event, index) {
       try {
-        console.log('[VectorMap] handleMarkerClick called', { event, index })
-        
         // WHAT: Convert index to number (jsVectorMap passes it as string)
         // WHY: Array lookup requires numeric index
         const numericIndex = typeof index === 'string' ? parseInt(index, 10) : index
@@ -389,30 +368,21 @@ export default {
         // WHAT: Get the marker data to find corresponding asset
         const markers = this.markersForMap
         if (!markers || numericIndex >= markers.length) {
-          console.warn('[VectorMap] handleMarkerClick: invalid index', numericIndex, 'markers length:', markers?.length)
           return
         }
         
         const marker = markers[numericIndex]
         const markerId = marker?.id
         
-        console.log('[VectorMap] Marker clicked:', { markerId, marker })
-        console.log('[VectorMap] Marker keys:', marker ? Object.keys(marker) : 'no marker')
-        console.log('[VectorMap] Marker.id value:', marker?.id, 'Type:', typeof marker?.id)
-        
         // WHAT: Find the corresponding row in grid store
         const rows = Array.isArray((this.gridStore as any).rows)
           ? (this.gridStore as any).rows
           : ((this.gridStore as any).rows?.value ?? [])
         
-        console.log('[VectorMap] Searching in rows:', rows.length)
-        
         const asset = rows.find((row: any) => {
           const rowId = row?.id ?? row?.asset_hub_id
           return rowId && rowId === markerId
         })
-        
-        console.log('[VectorMap] Found asset:', !!asset, asset)
         
         if (asset) {
           // WHAT: Format address the same way the grid does

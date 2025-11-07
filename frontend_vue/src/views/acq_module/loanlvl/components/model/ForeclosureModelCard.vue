@@ -267,11 +267,11 @@
               <div class="d-flex flex-column gap-2">
               <div class="d-flex align-items-baseline gap-2">
                 <small class="text-muted d-block" style="min-width: 140px;">Broker Fee:</small>
-                <span class="fw-bold text-dark">{{ formatCurrency(liveBrokerFee) }}</span>
+                <span class="fw-bold text-dark">{{ formatCurrency(timelineData.acq_broker_fees || 0) }}</span>
               </div>
               <div class="d-flex align-items-baseline gap-2">
                 <small class="text-muted d-block" style="min-width: 140px;">Other Fees:</small>
-                <span class="fw-bold text-dark">{{ formatCurrency(liveOtherFee) }}</span>
+                <span class="fw-bold text-dark">{{ formatCurrency(timelineData.acq_other_fees || 0) }}</span>
               </div>
               <div class="d-flex align-items-baseline gap-2">
                 <small class="text-muted d-block" style="min-width: 140px;">Legal Cost:</small>
@@ -418,6 +418,13 @@ const timelineData = reactive<{
   taxes: number | null
   insurance: number | null
   legal_cost: number | null
+  // WHAT: Monthly rates for carry cost recalculation
+  monthly_tax: number | null
+  monthly_insurance: number | null
+  // WHAT: Servicer fee components for servicing fee recalculation
+  board_fee: number | null
+  onetwentyday_fee: number | null
+  fc_fee: number | null
   // WHAT: Liquidation Expense values from backend models
   servicer_liquidation_fee: number | null
   am_liquidation_fee: number | null
@@ -456,6 +463,11 @@ const timelineData = reactive<{
   taxes: null,
   insurance: null,
   legal_cost: null,
+  monthly_tax: null,
+  monthly_insurance: null,
+  board_fee: null,
+  onetwentyday_fee: null,
+  fc_fee: null,
   servicer_liquidation_fee: null,
   am_liquidation_fee: null,
   total_costs: null,
@@ -526,6 +538,39 @@ const expenses = reactive({
   legalCost: 0
 })
 
+// WHAT: Function to recalculate carry costs based on current duration
+// WHY: Update carry costs instantly when duration changes
+function recalculateCarryCosts() {
+  const totalMonths = timelineData.total_timeline_months || 0
+  const servicingMonths = timelineData.servicing_transfer_months || 0
+  const foreclosureMonths = timelineData.foreclosure_months || 0
+  
+  // WHAT: Recalculate taxes (monthly_tax * total_timeline_months)
+  if (timelineData.monthly_tax && totalMonths > 0) {
+    timelineData.taxes = timelineData.monthly_tax * totalMonths
+    expenses.taxes = timelineData.taxes
+  }
+  
+  // WHAT: Recalculate insurance (monthly_insurance * total_timeline_months)
+  if (timelineData.monthly_insurance && totalMonths > 0) {
+    timelineData.insurance = timelineData.monthly_insurance * totalMonths
+    expenses.insurance = timelineData.insurance
+  }
+  
+  // WHAT: Recalculate servicing fees (board_fee + onetwentyday_fee*servicing + fc_fee*foreclosure)
+  if (timelineData.board_fee !== null && timelineData.onetwentyday_fee !== null && timelineData.fc_fee !== null) {
+    let servicingFees = timelineData.board_fee || 0
+    servicingFees += (timelineData.onetwentyday_fee || 0) * servicingMonths
+    servicingFees += (timelineData.fc_fee || 0) * foreclosureMonths
+    
+    timelineData.servicing_fees = servicingFees
+    expenses.servicingFees = servicingFees
+  }
+  
+  // WHAT: Legal cost doesn't change with duration, keep as-is
+  expenses.legalCost = timelineData.legal_cost ?? 0
+}
+
 // WHAT: Watch timelineData expense fields and sync to expenses object
 // WHY: Update expenses when API data is fetched
 watch(() => [
@@ -560,24 +605,10 @@ const fcData = computed(() => {
   } : null
 })
 
-// WHAT: Computed property to display total costs with live acquisition price updates
-// WHY: Total costs includes broker/other fees which depend on acquisition price, so needs to update in real-time
-// HOW: Start with backend total_costs, then subtract old broker/other fees and add live ones
+// WHAT: Display total costs directly from backend
+// WHY: Backend calculates everything, frontend just displays
 const calculatedTotalCosts = computed(() => {
-  // WHAT: Get base total costs from backend
-  const baseTotalCosts = timelineData.total_costs || 0
-  
-  // WHAT: Subtract the backend-calculated broker and other fees (which used old acquisition price)
-  const oldBrokerFee = timelineData.acq_broker_fees || 0
-  const oldOtherFee = timelineData.acq_other_fees || 0
-  
-  // WHAT: Add the live-calculated broker and other fees (using current acquisition price)
-  const newBrokerFee = liveBrokerFee.value || 0
-  const newOtherFee = liveOtherFee.value || 0
-  
-  // WHAT: Calculate adjusted total costs
-  // WHY: Replace old fees with new fees to reflect current acquisition price
-  return baseTotalCosts - oldBrokerFee - oldOtherFee + newBrokerFee + newOtherFee
+  return timelineData.total_costs || 0
 })
 
 // WHAT: Computed property to display net PL with real-time updates
@@ -697,23 +728,27 @@ async function adjustFcDuration(change: number) {
   const currentOverride = timelineData.fc_duration_override_months || 0
   const newOverride = currentOverride + change
 
-  // WHAT: Save the new override value to backend
-  // WHY: Persist user adjustments
-  try {
-    loadingTimelines.value = true
-    await http.post(`/acq/assets/${props.assetId}/fc-duration-override/`, {
-      fc_duration_override_months: newOverride
-    })
+  // WHAT: Update local state immediately for instant feedback
+  // WHY: User sees change instantly without waiting for backend
+  const baseMonths = timelineData.foreclosure_months_base || 0
+  timelineData.fc_duration_override_months = newOverride
+  timelineData.foreclosure_months = baseMonths + newOverride
+  
+  // WHAT: Update total timeline (servicing + foreclosure)
+  const servicingMonths = timelineData.servicing_transfer_months || 0
+  timelineData.total_timeline_months = servicingMonths + timelineData.foreclosure_months
 
-    // WHAT: Refresh timeline data to get updated values
-    // WHY: Ensure UI reflects backend-calculated totals
-    await fetchTimelineData()
-  } catch (error) {
+  // WHAT: Recalculate carry costs with new duration
+  // WHY: Update taxes, insurance, and servicing fees instantly
+  recalculateCarryCosts()
+
+  // WHAT: Save the new override value to backend (fire and forget)
+  // WHY: Persist user adjustments without blocking
+  http.post(`/acq/assets/${props.assetId}/fc-duration-override/`, {
+    fc_duration_override_months: newOverride
+  }).catch(error => {
     console.error('[ForeclosureModelCard] Failed to update FC duration override:', error)
-    // TODO: Show user-friendly error message
-  } finally {
-    loadingTimelines.value = false
-  }
+  })
 }
 
 // WHAT: Function to fetch timeline data from backend API
@@ -726,7 +761,10 @@ async function fetchTimelineData() {
   loadingTimelines.value = true
   try {
     const response = await http.get(`/acq/assets/${props.assetId}/fc-model-sums/`)
+    console.log('[ForeclosureModelCard] Timeline API Response:', response.data)
+    console.log('[ForeclosureModelCard] foreclosure_months from API:', response.data.foreclosure_months)
     Object.assign(timelineData, response.data)
+    console.log('[ForeclosureModelCard] timelineData after assign:', timelineData)
     
     // WHAT: Sync acquisition price to local state
     // WHY: Allow editing in the input field

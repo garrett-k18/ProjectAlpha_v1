@@ -7,6 +7,7 @@ WHERE: /api/acq/assets/<asset_id>/model-recommendations/
 HOW: Uses ModelRecommendationService to calculate probabilities and reasons
 """
 
+import logging
 from django.conf import settings
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -19,6 +20,9 @@ from ..services.serv_acq_modelRecs import ModelRecommendationService
 from ..services.serv_acq_FCModel import get_fc_timeline_sums, get_fc_expense_values
 from ..services.serv_acq_REOModel import get_reo_timeline_sums, get_reo_expense_values
 from ..models.model_acq_assumptions import LoanLevelAssumption
+
+# Logger for model recommendation and timeline views
+logger = logging.getLogger(__name__)
 
 
 # WHAT: Helper to get permission classes based on DEBUG setting
@@ -201,12 +205,17 @@ def get_fc_model_timeline_sums(request, asset_id):
     # WHAT: Get asset by primary key (which is asset_hub in this model)
     # WHY: SellerRawData uses asset_hub as its primary key, so pk lookup is most explicit
     # HOW: get_object_or_404 raises 404 if not found
+    print(f'\n\n=== FC MODEL SUMS ENDPOINT CALLED FOR ASSET {asset_id} ===\n')
     asset = get_object_or_404(SellerRawData, pk=asset_id)
+    print(f'Asset found: hub_id={asset.asset_hub_id}, state={asset.state}, sellertape_id={asset.sellertape_id}\n')
+    
+    logger.info(f'[FC MODEL SUMS] Request for asset_id={asset_id}, asset_hub_id={asset.asset_hub_id}, state={asset.state}')
     
     try:
         # WHAT: Get timeline sums using service
         # WHY: Fetch timeline duration data
         timeline_sums = get_fc_timeline_sums(asset.asset_hub_id)
+        logger.info(f'[FC MODEL SUMS] Timeline sums: {timeline_sums}')
         
         # WHAT: Get expense values using service, passing timeline durations
         # WHY: Fetch expense data from models, multiplied by durations
@@ -216,14 +225,17 @@ def get_fc_model_timeline_sums(request, asset_id):
             servicing_transfer_months=timeline_sums.get('servicing_transfer_months'),
             foreclosure_months=timeline_sums.get('foreclosure_months')
         )
+        logger.info(f'[FC MODEL SUMS] Expense values: {expense_values}')
         
         # WHAT: Merge timeline and expense data into single response
         # WHY: Frontend expects all FC model data in one endpoint
         response_data = {**timeline_sums, **expense_values}
+        logger.info(f'[FC MODEL SUMS] Final response: {response_data}')
         
         return Response(response_data, status=status.HTTP_200_OK)
     
     except Exception as e:
+        logger.exception(f'[FC MODEL SUMS] Exception for asset_id={asset_id}: {e}')
         return Response(
             {
                 'error': 'Failed to calculate FC timeline sums and expense values',

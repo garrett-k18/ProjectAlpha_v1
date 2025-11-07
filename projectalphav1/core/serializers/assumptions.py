@@ -120,7 +120,9 @@ class ServicerSerializer(serializers.ModelSerializer):
     thirdpartyFee = serializers.DecimalField(source='thirdparty_fee', max_digits=10, decimal_places=2, required=False, allow_null=True)
     reoFee = serializers.DecimalField(source='reo_fee', max_digits=10, decimal_places=2, required=False, allow_null=True)
     reoDays = serializers.IntegerField(source='reo_days', required=False, allow_null=True)
-    liqfeePct = serializers.DecimalField(source='liqfee_pct', max_digits=10, decimal_places=2, required=False, allow_null=True)
+    # WHAT: Allow 2 decimal places for percentage input (e.g., 1.50 for 1.50%)
+    # WHY: User enters percentage with 2 decimals, backend converts to 4 decimal storage (0.0150)
+    liqfeePct = serializers.DecimalField(source='liqfee_pct', max_digits=10, decimal_places=4, required=False, allow_null=True, coerce_to_string=False)
     liqfeeFlat = serializers.DecimalField(source='liqfee_flat', max_digits=10, decimal_places=2, required=False, allow_null=True)
     
     class Meta:
@@ -132,3 +134,34 @@ class ServicerSerializer(serializers.ModelSerializer):
             'modFee', 'dilFee', 'thirdpartyFee', 'reoFee', 'reoDays',
             'liqfeePct', 'liqfeeFlat'
         ]
+    
+    def validate_liqfee_pct(self, value):
+        """
+        WHAT: Convert percentage input to decimal for storage
+        WHY: Frontend enters as percentage (1.5 for 1.5%), backend stores as decimal (0.015)
+        HOW: Divide by 100 to convert percentage to decimal
+        
+        Example: User enters 1.5 (meaning 1.5%) -> stored as 0.015 in database
+        """
+        if value is not None:
+            from decimal import Decimal
+            # WHAT: Convert percentage to decimal by dividing by 100
+            # WHY: Database stores as decimal (0.015), frontend displays as percent (1.5)
+            return Decimal(str(value)) / Decimal('100')
+        return value
+    
+    def to_representation(self, instance):
+        """
+        WHAT: Convert decimal back to percentage for display
+        WHY: Database stores 0.0150, frontend wants to show 1.50
+        HOW: Multiply by 100 when sending to frontend, preserve 2 decimal places
+        """
+        data = super().to_representation(instance)
+        # WHAT: Convert liqfee_pct from decimal to percentage for frontend display
+        # WHY: Keep 2 decimal places (e.g., 0.0150 → 1.50, not 1.5)
+        if data.get('liqfeePct') is not None:
+            from decimal import Decimal
+            # WHAT: Multiply by 100 and quantize to 2 decimal places
+            percentage_value = Decimal(str(data['liqfeePct'])) * Decimal('100')
+            data['liqfeePct'] = float(percentage_value.quantize(Decimal('0.01')))
+        return data

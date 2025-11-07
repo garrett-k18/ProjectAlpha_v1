@@ -195,7 +195,16 @@
               <h6 class="text-uppercase text-muted fw-semibold mb-2">Liquidation Fees</h6>
               <div class="mb-1">
                 <label class="form-label form-label-sm text-muted">Liquidation Fee (%)</label>
-                <input type="number" class="form-control form-control-sm" v-model.number="form.liqfeePct" @input="markChanged" min="0" step="0.01" />
+                <input 
+                  type="text" 
+                  class="form-control form-control-sm" 
+                  :value="formatPercentage(form.liqfeePct)" 
+                  @input="onPercentageInput($event, 'liqfeePct')"
+                  @blur="formatPercentageOnBlur($event, 'liqfeePct')"
+                  inputmode="decimal"
+                  placeholder="e.g., 1.50" 
+                />
+                <small class="form-text text-muted">Enter as percentage (e.g., 1.50 for 1.5%)</small>
               </div>
               <div class="mb-1">
                 <label class="form-label form-label-sm text-muted">Liquidation Fee (Flat)</label>
@@ -332,6 +341,47 @@ function onCurrency0Input(evt: Event, key: keyof ServicerDto) {
   ;(form as any)[key] = num as any
   el.value = num !== null ? formatCurrency0(num) : ''
   markChanged()
+}
+
+// WHAT: Format percentage with exactly 2 decimal places
+// WHY: Display percentage like "1.50" not "1.5"
+// HOW: Use toFixed(2) to ensure trailing zeros
+function formatPercentage(v: number | null | undefined): string {
+  if (v === null || v === undefined || isNaN(Number(v))) return ''
+  try {
+    return Number(v).toFixed(2)
+  } catch {
+    return String(v)
+  }
+}
+
+// WHAT: Handle percentage input, allow decimals
+// WHY: User can enter values like 1.5, 1.50, 2.25, etc.
+// HOW: Allow digits and one decimal point
+function onPercentageInput(evt: Event, key: keyof ServicerDto) {
+  const el = evt.target as HTMLInputElement
+  const raw = el.value || ''
+  // WHAT: Keep only digits and one decimal point
+  let cleaned = raw.replace(/[^0-9.]/g, '')
+  // WHAT: Ensure only one decimal point
+  const parts = cleaned.split('.')
+  if (parts.length > 2) {
+    cleaned = parts[0] + '.' + parts.slice(1).join('')
+  }
+  const num = cleaned ? parseFloat(cleaned) : null
+  ;(form as any)[key] = num as any
+  markChanged()
+}
+
+// WHAT: Format percentage on blur to ensure 2 decimal places
+// WHY: When user leaves field, show formatted value like "1.50"
+// HOW: Update input value on blur event
+function formatPercentageOnBlur(evt: Event, key: keyof ServicerDto) {
+  const el = evt.target as HTMLInputElement
+  const val = (form as any)[key]
+  if (val !== null && val !== undefined && !isNaN(Number(val))) {
+    el.value = Number(val).toFixed(2)
+  }
 }
 
 // Save handler: PATCH selected servicer with form payload

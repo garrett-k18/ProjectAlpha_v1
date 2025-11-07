@@ -67,8 +67,17 @@ def update_trade_level_assumptions(request, trade_id):
         # Get the trade object
         trade = Trade.objects.get(pk=trade_id)
         
-        # Get or create TradeLevelAssumption for the trade
-        assumption, _ = TradeLevelAssumption.objects.get_or_create(trade=trade)
+        # WHAT: Get or create TradeLevelAssumption for the trade
+        # WHY: Handle cases where duplicates exist (use first record, log warning)
+        # HOW: Try get_or_create first, fall back to filter().first() if multiple exist
+        try:
+            assumption, _ = TradeLevelAssumption.objects.get_or_create(trade=trade)
+        except TradeLevelAssumption.MultipleObjectsReturned:
+            # WHAT: Handle duplicate TradeLevelAssumption records
+            # WHY: Database has duplicate records for this trade (data integrity issue)
+            # HOW: Use first record and log warning
+            logger.warning(f"Multiple TradeLevelAssumption records found for trade ID {trade_id}. Using first record. Consider cleaning up duplicates.")
+            assumption = TradeLevelAssumption.objects.filter(trade=trade).first()
 
         serializer = TradeLevelAssumptionSerializer(
             instance=assumption,

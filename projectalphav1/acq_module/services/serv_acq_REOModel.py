@@ -58,7 +58,9 @@ def get_reo_timeline_sums(asset_hub_id: int, reference_date: Optional[date] = No
     # WHY: Need trade for servicing transfer date, state for REO marketing duration
     raw_data = SellerRawData.objects.filter(asset_hub_id=asset_hub_id).select_related('trade').first()
     
-    servicing_transfer_months = None
+    # WHAT: Default to 0 instead of None so calculations still work
+    # WHY: Returning None breaks frontend calculations; 0 is a valid "no duration" value
+    servicing_transfer_months = 0
     
     if raw_data and raw_data.trade:
         # WHAT: Get TradeLevelAssumption for this trade
@@ -77,12 +79,11 @@ def get_reo_timeline_sums(asset_hub_id: int, reference_date: Optional[date] = No
                     servicing_transfer_months = round(days_diff / 30.44)
                 else:
                     servicing_transfer_months = 1
-            elif transfer_date:
-                days_diff = (reference_date - transfer_date).days
-                if days_diff >= 0:
-                    servicing_transfer_months = round(days_diff / 30.44)
-                else:
-                    servicing_transfer_months = 0
+            elif not trade_assumption.settlement_date and trade_assumption.servicer:
+                # WHAT: If no settlement date but servicer exists, use servicer's default duration
+                # WHY: Still provide a value for calculations
+                if trade_assumption.servicer.servicing_transfer_duration:
+                    servicing_transfer_months = trade_assumption.servicer.servicing_transfer_duration
     
     # WHAT: Get FC timeline data using existing function
     # WHY: REO scenario includes full foreclosure process
@@ -220,6 +221,28 @@ def get_reo_timeline_sums(asset_hub_id: int, reference_date: Optional[date] = No
     }
 
 
+# HYBRID CALCULATION ARCHITECTURE - REO Expense Values
+# 
+# PURPOSE: Provides both authoritative backend calculations AND monthly rates for instant frontend recalculation
+# PATTERN: Industry standard used by Bloomberg Terminal, Salesforce, Banking platforms
+# 
+# BACKEND RESPONSIBILITIES:
+# - Complex business logic and validation
+# - Authoritative calculations for audit/compliance  
+# - Database queries and data aggregation
+# - Monthly rate calculations from property data
+# 
+# FRONTEND RESPONSIBILITIES:
+# - Instant UI feedback on duration changes (+/- buttons)
+# - Real-time recalculation using monthly rates
+# - User experience optimization
+# 
+# BENEFITS:
+# - Instant UX: No 3-second waits for simple interactions
+# - Backend Authority: All permanent calculations server-side
+# - Reduced Load: Avoid unnecessary API calls
+# - Data Consistency: Single source of truth + calculation components
+# - Fallback Safety: Frontend failures don't break backend values
 def get_reo_expense_values(
     asset_hub_id: int, 
     total_timeline_months: Optional[int] = None,
@@ -438,15 +461,22 @@ def get_reo_expense_values(
             print(f"Total Monthly Holding Cost: ${monthly_holding:,.2f} (HOA: ${monthly_hoa:,.2f} + Utilities: ${monthly_utilities:,.2f} + Prop Pres: ${monthly_property_pres:,.2f})")
             
             # TODO: Add eviction duration to REO holding period calculation
-            # WHAT: Calculate total REO holding duration (renovation + marketing only for now)
-            # WHY: Holding costs apply during REO ownership period (eviction removed for now)
-            reo_holding_duration = (reo_renovation_months or 0) + (reo_marketing_months or 0)
-            print(f"REO Holding Duration: {reo_holding_duration} months (Renovation: {reo_renovation_months or 0} + Marketing: {reo_marketing_months or 0})")
+            # WHAT: Calculate REO holding duration (MARKETING ONLY - not renovation)
+            # WHY: Holding costs only accrue during marketing phase when property is actively being sold
+            # NOTE: Renovation is done by buyer/investor, not while holding for sale
+            reo_holding_duration = reo_marketing_months or 0
+            print(f"REO Holding Duration: {reo_holding_duration} months (Marketing ONLY - not renovation)")
             
-            # WHAT: Multiply monthly holding cost by REO-specific duration
+            # WHAT: Multiply monthly holding cost by marketing duration only
             reo_holding_costs = monthly_holding * Decimal(reo_holding_duration)
-            print(f"REO Holding Costs: ${monthly_holding:,.2f}/month * {reo_holding_duration} months = ${reo_holding_costs:,.2f}")
+            print(f"REO Holding Costs: ${monthly_holding:,.2f}/month * {reo_holding_duration} marketing months = ${reo_holding_costs:,.2f}")
             print(f"=== END REO HOLDING COSTS ===\n")
+            
+            # WHAT: Store monthly rates for frontend recalculation (individual components)
+            monthly_reo_holding = monthly_holding
+            monthly_hoa_rate = monthly_hoa
+            monthly_utilities_rate = monthly_utilities  
+            monthly_property_pres_rate = monthly_property_pres
             
         except Exception as e:
             print(f"ERROR calculating REO holding costs: {str(e)}")
@@ -592,18 +622,19 @@ def get_reo_expense_values(
     # WHAT: Use As-Is proceeds as default (frontend will toggle between As-Is and ARV)
     expected_proceeds = expected_proceeds_asis
     
-    # WHAT: Calculate broker fees
-    # WHY: Broker fees for REO sale calculated as percentage from state reference table × expected proceeds
+    # WHAT: Calculate broker fees for As-Is scenario
+    # WHY: Broker fees for REO sale calculated as liq_broker_cc_pct from trade assumptions × expected proceeds
+    # HOW: Use liq_broker_cc_pct from TradeLevelAssumption, multiply by As-Is proceeds
     broker_fees = Decimal('0.0')
-    if raw_data.state and expected_proceeds > 0:
+    if raw_data.trade and expected_proceeds > 0:
         try:
-            state_ref = StateReference.objects.filter(state_code=raw_data.state).first()
-            if state_ref and state_ref.broker_closing_cost_fees_avg:
-                broker_fee_pct = state_ref.broker_closing_cost_fees_avg
-                broker_fees = broker_fee_pct * expected_proceeds
-                print(f"Broker Fees (State {raw_data.state}): {broker_fee_pct} × ${expected_proceeds:,.2f} = ${broker_fees:,.2f}")
+            trade_assumption = TradeLevelAssumption.objects.filter(trade=raw_data.trade).first()
+            if trade_assumption and trade_assumption.liq_broker_cc_pct:
+                broker_fee_pct = trade_assumption.liq_broker_cc_pct
+                broker_fees = (broker_fee_pct * expected_proceeds).quantize(Decimal('0.01'))
+                print(f"Broker Fees (As-Is): {broker_fee_pct} × ${expected_proceeds:,.2f} = ${broker_fees:,.2f}")
         except Exception as e:
-            print(f"ERROR getting broker fees: {str(e)}")
+            print(f"ERROR calculating broker fees: {str(e)}")
     
     # WHAT: Calculate servicer liquidation fee
     # WHY: Servicer fee for completing the REO sale
@@ -651,6 +682,8 @@ def get_reo_expense_values(
         print(f"ERROR calculating acquisition price: {str(e)}")
     
     # WHAT: Get flat acquisition costs and percentages from trade
+    # WHY: Frontend needs percentages to recalculate fees when acquisition price changes
+    # HOW: Use liq_broker_cc_pct (percentage) and acq_other_costs (percentage) from trade assumptions
     acq_broker_fee_pct = Decimal('0.0')
     acq_other_fee_pct = Decimal('0.0')
     if raw_data.trade:
@@ -659,49 +692,45 @@ def get_reo_expense_values(
             acq_legal = trade_assumption.acq_legal_cost or Decimal('0.0')
             acq_dd = trade_assumption.acq_dd_cost or Decimal('0.0')
             acq_tax_title = trade_assumption.acq_tax_title_cost or Decimal('0.0')
-            # WHAT: Store percentages for frontend live calculation
+            # WHAT: Store percentages for frontend display
+            # WHY: Frontend may need to show the percentage
             acq_broker_fee_pct = trade_assumption.acq_broker_fees or Decimal('0.0')
             acq_other_fee_pct = trade_assumption.acq_other_costs or Decimal('0.0')
     
-    # WHAT: Calculate AM liquidation fee
+    # WHAT: Calculate AM liquidation fee for As-Is scenario
     # WHY: Asset manager's fee at REO liquidation
-    # HOW: Use MAX(flat fee, percentage fee × REO proceeds) - same logic as servicer liq fee
+    # HOW: Straight percentage calculation using liq_am_fee_pct from trade assumptions × expected proceeds
     am_liquidation_fee = Decimal('0.0')
-    if raw_data.trade:
+    if raw_data.trade and expected_proceeds > 0:
         try:
             trade_assumption = TradeLevelAssumption.objects.filter(trade=raw_data.trade).first()
-            if trade_assumption and trade_assumption.servicer:
-                servicer = trade_assumption.servicer
-                
-                # WHAT: Get flat fee option
-                flat_fee = servicer.liqfee_flat or Decimal('0.0')
-                
-                # WHAT: Get percentage fee option
-                pct_fee = Decimal('0.0')
-                if servicer.liqfee_pct and expected_proceeds > 0:
-                    pct_fee = (servicer.liqfee_pct * expected_proceeds).quantize(Decimal('0.01'))
-                
-                # WHAT: Take the maximum of the two options
-                am_liquidation_fee = max(flat_fee, pct_fee)
-                print(f"AM Liquidation Fee: MAX(${flat_fee:,.2f}, ${pct_fee:,.2f}) = ${am_liquidation_fee:,.2f}")
+            if trade_assumption and trade_assumption.liq_am_fee_pct:
+                # WHAT: Simple percentage calculation (no MAX, no flat fee)
+                # WHY: AM fee is always a percentage of exit proceeds
+                am_fee_pct = trade_assumption.liq_am_fee_pct
+                am_liquidation_fee = (am_fee_pct * expected_proceeds).quantize(Decimal('0.01'))
+                print(f"AM Liquidation Fee (As-Is): {am_fee_pct} × ${expected_proceeds:,.2f} = ${am_liquidation_fee:,.2f}")
         except Exception as e:
             print(f"ERROR calculating AM liquidation fee: {str(e)}")
     
     # WHAT: Calculate fees for Rehab scenario (based on ARV proceeds)
     # WHY: Liquidation fees in Rehab are based on higher ARV proceeds, not As-Is
+    # HOW: Use same liq_broker_cc_pct but multiply by ARV proceeds instead
     broker_fees_arv = Decimal('0.0')
     servicer_liquidation_fee_arv = Decimal('0.0')
     am_liquidation_fee_arv = Decimal('0.0')
     
     if expected_proceeds_arv > 0:
         # WHAT: Recalculate broker fees for ARV
-        if raw_data.state:
+        # WHY: Same liq_broker_cc_pct percentage but applied to higher ARV proceeds
+        # HOW: Use liq_broker_cc_pct from TradeLevelAssumption × ARV proceeds
+        if raw_data.trade:
             try:
-                state_ref = StateReference.objects.filter(state_code=raw_data.state).first()
-                if state_ref and state_ref.broker_closing_cost_fees_avg:
-                    broker_fee_pct = state_ref.broker_closing_cost_fees_avg
-                    broker_fees_arv = broker_fee_pct * expected_proceeds_arv
-                    print(f"Broker Fees ARV (State {raw_data.state}): {broker_fee_pct} × ${expected_proceeds_arv:,.2f} = ${broker_fees_arv:,.2f}")
+                trade_assumption = TradeLevelAssumption.objects.filter(trade=raw_data.trade).first()
+                if trade_assumption and trade_assumption.liq_broker_cc_pct:
+                    broker_fee_pct = trade_assumption.liq_broker_cc_pct
+                    broker_fees_arv = (broker_fee_pct * expected_proceeds_arv).quantize(Decimal('0.01'))
+                    print(f"Broker Fees (ARV): {broker_fee_pct} × ${expected_proceeds_arv:,.2f} = ${broker_fees_arv:,.2f}")
             except Exception as e:
                 print(f"ERROR calculating ARV broker fees: {str(e)}")
         
@@ -719,91 +748,28 @@ def get_reo_expense_values(
                 print(f"ERROR calculating ARV servicer liquidation fee: {str(e)}")
         
         # WHAT: Recalculate AM liquidation fee for ARV
+        # WHY: Same liq_am_fee_pct percentage but applied to higher ARV proceeds
+        # HOW: Simple percentage calculation using liq_am_fee_pct × ARV proceeds
         if raw_data.trade:
             try:
                 trade_assumption = TradeLevelAssumption.objects.filter(trade=raw_data.trade).first()
-                if trade_assumption and trade_assumption.servicer:
-                    servicer = trade_assumption.servicer
-                    flat_fee = servicer.liqfee_flat or Decimal('0.0')
-                    pct_fee = (servicer.liqfee_pct * expected_proceeds_arv).quantize(Decimal('0.01')) if servicer.liqfee_pct else Decimal('0.0')
-                    am_liquidation_fee_arv = max(flat_fee, pct_fee)
-                    print(f"AM Liquidation Fee ARV: MAX(${flat_fee:,.2f}, ${pct_fee:,.2f}) = ${am_liquidation_fee_arv:,.2f}")
+                if trade_assumption and trade_assumption.liq_am_fee_pct:
+                    # WHAT: Simple percentage calculation (no MAX, no flat fee)
+                    am_fee_pct = trade_assumption.liq_am_fee_pct
+                    am_liquidation_fee_arv = (am_fee_pct * expected_proceeds_arv).quantize(Decimal('0.01'))
+                    print(f"AM Liquidation Fee (ARV): {am_fee_pct} × ${expected_proceeds_arv:,.2f} = ${am_liquidation_fee_arv:,.2f}")
             except Exception as e:
                 print(f"ERROR calculating ARV AM liquidation fee: {str(e)}")
     
-    # WHAT: Calculate total costs for As-Is scenario
-    # WHY: Sum all expenses including trashout (no renovation cost)
-    total_costs_asis = (
-        acq_broker_fees + acq_other_fees + acq_legal + acq_dd + acq_tax_title +
-        servicing_fees + taxes + insurance + legal_cost + reo_holding_costs + trashout_cost +
-        broker_fees + servicer_liquidation_fee + am_liquidation_fee
-    )
-    print(f"\nTotal Costs (As-Is): ${total_costs_asis:,.2f}")
-    
-    # WHAT: Calculate total costs for Rehab scenario
-    # WHY: Sum all expenses including renovation cost (no trashout), using ARV-based fees
-    total_costs_rehab = (
-        acq_broker_fees + acq_other_fees + acq_legal + acq_dd + acq_tax_title +
-        servicing_fees + taxes + insurance + legal_cost + reo_holding_costs + renovation_cost +
-        broker_fees_arv + servicer_liquidation_fee_arv + am_liquidation_fee_arv
-    )
-    print(f"Total Costs (Rehab): ${total_costs_rehab:,.2f}")
-    
-    # WHAT: Default to As-Is for backward compatibility
-    total_costs = total_costs_asis
-    
-    # WHAT: Calculate metrics for As-Is scenario
-    net_pl_asis = None
-    moic_asis = None
-    annualized_roi_asis = None
-    
-    if expected_proceeds_asis is not None and acquisition_price is not None:
-        net_pl_asis = expected_proceeds_asis - total_costs_asis - acquisition_price
-        print(f"\nNet PL (As-Is): ${expected_proceeds_asis:,.2f} - ${total_costs_asis:,.2f} - ${acquisition_price:,.2f} = ${net_pl_asis:,.2f}")
-        
-        total_outflows_asis = acquisition_price + total_costs_asis
-        if total_outflows_asis > 0:
-            moic_asis = expected_proceeds_asis / total_outflows_asis
-            print(f"MOIC (As-Is): ${expected_proceeds_asis:,.2f} / ${total_outflows_asis:,.2f} = {moic_asis:.2f}x")
-        
-        if total_timeline_months and total_timeline_months > 0:
-            gross_cost_asis = acquisition_price + total_costs_asis
-            if gross_cost_asis > 0:
-                return_ratio = net_pl_asis / gross_cost_asis
-                growth_factor = float(return_ratio) + 1.0
-                exponent = 12.0 / float(total_timeline_months)
-                annualized_roi_asis = (growth_factor ** exponent) - 1.0
-                print(f"Annualized ROI (As-Is): {annualized_roi_asis:.4f} ({annualized_roi_asis * 100:.2f}%)")
-    
-    # WHAT: Calculate metrics for Rehab scenario
-    net_pl_rehab = None
-    moic_rehab = None
-    annualized_roi_rehab = None
-    
-    if expected_proceeds_arv is not None and acquisition_price is not None:
-        net_pl_rehab = expected_proceeds_arv - total_costs_rehab - acquisition_price
-        print(f"\nNet PL (Rehab): ${expected_proceeds_arv:,.2f} - ${total_costs_rehab:,.2f} - ${acquisition_price:,.2f} = ${net_pl_rehab:,.2f}")
-        
-        total_outflows_rehab = acquisition_price + total_costs_rehab
-        if total_outflows_rehab > 0:
-            moic_rehab = expected_proceeds_arv / total_outflows_rehab
-            print(f"MOIC (Rehab): ${expected_proceeds_arv:,.2f} / ${total_outflows_rehab:,.2f} = {moic_rehab:.2f}x")
-        
-        # WHAT: Rehab scenario uses different total duration (includes renovation)
-        if total_timeline_months and total_timeline_months > 0:
-            gross_cost_rehab = acquisition_price + total_costs_rehab
-            if gross_cost_rehab > 0:
-                return_ratio = net_pl_rehab / gross_cost_rehab
-                growth_factor = float(return_ratio) + 1.0
-                exponent = 12.0 / float(total_timeline_months)
-                annualized_roi_rehab = (growth_factor ** exponent) - 1.0
-                print(f"Annualized ROI (Rehab): {annualized_roi_rehab:.4f} ({annualized_roi_rehab * 100:.2f}%)")
-    
-    # WHAT: Default to As-Is values for backward compatibility
-    total_costs = total_costs_asis
-    net_pl = net_pl_asis
-    moic = moic_asis
-    annualized_roi = annualized_roi_asis
+    # WHAT: Backend does NOT calculate Total Costs, Net PL, MOIC, or Annualized ROI
+    # WHY: These KPIs are calculated exclusively in FRONTEND using instant recalculated values
+    # NOTE: Frontend has real-time carry costs (taxes, insurance, servicing, REO holding) that backend doesn't have
+    # RESULT: Backend only provides raw expense data, frontend calculates all KPIs
+    print(f"\n=== BACKEND DOES NOT CALCULATE KPIs ===")
+    print(f"Total Costs, Net PL, MOIC, and Annualized ROI are calculated in frontend only")
+    print(f"Backend provides raw data: acquisition costs, carry costs, liquidation expenses")
+    print(f"Frontend recalculates carry costs instantly and computes all KPIs")
+    print(f"=== END BACKEND NOTE ===")
     
     # WHAT: Get purchase price metrics (ratios as percentages)
     price_metrics = {}
@@ -852,6 +818,23 @@ def get_reo_expense_values(
         'reo_holding_costs': float(reo_holding_costs) if reo_holding_costs is not None else None,
         'trashout_cost': float(trashout_cost) if trashout_cost is not None else None,
         'renovation_cost': float(renovation_cost) if renovation_cost is not None else None,
+        # WHAT: Hybrid Calculation Architecture - Monthly rates and fee components for frontend recalculation
+        # WHY: Industry best practice - Backend provides authoritative calculations + components for instant frontend updates
+        # HOW: When user changes duration via +/- buttons, frontend recalculates instantly using these rates
+        # PATTERN: Similar to Bloomberg Terminal, Salesforce calculators, banking platforms
+        # BENEFITS: Instant UX + Backend authority + Audit compliance + Reduced server load
+        'board_fee': float(board_fee) if 'board_fee' in locals() and board_fee is not None else None,
+        'onetwentyday_fee': float(onetwentyday_fee) if 'onetwentyday_fee' in locals() and onetwentyday_fee is not None else None,
+        'fc_fee': float(fc_fee) if 'fc_fee' in locals() and fc_fee is not None else None,
+        'reo_fee': float(reo_fee) if 'reo_fee' in locals() and reo_fee is not None else None,
+        # WHAT: Monthly tax and insurance rates for instant frontend recalculation
+        'monthly_tax': float(monthly_tax) if 'monthly_tax' in locals() and monthly_tax is not None else None,
+        'monthly_insurance': float(monthly_ins) if 'monthly_ins' in locals() and monthly_ins is not None else None,
+        # WHAT: Monthly REO holding cost rates for REO Marketing duration recalculation (individual components)
+        'monthly_reo_holding': float(monthly_reo_holding) if 'monthly_reo_holding' in locals() and monthly_reo_holding is not None else None,
+        'monthly_hoa': float(monthly_hoa_rate) if 'monthly_hoa_rate' in locals() and monthly_hoa_rate is not None else None,
+        'monthly_utilities': float(monthly_utilities_rate) if 'monthly_utilities_rate' in locals() and monthly_utilities_rate is not None else None,
+        'monthly_property_preservation': float(monthly_property_pres_rate) if 'monthly_property_pres_rate' in locals() and monthly_property_pres_rate is not None else None,
         # WHAT: Liquidation Expenses (costs incurred at REO sale) - As-Is values
         'broker_fees': float(broker_fees) if broker_fees is not None else None,
         'servicer_liquidation_fee': float(servicer_liquidation_fee) if servicer_liquidation_fee is not None else None,
@@ -860,26 +843,26 @@ def get_reo_expense_values(
         'broker_fees_arv': float(broker_fees_arv) if broker_fees_arv is not None else None,
         'servicer_liquidation_fee_arv': float(servicer_liquidation_fee_arv) if servicer_liquidation_fee_arv is not None else None,
         'am_liquidation_fee_arv': float(am_liquidation_fee_arv) if am_liquidation_fee_arv is not None else None,
-        # WHAT: Calculated totals - As-Is scenario
-        'total_costs': float(total_costs),
-        'total_costs_asis': float(total_costs_asis),
-        'net_pl_asis': float(net_pl_asis) if net_pl_asis is not None else None,
-        'moic_asis': float(moic_asis) if moic_asis is not None else None,
-        'annualized_roi_asis': float(annualized_roi_asis) if annualized_roi_asis is not None else None,
-        # WHAT: Calculated totals - Rehab scenario
-        'total_costs_rehab': float(total_costs_rehab),
-        'net_pl_rehab': float(net_pl_rehab) if net_pl_rehab is not None else None,
-        'moic_rehab': float(moic_rehab) if moic_rehab is not None else None,
-        'annualized_roi_rehab': float(annualized_roi_rehab) if annualized_roi_rehab is not None else None,
+        # WHAT: KPIs NOT calculated in backend - all frontend-only using instant values
+        # NOTE: Total Costs, Net PL, MOIC, Annualized ROI calculated in frontend with real-time carry costs
+        'total_costs': None,  # Frontend-only - calculated using instant recalculated carry costs
+        'total_costs_asis': None,  # Frontend-only - calculated using instant recalculated carry costs
+        'total_costs_rehab': None,  # Frontend-only - calculated using instant recalculated carry costs
+        'net_pl_asis': None,  # Frontend-only - calculated using instant total costs
+        'net_pl_rehab': None,  # Frontend-only - calculated using instant total costs
+        'moic_asis': None,  # Frontend-only - calculated using instant total costs
+        'moic_rehab': None,  # Frontend-only - calculated using instant total costs
+        'annualized_roi_asis': None,  # Frontend-only - calculated using instant total costs
+        'annualized_roi_rehab': None,  # Frontend-only - calculated using instant total costs
         # WHAT: Expected proceeds for both scenarios
         'expected_recovery': float(expected_proceeds) if expected_proceeds is not None else None,
         'expected_proceeds_asis': float(expected_proceeds_asis) if expected_proceeds_asis is not None else None,
         'expected_proceeds_arv': float(expected_proceeds_arv) if expected_proceeds_arv is not None else None,
         'acquisition_price': float(acquisition_price) if acquisition_price is not None else None,
-        # WHAT: Legacy fields for backward compatibility
-        'net_pl': float(net_pl) if net_pl is not None else None,
-        'moic': float(moic) if moic is not None else None,
-        'annualized_roi': float(annualized_roi) if annualized_roi is not None else None,
+        # WHAT: Legacy fields for backward compatibility - all frontend-only now
+        'net_pl': None,  # Frontend-only - calculated using instant total costs
+        'moic': None,  # Frontend-only - calculated using instant total costs
+        'annualized_roi': None,  # Frontend-only - calculated using instant total costs
         # WHAT: Purchase price metrics (ratios as percentages)
         'purchase_of_currentBalance': float(price_metrics.get('purchase_of_currentBalance')) if price_metrics.get('purchase_of_currentBalance') is not None else None,
         'purchase_of_totalDebt': float(price_metrics.get('purchase_of_totalDebt')) if price_metrics.get('purchase_of_totalDebt') is not None else None,

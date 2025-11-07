@@ -57,7 +57,9 @@ def get_fc_timeline_sums(asset_hub_id: int, reference_date: Optional[date] = Non
     # WHY: Need trade to find TradeLevelAssumption for servicing_transfer_date
     raw_data = SellerRawData.objects.filter(asset_hub_id=asset_hub_id).select_related('trade').first()
     
-    servicing_transfer_months = None
+    # WHAT: Default to 0 instead of None so calculations still work
+    # WHY: Returning None breaks frontend calculations; 0 is a valid "no duration" value
+    servicing_transfer_months = 0
     
     if raw_data and raw_data.trade:
         # WHAT: Get TradeLevelAssumption for this trade
@@ -66,7 +68,7 @@ def get_fc_timeline_sums(asset_hub_id: int, reference_date: Optional[date] = Non
         
         if trade_assumption:
             # WHAT: Use effective_servicing_transfer_date property which has fallback logic
-            # WHY: Returns explicit date if set, otherwise calculates as settlement_date + 30 days
+            # WHY: Returns explicit date if set, otherwise calculates using servicer duration
             transfer_date = trade_assumption.effective_servicing_transfer_date
             
             if transfer_date and trade_assumption.settlement_date:
@@ -83,14 +85,11 @@ def get_fc_timeline_sums(asset_hub_id: int, reference_date: Optional[date] = Non
                     # WHAT: If transfer date is before settlement, default to 1 month
                     # WHY: Minimum reasonable transfer period
                     servicing_transfer_months = 1
-            elif transfer_date:
-                # WHAT: If no settlement_date but transfer_date exists, use reference_date as fallback
-                # WHY: Still calculate duration for display
-                days_diff = (reference_date - transfer_date).days
-                if days_diff >= 0:
-                    servicing_transfer_months = round(days_diff / 30.44)
-                else:
-                    servicing_transfer_months = 0
+            elif not trade_assumption.settlement_date and trade_assumption.servicer:
+                # WHAT: If no settlement date but servicer exists, use servicer's default duration
+                # WHY: Still provide a value for calculations
+                if trade_assumption.servicer.servicing_transfer_duration:
+                    servicing_transfer_months = trade_assumption.servicer.servicing_transfer_duration
     
     # WHAT: Get FC timeline data using existing function
     # WHY: Reuse existing logic that sums all FCStatus durations
@@ -275,7 +274,9 @@ def get_fc_expense_values(
             acq_broker_fees = broker_fee
             # print(f"1. Broker Fee: ${acq_broker_fees:,.2f}")
             pass
-        # WHAT: Also fetch the percentage for frontend live calculation
+        # WHAT: Also fetch the percentage for frontend display
+        # WHY: Frontend may need to show the percentage
+        # HOW: Use acq_broker_fees (acquisition broker fee percentage) from trade assumptions
         if raw_data and raw_data.trade:
             trade_assumptions = TradeLevelAssumption.objects.filter(trade=raw_data.trade).only('acq_broker_fees').first()
             if trade_assumptions and trade_assumptions.acq_broker_fees is not None:

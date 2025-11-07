@@ -328,11 +328,11 @@
               <div class="d-flex flex-column gap-2">
                 <div class="d-flex align-items-baseline gap-2">
                   <small class="text-muted d-block" style="min-width: 140px;">Broker Fee:</small>
-                  <span class="fw-bold text-dark">{{ formatCurrency(liveBrokerFee) }}</span>
+                  <span class="fw-bold text-dark">{{ formatCurrency(timelineData.acq_broker_fees || 0) }}</span>
                 </div>
                 <div class="d-flex align-items-baseline gap-2">
                   <small class="text-muted d-block" style="min-width: 140px;">Other Fees:</small>
-                  <span class="fw-bold text-dark">{{ formatCurrency(liveOtherFee) }}</span>
+                  <span class="fw-bold text-dark">{{ formatCurrency(timelineData.acq_other_fees || 0) }}</span>
                 </div>
                 <div class="d-flex align-items-baseline gap-2">
                   <small class="text-muted d-block" style="min-width: 140px;">Legal Cost:</small>
@@ -503,6 +503,19 @@ const timelineData = reactive<{
   reo_holding_costs: number | null
   trashout_cost: number | null
   renovation_cost: number | null
+  // WHAT: Monthly rates for carry cost recalculation
+  monthly_tax: number | null
+  monthly_insurance: number | null
+  monthly_reo_holding: number | null
+  // WHAT: Individual REO holding cost components for detailed recalculation
+  monthly_hoa: number | null
+  monthly_utilities: number | null
+  monthly_property_preservation: number | null
+  // WHAT: Servicer fee components for servicing fee recalculation
+  board_fee: number | null
+  onetwentyday_fee: number | null
+  fc_fee: number | null
+  reo_fee: number | null
   // WHAT: Liquidation Expense values from backend models - As-Is
   broker_fees: number | null
   servicer_liquidation_fee: number | null
@@ -566,6 +579,16 @@ const timelineData = reactive<{
   reo_holding_costs: null,
   trashout_cost: null,
   renovation_cost: null,
+  monthly_tax: null,
+  monthly_insurance: null,
+  monthly_reo_holding: null,
+  monthly_hoa: null,
+  monthly_utilities: null,
+  monthly_property_preservation: null,
+  board_fee: null,
+  onetwentyday_fee: null,
+  fc_fee: null,
+  reo_fee: null,
   broker_fees: null,
   servicer_liquidation_fee: null,
   am_liquidation_fee: null,
@@ -664,8 +687,109 @@ const expenses = reactive({
   servicingFees: 0,
   taxes: 0,
   insurance: 0,
-  legalCost: 0
+  legalCost: 0,
+  reoHoldingCosts: 0
 })
+
+// WHAT: Hybrid Calculation Architecture - Instant carry cost recalculation
+// WHY: Industry best practice for financial applications (Bloomberg Terminal, Salesforce, Banking platforms)
+// HOW: Backend provides authoritative calculations + monthly rates, frontend recalculates instantly on duration changes
+// BENEFITS: 
+//   - Instant UX: No 3-second waits for simple +/- button clicks
+//   - Backend Authority: All permanent calculations remain server-side for audit/compliance
+//   - Reduced Load: Avoid unnecessary API calls for UI interactions
+//   - Data Consistency: Backend sends both final values AND calculation components
+//   - Fallback Safety: If frontend calc fails, backend values remain unchanged
+function recalculateCarryCosts(skipReoHolding = false) {
+  const totalMonths = timelineData.total_timeline_months || 0
+  const servicingMonths = timelineData.servicing_transfer_months || 0
+  const foreclosureMonths = timelineData.foreclosure_months || 0
+  const renovationMonths = timelineData.reo_renovation_months || 0
+  const marketingMonths = timelineData.reo_marketing_months || 0
+  const reoMonths = renovationMonths + marketingMonths
+  
+  // WHAT: Recalculate servicing fees (board_fee + onetwentyday_fee*servicing + fc_fee*foreclosure + reo_fee*reo)
+  // WHY: Servicing fees change based on duration of each phase
+  if (timelineData.board_fee !== null && timelineData.onetwentyday_fee !== null && 
+      timelineData.fc_fee !== null && timelineData.reo_fee !== null) {
+    let servicingFees = timelineData.board_fee || 0
+    servicingFees += (timelineData.onetwentyday_fee || 0) * servicingMonths
+    servicingFees += (timelineData.fc_fee || 0) * foreclosureMonths
+    servicingFees += (timelineData.reo_fee || 0) * reoMonths
+    
+    // WHAT: Round to penny precision to avoid floating point errors
+    servicingFees = Math.round(servicingFees * 100) / 100
+    
+    timelineData.servicing_fees = servicingFees
+    expenses.servicingFees = servicingFees
+    
+    console.log(`[REO] Recalculated servicing fees: $${servicingFees.toFixed(2)} (Board: $${timelineData.board_fee}, 120-day: $${timelineData.onetwentyday_fee}*${servicingMonths}, FC: $${timelineData.fc_fee}*${foreclosureMonths}, REO: $${timelineData.reo_fee}*${reoMonths})`)
+  }
+  
+  // WHAT: Recalculate taxes (monthly_tax * total_timeline_months)
+  // WHY: Property taxes accrue monthly throughout entire timeline
+  if (timelineData.monthly_tax && totalMonths > 0) {
+    // WHAT: Round to penny precision to avoid floating point errors
+    timelineData.taxes = Math.round(timelineData.monthly_tax * totalMonths * 100) / 100
+    expenses.taxes = timelineData.taxes
+    console.log(`[REO] Recalculated taxes: $${timelineData.taxes.toFixed(2)} (${timelineData.monthly_tax}/month * ${totalMonths} months)`)
+  } else {
+    expenses.taxes = timelineData.taxes ?? 0
+  }
+  
+  // WHAT: Recalculate insurance (monthly_insurance * total_timeline_months)
+  // WHY: Property insurance is required monthly throughout entire timeline
+  if (timelineData.monthly_insurance && totalMonths > 0) {
+    // WHAT: Round to penny precision to avoid floating point errors
+    timelineData.insurance = Math.round(timelineData.monthly_insurance * totalMonths * 100) / 100
+    expenses.insurance = timelineData.insurance
+    console.log(`[REO] Recalculated insurance: $${timelineData.insurance.toFixed(2)} (${timelineData.monthly_insurance}/month * ${totalMonths} months)`)
+  } else {
+    expenses.insurance = timelineData.insurance ?? 0
+  }
+  
+  // WHAT: Recalculate REO holding costs using individual components (reo_marketing_months ONLY)
+  // WHY: REO holding costs only accrue during REO Marketing phase, not entire timeline
+  // HOW: Calculate each component separately: HOA + Utilities + Property Preservation
+  // NOTE: Skip if skipReoHolding flag is set (e.g., when only foreclosure duration changes)
+  if (!skipReoHolding && marketingMonths > 0 && (timelineData.monthly_hoa !== null || timelineData.monthly_utilities !== null || timelineData.monthly_property_preservation !== null)) {
+    let reoHoldingTotal = 0
+    let breakdown = []
+    
+    // WHAT: Calculate HOA costs for marketing period only
+    if (timelineData.monthly_hoa !== null) {
+      const hoaCosts = Math.round(timelineData.monthly_hoa * marketingMonths * 100) / 100
+      reoHoldingTotal += hoaCosts
+      breakdown.push(`HOA: $${timelineData.monthly_hoa}/month * ${marketingMonths} = $${hoaCosts.toFixed(2)}`)
+    }
+    
+    // WHAT: Calculate utilities costs for marketing period only
+    if (timelineData.monthly_utilities !== null) {
+      const utilityCosts = Math.round(timelineData.monthly_utilities * marketingMonths * 100) / 100
+      reoHoldingTotal += utilityCosts
+      breakdown.push(`Utilities: $${timelineData.monthly_utilities}/month * ${marketingMonths} = $${utilityCosts.toFixed(2)}`)
+    }
+    
+    // WHAT: Calculate property preservation costs for marketing period only
+    if (timelineData.monthly_property_preservation !== null) {
+      const propPresCosts = Math.round(timelineData.monthly_property_preservation * marketingMonths * 100) / 100
+      reoHoldingTotal += propPresCosts
+      breakdown.push(`Prop Pres: $${timelineData.monthly_property_preservation}/month * ${marketingMonths} = $${propPresCosts.toFixed(2)}`)
+    }
+    
+    // WHAT: Round final total to penny precision
+    reoHoldingTotal = Math.round(reoHoldingTotal * 100) / 100
+    
+    timelineData.reo_holding_costs = reoHoldingTotal
+    expenses.reoHoldingCosts = reoHoldingTotal
+    console.log(`[REO] Recalculated REO holding costs: $${reoHoldingTotal.toFixed(2)} (${breakdown.join(', ')}) - REO Marketing months ONLY`)
+  } else {
+    expenses.reoHoldingCosts = timelineData.reo_holding_costs ?? 0
+  }
+  
+  // WHAT: Other costs don't change with duration, keep backend values
+  expenses.legalCost = timelineData.legal_cost ?? 0
+}
 
 // WHAT: Watch timelineData expense fields and sync to expenses object
 // WHY: Update expenses when API data is fetched
@@ -673,19 +797,21 @@ watch(() => [
   timelineData.servicing_fees,
   timelineData.taxes,
   timelineData.insurance,
-  timelineData.legal_cost
+  timelineData.legal_cost,
+  timelineData.reo_holding_costs
 ], () => {
   expenses.servicingFees = timelineData.servicing_fees ?? 0
   expenses.taxes = timelineData.taxes ?? 0
   expenses.insurance = timelineData.insurance ?? 0
   expenses.legalCost = timelineData.legal_cost ?? 0
+  expenses.reoHoldingCosts = timelineData.reo_holding_costs ?? 0
   // WHAT: Sync to assumptions for emits
   // WHY: Keep assumptions in sync for parent component
   assumptions.servicingFees = expenses.servicingFees
   assumptions.taxes = expenses.taxes
   assumptions.insurance = expenses.insurance
   assumptions.legalCost = expenses.legalCost
-  assumptions.reoHoldingCosts = timelineData.reo_holding_costs ?? 0
+  assumptions.reoHoldingCosts = expenses.reoHoldingCosts
   emitChanges()
 }, { deep: true })
 
@@ -706,41 +832,101 @@ const calculatedTotalDuration = computed(() => {
   }
 })
 
-// WHAT: Computed property to display total costs based on scenario with live updates
-// WHY: Total costs includes broker/other fees which depend on acquisition price, so needs to update in real-time
-// HOW: Start with backend total_costs, then subtract old broker/other fees and add live ones
+// WHAT: Calculate total costs instantly using frontend expenses + backend static costs
+// WHY: Instant UI feedback when carry costs change via duration adjustments
+// HOW: Sum acquisition costs + carry costs (frontend) + liquidation costs (backend)
+// NOTE: Maintains penny precision for calculations, display formatting is separate
 const calculatedTotalCosts = computed(() => {
-  // WHAT: Get base total costs from backend (scenario-dependent)
-  const baseTotalCosts = reoScenario.value === 'as_is' 
-    ? (timelineData.total_costs_asis || 0)
-    : (timelineData.total_costs_rehab || 0)
+  // WHAT: Acquisition costs (static, from backend)
+  const acquisitionCosts = (
+    (timelineData.acq_broker_fees || 0) +
+    (timelineData.acq_other_fees || 0) +
+    (timelineData.acq_legal || 0) +
+    (timelineData.acq_dd || 0) +
+    (timelineData.acq_tax_title || 0)
+  )
   
-  // WHAT: Subtract the backend-calculated broker and other fees (which used old acquisition price)
-  const oldBrokerFee = timelineData.acq_broker_fees || 0
-  const oldOtherFee = timelineData.acq_other_fees || 0
+  // WHAT: Carry costs (dynamic, from frontend recalculation)
+  const carryCosts = (
+    expenses.servicingFees +
+    expenses.taxes +
+    expenses.insurance +
+    expenses.legalCost +
+    expenses.reoHoldingCosts +
+    (timelineData.trashout_cost || 0) + // Static
+    (reoScenario.value === 'rehab' ? (timelineData.renovation_cost || 0) : 0) // Static, rehab only
+  )
   
-  // WHAT: Add the live-calculated broker and other fees (using current acquisition price)
-  const newBrokerFee = liveBrokerFee.value || 0
-  const newOtherFee = liveOtherFee.value || 0
+  // WHAT: Liquidation costs (static, from backend, scenario-dependent)
+  const liquidationCosts = reoScenario.value === 'as_is' 
+    ? (
+        (timelineData.broker_fees || 0) +
+        (timelineData.servicer_liquidation_fee || 0) +
+        (timelineData.am_liquidation_fee || 0)
+      )
+    : (
+        (timelineData.broker_fees_arv || 0) +
+        (timelineData.servicer_liquidation_fee_arv || 0) +
+        (timelineData.am_liquidation_fee_arv || 0)
+      )
   
-  // WHAT: Calculate adjusted total costs
-  // WHY: Replace old fees with new fees to reflect current acquisition price
-  return baseTotalCosts - oldBrokerFee - oldOtherFee + newBrokerFee + newOtherFee
+  // WHAT: Round to penny precision to avoid floating point errors
+  // WHY: JavaScript floating point can introduce tiny errors (e.g., 37800.999999999996)
+  // HOW: Multiply by 100, round, divide by 100 to get exact penny amount
+  const total = Math.round((acquisitionCosts + carryCosts + liquidationCosts) * 100) / 100
+  
+  // WHAT: Detailed logging for debugging Total Costs calculation
+  console.log('=== TOTAL COSTS CALCULATION ===')
+  console.log('ACQUISITION COSTS:')
+  console.log(`  Broker Fee: $${(timelineData.acq_broker_fees || 0).toFixed(2)}`)
+  console.log(`  Other Fees: $${(timelineData.acq_other_fees || 0).toFixed(2)}`)
+  console.log(`  Legal Cost: $${(timelineData.acq_legal || 0).toFixed(2)}`)
+  console.log(`  Due Diligence: $${(timelineData.acq_dd || 0).toFixed(2)}`)
+  console.log(`  Tax/Title: $${(timelineData.acq_tax_title || 0).toFixed(2)}`)
+  console.log(`  Subtotal: $${acquisitionCosts.toFixed(2)}`)
+  console.log('CARRY COSTS (Frontend Recalculated):')
+  console.log(`  Servicing Fees: $${expenses.servicingFees.toFixed(2)}`)
+  console.log(`  Taxes: $${expenses.taxes.toFixed(2)}`)
+  console.log(`  Insurance: $${expenses.insurance.toFixed(2)}`)
+  console.log(`  Legal Cost: $${expenses.legalCost.toFixed(2)}`)
+  console.log(`  REO Holding Costs: $${expenses.reoHoldingCosts.toFixed(2)}`)
+  console.log(`  Trashout: $${(timelineData.trashout_cost || 0).toFixed(2)}`)
+  if (reoScenario.value === 'rehab') {
+    console.log(`  Renovation: $${(timelineData.renovation_cost || 0).toFixed(2)}`)
+  }
+  console.log(`  Subtotal: $${carryCosts.toFixed(2)}`)
+  console.log('LIQUIDATION COSTS:')
+  if (reoScenario.value === 'as_is') {
+    console.log(`  Broker Fees: $${(timelineData.broker_fees || 0).toFixed(2)}`)
+    console.log(`  Servicer Liq Fee: $${(timelineData.servicer_liquidation_fee || 0).toFixed(2)}`)
+    console.log(`  AM Liq Fee: $${(timelineData.am_liquidation_fee || 0).toFixed(2)}`)
+  } else {
+    console.log(`  Broker Fees (ARV): $${(timelineData.broker_fees_arv || 0).toFixed(2)}`)
+    console.log(`  Servicer Liq Fee (ARV): $${(timelineData.servicer_liquidation_fee_arv || 0).toFixed(2)}`)
+    console.log(`  AM Liq Fee (ARV): $${(timelineData.am_liquidation_fee_arv || 0).toFixed(2)}`)
+  }
+  console.log(`  Subtotal: $${liquidationCosts.toFixed(2)}`)
+  console.log('TOTAL COSTS:')
+  console.log(`  Before rounding: $${(acquisitionCosts + carryCosts + liquidationCosts).toFixed(10)}`)
+  console.log(`  After rounding: $${total.toFixed(2)}`)
+  console.log('=== END TOTAL COSTS ===')
+  
+  return total
 })
 
-// WHAT: Computed property to display net PL with real-time updates
-// WHY: Net PL = Expected Proceeds - Total Costs - Acquisition Price
-// HOW: Use correct proceeds and costs based on scenario (As-Is vs Rehab), update in real-time with acquisition price changes
+// WHAT: Computed property to display net PL with instant updates
+// WHY: Net PL = Expected Proceeds - Total Costs - Acquisition Price (all components update instantly)
+// HOW: Use instant calculatedTotalCosts for real-time feedback on duration changes
 const calculatedNetRecovery = computed(() => {
   const expectedProceeds = reoScenario.value === 'as_is' 
     ? (timelineData.expected_proceeds_asis || 0)
     : (timelineData.expected_proceeds_arv || 0)
-  const totalCosts = reoScenario.value === 'as_is'
-    ? (timelineData.total_costs_asis || 0)
-    : (timelineData.total_costs_rehab || 0)
+  const totalCosts = calculatedTotalCosts.value // Use instant total costs calculation
   const acqPrice = acquisitionPrice.value || 0
   
-  return expectedProceeds - totalCosts - acqPrice
+  const netPL = expectedProceeds - totalCosts - acqPrice
+  console.log(`[REO] Net PL: $${netPL} (Proceeds: $${expectedProceeds} - Costs: $${totalCosts} - Acq: $${acqPrice})`)
+  return netPL
 })
 
 // WHAT: Computed properties for live-updating purchase price metrics
@@ -774,16 +960,14 @@ const liveMetrics = computed(() => {
   }
 })
 
-// WHAT: Computed property for live-updating MOIC (Multiple on Invested Capital)
-// WHY: Update MOIC in real-time as acquisition price changes
+// WHAT: Computed property for live-updating MOIC (Multiple on Invested Capital) with instant total costs
+// WHY: Update MOIC instantly as duration/costs change (not waiting for backend)
 // HOW: MOIC = (Expected Proceeds) / (Total Costs + Acquisition Price)
 const liveMOIC = computed(() => {
   const expectedProceeds = reoScenario.value === 'as_is' 
     ? (timelineData.expected_proceeds_asis || 0)
     : (timelineData.expected_proceeds_arv || 0)
-  const totalCosts = reoScenario.value === 'as_is'
-    ? (timelineData.total_costs_asis || 0)
-    : (timelineData.total_costs_rehab || 0)
+  const totalCosts = calculatedTotalCosts.value  // Use instant calculated costs, not backend values
   const acqPrice = acquisitionPrice.value || 0
   const totalOutflows = totalCosts + acqPrice
   
@@ -791,19 +975,19 @@ const liveMOIC = computed(() => {
     return 0
   }
   
-  return expectedProceeds / totalOutflows
+  const moic = expectedProceeds / totalOutflows
+  console.log(`[REO] MOIC: ${moic.toFixed(2)}x (Proceeds: $${expectedProceeds} / Outflows: $${totalOutflows})`)
+  return moic
 })
 
-// WHAT: Computed property for live-updating Annualized ROI
-// WHY: Update Annualized ROI in real-time as acquisition price changes
+// WHAT: Computed property for live-updating Annualized ROI with instant total costs
+// WHY: Update Annualized ROI instantly as duration/costs change (not waiting for backend)
 // HOW: Annualized ROI = ((Net PL / Gross Cost) + 1) ^ (12 / total_duration) - 1
 const liveAnnualizedROI = computed(() => {
   const expectedProceeds = reoScenario.value === 'as_is' 
     ? (timelineData.expected_proceeds_asis || 0)
     : (timelineData.expected_proceeds_arv || 0)
-  const totalCosts = reoScenario.value === 'as_is'
-    ? (timelineData.total_costs_asis || 0)
-    : (timelineData.total_costs_rehab || 0)
+  const totalCosts = calculatedTotalCosts.value  // Use instant calculated costs, not backend values
   const acqPrice = acquisitionPrice.value || 0
   const grossCost = acqPrice + totalCosts
   const netPL = expectedProceeds - totalCosts - acqPrice
@@ -816,6 +1000,15 @@ const liveAnnualizedROI = computed(() => {
   const returnRatio = (netPL / grossCost) + 1
   const annualizedROI = Math.pow(returnRatio, 12 / totalDuration) - 1
   
+  console.log(`[REO] Annualized ROI Calculation:`)
+  console.log(`  Expected Proceeds: $${expectedProceeds.toFixed(2)}`)
+  console.log(`  Total Costs (instant): $${totalCosts.toFixed(2)}`)
+  console.log(`  Acquisition Price: $${acqPrice.toFixed(2)}`)
+  console.log(`  Gross Cost (Costs + Acq): $${grossCost.toFixed(2)}`)
+  console.log(`  Net PL (Proceeds - Costs - Acq): $${netPL.toFixed(2)}`)
+  console.log(`  Total Duration: ${totalDuration} months`)
+  console.log(`  Return Ratio (NetPL/GrossCost + 1): ${returnRatio.toFixed(4)}`)
+  console.log(`  Annualized ROI: ${(annualizedROI * 100).toFixed(2)}%`)
   return annualizedROI
 })
 
@@ -841,17 +1034,28 @@ async function adjustReoFcDuration(change: number) {
   const currentOverride = timelineData.reo_fc_duration_override_months || 0
   const newOverride = currentOverride + change
 
-  try {
-    loadingTimelines.value = true
-    await http.post(`/acq/assets/${props.assetId}/reo-fc-duration-override/`, {
-      reo_fc_duration_override_months: newOverride
-    })
-    await fetchTimelineData()
-  } catch (error) {
+  // WHAT: Update local state immediately for instant feedback
+  const baseMonths = timelineData.foreclosure_months_base || 0
+  timelineData.reo_fc_duration_override_months = newOverride
+  timelineData.foreclosure_months = baseMonths + newOverride
+  
+  // WHAT: Update total timeline (servicing + foreclosure + renovation + marketing)
+  const servicingMonths = timelineData.servicing_transfer_months || 0
+  const renovationMonths = timelineData.reo_renovation_months || 0
+  const marketingMonths = timelineData.reo_marketing_months || 0
+  timelineData.total_timeline_months = servicingMonths + timelineData.foreclosure_months + renovationMonths + marketingMonths
+
+  // WHAT: Recalculate carry costs with new foreclosure duration
+  // WHY: Update taxes, insurance, and servicing fees instantly
+  // NOTE: REO holding costs should NOT change when foreclosure changes (only when REO Marketing changes)
+  recalculateCarryCosts(true)  // Skip REO holding cost recalculation
+
+  // WHAT: Save to backend (fire and forget)
+  http.post(`/acq/assets/${props.assetId}/reo-fc-duration-override/`, {
+    reo_fc_duration_override_months: newOverride
+  }).catch(error => {
     console.error('[REOSaleModelCard] Failed to update REO FC duration override:', error)
-  } finally {
-    loadingTimelines.value = false
-  }
+  })
 }
 
 // WHAT: Function to adjust REO renovation duration by increment/decrement
@@ -865,17 +1069,28 @@ async function adjustReoRenovationDuration(change: number) {
   const currentOverride = timelineData.reo_renovation_override_months || 0
   const newOverride = currentOverride + change
 
-  try {
-    loadingTimelines.value = true
-    await http.post(`/acq/assets/${props.assetId}/reo-renovation-override/`, {
-      reo_renovation_override_months: newOverride
-    })
-    await fetchTimelineData()
-  } catch (error) {
+  // WHAT: Update local state immediately for instant feedback
+  const baseMonths = timelineData.reo_renovation_months_base || 0
+  timelineData.reo_renovation_override_months = newOverride
+  timelineData.reo_renovation_months = baseMonths + newOverride
+  
+  // WHAT: Update total timeline (servicing + foreclosure + renovation + marketing)
+  const servicingMonths = timelineData.servicing_transfer_months || 0
+  const foreclosureMonths = timelineData.foreclosure_months || 0
+  const marketingMonths = timelineData.reo_marketing_months || 0
+  timelineData.total_timeline_months = servicingMonths + foreclosureMonths + timelineData.reo_renovation_months + marketingMonths
+
+  // WHAT: Recalculate carry costs with new renovation duration
+  // WHY: Update taxes, insurance, and servicing fees instantly
+  // NOTE: REO holding costs should NOT change when renovation changes (only when REO Marketing changes)
+  recalculateCarryCosts(true)  // Skip REO holding cost recalculation
+
+  // WHAT: Save to backend (fire and forget)
+  http.post(`/acq/assets/${props.assetId}/reo-renovation-override/`, {
+    reo_renovation_override_months: newOverride
+  }).catch(error => {
     console.error('[REOSaleModelCard] Failed to update REO renovation duration override:', error)
-  } finally {
-    loadingTimelines.value = false
-  }
+  })
 }
 
 // WHAT: Function to adjust REO marketing duration by increment/decrement
@@ -889,17 +1104,28 @@ async function adjustReoMarketingDuration(change: number) {
   const currentOverride = timelineData.reo_marketing_override_months || 0
   const newOverride = currentOverride + change
 
-  try {
-    loadingTimelines.value = true
-    await http.post(`/acq/assets/${props.assetId}/reo-marketing-override/`, {
-      reo_marketing_override_months: newOverride
-    })
-    await fetchTimelineData()
-  } catch (error) {
+  // WHAT: Update local state immediately for instant feedback
+  const baseMonths = timelineData.reo_marketing_months_base || 0
+  timelineData.reo_marketing_override_months = newOverride
+  timelineData.reo_marketing_months = baseMonths + newOverride
+  
+  // WHAT: Update total timeline (servicing + foreclosure + renovation + marketing)
+  const servicingMonths = timelineData.servicing_transfer_months || 0
+  const foreclosureMonths = timelineData.foreclosure_months || 0
+  const renovationMonths = timelineData.reo_renovation_months || 0
+  timelineData.total_timeline_months = servicingMonths + foreclosureMonths + renovationMonths + timelineData.reo_marketing_months
+
+  // WHAT: Recalculate carry costs with new marketing duration
+  // WHY: Update taxes, insurance, servicing fees, and REO holding costs instantly
+  // NOTE: REO holding costs SHOULD change when marketing changes (this is the ONLY duration that affects REO holding)
+  recalculateCarryCosts()  // Do NOT skip REO holding cost recalculation
+
+  // WHAT: Save to backend (fire and forget)
+  http.post(`/acq/assets/${props.assetId}/reo-marketing-override/`, {
+    reo_marketing_override_months: newOverride
+  }).catch(error => {
     console.error('[REOSaleModelCard] Failed to update REO marketing duration override:', error)
-  } finally {
-    loadingTimelines.value = false
-  }
+  })
 }
 
 // WHAT: Function to fetch timeline data from backend API
@@ -953,13 +1179,17 @@ async function saveAcquisitionPrice() {
 }
 
 // WHAT: Formatting helper functions
+// NOTE: Display formatting rounds to whole dollars for UI cleanliness
+// WHY: Easier to read large numbers without cents (e.g., $37,800 vs $37,800.46)
+// IMPORTANT: Underlying calculations maintain penny precision ($37,800.46 exactly)
+// HOW: formatCurrency rounds for display only, all computed properties use exact values
 const formatCurrency = (value: number | null | undefined): string => {
   if (value == null || isNaN(value)) return '$0'
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 0,  // Display: no cents (rounds to nearest dollar)
+    maximumFractionDigits: 0,  // Display: no cents
   }).format(value)
 }
 

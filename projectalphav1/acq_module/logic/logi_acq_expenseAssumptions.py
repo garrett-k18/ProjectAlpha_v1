@@ -197,9 +197,10 @@ def monthly_hoa(asset_hub_id: int) -> Decimal:
 def acq_broker_fee(asset_hub_id: int) -> Decimal:
     """Calculate acquisition broker fee for an asset.
     
-    Multiplies the broker fee percentage from trade-level assumptions by the purchase price.
-    The broker fee percentage is stored in TradeLevelAssumption.acq_broker_fees as a decimal
-    (e.g., 0.02 for 2%).
+    WHAT: Multiplies the acquisition broker fee percentage from trade-level assumptions by the purchase price
+    WHY: Broker fees are paid at acquisition based on purchase price
+    WHERE: Used in FC and REO model acquisition cost calculations
+    HOW: Uses TradeLevelAssumption.acq_broker_fees (percentage) × purchase_price
     
     Args:
         asset_hub_id: The AssetIdHub primary key identifying the asset
@@ -227,7 +228,9 @@ def acq_broker_fee(asset_hub_id: int) -> Decimal:
         # Asset not associated with a trade, so no trade-level assumptions
         return Decimal('0.00')
     
-    # Get the trade-level assumptions for this asset's trade
+    # WHAT: Get the trade-level assumptions for this asset's trade
+    # WHY: Need acq_broker_fees percentage to calculate acquisition broker fee
+    # HOW: Filter by trade and get acq_broker_fees field
     trade_assumptions = (
         TradeLevelAssumption.objects
         .filter(trade=seller_data.trade)

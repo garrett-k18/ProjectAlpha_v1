@@ -370,9 +370,9 @@ MEDIA_ROOT = BASE_DIR / 'media'
 EGNYTE_DOMAIN = os.getenv('EGNYTE_DOMAIN', 'projectalpha.egnyte.com')  # Dev fallback
 EGNYTE_API_TOKEN = os.getenv('EGNYTE_API_TOKEN', 'AQwSAJABFxAlFsjfoyiJDVllDycavVifmm3dPjQBaZwWvV4Vb3GJCpFS9aDyrybA')  # Dev fallback
 
-# WHAT: Balanced logging configuration - show errors and tracebacks without overwhelming detail
-# WHY: Need visibility into errors and import operations without drowning in SQL queries and request logs
-# HOW: Use INFO level for most loggers, ERROR for noisy ones (SQL/requests), include full tracebacks
+# WHAT: Clean logging - show important info without spam
+# WHY: Need visibility into errors and key operations without SQL/autoreload noise
+# HOW: INFO for important modules, ERROR for noisy ones
 # DOCS: https://docs.djangoproject.com/en/5.2/topics/logging/
 LOGGING = {
     'version': 1,
@@ -387,19 +387,11 @@ LOGGING = {
             'style': '{',
         },
     },
-    'filters': {
-        'require_debug_false': {
-            '()': 'django.utils.log.RequireDebugFalse',
-        },
-        'require_debug_true': {
-            '()': 'django.utils.log.RequireDebugTrue',
-        },
-    },
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
-            'formatter': 'verbose',  # Include timestamps and module names
-            'level': 'INFO',  # Show INFO, WARNING, ERROR - good balance
+            'formatter': 'verbose',
+            'level': 'INFO',
         },
         'console_simple': {
             'class': 'logging.StreamHandler',
@@ -408,52 +400,64 @@ LOGGING = {
         },
     },
     'loggers': {
-        # Django core logging - show important messages and errors
+        # Django core logging
         'django': {
             'handlers': ['console'],
-            'level': 'INFO',  # Show INFO and above (no DEBUG spam)
+            'level': 'INFO',
             'propagate': False,
         },
-        # SQL query logging - only show errors (SQL logging is VERY verbose)
+        # SQL query logging - DISABLE (very noisy)
         'django.db.backends': {
-            'handlers': ['console'],
-            'level': 'ERROR',  # Only show database errors, not every query
+            'handlers': [],
+            'level': 'ERROR',
             'propagate': False,
         },
-        # Request/response logging - show errors and warnings
+        # Request/response logging
         'django.request': {
             'handlers': ['console'],
-            'level': 'ERROR',  # Only show request errors, not every request
+            'level': 'WARNING',
             'propagate': False,
         },
-        # Development server logging - show errors
+        # Development server logging - show HTTP requests
         'django.server': {
             'handlers': ['console_simple'],
-            'level': 'ERROR',  # Only show server errors
+            'level': 'INFO',
             'propagate': False,
         },
-        # ETL module logging - IMPORTANT for imports, show everything
+        # Autoreload logging - DISABLE (very noisy)
+        'django.utils.autoreload': {
+            'handlers': [],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+        # ETL module logging
         'etl': {
             'handlers': ['console'],
-            'level': 'INFO',  # Show ETL progress, errors, and tracebacks
+            'level': 'INFO',
             'propagate': False,
         },
         # Core module logging
         'core': {
             'handlers': ['console'],
-            'level': 'WARNING',  # Only warnings and errors
+            'level': 'INFO',
             'propagate': False,
         },
         # AM module logging
         'am_module': {
             'handlers': ['console'],
-            'level': 'WARNING',  # Only warnings and errors
+            'level': 'INFO',
+            'propagate': False,
+        },
+        # ACQ module logging
+        'acq_module': {
+            'handlers': ['console'],
+            'level': 'INFO',
             'propagate': False,
         },
     },
     'root': {
         'handlers': ['console'],
-        'level': 'INFO',  # Show INFO and above at root level
+        'level': 'INFO',
     },
 }
 
