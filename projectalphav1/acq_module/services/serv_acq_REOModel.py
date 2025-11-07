@@ -58,6 +58,16 @@ def get_reo_timeline_sums(asset_hub_id: int, reference_date: Optional[date] = No
     # WHY: Need trade for servicing transfer date, state for REO marketing duration
     raw_data = SellerRawData.objects.filter(asset_hub_id=asset_hub_id).select_related('trade').first()
     
+    # WHAT: PERFORMANCE - Fetch LoanLevelAssumption ONCE to avoid N+1 queries
+    # WHY: This function was querying it 3 separate times (FC, renovation, marketing overrides)
+    loan_assumption = LoanLevelAssumption.objects.filter(asset_hub_id=asset_hub_id).first()
+    
+    # WHAT: PERFORMANCE - Fetch StateReference ONCE to avoid duplicate queries
+    # WHY: This function was querying it 2 separate times (rehab duration, marketing duration)
+    state_ref = None
+    if raw_data and raw_data.state:
+        state_ref = StateReference.objects.filter(state_code=raw_data.state).first()
+    
     # WHAT: Default to 0 instead of None so calculations still work
     # WHY: Returning None breaks frontend calculations; 0 is a valid "no duration" value
     servicing_transfer_months = 0
@@ -65,7 +75,7 @@ def get_reo_timeline_sums(asset_hub_id: int, reference_date: Optional[date] = No
     if raw_data and raw_data.trade:
         # WHAT: Get TradeLevelAssumption for this trade
         # WHY: Contains servicing_transfer_date field with fallback logic
-        trade_assumption = TradeLevelAssumption.objects.filter(trade=raw_data.trade).first()
+        trade_assumption = TradeLevelAssumption.objects.filter(trade=raw_data.trade).select_related('servicer').first()
         
         if trade_assumption:
             # WHAT: Use effective_servicing_transfer_date property
@@ -101,10 +111,6 @@ def get_reo_timeline_sums(asset_hub_id: int, reference_date: Optional[date] = No
         
         # WHAT: Check for user override in LoanLevelAssumption (REO-specific FC override)
         # WHY: Allow users to adjust FC duration for REO model independently
-        loan_assumption = LoanLevelAssumption.objects.filter(
-            asset_hub_id=asset_hub_id
-        ).first()
-        
         if loan_assumption and loan_assumption.reo_fc_duration_override_months is not None:
             reo_fc_override_months = loan_assumption.reo_fc_duration_override_months
         
@@ -119,18 +125,13 @@ def get_reo_timeline_sums(asset_hub_id: int, reference_date: Optional[date] = No
     reo_renovation_months_base = None
     reo_renovation_override_months = 0
     
-    if raw_data and raw_data.state:
+    if state_ref:
         try:
-            state_ref = StateReference.objects.filter(state_code=raw_data.state).first()
-            if state_ref and state_ref.rehab_duration is not None:
+            if state_ref.rehab_duration is not None:
                 base_renovation_months = state_ref.rehab_duration
                 reo_renovation_months_base = base_renovation_months
                 
-                # WHAT: Check for user override for renovation duration
-                loan_assumption = LoanLevelAssumption.objects.filter(
-                    asset_hub_id=asset_hub_id
-                ).first()
-                
+                # WHAT: Check for user override for renovation duration (using cached loan_assumption)
                 if loan_assumption and loan_assumption.reo_renovation_override_months is not None:
                     reo_renovation_override_months = loan_assumption.reo_renovation_override_months
                 
@@ -152,18 +153,13 @@ def get_reo_timeline_sums(asset_hub_id: int, reference_date: Optional[date] = No
     reo_marketing_months_base = None
     reo_marketing_override_months = 0
     
-    if raw_data and raw_data.state:
+    if state_ref:
         try:
-            state_ref = StateReference.objects.filter(state_code=raw_data.state).first()
-            if state_ref and state_ref.reo_marketing_duration:
+            if state_ref.reo_marketing_duration:
                 base_marketing_months = state_ref.reo_marketing_duration
                 reo_marketing_months_base = base_marketing_months
                 
-                # WHAT: Check for user override for marketing duration
-                loan_assumption = LoanLevelAssumption.objects.filter(
-                    asset_hub_id=asset_hub_id
-                ).first()
-                
+                # WHAT: Check for user override for marketing duration (using cached loan_assumption)
                 if loan_assumption and loan_assumption.reo_marketing_override_months is not None:
                     reo_marketing_override_months = loan_assumption.reo_marketing_override_months
                 
@@ -327,26 +323,26 @@ def get_reo_expense_values(
         onetwentyday_fee = servicer.onetwentyday_fee or Decimal('0.0')
         fc_fee = servicer.fc_fee or Decimal('0.0')
         reo_fee = servicer.reo_fee or Decimal('0.0')
-            
-            # WHAT: Calculate total REO duration (renovation + marketing)
-            # WHY: REO fee applies during the entire REO period
-            reo_duration_months = (reo_renovation_months or 0) + (reo_marketing_months or 0)
-            
-            # WHAT: Sum up servicing fees based on timeline phases
-            servicing_fees = board_fee
-            if servicing_transfer_months:
-                servicing_fees += onetwentyday_fee * Decimal(servicing_transfer_months)
-            if foreclosure_months:
-                servicing_fees += fc_fee * Decimal(foreclosure_months)
-            if reo_duration_months:
-                servicing_fees += reo_fee * Decimal(reo_duration_months)
-            
-            print(f"\nServicing Fees Calculation:")
-            print(f"  Board Fee: ${board_fee:,.2f}")
-            print(f"  120-Day Fee ({servicing_transfer_months} months): ${onetwentyday_fee * Decimal(servicing_transfer_months if servicing_transfer_months else 0):,.2f}")
-            print(f"  FC Fee ({foreclosure_months} months): ${fc_fee * Decimal(foreclosure_months if foreclosure_months else 0):,.2f}")
-            print(f"  REO Fee ({reo_duration_months} months): ${reo_fee * Decimal(reo_duration_months):,.2f}")
-            print(f"  Total Servicing Fees: ${servicing_fees:,.2f}")
+        
+        # WHAT: Calculate total REO duration (renovation + marketing)
+        # WHY: REO fee applies during the entire REO period
+        reo_duration_months = (reo_renovation_months or 0) + (reo_marketing_months or 0)
+        
+        # WHAT: Sum up servicing fees based on timeline phases
+        servicing_fees = board_fee
+        if servicing_transfer_months:
+            servicing_fees += onetwentyday_fee * Decimal(servicing_transfer_months)
+        if foreclosure_months:
+            servicing_fees += fc_fee * Decimal(foreclosure_months)
+        if reo_duration_months:
+            servicing_fees += reo_fee * Decimal(reo_duration_months)
+        
+        print(f"\nServicing Fees Calculation:")
+        print(f"  Board Fee: ${board_fee:,.2f}")
+        print(f"  120-Day Fee ({servicing_transfer_months} months): ${onetwentyday_fee * Decimal(servicing_transfer_months if servicing_transfer_months else 0):,.2f}")
+        print(f"  FC Fee ({foreclosure_months} months): ${fc_fee * Decimal(foreclosure_months if foreclosure_months else 0):,.2f}")
+        print(f"  REO Fee ({reo_duration_months} months): ${reo_fee * Decimal(reo_duration_months):,.2f}")
+        print(f"  Total Servicing Fees: ${servicing_fees:,.2f}")
     
     # WHAT: Calculate taxes and insurance
     # WHY: These carry costs apply throughout entire timeline
@@ -638,12 +634,11 @@ def get_reo_expense_values(
     
     # WHAT: Calculate broker fees for As-Is scenario
     # WHY: Broker fees for REO sale calculated as liq_broker_cc_pct from trade assumptions × expected proceeds
-    # HOW: Use liq_broker_cc_pct from TradeLevelAssumption, multiply by As-Is proceeds
+    # HOW: Use liq_broker_cc_pct from TradeLevelAssumption (already fetched), multiply by As-Is proceeds
     broker_fees = Decimal('0.0')
-    if raw_data.trade and expected_proceeds > 0:
+    if trade_assumption and expected_proceeds > 0:
         try:
-            trade_assumption = TradeLevelAssumption.objects.filter(trade=raw_data.trade).first()
-            if trade_assumption and trade_assumption.liq_broker_cc_pct:
+            if trade_assumption.liq_broker_cc_pct:
                 broker_fee_pct = trade_assumption.liq_broker_cc_pct
                 broker_fees = (broker_fee_pct * expected_proceeds).quantize(Decimal('0.01'))
                 print(f"Broker Fees (As-Is): {broker_fee_pct} × ${expected_proceeds:,.2f} = ${broker_fees:,.2f}")
@@ -654,11 +649,8 @@ def get_reo_expense_values(
     # WHY: Servicer fee for completing the REO sale
     # HOW: Use MAX(flat fee, percentage fee × proceeds) - same logic as FC model
     servicer_liquidation_fee = Decimal('0.0')
-    if raw_data.trade:
+    if trade_assumption and servicer:
         try:
-            trade_assumption = TradeLevelAssumption.objects.filter(trade=raw_data.trade).first()
-            if trade_assumption and trade_assumption.servicer:
-                servicer = trade_assumption.servicer
                 
                 # WHAT: Get flat fee option
                 flat_fee = servicer.liqfee_flat or Decimal('0.0')
@@ -700,25 +692,22 @@ def get_reo_expense_values(
     # HOW: Use liq_broker_cc_pct (percentage) and acq_other_costs (percentage) from trade assumptions
     acq_broker_fee_pct = Decimal('0.0')
     acq_other_fee_pct = Decimal('0.0')
-    if raw_data.trade:
-        trade_assumption = TradeLevelAssumption.objects.filter(trade=raw_data.trade).first()
-        if trade_assumption:
-            acq_legal = trade_assumption.acq_legal_cost or Decimal('0.0')
-            acq_dd = trade_assumption.acq_dd_cost or Decimal('0.0')
-            acq_tax_title = trade_assumption.acq_tax_title_cost or Decimal('0.0')
-            # WHAT: Store percentages for frontend display
-            # WHY: Frontend may need to show the percentage
-            acq_broker_fee_pct = trade_assumption.acq_broker_fees or Decimal('0.0')
-            acq_other_fee_pct = trade_assumption.acq_other_costs or Decimal('0.0')
+    if trade_assumption:
+        acq_legal = trade_assumption.acq_legal_cost or Decimal('0.0')
+        acq_dd = trade_assumption.acq_dd_cost or Decimal('0.0')
+        acq_tax_title = trade_assumption.acq_tax_title_cost or Decimal('0.0')
+        # WHAT: Store percentages for frontend display
+        # WHY: Frontend may need to show the percentage
+        acq_broker_fee_pct = trade_assumption.acq_broker_fees or Decimal('0.0')
+        acq_other_fee_pct = trade_assumption.acq_other_costs or Decimal('0.0')
     
     # WHAT: Calculate AM liquidation fee for As-Is scenario
     # WHY: Asset manager's fee at REO liquidation
     # HOW: Straight percentage calculation using liq_am_fee_pct from trade assumptions × expected proceeds
     am_liquidation_fee = Decimal('0.0')
-    if raw_data.trade and expected_proceeds > 0:
+    if trade_assumption and expected_proceeds > 0:
         try:
-            trade_assumption = TradeLevelAssumption.objects.filter(trade=raw_data.trade).first()
-            if trade_assumption and trade_assumption.liq_am_fee_pct:
+            if trade_assumption.liq_am_fee_pct:
                 # WHAT: Simple percentage calculation (no MAX, no flat fee)
                 # WHY: AM fee is always a percentage of exit proceeds
                 am_fee_pct = trade_assumption.liq_am_fee_pct
@@ -737,11 +726,10 @@ def get_reo_expense_values(
     if expected_proceeds_arv > 0:
         # WHAT: Recalculate broker fees for ARV
         # WHY: Same liq_broker_cc_pct percentage but applied to higher ARV proceeds
-        # HOW: Use liq_broker_cc_pct from TradeLevelAssumption × ARV proceeds
-        if raw_data.trade:
+        # HOW: Use liq_broker_cc_pct from TradeLevelAssumption (already fetched) × ARV proceeds
+        if trade_assumption:
             try:
-                trade_assumption = TradeLevelAssumption.objects.filter(trade=raw_data.trade).first()
-                if trade_assumption and trade_assumption.liq_broker_cc_pct:
+                if trade_assumption.liq_broker_cc_pct:
                     broker_fee_pct = trade_assumption.liq_broker_cc_pct
                     broker_fees_arv = (broker_fee_pct * expected_proceeds_arv).quantize(Decimal('0.01'))
                     print(f"Broker Fees (ARV): {broker_fee_pct} × ${expected_proceeds_arv:,.2f} = ${broker_fees_arv:,.2f}")
@@ -749,25 +737,21 @@ def get_reo_expense_values(
                 print(f"ERROR calculating ARV broker fees: {str(e)}")
         
         # WHAT: Recalculate servicer liquidation fee for ARV
-        if raw_data.trade:
+        if trade_assumption and servicer:
             try:
-                trade_assumption = TradeLevelAssumption.objects.filter(trade=raw_data.trade).first()
-                if trade_assumption and trade_assumption.servicer:
-                    servicer = trade_assumption.servicer
-                    flat_fee = servicer.liqfee_flat or Decimal('0.0')
-                    pct_fee = (servicer.liqfee_pct * expected_proceeds_arv).quantize(Decimal('0.01')) if servicer.liqfee_pct else Decimal('0.0')
-                    servicer_liquidation_fee_arv = max(flat_fee, pct_fee)
-                    print(f"Servicer Liquidation Fee ARV: MAX(${flat_fee:,.2f}, ${pct_fee:,.2f}) = ${servicer_liquidation_fee_arv:,.2f}")
+                flat_fee = servicer.liqfee_flat or Decimal('0.0')
+                pct_fee = (servicer.liqfee_pct * expected_proceeds_arv).quantize(Decimal('0.01')) if servicer.liqfee_pct else Decimal('0.0')
+                servicer_liquidation_fee_arv = max(flat_fee, pct_fee)
+                print(f"Servicer Liquidation Fee ARV: MAX(${flat_fee:,.2f}, ${pct_fee:,.2f}) = ${servicer_liquidation_fee_arv:,.2f}")
             except Exception as e:
                 print(f"ERROR calculating ARV servicer liquidation fee: {str(e)}")
         
         # WHAT: Recalculate AM liquidation fee for ARV
         # WHY: Same liq_am_fee_pct percentage but applied to higher ARV proceeds
-        # HOW: Simple percentage calculation using liq_am_fee_pct × ARV proceeds
-        if raw_data.trade:
+        # HOW: Simple percentage calculation using liq_am_fee_pct (already fetched) × ARV proceeds
+        if trade_assumption:
             try:
-                trade_assumption = TradeLevelAssumption.objects.filter(trade=raw_data.trade).first()
-                if trade_assumption and trade_assumption.liq_am_fee_pct:
+                if trade_assumption.liq_am_fee_pct:
                     # WHAT: Simple percentage calculation (no MAX, no flat fee)
                     am_fee_pct = trade_assumption.liq_am_fee_pct
                     am_liquidation_fee_arv = (am_fee_pct * expected_proceeds_arv).quantize(Decimal('0.01'))
