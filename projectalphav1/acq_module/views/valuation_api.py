@@ -352,6 +352,23 @@ def internal_valuation_view(request, seller_id: int | str):
     rehab_total = incoming.get('rehab_est_total')
     notes = incoming.get('notes')
     links = incoming.get('links')
+    
+    # WHAT: Handle grade assignment
+    # WHY: Grade is linked via ValuationGradeReference FK
+    # HOW: Look up grade reference by code, assign to valuation
+    grade_code = request.data.get('grade_code')
+    grade_instance = None
+    if grade_code:
+        from core.models.valuations import ValuationGradeReference
+        try:
+            grade_instance = ValuationGradeReference.objects.get(code=grade_code)
+        except ValuationGradeReference.DoesNotExist:
+            # WHAT: Invalid grade code provided
+            # WHY: Frontend should only send valid codes (A+, A, B, C, D, F)
+            return Response(
+                {'error': f'Invalid grade code: {grade_code}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
     # Upsert strategy by (asset_hub, source, value_date). If date missing, update latest or create new.
     lookup = {
@@ -366,6 +383,11 @@ def internal_valuation_view(request, seller_id: int | str):
         'notes': notes,
         'links': links,
     }
+    
+    # WHAT: Add grade to defaults if provided
+    # WHY: Allow updating grade on valuation records
+    if grade_code is not None:
+        defaults['grade'] = grade_instance
 
     if lookup['value_date'] is None:
         obj = (

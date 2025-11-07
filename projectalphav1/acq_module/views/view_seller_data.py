@@ -70,10 +70,20 @@ from ..logic.ll_metrics import get_ltv_scatter_data
 logger = logging.getLogger(__name__)
 
 class StandardResultsSetPagination(PageNumberPagination):
-    """Pagination class matching AM module for consistency."""
+    """Pagination class for acquisition module.
+    
+    WHAT: DRF pagination settings for seller raw data endpoints
+    WHY: Allow frontend to fetch all assets, not limited to 500
+    HOW: Set max_page_size high enough for large portfolios (10,000)
+    
+    Settings:
+    - page_size: 50 (default page size if not specified)
+    - page_size_query_param: 'page_size' (allows ?page_size=X in URL)
+    - max_page_size: 10000 (maximum allowed page size to fetch all assets)
+    """
     page_size = 50
     page_size_query_param = 'page_size'
-    max_page_size = 500
+    max_page_size = 10000  # Allow large portfolios to be fetched in fewer requests
 
 
 @api_view(["GET"])
@@ -416,7 +426,8 @@ def get_valuation_completion_summary(request, seller_id: int, trade_id: int):
           "broker_count": 150,         // Assets with broker valuations
           "bpo_count": 200,            // Assets with any BPO-type valuation
           "internal_uw_count": 100,    // Assets with internal UW valuations
-          "reconciled_count": 75       // Assets with all three sources
+          "reconciled_count": 75,      // Assets with all three sources
+          "graded_count": 50           // Assets with grade assigned to Internal UW
         }
     
     Note: All counts exclude DROP status assets automatically via sellertrade_qs()
@@ -440,6 +451,7 @@ def get_valuation_completion_summary(request, seller_id: int, trade_id: int):
             'bpo_count': 0,
             'internal_uw_count': 0,
             'reconciled_count': 0,
+            'graded_count': 0,
         })
 
 

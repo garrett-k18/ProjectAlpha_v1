@@ -187,6 +187,8 @@ class SellerRawDataRowSerializer(serializers.Serializer):
     internal_initial_uw_asis_value = serializers.SerializerMethodField()
     internal_initial_uw_arv_value = serializers.SerializerMethodField()
     internal_initial_uw_value_date = serializers.SerializerMethodField()
+    internal_initial_uw_grade = serializers.SerializerMethodField()
+    internal_initial_uw_grade_id = serializers.SerializerMethodField()
     
    
     
@@ -245,6 +247,28 @@ class SellerRawDataRowSerializer(serializers.Serializer):
     def get_internal_initial_uw_value_date(self, obj):
         v = self._latest_val_by_source(obj, 'internalInitialUW')
         return getattr(v, 'value_date', None) if v else None
+    
+    def get_internal_initial_uw_grade(self, obj):
+        """Return grade code for Internal Initial UW valuation.
+        
+        WHAT: Get grade code (A+, A, B, C, D, F) from related ValuationGradeReference
+        WHY: Frontend needs grade for dropdown display
+        HOW: Get latest internalInitialUW valuation, then get grade.code if exists
+        """
+        v = self._latest_val_by_source(obj, 'internalInitialUW')
+        if v and v.grade:
+            return v.grade.code
+        return None
+    
+    def get_internal_initial_uw_grade_id(self, obj):
+        """Return grade ID for Internal Initial UW valuation.
+        
+        WHAT: Get grade ID for updating grade via API
+        WHY: Frontend needs ID to send back when changing grade
+        HOW: Get latest internalInitialUW valuation, then get grade_id
+        """
+        v = self._latest_val_by_source(obj, 'internalInitialUW')
+        return v.grade_id if v else None
 
     def get_is_dropped(self, obj):
         """Return True when acquisition status indicates a dropped asset."""

@@ -423,12 +423,23 @@ def valuation_completion_summary(seller_id: int, trade_id: int) -> Dict[str, int
         Exists(internal_uw_subquery)
     ).count()
     
+    # WHAT: Count assets with grade assigned to Internal Initial UW valuation
+    # WHY: Track completion of valuation grading process
+    # HOW: Check for Internal UW valuations with grade FK not null
+    graded_subquery = Valuation.objects.filter(
+        asset_hub=OuterRef('asset_hub'),
+        source=Valuation.Source.INTERNAL_INITIAL_UW,
+        grade__isnull=False
+    )
+    graded_count = qs.filter(Exists(graded_subquery)).count()
+    
     return {
         'seller_count': seller_count,
         'broker_count': broker_count,
         'bpo_count': bpo_count,
         'internal_uw_count': internal_uw_count,
         'reconciled_count': reconciled_count,
+        'graded_count': graded_count,
     }
 
 

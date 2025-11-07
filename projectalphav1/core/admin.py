@@ -23,6 +23,7 @@ from core.models import (
     UnitBasedAssumption,
     LlDataEnrichment,
     Valuation,
+    ValuationGradeReference,
     Photo,
     Document,
     LLTransactionSummary,
@@ -286,18 +287,47 @@ class ServicerAdmin(admin.ModelAdmin):
 
 
 
+@admin.register(ValuationGradeReference)
+class ValuationGradeReferenceAdmin(admin.ModelAdmin):
+    """Admin for ValuationGradeReference model.
+    
+    WHAT: Manage valuation grade reference data (A+, A, B, C, D, F)
+    WHY: Allow creating/editing grade definitions used in Valuation FK
+    HOW: Simple list/edit interface for reference data
+    """
+    list_display = (
+        'code', 'label', 'sort_order', 'description', 'created_at', 'updated_at'
+    )
+    list_filter = ('code',)
+    search_fields = ('code', 'label', 'description')
+    ordering = ('sort_order', 'code')
+    readonly_fields = ('created_at', 'updated_at')
+    list_per_page = 10
+    
+    fieldsets = (
+        ('Grade Information', {
+            'fields': ('code', 'label', 'sort_order', 'description')
+        }),
+        ('Metadata', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+
 @admin.register(Valuation)
 class ValuationAdmin(admin.ModelAdmin):
     """Admin for the unified Valuation model."""
     list_display = (
-        'id', 'asset_hub', 'source', 'asis_value', 'arv_value', 'value_date', 'created_at'
+        'id', 'asset_hub', 'source', 'grade', 'asis_value', 'arv_value', 'value_date', 'created_at'
     )
     list_filter = (
-        'source', 'value_date'
+        'source', 'grade', 'value_date'
     )
     search_fields = (
         'asset_hub__id', 'notes'
     )
+    autocomplete_fields = ['grade', 'broker_contact']
     # No fieldsets: show all fields by default
     readonly_fields = ('created_at', 'updated_at')
     list_per_page = 5

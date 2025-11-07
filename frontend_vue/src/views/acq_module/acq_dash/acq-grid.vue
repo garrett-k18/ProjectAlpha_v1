@@ -29,6 +29,9 @@
         :columnDefs="columnDefs"
         :defaultColDef="defaultColDef"
         :rowSelection="{ mode: 'multiRow', checkboxes: false, headerCheckbox: false, enableClickSelection: true }"
+        :pagination="true"
+        :paginationPageSize="50"
+        :paginationPageSizeSelector="[25, 50, 100, 200, 500]"
         overlayNoRowsTemplate="No rows"
         @grid-ready="onGridReady"
       />

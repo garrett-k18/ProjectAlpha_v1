@@ -61,6 +61,7 @@ export const useAgGridRowsStore = defineStore('agGridRows', () => {
    * - Returns cached data immediately when available.
    * - Sets loading and error flags appropriately.
    * - Passes view parameter to backend for drop status filtering
+   * - Fetches ALL pages (not just first 500) by paginating through results
    */
   async function fetchRows(sellerId: number, tradeId: number, view: string = 'snapshot'): Promise<void> {
     // Defensive: require both IDs
@@ -93,22 +94,50 @@ export const useAgGridRowsStore = defineStore('agGridRows', () => {
       }
       currentController = new AbortController()
       inFlightKey = key
-      // Use a leading slash so Axios baseURL (e.g., '/api') joins correctly.
-      // Endpoint implemented by Django: GET /api/acq/raw-data/<sellerId>/<tradeId>/?view=<view>
-      // Now returns paginated DRF response: { results: [...], count, next, previous }
-      // Pass view parameter to filter by drop status
-      // Request large page_size to get all assets (backend max is 500)
-      const resp = await http.get<{ results: GridRow[]; count: number; next: string | null; previous: string | null }>(`/acq/raw-data/${sellerId}/${tradeId}/`, {
-        params: { view, page_size: 500 },
-        signal: currentController.signal as any,
-        timeout: 20000,
-      })
-      // Extract results from paginated response (fallback to empty array)
-      const data = Array.isArray(resp.data?.results) ? resp.data.results : []
+      
+      // WHAT: Fetch all pages by paginating through results
+      // WHY: Backend max page_size is now 10,000, request large page to minimize requests
+      // HOW: Loop through pages until next is null (most portfolios will fit in 1-2 pages)
+      const allRows: GridRow[] = []
+      let nextUrl: string | null = `/acq/raw-data/${sellerId}/${tradeId}/?view=${view}&page_size=5000`
+      
+      while (nextUrl) {
+        const resp = await http.get<{ 
+          results: GridRow[]
+          count: number
+          next: string | null
+          previous: string | null
+        }>(nextUrl, {
+          signal: currentController.signal as any,
+          timeout: 20000,
+        })
+        
+        // WHAT: Extract results from paginated response
+        const pageResults = Array.isArray(resp.data?.results) ? resp.data.results : []
+        allRows.push(...pageResults)
+        
+        // WHAT: Check if there's a next page
+        // WHY: Backend returns absolute URL in 'next' field
+        // HOW: Extract relative path from absolute URL or use as-is if relative
+        nextUrl = resp.data?.next || null
+        if (nextUrl) {
+          // WHAT: Convert absolute URL to relative path if needed
+          // WHY: Axios baseURL handles relative paths correctly
+          try {
+            const url = new URL(nextUrl)
+            nextUrl = url.pathname + url.search
+          } catch {
+            // If nextUrl is already relative, use as-is
+            if (!nextUrl.startsWith('/')) {
+              nextUrl = null
+            }
+          }
+        }
+      }
 
-      // Update current rows and cache
-      setRows(data, key)
-      cache.value.set(key, data)
+      // Update current rows and cache with all fetched rows
+      setRows(allRows, key)
+      cache.value.set(key, allRows)
     } catch (e: any) {
       // Suppress cancellation errors from AbortController/Axios
       const isCanceled = e?.code === 'ERR_CANCELED' || e?.name === 'CanceledError' || e?.message === 'canceled'

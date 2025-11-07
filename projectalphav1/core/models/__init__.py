@@ -5,7 +5,7 @@ from .asset_id_hub import AssetIdHub
 from .model_co_assumptions import Servicer, StateReference, FCStatus, FCTimelines, CommercialUnits, HOAAssumption, PropertyTypeAssumption, SquareFootageAssumption, UnitBasedAssumption
 from .model_co_lookupTables import PropertyType
 from .enrichment import LlDataEnrichment
-from .valuations import Valuation
+from .valuations import Valuation, ValuationGradeReference
 from .attachments import Photo, Document
 from .transactions import LLTransactionSummary, LLCashFlowSeries
 from .commercial import UnitMix, RentRoll
@@ -35,6 +35,7 @@ __all__ = [
     'PropertyType',
     'LlDataEnrichment', 
     'Valuation',
+    'ValuationGradeReference',
     'Photo',
     'Document',
     'LLTransactionSummary',

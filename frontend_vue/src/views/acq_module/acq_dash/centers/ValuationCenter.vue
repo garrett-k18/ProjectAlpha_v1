@@ -88,12 +88,14 @@
       <b-col xl="" lg="4" md="6">
         <div class="card tilebox-one mb-0">
           <div class="card-body pt-3 pb-2 px-3">
-            <i class="uil uil-exclamation-triangle float-end text-warning"></i>
-            <h6 class="text-uppercase mt-0">Variances</h6>
-            <h2 class="my-2 fs-3">{{ valuationMetrics.variance_count }}</h2>
+            <i class="uil uil-star float-end text-success"></i>
+            <h6 class="text-uppercase mt-0">Graded Assets</h6>
+            <h2 class="my-2 fs-3">{{ valuationMetrics.graded_count }} / {{ totalAssets }}</h2>
             <p class="mb-0 text-muted">
-              <span class="text-warning">{{ valuationMetrics.variance_pct }}%</span>
-              <span class="ms-2">&gt;10% Diff</span>
+              <span class="badge" :class="progressBadgeClass(valuationMetrics.graded_count, totalAssets)">
+                {{ valuationMetrics.graded_pct }}%
+              </span>
+              <span class="ms-2">Complete</span>
             </p>
           </div>
         </div>
@@ -138,14 +140,14 @@
                 <div class="card bg-light border mb-3">
                   <div class="card-body py-2">
                     <div class="row g-2 align-items-end">
-                      <!-- Search Box -->
+                      <!-- Search Box (City Only) -->
                       <div class="col-md-3">
-                        <label class="form-label small mb-1">Search Address</label>
+                        <label class="form-label small mb-1">Search City</label>
                         <input 
                           v-model="filters.search" 
                           type="text" 
                           class="form-control form-control-sm" 
-                          placeholder="Search by address or city..."
+                          placeholder="Search by city..."
                           @input="applyFilters"
                         />
                       </div>
@@ -163,18 +165,6 @@
                             {{ state }}
                           </option>
                         </select>
-                      </div>
-                      
-                      <!-- City Filter -->
-                      <div class="col-md-2">
-                        <label class="form-label small mb-1">City</label>
-                        <input 
-                          v-model="filters.city" 
-                          type="text" 
-                          class="form-control form-control-sm" 
-                          placeholder="City..."
-                          @input="applyFilters"
-                        />
                       </div>
                       
                       <!-- Value Range Min -->
@@ -228,6 +218,7 @@
                     <thead class="table-light">
                       <tr>
                         <th>Address</th>
+                        <th class="text-center">Grade</th>
                         <th class="text-center">Quick Links</th>
                         <th class="text-center">Seller AIV - ARV</th>
                         <th class="text-center">BPO AIV - ARV</th>
@@ -240,8 +231,8 @@
                     </thead>
                     <tbody>
                       <tr v-if="!filteredRows || filteredRows.length === 0">
-                        <td colspan="9" class="text-center text-muted py-3">
-                          <span v-if="filters.search || filters.state || filters.city || filters.minValue || filters.maxValue">
+                        <td colspan="10" class="text-center text-muted py-3">
+                          <span v-if="filters.search || filters.state || filters.minValue || filters.maxValue">
                             No assets match your filters
                           </span>
                           <span v-else>
@@ -257,6 +248,23 @@
                           <div class="small address-link address-link-secondary" @click="openLoanModal(asset)">
                             {{ formatCityState(asset) }}
                           </div>
+                        </td>
+                        <td class="text-center">
+                          <!-- WHAT: Grade dropdown for Internal Initial UW valuation -->
+                          <!-- WHY: Allow users to assign grade to internal UW valuations -->
+                          <select 
+                            class="form-select form-select-sm grade-select"
+                            :value="getInternalUWGrade(asset)"
+                            @change="(e) => saveGrade(asset, (e.target as HTMLSelectElement).value)"
+                          >
+                            <option value="">-</option>
+                            <option value="A+">A+</option>
+                            <option value="A">A</option>
+                            <option value="B">B</option>
+                            <option value="C">C</option>
+                            <option value="D">D</option>
+                            <option value="F">F</option>
+                          </select>
                         </td>
                         <td class="text-center py-1">
                           <!-- WHAT: 3rd Party Site Links - stacked vertically with minimal spacing -->
@@ -308,9 +316,10 @@
                             type="text"
                             class="editable-value-inline"
                             :value="formatCurrencyForInput(asset.internal_initial_uw_asis_value)"
+                            @input="(e) => formatInputOnType(e)"
                             @blur="(e) => saveInternalUW(asset, 'asis', e)"
                             @keyup.enter="(e) => saveInternalUW(asset, 'asis', e)"
-                            placeholder="-"
+                            placeholder="Click to edit"
                           />
                           <span style="margin: 0 0px;"> - </span>
                           <!-- WHAT: Editable Internal UW Initial ARV Value - styled to blend in -->
@@ -318,9 +327,10 @@
                             type="text"
                             class="editable-value-inline"
                             :value="formatCurrencyForInput(asset.internal_initial_uw_arv_value)"
+                            @input="(e) => formatInputOnType(e)"
                             @blur="(e) => saveInternalUW(asset, 'arv', e)"
                             @keyup.enter="(e) => saveInternalUW(asset, 'arv', e)"
-                            placeholder="-"
+                            placeholder="Click to edit"
                           />
                         </td>
                         <td class="text-center">
@@ -652,7 +662,6 @@ const pageSize = ref(50)  // Default to 50 rows per page
 const filters = ref({
   search: '',
   state: '',
-  city: '',
   minValue: null as number | null,
   maxValue: null as number | null,
 })
@@ -689,26 +698,17 @@ const filteredRows = computed(() => {
   
   let filtered = rows.value
   
-  // WHAT: Apply search filter (address or city)
+  // WHAT: Apply search filter (city only)
   if (filters.value.search) {
     const searchLower = filters.value.search.toLowerCase()
-    filtered = filtered.filter((row: any) => {
-      const address = `${row.street_address || ''} ${row.city || ''} ${row.state || ''}`.toLowerCase()
-      return address.includes(searchLower)
-    })
+    filtered = filtered.filter((row: any) => 
+      (row.city || '').toLowerCase().includes(searchLower)
+    )
   }
   
   // WHAT: Apply state filter
   if (filters.value.state) {
     filtered = filtered.filter((row: any) => row.state === filters.value.state)
-  }
-  
-  // WHAT: Apply city filter
-  if (filters.value.city) {
-    const cityLower = filters.value.city.toLowerCase()
-    filtered = filtered.filter((row: any) => 
-      (row.city || '').toLowerCase().includes(cityLower)
-    )
   }
   
   // WHAT: Apply min value filter (seller_asis_value)
@@ -799,8 +799,8 @@ const valuationMetrics = ref({
   internal_pct: 0,
   reconciled_count: 0,
   reconciled_pct: 0,
-  variance_count: 0,
-  variance_pct: 0,
+  graded_count: 0,
+  graded_pct: 0,
 })
 
 // Helper functions
@@ -815,7 +815,6 @@ function applyFilters() {
 function clearFilters() {
   filters.value.search = ''
   filters.value.state = ''
-  filters.value.city = ''
   filters.value.minValue = null
   filters.value.maxValue = null
   currentPage.value = 1
@@ -870,6 +869,104 @@ function formatCurrency(val: number | null): string {
 function formatCurrencyForInput(val: number | null): string {
   if (val == null) return ''
   return '$' + new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(val)
+}
+
+// WHAT: Format input field as user types (add $ and commas)
+// WHY: Provide real-time feedback as users enter currency values
+// HOW: Extract numeric value, format with currency, update input while preserving cursor position
+function formatInputOnType(event: Event) {
+  const input = event.target as HTMLInputElement
+  
+  // WHAT: Store cursor position and old value before formatting
+  const oldValue = input.value
+  const oldCursorPosition = input.selectionStart || 0
+  
+  // WHAT: Get raw numeric value from input (remove all non-digits)
+  const rawValue = oldValue.replace(/[^0-9]/g, '')
+  
+  // WHAT: If empty, keep it empty
+  if (!rawValue) {
+    input.value = ''
+    return
+  }
+  
+  // WHAT: Parse to number and format with $ and commas
+  const numValue = parseInt(rawValue, 10)
+  const formatted = '$' + new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(numValue)
+  
+  // WHAT: Only update if the formatted value is different
+  if (oldValue === formatted) {
+    return
+  }
+  
+  // WHAT: Calculate cursor position adjustment
+  // WHY: Account for added $ and comma characters
+  const digitsBeforeCursor = oldValue.substring(0, oldCursorPosition).replace(/[^0-9]/g, '').length
+  
+  // WHAT: Find where those digits are in the new formatted string
+  let newCursorPosition = 0
+  let digitCount = 0
+  for (let i = 0; i < formatted.length; i++) {
+    if (/[0-9]/.test(formatted[i])) {
+      digitCount++
+      if (digitCount >= digitsBeforeCursor) {
+        newCursorPosition = i + 1
+        break
+      }
+    }
+  }
+  
+  // WHAT: Update value and restore cursor
+  input.value = formatted
+  input.setSelectionRange(newCursorPosition, newCursorPosition)
+}
+
+// WHAT: Get current grade for Internal UW valuation
+// WHY: Display current grade in dropdown
+// HOW: Extract from asset data returned by serializer
+function getInternalUWGrade(asset: any): string {
+  return asset.internal_initial_uw_grade || ''
+}
+
+// WHAT: Save grade for Internal Initial UW valuation
+// WHY: Allow users to assign quality grade (A+, A, B, C, D, F) to internal valuations
+// HOW: Update Valuation record with grade reference via ValuationGradeReference FK
+async function saveGrade(asset: any, gradeCode: string) {
+  const assetHubId = asset.asset_hub_id || asset.id
+  if (!assetHubId) {
+    console.error('[ValuationCenter] No asset hub ID found')
+    return
+  }
+  
+  try {
+    // WHAT: Update Internal Initial UW valuation with grade
+    // WHY: Grade stored on Valuation model, linked via ValuationGradeReference FK
+    // HOW: Send grade code to backend endpoint with source parameter
+    const payload = {
+      grade_code: gradeCode || null,  // Empty string becomes null (removes grade)
+    }
+    
+    console.log('[ValuationCenter] Saving grade:', gradeCode, 'for asset:', assetHubId)
+    
+    // WHAT: Call valuation API with source=internalInitialUW
+    // WHY: Backend endpoint handles grade lookup and assignment
+    // HOW: PUT to /acq/valuations/internal/{id}/?source=internalInitialUW
+    await http.put(`/acq/valuations/internal/${assetHubId}/`, payload, {
+      params: { source: 'internalInitialUW' }
+    })
+    
+    // WHAT: Refresh grid data to show updated grade
+    // WHY: User needs immediate feedback
+    if (selectedSellerId.value && selectedTradeId.value) {
+      gridStore.clearCache()
+      await gridStore.fetchRows(selectedSellerId.value, selectedTradeId.value, 'all')
+    }
+    
+    console.log('[ValuationCenter] Grade saved successfully')
+  } catch (err: any) {
+    console.error('[ValuationCenter] Failed to save grade:', err)
+    alert(`Failed to save grade: ${err?.response?.data?.error || err?.message || 'Unknown error'}`)
+  }
 }
 
 // WHAT: Save Internal UW Initial valuation to backend
@@ -1084,8 +1181,8 @@ async function fetchValuationMetrics() {
       internal_pct: Math.round(((data.internal_uw_count || 0) / total) * 100),
       reconciled_count: data.reconciled_count || 0,
       reconciled_pct: Math.round(((data.reconciled_count || 0) / total) * 100),
-      variance_count: 0,  // TODO: Backend should calculate variance count
-      variance_pct: 0,
+      graded_count: data.graded_count || 0,
+      graded_pct: Math.round(((data.graded_count || 0) / total) * 100),
     }
     
     console.log('[ValuationCenter] Valuation metrics loaded from backend:', valuationMetrics.value)
@@ -1104,8 +1201,8 @@ async function fetchValuationMetrics() {
       internal_pct: 0,
       reconciled_count: 0,
       reconciled_pct: 0,
-      variance_count: 0,
-      variance_pct: 0,
+      graded_count: 0,
+      graded_pct: 0,
     }
   }
 }
@@ -1178,6 +1275,31 @@ onMounted(async () => {
   font-size: 0.7rem;
   opacity: 0.7;
   margin-left: 2px;
+}
+
+/* WHAT: Grade dropdown select styling */
+/* WHY: Compact dropdown that fits in table cell */
+.grade-select {
+  width: auto;
+  min-width: 70px;
+  max-width: 90px;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+  border: 1px solid #dee2e6;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.grade-select:hover {
+  border-color: #0d6efd;
+  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.1);
+}
+
+.grade-select:focus {
+  border-color: #0d6efd;
+  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+  outline: 0;
 }
 
 /* WHAT: Editable inline value styling - blend with table text */
