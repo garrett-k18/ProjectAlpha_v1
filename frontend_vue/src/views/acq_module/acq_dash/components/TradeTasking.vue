@@ -3,7 +3,7 @@
   <div class="card h-100 d-flex flex-column" data-testid="tasking-option1">
     <!-- Header -->
     <div class="d-flex card-header justify-content-between align-items-center py-2">
-      <h4 class="header-title m-1">Trade Tracker</h4>
+      <h4 class="header-title m-1">Due Diligence Tracker</h4>
     </div>
 
     <!-- Body -->

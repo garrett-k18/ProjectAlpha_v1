@@ -406,7 +406,9 @@
 import { computed } from 'vue'
 
 // Servicer interface for dropdown options
-interface Servicer {
+// WHAT: Export this interface to prevent Vue type inference issues
+// WHY: Vue Volar type checker needs explicit exports for component prop types
+export interface Servicer {
   id: number
   servicerName: string
 }

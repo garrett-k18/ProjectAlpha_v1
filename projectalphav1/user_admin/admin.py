@@ -12,7 +12,9 @@ from .models.user_profile import UserProfile
 class BrokerTokenAuthAdmin(admin.ModelAdmin):
     """Admin for broker invite tokens.
 
-    Columns and filters are chosen to quickly find active tokens per broker/SRD.
+    WHAT: Hub-first architecture - displays asset_hub instead of seller_raw_data
+    WHY: All joins happen through AssetIdHub intentionally
+    Columns and filters are chosen to quickly find active tokens per broker/asset hub.
     Docs: https://docs.djangoproject.com/en/5.0/ref/contrib/admin/
     """
 
@@ -20,7 +22,7 @@ class BrokerTokenAuthAdmin(admin.ModelAdmin):
     list_display = (
         "token",
         "broker",
-        "seller_raw_data",
+        "asset_hub",  # Hub-first: renamed from seller_raw_data
         "expires_at",
         "used_at",
         "single_use",
@@ -30,12 +32,14 @@ class BrokerTokenAuthAdmin(admin.ModelAdmin):
     # Sidebar filters
     list_filter = ("single_use", "used_at", "expires_at", "broker")
 
-    # Search across token string, broker name/email, and SRD id
+    # WHAT: Search across token string, broker name/email, and asset hub id
+    # WHY: Hub-first architecture
+    # HOW: MasterCRM uses contact_name and email (not broker_name/broker_email)
     search_fields = (
         "token",
-        "broker__broker_name",
-        "broker__broker_email",
-        "seller_raw_data__id",
+        "broker__contact_name",  # MasterCRM field
+        "broker__email",         # MasterCRM field
+        "asset_hub__id",         # Hub-first: renamed from seller_raw_data__id
     )
 
     # Default ordering: newest first
@@ -92,10 +96,13 @@ class BrokerPortalTokenAdmin(admin.ModelAdmin):
         "broker",
         "expires_at",
     )
+    # WHAT: Search by token and broker contact info
+    # WHY: MasterCRM uses contact_name and email fields
+    # HOW: Update to use correct MasterCRM field names
     search_fields = (
         "token",
-        "broker__broker_name",
-        "broker__broker_email",
+        "broker__contact_name",  # MasterCRM field (not broker_name)
+        "broker__email",         # MasterCRM field (not broker_email)
     )
     ordering = ("-created_at",)
     exclude = ("token",)

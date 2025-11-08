@@ -49,7 +49,7 @@
         <li class="side-nav-item">
           <router-link to="/acquisitions" class="side-nav-link side-nav-link-ref">
             <i class="uil-analysis"></i>
-            <span> Acquisitions </span>
+            <span> Acquisition Lab </span>
           </router-link>
         </li>
 

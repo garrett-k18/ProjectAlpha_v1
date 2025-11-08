@@ -1,6 +1,9 @@
 [build]
 builder = "nixpacks"
 
+[build.env]
+NIXPACKS_APT_PACKAGES = "tesseract-ocr libtesseract-dev"
+
 [build.nixpacksPhase]
 cmds = [
     "python -m pip install --upgrade pip",

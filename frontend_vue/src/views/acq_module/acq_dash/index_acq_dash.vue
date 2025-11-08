@@ -6,7 +6,7 @@
           <div class="page-title-right">
             <!-- Removed refresh button/form -->
           </div>
-          <h4 class="page-title">Acquisition Module</h4>
+          <h4 class="page-title">Acquisition Lab</h4>
         </div>
       </b-col>
     </b-row>
@@ -14,44 +14,32 @@
    
 
     <!-- Prominent, centered selectors: MUST choose before page functions -->
-    <b-row class="mb-0">
+    <b-row class="m-0">
       <b-col class="col-12">
         <div class="card">
-          <!-- Slightly increased bottom whitespace for breathing room (pb-2) -->
-          <div class="card-body pt-1 pb-2 px-2">
+          <!-- Balanced vertical padding for centered appearance -->
+          <div class="card-body p-2">
             <!-- Centered selectors with Trade Settings button -->
-            <div class="d-flex flex-wrap align-items-end justify-content-center gap-2 w-100 mb-2">
-              <!-- Title inline on the left of the dropdowns -->
-              <div class="fw-bold fs-6 me-2 fst-italic">Select Seller and Trade</div>
-
-              <!-- Seller select -->
-              <div class="d-flex flex-column align-items-center">
-                <label class="form-label fw-bold text-center w-100 fs-5 mb-1" for="topSellerSelect">Seller</label>
+            <div class="d-flex flex-wrap align-items-center justify-content-center gap-2 w-100 mb-0">
+              
+              <!-- Combined Active Pipeline select -->
+              <div class="d-flex align-items-center gap-2">
+                <label class="form-label fw-bold fs-5 mb-0" for="activePipelineSelect">Active Pipeline</label>
                 <select
-                  id="topSellerSelect"
+                  id="activePipelineSelect"
                   class="form-select form-select-sm text-center"
-                  style="width: 250px; min-width: 250px; max-width: 250px;"
-                  v-model="selectedSellerId"
-                  :disabled="sellersLoading"
+                  style="width: 400px; min-width: 400px; max-width: 400px;"
+                  v-model="activePipelineSelection"
+                  :disabled="pipelineLoading"
                 >
-                  <option :value="null">Select a seller</option>
-                  <option v-for="s in sellers" :key="s.id" :value="s.id">{{ s.name }}</option>
-                </select>
-              </div>
-
-              <!-- Trade select -->
-              <div class="d-flex flex-column align-items-center">
-                <label class="form-label fw-bold text-center w-100 fs-5 mb-1" for="topTradeSelect">Trade</label>
-                <select
-                  id="topTradeSelect"
-                  class="form-select form-select-sm text-center"
-                  style="width: 250px; min-width: 250px; max-width: 250px;"
-                  :key="String(selectedSellerId ?? 'null')"
-                  v-model="selectedTradeId"
-                  :disabled="!selectedSellerId || tradesLoading"
-                >
-                  <option :value="null">Select a trade</option>
-                  <option v-for="t in trades" :key="t.id" :value="t.id">{{ t.trade_name }}</option>
+                  <option :value="null">Select a deal from pipeline</option>
+                  <option 
+                    v-for="item in pipelineOptions" 
+                    :key="item.key" 
+                    :value="item.key"
+                  >
+                    {{ item.label }}
+                  </option>
                 </select>
               </div>
 
@@ -77,10 +65,8 @@
 
             <!-- Helper text below toolbar -->
             <div class="form-text text-center mt-0">
-              <span v-if="sellersLoading">Loading sellers…</span>
-              <span v-else-if="selectedSellerId && tradesLoading">Loading trades…</span>
-              <span v-else-if="selectedSellerId && !selectedTradeId">Select a trade to view data.</span>
-              <span v-else-if="!selectedSellerId">Select a seller to begin.</span>
+              <span v-if="pipelineLoading">Loading pipeline…</span>
+              <span v-else-if="!selectedTradeId">Select a deal from the active pipeline to begin.</span>
             </div>
           </div>
         </div>
@@ -334,6 +320,13 @@ import { storeToRefs } from 'pinia'
 import { ref, watch, onMounted, computed } from 'vue'
 import type { SellerOption, TradeOption } from '@/stores/acqSelections'
 
+// WHAT: Local servicer type to avoid circular type dependencies
+// WHY: Prevents Vue type inference issues with TradeDetailsModal
+interface ServicerOption {
+  id: number
+  servicerName: string
+}
+
 export default {
   components: {
     VectorMap,
@@ -384,7 +377,7 @@ export default {
     const servicingTransferDateModel = ref<string>('')
     // Servicer selection
     const servicerIdModel = ref<number | null>(null)
-    const servicers = ref<Array<{ id: number; servicerName: string }>>([])
+    const servicers = ref<ServicerOption[]>([])
     const servicersLoading = ref<boolean>(false)
     // Financial assumptions
     const targetIrrModel = ref<number | string>('')
@@ -479,8 +472,8 @@ export default {
         bidDateModel.value = assumptions.bid_date ? assumptions.bid_date.substring(0, 10) : ''
         settlementDateModel.value = assumptions.settlement_date ? assumptions.settlement_date.substring(0, 10) : ''
         servicingTransferDateModel.value = assumptions.servicing_transfer_date ? assumptions.servicing_transfer_date.substring(0, 10) : ''
-        // Servicer selection
-        servicerIdModel.value = assumptions.servicer_id ?? null
+        // Servicer selection (use type assertion for optional property)
+        servicerIdModel.value = (assumptions as any).servicer_id ?? null
         // Financial assumptions
         targetIrrModel.value = assumptions.target_irr ?? ''
         discountRateModel.value = assumptions.discount_rate ?? ''
@@ -554,6 +547,7 @@ export default {
       dateFieldsLoading.value = true
       
       // WHAT: Build payload with all form fields
+      // WHY: Convert all numeric values to strings as expected by the API
       const data = {
         // Trade dates
         bid_date: bidDateModel.value || null,
@@ -561,27 +555,27 @@ export default {
         servicing_transfer_date: servicingTransferDateModel.value || null,
         // Servicer selection
         servicer_id: servicerIdModel.value || null,
-        // Financial assumptions
-        target_irr: targetIrrModel.value || null,
-        discount_rate: discountRateModel.value || null,
-        perf_rpl_hold_period: perfRplHoldPeriodModel.value || null,
-        // Modification assumptions
-        mod_rate: modRateModel.value || null,
-        mod_legal_term: modLegalTermModel.value || null,
-        mod_amort_term: modAmortTermModel.value || null,
-        max_mod_ltv: maxModLtvModel.value || null,
+        // Financial assumptions (convert to string)
+        target_irr: targetIrrModel.value ? String(targetIrrModel.value) : null,
+        discount_rate: discountRateModel.value ? String(discountRateModel.value) : null,
+        perf_rpl_hold_period: perfRplHoldPeriodModel.value ? String(perfRplHoldPeriodModel.value) : null,
+        // Modification assumptions (convert to string)
+        mod_rate: modRateModel.value ? String(modRateModel.value) : null,
+        mod_legal_term: modLegalTermModel.value ? String(modLegalTermModel.value) : null,
+        mod_amort_term: modAmortTermModel.value ? String(modAmortTermModel.value) : null,
+        max_mod_ltv: maxModLtvModel.value ? String(maxModLtvModel.value) : null,
         mod_io_flag: modIoFlagModel.value,
-        mod_down_pmt: modDownPmtModel.value || null,
-        mod_orig_cost: modOrigCostModel.value || null,
-        mod_setup_duration: modSetupDurationModel.value || null,
-        mod_hold_duration: modHoldDurationModel.value || null,
-        // Acquisition costs
-        acq_legal_cost: acqLegalCostModel.value || null,
-        acq_dd_cost: acqDdCostModel.value || null,
-        acq_tax_title_cost: acqTaxTitleCostModel.value || null,
-        // Asset management fees
-        am_fee_pct: amFeePctModel.value || null,
-      }
+        mod_down_pmt: modDownPmtModel.value ? String(modDownPmtModel.value) : null,
+        mod_orig_cost: modOrigCostModel.value ? String(modOrigCostModel.value) : null,
+        mod_setup_duration: modSetupDurationModel.value ? String(modSetupDurationModel.value) : null,
+        mod_hold_duration: modHoldDurationModel.value ? String(modHoldDurationModel.value) : null,
+        // Acquisition costs (convert to string)
+        acq_legal_cost: acqLegalCostModel.value ? String(acqLegalCostModel.value) : null,
+        acq_dd_cost: acqDdCostModel.value ? String(acqDdCostModel.value) : null,
+        acq_tax_title_cost: acqTaxTitleCostModel.value ? String(acqTaxTitleCostModel.value) : null,
+        // Asset management fees (convert to string)
+        am_fee_pct: amFeePctModel.value ? String(amFeePctModel.value) : null,
+      } as any
       
       const success = await tradeAssumptionsStore.updateAssumptions(selectedTradeId.value, data)
       
@@ -622,11 +616,93 @@ export default {
       await saveDateChanges()
     }
 
-    // Watch seller selection -> load trades list
+    // WHAT: Store all trades for all sellers for the combined pipeline dropdown
+    // WHY: Need to show all seller-trade combinations in a single dropdown
+    const allTradesMap = ref<Map<number, TradeOption[]>>(new Map())
+    
+    // WHAT: Combined pipeline options that flatten all seller-trade combinations
+    // WHY: Single dropdown showing "SellerName - TradeName" for easier selection
+    const pipelineOptions = computed(() => {
+      // WHAT: For each seller, get their trades and create combined options
+      // Format: { key: "sellerId:tradeId", label: "SELLER NAME - Trade Name" }
+      const options: Array<{ key: string; label: string; sellerId: number; tradeId: number }> = []
+      
+      for (const seller of sellerOptions.value) {
+        // Skip sellers without id
+        if (!seller.id) continue
+        
+        // Get trades for this seller from our map
+        const trades = allTradesMap.value.get(seller.id) || []
+        for (const trade of trades) {
+          options.push({
+            key: `${seller.id}:${trade.id}`,
+            label: `${seller.name} - ${trade.trade_name}`,
+            sellerId: seller.id,
+            tradeId: trade.id,
+          })
+        }
+      }
+      
+      return options
+    })
+    
+    // WHAT: Load all trades for all sellers to populate the pipeline dropdown
+    // WHY: Users need to see all available deals in one place
+    async function loadAllTrades(): Promise<void> {
+      const sellers = sellerOptions.value
+      for (const seller of sellers) {
+        if (!seller.id) continue
+        try {
+          const trades = await acqStore.fetchTradeOptions(seller.id, false)
+          allTradesMap.value.set(seller.id, trades)
+        } catch (e) {
+          console.warn(`[Acq Index] Failed to load trades for seller ${seller.id}:`, e)
+        }
+      }
+    }
+    
+    // WHAT: Two-way binding for the combined Active Pipeline dropdown
+    // WHY: Parse "sellerId:tradeId" key and update both selections atomically
+    const activePipelineSelection = computed<string | null>({
+      get: () => {
+        if (selectedSellerId.value && selectedTradeId.value) {
+          return `${selectedSellerId.value}:${selectedTradeId.value}`
+        }
+        return null
+      },
+      set: (val) => {
+        if (!val) {
+          acqStore.setSeller(null)
+          acqStore.setTrade(null)
+          return
+        }
+        // Parse the "sellerId:tradeId" format
+        const parts = val.split(':')
+        if (parts.length === 2) {
+          const sellerId = parseInt(parts[0], 10)
+          const tradeId = parseInt(parts[1], 10)
+          if (!isNaN(sellerId) && !isNaN(tradeId)) {
+            // Set seller first, then trade
+            acqStore.setSeller(sellerId)
+            acqStore.setTrade(tradeId)
+          }
+        }
+      },
+    })
+    
+    // WHAT: Combined loading state for pipeline dropdown
+    // WHY: Show loading indicator while fetching sellers or trades
+    const pipelineLoading = computed<boolean>(() => {
+      return sellerOptionsLoading.value || tradeOptionsLoading.value
+    })
+
+    // Watch seller selection -> load trades list and update pipeline map
     watch(selectedSellerId, async (newSellerId) => {
       resetLocalDateModels();
       if (newSellerId) {
-        await acqStore.fetchTradeOptions(newSellerId, true);
+        const trades = await acqStore.fetchTradeOptions(newSellerId, true);
+        // WHAT: Update the allTradesMap so pipeline dropdown stays current
+        allTradesMap.value.set(newSellerId, trades);
       } else {
         acqStore.resetTradeStatus();
       }
@@ -647,13 +723,14 @@ export default {
     })
 
     onMounted(async () => {
+      // WHAT: Load sellers first
       await acqStore.fetchSellerOptions(true);
       // WHAT: Fetch servicers list for trade assumptions modal
       await fetchServicers();
-      // WHAT: If a seller already selected (persisted in store), prime the trades list too.
-      if (selectedSellerId.value) {
-        await acqStore.fetchTradeOptions(selectedSellerId.value, true);
-      }
+      // WHAT: Load all trades for all sellers to populate Active Pipeline dropdown
+      // WHY: Users need to see all available deals in one combined dropdown
+      await loadAllTrades();
+      // WHAT: If a trade already selected (persisted in store), fetch its status
       if (selectedTradeId.value) {
         await acqStore.fetchTradeStatus();
       }
@@ -751,9 +828,8 @@ export default {
     // WHAT: Refresh dropdown caches after import so new sellers/trades appear instantly.
     const handleImportRefresh = async (): Promise<void> => {
       await acqStore.refreshOptions();
-      if (selectedSellerId.value) {
-        await acqStore.fetchTradeOptions(selectedSellerId.value, true);
-      }
+      // WHAT: Reload all trades for the Active Pipeline dropdown
+      await loadAllTrades();
     };
 
     // WHAT: Close modal on success, reload options, and auto-select imported seller/trade
@@ -787,6 +863,10 @@ export default {
       handleImportSuccess,
       docItems,
       gridRowsLoaded,
+      // WHAT: Active Pipeline combined dropdown
+      pipelineOptions,
+      activePipelineSelection,
+      pipelineLoading,
       // WHAT: All form field models for TradeDetailsModal
       // Trade dates
       bidDateModel,

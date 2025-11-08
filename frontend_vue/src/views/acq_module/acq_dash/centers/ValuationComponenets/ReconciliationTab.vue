@@ -7,14 +7,14 @@
     <div class="card bg-light border mb-3">
       <div class="card-body py-2">
         <div class="row g-2 align-items-end">
-          <!-- Search Box (City Only) -->
+          <!-- Search Box (City or Loan Number) -->
           <div class="col-md-3">
-            <label class="form-label small mb-1">Search City</label>
+            <label class="form-label small mb-1">Search</label>
             <input 
               v-model="filters.search" 
               type="text" 
               class="form-control form-control-sm" 
-              placeholder="Search by city..."
+              placeholder="Search by city or loan number..."
               @input="applyFilters"
             />
           </div>
@@ -53,27 +53,31 @@
             </select>
           </div>
           
-          <!-- Value Range Min -->
+          <!-- Value Operator -->
           <div class="col-md-2">
-            <label class="form-label small mb-1">Min Value</label>
-            <input 
-              v-model="filters.minValue" 
-              type="number" 
-              class="form-control form-control-sm" 
-              placeholder="0"
-              @input="applyFilters"
-            />
+            <label class="form-label small mb-1">Operator</label>
+            <select 
+              v-model="filters.valueOperator" 
+              class="form-select form-select-sm"
+              @change="applyFilters"
+            >
+              <option value=">">Greater Than</option>
+              <option value="<">Less Than</option>
+              <option value="=">Equal To</option>
+              <option value=">=">Greater or Equal</option>
+              <option value="<=">Less or Equal</option>
+            </select>
           </div>
           
-          <!-- Value Range Max -->
+          <!-- Value Filter -->
           <div class="col-md-2">
-            <label class="form-label small mb-1">Max Value</label>
+            <label class="form-label small mb-1">Value</label>
             <input 
-              v-model="filters.maxValue" 
-              type="number" 
+              type="text" 
               class="form-control form-control-sm" 
-              placeholder="999999999"
-              @input="applyFilters"
+              :value="formatNumberWithCommas(filters.valueAmount)"
+              @input="handleValueFilterInput"
+              placeholder="Enter amount"
             />
           </div>
           
@@ -105,6 +109,7 @@
       <table class="table table-centered table-hover mb-0">
         <thead class="table-light">
           <tr>
+            <th>Loan #</th>
             <th>Address</th>
             <th class="text-center">Grade</th>
             <th class="text-center">Internal AIV</th>
@@ -117,8 +122,8 @@
         <tbody>
           <!-- WHAT: Empty state row when no data or no filtered results -->
           <tr v-if="!filteredRows || filteredRows.length === 0">
-            <td colspan="7" class="text-center text-muted py-3">
-              <span v-if="filters.search || filters.state || filters.minValue || filters.maxValue || filters.grade">
+            <td colspan="8" class="text-center text-muted py-3">
+              <span v-if="filters.search || filters.state || filters.valueAmount || filters.grade">
                 No assets match your filters
               </span>
               <span v-else>
@@ -128,6 +133,13 @@
           </tr>
           <!-- WHAT: Asset row showing editable internal and reconciled valuations -->
           <tr v-for="(asset, index) in paginatedRows" :key="`recon-asset-${asset?.asset_hub_id || asset?.id || index}`">
+            <!-- WHAT: Seller Tape ID (Loan Number) - Clickable -->
+            <!-- WHY: Primary identifier for the asset/loan, opens modal on click -->
+            <td>
+              <div class="loan-number-container" @click="emit('openLoanModal', asset)">
+                {{ asset.sellertape_id || '-' }}
+              </div>
+            </td>
             <!-- WHAT: Address column with clickable link -->
             <td>
               <div class="address-container" @click="emit('openLoanModal', asset)">
@@ -271,8 +283,8 @@ const pageSize = ref(50)
 const filters = ref({
   search: '',
   state: '',
-  minValue: null as number | null,
-  maxValue: null as number | null,
+  valueOperator: '>' as '>' | '<' | '=' | '>=' | '<=',
+  valueAmount: null as number | null,
   grade: '',
 })
 
@@ -295,10 +307,13 @@ const filteredRows = computed(() => {
   
   let filtered = props.rows
   
-  // WHAT: Apply city search filter
+  // WHAT: Apply search filter (city or loan number)
+  // WHY: Allow users to search by either city or loan number
   if (filters.value.search) {
+    const searchTerm = filters.value.search.toLowerCase()
     filtered = filtered.filter((row: any) => 
-      (row.city || '').toLowerCase().includes(filters.value.search.toLowerCase())
+      (row.city || '').toLowerCase().includes(searchTerm) ||
+      (row.sellertape_id || '').toLowerCase().includes(searchTerm)
     )
   }
   
@@ -318,19 +333,22 @@ const filteredRows = computed(() => {
     }
   }
   
-  // WHAT: Apply min value filter (check internal UW value)
-  if (filters.value.minValue !== null && filters.value.minValue !== '') {
+  // WHAT: Apply value filter with operator (filters internal_initial_uw_asis_value)
+  // WHY: Allow flexible value filtering with different operators
+  if (filters.value.valueAmount != null && filters.value.valueAmount > 0) {
     filtered = filtered.filter((row: any) => {
       const value = row.internal_initial_uw_asis_value
-      return value != null && value >= (filters.value.minValue || 0)
-    })
-  }
-  
-  // WHAT: Apply max value filter (check internal UW value)
-  if (filters.value.maxValue !== null && filters.value.maxValue !== '') {
-    filtered = filtered.filter((row: any) => {
-      const value = row.internal_initial_uw_asis_value
-      return value != null && value <= (filters.value.maxValue || Infinity)
+      if (value == null) return false
+      
+      const filterAmount = filters.value.valueAmount!
+      switch (filters.value.valueOperator) {
+        case '>': return value > filterAmount
+        case '<': return value < filterAmount
+        case '=': return value === filterAmount
+        case '>=': return value >= filterAmount
+        case '<=': return value <= filterAmount
+        default: return true
+      }
     })
   }
   
@@ -394,8 +412,8 @@ function clearFilters() {
   filters.value = {
     search: '',
     state: '',
-    minValue: null,
-    maxValue: null,
+    valueOperator: '>',
+    valueAmount: null,
     grade: '',
   }
   currentPage.value = 1
@@ -525,9 +543,47 @@ function getGradeBadgeClass(grade: string | null | undefined): string {
       return 'badge bg-secondary'
   }
 }
+
+// WHAT: Format number with commas for display
+// WHY: Make large numbers more readable in filter input
+function formatNumberWithCommas(val: number | null | undefined): string {
+  if (val == null) return ''
+  return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(val)
+}
+
+// WHAT: Handle value filter input with comma formatting
+// WHY: Auto-format numbers as user types in filter input
+function handleValueFilterInput(event: Event) {
+  const input = event.target as HTMLInputElement
+  const rawValue = input.value.replace(/[^0-9]/g, '')
+  
+  if (rawValue === '') {
+    filters.value.valueAmount = null
+    input.value = ''
+    return
+  }
+  
+  const numericValue = parseInt(rawValue, 10)
+  filters.value.valueAmount = numericValue
+  input.value = formatNumberWithCommas(numericValue)
+  
+  applyFilters()
+}
 </script>
 
 <style scoped>
+/* WHAT: Loan number container - clickable to open modal */
+/* WHY: Make loan number interactive like address */
+.loan-number-container {
+  cursor: pointer;
+  color: #3577f1;
+  font-weight: 600;
+}
+
+.loan-number-container:hover {
+  text-decoration: underline;
+}
+
 /* WHAT: Address container - entire address block is clickable as one unit */
 /* WHY: Better UX with single click area, blue text indicates it's interactive */
 .address-container {

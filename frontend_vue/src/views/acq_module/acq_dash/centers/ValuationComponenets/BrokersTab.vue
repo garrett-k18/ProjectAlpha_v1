@@ -7,14 +7,14 @@
     <div class="card bg-light border mb-3">
       <div class="card-body py-2">
         <div class="row g-2 align-items-end">
-          <!-- Search Box (City Only) -->
+          <!-- Search Box (City or Loan Number) -->
           <div class="col-md-3">
-            <label class="form-label small mb-1">Search City</label>
+            <label class="form-label small mb-1">Search</label>
             <input 
               v-model="filters.search" 
               type="text" 
               class="form-control form-control-sm" 
-              placeholder="Search by city..."
+              placeholder="Search by city or loan number..."
               @input="applyFilters"
             />
           </div>
@@ -53,27 +53,31 @@
             </select>
           </div>
           
-          <!-- Value Range Min -->
+          <!-- Value Operator -->
           <div class="col-md-2">
-            <label class="form-label small mb-1">Min Value</label>
-            <input 
-              v-model="filters.minValue" 
-              type="number" 
-              class="form-control form-control-sm" 
-              placeholder="0"
-              @input="applyFilters"
-            />
+            <label class="form-label small mb-1">Operator</label>
+            <select 
+              v-model="filters.valueOperator" 
+              class="form-select form-select-sm"
+              @change="applyFilters"
+            >
+              <option value=">">Greater Than</option>
+              <option value="<">Less Than</option>
+              <option value="=">Equal To</option>
+              <option value=">=">Greater or Equal</option>
+              <option value="<=">Less or Equal</option>
+            </select>
           </div>
           
-          <!-- Value Range Max -->
+          <!-- Value Filter -->
           <div class="col-md-2">
-            <label class="form-label small mb-1">Max Value</label>
+            <label class="form-label small mb-1">Value</label>
             <input 
-              v-model="filters.maxValue" 
-              type="number" 
+              type="text" 
               class="form-control form-control-sm" 
-              placeholder="999999999"
-              @input="applyFilters"
+              :value="formatNumberWithCommas(filters.valueAmount)"
+              @input="handleValueFilterInput"
+              placeholder="Enter amount"
             />
           </div>
           
@@ -105,6 +109,7 @@
       <table class="table table-centered table-hover mb-0">
         <thead class="table-light">
           <tr>
+            <th>Loan #</th>
             <th>Address</th>
             <th class="text-center" style="width: 250px;">Assigned Broker</th>
             <th class="text-center">Grade</th>
@@ -120,8 +125,8 @@
         <tbody>
           <!-- WHAT: Empty state row when no data or no filtered results -->
           <tr v-if="!filteredRows || filteredRows.length === 0">
-            <td colspan="10" class="text-center text-muted py-3">
-              <span v-if="filters.search || filters.state || filters.minValue || filters.maxValue || filters.grade">
+            <td colspan="11" class="text-center text-muted py-3">
+              <span v-if="filters.search || filters.state || filters.valueAmount || filters.grade">
                 No assets match your filters
               </span>
               <span v-else>
@@ -132,6 +137,13 @@
           <!-- WHAT: Asset row with clickable address, broker assignment, and broker valuations -->
           <!-- WHY: Allow users to click address, assign brokers, and view broker-provided values -->
           <tr v-for="(asset, index) in paginatedRows" :key="`broker-asset-${asset?.asset_hub_id || asset?.id || index}`">
+            <!-- WHAT: Seller Tape ID (Loan Number) - Clickable -->
+            <!-- WHY: Primary identifier for the asset/loan, opens modal on click -->
+            <td>
+              <div class="loan-number-container" @click="emit('openLoanModal', asset)">
+                {{ asset.sellertape_id || '-' }}
+              </div>
+            </td>
             <!-- WHAT: Entire address block is clickable as one unit -->
             <!-- WHY: Better UX - single click area for the whole address -->
             <td>
@@ -255,7 +267,7 @@
       </nav>
     </div>
 
-    <!-- WHAT: Detailed Rehab Breakdown Modal -->
+    <!-- WHAT: Detailed Rehab Breakdown Modal (using shared component) -->
     <!-- WHY: Display itemized rehab estimates from broker inspection -->
     <div v-if="showInspectionModal" class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
       <div class="modal-dialog modal-lg">
@@ -267,134 +279,13 @@
             <button type="button" class="btn-close" @click="closeInspectionModal"></button>
           </div>
           <div class="modal-body">
-            <div v-if="selectedInspectionAsset">
-              <!-- WHAT: Property address header -->
-              <div class="mb-3">
-                <h6 class="text-muted mb-1">Property</h6>
-                <p class="mb-0 fw-semibold">{{ formatAddress(selectedInspectionAsset) }}</p>
-                <p class="mb-0 small text-muted">{{ formatCityState(selectedInspectionAsset) }}</p>
-              </div>
-
-              <hr>
-
-              <!-- WHAT: Detailed rehab breakdown table -->
-              <div v-if="hasDetailedRehab(selectedInspectionAsset)">
-                <div class="table-responsive">
-                  <table class="table table-bordered mb-0">
-                    <thead class="table-light">
-                      <tr>
-                        <th>Rehab Category</th>
-                        <th class="text-center" style="width: 80px;">Grade</th>
-                        <th class="text-end">Estimated Cost</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr v-if="selectedInspectionAsset.broker_roof_est">
-                        <td><i class="ri-home-gear-line me-2 text-muted"></i>Roof</td>
-                        <td class="text-center">
-                          <span v-if="selectedInspectionAsset.broker_roof_grade" :class="getGradeBadgeClass(selectedInspectionAsset.broker_roof_grade)">
-                            {{ selectedInspectionAsset.broker_roof_grade }}
-                          </span>
-                          <span v-else class="text-muted">-</span>
-                        </td>
-                        <td class="text-end">{{ formatCurrency(selectedInspectionAsset.broker_roof_est) }}</td>
-                      </tr>
-                      <tr v-if="selectedInspectionAsset.broker_kitchen_est">
-                        <td><i class="ri-restaurant-line me-2 text-muted"></i>Kitchen</td>
-                        <td class="text-center">
-                          <span v-if="selectedInspectionAsset.broker_kitchen_grade" :class="getGradeBadgeClass(selectedInspectionAsset.broker_kitchen_grade)">
-                            {{ selectedInspectionAsset.broker_kitchen_grade }}
-                          </span>
-                          <span v-else class="text-muted">-</span>
-                        </td>
-                        <td class="text-end">{{ formatCurrency(selectedInspectionAsset.broker_kitchen_est) }}</td>
-                      </tr>
-                      <tr v-if="selectedInspectionAsset.broker_bath_est">
-                        <td><i class="ri-contrast-drop-line me-2 text-muted"></i>Bathrooms</td>
-                        <td class="text-center">
-                          <span v-if="selectedInspectionAsset.broker_bath_grade" :class="getGradeBadgeClass(selectedInspectionAsset.broker_bath_grade)">
-                            {{ selectedInspectionAsset.broker_bath_grade }}
-                          </span>
-                          <span v-else class="text-muted">-</span>
-                        </td>
-                        <td class="text-end">{{ formatCurrency(selectedInspectionAsset.broker_bath_est) }}</td>
-                      </tr>
-                      <tr v-if="selectedInspectionAsset.broker_flooring_est">
-                        <td><i class="ri-layout-grid-line me-2 text-muted"></i>Flooring</td>
-                        <td class="text-center">
-                          <span v-if="selectedInspectionAsset.broker_flooring_grade" :class="getGradeBadgeClass(selectedInspectionAsset.broker_flooring_grade)">
-                            {{ selectedInspectionAsset.broker_flooring_grade }}
-                          </span>
-                          <span v-else class="text-muted">-</span>
-                        </td>
-                        <td class="text-end">{{ formatCurrency(selectedInspectionAsset.broker_flooring_est) }}</td>
-                      </tr>
-                      <tr v-if="selectedInspectionAsset.broker_windows_est">
-                        <td><i class="ri-window-line me-2 text-muted"></i>Windows</td>
-                        <td class="text-center">
-                          <span v-if="selectedInspectionAsset.broker_windows_grade" :class="getGradeBadgeClass(selectedInspectionAsset.broker_windows_grade)">
-                            {{ selectedInspectionAsset.broker_windows_grade }}
-                          </span>
-                          <span v-else class="text-muted">-</span>
-                        </td>
-                        <td class="text-end">{{ formatCurrency(selectedInspectionAsset.broker_windows_est) }}</td>
-                      </tr>
-                      <tr v-if="selectedInspectionAsset.broker_appliances_est">
-                        <td><i class="ri-fridge-line me-2 text-muted"></i>Appliances</td>
-                        <td class="text-center">
-                          <span v-if="selectedInspectionAsset.broker_appliances_grade" :class="getGradeBadgeClass(selectedInspectionAsset.broker_appliances_grade)">
-                            {{ selectedInspectionAsset.broker_appliances_grade }}
-                          </span>
-                          <span v-else class="text-muted">-</span>
-                        </td>
-                        <td class="text-end">{{ formatCurrency(selectedInspectionAsset.broker_appliances_est) }}</td>
-                      </tr>
-                      <tr v-if="selectedInspectionAsset.broker_plumbing_est">
-                        <td><i class="ri-water-flash-line me-2 text-muted"></i>Plumbing</td>
-                        <td class="text-center">
-                          <span v-if="selectedInspectionAsset.broker_plumbing_grade" :class="getGradeBadgeClass(selectedInspectionAsset.broker_plumbing_grade)">
-                            {{ selectedInspectionAsset.broker_plumbing_grade }}
-                          </span>
-                          <span v-else class="text-muted">-</span>
-                        </td>
-                        <td class="text-end">{{ formatCurrency(selectedInspectionAsset.broker_plumbing_est) }}</td>
-                      </tr>
-                      <tr v-if="selectedInspectionAsset.broker_electrical_est">
-                        <td><i class="ri-flashlight-line me-2 text-muted"></i>Electrical</td>
-                        <td class="text-center">
-                          <span v-if="selectedInspectionAsset.broker_electrical_grade" :class="getGradeBadgeClass(selectedInspectionAsset.broker_electrical_grade)">
-                            {{ selectedInspectionAsset.broker_electrical_grade }}
-                          </span>
-                          <span v-else class="text-muted">-</span>
-                        </td>
-                        <td class="text-end">{{ formatCurrency(selectedInspectionAsset.broker_electrical_est) }}</td>
-                      </tr>
-                      <tr v-if="selectedInspectionAsset.broker_landscaping_est">
-                        <td><i class="ri-plant-line me-2 text-muted"></i>Landscaping</td>
-                        <td class="text-center">
-                          <span v-if="selectedInspectionAsset.broker_landscaping_grade" :class="getGradeBadgeClass(selectedInspectionAsset.broker_landscaping_grade)">
-                            {{ selectedInspectionAsset.broker_landscaping_grade }}
-                          </span>
-                          <span v-else class="text-muted">-</span>
-                        </td>
-                        <td class="text-end">{{ formatCurrency(selectedInspectionAsset.broker_landscaping_est) }}</td>
-                      </tr>
-                      <tr class="table-active fw-bold">
-                        <td><i class="ri-funds-line me-2 text-primary"></i>Total Estimated Rehab</td>
-                        <td></td>
-                        <td class="text-end text-primary">{{ formatCurrency(selectedInspectionAsset.broker_rehab_est) }}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <!-- WHAT: Empty state if no detailed rehab data -->
-              <div v-else class="text-center text-muted py-4">
-                <i class="ri-hammer-line display-4 mb-2"></i>
-                <p class="mb-0">No detailed rehab breakdown available for this property</p>
-              </div>
-            </div>
+            <DetailedRehabBreakdown 
+              v-if="selectedInspectionAsset"
+              :asset="selectedInspectionAsset" 
+              :editable="false"
+              :showHeader="true"
+              :showTotal="true"
+            />
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" @click="closeInspectionModal">Close</button>
@@ -408,6 +299,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import http from '@/lib/http'
+import DetailedRehabBreakdown from '@/components/property_tabs_components/DetailedRehabBreakdown.vue'
 
 // WHAT: Props passed from parent ValuationCenter
 // WHY: Tab needs data from parent
@@ -431,8 +323,8 @@ const pageSize = ref(50)
 const filters = ref({
   search: '',
   state: '',
-  minValue: null as number | null,
-  maxValue: null as number | null,
+  valueOperator: '>' as '>' | '<' | '=' | '>=' | '<=',
+  valueAmount: null as number | null,
   grade: '',
 })
 
@@ -455,10 +347,13 @@ const filteredRows = computed(() => {
   
   let filtered = props.rows
   
-  // WHAT: Apply city search filter
+  // WHAT: Apply search filter (city or loan number)
+  // WHY: Allow users to search by either city or loan number
   if (filters.value.search) {
+    const searchTerm = filters.value.search.toLowerCase()
     filtered = filtered.filter((row: any) => 
-      (row.city || '').toLowerCase().includes(filters.value.search.toLowerCase())
+      (row.city || '').toLowerCase().includes(searchTerm) ||
+      (row.sellertape_id || '').toLowerCase().includes(searchTerm)
     )
   }
   
@@ -467,18 +362,23 @@ const filteredRows = computed(() => {
     filtered = filtered.filter((row: any) => row.state === filters.value.state)
   }
   
-  // WHAT: Apply min value filter (seller_asis_value)
-  if (filters.value.minValue != null && filters.value.minValue > 0) {
-    filtered = filtered.filter((row: any) => 
-      (row.seller_asis_value || 0) >= filters.value.minValue!
-    )
-  }
-  
-  // WHAT: Apply max value filter (seller_asis_value)
-  if (filters.value.maxValue != null && filters.value.maxValue > 0) {
-    filtered = filtered.filter((row: any) => 
-      (row.seller_asis_value || 0) <= filters.value.maxValue!
-    )
+  // WHAT: Apply value filter with operator (filters broker_asis_value)
+  // WHY: Allow flexible value filtering with different operators
+  if (filters.value.valueAmount != null && filters.value.valueAmount > 0) {
+    filtered = filtered.filter((row: any) => {
+      const value = row.broker_asis_value
+      if (value == null) return false
+      
+      const filterAmount = filters.value.valueAmount!
+      switch (filters.value.valueOperator) {
+        case '>': return value > filterAmount
+        case '<': return value < filterAmount
+        case '=': return value === filterAmount
+        case '>=': return value >= filterAmount
+        case '<=': return value <= filterAmount
+        default: return true
+      }
+    })
   }
   
   // WHAT: Apply grade filter
@@ -531,8 +431,8 @@ function applyFilters() {
 function clearFilters() {
   filters.value.search = ''
   filters.value.state = ''
-  filters.value.minValue = null
-  filters.value.maxValue = null
+  filters.value.valueOperator = '>'
+  filters.value.valueAmount = null
   filters.value.grade = ''
   currentPage.value = 1
 }
@@ -672,6 +572,32 @@ function truncateText(text: string, maxLength: number): string {
   return text.substring(0, maxLength) + '...'
 }
 
+// WHAT: Format number with commas for display
+// WHY: Make large numbers more readable in filter input
+function formatNumberWithCommas(val: number | null | undefined): string {
+  if (val == null) return ''
+  return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(val)
+}
+
+// WHAT: Handle value filter input with comma formatting
+// WHY: Auto-format numbers as user types in filter input
+function handleValueFilterInput(event: Event) {
+  const input = event.target as HTMLInputElement
+  const rawValue = input.value.replace(/[^0-9]/g, '')
+  
+  if (rawValue === '') {
+    filters.value.valueAmount = null
+    input.value = ''
+    return
+  }
+  
+  const numericValue = parseInt(rawValue, 10)
+  filters.value.valueAmount = numericValue
+  input.value = formatNumberWithCommas(numericValue)
+  
+  applyFilters()
+}
+
 // WHAT: Inspection modal state
 // WHY: Control modal visibility and track selected asset for inspection
 const showInspectionModal = ref(false)
@@ -708,6 +634,18 @@ function hasDetailedRehab(asset: any): boolean {
 </script>
 
 <style scoped>
+/* WHAT: Loan number container - clickable to open modal */
+/* WHY: Make loan number interactive like address */
+.loan-number-container {
+  cursor: pointer;
+  color: #3577f1;
+  font-weight: 600;
+}
+
+.loan-number-container:hover {
+  text-decoration: underline;
+}
+
 /* WHAT: Address container - entire address block is clickable as one unit */
 /* WHY: Better UX with single click area, blue text indicates it's interactive */
 .address-container {

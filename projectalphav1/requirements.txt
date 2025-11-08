@@ -9,6 +9,14 @@ dj-database-url==2.1.0
 Pillow>=11.1.0
 python-dateutil>=2.8.0,<3
 
+# OCR and document parsing for valuation pipeline
+pdfplumber>=0.11.0
+PyMuPDF>=1.26.0
+pytesseract>=0.3.10
+pypdfium2>=5.0.0
+
+# pytesseract needs PIL at runtime; Pillow requirement already declared above
+
 # API framework and CORS
 djangorestframework>=3.15,<4
 django-cors-headers>=4.4,<5

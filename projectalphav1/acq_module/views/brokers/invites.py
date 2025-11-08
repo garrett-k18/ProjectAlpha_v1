@@ -53,13 +53,41 @@ from user_admin.models import BrokerTokenAuth
 
 
 class BrokerValuesInputSerializer(serializers.Serializer):
-    """Serializer for values a broker can submit via a tokenized form."""
+    """Serializer for values a broker can submit via a tokenized form.
+    
+    WHAT: Accept broker valuation inputs including grade and detailed rehab breakdown
+    WHY: Allow brokers to provide complete valuation data with itemized repair estimates
+    HOW: Validate and serialize all broker-provided fields including trade categories
+    """
     broker_asis_value = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
     broker_arv_value = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
     broker_value_date = serializers.DateField(required=False, allow_null=True)
     broker_rehab_est = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
     broker_notes = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    broker_grade = serializers.CharField(required=False, allow_blank=True, allow_null=True)  # WHAT: Broker quality grade (A+, A, B, C, D, F)
     broker_links = serializers.URLField(required=False, allow_blank=True, allow_null=True)
+    
+    # WHAT: Detailed rehab breakdown by trade category (grade + cost estimate)
+    # WHY: Allow brokers to provide itemized repair estimates with condition grades
+    # HOW: Separate fields for each major trade (roof, kitchen, bath, etc.)
+    broker_roof_grade = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    broker_roof_est = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
+    broker_kitchen_grade = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    broker_kitchen_est = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
+    broker_bath_grade = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    broker_bath_est = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
+    broker_flooring_grade = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    broker_flooring_est = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
+    broker_windows_grade = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    broker_windows_est = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
+    broker_appliances_grade = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    broker_appliances_est = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
+    broker_plumbing_grade = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    broker_plumbing_est = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
+    broker_electrical_grade = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    broker_electrical_est = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
+    broker_landscaping_grade = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    broker_landscaping_est = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
 
 
 def _parse_decimal(value) -> Optional[Decimal]:
@@ -75,22 +103,31 @@ def _parse_decimal(value) -> Optional[Decimal]:
 @api_view(["POST"])  # TODO: tighten to IsAuthenticated before production if required
 @permission_classes([AllowAny])
 def create_broker_invite(request):
-    """Create a new token invite for a SellerRawData id (via BrokerTokenAuth).
+    """Create a new token invite for an AssetIdHub (via BrokerTokenAuth).
+
+    WHAT: Hub-first architecture - create invites for asset hub IDs
+    WHY: All joins happen through AssetIdHub intentionally
+    HOW: Accept asset_hub_id or seller_raw_data (backward compat - same values)
 
     Body fields:
-    - seller_raw_data: int (required)
+    - asset_hub_id: int (preferred, hub-first)
+    - seller_raw_data: int (backward compat - same as asset_hub_id)
     - expires_in_hours: int (optional, default 360 [15 days])
     - expires_at: ISO date-time string (optional; overrides expires_in_hours)
-    - broker_id: int (optional, FK to acq_module.Brokercrm)
+    - broker_id: int (optional, FK to core.MasterCRM)
     - single_use: bool (default True)
     - notes: string (optional)
     """
     payload = request.data or {}
-    srd_id = payload.get("seller_raw_data")
-    if not srd_id:
-        return Response({"detail": "seller_raw_data is required"}, status=status.HTTP_400_BAD_REQUEST)
+    # WHAT: Accept either asset_hub_id (preferred) or seller_raw_data (backward compat)
+    # WHY: Hub-first architecture but support existing API clients
+    # HOW: Same values since SellerRawData uses hub as PK
+    hub_id = payload.get("asset_hub_id") or payload.get("seller_raw_data")
+    if not hub_id:
+        return Response({"detail": "asset_hub_id or seller_raw_data is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-    srd = get_object_or_404(SellerRawData, pk=srd_id)
+    from core.models.asset_id_hub import AssetIdHub
+    hub = get_object_or_404(AssetIdHub, pk=hub_id)
 
     # Expiration handling
     expires_at_in = payload.get("expires_at")
@@ -117,7 +154,7 @@ def create_broker_invite(request):
         token = BrokerTokenAuth.generate_token()
 
     invite = BrokerTokenAuth.objects.create(
-        seller_raw_data=srd,
+        asset_hub=hub,
         token=token,
         expires_at=expires_at,
         single_use=single_use,
@@ -127,7 +164,8 @@ def create_broker_invite(request):
 
     return Response(
         {
-            "seller_raw_data": invite.seller_raw_data_id,
+            "asset_hub_id": invite.asset_hub_id,
+            "seller_raw_data": invite.asset_hub_id,  # Backward compat (same value)
             "token": invite.token,
             "expires_at": invite.expires_at.isoformat(),
             "single_use": invite.single_use,
@@ -141,34 +179,67 @@ def create_broker_invite(request):
 def validate_broker_invite(request, token: str):
     """Validate a broker invite token and return minimal context.
 
+    WHAT: Hub-first architecture - validate token and return hub context
+    WHY: All joins through AssetIdHub intentionally
+    HOW: Access via asset_hub FK directly
+
     Returns:
     - valid: bool
     - reason: optional string if invalid
     - expires_at: ISO string
-    - seller_raw_data: int
+    - asset_hub_id: int
+    - seller_raw_data: int (backward compat - same as asset_hub_id)
     """
     try:
         invite = BrokerTokenAuth.objects.get(token=token)
     except BrokerTokenAuth.DoesNotExist:
         return Response({"valid": False, "reason": "not_found"}, status=status.HTTP_404_NOT_FOUND)
 
-    # Load any previously saved broker Valuation for prefill visibility even when invalid
-    # Map by hub (latest by value_date then created)
+    # WHAT: Load any previously saved broker Valuation for prefill visibility even when invalid
+    # WHY: UX - show previously submitted values even if token expired
+    # HOW: Hub-first query - filter by asset_hub FK directly
     bv = (
         Valuation.objects
-        .filter(asset_hub=invite.seller_raw_data.asset_hub, source='broker')
+        .filter(asset_hub=invite.asset_hub, source='broker')
         .order_by('-value_date', '-created_at')
         .first()
     )
     values = None
     if bv:
+        # WHAT: Serialize grade FK to code string
+        # WHY: grade is a ForeignKey to ValuationGradeReference, need to extract code
+        # HOW: Access grade.code if grade FK is populated
+        grade_obj = getattr(bv, "grade", None)
+        grade_code = getattr(grade_obj, "code", None) if grade_obj else None
+        
         values = {
             "broker_asis_value": str(bv.broker_asis_value) if getattr(bv, "broker_asis_value", None) is not None else None,
             "broker_arv_value": str(bv.broker_arv_value) if getattr(bv, "broker_arv_value", None) is not None else None,
             "broker_rehab_est": str(getattr(bv, "broker_rehab_est", None)) if getattr(bv, "broker_rehab_est", None) is not None else None,
             "broker_value_date": bv.broker_value_date.isoformat() if getattr(bv, "broker_value_date", None) else None,
             "broker_notes": getattr(bv, "broker_notes", None),
+            "broker_grade": grade_code,  # WHAT: Grade code (A+, A, B, C, D, F) as string
             "broker_links": getattr(bv, "broker_links", None),
+            # WHAT: Include detailed rehab breakdown fields for prefill
+            # WHY: Show existing data when broker reopens modal
+            "broker_roof_grade": getattr(bv, "broker_roof_grade", None),
+            "broker_roof_est": getattr(bv, "broker_roof_est", None),
+            "broker_kitchen_grade": getattr(bv, "broker_kitchen_grade", None),
+            "broker_kitchen_est": getattr(bv, "broker_kitchen_est", None),
+            "broker_bath_grade": getattr(bv, "broker_bath_grade", None),
+            "broker_bath_est": getattr(bv, "broker_bath_est", None),
+            "broker_flooring_grade": getattr(bv, "broker_flooring_grade", None),
+            "broker_flooring_est": getattr(bv, "broker_flooring_est", None),
+            "broker_windows_grade": getattr(bv, "broker_windows_grade", None),
+            "broker_windows_est": getattr(bv, "broker_windows_est", None),
+            "broker_appliances_grade": getattr(bv, "broker_appliances_grade", None),
+            "broker_appliances_est": getattr(bv, "broker_appliances_est", None),
+            "broker_plumbing_grade": getattr(bv, "broker_plumbing_grade", None),
+            "broker_plumbing_est": getattr(bv, "broker_plumbing_est", None),
+            "broker_electrical_grade": getattr(bv, "broker_electrical_grade", None),
+            "broker_electrical_est": getattr(bv, "broker_electrical_est", None),
+            "broker_landscaping_grade": getattr(bv, "broker_landscaping_grade", None),
+            "broker_landscaping_est": getattr(bv, "broker_landscaping_est", None),
         }
 
     if invite.is_expired:
@@ -177,7 +248,8 @@ def validate_broker_invite(request, token: str):
                 "valid": False,
                 "reason": "expired",
                 "expires_at": invite.expires_at.isoformat(),
-                "seller_raw_data": invite.seller_raw_data_id,
+                "asset_hub_id": invite.asset_hub_id,
+                "seller_raw_data": invite.asset_hub_id,  # Backward compat
                 "values": values,
             },
             status=status.HTTP_400_BAD_REQUEST,
@@ -189,7 +261,8 @@ def validate_broker_invite(request, token: str):
                 "valid": False,
                 "reason": "used",
                 "expires_at": invite.expires_at.isoformat(),
-                "seller_raw_data": invite.seller_raw_data_id,
+                "asset_hub_id": invite.asset_hub_id,
+                "seller_raw_data": invite.asset_hub_id,  # Backward compat
                 "values": values,
             },
             status=status.HTTP_400_BAD_REQUEST,
@@ -199,7 +272,8 @@ def validate_broker_invite(request, token: str):
         {
             "valid": True,
             "expires_at": invite.expires_at.isoformat(),
-            "seller_raw_data": invite.seller_raw_data_id,
+            "asset_hub_id": invite.asset_hub_id,
+            "seller_raw_data": invite.asset_hub_id,  # Backward compat
             "values": values,
         },
         status=status.HTTP_200_OK,
@@ -211,9 +285,13 @@ def validate_broker_invite(request, token: str):
 def submit_broker_values_with_token(request, token: str):
     """Submit broker values using a valid invite token.
 
+    WHAT: Hub-first architecture - upsert Valuation via asset_hub
+    WHY: All joins through AssetIdHub intentionally
+    HOW: Access asset_hub FK directly instead of through seller_raw_data
+
     Behavior:
     - Validates token (exists, not expired, not used if single-use)
-    - Upserts BrokerValues for the linked SellerRawData
+    - Upserts Valuation for the linked AssetIdHub
     - If invite.single_use, marks used_at on first successful submission
     """
     try:
@@ -226,33 +304,72 @@ def submit_broker_values_with_token(request, token: str):
     if invite.is_expired:
         return Response({"detail": "token_expired"}, status=status.HTTP_400_BAD_REQUEST)
 
-    srd = invite.seller_raw_data
+    # WHAT: Access asset hub directly (hub-first)
+    # WHY: All domain data accessed through hub
+    # HOW: invite.asset_hub FK (no need to go through seller_raw_data)
+    hub = invite.asset_hub
 
     # Validate input
     serializer = BrokerValuesInputSerializer(data=request.data or {})
     serializer.is_valid(raise_exception=True)
     data = serializer.validated_data
 
-    # Upsert Valuation (source='broker'): we keep at most one row per date per hub via unique constraint
-    # If a valuation exists for this date, update it; else create new.
+    # WHAT: Upsert Valuation (source='broker') via hub
+    # WHY: One row per date per hub via unique constraint
+    # HOW: update_or_create on (asset_hub, source, value_date)
     lookup = {
-        'asset_hub': srd.asset_hub,
+        'asset_hub': hub,
         'source': 'broker',
         'value_date': data.get('broker_value_date'),
     }
+    
+    # WHAT: Lookup ValuationGradeReference by code if provided
+    # WHY: grade is a ForeignKey, need to resolve code string to FK instance
+    # HOW: Query ValuationGradeReference by code, set to None if not found
+    grade_fk = None
+    grade_code = data.get('broker_grade')
+    if grade_code:
+        from core.models.valuations import ValuationGradeReference
+        try:
+            grade_fk = ValuationGradeReference.objects.get(code=grade_code)
+        except ValuationGradeReference.DoesNotExist:
+            pass  # Leave as None if invalid code
+    
     defaults = {
         'asis_value': data.get('broker_asis_value'),
         'arv_value': data.get('broker_arv_value'),
         'rehab_est_total': data.get('broker_rehab_est'),
         'notes': data.get('broker_notes'),
+        'grade': grade_fk,  # WHAT: Store grade FK (resolved from code)
         'links': data.get('broker_links'),
+        # WHAT: Detailed rehab breakdown by trade category
+        # WHY: Store itemized repair estimates with condition grades from broker inspection
+        # HOW: Store each trade's grade and cost estimate in corresponding Valuation fields
+        'broker_roof_grade': data.get('broker_roof_grade'),
+        'broker_roof_est': data.get('broker_roof_est'),
+        'broker_kitchen_grade': data.get('broker_kitchen_grade'),
+        'broker_kitchen_est': data.get('broker_kitchen_est'),
+        'broker_bath_grade': data.get('broker_bath_grade'),
+        'broker_bath_est': data.get('broker_bath_est'),
+        'broker_flooring_grade': data.get('broker_flooring_grade'),
+        'broker_flooring_est': data.get('broker_flooring_est'),
+        'broker_windows_grade': data.get('broker_windows_grade'),
+        'broker_windows_est': data.get('broker_windows_est'),
+        'broker_appliances_grade': data.get('broker_appliances_grade'),
+        'broker_appliances_est': data.get('broker_appliances_est'),
+        'broker_plumbing_grade': data.get('broker_plumbing_grade'),
+        'broker_plumbing_est': data.get('broker_plumbing_est'),
+        'broker_electrical_grade': data.get('broker_electrical_grade'),
+        'broker_electrical_est': data.get('broker_electrical_est'),
+        'broker_landscaping_grade': data.get('broker_landscaping_grade'),
+        'broker_landscaping_est': data.get('broker_landscaping_est'),
     }
     # Null value_date would violate the unique constraint semantics; allow a None-date upsert by using created_at latest
     if lookup['value_date'] is None:
         # fallback to latest existing broker valuation for hub
         bv = (
             Valuation.objects
-            .filter(asset_hub=srd.asset_hub, source='broker')
+            .filter(asset_hub=hub, source='broker')
             .order_by('-value_date', '-created_at')
             .first()
         )
@@ -262,7 +379,7 @@ def submit_broker_values_with_token(request, token: str):
                 setattr(bv, k, v)
             bv.save()
         else:
-            bv = Valuation.objects.create(asset_hub=srd.asset_hub, source='broker', **defaults)
+            bv = Valuation.objects.create(asset_hub=hub, source='broker', **defaults)
     else:
         bv, _created = Valuation.objects.update_or_create(defaults=defaults, **lookup)
 
@@ -271,15 +388,47 @@ def submit_broker_values_with_token(request, token: str):
         invite.used_at = timezone.now()
         invite.save(update_fields=["used_at"])
 
+    # WHAT: Serialize grade FK to code string for response
+    # WHY: Frontend expects string code, not model object
+    # HOW: Access grade.code if grade FK is populated
+    grade_obj = getattr(bv, "grade", None)
+    grade_code_response = getattr(grade_obj, "code", None) if grade_obj else None
+    
     return Response(
         {
-            "seller_raw_data": srd.id,
-            "broker_asis_value": str(bv.broker_asis_value) if bv.broker_asis_value is not None else None,
-            "broker_arv_value": str(bv.broker_arv_value) if bv.broker_arv_value is not None else None,
-            "broker_rehab_est": str(bv.broker_rehab_est) if getattr(bv, 'broker_rehab_est', None) is not None else None,
-            "broker_value_date": bv.broker_value_date.isoformat() if bv.broker_value_date else None,
-            "broker_notes": bv.broker_notes,
-            "broker_links": getattr(bv, "broker_links", None),
+            "asset_hub_id": hub.id,
+            "seller_raw_data": hub.id,  # Backward compat (same value)
+            # WHAT: Map Valuation model fields to broker-prefixed response keys
+            # WHY: Valuation model uses asis_value, arv_value, etc. (not broker_ prefix)
+            # HOW: getattr with correct model field names, return with broker_ prefix for frontend
+            "broker_asis_value": str(getattr(bv, 'asis_value', None)) if getattr(bv, 'asis_value', None) is not None else None,
+            "broker_arv_value": str(getattr(bv, 'arv_value', None)) if getattr(bv, 'arv_value', None) is not None else None,
+            "broker_rehab_est": str(getattr(bv, 'rehab_est_total', None)) if getattr(bv, 'rehab_est_total', None) is not None else None,
+            "broker_value_date": getattr(bv, 'value_date', None).isoformat() if getattr(bv, 'value_date', None) else None,
+            "broker_notes": getattr(bv, 'notes', None),
+            "broker_grade": grade_code_response,  # WHAT: Return grade code string (A+, A, B, etc.)
+            "broker_links": getattr(bv, "links", None),
+            # WHAT: Return detailed rehab breakdown fields
+            # WHY: Frontend needs these to update UI after save
+            # HOW: Include all grade and cost fields for each trade category
+            "broker_roof_grade": getattr(bv, "broker_roof_grade", None),
+            "broker_roof_est": getattr(bv, "broker_roof_est", None),
+            "broker_kitchen_grade": getattr(bv, "broker_kitchen_grade", None),
+            "broker_kitchen_est": getattr(bv, "broker_kitchen_est", None),
+            "broker_bath_grade": getattr(bv, "broker_bath_grade", None),
+            "broker_bath_est": getattr(bv, "broker_bath_est", None),
+            "broker_flooring_grade": getattr(bv, "broker_flooring_grade", None),
+            "broker_flooring_est": getattr(bv, "broker_flooring_est", None),
+            "broker_windows_grade": getattr(bv, "broker_windows_grade", None),
+            "broker_windows_est": getattr(bv, "broker_windows_est", None),
+            "broker_appliances_grade": getattr(bv, "broker_appliances_grade", None),
+            "broker_appliances_est": getattr(bv, "broker_appliances_est", None),
+            "broker_plumbing_grade": getattr(bv, "broker_plumbing_grade", None),
+            "broker_plumbing_est": getattr(bv, "broker_plumbing_est", None),
+            "broker_electrical_grade": getattr(bv, "broker_electrical_grade", None),
+            "broker_electrical_est": getattr(bv, "broker_electrical_est", None),
+            "broker_landscaping_grade": getattr(bv, "broker_landscaping_grade", None),
+            "broker_landscaping_est": getattr(bv, "broker_landscaping_est", None),
         },
         status=status.HTTP_200_OK,
     )
@@ -357,6 +506,10 @@ def list_brokers_by_state_batch(request):
 def _get_invite_and_broker_values_or_400(token: str):
     """Resolve an invite by token and return (invite, broker valuation instance).
 
+    WHAT: Hub-first helper - resolve token to (invite, valuation)
+    WHY: All file uploads need access to asset hub for storage
+    HOW: Access hub directly via invite.asset_hub FK
+
     - 404 when token not found
     - 400 when expired
     - Ensures a Valuation (source='broker') instance exists for convenience
@@ -369,16 +522,19 @@ def _get_invite_and_broker_values_or_400(token: str):
     if invite.is_expired:
         return None, Response({"detail": "token_expired"}, status=status.HTTP_400_BAD_REQUEST)
 
-    srd = invite.seller_raw_data
+    # WHAT: Access hub directly (hub-first)
+    # WHY: All domain data through hub
+    # HOW: invite.asset_hub FK
+    hub = invite.asset_hub
     # Ensure a broker valuation exists (latest), create if none
     bv = (
         Valuation.objects
-        .filter(asset_hub=srd.asset_hub, source='broker')
+        .filter(asset_hub=hub, source='broker')
         .order_by('-value_date', '-created_at')
         .first()
     )
     if bv is None:
-        bv = Valuation.objects.create(asset_hub=srd.asset_hub, source='broker')
+        bv = Valuation.objects.create(asset_hub=hub, source='broker')
     return (invite, bv), None
 
 
@@ -416,10 +572,12 @@ def upload_broker_photos_with_token(request, token: str):
 
     created = []
     for f in files:
-        # Create unified Photo (hub-first); storage backend saves to MEDIA_ROOT
+        # WHAT: Create unified Photo (hub-first); storage backend saves to MEDIA_ROOT
+        # WHY: All attachments linked to hub for cross-module access
+        # HOW: bv.asset_hub is the hub FK from Valuation
         p = Photo.objects.create(
             asset_hub=bv.asset_hub,
-            source_raw_id=getattr(bv, 'seller_raw_data_id', None),
+            source_raw_id=None,  # No longer using seller_raw_data_id
             image=f,
             source_tag='broker',
         )

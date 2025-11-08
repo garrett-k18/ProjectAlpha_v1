@@ -28,6 +28,66 @@
           <Profile :broker="portalMode ? portalMeta?.broker : null" />
         </b-col>
       </b-row>
+      
+      <!-- WHAT: Summary Widgets Section (below profile card) -->
+      <!-- WHY: Show broker their assignment statistics at a glance -->
+      <!-- HOW: Add horizontal padding to prevent hugging viewport edges -->
+      <b-row class="g-2 mb-3 mt-3 px-3 px-md-4">
+        <b-col xl="3" lg="6" md="6">
+          <div class="card tilebox-one mb-0">
+            <div class="card-body pt-3 pb-2 px-3">
+              <i class="ri-building-line float-end"></i>
+              <h6 class="text-uppercase mt-0">Total Assigned</h6>
+              <h2 class="my-2 fs-3">{{ summaryStats.totalAssigned }}</h2>
+              <p class="mb-0 text-muted">
+                <span class="text-muted">Properties</span>
+              </p>
+            </div>
+          </div>
+        </b-col>
+
+        <b-col xl="3" lg="6" md="6">
+          <div class="card tilebox-one mb-0">
+            <div class="card-body pt-3 pb-2 px-3">
+              <i class="ri-checkbox-circle-line float-end text-success"></i>
+              <h6 class="text-uppercase mt-0">Valued</h6>
+              <h2 class="my-2 fs-3">{{ summaryStats.valued }} / {{ summaryStats.totalAssigned }}</h2>
+              <p class="mb-0 text-muted">
+                <span class="badge" :class="progressBadgeClass(summaryStats.valued, summaryStats.totalAssigned)">
+                  {{ summaryStats.valuedPct }}%
+                </span>
+                <span class="ms-2">Complete</span>
+              </p>
+            </div>
+          </div>
+        </b-col>
+
+        <b-col xl="3" lg="6" md="6">
+          <div class="card tilebox-one mb-0">
+            <div class="card-body pt-3 pb-2 px-3">
+              <i class="ri-home-line float-end text-primary"></i>
+              <h6 class="text-uppercase mt-0">Total As-Is Value</h6>
+              <h2 class="my-2 fs-3">{{ formatCurrency(summaryStats.totalAsIs) }}</h2>
+              <p class="mb-0 text-muted">
+                <span class="text-muted">Your Valuations</span>
+              </p>
+            </div>
+          </div>
+        </b-col>
+
+        <b-col xl="3" lg="6" md="6">
+          <div class="card tilebox-one mb-0">
+            <div class="card-body pt-3 pb-2 px-3">
+              <i class="ri-home-heart-line float-end text-info"></i>
+              <h6 class="text-uppercase mt-0">Total ARV Value</h6>
+              <h2 class="my-2 fs-3">{{ formatCurrency(summaryStats.totalARV) }}</h2>
+              <p class="mb-0 text-muted">
+                <span class="text-muted">Your Valuations</span>
+              </p>
+            </div>
+          </div>
+        </b-col>
+      </b-row>
       <!-- Form card below, full width -->
       <b-row class="mt-3">
         <!-- Add horizontal padding so the card doesn't touch viewport edges on small screens. -->
@@ -52,7 +112,6 @@
 <script lang="ts">
 import DefaultLayout from '@/components/layouts/default-layout.vue'
 import Profile from './profile.vue'
-import BrokerFormTable from './broker-form-table.vue'
 import BrokerFormTableMulti from './broker-form-table-multi.vue'
 import type { BrokerFormEntry } from './broker-form-table-multi.vue'
 
@@ -67,7 +126,7 @@ import type { BrokerFormEntry } from './broker-form-table-multi.vue'
   For preview/prod, only the origin changes; the paths stay the same.
 */
 export default {
-  components: { DefaultLayout, Profile, BrokerFormTable, BrokerFormTableMulti },
+  components: { DefaultLayout, Profile, BrokerFormTableMulti },
   props: {
     // Token passed from the route: /brokerview/:token
     token: { type: String, default: null },
@@ -99,10 +158,84 @@ export default {
         broker_rehab_est?: string | number | null
         broker_value_date?: string | null
         broker_notes?: string | null
+        broker_grade?: string | null
+        // WHAT: Detailed rehab breakdown fields
+        // WHY: Support inspection report modal with trade-by-trade estimates
+        broker_roof_grade?: string | null
+        broker_roof_est?: number | null
+        broker_kitchen_grade?: string | null
+        broker_kitchen_est?: number | null
+        broker_bath_grade?: string | null
+        broker_bath_est?: number | null
+        broker_flooring_grade?: string | null
+        broker_flooring_est?: number | null
+        broker_windows_grade?: string | null
+        broker_windows_est?: number | null
+        broker_appliances_grade?: string | null
+        broker_appliances_est?: number | null
+        broker_plumbing_grade?: string | null
+        broker_plumbing_est?: number | null
+        broker_electrical_grade?: string | null
+        broker_electrical_est?: number | null
+        broker_landscaping_grade?: string | null
+        broker_landscaping_est?: number | null
       },
       // Multi-row entries for all active invites
       multiRows: [] as BrokerFormEntry[],
     }
+  },
+  computed: {
+    // WHAT: Calculate summary statistics for broker's assignments
+    // WHY: Show broker their progress and portfolio value at a glance
+    // HOW: Aggregate data from multiRows and prefillValues
+    summaryStats(): {
+      totalAssigned: number
+      valued: number
+      valuedPct: number
+      totalAsIs: number
+      totalARV: number
+    } {
+      const total = this.multiRows?.length || 0
+      
+      // WHAT: Count how many properties have been valued (have as-is value)
+      // WHY: Show completion progress
+      const valued = (this.multiRows || []).filter(row => {
+        const prefill = row.prefillValues
+        return prefill && (prefill.broker_asis_value != null)
+      }).length
+      
+      // WHAT: Sum total as-is values submitted
+      // WHY: Show total portfolio value being evaluated
+      const totalAsIs = (this.multiRows || []).reduce((sum, row) => {
+        const prefill = row.prefillValues
+        if (!prefill || !prefill.broker_asis_value) return sum
+        const val = typeof prefill.broker_asis_value === 'string' 
+          ? parseFloat(prefill.broker_asis_value) 
+          : prefill.broker_asis_value
+        return sum + (isNaN(val as number) ? 0 : (val as number))
+      }, 0)
+      
+      // WHAT: Sum total ARV values submitted
+      // WHY: Show potential value after repairs
+      const totalARV = (this.multiRows || []).reduce((sum, row) => {
+        const prefill = row.prefillValues
+        if (!prefill || !prefill.broker_arv_value) return sum
+        const val = typeof prefill.broker_arv_value === 'string' 
+          ? parseFloat(prefill.broker_arv_value) 
+          : prefill.broker_arv_value
+        return sum + (isNaN(val as number) ? 0 : (val as number))
+      }, 0)
+      
+      const valuedPct = total > 0 ? Math.round((valued / total) * 100) : 0
+      
+      return {
+        totalAssigned: total,
+        valued,
+        valuedPct,
+        totalAsIs,
+        totalARV,
+      }
+    },
   },
   mounted() {
     // Always validate the token for this single broker view
@@ -128,7 +261,9 @@ export default {
             const assigned = Array.isArray(data.assigned_entries) ? data.assigned_entries : []
             const active = Array.isArray(data.active_invites) ? data.active_invites : []
 
-            // Build multiRows from active invites
+            // WHAT: Build multiRows from active invites with loan_number (for refresh)
+            // WHY: Update table after save with actual loan numbers
+            // HOW: Map backend response including loan_number
             this.multiRows = active.map((e: any) => {
               const addr = e?.address || {}
               const composed = [addr.street_address, addr.city, addr.state].filter(Boolean).join(', ') + (addr.zip ? ` ${addr.zip}` : '')
@@ -140,6 +275,7 @@ export default {
                 srdId,
                 inviteToken,
                 address: (composed || '').trim(),
+                loan_number: e?.loan_number ?? null,  // WHAT: Actual loan number from sellertape_id
                 prefillValues: e?.values || null,
               } as BrokerFormEntry
             })
@@ -222,7 +358,9 @@ export default {
             const active = Array.isArray(data.active_invites) ? data.active_invites : []
             const assigned = Array.isArray(data.assigned_entries) ? data.assigned_entries : []
 
-            // Build multiRows from active invites
+            // WHAT: Build multiRows from active invites with loan_number
+            // WHY: Display actual loan numbers in broker portal table
+            // HOW: Map backend response including loan_number from sellertape_id
             this.multiRows = active.map((e: any) => {
               const addr = e?.address || {}
               const composed = [addr.street_address, addr.city, addr.state].filter(Boolean).join(', ') + (addr.zip ? ` ${addr.zip}` : '')
@@ -234,10 +372,13 @@ export default {
                 srdId,
                 inviteToken,
                 address: (composed || '').trim(),
+                loan_number: e?.loan_number ?? null,  // WHAT: Actual loan number from sellertape_id
                 prefillValues: e?.values || null,
               } as BrokerFormEntry
             })
-            // Fallback: if no active invites, still render assigned entries (read-only if no active token)
+            // WHAT: Fallback - if no active invites, still render assigned entries (read-only if no active token)
+            // WHY: Show brokers all their assignments even if tokens expired
+            // HOW: Map assigned_entries with loan_number field
             if ((!this.multiRows || !this.multiRows.length) && assigned.length) {
               this.multiRows = assigned.map((e: any) => {
                 const addr = e?.address || {}
@@ -250,6 +391,7 @@ export default {
                   srdId,
                   inviteToken,
                   address: (composed || '').trim(),
+                  loan_number: e?.loan_number ?? null,  // WHAT: Actual loan number from sellertape_id
                   prefillValues: e?.values || null,
                 } as BrokerFormEntry
               })
@@ -307,6 +449,29 @@ export default {
       }
       // If not valid portal token
       this.tokenStatus = 'invalid'
+    },
+
+    // WHAT: Helper function to determine progress badge color
+    // WHY: Visual indicator of completion percentage
+    // HOW: Green for >80%, warning for >50%, danger for <=50%
+    progressBadgeClass(completed: number, total: number): string {
+      if (total === 0) return 'bg-secondary'
+      const pct = (completed / total) * 100
+      if (pct >= 80) return 'bg-success'
+      if (pct >= 50) return 'bg-warning'
+      return 'bg-danger'
+    },
+
+    // WHAT: Format currency for display in summary widgets
+    // WHY: Show dollar amounts in readable format
+    // HOW: Use Intl.NumberFormat for consistent formatting
+    formatCurrency(val: number | null): string {
+      if (val == null || val === 0) return '$0'
+      return new Intl.NumberFormat('en-US', { 
+        style: 'currency', 
+        currency: 'USD', 
+        maximumFractionDigits: 0 
+      }).format(val)
     },
 
     // Attempt to extract a human-readable address from the broker-portal payload.

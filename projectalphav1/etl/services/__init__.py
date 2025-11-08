@@ -6,6 +6,12 @@ from etl.services.serv_etl_ai_mapper import AIColumnMapper, validate_choice_valu
 from etl.services.serv_etl_ai_seller_matcher import AISellerMatcher
 from etl.services.serv_etl_file_processor import FileProcessor
 from etl.services.serv_etl_data_importer import DataImporter
+from etl.services.serv_etl_valuation_document_extractor import (
+    DocumentExtractionService,
+    FieldExtractionEngine,
+    ClaudeFieldAugmenter,
+)
+from etl.services.serv_etl_valuationPipeline import ValuationExtractionPipeline
 
 __all__ = [
     'OutlookScanner',
@@ -17,4 +23,8 @@ __all__ = [
     'AISellerMatcher',
     'FileProcessor',
     'DataImporter',
+    'DocumentExtractionService',
+    'FieldExtractionEngine',
+    'ClaudeFieldAugmenter',
+    'ValuationExtractionPipeline',
 ]

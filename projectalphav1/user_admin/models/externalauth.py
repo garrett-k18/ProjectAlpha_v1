@@ -11,14 +11,20 @@ class BrokerTokenAuth(models.Model):
     data stored in `core.MasterCRM`.
 
     Relations are referenced by app label and model name to avoid import cycles.
+    
+    WHAT: Links to AssetIdHub (hub-first architecture)
+    WHY: All joins happen through the hub table intentionally
+    HOW: Direct FK to hub; access ACQ data via asset_hub.acq_raw
     """
 
-    # Loan this token provides access to
-    seller_raw_data = models.ForeignKey(
-        'acq_module.SellerRawData',
+    # WHAT: Asset this token provides access to (hub-first)
+    # WHY: Hub-first architecture - all cross-module joins go through AssetIdHub
+    # HOW: FK to hub; access domain data via reverse relations (asset_hub.acq_raw, asset_hub.am_boarded, etc.)
+    asset_hub = models.ForeignKey(
+        'core.AssetIdHub',
         on_delete=models.CASCADE,
         related_name='broker_tokens',
-        help_text='SellerRawData row this token is for.'
+        help_text='Asset hub ID this token is for (hub-first architecture).'
     )
 
     # Optional link to canonical CRM directory entry (Broker contact)
@@ -50,7 +56,7 @@ class BrokerTokenAuth(models.Model):
 
     class Meta:
         indexes = [
-            models.Index(fields=['seller_raw_data']),
+            models.Index(fields=['asset_hub']),
             models.Index(fields=['expires_at']),
         ]
         db_table = 'user_admin_broker_token_auth'
@@ -59,7 +65,7 @@ class BrokerTokenAuth(models.Model):
         verbose_name_plural = 'Broker Token Auth'
 
     def __str__(self) -> str:  # pragma: no cover - simple debug aid
-        return f"Token for SRD {self.seller_raw_data_id} (expires {self.expires_at.isoformat()})"
+        return f"Token for Asset Hub {self.asset_hub_id} (expires {self.expires_at.isoformat()})"
 
     @staticmethod
     def generate_token() -> str:
