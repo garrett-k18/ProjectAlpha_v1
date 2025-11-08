@@ -34,6 +34,25 @@
             </select>
           </div>
           
+          <!-- Grade Filter -->
+          <div class="col-md-1">
+            <label class="form-label small mb-1">Grade</label>
+            <select 
+              v-model="filters.grade" 
+              class="form-select form-select-sm"
+              @change="applyFilters"
+            >
+              <option value="">All Grades</option>
+              <option value="none">No Grade</option>
+              <option value="A+">A+</option>
+              <option value="A">A</option>
+              <option value="B">B</option>
+              <option value="C">C</option>
+              <option value="D">D</option>
+              <option value="F">F</option>
+            </select>
+          </div>
+          
           <!-- Value Range Min -->
           <div class="col-md-2">
             <label class="form-label small mb-1">Min Value</label>
@@ -56,24 +75,6 @@
               placeholder="999999999"
               @input="applyFilters"
             />
-          </div>
-          
-          <!-- Grade Filter -->
-          <div class="col-md-1">
-            <label class="form-label small mb-1">Grade</label>
-            <select 
-              v-model="filters.grade" 
-              class="form-select form-select-sm"
-              @change="applyFilters"
-            >
-              <option value="">All Grades</option>
-              <option value="A+">A+</option>
-              <option value="A">A</option>
-              <option value="B">B</option>
-              <option value="C">C</option>
-              <option value="D">D</option>
-              <option value="F">F</option>
-            </select>
           </div>
           
           <!-- Clear Filters Button -->
@@ -110,14 +111,13 @@
             <th class="text-center">BPO AIV - ARV</th>
             <th class="text-center">Broker AIV - ARV</th>
             <th class="text-center">Internal AIV - ARV</th>
-            <th class="text-center">Variance</th>
             <th class="text-center">Status</th>
             <th class="text-center">Actions</th>
           </tr>
         </thead>
         <tbody>
           <tr v-if="!filteredRows || filteredRows.length === 0">
-            <td colspan="10" class="text-center text-muted py-3">
+            <td colspan="9" class="text-center text-muted py-3">
               <span v-if="filters.search || filters.state || filters.minValue || filters.maxValue || filters.grade">
                 No assets match your filters
               </span>
@@ -127,12 +127,16 @@
             </td>
           </tr>
           <tr v-for="(asset, index) in paginatedRows" :key="`asset-${asset?.asset_hub_id || asset?.id || index}`">
+            <!-- WHAT: Entire address block is clickable as one unit -->
+            <!-- WHY: Better UX - single click area for the whole address -->
             <td>
-              <div class="fw-semibold address-link" @click="emit('openLoanModal', asset)">
-                {{ formatAddress(asset) }}
-              </div>
-              <div class="small address-link address-link-secondary" @click="emit('openLoanModal', asset)">
-                {{ formatCityState(asset) }}
+              <div class="address-container" @click="emit('openLoanModal', asset)">
+                <div class="fw-semibold">
+                  {{ formatAddress(asset) }}
+                </div>
+                <div class="small">
+                  {{ formatCityState(asset) }}
+                </div>
               </div>
             </td>
             <td class="text-center">
@@ -197,7 +201,7 @@
               <span>{{ formatCurrency(asset.broker_arv_value as number) }}</span>
             </td>
             <td class="text-center">
-              <!-- WHAT: Editable Internal UW Initial As-Is Value - styled to blend in -->
+              <!-- WHAT: Editable Internal UW Initial As-Is Value - blue styling indicates user can edit -->
               <input
                 type="text"
                 class="editable-value-inline"
@@ -205,10 +209,10 @@
                 @input="(e) => formatInputOnType(e)"
                 @blur="(e) => handleSaveInternalUW(asset, 'asis', e)"
                 @keyup.enter="(e) => handleSaveInternalUW(asset, 'asis', e)"
-                placeholder="Click to edit"
+                placeholder="Add Value"
               />
               <span style="margin: 0 0px;"> - </span>
-              <!-- WHAT: Editable Internal UW Initial ARV Value - styled to blend in -->
+              <!-- WHAT: Editable Internal UW Initial ARV Value - blue styling indicates user can edit -->
               <input
                 type="text"
                 class="editable-value-inline"
@@ -216,18 +220,18 @@
                 @input="(e) => formatInputOnType(e)"
                 @blur="(e) => handleSaveInternalUW(asset, 'arv', e)"
                 @keyup.enter="(e) => handleSaveInternalUW(asset, 'arv', e)"
-                placeholder="Click to edit"
+                placeholder="Add Value"
               />
             </td>
             <td class="text-center">
-              <span :class="varianceClass(calculateVariance(asset))">
-                {{ formatPercent(calculateVariance(asset)) }}
-              </span>
-            </td>
-            <td class="text-center">
-              <span class="badge" :class="statusBadgeClass(getValuationStatus(asset))">
-                {{ getValuationStatus(asset) }}
-              </span>
+              <!-- WHAT: Show multiple status badges for missing valuations -->
+              <!-- WHY: Display all missing items at once for clarity -->
+              <div class="d-flex flex-column gap-1 align-items-center">
+                <span v-if="!asset.additional_asis_value" class="badge bg-warning">Pending BPO</span>
+                <span v-if="!asset.broker_asis_value" class="badge bg-warning">Pending Broker</span>
+                <span v-if="!asset.internal_initial_uw_asis_value" class="badge bg-warning">Pending Reconciled</span>
+                <span v-if="asset.seller_asis_value && asset.additional_asis_value && asset.broker_asis_value && asset.internal_initial_uw_asis_value" class="badge bg-success">Approved</span>
+              </div>
             </td>
             <td class="text-center">
               <button class="btn btn-sm btn-light me-1" title="View Details">
@@ -350,10 +354,14 @@ const filteredRows = computed(() => {
   }
   
   // WHAT: Apply grade filter
-  // WHY: Allow users to view only assets with specific grades
-  // HOW: Check internal_initial_uw_grade field
+  // WHY: Allow users to view only assets with specific grades or no grade
+  // HOW: Check internal_initial_uw_grade field, handle 'none' for assets without grades
   if (filters.value.grade) {
-    filtered = filtered.filter((row: any) => row.internal_initial_uw_grade === filters.value.grade)
+    if (filters.value.grade === 'none') {
+      filtered = filtered.filter((row: any) => !row.internal_initial_uw_grade)
+    } else {
+      filtered = filtered.filter((row: any) => row.internal_initial_uw_grade === filters.value.grade)
+    }
   }
   
   return filtered
@@ -432,10 +440,11 @@ function getValuationStatus(asset: any): string {
     return 'Approved'
   }
   
-  // WHAT: Check what's missing and show appropriate pending status
+  // WHAT: Check what's missing and show the most critical pending item
+  // WHY: Prioritize showing what's blocking progress
   if (!hasBPO) return 'Pending BPO'
   if (!hasBroker) return 'Pending Broker'
-  if (!hasInternal) return 'Pending UW'
+  if (!hasInternal) return 'Pending Reconciled'
   
   return 'In Progress'
 }
@@ -566,35 +575,32 @@ function getRealtorUrl(asset: any): string {
   return `https://www.realtor.com/realestateandhomes-search/${query}`
 }
 
-// WHAT: CSS class for variance display (positive/negative)
-function varianceClass(variance: number | null): string {
-  if (variance === null) return 'text-muted'
-  return variance >= 0 ? 'text-success' : 'text-danger'
-}
-
 // WHAT: CSS class for status badge
+// WHY: Color-code different status states for quick visual identification
 function statusBadgeClass(status: string): string {
   switch (status) {
     case 'Approved': return 'bg-success'
     case 'Review': return 'bg-warning'
     case 'In Progress': return 'bg-info'
+    case 'Pending BPO': return 'bg-secondary'
+    case 'Pending Broker': return 'bg-secondary'
+    case 'Pending UW': return 'bg-secondary'
+    case 'Pending Reconciled': return 'bg-warning'
     default: return 'bg-secondary'
   }
 }
 </script>
 
 <style scoped>
-.address-link {
+/* WHAT: Address container - entire address block is clickable as one unit */
+/* WHY: Better UX with single click area, blue text indicates it's interactive */
+.address-container {
   cursor: pointer;
   color: #3577f1;
 }
 
-.address-link:hover {
+.address-container:hover {
   text-decoration: underline;
-}
-
-.address-link-secondary {
-  color: #6c757d;
 }
 
 .third-party-link {
@@ -607,6 +613,8 @@ function statusBadgeClass(status: string): string {
   text-decoration: underline;
 }
 
+/* WHAT: Editable inline input fields styled in blue to indicate user can edit */
+/* WHY: Visual indicator that these values are editable by the user */
 .editable-value-inline {
   border: none;
   background: transparent;
@@ -614,12 +622,22 @@ function statusBadgeClass(status: string): string {
   width: 100px;
   padding: 2px 4px;
   font-size: inherit;
-  color: inherit;
+  color: #3577f1;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+/* WHAT: Blue italicized placeholder text for editable inputs */
+/* WHY: Consistent blue styling to indicate this field is user-editable */
+.editable-value-inline::placeholder {
+  color: #3577f1;
+  opacity: 0.7;
+  font-style: italic;
 }
 
 .editable-value-inline:hover {
-  background-color: #f8f9fa;
-  border: 1px solid #dee2e6;
+  background-color: #e7f1ff;
+  border: 1px solid #3577f1;
   border-radius: 3px;
 }
 
@@ -628,6 +646,7 @@ function statusBadgeClass(status: string): string {
   background-color: #fff;
   border: 1px solid #3577f1;
   border-radius: 3px;
+  color: #3577f1;
 }
 
 .grade-select {

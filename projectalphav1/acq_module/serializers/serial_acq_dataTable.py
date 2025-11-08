@@ -182,6 +182,32 @@ class SellerRawDataRowSerializer(serializers.Serializer):
     broker_asis_value = serializers.SerializerMethodField()
     broker_arv_value = serializers.SerializerMethodField()
     broker_value_date = serializers.SerializerMethodField()
+    broker_rehab_est = serializers.SerializerMethodField()
+    broker_notes = serializers.SerializerMethodField()
+    broker_links = serializers.SerializerMethodField()
+    broker_recommend_rehab = serializers.SerializerMethodField()
+    broker_grade = serializers.SerializerMethodField()
+    broker_contact_id = serializers.SerializerMethodField()
+    # Detailed broker rehab estimates
+    broker_roof_est = serializers.SerializerMethodField()
+    broker_kitchen_est = serializers.SerializerMethodField()
+    broker_bath_est = serializers.SerializerMethodField()
+    broker_flooring_est = serializers.SerializerMethodField()
+    broker_windows_est = serializers.SerializerMethodField()
+    broker_appliances_est = serializers.SerializerMethodField()
+    broker_plumbing_est = serializers.SerializerMethodField()
+    broker_electrical_est = serializers.SerializerMethodField()
+    broker_landscaping_est = serializers.SerializerMethodField()
+    # Detailed broker rehab grades
+    broker_roof_grade = serializers.SerializerMethodField()
+    broker_kitchen_grade = serializers.SerializerMethodField()
+    broker_bath_grade = serializers.SerializerMethodField()
+    broker_flooring_grade = serializers.SerializerMethodField()
+    broker_windows_grade = serializers.SerializerMethodField()
+    broker_appliances_grade = serializers.SerializerMethodField()
+    broker_plumbing_grade = serializers.SerializerMethodField()
+    broker_electrical_grade = serializers.SerializerMethodField()
+    broker_landscaping_grade = serializers.SerializerMethodField()
     
     # Internal Initial UW valuations (source='internalInitialUW')
     internal_initial_uw_asis_value = serializers.SerializerMethodField()
@@ -189,6 +215,7 @@ class SellerRawDataRowSerializer(serializers.Serializer):
     internal_initial_uw_value_date = serializers.SerializerMethodField()
     internal_initial_uw_grade = serializers.SerializerMethodField()
     internal_initial_uw_grade_id = serializers.SerializerMethodField()
+    internal_initial_uw_notes = serializers.SerializerMethodField()
     
    
     
@@ -253,6 +280,110 @@ class SellerRawDataRowSerializer(serializers.Serializer):
         v = self._latest_val_by_source(obj, 'broker')
         return getattr(v, 'value_date', None) if v else None
     
+    def get_broker_rehab_est(self, obj):
+        v = self._latest_val_by_source(obj, 'broker')
+        return getattr(v, 'rehab_est_total', None) if v else None
+    
+    def get_broker_notes(self, obj):
+        v = self._latest_val_by_source(obj, 'broker')
+        return getattr(v, 'notes', None) if v else None
+    
+    def get_broker_links(self, obj):
+        v = self._latest_val_by_source(obj, 'broker')
+        return getattr(v, 'links', None) if v else None
+    
+    def get_broker_recommend_rehab(self, obj):
+        v = self._latest_val_by_source(obj, 'broker')
+        return getattr(v, 'recommend_rehab', None) if v else None
+    
+    def get_broker_grade(self, obj):
+        """Return grade code for broker valuation."""
+        v = self._latest_val_by_source(obj, 'broker')
+        if v and v.grade:
+            return v.grade.code
+        return None
+    
+    def get_broker_contact_id(self, obj):
+        """Return broker_contact (MasterCRM) ID for broker valuation."""
+        v = self._latest_val_by_source(obj, 'broker')
+        if v and v.broker_contact:
+            return v.broker_contact.id
+        return None
+    
+    # Detailed broker rehab estimate getters
+    def get_broker_roof_est(self, obj):
+        v = self._latest_val_by_source(obj, 'broker')
+        return getattr(v, 'roof_est', None) if v else None
+    
+    def get_broker_kitchen_est(self, obj):
+        v = self._latest_val_by_source(obj, 'broker')
+        return getattr(v, 'kitchen_est', None) if v else None
+    
+    def get_broker_bath_est(self, obj):
+        v = self._latest_val_by_source(obj, 'broker')
+        return getattr(v, 'bath_est', None) if v else None
+    
+    def get_broker_flooring_est(self, obj):
+        v = self._latest_val_by_source(obj, 'broker')
+        return getattr(v, 'flooring_est', None) if v else None
+    
+    def get_broker_windows_est(self, obj):
+        v = self._latest_val_by_source(obj, 'broker')
+        return getattr(v, 'windows_est', None) if v else None
+    
+    def get_broker_appliances_est(self, obj):
+        v = self._latest_val_by_source(obj, 'broker')
+        return getattr(v, 'appliances_est', None) if v else None
+    
+    def get_broker_plumbing_est(self, obj):
+        v = self._latest_val_by_source(obj, 'broker')
+        return getattr(v, 'plumbing_est', None) if v else None
+    
+    def get_broker_electrical_est(self, obj):
+        v = self._latest_val_by_source(obj, 'broker')
+        return getattr(v, 'electrical_est', None) if v else None
+    
+    def get_broker_landscaping_est(self, obj):
+        v = self._latest_val_by_source(obj, 'broker')
+        return getattr(v, 'landscaping_est', None) if v else None
+    
+    # Detailed broker rehab grade getters
+    def get_broker_roof_grade(self, obj):
+        v = self._latest_val_by_source(obj, 'broker')
+        return getattr(v, 'roof_grade', None) if v else None
+    
+    def get_broker_kitchen_grade(self, obj):
+        v = self._latest_val_by_source(obj, 'broker')
+        return getattr(v, 'kitchen_grade', None) if v else None
+    
+    def get_broker_bath_grade(self, obj):
+        v = self._latest_val_by_source(obj, 'broker')
+        return getattr(v, 'bath_grade', None) if v else None
+    
+    def get_broker_flooring_grade(self, obj):
+        v = self._latest_val_by_source(obj, 'broker')
+        return getattr(v, 'flooring_grade', None) if v else None
+    
+    def get_broker_windows_grade(self, obj):
+        v = self._latest_val_by_source(obj, 'broker')
+        return getattr(v, 'windows_grade', None) if v else None
+    
+    def get_broker_appliances_grade(self, obj):
+        v = self._latest_val_by_source(obj, 'broker')
+        return getattr(v, 'appliances_grade', None) if v else None
+    
+    def get_broker_plumbing_grade(self, obj):
+        v = self._latest_val_by_source(obj, 'broker')
+        return getattr(v, 'plumbing_grade', None) if v else None
+    
+    def get_broker_electrical_grade(self, obj):
+        v = self._latest_val_by_source(obj, 'broker')
+        return getattr(v, 'electrical_grade', None) if v else None
+    
+    def get_broker_landscaping_grade(self, obj):
+        v = self._latest_val_by_source(obj, 'broker')
+        return getattr(v, 'landscaping_grade', None) if v else None
+    
     # Internal Initial UW valuation getters
     def get_internal_initial_uw_asis_value(self, obj):
         v = self._latest_val_by_source(obj, 'internalInitialUW')
@@ -296,6 +427,16 @@ class SellerRawDataRowSerializer(serializers.Serializer):
         """
         v = self._latest_val_by_source(obj, 'internalInitialUW')
         return v.grade_id if v else None
+    
+    def get_internal_initial_uw_notes(self, obj):
+        """Return notes for Internal Initial UW valuation.
+        
+        WHAT: Get notes from internal valuation
+        WHY: ReconciliationTab needs to display internal UW notes, not broker notes
+        HOW: Get latest internalInitialUW valuation, then get notes field
+        """
+        v = self._latest_val_by_source(obj, 'internalInitialUW')
+        return getattr(v, 'notes', None) if v else None
 
     def get_is_dropped(self, obj):
         """Return True when acquisition status indicates a dropped asset."""

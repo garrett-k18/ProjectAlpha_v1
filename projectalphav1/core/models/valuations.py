@@ -4,25 +4,31 @@ from django.db import models
 from django.conf import settings
 from decimal import Decimal
 from datetime import date
+from core.models.model_co_lookupTables import Grade
 
 class ValuationGradeReference(models.Model):
-    """Reference table containing allowable valuation grades."""
-
-    class GradeCode(models.TextChoices):
-        """Authoritative grade codes available for valuations."""
-
-        A_PLUS = ("A+", "A+")  # WHAT: Top-tier grade indicating exceptional valuation confidence.
-        A = ("A", "A")  # WHAT: High grade for strong valuations with minor caveats.
-        B = ("B", "B")  # WHAT: Mid-tier grade representing average valuation quality.
-        C = ("C", "C")  # WHAT: Below-average grade signaling notable concerns.
-        D = ("D", "D")  # WHAT: Low grade reserved for weak valuations.
-        F = ("F", "F")  # WHAT: Failing grade when valuation is not acceptable.
+    """
+    Reference table containing allowable valuation grades.
+    
+    What this does:
+    - Stores grade definitions with labels, descriptions, and sort order
+    - Uses centralized Grade enum from model_co_lookupTables for consistency
+    
+    Why this exists:
+    - Allows extended metadata (description, sort_order) beyond simple enum
+    - Provides audit trail with created/updated timestamps
+    - Can be managed via Django admin
+    
+    How to use:
+    - Grade choices come from Grade enum (A+, A, B, C, D, F)
+    - Add descriptions and sort order for UI presentation
+    """
 
     code = models.CharField(
         max_length=2,
         unique=True,
-        choices=GradeCode.choices,
-        help_text='Canonical grade code selected from the fixed set (A+, A, B, C, D, F).'  # HOW: Enforces enum-backed grade list to prevent ad-hoc entries.
+        choices=Grade.choices,
+        help_text='Canonical grade code selected from the fixed set (A+, A, B, C, D, F). Uses centralized Grade enum from model_co_lookupTables.'
     )
     label = models.CharField(
         max_length=50,
@@ -141,17 +147,163 @@ class Valuation(models.Model):
         blank=True,
         help_text='Total estimated rehabilitation costs.'
     )
-    
+    recommend_rehab = models.BooleanField(
+        default=False,
+        help_text='Whether to recommend rehabilitation.'
+    )
+    recommend_rehab_reason = models.TextField(
+        blank=True,
+        null=True,
+        help_text='Reason for recommending rehabilitation.'
+    )
     # Detailed rehab estimates (from InternalValuation)
-    roof_est = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    kitchen_est = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    bath_est = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    flooring_est = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    windows_est = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    appliances_est = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    plumbing_est = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    electrical_est = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    landscaping_est = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    # WHAT: Cost estimates and condition grades for each major rehab category
+    # WHY: Allows granular tracking of rehab needs and quality assessment
+    # HOW: Each category has a cost estimate (DecimalField) and condition grade (Grade enum)
+    
+    # Roof
+    roof_est = models.DecimalField(
+        max_digits=15, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        help_text='Estimated cost for roof repairs/replacement.'
+    )
+    roof_grade = models.CharField(
+        max_length=5,
+        choices=Grade.choices,
+        null=True,
+        blank=True,
+        help_text='Condition grade for roof (A+ to F).'
+    )
+    
+    # Kitchen
+    kitchen_est = models.DecimalField(
+        max_digits=15, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        help_text='Estimated cost for kitchen repairs/upgrades.'
+    )
+    kitchen_grade = models.CharField(
+        max_length=5,
+        choices=Grade.choices,
+        null=True,
+        blank=True,
+        help_text='Condition grade for kitchen (A+ to F).'
+    )
+    
+    # Bathrooms
+    bath_est = models.DecimalField(
+        max_digits=15, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        help_text='Estimated cost for bathroom repairs/upgrades.'
+    )
+    bath_grade = models.CharField(
+        max_length=5,
+        choices=Grade.choices,
+        null=True,
+        blank=True,
+        help_text='Condition grade for bathrooms (A+ to F).'
+    )
+    
+    # Flooring
+    flooring_est = models.DecimalField(
+        max_digits=15, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        help_text='Estimated cost for flooring repairs/replacement.'
+    )
+    flooring_grade = models.CharField(
+        max_length=5,
+        choices=Grade.choices,
+        null=True,
+        blank=True,
+        help_text='Condition grade for flooring (A+ to F).'
+    )
+    
+    # Windows
+    windows_est = models.DecimalField(
+        max_digits=15, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        help_text='Estimated cost for window repairs/replacement.'
+    )
+    windows_grade = models.CharField(
+        max_length=5,
+        choices=Grade.choices,
+        null=True,
+        blank=True,
+        help_text='Condition grade for windows (A+ to F).'
+    )
+    
+    # Appliances
+    appliances_est = models.DecimalField(
+        max_digits=15, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        help_text='Estimated cost for appliance repairs/replacement.'
+    )
+    appliances_grade = models.CharField(
+        max_length=5,
+        choices=Grade.choices,
+        null=True,
+        blank=True,
+        help_text='Condition grade for appliances (A+ to F).'
+    )
+    
+    # Plumbing
+    plumbing_est = models.DecimalField(
+        max_digits=15, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        help_text='Estimated cost for plumbing repairs.'
+    )
+    plumbing_grade = models.CharField(
+        max_length=5,
+        choices=Grade.choices,
+        null=True,
+        blank=True,
+        help_text='Condition grade for plumbing (A+ to F).'
+    )
+    
+    # Electrical
+    electrical_est = models.DecimalField(
+        max_digits=15, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        help_text='Estimated cost for electrical repairs/upgrades.'
+    )
+    electrical_grade = models.CharField(
+        max_length=5,
+        choices=Grade.choices,
+        null=True,
+        blank=True,
+        help_text='Condition grade for electrical (A+ to F).'
+    )
+    
+    # Landscaping
+    landscaping_est = models.DecimalField(
+        max_digits=15, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        help_text='Estimated cost for landscaping improvements.'
+    )
+    landscaping_grade = models.CharField(
+        max_length=5,
+        choices=Grade.choices,
+        null=True,
+        blank=True,
+        help_text='Condition grade for landscaping (A+ to F).'
+    )
     
     # Additional fields (from BrokerValues)
     notes = models.TextField(
