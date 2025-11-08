@@ -11,6 +11,7 @@ Docs reviewed:
 - DRF Serializers: https://www.django-rest-framework.org/api-guide/serializers/
 - Django get_object_or_404: https://docs.djangoproject.com/en/5.0/topics/http/shortcuts/
 """
+import logging
 from decimal import Decimal, InvalidOperation
 from typing import Optional
 from django.shortcuts import get_object_or_404
@@ -22,6 +23,10 @@ from rest_framework import status, serializers
 
 from ..models.model_acq_seller import SellerRawData
 from core.models.valuations import Valuation
+
+# WHAT: Logger for this module
+# WHY: Track source mapping and debugging
+logger = logging.getLogger(__name__)
 
 
 class ValuationCompatSerializer(serializers.Serializer):
@@ -321,10 +326,26 @@ def internal_valuation_view(request, seller_id: int | str):
     """
     srd = get_object_or_404(SellerRawData, pk=seller_id)
     ser_cls = ValuationCompatSerializer
-    # Pick source (default internal)
-    source = (request.query_params.get('source') or 'internal').strip().lower()
-    if source not in {s for s, _ in Valuation.Source.choices}:
-        source = 'internal'
+    
+    # WHAT: Get source from query params, default to INTERNAL
+    # WHY: Use enum values directly instead of string lookups to avoid case sensitivity bugs
+    # HOW: Map common param values to actual enum values
+    source_param = (request.query_params.get('source') or '').strip()
+    
+    # WHAT: Map query param to Source enum value
+    # WHY: Direct enum reference is safer than string matching
+    source_map = {
+        'internalInitialUW': Valuation.Source.INTERNAL_INITIAL_UW,
+        'internal': Valuation.Source.INTERNAL,
+        'broker': Valuation.Source.BROKER,
+        'bpoInterior': Valuation.Source.BPO_INTERIOR,
+        'bpoExterior': Valuation.Source.BPO_EXTERIOR,
+        'desktop': Valuation.Source.DESKTOP,
+        'appraisal': Valuation.Source.APPRAISAL,
+    }
+    
+    source = source_map.get(source_param, Valuation.Source.INTERNAL)
+    logger.info(f"[valuation_api] Using source: {source} (from param: {source_param})")
 
     if request.method == 'GET':
         # Find latest valuation for hub/source
@@ -362,9 +383,11 @@ def internal_valuation_view(request, seller_id: int | str):
         from core.models.valuations import ValuationGradeReference
         try:
             grade_instance = ValuationGradeReference.objects.get(code=grade_code)
+            logger.info(f"[valuation_api] Found grade: {grade_instance.code} (id={grade_instance.id})")
         except ValuationGradeReference.DoesNotExist:
             # WHAT: Invalid grade code provided
             # WHY: Frontend should only send valid codes (A+, A, B, C, D, F)
+            logger.error(f"[valuation_api] Grade code not found: {grade_code}")
             return Response(
                 {'error': f'Invalid grade code: {grade_code}'},
                 status=status.HTTP_400_BAD_REQUEST
@@ -376,13 +399,21 @@ def internal_valuation_view(request, seller_id: int | str):
         'source': source,
         'value_date': value_date,
     }
-    defaults = {
-        'asis_value': asis_value,
-        'arv_value': arv_value,
-        'rehab_est_total': rehab_total,
-        'notes': notes,
-        'links': links,
-    }
+    
+    # WHAT: Build defaults dict only with non-None values
+    # WHY: Preserve existing values when only updating specific fields
+    # HOW: Only include values that were actually provided in the request
+    defaults = {}
+    if asis_value is not None:
+        defaults['asis_value'] = asis_value
+    if arv_value is not None:
+        defaults['arv_value'] = arv_value
+    if rehab_total is not None:
+        defaults['rehab_est_total'] = rehab_total
+    if notes is not None:
+        defaults['notes'] = notes
+    if links is not None:
+        defaults['links'] = links
     
     # WHAT: Add grade to defaults if provided
     # WHY: Allow updating grade on valuation records
@@ -398,13 +429,11 @@ def internal_valuation_view(request, seller_id: int | str):
         )
         if obj:
             for k, v in defaults.items():
-                if v is not None:
-                    setattr(obj, k, v)
+                setattr(obj, k, v)
             obj.save()
         else:
-            # Only pass non-None defaults to avoid unintended nulls
-            clean_defaults = {k: v for k, v in defaults.items() if v is not None}
-            obj = Valuation.objects.create(asset_hub=srd.asset_hub, source=source, **clean_defaults)
+            # Create new valuation with only the provided values
+            obj = Valuation.objects.create(asset_hub=srd.asset_hub, source=source, **defaults)
     else:
         obj, _ = Valuation.objects.update_or_create(defaults=defaults, **lookup)
 

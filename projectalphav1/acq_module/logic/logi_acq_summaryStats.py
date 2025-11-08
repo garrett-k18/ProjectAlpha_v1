@@ -409,19 +409,16 @@ def valuation_completion_summary(seller_id: int, trade_id: int) -> Dict[str, int
     )
     internal_uw_count = qs.filter(Exists(internal_uw_subquery)).count()
     
-    # WHAT: Count assets with ALL required valuations (reconciled)
-    # WHY: Reconciled means seller + (broker OR bpo) + internal UW all present
-    # HOW: Filter for assets meeting all three criteria
-    reconciled_count = qs.filter(
-        # Has seller value
-        seller_asis_value__isnull=False
+    # WHAT: Count assets with Internal Initial UW values (reconciled)
+    # WHY: Reconciled means assets have an internal UW valuation with asis_value OR arv_value or both
+    # HOW: Check for Internal UW valuations where at least one value field is not null
+    reconciled_subquery = Valuation.objects.filter(
+        asset_hub=OuterRef('asset_hub'),
+        source=Valuation.Source.INTERNAL_INITIAL_UW
     ).filter(
-        # Has broker OR bpo valuation
-        Q(Exists(broker_subquery)) | Q(Exists(bpo_subquery))
-    ).filter(
-        # Has internal UW valuation
-        Exists(internal_uw_subquery)
-    ).count()
+        Q(asis_value__isnull=False) | Q(arv_value__isnull=False)
+    )
+    reconciled_count = qs.filter(Exists(reconciled_subquery)).count()
     
     # WHAT: Count assets with grade assigned to Internal Initial UW valuation
     # WHY: Track completion of valuation grading process

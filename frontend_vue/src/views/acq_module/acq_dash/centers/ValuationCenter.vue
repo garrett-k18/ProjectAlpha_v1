@@ -114,6 +114,11 @@
                 </a>
               </li>
               <li class="nav-item">
+                <a href="#brokers" data-bs-toggle="tab" class="nav-link">
+                  <i class="ri-user-line me-1"></i>Brokers
+                </a>
+              </li>
+              <li class="nav-item">
                 <a href="#bpo-tracker" data-bs-toggle="tab" class="nav-link">
                   <i class="ri-file-list-line me-1"></i>BPO Tracker
                 </a>
@@ -133,39 +138,36 @@
             <div class="tab-content">
               <!-- Overview Tab -->
               <div class="tab-pane show active" id="overview">
-                <h5 class="mb-3">Valuation Summary Table</h5>
-                
-                <!-- WHAT: Advanced Filters Section -->
-                <!-- WHY: Allow users to filter table by state, city, value ranges, etc. -->
-                <div class="card bg-light border mb-3">
-                  <div class="card-body py-2">
-                    <div class="row g-2 align-items-end">
-                      <!-- Search Box (City Only) -->
-                      <div class="col-md-3">
-                        <label class="form-label small mb-1">Search City</label>
-                        <input 
-                          v-model="filters.search" 
-                          type="text" 
-                          class="form-control form-control-sm" 
-                          placeholder="Search by city..."
-                          @input="applyFilters"
-                        />
-                      </div>
-                      
-                      <!-- State Filter -->
-                      <div class="col-md-2">
-                        <label class="form-label small mb-1">State</label>
-                        <select 
-                          v-model="filters.state" 
-                          class="form-select form-select-sm"
-                          @change="applyFilters"
-                        >
-                          <option value="">All States</option>
-                          <option v-for="state in availableStates" :key="state" :value="state">
-                            {{ state }}
-                          </option>
-                        </select>
-                      </div>
+                <OverviewTab 
+                  :rows="rows"
+                  :selectedSellerId="selectedSellerId"
+                  :selectedTradeId="selectedTradeId"
+                  @openLoanModal="openLoanModal"
+                  @saveGrade="saveGrade"
+                  @saveInternalUW="saveInternalUW"
+                />
+              </div>
+
+              <!-- Brokers Tab -->
+              <div class="tab-pane" id="brokers">
+                <BrokersTab 
+                  :rows="rows"
+                  @openLoanModal="openLoanModal"
+                />
+              </div>
+
+              <!-- BPO Tracker Tab -->
+              <div class="tab-pane" id="bpo-tracker">
+                <h5 class="mb-3">BPO Tracker</h5>
+                <div class="alert alert-info">
+                  <i class="ri-information-line me-1"></i>
+                  BPO tracking content coming soon
+                </div>
+              </div>
+
+              <!-- Reconciliation Tab -->
+              <div class="tab-pane" id="reconciliation">
+                <h5 class="mb-3">Value Reconciliation</h5>
                       
                       <!-- Value Range Min -->
                       <div class="col-md-2">
@@ -189,6 +191,24 @@
                           placeholder="999999999"
                           @input="applyFilters"
                         />
+                      </div>
+                      
+                      <!-- Grade Filter -->
+                      <div class="col-md-1">
+                        <label class="form-label small mb-1">Grade</label>
+                        <select 
+                          v-model="filters.grade" 
+                          class="form-select form-select-sm"
+                          @change="applyFilters"
+                        >
+                          <option value="">All Grades</option>
+                          <option value="A+">A+</option>
+                          <option value="A">A</option>
+                          <option value="B">B</option>
+                          <option value="C">C</option>
+                          <option value="D">D</option>
+                          <option value="F">F</option>
+                        </select>
                       </div>
                       
                       <!-- Clear Filters Button -->
@@ -240,7 +260,7 @@
                           </span>
                         </td>
                       </tr>
-                      <tr v-for="asset in paginatedRows" :key="asset.asset_hub_id">
+                      <tr v-for="(asset, index) in paginatedRows" :key="`asset-${asset?.asset_hub_id || asset?.id || index}`">
                         <td>
                           <div class="fw-semibold address-link" @click="openLoanModal(asset)">
                             {{ formatAddress(asset) }}
@@ -419,6 +439,164 @@
                       <option :value="200">200</option>
                     </select>
                   </div>
+                </div>
+              </div>
+
+              <!-- Brokers Tab -->
+              <div class="tab-pane" id="brokers">
+                <h5 class="mb-3">Broker Valuations</h5>
+                
+                <!-- WHAT: Advanced Filters Section -->
+                <!-- WHY: Allow users to filter broker valuations by state, city, value ranges, grade -->
+                <div class="card bg-light border mb-3">
+                  <div class="card-body py-2">
+                    <div class="row g-2 align-items-end">
+                      <!-- Search Box (City Only) -->
+                      <div class="col-md-3">
+                        <label class="form-label small mb-1">Search City</label>
+                        <input 
+                          v-model="filters.search" 
+                          type="text" 
+                          class="form-control form-control-sm" 
+                          placeholder="Search by city..."
+                          @input="applyFilters"
+                        />
+                      </div>
+                      
+                      <!-- State Filter -->
+                      <div class="col-md-2">
+                        <label class="form-label small mb-1">State</label>
+                        <select 
+                          v-model="filters.state" 
+                          class="form-select form-select-sm"
+                          @change="applyFilters"
+                        >
+                          <option value="">All States</option>
+                          <option v-for="state in availableStates" :key="state" :value="state">
+                            {{ state }}
+                          </option>
+                        </select>
+                      </div>
+                      
+                      <!-- Value Range Min -->
+                      <div class="col-md-2">
+                        <label class="form-label small mb-1">Min Value</label>
+                        <input 
+                          v-model="filters.minValue" 
+                          type="number" 
+                          class="form-control form-control-sm" 
+                          placeholder="0"
+                          @input="applyFilters"
+                        />
+                      </div>
+                      
+                      <!-- Value Range Max -->
+                      <div class="col-md-2">
+                        <label class="form-label small mb-1">Max Value</label>
+                        <input 
+                          v-model="filters.maxValue" 
+                          type="number" 
+                          class="form-control form-control-sm" 
+                          placeholder="999999999"
+                          @input="applyFilters"
+                        />
+                      </div>
+                      
+                      <!-- Grade Filter -->
+                      <div class="col-md-1">
+                        <label class="form-label small mb-1">Grade</label>
+                        <select 
+                          v-model="filters.grade" 
+                          class="form-select form-select-sm"
+                          @change="applyFilters"
+                        >
+                          <option value="">All Grades</option>
+                          <option value="A+">A+</option>
+                          <option value="A">A</option>
+                          <option value="B">B</option>
+                          <option value="C">C</option>
+                          <option value="D">D</option>
+                          <option value="F">F</option>
+                        </select>
+                      </div>
+                      
+                      <!-- Clear Filters Button -->
+                      <div class="col-md-1">
+                        <button 
+                          class="btn btn-sm btn-light w-100" 
+                          @click="clearFilters"
+                          title="Clear all filters"
+                        >
+                          <i class="ri-filter-off-line"></i>
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <!-- Filter Results Count -->
+                    <div class="mt-2 small text-muted">
+                      Showing {{ paginatedRows.length }} of {{ filteredRows.length }} assets
+                      <span v-if="filteredRows.length < (rows?.length || 0)">
+                        (filtered from {{ rows?.length || 0 }} total)
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="table-responsive">
+                  <table class="table table-centered table-hover mb-0">
+                    <thead class="table-light">
+                      <tr>
+                        <th>Address</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-if="!filteredRows || filteredRows.length === 0">
+                        <td class="text-center text-muted py-3">
+                          <span v-if="filters.search || filters.state || filters.minValue || filters.maxValue || filters.grade">
+                            No assets match your filters
+                          </span>
+                          <span v-else>
+                            No assets to display
+                          </span>
+                        </td>
+                      </tr>
+                      <tr v-for="(asset, index) in paginatedRows" :key="`broker-asset-${asset?.asset_hub_id || asset?.id || index}`">
+                        <td>
+                          <div class="fw-semibold address-link" @click="openLoanModal(asset)">
+                            {{ formatAddress(asset) }}
+                          </div>
+                          <div class="small address-link address-link-secondary" @click="openLoanModal(asset)">
+                            {{ formatCityState(asset) }}
+                          </div>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                
+                <!-- Pagination Controls -->
+                <div class="d-flex justify-content-between align-items-center mt-3">
+                  <div class="text-muted small">
+                    Page {{ currentPage }} of {{ totalPages }}
+                  </div>
+                  <nav>
+                    <ul class="pagination pagination-sm mb-0">
+                      <li class="page-item" :class="{ disabled: currentPage === 1 }">
+                        <a class="page-link" href="#" @click.prevent="goToPage(currentPage - 1)">Previous</a>
+                      </li>
+                      <li 
+                        class="page-item" 
+                        v-for="page in visiblePages" 
+                        :key="page"
+                        :class="{ active: page === currentPage }"
+                      >
+                        <a class="page-link" href="#" @click.prevent="goToPage(page)">{{ page }}</a>
+                      </li>
+                      <li class="page-item" :class="{ disabled: currentPage === totalPages }">
+                        <a class="page-link" href="#" @click.prevent="goToPage(currentPage + 1)">Next</a>
+                      </li>
+                    </ul>
+                  </nav>
                 </div>
               </div>
 
@@ -639,6 +817,8 @@ import Layout from '@/components/layouts/layout.vue'
 import { BModal } from 'bootstrap-vue-next'
 import LoanLevelIndex from '@/views/acq_module/loanlvl/loanlvl_index.vue'
 import http from '@/lib/http'
+import OverviewTab from './ValuationComponenets/OverviewTab.vue'
+import BrokersTab from './ValuationComponenets/BrokersTab.vue'
 
 // Stores
 const acqStore = useAcqSelectionsStore()
@@ -664,6 +844,7 @@ const filters = ref({
   state: '',
   minValue: null as number | null,
   maxValue: null as number | null,
+  grade: '',  // Filter by grade (A+, A, B, C, D, F) or empty for all
 })
 
 // WHAT: Pool summary data from backend API (single source of truth)
@@ -723,6 +904,13 @@ const filteredRows = computed(() => {
     filtered = filtered.filter((row: any) => 
       (row.seller_asis_value || 0) <= filters.value.maxValue!
     )
+  }
+  
+  // WHAT: Apply grade filter
+  // WHY: Allow users to view only assets with specific grades
+  // HOW: Check internal_initial_uw_grade field
+  if (filters.value.grade) {
+    filtered = filtered.filter((row: any) => row.internal_initial_uw_grade === filters.value.grade)
   }
   
   return filtered
@@ -817,6 +1005,7 @@ function clearFilters() {
   filters.value.state = ''
   filters.value.minValue = null
   filters.value.maxValue = null
+  filters.value.grade = ''
   currentPage.value = 1
 }
 
@@ -866,9 +1055,11 @@ function formatCurrency(val: number | null): string {
 
 // WHAT: Format currency for input field (with $ symbol and commas)
 // WHY: Display values in familiar currency format
-function formatCurrencyForInput(val: number | null): string {
-  if (val == null) return ''
-  return '$' + new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(val)
+// HOW: Accept any type and safely convert to number or null
+function formatCurrencyForInput(val: any): string {
+  const num = typeof val === 'number' ? val : null
+  if (num == null) return ''
+  return '$' + new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(num)
 }
 
 // WHAT: Format input field as user types (add $ and commas)
@@ -925,12 +1116,17 @@ function formatInputOnType(event: Event) {
 // WHY: Display current grade in dropdown
 // HOW: Extract from asset data returned by serializer
 function getInternalUWGrade(asset: any): string {
-  return asset.internal_initial_uw_grade || ''
+  const grade = asset.internal_initial_uw_grade || ''
+  // Debug logging to see what grade data we have
+  if (asset.asset_hub_id === 3691) {
+    console.log('[ValuationCenter] getInternalUWGrade for asset 3691:', grade, 'full asset:', asset)
+  }
+  return grade
 }
 
 // WHAT: Save grade for Internal Initial UW valuation
 // WHY: Allow users to assign quality grade (A+, A, B, C, D, F) to internal valuations
-// HOW: Update Valuation record with grade reference via ValuationGradeReference FK
+// HOW: Create/update Internal UW Valuation record with grade (values optional)
 async function saveGrade(asset: any, gradeCode: string) {
   const assetHubId = asset.asset_hub_id || asset.id
   if (!assetHubId) {
@@ -939,27 +1135,50 @@ async function saveGrade(asset: any, gradeCode: string) {
   }
   
   try {
-    // WHAT: Update Internal Initial UW valuation with grade
-    // WHY: Grade stored on Valuation model, linked via ValuationGradeReference FK
-    // HOW: Send grade code to backend endpoint with source parameter
+    // WHAT: Create or update Internal Initial UW valuation with grade
+    // WHY: Grade can be assigned even without asis/arv values
+    // HOW: Send ONLY grade_code (no value_date) to use "latest or create" logic
     const payload = {
       grade_code: gradeCode || null,  // Empty string becomes null (removes grade)
+      // WHAT: Do NOT send value_date
+      // WHY: When value_date is null, backend uses "update latest or create new" logic
+      // HOW: Backend finds latest Internal UW valuation or creates a new one
     }
     
     console.log('[ValuationCenter] Saving grade:', gradeCode, 'for asset:', assetHubId)
     
     // WHAT: Call valuation API with source=internalInitialUW
-    // WHY: Backend endpoint handles grade lookup and assignment
+    // WHY: Backend endpoint handles grade lookup and valuation creation
     // HOW: PUT to /acq/valuations/internal/{id}/?source=internalInitialUW
     await http.put(`/acq/valuations/internal/${assetHubId}/`, payload, {
       params: { source: 'internalInitialUW' }
     })
     
-    // WHAT: Refresh grid data to show updated grade
-    // WHY: User needs immediate feedback
+    // WHAT: Wait a moment for database commit, then refresh
+    // WHY: Ensure valuation is fully saved before fetching
+    await new Promise(resolve => setTimeout(resolve, 200))
+    
+    // WHAT: Refresh grid data to show updated grade from backend
+    // WHY: Ensure latest data is displayed with new grade
+    // HOW: Clear cache and refetch all rows
     if (selectedSellerId.value && selectedTradeId.value) {
       gridStore.clearCache()
       await gridStore.fetchRows(selectedSellerId.value, selectedTradeId.value, 'all')
+      console.log('[ValuationCenter] Grid refreshed with updated grade')
+      
+      // WHAT: Refresh graded assets count from backend
+      // WHY: Update the Graded Assets card automatically
+      // HOW: Call backend API for updated metrics
+      await fetchValuationMetrics()
+      console.log('[ValuationCenter] Graded assets count updated:', valuationMetrics.value.graded_count)
+      
+      // WHAT: Verify the grade is in the refreshed data
+      const updatedAsset = rows.value?.find((r: any) => (r.asset_hub_id || r.id) === assetHubId)
+      console.log('[ValuationCenter] Updated asset grade:', updatedAsset?.internal_initial_uw_grade)
+      
+      // WHAT: Check if any row has a grade to verify serializer is working
+      const anyWithGrade = rows.value?.find((r: any) => r.internal_initial_uw_grade)
+      console.log('[ValuationCenter] Any asset has grade?', anyWithGrade ? 'YES' : 'NO', anyWithGrade?.internal_initial_uw_grade)
     }
     
     console.log('[ValuationCenter] Grade saved successfully')
@@ -999,7 +1218,6 @@ async function saveInternalUW(asset: any, field: 'asis' | 'arv', event: Event) {
   try {
     // WHAT: Build payload for Internal Initial UW valuation
     const payload: any = {
-      source: 'internalInitialUW',
       value_date: new Date().toISOString().split('T')[0], // Today's date
     }
     
@@ -1010,17 +1228,38 @@ async function saveInternalUW(asset: any, field: 'asis' | 'arv', event: Event) {
       payload.arv_value = numValue
     }
     
-    // WHAT: Send to backend API
-    const response = await http.post(`/core/valuations/${assetHubId}/`, payload)
+    // WHAT: Send to backend API with source parameter
+    // WHY: Use same endpoint as saveGrade for consistency
+    // HOW: PUT to /acq/valuations/internal/{id}/?source=internalInitialUW
+    const response = await http.put(`/acq/valuations/internal/${assetHubId}/`, payload, {
+      params: { source: 'internalInitialUW' }
+    })
     
-    // WHAT: Update local data with response
-    if (response.data) {
-      if (field === 'asis') {
-        asset.internal_initial_uw_asis_value = response.data.asis_value
-      } else {
-        asset.internal_initial_uw_arv_value = response.data.arv_value
+    // WHAT: Wait a moment for database commit
+    // WHY: Ensure valuation is fully saved before refreshing
+    await new Promise(resolve => setTimeout(resolve, 200))
+    
+    // WHAT: Refresh entire row from backend
+    // WHY: Get both asis_value AND arv_value from the saved valuation
+    // HOW: Clear cache and refetch all rows
+    if (selectedSellerId.value && selectedTradeId.value) {
+      gridStore.clearCache()
+      await gridStore.fetchRows(selectedSellerId.value, selectedTradeId.value, 'all')
+      
+      // WHAT: Find the updated asset and refresh its values
+      const updatedAsset = rows.value?.find((r: any) => (r.asset_hub_id || r.id) === assetHubId)
+      if (updatedAsset) {
+        asset.internal_initial_uw_asis_value = updatedAsset.internal_initial_uw_asis_value
+        asset.internal_initial_uw_arv_value = updatedAsset.internal_initial_uw_arv_value
+        console.log('[ValuationCenter] Updated asset values - asis:', asset.internal_initial_uw_asis_value, 'arv:', asset.internal_initial_uw_arv_value)
       }
     }
+    
+    // WHAT: Refresh valuation metrics from backend
+    // WHY: Update the Internal UW count card automatically
+    // HOW: Call backend API for updated metrics
+    await fetchValuationMetrics()
+    console.log('[ValuationCenter] Internal UW count updated:', valuationMetrics.value.internal_count)
     
     console.log('[ValuationCenter] Saved Internal UW value:', response.data)
   } catch (error) {
@@ -1222,6 +1461,20 @@ onMounted(async () => {
   // WHY: Grid displays individual asset rows, but does NOT aggregate
   if (hasSelection.value && (!rows.value || rows.value.length === 0)) {
     await gridStore.fetchRows(selectedSellerId.value!, selectedTradeId.value!, 'all')
+    
+    // WHAT: Debug - check if grade fields are in the data
+    // WHY: Verify serializer is returning grade fields
+    if (rows.value && rows.value.length > 0) {
+      const sample = rows.value[0]
+      console.log('[ValuationCenter] Sample row keys:', Object.keys(sample))
+      console.log('[ValuationCenter] Sample row grade field:', (sample as any).internal_initial_uw_grade)
+      
+      // Find asset 3691 specifically
+      const asset3691 = rows.value.find((r: any) => (r.asset_hub_id || r.id) === 3691)
+      if (asset3691) {
+        console.log('[ValuationCenter] Asset 3691 grade:', (asset3691 as any).internal_initial_uw_grade)
+      }
+    }
   }
 })
 </script>

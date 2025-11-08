@@ -199,24 +199,42 @@ class SellerRawDataRowSerializer(serializers.Serializer):
         Uses prefetched data from asset_hub.valuations to avoid N+1 queries.
         The queryset uses prefetch_related('asset_hub__valuations') to load
         ALL valuations in ONE database query.
+        
+        WHAT: Handle NULL value_dates for grade-only valuations
+        WHY: Valuations created with only grade have no value_date
+        HOW: Sort by created_at (most recent) when value_date is NULL
         """
         hub = getattr(obj, 'asset_hub', None)
         if hub is None:
             return None
         
+        # WHAT: Get all valuations for this hub
+        # WHY: Debug prefetch issue
+        all_vals = list(hub.valuations.all())
+        
+        # Debug logging for asset 3691
+        import logging
+        logger = logging.getLogger(__name__)
+        if obj.asset_hub_id == 3691:
+            logger.info(f"[Serializer] Asset 3691 has {len(all_vals)} total valuations")
+            for v in all_vals:
+                logger.info(f"[Serializer]   - source={v.source}, grade={v.grade.code if v.grade else None}, created={v.created_at}")
+        
         # Use prefetched valuations (already in memory) - NO new query!
         # Filter and sort in Python instead of hitting the database
-        valuations = [
-            v for v in hub.valuations.all()  # Uses prefetched data
-            if v.source == source
-        ]
+        valuations = [v for v in all_vals if v.source == source]
         
         if not valuations:
+            if obj.asset_hub_id == 3691:
+                logger.info(f"[Serializer] Asset 3691 has NO {source} valuations")
             return None
         
-        # Sort by value_date (desc), then created_at (desc) - most recent first
+        # WHAT: Sort by created_at (most recent first) to handle NULL value_dates
+        # WHY: Grade-only valuations have NULL value_date
+        # HOW: Use created_at as primary sort key (always present)
+        from datetime import datetime
         valuations.sort(
-            key=lambda v: (v.value_date or '', v.created_at or ''),
+            key=lambda v: v.created_at if v.created_at else datetime.min,
             reverse=True
         )
         
@@ -256,8 +274,17 @@ class SellerRawDataRowSerializer(serializers.Serializer):
         HOW: Get latest internalInitialUW valuation, then get grade.code if exists
         """
         v = self._latest_val_by_source(obj, 'internalInitialUW')
-        if v and v.grade:
-            return v.grade.code
+        if v:
+            # WHAT: Check if valuation has grade relationship
+            # WHY: Debug why grade isn't showing in frontend
+            grade_obj = v.grade
+            if grade_obj:
+                grade_code = grade_obj.code
+                # Debug logging to verify grade is being accessed
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.info(f"[Serializer] Asset {obj.asset_hub_id} has grade: {grade_code}")
+                return grade_code
         return None
     
     def get_internal_initial_uw_grade_id(self, obj):

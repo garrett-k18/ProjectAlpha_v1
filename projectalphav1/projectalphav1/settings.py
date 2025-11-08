@@ -98,6 +98,7 @@ MIDDLEWARE = [
 'django.middleware.security.SecurityMiddleware',
 'whitenoise.middleware.WhiteNoiseMiddleware',  # WhiteNoise must be after SecurityMiddleware
 'django.contrib.sessions.middleware.SessionMiddleware',
+'django.middleware.locale.LocaleMiddleware',  # Language/locale middleware - supports admin interface language chooser
 'corsheaders.middleware.CorsMiddleware',  # CORS middleware - must be before CommonMiddleware
 'django.middleware.common.CommonMiddleware',
 'django.middleware.csrf.CsrfViewMiddleware',

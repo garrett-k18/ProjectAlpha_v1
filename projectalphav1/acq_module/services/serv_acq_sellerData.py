@@ -11,7 +11,7 @@ Docs reviewed:
 from __future__ import annotations
 
 from typing import Optional
-from django.db.models import QuerySet, Q, F, Value, Case, When, CharField
+from django.db.models import QuerySet, Q, F, Value, Case, When, CharField, Prefetch
 from django.db.models.functions import Concat
 from ..models.model_acq_seller import SellerRawData
 
@@ -59,12 +59,23 @@ def build_queryset(
     if not seller_id or not trade_id:
         return SellerRawData.objects.none()
     
+    # WHAT: Import Valuation model for prefetch
+    from core.models.valuations import Valuation
+    
     # Base queryset with necessary joins
     qs = (
         SellerRawData.objects
         .filter(seller_id=seller_id, trade_id=trade_id)
         .select_related('seller', 'trade', 'asset_hub')  # Optimize joins for serializer access
-        .prefetch_related('asset_hub__valuations')  # Load ALL valuations in ONE query (not per-row)
+        .prefetch_related(
+            # WHAT: Prefetch valuations with grade relationship eager loaded
+            # WHY: Serializer needs access to v.grade.code without N+1 queries
+            # HOW: Use Prefetch with select_related to load grade in same query
+            Prefetch(
+                'asset_hub__valuations',
+                queryset=Valuation.objects.select_related('grade', 'broker_contact').order_by('-value_date', '-created_at')
+            )
+        )
         .annotate(  # Annotate borrower full names so serializer stays thin (no formatting logic)
             borrower1_full_name=Case(
                 # Both last and first present -> join as "Last, First"
