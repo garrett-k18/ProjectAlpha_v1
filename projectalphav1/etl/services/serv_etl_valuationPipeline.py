@@ -10,11 +10,12 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
 
-from django.db import models as dj_models, transaction
+from django.db import DataError, models as dj_models, transaction
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 
 from core.models import AssetIdHub
+from core.models.valuations import Valuation
 from etl.models import (
     ComparablesETL,
     ExtractionFieldResult,
@@ -24,11 +25,10 @@ from etl.models import (
     ValuationDocument,
     ValuationETL,
 )
-from etl.services.serv_etl_valuation_document_extractor import (
-    ClaudeFieldAugmenter,
+from etl.services.serv_etl_claude_client import build_valuation_claude_vision_client
+from etl.services.serv_etl_valuation_vision_extractor import (
+    ClaudeVisionExtractionService,
     DocumentExtractionResult,
-    DocumentExtractionService,
-    FieldExtractionEngine,
     FieldExtractionRecord,
 )
 
@@ -51,20 +51,22 @@ class ValuationExtractionPipeline:
 
     def __init__(
         self,
-        extractor: Optional[DocumentExtractionService] = None,
+        extractor: Optional[ClaudeVisionExtractionService] = None,
         *,
-        claude_client: Optional[ClaudeFieldAugmenter] = None,
-        high_confidence_threshold: float = 0.98,
-        ai_threshold: float = 0.85,
-        review_threshold: float = 0.75,
+        vision_model: str = "claude-3-5-haiku-20241022",
+        prompt: Optional[str] = None,
     ) -> None:
-        claude_augmenter = claude_client or ClaudeFieldAugmenter()
-        self.extractor = extractor or DocumentExtractionService(
-            claude_augmenter=claude_augmenter,
-            high_confidence_threshold=high_confidence_threshold,
-            ai_threshold=ai_threshold,
-            review_threshold=review_threshold,
-        )
+        if extractor is not None:
+            self.extractor = extractor
+        else:
+            client_callable = build_valuation_claude_vision_client(default_model=vision_model)
+            if client_callable is None:
+                raise RuntimeError("Claude vision client is not configured")
+            self.extractor = ClaudeVisionExtractionService(
+                client=client_callable,
+                prompt=prompt or ClaudeVisionExtractionService.prompt,
+                model_name=vision_model,
+            )
 
     # Public API ------------------------------------------------------------------
 
@@ -119,6 +121,13 @@ class ValuationExtractionPipeline:
 
         inferred_source = extraction_result.inferred_source
         chosen_source = source or inferred_source
+        if not chosen_source:
+            chosen_source = Valuation.Source.BROKER
+            warning_msg = (
+                "Unable to determine valuation source automatically; defaulted to Valuation.Source.BROKER."
+            )
+            warnings.append(warning_msg)
+            logger.info(warning_msg)
         if source and inferred_source and source != inferred_source:
             mismatch_message = (
                 f"Provided valuation source '{source}' differs from inferred '{inferred_source}'."
@@ -138,17 +147,44 @@ class ValuationExtractionPipeline:
             self._write_log(document, "warning", no_source_msg)
 
         valuation = None
-        if field_results and chosen_source:
-            try:
-                valuation = self._persist_valuation(
-                    asset_hub=asset_hub,
-                    source=chosen_source,
-                    document=document,
-                    field_records=extraction_result.fields,
-                )
-            except Exception as exc:
-                warnings.append(f"Valuation persistence failed: {exc}")
-                logger.warning("Valuation persistence failed for %s: %s", file_path, exc)
+        source_field = ValuationETL._meta.get_field("source")
+        effective_source: Optional[str] = None
+        if chosen_source:
+            normalized_source = self._normalize_choice(source_field, chosen_source)
+            if normalized_source is not None:
+                effective_source = normalized_source
+            else:
+                chosen_source_str = str(chosen_source)
+                max_length = getattr(source_field, "max_length", 0)
+                if max_length and len(chosen_source_str) > max_length:
+                    truncated_source = chosen_source_str[:max_length]
+                    warnings.append(
+                        "Valuation source exceeded max length and was truncated to fit field constraints."
+                    )
+                    self._write_log(
+                        document,
+                        "warning",
+                        (
+                            "Source value '%s' trimmed to '%s' to fit ValuationETL.source max length." % (
+                                chosen_source_str,
+                                truncated_source,
+                            )
+                        ),
+                    )
+                    effective_source = truncated_source
+                else:
+                    effective_source = chosen_source_str or None
+
+        try:
+            valuation = self._persist_valuation(
+                asset_hub=asset_hub,
+                source=effective_source,
+                document=document,
+                extraction_result=extraction_result,
+            )
+        except Exception as exc:
+            warnings.append(f"Valuation persistence failed: {exc}")
+            logger.warning("Valuation persistence failed for %s: %s", file_path, exc)
 
         document.status = (
             ExtractionStatus.COMPLETE if valuation else ExtractionStatus.PARTIAL
@@ -211,29 +247,73 @@ class ValuationExtractionPipeline:
         self,
         *,
         asset_hub: AssetIdHub,
-        source: str,
+        source: Optional[str],
         document: ValuationDocument,
-        field_records: Sequence[FieldExtractionRecord],
+        extraction_result: DocumentExtractionResult,
     ) -> Optional[ValuationETL]:
-        if not source:
+
+        valuation_payload_primary = dict(extraction_result.valuation_payload or {})
+        comparables_payload = list(extraction_result.comparables_payload or [])
+        repairs_payload = list(extraction_result.repairs_payload or [])
+
+        fallback_val, fallback_comps, fallback_repairs = self._fallback_payloads(extraction_result.fields)
+
+        valuation_payload = self._merge_with_fallback(valuation_payload_primary, fallback_val)
+        if not comparables_payload and fallback_comps:
+            comparables_payload = fallback_comps
+            self._write_log(document, "info", "Using fallback comparable rows from field records.")
+        if not repairs_payload and fallback_repairs:
+            repairs_payload = fallback_repairs
+            self._write_log(document, "info", "Using fallback repair rows from field records.")
+
+        if not valuation_payload:
+            self._write_log(document, "warning", "No valuation payload available; skipping ValuationETL creation.")
             return None
 
-        valuation_fields, grouped_records = self._split_by_model(field_records)
-        if not valuation_fields:
-            return None
+        if "source" in valuation_payload:
+            logger.debug("Dropping source from valuation payload to avoid duplicate kwargs")
+            valuation_payload.pop("source", None)
+        if "asset_hub" in valuation_payload:
+            valuation_payload.pop("asset_hub", None)
 
-        valuation_kwargs = self._filter_model_kwargs(ValuationETL, valuation_fields)
+        valuation_kwargs = self._prepare_model_kwargs(
+            ValuationETL,
+            valuation_payload,
+            document=document,
+            context="ValuationETL",
+        )
         if not valuation_kwargs:
             return None
+
+        logger.info(
+            "Persisting ValuationETL with %d field(s): %s",
+            len(valuation_kwargs),
+            sorted(valuation_kwargs.keys()),
+        )
 
         valuation_kwargs.setdefault("inspection_date", timezone.now().date())
         valuation_kwargs.setdefault("loan_number", "UNKNOWN")
 
-        valuation = ValuationETL.objects.create(
-            asset_hub=asset_hub,
-            source=source,
-            **valuation_kwargs,
-        )
+        try:
+            valuation = ValuationETL.objects.create(
+                asset_hub=asset_hub,
+                source=source,
+                **valuation_kwargs,
+            )
+        except DataError as exc:
+            overflow_details: List[str] = []
+            for key, value in valuation_kwargs.items():
+                field = ValuationETL._meta.get_field(key)
+                max_length = getattr(field, "max_length", None)
+                if max_length and isinstance(value, str) and len(value) > max_length:
+                    overflow_details.append(f"{key}({len(value)}/{max_length})")
+            if overflow_details:
+                detail_message = (
+                    "ValuationETL field length overflow: " + ", ".join(sorted(overflow_details))
+                )
+                self._write_log(document, "error", detail_message)
+                logger.warning("%s", detail_message)
+            raise
 
         ExtractionLogEntry.objects.create(
             document=document,
@@ -243,12 +323,12 @@ class ValuationExtractionPipeline:
 
         comparables_created = self._persist_comparables(
             valuation,
-            grouped_records.get("etl.ComparablesETL", []),
+            comparables_payload,
             document,
         )
         repairs_created = self._persist_repair_items(
             valuation,
-            grouped_records.get("etl.RepairItem", []),
+            repairs_payload,
             document,
         )
 
@@ -268,32 +348,40 @@ class ValuationExtractionPipeline:
         return valuation
 
     @staticmethod
-    def _split_by_model(
-        records: Sequence[FieldExtractionRecord],
-    ) -> Tuple[Dict[str, Dict[str, object]], Dict[str, List[FieldExtractionRecord]]]:
-        model_map: Dict[str, Dict[str, object]] = {}
-        grouped_records: Dict[str, List[FieldExtractionRecord]] = {}
-        for record in records:
-            grouped_records.setdefault(record.model_label, []).append(record)
-            if record.model_label not in model_map:
-                model_map[record.model_label] = {}
-            if isinstance(record.value, (dict, list)):
-                continue
-            model_map[record.model_label][record.field] = record.value
-        return model_map.get("etl.ValuationETL", {}), grouped_records
+    def _fallback_payloads(
+        field_records: Sequence[FieldExtractionRecord],
+    ) -> Tuple[Dict[str, object], List[Dict[str, object]], List[Dict[str, object]]]:
+        valuation_values: Dict[str, object] = {}
+        comparables: List[Dict[str, object]] = []
+        repairs: List[Dict[str, object]] = []
+
+        for record in field_records:
+            if record.model_label == "etl.ValuationETL" and not isinstance(record.value, (dict, list)):
+                valuation_values[record.field] = record.value
+            elif record.model_label == "etl.ComparablesETL" and isinstance(record.value, dict):
+                comparables.append(dict(record.value))
+            elif record.model_label == "etl.RepairItem" and isinstance(record.value, dict):
+                repairs.append(dict(record.value))
+
+        return valuation_values, comparables, repairs
 
     @staticmethod
-    def _filter_model_kwargs(model, values: Dict[str, object]) -> Dict[str, object]:
-        valid_fields = {
-            field.name
-            for field in model._meta.get_fields()
-            if hasattr(field, "attname") and not field.many_to_many
-        }
-        return {
-            key: value
-            for key, value in values.items()
-            if key in valid_fields
-        }
+    def _merge_with_fallback(
+        primary: Dict[str, object], fallback: Dict[str, object]
+    ) -> Dict[str, object]:
+        merged = dict(primary)
+        for key, value in fallback.items():
+            if key not in merged or ValuationExtractionPipeline._is_empty_value(merged[key]):
+                merged[key] = value
+        return {k: v for k, v in merged.items() if not ValuationExtractionPipeline._is_empty_value(v)}
+
+    @staticmethod
+    def _is_empty_value(value: object) -> bool:
+        if value is None:
+            return True
+        if isinstance(value, str) and not value.strip():
+            return True
+        return False
 
     @staticmethod
     def _serialise_value(value) -> Tuple[str, Optional[dict]]:
@@ -304,20 +392,22 @@ class ValuationExtractionPipeline:
     def _persist_comparables(
         self,
         valuation: ValuationETL,
-        records: Sequence[FieldExtractionRecord],
+        rows: Sequence[Dict[str, object]],
         document: ValuationDocument,
     ) -> List[ComparablesETL]:
         created: List[ComparablesETL] = []
-        if not records:
+        if not rows:
             return created
 
-        for idx, record in enumerate(records, start=1):
-            payload = record.value
-            if not isinstance(payload, dict):
-                continue
-            enriched_payload = dict(payload)
+        for idx, payload in enumerate(rows, start=1):
+            enriched_payload = dict(payload or {})
             enriched_payload.setdefault("comp_number", payload.get("comp_number") or idx)
-            kwargs = self._prepare_model_kwargs(ComparablesETL, enriched_payload)
+            kwargs = self._prepare_model_kwargs(
+                ComparablesETL,
+                enriched_payload,
+                document=document,
+                context=f"Comparable #{idx}",
+            )
 
             if "address" not in kwargs or not kwargs["address"]:
                 self._write_log(document, "warning", f"Skipped comparable {idx}: missing address.")
@@ -342,21 +432,23 @@ class ValuationExtractionPipeline:
     def _persist_repair_items(
         self,
         valuation: ValuationETL,
-        records: Sequence[FieldExtractionRecord],
+        rows: Sequence[Dict[str, object]],
         document: ValuationDocument,
     ) -> List[RepairItem]:
         created: List[RepairItem] = []
-        if not records:
+        if not rows:
             return created
 
-        for idx, record in enumerate(records, start=1):
-            payload = record.value
-            if not isinstance(payload, dict):
-                continue
-            enriched_payload = dict(payload)
+        for idx, payload in enumerate(rows, start=1):
+            enriched_payload = dict(payload or {})
             enriched_payload.setdefault("repair_number", payload.get("repair_number") or idx)
             enriched_payload.setdefault("priority", payload.get("priority") or 3)
-            kwargs = self._prepare_model_kwargs(RepairItem, enriched_payload)
+            kwargs = self._prepare_model_kwargs(
+                RepairItem,
+                enriched_payload,
+                document=document,
+                context=f"Repair #{idx}",
+            )
 
             if "repair_type" not in kwargs or kwargs["repair_type"] is None:
                 default_type = self._default_choice(RepairItem, "repair_type")
@@ -388,6 +480,9 @@ class ValuationExtractionPipeline:
         self,
         model: dj_models.Model,
         values: Dict[str, object],
+        *,
+        document: Optional[ValuationDocument] = None,
+        context: str = "",
     ) -> Dict[str, object]:
         valid_fields: Dict[str, dj_models.Field] = {
             field.name: field
@@ -403,6 +498,20 @@ class ValuationExtractionPipeline:
             coerced = self._coerce_field_value(field, value)
             if coerced is None:
                 if not getattr(field, "null", False) and not getattr(field, "blank", False):
+                    continue
+            if isinstance(coerced, str) and hasattr(field, "max_length") and field.max_length:
+                if len(coerced) > field.max_length:
+                    truncated = coerced[: field.max_length]
+                    prepared[key] = truncated
+                    if document is not None:
+                        self._write_log(
+                            document,
+                            "warning",
+                            (
+                                f"{context or model.__name__}: truncated value for '{key}' from "
+                                f"{len(coerced)} to {field.max_length} characters."
+                            ),
+                        )
                     continue
             prepared[key] = coerced
 

@@ -307,15 +307,17 @@
  * HOW: Uses Hyper UI tables, cards, and widgets to display JV data
  *      Backend integration via Pinia store (to be implemented)
  */
-import { ref } from 'vue'
+import { defineComponent, ref } from 'vue'
 
 // WHAT: Type definition for joint venture entity
+// WHY: Defines structure for JV selection dropdown
 interface JointVenture {
   id: number
   name: string
 }
 
 // WHAT: Type definition for JV partner
+// WHY: Defines structure for partner contribution and ownership data
 interface Partner {
   id: number
   name: string
@@ -329,6 +331,7 @@ interface Partner {
 }
 
 // WHAT: Type definition for capital call
+// WHY: Defines structure for capital call tracking
 interface CapitalCall {
   id: number
   date: string
@@ -338,6 +341,7 @@ interface CapitalCall {
 }
 
 // WHAT: Type definition for distribution
+// WHY: Defines structure for distribution schedule
 interface Distribution {
   id: number
   date: string
@@ -346,7 +350,9 @@ interface Distribution {
   status: string
 }
 
-export default {
+// WHAT: Define component using defineComponent for proper TypeScript support
+// WHY: Ensures proper type inference and prevents interface naming errors
+export default defineComponent({
   name: 'JvLevelView',
   setup() {
     // WHAT: Selected JV ID
@@ -567,7 +573,7 @@ export default {
       getDistStatusBadge,
     }
   },
-}
+})
 </script>
 
 <style scoped>

@@ -55,6 +55,8 @@ class ValuationETL(models.Model):
     source = models.CharField(
         max_length=20,
         choices=Valuation.Source.choices,
+        blank=True,
+        null=True,
         help_text="Valuation source code aligned with core Valuation model choices.",
     )
 

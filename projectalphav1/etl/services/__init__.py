@@ -6,10 +6,14 @@ from etl.services.serv_etl_ai_mapper import AIColumnMapper, validate_choice_valu
 from etl.services.serv_etl_ai_seller_matcher import AISellerMatcher
 from etl.services.serv_etl_file_processor import FileProcessor
 from etl.services.serv_etl_data_importer import DataImporter
-from etl.services.serv_etl_valuation_document_extractor import (
-    DocumentExtractionService,
-    FieldExtractionEngine,
-    ClaudeFieldAugmenter,
+from etl.services.serv_etl_claude_client import (
+    build_valuation_claude_client,
+    build_valuation_claude_vision_client,
+)
+from etl.services.serv_etl_valuation_vision_extractor import (
+    ClaudeVisionExtractionService,
+    DocumentExtractionResult,
+    FieldExtractionRecord,
 )
 from etl.services.serv_etl_valuationPipeline import ValuationExtractionPipeline
 
@@ -23,8 +27,10 @@ __all__ = [
     'AISellerMatcher',
     'FileProcessor',
     'DataImporter',
-    'DocumentExtractionService',
-    'FieldExtractionEngine',
-    'ClaudeFieldAugmenter',
+    'build_valuation_claude_client',
+    'build_valuation_claude_vision_client',
+    'ClaudeVisionExtractionService',
+    'DocumentExtractionResult',
+    'FieldExtractionRecord',
     'ValuationExtractionPipeline',
 ]

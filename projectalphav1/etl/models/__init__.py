@@ -4,6 +4,7 @@ from .model_etl_valueImports import (
     ValuationETL,
     ComparablesETL,
     RepairItem,
+    ValuationPhoto,
 )
 from .model_etl_document_extraction import (
     ValuationDocument,
@@ -17,6 +18,7 @@ __all__ = [
     "ValuationETL",
     "ComparablesETL",
     "RepairItem",
+    "ValuationPhoto",
     "ValuationDocument",
     "ExtractionFieldResult",
     "ExtractionLogEntry",

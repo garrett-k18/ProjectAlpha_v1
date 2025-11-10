@@ -10,10 +10,13 @@ import http from '@/lib/http'
 
 // **WHAT**: Trade option interface for primary filter dropdown
 // **WHY**: Standardized shape for trade selection across reporting views
+// **FIELDS**: Matches backend serial_rep_filterOptions.TradeOptionSerializer
 export interface TradeOption {
   id: number
   trade_name: string
-  seller_name?: string
+  seller_name: string
+  status: string
+  asset_count: number
 }
 
 // **WHAT**: Status option interface for multi-select filter
@@ -193,7 +196,7 @@ export const useReportingStore = defineStore('reporting', () => {
    * **WHAT**: Fetch trade options for filter dropdown
    * **WHY**: Populate trade selector with all available trades
    * **WHERE**: Called on dashboard mount
-   * **HOW**: GET /api/reporting/trades/ (TODO: implement backend endpoint)
+   * **HOW**: GET /api/reporting/trades/ (Backend endpoint ready!)
    */
   async function fetchTradeOptions(force: boolean = false): Promise<void> {
     if (!force && tradeOptions.value.length > 0) return // Use cache
@@ -202,9 +205,12 @@ export const useReportingStore = defineStore('reporting', () => {
     errorTrades.value = null
     
     try {
-      // TODO: Update endpoint when backend is ready
-      const response = await http.get<TradeOption[]>('/api/acq/trades/')
+      // WHAT: Call reporting trades endpoint
+      // WHY: Get all trades from Trade model
+      // ENDPOINT: GET /api/reporting/trades/
+      const response = await http.get<TradeOption[]>('/reporting/trades/')
       tradeOptions.value = response.data
+      console.log('[ReportingStore] Loaded trades:', response.data.length)
     } catch (error: any) {
       console.error('[ReportingStore] fetchTradeOptions error:', error)
       errorTrades.value = error.message || 'Failed to load trades'
@@ -218,7 +224,7 @@ export const useReportingStore = defineStore('reporting', () => {
    * **WHAT**: Fetch status options for filter dropdown
    * **WHY**: Populate status multi-select with all possible statuses
    * **WHERE**: Called on dashboard mount
-   * **HOW**: GET /api/reporting/statuses/ (TODO: implement backend endpoint)
+   * **HOW**: GET /api/reporting/statuses/ (Backend endpoint ready!)
    */
   async function fetchStatusOptions(force: boolean = false): Promise<void> {
     if (!force && statusOptions.value.length > 0) return
@@ -227,18 +233,23 @@ export const useReportingStore = defineStore('reporting', () => {
     errorStatuses.value = null
     
     try {
-      // TODO: Update endpoint when backend is ready
-      // For now, use hardcoded values matching your trade status model
+      // WHAT: Call reporting statuses endpoint
+      // WHY: Get all unique statuses from Trade model
+      // ENDPOINT: GET /api/reporting/statuses/
+      const response = await http.get<StatusOption[]>('/reporting/statuses/')
+      statusOptions.value = response.data
+      console.log('[ReportingStore] Loaded statuses:', response.data.length)
+    } catch (error: any) {
+      console.error('[ReportingStore] fetchStatusOptions error:', error)
+      errorStatuses.value = error.message || 'Failed to load statuses'
+      // WHAT: Fallback to hardcoded if endpoint fails
       statusOptions.value = [
         { value: 'DD', label: 'Due Diligence' },
         { value: 'AWARDED', label: 'Awarded' },
         { value: 'PASS', label: 'Passed' },
         { value: 'BOARD', label: 'Boarded' },
+        { value: 'INDICATIVE', label: 'Indicative' },
       ]
-    } catch (error: any) {
-      console.error('[ReportingStore] fetchStatusOptions error:', error)
-      errorStatuses.value = error.message || 'Failed to load statuses'
-      statusOptions.value = []
     } finally {
       loadingStatuses.value = false
     }
@@ -248,7 +259,7 @@ export const useReportingStore = defineStore('reporting', () => {
    * **WHAT**: Fetch fund options for filter dropdown
    * **WHY**: Populate fund selector
    * **WHERE**: Called on dashboard mount
-   * **HOW**: GET /api/reporting/funds/ (TODO: implement backend endpoint)
+   * **HOW**: GET /api/reporting/funds/ (Backend endpoint ready!)
    */
   async function fetchFundOptions(force: boolean = false): Promise<void> {
     if (!force && fundOptions.value.length > 0) return
@@ -257,12 +268,11 @@ export const useReportingStore = defineStore('reporting', () => {
     errorFunds.value = null
     
     try {
-      // TODO: Update endpoint when backend is ready
-      // Placeholder - replace with real API call
-      fundOptions.value = [
-        { id: 1, name: 'Fund I', code: 'FUND-I' },
-        { id: 2, name: 'Fund II', code: 'FUND-II' },
-      ]
+      // WHAT: Call reporting funds endpoint
+      // ENDPOINT: GET /api/reporting/funds/
+      const response = await http.get<FundOption[]>('/reporting/funds/')
+      fundOptions.value = response.data
+      console.log('[ReportingStore] Loaded funds:', response.data.length)
     } catch (error: any) {
       console.error('[ReportingStore] fetchFundOptions error:', error)
       errorFunds.value = error.message || 'Failed to load funds'
@@ -276,7 +286,7 @@ export const useReportingStore = defineStore('reporting', () => {
    * **WHAT**: Fetch entity options for filter dropdown
    * **WHY**: Populate entity selector
    * **WHERE**: Called on dashboard mount
-   * **HOW**: GET /api/reporting/entities/ (TODO: implement backend endpoint)
+   * **HOW**: GET /api/reporting/entities/ (Backend endpoint ready!)
    */
   async function fetchEntityOptions(force: boolean = false): Promise<void> {
     if (!force && entityOptions.value.length > 0) return
@@ -285,12 +295,11 @@ export const useReportingStore = defineStore('reporting', () => {
     errorEntities.value = null
     
     try {
-      // TODO: Update endpoint when backend is ready
-      // Placeholder - replace with real API call
-      entityOptions.value = [
-        { id: 1, name: 'Alpha Capital LLC', entity_type: 'LLC' },
-        { id: 2, name: 'Beta Properties LP', entity_type: 'LP' },
-      ]
+      // WHAT: Call reporting entities endpoint
+      // ENDPOINT: GET /api/reporting/entities/
+      const response = await http.get<EntityOption[]>('/reporting/entities/')
+      entityOptions.value = response.data
+      console.log('[ReportingStore] Loaded entities:', response.data.length)
     } catch (error: any) {
       console.error('[ReportingStore] fetchEntityOptions error:', error)
       errorEntities.value = error.message || 'Failed to load entities'
@@ -315,11 +324,13 @@ export const useReportingStore = defineStore('reporting', () => {
     errorSummary.value = null
     
     try {
-      // TODO: Update endpoint when backend is ready
+      // WHAT: Call reporting summary endpoint
+      // ENDPOINT: GET /reporting/summary/
       const query = filterQueryParams.value
-      const url = `/api/reporting/summary/${query ? '?' + query : ''}`
+      const url = `/reporting/summary/${query ? '?' + query : ''}`
       const response = await http.get<ReportSummary>(url)
       reportSummary.value = response.data
+      console.log('[ReportingStore] Loaded summary:', response.data)
     } catch (error: any) {
       console.error('[ReportingStore] fetchReportSummary error:', error)
       errorSummary.value = error.message || 'Failed to load summary'
@@ -340,11 +351,13 @@ export const useReportingStore = defineStore('reporting', () => {
     errorChart.value = null
     
     try {
-      // TODO: Update endpoint when backend is ready
+      // WHAT: Call reporting chart endpoint
+      // ENDPOINT: GET /reporting/{currentView}/
       const query = filterQueryParams.value
-      const url = `/api/reporting/${currentView.value}/${query ? '?' + query : ''}`
+      const url = `/reporting/${currentView.value}/${query ? '?' + query : ''}`
       const response = await http.get<ChartDataPoint[]>(url)
       chartData.value = response.data
+      console.log('[ReportingStore] Loaded chart data:', response.data.length)
     } catch (error: any) {
       console.error('[ReportingStore] fetchChartData error:', error)
       errorChart.value = error.message || 'Failed to load chart data'
@@ -365,11 +378,13 @@ export const useReportingStore = defineStore('reporting', () => {
     errorGrid.value = null
     
     try {
-      // TODO: Update endpoint when backend is ready
+      // WHAT: Call reporting grid endpoint
+      // ENDPOINT: GET /reporting/{currentView}/grid/
       const query = filterQueryParams.value
-      const url = `/api/reporting/${currentView.value}/grid/${query ? '?' + query : ''}`
+      const url = `/reporting/${currentView.value}/grid/${query ? '?' + query : ''}`
       const response = await http.get<any[]>(url)
       gridData.value = response.data
+      console.log('[ReportingStore] Loaded grid data:', response.data.length)
     } catch (error: any) {
       console.error('[ReportingStore] fetchGridData error:', error)
       errorGrid.value = error.message || 'Failed to load grid data'

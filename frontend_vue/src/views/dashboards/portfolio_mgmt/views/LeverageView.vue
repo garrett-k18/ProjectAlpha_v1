@@ -363,16 +363,18 @@
  * HOW: Tracks all debt facilities with maturity schedules, covenant tests,
  *      and key leverage metrics. Backend integration via Pinia store (to be implemented)
  */
-import { ref } from 'vue'
+import { defineComponent, ref } from 'vue'
 
 // WHAT: Type definition for entity
-export interface Entity {
+// WHY: Defines structure for entity selection
+interface Entity {
   id: number
   name: string
 }
 
 // WHAT: Type definition for debt facility
-export interface Facility {
+// WHY: Defines structure for debt facility tracking
+interface Facility {
   id: number
   name: string
   entity: string
@@ -387,7 +389,8 @@ export interface Facility {
 }
 
 // WHAT: Type definition for financial covenant
-export interface Covenant {
+// WHY: Defines structure for covenant compliance tracking
+interface Covenant {
   id: number
   facility: string
   name: string
@@ -397,7 +400,9 @@ export interface Covenant {
   status: string
 }
 
-export default {
+// WHAT: Define component using defineComponent for proper TypeScript support
+// WHY: Ensures proper type inference and prevents interface naming errors
+export default defineComponent({
   name: 'LeverageView',
   setup() {
     // WHAT: Selected entity ID
@@ -667,7 +672,7 @@ export default {
       getActivityTypeBadge,
     }
   },
-}
+})
 </script>
 
 <style scoped>

@@ -127,7 +127,7 @@
   </Layout>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
 /**
  * Portfolio Management Dashboard Index
  * 
@@ -145,7 +145,9 @@
  */
 import { ref } from 'vue'
 import Layout from '@/components/layouts/layout.vue'
-// Import all view components
+
+// WHAT: Import all view components
+// WHY: Each tab displays a different specialized view component
 import SnapshotView from './views/SnapshotView.vue'
 import FundLevelView from './views/FundLevelView.vue'
 import JvLevelView from './views/JvLevelView.vue'
@@ -153,28 +155,10 @@ import LeverageView from './views/LeverageView.vue'
 import WaterfallView from './views/WaterfallView.vue'
 import CapTableView from './views/CapTableView.vue'
 
-export default {
-  name: 'PortfolioManagementIndex',
-  components: {
-    Layout,
-    SnapshotView,
-    FundLevelView,
-    JvLevelView,
-    LeverageView,
-    WaterfallView,
-    CapTableView,
-  },
-  setup() {
-    // WHAT: Active tab state - controls which view is displayed
-    // WHY: Reactive state ensures smooth tab switching without route changes
-    // NOTE: 'snapshot' is the default view showing portfolio summary
-    const activeTab = ref<'snapshot' | 'fund' | 'jv' | 'leverage' | 'waterfalls' | 'cap'>('snapshot')
-
-    return {
-      activeTab,
-    }
-  },
-}
+// WHAT: Active tab state - controls which view is displayed
+// WHY: Reactive state ensures smooth tab switching without route changes
+// NOTE: 'snapshot' is the default view showing portfolio summary
+const activeTab = ref<'snapshot' | 'fund' | 'jv' | 'leverage' | 'waterfalls' | 'cap'>('snapshot')
 </script>
 
 <style scoped>

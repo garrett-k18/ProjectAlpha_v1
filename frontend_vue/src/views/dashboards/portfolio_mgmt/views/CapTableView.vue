@@ -387,15 +387,17 @@
  * HOW: Uses Hyper UI tables and visualizations to display complex equity structures
  *      Backend integration via Pinia store (to be implemented)
  */
-import { ref, computed } from 'vue'
+import { defineComponent, ref, computed } from 'vue'
 
 // WHAT: Type definition for entity
+// WHY: Defines structure for entity selection
 interface Entity {
   id: number
   name: string
 }
 
 // WHAT: Type definition for stakeholder
+// WHY: Defines structure for stakeholder equity holdings
 interface Stakeholder {
   id: number
   name: string
@@ -415,6 +417,7 @@ interface Stakeholder {
 }
 
 // WHAT: Type definition for share class
+// WHY: Defines structure for share class definitions
 interface ShareClass {
   id: number
   name: string
@@ -426,6 +429,7 @@ interface ShareClass {
 }
 
 // WHAT: Type definition for equity transaction
+// WHY: Defines structure for equity transaction history
 interface Transaction {
   id: number
   date: string
@@ -436,6 +440,7 @@ interface Transaction {
 }
 
 // WHAT: Type definition for dilution round
+// WHY: Defines structure for dilution history tracking
 interface DilutionRound {
   id: number
   name: string
@@ -446,7 +451,9 @@ interface DilutionRound {
   dilution: number
 }
 
-export default {
+// WHAT: Define component using defineComponent for proper TypeScript support
+// WHY: Ensures proper type inference and prevents interface naming errors
+export default defineComponent({
   name: 'CapTableView',
   setup() {
     // WHAT: Selected entity ID
@@ -735,7 +742,7 @@ export default {
       getTransactionTypeBadge,
     }
   },
-}
+})
 </script>
 
 <style scoped>

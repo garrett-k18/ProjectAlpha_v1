@@ -23,7 +23,7 @@
               <span>{{ selectedTradesLabel }}</span>
               <i class="mdi mdi-chevron-down"></i>
             </button>
-            <div v-if="showTradesDropdown" class="dropdown-menu-custom show">
+            <div v-if="showTradesDropdown" class="dropdown-menu-custom show" @click.stop>
               <div class="dropdown-item-custom" v-for="trade in tradeOptions" :key="trade.id">
                 <input
                   type="checkbox"
@@ -33,7 +33,7 @@
                   class="form-check-input me-2"
                 />
                 <label :for="`trade-${trade.id}`" class="form-check-label">
-                  {{ trade.trade_name }}
+                  {{ trade.trade_name }} <span class="text-muted small">({{ trade.asset_count }} assets)</span>
                 </label>
               </div>
               <div v-if="tradeOptions.length === 0" class="text-muted small p-2">
@@ -59,7 +59,7 @@
               <span>{{ selectedStatusesLabel }}</span>
               <i class="mdi mdi-chevron-down"></i>
             </button>
-            <div v-if="showStatusesDropdown" class="dropdown-menu-custom show">
+            <div v-if="showStatusesDropdown" class="dropdown-menu-custom show" @click.stop>
               <div class="dropdown-item-custom" v-for="status in statusOptions" :key="status.value">
                 <input
                   type="checkbox"
@@ -71,6 +71,9 @@
                 <label :for="`status-${status.value}`" class="form-check-label">
                   {{ status.label }}
                 </label>
+              </div>
+              <div v-if="statusOptions.length === 0" class="text-muted small p-2">
+                {{ loadingStatuses ? 'Loading...' : 'No statuses available' }}
               </div>
             </div>
           </div>
@@ -91,7 +94,7 @@
               <span>{{ selectedFundsLabel }}</span>
               <i class="mdi mdi-chevron-down"></i>
             </button>
-            <div v-if="showFundsDropdown" class="dropdown-menu-custom show">
+            <div v-if="showFundsDropdown" class="dropdown-menu-custom show" @click.stop>
               <div class="dropdown-item-custom" v-for="fund in fundOptions" :key="fund.id">
                 <input
                   type="checkbox"
@@ -126,7 +129,7 @@
               <span>{{ selectedEntitiesLabel }}</span>
               <i class="mdi mdi-chevron-down"></i>
             </button>
-            <div v-if="showEntitiesDropdown" class="dropdown-menu-custom show">
+            <div v-if="showEntitiesDropdown" class="dropdown-menu-custom show" @click.stop>
               <div class="dropdown-item-custom" v-for="entity in entityOptions" :key="entity.id">
                 <input
                   type="checkbox"

@@ -372,9 +372,11 @@
  * HOW: Aggregates data from all other views into summary cards, tables,
  *      and alerts. Backend integration via Pinia store (to be implemented)
  */
-import { ref } from 'vue'
+import { defineComponent, ref } from 'vue'
 
-export default {
+// WHAT: Define component using defineComponent for proper TypeScript support
+// WHY: Ensures proper type inference and prevents interface naming errors
+export default defineComponent({
   name: 'SnapshotView',
   setup() {
     // WHAT: Overall portfolio snapshot metrics
@@ -594,7 +596,7 @@ export default {
       getDistStatusBadge,
     }
   },
-}
+})
 </script>
 
 <style scoped>

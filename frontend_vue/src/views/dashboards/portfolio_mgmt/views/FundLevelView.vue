@@ -274,15 +274,17 @@
  * HOW: Uses Hyper UI card widgets, stat tiles, tables, and timeline components
  *      Data will be fetched from backend API via Pinia store (to be implemented)
  */
-import { ref, computed } from 'vue'
+import { defineComponent, ref, computed } from 'vue'
 
 // WHAT: Type definition for fund selector
+// WHY: Defines structure for fund selection dropdown
 interface Fund {
   id: number
   name: string
 }
 
 // WHAT: Type definition for asset class composition
+// WHY: Defines structure for portfolio composition by asset type
 interface AssetClass {
   name: string
   percent: number
@@ -291,6 +293,7 @@ interface AssetClass {
 }
 
 // WHAT: Type definition for active investment
+// WHY: Defines structure for investment row data in active investments table
 interface Investment {
   id: number
   name: string
@@ -303,6 +306,7 @@ interface Investment {
 }
 
 // WHAT: Type definition for activity timeline
+// WHY: Defines structure for recent activity timeline items
 interface Activity {
   title: string
   description: string
@@ -310,7 +314,9 @@ interface Activity {
   icon: string
 }
 
-export default {
+// WHAT: Define component using defineComponent for proper TypeScript support
+// WHY: Ensures proper type inference and prevents interface naming errors
+export default defineComponent({
   name: 'FundLevelView',
   setup() {
     // WHAT: Selected fund ID (null = no fund selected)
@@ -473,7 +479,7 @@ export default {
       getStatusBadge,
     }
   },
-}
+})
 </script>
 
 <style scoped>

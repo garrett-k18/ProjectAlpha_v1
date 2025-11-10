@@ -302,15 +302,17 @@
  * HOW: Shows tier-by-tier distribution logic, scenario analysis, and historical
  *      distributions. Backend calculations via Pinia store (to be implemented)
  */
-import { ref } from 'vue'
+import { defineComponent, ref } from 'vue'
 
 // WHAT: Type definition for investment
+// WHY: Defines structure for investment selection
 interface Investment {
   id: number
   name: string
 }
 
 // WHAT: Type definition for waterfall tier
+// WHY: Defines structure for waterfall tier calculations
 interface WaterfallTier {
   id: number
   tier: number
@@ -324,6 +326,7 @@ interface WaterfallTier {
 }
 
 // WHAT: Type definition for scenario
+// WHY: Defines structure for waterfall scenario analysis
 interface Scenario {
   id: number
   name: string
@@ -335,6 +338,7 @@ interface Scenario {
 }
 
 // WHAT: Type definition for historical distribution
+// WHY: Defines structure for historical distribution records
 interface HistoricalDistribution {
   id: number
   date: string
@@ -344,7 +348,9 @@ interface HistoricalDistribution {
   gpAmount: number
 }
 
-export default {
+// WHAT: Define component using defineComponent for proper TypeScript support
+// WHY: Ensures proper type inference and prevents interface naming errors
+export default defineComponent({
   name: 'WaterfallView',
   setup() {
     // WHAT: Selected investment ID
@@ -546,7 +552,7 @@ export default {
       getIrrColor,
     }
   },
-}
+})
 </script>
 
 <style scoped>
