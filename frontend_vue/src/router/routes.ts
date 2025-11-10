@@ -16,9 +16,12 @@ const legacyRedirects: RouteRecordRaw[] = [
         path: '/ecommerce',
         redirect: '/asset-mgmt',
     },
-    // Root now redirects to /home to make the homepage explicit
+    // Root route: redirect to home if authenticated, otherwise to login
+    // This requires auth check, which will trigger the router guard
     {
         path: '/',
+        name: 'root',
+        meta: { authRequired: true },
         redirect: '/home',
     },
 ];
