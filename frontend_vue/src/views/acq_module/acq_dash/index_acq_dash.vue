@@ -6,7 +6,7 @@
           <div class="page-title-right">
             <!-- Removed refresh button/form -->
           </div>
-          <h4 class="page-title">Acquisition Lab</h4>
+          <h4 class="page-title">Acquisition Pipeline</h4>
         </div>
       </b-col>
     </b-row>
