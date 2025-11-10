@@ -10,19 +10,27 @@ const homeRoute = [
     },
 ];
 
+// Root route component that handles authentication-based redirects
+// This component will be loaded at the root path and redirect based on auth status
+const rootRoute: RouteRecordRaw[] = [
+    {
+        path: '/',
+        name: 'root',
+        // Mark as requiring auth - this will trigger the beforeEach guard
+        meta: { authRequired: true },
+        // Use beforeEnter to redirect authenticated users to home
+        // The router guard will catch unauthenticated users and send them to login
+        beforeEnter: (to, from, next) => {
+            next({ name: 'home' });
+        },
+    },
+];
+
 // legacy redirects (keep old URLs working)
 const legacyRedirects: RouteRecordRaw[] = [
     {
         path: '/ecommerce',
         redirect: '/asset-mgmt',
-    },
-    // Root route: redirect to home if authenticated, otherwise to login
-    // This requires auth check, which will trigger the router guard
-    {
-        path: '/',
-        name: 'root',
-        meta: { authRequired: true },
-        redirect: '/home',
     },
 ];
 
@@ -1035,6 +1043,7 @@ const componentRoutes = [...uiRoutes, ...extendedRoutes, ...widgetRoute, ...icon
 export const authProtectedRoutes: RouteRecordRaw[] = [...dashboardRoutes as any, ...appRoutes as any, ...customRoutes as any, ...componentRoutes as any]
 
 export const allRoutes: RouteRecordRaw[] = [
+    ...rootRoute,
     ...homeRoute,
     ...legacyRedirects,
     ...landingRoutes,
