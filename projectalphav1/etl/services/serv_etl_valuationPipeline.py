@@ -25,9 +25,9 @@ from etl.models import (
     ValuationDocument,
     ValuationETL,
 )
-from etl.services.serv_etl_claude_client import build_valuation_claude_vision_client
+from etl.services.serv_etl_gemini_client import build_valuation_gemini_vision_client
 from etl.services.serv_etl_valuation_vision_extractor import (
-    ClaudeVisionExtractionService,
+    GeminiVisionExtractionService,
     DocumentExtractionResult,
     FieldExtractionRecord,
 )
@@ -47,24 +47,33 @@ class PipelineSummary:
 
 
 class ValuationExtractionPipeline:
-    """Coordinates document extraction with database persistence."""
+    """Coordinates document extraction with database persistence using Gemini Vision API."""
 
     def __init__(
         self,
-        extractor: Optional[ClaudeVisionExtractionService] = None,
+        extractor: Optional[GeminiVisionExtractionService] = None,
         *,
-        vision_model: str = "claude-3-5-haiku-20241022",
+        vision_model: str = "gemini-2.5-flash",
         prompt: Optional[str] = None,
     ) -> None:
+        """Initialize the valuation extraction pipeline.
+        
+        Args:
+            extractor: Optional custom Gemini vision extraction service
+            vision_model: Gemini model name (default: gemini-2.5-flash)
+            prompt: Optional custom prompt for extraction
+        """
         if extractor is not None:
             self.extractor = extractor
         else:
-            client_callable = build_valuation_claude_vision_client(default_model=vision_model)
+            # Build the Gemini vision client
+            client_callable = build_valuation_gemini_vision_client(default_model=vision_model)
             if client_callable is None:
-                raise RuntimeError("Claude vision client is not configured")
-            self.extractor = ClaudeVisionExtractionService(
+                raise RuntimeError("Gemini vision client is not configured")
+            # Create the extraction service with the client
+            self.extractor = GeminiVisionExtractionService(
                 client=client_callable,
-                prompt=prompt or ClaudeVisionExtractionService.prompt,
+                prompt=prompt or GeminiVisionExtractionService.prompt,
                 model_name=vision_model,
             )
 

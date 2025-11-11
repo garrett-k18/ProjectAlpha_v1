@@ -74,7 +74,6 @@ class ValuationETL(models.Model):
     # Order/loan information
     loan_number = models.CharField(max_length=50, blank=True, db_index=True)
     deal_name = models.CharField(max_length=100, blank=True)
-    owner_name = models.CharField(max_length=255, blank=True)
 
     # Dates
     inspection_date = models.DateField(db_index=True)
@@ -96,7 +95,6 @@ class ValuationETL(models.Model):
     prior_sale_date = models.DateField(blank=True, null=True)
     currently_listed = models.BooleanField(default=False)
     listing_broker = models.CharField(max_length=255, blank=True)
-    listing_broker_contact = models.CharField(max_length=100, blank=True)
     listing_agent_email = models.EmailField(blank=True)
     listing_agent_firm = models.CharField(max_length=255, blank=True)
     initial_list_price = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
@@ -118,29 +116,18 @@ class ValuationETL(models.Model):
     effective_age = models.IntegerField(blank=True, null=True)
     foundation_type = models.CharField(max_length=30, choices=FoundationType.choices, blank=True)
     basement_square_feet = models.IntegerField(blank=True, null=True)
-    basement_percent_finished = models.IntegerField(blank=True, null=True, validators=[MinValueValidator(0), MaxValueValidator(100)])
-    basement_rooms = models.IntegerField(blank=True, null=True)
     lot_size_acres = models.DecimalField(max_digits=10, decimal_places=4, blank=True, null=True)
     lot_size_square_feet = models.IntegerField(blank=True, null=True)
     property_type = models.CharField(max_length=20, choices=PropertyTypeDetail.choices, blank=True)
     style = models.CharField(max_length=20, choices=Style.choices, blank=True)
-    quality_rating = models.CharField(max_length=5, blank=True)
     number_of_units = models.IntegerField(default=1)
     condition = models.CharField(max_length=20, choices=Condition.choices, blank=True)
 
-    # Features
+    # Features (condensed)
     has_pool = models.BooleanField(default=False)
-    has_spa = models.BooleanField(default=False)
-    pool_type = models.CharField(max_length=50, blank=True)
-    view = models.CharField(max_length=30, choices=View.choices, blank=True)
-    has_porch = models.BooleanField(default=False)
-    has_patio = models.BooleanField(default=False)
     has_deck = models.BooleanField(default=False)
-    patio_deck_description = models.CharField(max_length=100, blank=True)
     has_fireplace = models.BooleanField(default=False)
-    number_of_fireplaces = models.IntegerField(blank=True, null=True)
     has_fencing = models.BooleanField(default=False)
-    fencing_type = models.CharField(max_length=50, blank=True)
     garage = models.CharField(max_length=20, choices=Garage.choices, blank=True)
     garage_spaces = models.IntegerField(blank=True, null=True)
     parking_spaces = models.IntegerField(blank=True, null=True)
@@ -149,14 +136,10 @@ class ValuationETL(models.Model):
     heating_type = models.CharField(max_length=50, choices=HeatingType.choices, blank=True)
     water_type = models.CharField(max_length=20, choices=WaterType.choices, blank=True)
     sewer_type = models.CharField(max_length=20, choices=SewerType.choices, blank=True)
-    other_features = models.TextField(blank=True)
     hoa_fees_monthly = models.DecimalField(max_digits=8, decimal_places=2, blank=True, null=True)
     hoa_fees_annual = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
-    hoa_name = models.CharField(max_length=255, blank=True)
-    hoa_phone = models.CharField(max_length=50, blank=True)
     subdivision = models.CharField(max_length=255, blank=True)
     school_district = models.CharField(max_length=255, blank=True)
-    proximity_to_amenities = models.CharField(max_length=50, blank=True)
 
     # Data source
     data_source = models.CharField(max_length=50, blank=True)
@@ -175,7 +158,6 @@ class ValuationETL(models.Model):
     recommended_list_price_repaired = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
 
     # Appraisal specifics
-    appraisal_purpose = models.CharField(max_length=20, choices=AppraisalPurpose.choices, blank=True)
     property_rights_appraised = models.CharField(max_length=20, choices=PropertyRights.choices, blank=True)
     sales_comparison_approach = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
     cost_approach = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
@@ -183,8 +165,6 @@ class ValuationETL(models.Model):
 
     # Market data
     financeable = models.CharField(max_length=50, blank=True)
-    location_type = models.CharField(max_length=20, choices=LocationType.choices, blank=True)
-    location_view = models.CharField(max_length=30, choices=View.choices, blank=True)
     market_trend = models.CharField(max_length=20, choices=MarketTrend.choices, blank=True)
     neighborhood_trend = models.CharField(max_length=20, choices=MarketTrend.choices, blank=True)
     economic_trend = models.CharField(max_length=20, choices=MarketTrend.choices, blank=True)
@@ -197,21 +177,14 @@ class ValuationETL(models.Model):
     num_reo_ss_listings = models.IntegerField(blank=True, null=True)
     num_listings_in_area = models.IntegerField(blank=True, null=True)
     num_boarded_properties = models.IntegerField(blank=True, null=True)
-    avg_neighborhood_age = models.IntegerField(blank=True, null=True)
-    neighborhood_pride_of_ownership = models.CharField(max_length=20, choices=Pride.choices, blank=True)
-    predominant_ownership = models.CharField(max_length=20, choices=OwnershipType.choices, blank=True)
-    percentage_owner_occupancy = models.IntegerField(blank=True, null=True, validators=[MinValueValidator(0), MaxValueValidator(100)])
     new_construction_in_area = models.BooleanField(default=False)
     seasonal_market = models.BooleanField(default=False)
     neighborhood_price_range_low = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
     neighborhood_price_range_high = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
     neighborhood_median_price = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
-    neighborhood_predominate_value = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
     neighborhood_average_sales_price = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
 
     # Marketability
-    most_likely_buyer_type = models.CharField(max_length=100, blank=True)
-    financing_issues = models.TextField(blank=True)
     marketability_concerns = models.TextField(blank=True)
 
     # Comments
@@ -225,26 +198,12 @@ class ValuationETL(models.Model):
     deferred_maintenance_cost = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
     general_repair_comments = models.TextField(blank=True)
 
-    # Professional info
-    agent_name = models.CharField(max_length=255, blank=True)
-    agent_license = models.CharField(max_length=50, blank=True)
-    agent_company = models.CharField(max_length=255, blank=True)
-    agent_email = models.EmailField(blank=True)
-    agent_phone = models.CharField(max_length=50, blank=True)
-    agent_tax_id = models.CharField(max_length=50, blank=True)
-    agent_signature = models.CharField(max_length=255, blank=True)
-    appraiser_name = models.CharField(max_length=255, blank=True)
-    appraiser_license = models.CharField(max_length=50, blank=True)
-    appraiser_company = models.CharField(max_length=255, blank=True)
-    appraiser_signature = models.CharField(max_length=255, blank=True)
-    reviewer_name = models.CharField(max_length=255, blank=True)
-    reviewer_license = models.CharField(max_length=50, blank=True)
-    partner_comments = models.TextField(blank=True)
-    vendor_comments = models.TextField(blank=True)
-    internal_notes = models.TextField(blank=True)
-
-    # File attachments
-    original_document = models.FileField(upload_to='valuations/originals/%Y/%m/', blank=True, null=True)
+    # Professional info - consolidated to single "preparer" (agent or appraiser)
+    preparer_name = models.CharField(max_length=255, blank=True, help_text="Name of BPO agent or appraiser who prepared the valuation")
+    preparer_company = models.CharField(max_length=255, blank=True, help_text="Company of the preparer")
+    preparer_email = models.EmailField(blank=True, help_text="Email of the preparer")
+    preparer_phone = models.CharField(max_length=50, blank=True, help_text="Phone number of the preparer")
+    preparer_comments = models.TextField(blank=True, help_text="Comments or notes from the preparer")
 
     # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
@@ -287,10 +246,7 @@ class ComparablesETL(models.Model):
     city = models.CharField(max_length=100)
     state = models.CharField(max_length=2)
     zip_code = models.CharField(max_length=10)
-    proximity_miles = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
-    proximity_direction = models.CharField(max_length=5, blank=True)
-    proximity_to_subject = models.CharField(max_length=50, blank=True)
-    calculated_distance_miles = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
+    proximity_miles = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True, help_text="Distance from subject property in miles (straight line)")
 
     # Pricing
     sale_price = models.DecimalField(max_digits=12, decimal_places=2)
@@ -321,13 +277,10 @@ class ComparablesETL(models.Model):
     effective_age = models.IntegerField(blank=True, null=True)
     foundation_type = models.CharField(max_length=30, choices=FoundationType.choices, blank=True)
     basement_square_feet = models.IntegerField(blank=True, null=True)
-    basement_percent_finished = models.IntegerField(blank=True, null=True, validators=[MinValueValidator(0), MaxValueValidator(100)])
-    basement_rooms = models.IntegerField(blank=True, null=True)
     lot_size_acres = models.DecimalField(max_digits=10, decimal_places=4, blank=True, null=True)
     lot_size_square_feet = models.IntegerField(blank=True, null=True)
     property_type = models.CharField(max_length=20, blank=True)
     style = models.CharField(max_length=20, blank=True)
-    quality_rating = models.CharField(max_length=5, blank=True)
     number_of_units = models.IntegerField(default=1)
     condition = models.CharField(max_length=20, blank=True)
 
