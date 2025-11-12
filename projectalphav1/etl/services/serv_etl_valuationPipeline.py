@@ -450,8 +450,6 @@ class ValuationExtractionPipeline:
 
         for idx, payload in enumerate(rows, start=1):
             enriched_payload = dict(payload or {})
-            enriched_payload.setdefault("repair_number", payload.get("repair_number") or idx)
-            enriched_payload.setdefault("priority", payload.get("priority") or 3)
             kwargs = self._prepare_model_kwargs(
                 RepairItem,
                 enriched_payload,
@@ -471,10 +469,8 @@ class ValuationExtractionPipeline:
                 kwargs["description"] = payload.get("description", "")
             if "estimated_cost" not in kwargs or kwargs["estimated_cost"] is None:
                 kwargs["estimated_cost"] = Decimal("0")
-            if "priority" not in kwargs or kwargs["priority"] is None:
-                kwargs["priority"] = 3
-            if "is_required" not in kwargs or kwargs["is_required"] is None:
-                kwargs["is_required"] = False
+            if "repair_recommended" not in kwargs or kwargs["repair_recommended"] is None:
+                kwargs["repair_recommended"] = False
 
             try:
                 repair = RepairItem.objects.create(valuation=valuation, **kwargs)

@@ -247,6 +247,10 @@ class MultiPassGeminiExtractor:
             inferred_source=valuation_data.get("valuation_type"),
         )
     
+    def process(self, file_path: Path) -> DocumentExtractionResult:
+        """Alias for extract() to match pipeline interface."""
+        return self.extract(file_path)
+    
     def _parse_response(self, response) -> Dict[str, Any]:
         """Parse Gemini response into JSON."""
         import json

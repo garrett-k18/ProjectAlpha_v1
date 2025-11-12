@@ -37,7 +37,7 @@ class RepairItemInline(admin.TabularInline):
     
     model = RepairItem
     extra = 0
-    fields = ('repair_type', 'category', 'severity', 'description', 'estimated_cost', 'is_required', 'priority')
+    fields = ('repair_type', 'category', 'description', 'estimated_cost', 'repair_recommended')
     show_change_link = True
 
 
@@ -287,8 +287,6 @@ class ValuationETLAdmin(admin.ModelAdmin):
         ('Repairs Summary', {
             'fields': (
                 'estimated_repair_cost',
-                'repairs_to_bring_to_market',
-                'deferred_maintenance_cost',
                 'general_repair_comments',
             )
         }),
@@ -389,11 +387,7 @@ class ComparablesETLAdmin(admin.ModelAdmin):
                 'original_list_price',
                 'original_list_date',
                 'current_list_price',
-                'list_price_at_sale',
-                'active_days_on_market',
-                'total_days_on_market',
                 'days_on_market',
-                'cumulative_days_on_market',
             )
         }),
         ('Transaction Details', {
