@@ -90,6 +90,40 @@ _SKIP_FIELD_NAMES = {
     "proximity_direction",
     "proximity_to_subject",
     "calculated_distance_miles",
+    # Comparable adjustment details (keep total_adjustments & adjusted_sale_price only)
+    "agent_adjustments",
+    "adjustment_location",
+    "adjustment_site_view",
+    "adjustment_design_appeal",
+    "adjustment_quality",
+    "adjustment_age",
+    "adjustment_condition",
+    "adjustment_above_grade_rooms",
+    "adjustment_gross_living_area",
+    "adjustment_basement",
+    "adjustment_functional_utility",
+    "adjustment_heating_cooling",
+    "adjustment_garage_carport",
+    "adjustment_porch_patio_deck",
+    "adjustment_other",
+    "adjustments_description",
+    # Comparable features already removed (matching ValuationETL)
+    "effective_age",  # from comparables
+    # Repair item fields removed (simplified)
+    "severity",
+    "repair_number",
+    "priority",
+    "is_required",  # Renamed to repair_recommended
+    # Consolidated fields (removed duplicates)
+    "full_bathrooms",
+    "half_bathrooms",
+    "lot_size_square_feet",
+    "cumulative_days_on_market",
+    "list_price_at_sale",
+    "active_days_on_market",
+    "total_days_on_market",
+    "repairs_to_bring_to_market",
+    "deferred_maintenance_cost",
     # Note: subdivision, school_district, parking_type, data_source, data_source_id - KEEPING these
 }
 
@@ -186,6 +220,8 @@ Rules:
 - null for missing values
 - Numbers without $ or commas
 - Dates as YYYY-MM-DD
+- lot_size_acres: convert square feet to acres (acres = sq_ft / 43560)
+- bathrooms: use total count (e.g., 2.5 for 2 full + 1 half)
 - Return only JSON (no markdown)
 
 Fields:

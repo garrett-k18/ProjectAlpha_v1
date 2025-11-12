@@ -100,8 +100,7 @@ class ValuationETL(models.Model):
     initial_list_price = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
     initial_list_date = models.DateField(blank=True, null=True)
     current_list_price = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
-    days_on_market = models.IntegerField(blank=True, null=True)
-    cumulative_days_on_market = models.IntegerField(blank=True, null=True)
+    days_on_market = models.IntegerField(blank=True, null=True, help_text="Days on market")
     listing_currently_pending = models.BooleanField(default=False)
     pending_contract_date = models.DateField(blank=True, null=True)
 
@@ -109,15 +108,12 @@ class ValuationETL(models.Model):
     living_area = models.IntegerField(blank=True, null=True)
     total_rooms = models.IntegerField(blank=True, null=True)
     bedrooms = models.IntegerField(blank=True, null=True)
-    bathrooms = models.DecimalField(max_digits=3, decimal_places=1, blank=True, null=True)
-    full_bathrooms = models.IntegerField(blank=True, null=True)
-    half_bathrooms = models.IntegerField(blank=True, null=True)
+    bathrooms = models.DecimalField(max_digits=3, decimal_places=1, blank=True, null=True, help_text="Total bathrooms (e.g., 2.5)")
     year_built = models.IntegerField(blank=True, null=True)
     effective_age = models.IntegerField(blank=True, null=True)
     foundation_type = models.CharField(max_length=30, choices=FoundationType.choices, blank=True)
     basement_square_feet = models.IntegerField(blank=True, null=True)
-    lot_size_acres = models.DecimalField(max_digits=10, decimal_places=4, blank=True, null=True)
-    lot_size_square_feet = models.IntegerField(blank=True, null=True)
+    lot_size_acres = models.DecimalField(max_digits=10, decimal_places=4, blank=True, null=True, help_text="Lot size in acres (convert from sq ft if needed: acres = sq_ft / 43560)")
     property_type = models.CharField(max_length=20, choices=PropertyTypeDetail.choices, blank=True)
     style = models.CharField(max_length=20, choices=Style.choices, blank=True)
     number_of_units = models.IntegerField(default=1)
@@ -193,9 +189,7 @@ class ValuationETL(models.Model):
     general_comments = models.TextField(blank=True)
 
     # Repairs summary
-    estimated_repair_cost = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
-    repairs_to_bring_to_market = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
-    deferred_maintenance_cost = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
+    estimated_repair_cost = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True, help_text="Total estimated repair costs")
     general_repair_comments = models.TextField(blank=True)
 
     # Professional info - consolidated to single "preparer" (agent or appraiser)
@@ -255,11 +249,7 @@ class ComparablesETL(models.Model):
     original_list_price = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
     original_list_date = models.DateField(blank=True, null=True)
     current_list_price = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
-    list_price_at_sale = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
-    active_days_on_market = models.IntegerField(blank=True, null=True)
-    total_days_on_market = models.IntegerField(blank=True, null=True)
-    days_on_market = models.IntegerField(blank=True, null=True)
-    cumulative_days_on_market = models.IntegerField(blank=True, null=True)
+    days_on_market = models.IntegerField(blank=True, null=True, help_text="Days on market")
 
     # Transaction details
     sales_type = models.CharField(max_length=20, choices=SalesType.choices, blank=True)
@@ -270,70 +260,39 @@ class ComparablesETL(models.Model):
     living_area = models.IntegerField()
     total_rooms = models.IntegerField(blank=True, null=True)
     bedrooms = models.IntegerField()
-    bathrooms = models.DecimalField(max_digits=3, decimal_places=1)
-    full_bathrooms = models.IntegerField(blank=True, null=True)
-    half_bathrooms = models.IntegerField(blank=True, null=True)
+    bathrooms = models.DecimalField(max_digits=3, decimal_places=1, help_text="Total bathrooms (e.g., 2.5)")
     year_built = models.IntegerField()
-    effective_age = models.IntegerField(blank=True, null=True)
     foundation_type = models.CharField(max_length=30, choices=FoundationType.choices, blank=True)
     basement_square_feet = models.IntegerField(blank=True, null=True)
-    lot_size_acres = models.DecimalField(max_digits=10, decimal_places=4, blank=True, null=True)
-    lot_size_square_feet = models.IntegerField(blank=True, null=True)
+    lot_size_acres = models.DecimalField(max_digits=10, decimal_places=4, blank=True, null=True, help_text="Lot size in acres")
     property_type = models.CharField(max_length=20, blank=True)
     style = models.CharField(max_length=20, blank=True)
     number_of_units = models.IntegerField(default=1)
     condition = models.CharField(max_length=20, blank=True)
 
-    # Features
+    # Features (condensed - same as ValuationETL)
     has_pool = models.BooleanField(default=False)
-    has_spa = models.BooleanField(default=False)
-    pool_type = models.CharField(max_length=50, blank=True)
-    view = models.CharField(max_length=30, blank=True)
-    has_porch = models.BooleanField(default=False)
-    has_patio = models.BooleanField(default=False)
     has_deck = models.BooleanField(default=False)
     has_fireplace = models.BooleanField(default=False)
-    number_of_fireplaces = models.IntegerField(blank=True, null=True)
     has_fencing = models.BooleanField(default=False)
-    fencing_type = models.CharField(max_length=50, blank=True)
     garage = models.CharField(max_length=20, blank=True)
-    garage_spaces = models.IntegerField(blank=True, null=True)
     parking_spaces = models.IntegerField(blank=True, null=True)
     parking_type = models.CharField(max_length=50, blank=True)
     cooling_type = models.CharField(max_length=50, blank=True)
     heating_type = models.CharField(max_length=50, blank=True)
     water_type = models.CharField(max_length=20, blank=True)
     sewer_type = models.CharField(max_length=20, blank=True)
-    other_features = models.TextField(blank=True)
     hoa_fees_monthly = models.DecimalField(max_digits=8, decimal_places=2, blank=True, null=True)
-    hoa_name = models.CharField(max_length=255, blank=True)
-    hoa_phone = models.CharField(max_length=50, blank=True)
     subdivision = models.CharField(max_length=255, blank=True)
     school_district = models.CharField(max_length=255, blank=True)
-    proximity_to_amenities = models.CharField(max_length=50, blank=True)
 
     # Data source
     data_source = models.CharField(max_length=50, blank=True)
     data_source_id = models.CharField(max_length=50, blank=True)
 
-    # Adjustments
-    agent_adjustments = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    adjustment_location = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    adjustment_site_view = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    adjustment_design_appeal = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    adjustment_quality = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    adjustment_age = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    adjustment_condition = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    adjustment_above_grade_rooms = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    adjustment_gross_living_area = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    adjustment_basement = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    adjustment_functional_utility = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    adjustment_heating_cooling = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    adjustment_garage_carport = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    adjustment_porch_patio_deck = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    adjustment_other = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    total_adjustments = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    adjusted_sale_price = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
+    # Adjustments (simplified - keep only totals)
+    total_adjustments = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Total $ adjustments made to comparable")
+    adjusted_sale_price = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True, help_text="Sale price after adjustments")
 
     # Comments
     general_comments = models.TextField(blank=True)
@@ -356,22 +315,14 @@ class ComparablesETL(models.Model):
         return f"{self.get_comp_type_display()} #{self.comp_number} - {self.address}"
 
     def save(self, *args, **kwargs):
+        # Calculate price per square foot
         if self.sale_price and self.living_area:
             self.price_per_sqft = round(float(self.sale_price) / self.living_area, 2)
-        if self.sale_price and self.adjusted_sale_price is None:
-            if self.agent_adjustments != 0:
-                self.total_adjustments = self.agent_adjustments
-            else:
-                self.total_adjustments = (
-                    self.adjustment_location + self.adjustment_site_view + 
-                    self.adjustment_design_appeal + self.adjustment_quality +
-                    self.adjustment_age + self.adjustment_condition +
-                    self.adjustment_above_grade_rooms + self.adjustment_gross_living_area +
-                    self.adjustment_basement + self.adjustment_functional_utility +
-                    self.adjustment_heating_cooling + self.adjustment_garage_carport +
-                    self.adjustment_porch_patio_deck + self.adjustment_other
-                )
+        
+        # Calculate adjusted sale price if total_adjustments provided
+        if self.sale_price and self.adjusted_sale_price is None and self.total_adjustments != 0:
             self.adjusted_sale_price = self.sale_price + self.total_adjustments
+        
         super().save(*args, **kwargs)
 
 
@@ -381,16 +332,13 @@ class RepairItem(models.Model):
     valuation = models.ForeignKey(ValuationETL, on_delete=models.CASCADE, related_name='repair_items')
     repair_type = models.CharField(max_length=10, choices=RepairType.choices)
     category = models.CharField(max_length=30, choices=RepairCategory.choices)
-    severity = models.CharField(max_length=20, choices=Severity.choices, blank=True)
-    repair_number = models.IntegerField(blank=True, null=True)
     description = models.TextField(blank=True)
     estimated_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    is_required = models.BooleanField(default=False)
-    priority = models.IntegerField(default=3, validators=[MinValueValidator(1), MaxValueValidator(5)])
+    repair_recommended = models.BooleanField(default=False, help_text="Whether this repair is recommended")
 
     class Meta:
         db_table = "etl_repair_item"
-        ordering = ['repair_type', 'repair_number', 'priority', 'category']
+        ordering = ['repair_type', 'category']
 
     def __str__(self):
         return f"{self.get_category_display()} - ${self.estimated_cost}"

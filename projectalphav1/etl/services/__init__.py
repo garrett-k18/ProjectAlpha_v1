@@ -25,6 +25,12 @@ from etl.services.serv_etl_gemini_optimized import (
     smart_extract,
 )
 
+# Multi-pass extraction (bypasses 120-second server timeout)
+from etl.services.serv_etl_gemini_multipass import (
+    MultiPassGeminiExtractor,
+    multipass_extract,
+)
+
 # Vision extractor service (supports both Claude and Gemini)
 from etl.services.serv_etl_valuation_vision_extractor import (
     GeminiVisionExtractionService,
@@ -56,6 +62,9 @@ __all__ = [
     'OptimizedGeminiExtractor',
     'quick_extract',
     'smart_extract',
+    # Multi-pass (bypasses 120s timeout)
+    'MultiPassGeminiExtractor',
+    'multipass_extract',
     # Common
     'DocumentExtractionResult',
     'FieldExtractionRecord',

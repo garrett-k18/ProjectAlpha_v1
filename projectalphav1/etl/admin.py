@@ -112,7 +112,6 @@ class ValuationETLAdmin(admin.ModelAdmin):
         'loan_number',
         'deal_name',
         'parcel_number',
-        'owner_name',
     )
     
     # Detail view configuration
@@ -140,7 +139,6 @@ class ValuationETLAdmin(admin.ModelAdmin):
             'fields': (
                 'loan_number',
                 'deal_name',
-                'owner_name',
             )
         }),
         ('Dates', {
@@ -170,14 +168,12 @@ class ValuationETLAdmin(admin.ModelAdmin):
                 'prior_sale_date',
                 'currently_listed',
                 'listing_broker',
-                'listing_broker_contact',
                 'listing_agent_email',
                 'listing_agent_firm',
                 'initial_list_price',
                 'initial_list_date',
                 'current_list_price',
                 'days_on_market',
-                'cumulative_days_on_market',
                 'listing_currently_pending',
                 'pending_contract_date',
             )
@@ -188,19 +184,13 @@ class ValuationETLAdmin(admin.ModelAdmin):
                 'total_rooms',
                 'bedrooms',
                 'bathrooms',
-                'full_bathrooms',
-                'half_bathrooms',
                 'year_built',
                 'effective_age',
                 'foundation_type',
                 'basement_square_feet',
-                'basement_percent_finished',
-                'basement_rooms',
                 'lot_size_acres',
-                'lot_size_square_feet',
                 'property_type',
                 'style',
-                'quality_rating',
                 'number_of_units',
                 'condition',
             )
@@ -208,17 +198,9 @@ class ValuationETLAdmin(admin.ModelAdmin):
         ('Features', {
             'fields': (
                 'has_pool',
-                'has_spa',
-                'pool_type',
-                'view',
-                'has_porch',
-                'has_patio',
                 'has_deck',
-                'patio_deck_description',
                 'has_fireplace',
-                'number_of_fireplaces',
                 'has_fencing',
-                'fencing_type',
                 'garage',
                 'garage_spaces',
                 'parking_spaces',
@@ -227,14 +209,10 @@ class ValuationETLAdmin(admin.ModelAdmin):
                 'heating_type',
                 'water_type',
                 'sewer_type',
-                'other_features',
                 'hoa_fees_monthly',
                 'hoa_fees_annual',
-                'hoa_name',
-                'hoa_phone',
                 'subdivision',
                 'school_district',
-                'proximity_to_amenities',
             ),
             'classes': ('collapse',),
         }),
@@ -261,7 +239,6 @@ class ValuationETLAdmin(admin.ModelAdmin):
         }),
         ('Appraisal Details', {
             'fields': (
-                'appraisal_purpose',
                 'property_rights_appraised',
                 'sales_comparison_approach',
                 'cost_approach',
@@ -272,8 +249,6 @@ class ValuationETLAdmin(admin.ModelAdmin):
         ('Market Data', {
             'fields': (
                 'financeable',
-                'location_type',
-                'location_view',
                 'market_trend',
                 'neighborhood_trend',
                 'economic_trend',
@@ -286,24 +261,17 @@ class ValuationETLAdmin(admin.ModelAdmin):
                 'num_reo_ss_listings',
                 'num_listings_in_area',
                 'num_boarded_properties',
-                'avg_neighborhood_age',
-                'neighborhood_pride_of_ownership',
-                'predominant_ownership',
-                'percentage_owner_occupancy',
                 'new_construction_in_area',
                 'seasonal_market',
                 'neighborhood_price_range_low',
                 'neighborhood_price_range_high',
                 'neighborhood_median_price',
-                'neighborhood_predominate_value',
                 'neighborhood_average_sales_price',
             ),
             'classes': ('collapse',),
         }),
         ('Marketability', {
             'fields': (
-                'most_likely_buyer_type',
-                'financing_issues',
                 'marketability_concerns',
             ),
             'classes': ('collapse',),
@@ -326,29 +294,13 @@ class ValuationETLAdmin(admin.ModelAdmin):
         }),
         ('Professional Information', {
             'fields': (
-                'agent_name',
-                'agent_license',
-                'agent_company',
-                'agent_email',
-                'agent_phone',
-                'agent_tax_id',
-                'agent_signature',
-                'appraiser_name',
-                'appraiser_license',
-                'appraiser_company',
-                'appraiser_signature',
-                'reviewer_name',
-                'reviewer_license',
-                'partner_comments',
-                'vendor_comments',
-                'internal_notes',
+                'preparer_name',
+                'preparer_company',
+                'preparer_email',
+                'preparer_phone',
+                'preparer_comments',
             ),
             'classes': ('collapse',),
-        }),
-        ('File Attachments', {
-            'fields': (
-                'original_document',
-            )
         }),
         ('Metadata', {
             'fields': (
@@ -427,9 +379,6 @@ class ComparablesETLAdmin(admin.ModelAdmin):
                 'state',
                 'zip_code',
                 'proximity_miles',
-                'proximity_direction',
-                'proximity_to_subject',
-                'calculated_distance_miles',
             )
         }),
         ('Pricing', {
@@ -460,19 +409,12 @@ class ComparablesETLAdmin(admin.ModelAdmin):
                 'total_rooms',
                 'bedrooms',
                 'bathrooms',
-                'full_bathrooms',
-                'half_bathrooms',
                 'year_built',
-                'effective_age',
                 'foundation_type',
                 'basement_square_feet',
-                'basement_percent_finished',
-                'basement_rooms',
                 'lot_size_acres',
-                'lot_size_square_feet',
                 'property_type',
                 'style',
-                'quality_rating',
                 'number_of_units',
                 'condition',
             ),
@@ -481,16 +423,9 @@ class ComparablesETLAdmin(admin.ModelAdmin):
         ('Features', {
             'fields': (
                 'has_pool',
-                'has_spa',
-                'pool_type',
-                'view',
-                'has_porch',
-                'has_patio',
                 'has_deck',
                 'has_fireplace',
-                'number_of_fireplaces',
                 'has_fencing',
-                'fencing_type',
                 'garage',
                 'garage_spaces',
                 'parking_spaces',
@@ -499,13 +434,9 @@ class ComparablesETLAdmin(admin.ModelAdmin):
                 'heating_type',
                 'water_type',
                 'sewer_type',
-                'other_features',
                 'hoa_fees_monthly',
-                'hoa_name',
-                'hoa_phone',
                 'subdivision',
                 'school_district',
-                'proximity_to_amenities',
             ),
             'classes': ('collapse',),
         }),
@@ -517,21 +448,6 @@ class ComparablesETLAdmin(admin.ModelAdmin):
         }),
         ('Adjustments', {
             'fields': (
-                'agent_adjustments',
-                'adjustment_location',
-                'adjustment_site_view',
-                'adjustment_design_appeal',
-                'adjustment_quality',
-                'adjustment_age',
-                'adjustment_condition',
-                'adjustment_above_grade_rooms',
-                'adjustment_gross_living_area',
-                'adjustment_basement',
-                'adjustment_functional_utility',
-                'adjustment_heating_cooling',
-                'adjustment_garage_carport',
-                'adjustment_porch_patio_deck',
-                'adjustment_other',
                 'total_adjustments',
                 'adjusted_sale_price',
             ),
@@ -540,7 +456,6 @@ class ComparablesETLAdmin(admin.ModelAdmin):
         ('Comments', {
             'fields': (
                 'general_comments',
-                'adjustments_description',
             ),
             'classes': ('collapse',),
         }),
@@ -569,18 +484,14 @@ class RepairItemAdmin(admin.ModelAdmin):
         'valuation',
         'repair_type',
         'category',
-        'severity',
         'estimated_cost',
-        'is_required',
-        'priority',
+        'repair_recommended',
     )
     
     list_filter = (
         'repair_type',
         'category',
-        'severity',
-        'is_required',
-        'priority',
+        'repair_recommended',
     )
     
     search_fields = (
@@ -600,12 +511,9 @@ class RepairItemAdmin(admin.ModelAdmin):
             'fields': (
                 'repair_type',
                 'category',
-                'severity',
-                'repair_number',
                 'description',
                 'estimated_cost',
-                'is_required',
-                'priority',
+                'repair_recommended',
             )
         }),
     )

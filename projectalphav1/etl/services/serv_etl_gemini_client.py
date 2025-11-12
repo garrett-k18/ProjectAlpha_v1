@@ -168,9 +168,11 @@ def build_valuation_gemini_vision_client(
             import time
             start_time = time.time()
             
+            # Set a very high timeout (10 minutes) to allow for large extractions
+            # The timeout is set in the request_options which is passed to the underlying gRPC client
             response = model.generate_content(
                 contents,
-                request_options={"timeout": 420}  # 7 minute timeout (235 fields takes ~400 seconds)
+                request_options={"timeout": 600.0}  # 10 minutes as float
             )
             
             elapsed = time.time() - start_time

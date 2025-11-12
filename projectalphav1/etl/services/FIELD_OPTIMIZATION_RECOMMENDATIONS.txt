@@ -38,28 +38,10 @@ CATEGORY 4: Text Comments (5 fields - can add manually)
 □ neighborhood_comments
 □ property_comments
 
-CATEGORY 5: Detailed Comparable Adjustments (14 fields per comp)
-□ adjustment_above_grade_rooms
-□ adjustment_age
-□ adjustment_basement
-□ adjustment_condition
-□ adjustment_design_appeal
-□ adjustment_functional_utility
-□ adjustment_garage_carport
-□ adjustment_heating_cooling
-□ adjustment_location
-□ adjustment_other
-□ adjustment_porch_patio_deck
-□ adjustment_quality
-□ adjustment_site_view
-(Keep: total_adjustments, adjusted_sale_price)
-
-CATEGORY 6: Miscellaneous Low-Value (5 fields)
-□ proximity_to_amenities
-□ school_district
-□ subdivision
-□ percentage_owner_occupancy
-□ predominant_ownership
+CATEGORY 5: Comparable Comments (2 fields - can add manually)
+□ general_comments
+□ adjustments_description
+NOTE: All 15 individual adjustment fields already removed from model
 
 
 KEEP (CRITICAL FIELDS - 90 fields):
