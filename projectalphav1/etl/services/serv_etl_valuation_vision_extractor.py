@@ -124,6 +124,15 @@ _SKIP_FIELD_NAMES = {
     "total_days_on_market",
     "repairs_to_bring_to_market",
     "deferred_maintenance_cost",
+    # Calculated fields (computed on-demand)
+    "price_per_sqft",  # Computed: sale_price / living_area
+    # Market fields removed (not consistently in BPOs)
+    "housing_supply",
+    "reo_driven_market",
+    "num_reo_ss_listings",
+    "num_boarded_properties",
+    "new_construction_in_area",
+    "seasonal_market",
     # Note: subdivision, school_district, parking_type, data_source, data_source_id - KEEPING these
 }
 

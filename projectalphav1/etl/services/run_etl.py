@@ -56,25 +56,25 @@ print(f"Document ID: {result.document.id}")
 print(f"Status: {result.document.status}")
 
 if result.valuation:
-    print(f"\n✅ Valuation saved (ID: {result.valuation.id})")
+    print(f"\n[SUCCESS] Valuation saved (ID: {result.valuation.id})")
     print(f"   Address: {result.valuation.property_address}")
     print(f"   City: {result.valuation.city}, {result.valuation.state}")
     print(f"   As-Is Value: ${result.valuation.as_is_value}")
     print(f"   Repaired Value: ${result.valuation.as_repaired_value}")
     
     comp_count = result.valuation.comparables.count()
-    repair_count = result.valuation.repairs.count()
+    repair_count = result.valuation.repair_items.count()
     print(f"   Comparables: {comp_count}")
     print(f"   Repairs: {repair_count}")
 else:
-    print("\n❌ No valuation saved")
+    print("\n[WARNING] No valuation saved")
 
 if result.warnings:
-    print(f"\n⚠️  Warnings:")
+    print(f"\n[WARNINGS]:")
     for warning in result.warnings:
         print(f"   - {warning}")
 
 print("\n" + "=" * 80)
-print("✅ ETL PIPELINE COMPLETE!")
+print("[SUCCESS] ETL PIPELINE COMPLETE!")
 print("=" * 80)
 

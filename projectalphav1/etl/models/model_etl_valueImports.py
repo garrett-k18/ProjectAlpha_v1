@@ -167,14 +167,8 @@ class ValuationETL(models.Model):
     property_values_trend = models.CharField(max_length=50, blank=True, null=True)
     subject_appeal_compared_to_avg = models.CharField(max_length=20, choices=SubjectAppeal.choices, blank=True, null=True)
     subject_value_compared_to_avg = models.CharField(max_length=20, choices=SubjectAppeal.choices, blank=True, null=True)
-    housing_supply = models.CharField(max_length=20, choices=Supply.choices, blank=True, null=True)
     crime_vandalism_risk = models.CharField(max_length=20, choices=RiskLevel.choices, blank=True, null=True)
-    reo_driven_market = models.BooleanField(default=False, null=True, blank=True)
-    num_reo_ss_listings = models.IntegerField(blank=True, null=True)
     num_listings_in_area = models.IntegerField(blank=True, null=True)
-    num_boarded_properties = models.IntegerField(blank=True, null=True)
-    new_construction_in_area = models.BooleanField(default=False, null=True, blank=True)
-    seasonal_market = models.BooleanField(default=False, null=True, blank=True)
     neighborhood_price_range_low = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
     neighborhood_price_range_high = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
     neighborhood_median_price = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
@@ -245,7 +239,6 @@ class ComparablesETL(models.Model):
     # Pricing
     sale_price = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
     sale_date = models.DateField(blank=True, null=True)
-    price_per_sqft = models.DecimalField(max_digits=8, decimal_places=2, blank=True, null=True)
     original_list_price = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
     original_list_date = models.DateField(blank=True, null=True)
     current_list_price = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
@@ -313,13 +306,16 @@ class ComparablesETL(models.Model):
     def __str__(self):
         return f"{self.get_comp_type_display()} #{self.comp_number} - {self.address}"
 
-    def save(self, *args, **kwargs):
-        # Calculate price per square foot
+    @property
+    def price_per_sqft(self):
+        """Calculate price per square foot on-demand."""
         if self.sale_price and self.living_area:
-            self.price_per_sqft = round(float(self.sale_price) / self.living_area, 2)
-        
+            return round(float(self.sale_price) / self.living_area, 2)
+        return None
+
+    def save(self, *args, **kwargs):
         # Calculate adjusted sale price if total_adjustments provided
-        if self.sale_price and self.adjusted_sale_price is None and self.total_adjustments != 0:
+        if self.sale_price and self.adjusted_sale_price is None and self.total_adjustments not in (None, 0):
             self.adjusted_sale_price = self.sale_price + self.total_adjustments
         
         super().save(*args, **kwargs)
