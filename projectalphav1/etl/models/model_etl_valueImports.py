@@ -296,7 +296,6 @@ class ComparablesETL(models.Model):
 
     # Comments
     general_comments = models.TextField(blank=True)
-    adjustments_description = models.TextField(blank=True)
 
     # Metadata
     created_at = models.DateTimeField(auto_now_add=True)

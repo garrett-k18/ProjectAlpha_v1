@@ -421,7 +421,6 @@ class ComparablesETLAdmin(admin.ModelAdmin):
                 'has_fireplace',
                 'has_fencing',
                 'garage',
-                'garage_spaces',
                 'parking_spaces',
                 'parking_type',
                 'cooling_type',
