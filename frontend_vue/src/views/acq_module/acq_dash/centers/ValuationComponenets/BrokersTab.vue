@@ -44,8 +44,8 @@
               </span>
             </td>
           </tr>
-          <!-- WHAT: Asset row with clickable address, broker assignment, and broker valuations -->
-          <!-- WHY: Allow users to click address, assign brokers, and view broker-provided values -->
+          <!-- WHAT: Asset row with read-only address, broker assignment, and broker valuations -->
+          <!-- WHY: Loan number remains the sole modal trigger while retaining other controls -->
           <tr v-for="(asset, index) in paginatedRows" :key="`broker-asset-${asset?.asset_hub_id || asset?.id || index}`">
             <!-- WHAT: Seller Tape ID (Loan Number) - Clickable -->
             <!-- WHY: Primary identifier for the asset/loan, opens modal on click -->
@@ -54,10 +54,10 @@
                 {{ asset.sellertape_id || '-' }}
               </div>
             </td>
-            <!-- WHAT: Entire address block is clickable as one unit -->
-            <!-- WHY: Better UX - single click area for the whole address -->
+            <!-- WHAT: Address block displayed as read-only text (non-clickable) -->
+            <!-- WHY: Loan number now handles modal interactions -->
             <td>
-              <div class="address-container" @click="emit('openLoanModal', asset)">
+              <div class="address-container">
                 <div class="fw-semibold">
                   {{ formatAddress(asset) }}
                 </div>
@@ -550,15 +550,15 @@ function hasDetailedRehab(asset: any): boolean {
   text-decoration: underline;
 }
 
-/* WHAT: Address container - entire address block is clickable as one unit */
-/* WHY: Better UX with single click area, blue text indicates it's interactive */
+/* WHAT: Address container - read-only presentation */
+/* WHY: Modal access is restricted to the loan number */
 .address-container {
-  cursor: pointer;
-  color: #3577f1;
+  cursor: default;
+  color: inherit;
 }
 
 .address-container:hover {
-  text-decoration: underline;
+  text-decoration: none;
 }
 
 /* WHAT: Broker dropdown styling */

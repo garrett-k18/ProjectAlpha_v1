@@ -43,6 +43,7 @@
           </div>
           <div v-if="errorTrades" class="text-danger small mt-1">{{ errorTrades }}</div>
         </div>
+        <div v-if="errorPartnerships" class="text-danger small mt-1">{{ errorPartnerships }}</div>
 
         <!-- Multi-select Asset Track Status -->
         <div class="mb-3">
@@ -116,43 +117,38 @@
           <div v-if="errorTaskStatuses" class="text-danger small mt-1">{{ errorTaskStatuses }}</div>
         </div>
 
-        <!-- Multi-select Entities -->
+        <!-- Multi-select Partnerships -->
         <div class="mb-3">
           <label class="form-label fw-semibold">
             <i class="mdi mdi-domain me-1"></i>
-            Entities
+            Partnerships
           </label>
           <div class="dropdown-multiselect">
             <button 
               class="btn btn-outline-secondary btn-sm w-100 text-start d-flex justify-content-between align-items-center"
               type="button"
-              @click="toggleDropdown('entities')"
+              @click="toggleDropdown('partnerships')"
             >
-              <span>{{ selectedEntitiesLabel }}</span>
+              <span>{{ selectedPartnershipsLabel }}</span>
               <i class="mdi mdi-chevron-down"></i>
             </button>
-            <div v-if="showEntitiesDropdown" class="dropdown-menu-custom show" @click.stop>
-              <div class="dropdown-item-custom" v-for="entity in entityOptions" :key="entity.id">
+            <div v-if="showPartnershipsDropdown" class="dropdown-menu-custom show" @click.stop>
+              <div class="dropdown-item-custom" v-for="partnership in partnershipOptions" :key="partnership.id">
                 <input
                   type="checkbox"
-                  :id="`entity-${entity.id}`"
-                  :value="entity.id"
-                  v-model="localEntityIds"
+                  :id="`partnership-${partnership.id}`"
+                  :value="partnership.id"
+                  v-model="localPartnershipIds"
                   class="form-check-input me-2"
                 />
-                <label :for="`entity-${entity.id}`" class="form-check-label">
-                  <span class="badge rounded-pill bg-light text-dark me-2 text-uppercase small">
-                    {{ entity.entity_type_label }}
-                  </span>
-                  {{ entity.name }}
-                  <span v-if="entity.fund_name" class="text-muted small"> · {{ entity.fund_name }}</span>
-                  <span v-if="entity.owned_asset_count" class="text-muted small ms-1">
-                    ({{ entity.owned_asset_count }} assets)
-                  </span>
+                <label :for="`partnership-${partnership.id}`" class="form-check-label">
+                  {{ partnership.nickname || partnership.fund_name || `Partnership #${partnership.id}` }}
+                  <span v-if="partnership.entity_role_label" class="text-muted small"> · {{ partnership.entity_role_label }}</span>
+                  <span v-if="partnership.fund_name" class="text-muted small"> · {{ partnership.fund_name }}</span>
                 </label>
               </div>
-              <div v-if="entityOptions.length === 0" class="text-muted small p-2">
-                {{ loadingEntities ? 'Loading...' : 'No entities available' }}
+              <div v-if="partnershipOptions.length === 0" class="text-muted small p-2">
+                {{ loadingPartnerships ? 'Loading...' : 'No partnerships available' }}
               </div>
             </div>
           </div>
@@ -311,21 +307,21 @@ const {
   selectedTradeIds,
   selectedTracks,
   selectedTaskStatuses,
-  selectedEntityIds,
+  selectedPartnershipIds,
   dateRangeStart,
   dateRangeEnd,
   tradeOptions,
   trackOptions,
   taskStatusOptions,
-  entityOptions,
+  partnershipOptions,
   loadingTrades,
   loadingTracks,
   loadingTaskStatuses,
-  loadingEntities,
+  loadingPartnerships,
   errorTrades,
   errorTracks,
   errorTaskStatuses,
-  errorEntities,
+  errorPartnerships,
   hasActiveFilters,
 } = storeToRefs(reportingStore)
 
@@ -334,7 +330,7 @@ const {
 const localTradeIds = ref<number[]>([])
 const localTracks = ref<string[]>([])
 const localTaskStatuses = ref<string[]>([])
-const localEntityIds = ref<number[]>([])
+const localPartnershipIds = ref<number[]>([])
 const localDateStart = ref<string | null>(null)
 const localDateEnd = ref<string | null>(null)
 
@@ -343,15 +339,15 @@ const localDateEnd = ref<string | null>(null)
 const showTradesDropdown = ref<boolean>(false)
 const showTracksDropdown = ref<boolean>(false)
 const showTasksDropdown = ref<boolean>(false)
-const showEntitiesDropdown = ref<boolean>(false)
+const showPartnershipsDropdown = ref<boolean>(false)
 
 // **WHAT**: Sync local state with store on mount
 // **WHY**: Initialize local filters from store state
-watch([selectedTradeIds, selectedTracks, selectedTaskStatuses, selectedEntityIds, dateRangeStart, dateRangeEnd], () => {
+watch([selectedTradeIds, selectedTracks, selectedTaskStatuses, selectedPartnershipIds, dateRangeStart, dateRangeEnd], () => {
   localTradeIds.value = [...selectedTradeIds.value]
   localTracks.value = [...selectedTracks.value]
   localTaskStatuses.value = [...selectedTaskStatuses.value]
-  localEntityIds.value = [...selectedEntityIds.value]
+  localPartnershipIds.value = [...selectedPartnershipIds.value]
   localDateStart.value = dateRangeStart.value
   localDateEnd.value = dateRangeEnd.value
 }, { immediate: true })
@@ -362,11 +358,11 @@ const hasChanges = computed(() => {
   const tradesChanged = JSON.stringify([...selectedTradeIds.value].sort()) !== JSON.stringify([...localTradeIds.value].sort())
   const tracksChanged = JSON.stringify([...selectedTracks.value].sort()) !== JSON.stringify([...localTracks.value].sort())
   const tasksChanged = JSON.stringify([...selectedTaskStatuses.value].sort()) !== JSON.stringify([...localTaskStatuses.value].sort())
-  const entitiesChanged = JSON.stringify([...selectedEntityIds.value].sort()) !== JSON.stringify([...localEntityIds.value].sort())
+  const partnershipsChanged = JSON.stringify([...selectedPartnershipIds.value].sort()) !== JSON.stringify([...localPartnershipIds.value].sort())
   const dateStartChanged = dateRangeStart.value !== localDateStart.value
   const dateEndChanged = dateRangeEnd.value !== localDateEnd.value
   
-  return tradesChanged || tracksChanged || tasksChanged || entitiesChanged || dateStartChanged || dateEndChanged
+  return tradesChanged || tracksChanged || tasksChanged || partnershipsChanged || dateStartChanged || dateEndChanged
 })
 
 // **WHAT**: Computed label for selected trades
@@ -402,22 +398,22 @@ const selectedTasksLabel = computed(() => {
   return `${localTaskStatuses.value.length} selected`
 })
 
-// **WHAT**: Computed label for selected entities
-// **WHY**: Show count or "All Entities" in dropdown button
-const selectedEntitiesLabel = computed(() => {
-  if (localEntityIds.value.length === 0) return 'All Entities'
-  if (localEntityIds.value.length === 1) {
-    const entity = entityOptions.value.find(e => e.id === localEntityIds.value[0])
-    return entity?.name || '1 selected'
+// **WHAT**: Computed label for selected partnerships
+// **WHY**: Show count or "All Partnerships" in dropdown button
+const selectedPartnershipsLabel = computed(() => {
+  if (localPartnershipIds.value.length === 0) return 'All Partnerships'
+  if (localPartnershipIds.value.length === 1) {
+    const partnership = partnershipOptions.value.find(p => p.id === localPartnershipIds.value[0])
+    return partnership?.nickname || partnership?.fund_name || '1 selected'
   }
-  return `${localEntityIds.value.length} selected`
+  return `${localPartnershipIds.value.length} selected`
 })
 
-function toggleDropdown(type: 'trades' | 'tracks' | 'tasks' | 'entities'): void {
+function toggleDropdown(type: 'trades' | 'tracks' | 'tasks' | 'partnerships'): void {
   showTradesDropdown.value = type === 'trades' ? !showTradesDropdown.value : false
   showTracksDropdown.value = type === 'tracks' ? !showTracksDropdown.value : false
   showTasksDropdown.value = type === 'tasks' ? !showTasksDropdown.value : false
-  showEntitiesDropdown.value = type === 'entities' ? !showEntitiesDropdown.value : false
+  showPartnershipsDropdown.value = type === 'partnerships' ? !showPartnershipsDropdown.value : false
 }
 
 // **WHAT**: Apply local filters to store
@@ -426,7 +422,7 @@ function applyFilters(): void {
   selectedTradeIds.value = [...localTradeIds.value]
   selectedTracks.value = [...localTracks.value]
   selectedTaskStatuses.value = [...localTaskStatuses.value]
-  selectedEntityIds.value = [...localEntityIds.value]
+  selectedPartnershipIds.value = [...localPartnershipIds.value]
   dateRangeStart.value = localDateStart.value
   dateRangeEnd.value = localDateEnd.value
   
@@ -434,7 +430,7 @@ function applyFilters(): void {
   showTradesDropdown.value = false
   showTracksDropdown.value = false
   showTasksDropdown.value = false
-  showEntitiesDropdown.value = false
+  showPartnershipsDropdown.value = false
   
   emit('filters-change')
 }
@@ -445,7 +441,7 @@ function resetFilters(): void {
   localTradeIds.value = []
   localTracks.value = []
   localTaskStatuses.value = []
-  localEntityIds.value = []
+  localPartnershipIds.value = []
   localDateStart.value = null
   localDateEnd.value = null
   

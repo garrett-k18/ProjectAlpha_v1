@@ -36,20 +36,16 @@ export interface TaskStatusOption {
   count?: number // Optional: show count of assets with this task
 }
 
-// **WHAT**: Entity option interface for legal entity filtering
-// **WHY**: Report by legal entity (LLC, LP, etc.) for compliance/accounting
-export interface EntityOption {
+// **WHAT**: Partnership option interface (FundLegalEntity) for filter dropdown
+// **WHY**: Users select partnerships (fund/SPV wrappers) rather than general entities
+export interface PartnershipOption {
   id: number
-  name: string
-  entity_type: string
-  entity_type_label: string
+  nickname?: string | null
+  entity_role?: string | null
+  entity_role_label?: string | null
   is_active: boolean
   fund_id?: number | null
   fund_name?: string | null
-  fund_status?: string | null
-  fund_status_label?: string | null
-  owned_asset_count?: number
-  owned_entity_count?: number
 }
 
 // **WHAT**: Report summary data interface
@@ -74,7 +70,7 @@ export interface ChartDataPoint {
 // **WHY**: Centralized state management for all reporting dashboard filters and data
 export const useReportingStore = defineStore('reporting', () => {
   // ---------------------------------------------------------------------------
-  // PRIMARY FILTERS (Trade, Status, Fund, Entity)
+  // PRIMARY FILTERS (Trade, Status, Fund, Partnerships)
   // ---------------------------------------------------------------------------
   
   // **WHAT**: Selected trade ID(s) - supports single or multi-select
@@ -89,9 +85,9 @@ export const useReportingStore = defineStore('reporting', () => {
   // **WHY**: Filter by active task types (eviction, trashout, nod_noi, etc.)
   const selectedTaskStatuses = ref<string[]>([])
   
-  // **WHAT**: Selected entity IDs - multi-select
-  // **WHY**: Filter by legal entities (fund wrappers, GP LLCs, SPVs)
-  const selectedEntityIds = ref<number[]>([])
+  // **WHAT**: Selected partnership IDs - multi-select
+  // **WHY**: Filter by FundLegalEntity partnerships (fund wrappers, GP LLCs, SPVs)
+  const selectedPartnershipIds = ref<number[]>([])
   
   // ---------------------------------------------------------------------------
   // SECONDARY FILTERS
@@ -113,19 +109,19 @@ export const useReportingStore = defineStore('reporting', () => {
   const tradeOptions = ref<TradeOption[]>([])
   const trackOptions = ref<TrackOption[]>([])
   const taskStatusOptions = ref<TaskStatusOption[]>([])
-  const entityOptions = ref<EntityOption[]>([])
+  const partnershipOptions = ref<PartnershipOption[]>([])
   
   // Loading states for each filter
   const loadingTrades = ref<boolean>(false)
   const loadingTracks = ref<boolean>(false)
   const loadingTaskStatuses = ref<boolean>(false)
-  const loadingEntities = ref<boolean>(false)
+  const loadingPartnerships = ref<boolean>(false)
   
   // Error states
   const errorTrades = ref<string | null>(null)
   const errorTracks = ref<string | null>(null)
   const errorTaskStatuses = ref<string | null>(null)
-  const errorEntities = ref<string | null>(null)
+  const errorPartnerships = ref<string | null>(null)
   
   // ---------------------------------------------------------------------------
   // REPORT DATA STATE
@@ -166,7 +162,7 @@ export const useReportingStore = defineStore('reporting', () => {
       selectedTradeIds.value.length > 0 ||
       selectedTracks.value.length > 0 ||
       selectedTaskStatuses.value.length > 0 ||
-      selectedEntityIds.value.length > 0
+      selectedPartnershipIds.value.length > 0
     )
   })
   
@@ -184,8 +180,8 @@ export const useReportingStore = defineStore('reporting', () => {
     if (selectedTaskStatuses.value.length > 0) {
       params.append('task_statuses', selectedTaskStatuses.value.join(','))
     }
-    if (selectedEntityIds.value.length > 0) {
-      params.append('entity_ids', selectedEntityIds.value.join(','))
+    if (selectedPartnershipIds.value.length > 0) {
+      params.append('entity_ids', selectedPartnershipIds.value.join(','))
     }
     if (dateRangeStart.value) {
       params.append('start_date', dateRangeStart.value)
@@ -289,29 +285,27 @@ export const useReportingStore = defineStore('reporting', () => {
   }
   
   /**
-   * **WHAT**: Fetch entity options for filter dropdown
-   * **WHY**: Populate entity selector
+   * **WHAT**: Fetch partnership options for filter dropdown
+   * **WHY**: Populate partnership selector from FundLegalEntity records
    * **WHERE**: Called on dashboard mount
-   * **HOW**: GET /api/reporting/entities/ (Backend endpoint ready!)
+   * **HOW**: GET /api/reporting/partnerships/
    */
-  async function fetchEntityOptions(force: boolean = false): Promise<void> {
-    if (!force && entityOptions.value.length > 0) return
+  async function fetchPartnershipOptions(force: boolean = false): Promise<void> {
+    if (!force && partnershipOptions.value.length > 0) return
     
-    loadingEntities.value = true
-    errorEntities.value = null
+    loadingPartnerships.value = true
+    errorPartnerships.value = null
     
     try {
-      // WHAT: Call reporting entities endpoint
-      // ENDPOINT: GET /api/reporting/entities/
-      const response = await http.get<EntityOption[]>('/reporting/entities/')
-      entityOptions.value = response.data
-      console.log('[ReportingStore] Loaded entities:', response.data.length)
+      const response = await http.get<PartnershipOption[]>('/reporting/partnerships/')
+      partnershipOptions.value = response.data
+      console.log('[ReportingStore] Loaded partnerships:', response.data.length)
     } catch (error: any) {
-      console.error('[ReportingStore] fetchEntityOptions error:', error)
-      errorEntities.value = error.message || 'Failed to load entities'
-      entityOptions.value = []
+      console.error('[ReportingStore] fetchPartnershipOptions error:', error)
+      errorPartnerships.value = error.message || 'Failed to load partnerships'
+      partnershipOptions.value = []
     } finally {
-      loadingEntities.value = false
+      loadingPartnerships.value = false
     }
   }
   
@@ -412,7 +406,7 @@ export const useReportingStore = defineStore('reporting', () => {
     selectedTradeIds.value = []
     selectedTracks.value = []
     selectedTaskStatuses.value = []
-    selectedEntityIds.value = []
+    selectedPartnershipIds.value = []
     dateRangeStart.value = null
     dateRangeEnd.value = null
   }
@@ -434,7 +428,7 @@ export const useReportingStore = defineStore('reporting', () => {
       fetchTradeOptions(true),
       fetchTrackOptions(true),
       fetchTaskStatusOptions(undefined, true),
-      fetchEntityOptions(true),
+      fetchPartnershipOptions(true),
     ])
   }
   
@@ -447,22 +441,22 @@ export const useReportingStore = defineStore('reporting', () => {
     selectedTradeIds,
     selectedTracks,
     selectedTaskStatuses,
-    selectedEntityIds,
+    selectedPartnershipIds,
     dateRangeStart,
     dateRangeEnd,
     currentView,
     tradeOptions,
     trackOptions,
     taskStatusOptions,
-    entityOptions,
+    partnershipOptions,
     loadingTrades,
     loadingTracks,
     loadingTaskStatuses,
-    loadingEntities,
+    loadingPartnerships,
     errorTrades,
     errorTracks,
     errorTaskStatuses,
-    errorEntities,
+    errorPartnerships,
     reportSummary,
     loadingSummary,
     errorSummary,
@@ -482,7 +476,7 @@ export const useReportingStore = defineStore('reporting', () => {
     fetchTradeOptions,
     fetchTrackOptions,
     fetchTaskStatusOptions,
-    fetchEntityOptions,
+    fetchPartnershipOptions,
     fetchReportSummary,
     fetchChartData,
     fetchGridData,

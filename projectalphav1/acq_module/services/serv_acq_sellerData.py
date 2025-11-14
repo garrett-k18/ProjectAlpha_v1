@@ -11,9 +11,10 @@ Docs reviewed:
 from __future__ import annotations
 
 from typing import Optional
-from django.db.models import QuerySet, Q, F, Value, Case, When, CharField, Prefetch
-from django.db.models.functions import Concat
+from django.db.models import QuerySet, Q, F, Value, Case, When, CharField, Prefetch, OuterRef, Subquery
+from django.db.models.functions import Concat, Coalesce, Substr
 from ..models.model_acq_seller import SellerRawData
+from core.models.model_co_geoAssumptions import ZIPReference
 
 # Fields used by quick filter 'q' - common searchable text fields
 QUICK_FILTER_FIELDS = (
@@ -133,6 +134,27 @@ def build_queryset(
                 output_field=CharField(),
             ),
         )
+        .annotate(
+            # WHAT: Ensure zip_normalized exists even if upstream importer already cleans ZIPs
+            # WHY: Subquery expects a consistently sized field (fallback to first 5 digits)
+            zip_normalized=Substr(
+                Coalesce(F('zip'), Value('')),
+                1,
+                5,
+                output_field=CharField(),
+            )
+        )
+    )
+
+    # WHAT: Join normalized ZIPs to reference table to pull MSA metadata
+    # WHY: Broker assignment workflows group assets by MSA
+    # HOW: Subquery into ZIPReference (primary keyed by 5-digit ZIP)
+    zip_subquery = ZIPReference.objects.filter(zip_code=OuterRef('zip_normalized'))
+    qs = qs.annotate(
+        msa_code=Subquery(zip_subquery.values('msa__msa_code')[:1]),
+        msa_name=Subquery(zip_subquery.values('msa__msa_name')[:1]),
+        msa_state=Subquery(zip_subquery.values('msa__state__state_code')[:1]),
+        msa_county=Subquery(zip_subquery.values('county__county_name')[:1]),
     )
     
     # Filter by acquisition status based on view

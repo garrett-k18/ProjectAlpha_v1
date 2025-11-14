@@ -126,7 +126,7 @@ def create_broker_invite(request):
     if not hub_id:
         return Response({"detail": "asset_hub_id or seller_raw_data is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-    from core.models.asset_id_hub import AssetIdHub
+    from core.models.model_co_assetIdHub import AssetIdHub
     hub = get_object_or_404(AssetIdHub, pk=hub_id)
 
     # Expiration handling

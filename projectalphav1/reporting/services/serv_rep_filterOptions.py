@@ -2,9 +2,9 @@
 Service: Filter Options
 
 WHAT: Business logic for fetching filter dropdown options
-WHY: Populate sidebar filter dropdowns (Trades, Statuses, Entities)
+WHY: Populate sidebar filter dropdowns (Trades, Statuses, Partnerships)
 WHERE: Imported by view_rep_filters.py
-HOW: Query Trade + Entity models for dropdown data
+HOW: Query Trade + FundLegalEntity models for dropdown data
 
 FILE NAMING: serv_rep_filterOptions.py
 - serv_ = Services folder
@@ -24,7 +24,7 @@ Docs reviewed:
 from typing import List, Dict, Any, Optional
 from django.db.models import Count, Q, F
 from acq_module.models.model_acq_seller import Trade
-from core.models import Entity
+from core.models import FundLegalEntity
 
 
 def get_trade_options_data() -> List[Dict[str, Any]]:
@@ -107,7 +107,7 @@ def get_status_options_data() -> List[Dict[str, Any]]:
     """
     # WHAT: Import AssetIdHub to query outcome tracks
     # WHY: Need to check which assets have which outcome records
-    from core.models.asset_id_hub import AssetIdHub
+    from core.models.model_co_assetIdHub import AssetIdHub
     from acq_module.models.model_acq_seller import SellerRawData
     
     # WHAT: Get all boarded assets
@@ -256,61 +256,44 @@ def get_task_status_options_data(track: Optional[str] = None) -> List[Dict[str, 
     return results
 
 
-def get_entity_options_data() -> List[Dict[str, Any]]:
+def get_partnership_options_data() -> List[Dict[str, Any]]:
     """
-    WHAT: Get all legal entities (Funds, GP LLCs, SPVs, etc.) for dropdown
-    WHY: Entities are now the single source of truth for ownership filtering
-    HOW: Query Entity with membership annotations (fund, GP/LP, nested ownership)
+    WHAT: Get all FundLegalEntity records for the Partnerships filter dropdown
+    WHY: Partnership filter represents fund/SPV wrappers instead of the general Entity model
+    HOW: Query FundLegalEntity with fund metadata
     
-    RETURNS: List of entity option dicts
+    RETURNS: List of partnership option dicts
         [
             {
                 'id': 1,
-                'name': 'Alpha Fund LP',
-                'entity_type': 'fund',
-                'entity_type_label': 'Fund',
+                'nickname': 'Alpha Fund LP',
+                'entity_role': 'fund',
+                'entity_role_label': 'Fund',
                 'is_active': True,
-                'fund_id': 5,
+                'fund_id': 42,
                 'fund_name': 'Fund I - Core',
-                'fund_status': 'active',
-                'fund_status_label': 'Active/Investing',
-                'owned_asset_count': 42,
-                'owned_entity_count': 3,
             },
             ...
         ]
-    
-    USAGE in view:
-        entity_options = get_entity_options_data()
-        return Response(entity_options)
     """
-    entities = (
-        Entity.objects
-        .annotate(
-            owned_entity_count=Count(
-                'child_members',
-                filter=Q(child_members__is_active=True),
-                distinct=True,
-            ),
-        )
-        .order_by('name')
+    partnerships = (
+        FundLegalEntity.objects
+        .select_related('fund')
+        .order_by('nickname_name', 'id')
     )
     
     results: List[Dict[str, Any]] = []
-    for entity in entities:
-        is_fund = entity.entity_type == Entity.EntityType.FUND
+    for partnership in partnerships:
+        fund = partnership.fund
+        nickname = partnership.nickname_name or (fund.name if fund else "Unnamed Partnership")
         results.append({
-            'id': entity.id,
-            'name': entity.name,
-            'entity_type': entity.entity_type,
-            'entity_type_label': entity.get_entity_type_display(),
-            'is_active': entity.is_active,
-            'fund_id': entity.id if is_fund else None,
-            'fund_name': entity.name if is_fund else None,
-            'fund_status': None,
-            'fund_status_label': None,
-            'owned_asset_count': 0,  # Placeholder until asset-level ownership migrates to Entities
-            'owned_entity_count': entity.owned_entity_count,
+            'id': partnership.id,
+            'nickname': nickname,
+            'entity_role': partnership.entity_role,
+            'entity_role_label': partnership.get_entity_role_display() if partnership.entity_role else None,
+            'is_active': partnership.is_active,
+            'fund_id': fund.id if fund else None,
+            'fund_name': fund.name if fund else None,
         })
     
     return results

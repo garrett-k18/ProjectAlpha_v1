@@ -118,7 +118,7 @@ def assign_broker_batch(request):
     # WHAT: Create invites per asset hub
     # WHY: Hub-first architecture - tokens point to asset hubs
     # HOW: Fetch hub, create BrokerTokenAuth with asset_hub FK
-    from core.models.asset_id_hub import AssetIdHub
+    from core.models.model_co_assetIdHub import AssetIdHub
     invites = []
     for hub_id in hub_ids:
         hub = get_object_or_404(AssetIdHub, pk=hub_id)

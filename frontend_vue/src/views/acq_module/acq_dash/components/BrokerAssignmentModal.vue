@@ -54,6 +54,63 @@
       </div>
     </div>
     
+    <!-- WHAT: MSA grouping cards to accelerate market-level broker assignments -->
+    <div v-if="msaGroups.length" class="card border-0 shadow-sm mb-3">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div>
+            <h6 class="mb-1">MSA Grouping</h6>
+            <p class="text-muted small mb-0">
+              Linked via ZIPReference crosswalk so you can bulk-assign local brokers quickly.
+            </p>
+          </div>
+          <span class="badge bg-primary-subtle text-primary">
+            {{ msaGroups.length }} market{{ msaGroups.length === 1 ? '' : 's' }}
+          </span>
+        </div>
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
+          <div class="col" v-for="group in msaGroups" :key="group.key">
+            <div class="h-100 border rounded-3 p-3 bg-light-subtle d-flex flex-column">
+              <div class="d-flex justify-content-between align-items-start mb-2">
+                <div>
+                  <div class="fw-semibold">{{ group.displayName }}</div>
+                  <div v-if="group.stateLabel" class="text-muted small">
+                    {{ group.stateLabel }}
+                  </div>
+                  <div v-else class="text-warning small fw-semibold">Unmatched geography</div>
+                </div>
+                <span class="badge bg-secondary-subtle text-secondary">
+                  {{ group.assetCount }} {{ group.assetCount === 1 ? 'asset' : 'assets' }}
+                </span>
+              </div>
+              <div class="text-muted small mb-3">
+                <template v-if="group.counties.length">
+                  Counties:
+                  {{ group.counties.slice(0, 2).join(', ') }}
+                  <span v-if="group.counties.length > 2">
+                    +{{ group.counties.length - 2 }}
+                  </span>
+                </template>
+                <span v-else>No county match</span>
+              </div>
+              <div class="mt-auto d-flex gap-2">
+                <button class="btn btn-sm btn-outline-primary flex-fill" @click="selectGroup(group)">
+                  Select Group
+                </button>
+                <button
+                  class="btn btn-sm btn-primary flex-fill"
+                  :disabled="!bulkBrokerId || assigningBrokers"
+                  @click="assignGroupBroker(group)"
+                >
+                  Assign
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
     <!-- WHAT: Broker Assignment Table -->
     <!-- WHY: Display assets with broker assignment controls -->
     <div class="table-responsive">
@@ -254,6 +311,19 @@ const { results: brokers, loading: brokersLoading } = storeToRefs(brokerStore)
 const currentPage = ref(1)
 const pageSize = ref(50)
 
+// WHAT: Data structure describing grouped MSAs
+interface MsaGroup {
+  key: string
+  code: string | null
+  name: string | null
+  state: string | null
+  stateLabel: string | null
+  displayName: string
+  counties: string[]
+  assets: any[]
+  assetCount: number
+}
+
 // WHAT: Filter state from AssetFilters component
 // WHY: Apply user-selected filters to asset list
 const filters = ref<FilterValues>({
@@ -392,6 +462,63 @@ const filteredRows = computed(() => {
   return filtered
 })
 
+// WHAT: Group filtered assets by MSA for fast assignment
+const msaGroups = computed<MsaGroup[]>(() => {
+  const map = new Map<string, {
+    key: string
+    code: string | null
+    name: string | null
+    state: string | null
+    countySet: Set<string>
+    assets: any[]
+  }>()
+  
+  filteredRows.value.forEach((asset: any) => {
+    const code: string | null = asset.msa_code || null
+    const name: string | null = asset.msa || asset.msa_name || null
+    const state: string | null = asset.msa_state || asset.state || null
+    const key = code ? `code:${code}` : name ? `name:${name.toLowerCase()}` : 'unmatched'
+    const countyName: string | null = asset.county || null
+    if (!map.has(key)) {
+      map.set(key, {
+        key,
+        code,
+        name,
+        state,
+        countySet: countyName ? new Set([countyName]) : new Set(),
+        assets: [asset],
+      })
+    } else {
+      const entry = map.get(key)!
+      entry.assets.push(asset)
+      if (countyName) {
+        entry.countySet.add(countyName)
+      }
+      if (!entry.name && name) entry.name = name
+      if (!entry.code && code) entry.code = code
+      if (!entry.state && state) entry.state = state
+    }
+  })
+  
+  return Array.from(map.values())
+    .map((entry) => {
+      const displayName = entry.name || (entry.code ? `MSA ${entry.code}` : 'No MSA match')
+      const stateLabel = entry.state ? entry.state : null
+      return {
+        key: entry.key,
+        code: entry.code,
+        name: entry.name,
+        state: entry.state,
+        stateLabel,
+        displayName,
+        counties: Array.from(entry.countySet),
+        assets: entry.assets,
+        assetCount: entry.assets.length,
+      }
+    })
+    .sort((a, b) => b.assetCount - a.assetCount)
+})
+
 // WHAT: Total number of pages
 // WHY: Calculate pagination controls
 const totalPages = computed(() => Math.ceil(filteredRows.value.length / pageSize.value) || 1)
@@ -510,28 +637,16 @@ function getAssetBrokerId(asset: any): number | null {
 // WHY: Allow per-asset broker assignment
 async function handleBrokerAssignment(asset: any, brokerIdStr: string) {
   const brokerId = brokerIdStr ? parseInt(brokerIdStr, 10) : null
-  const assetHubId = asset.asset_hub_id || asset.id
-  
-  if (!assetHubId) {
-    console.error('[BrokerAssignment] No asset ID found')
+  if (!brokerId) {
+    asset.assigned_broker_id = null
     return
   }
   
   assigningBrokers.value = true
   
   try {
-    // WHAT: Call backend API to assign broker to asset
-    // WHY: Persist broker assignment
-    // TODO: Update endpoint based on actual backend route
-    await http.put(`/acq/assets/${assetHubId}/assign-broker/`, {
-      broker_id: brokerId,
-    })
-    
-    // WHAT: Update local asset data
-    // WHY: Reflect change immediately in UI
-    asset.assigned_broker_id = brokerId
-    
-    console.log(`[BrokerAssignment] Assigned broker ${brokerId} to asset ${assetHubId}`)
+    await persistBrokerAssignments([asset], brokerId)
+    console.log(`[BrokerAssignment] Assigned broker ${brokerId} to asset ${asset.asset_hub_id || asset.id}`)
   } catch (e) {
     console.error('[BrokerAssignment] Failed to assign broker:', e)
     alert('Failed to assign broker. Please try again.')
@@ -548,19 +663,7 @@ async function assignBulkBroker() {
   assigningBrokers.value = true
   
   try {
-    // WHAT: Assign broker to each selected asset
-    // WHY: Backend may not support bulk update, so iterate
-    const promises = selectedAssets.value.map(asset => {
-      const assetHubId = asset.asset_hub_id || asset.id
-      return http.put(`/acq/assets/${assetHubId}/assign-broker/`, {
-        broker_id: bulkBrokerId.value,
-      }).then(() => {
-        // WHAT: Update local asset data
-        asset.assigned_broker_id = bulkBrokerId.value
-      })
-    })
-    
-    await Promise.all(promises)
+    await persistBrokerAssignments(selectedAssets.value, bulkBrokerId.value)
     
     console.log(`[BrokerAssignment] Bulk assigned broker ${bulkBrokerId.value} to ${selectedAssets.value.length} assets`)
     
@@ -573,6 +676,53 @@ async function assignBulkBroker() {
   } finally {
     assigningBrokers.value = false
   }
+}
+
+async function assignGroupBroker(group: MsaGroup) {
+  if (!bulkBrokerId.value) {
+    alert('Select a broker in the bulk action bar before assigning a group.')
+    return
+  }
+  if (!group.assets.length) return
+  
+  assigningBrokers.value = true
+  try {
+    await persistBrokerAssignments(group.assets, bulkBrokerId.value)
+    console.log(`[BrokerAssignment] Assigned broker ${bulkBrokerId.value} to MSA group ${group.displayName}`)
+  } catch (e) {
+    console.error('[BrokerAssignment] Failed to assign broker to group:', e)
+    alert('Failed to assign broker to this MSA group. Please try again.')
+  } finally {
+    assigningBrokers.value = false
+  }
+}
+
+async function persistBrokerAssignments(targetAssets: any[], brokerId: number) {
+  const assetHubIds = targetAssets
+    .map(asset => asset.asset_hub_id || asset.id)
+    .filter((id): id is number => Boolean(id))
+  
+  if (!assetHubIds.length) {
+    console.warn('[BrokerAssignment] No asset IDs found for assignment batch.')
+    return
+  }
+  
+  await http.post('/acq/broker-portal/assign/', {
+    broker_id: brokerId,
+    asset_hub_ids: assetHubIds,
+  })
+  
+  targetAssets.forEach(asset => {
+    asset.assigned_broker_id = brokerId
+  })
+}
+
+function selectGroup(group: MsaGroup) {
+  group.assets.forEach(asset => {
+    if (!isAssetSelected(asset)) {
+      selectedAssets.value.push(asset)
+    }
+  })
 }
 
 // WHAT: Send invitation to single asset's assigned broker

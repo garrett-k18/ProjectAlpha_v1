@@ -44,9 +44,9 @@ urlpatterns = [
     # RETURNS: List of {value, label, track, count}
     path('task-statuses/', view_rep_filters.task_status_options, name='reporting-task-statuses'),
     
-    # WHAT: Entity filter options (TODO: implement once Entity model exists)
-    # ENDPOINT: GET /api/reporting/entities/
-    path('entities/', view_rep_filters.entity_options, name='reporting-entities'),
+    # WHAT: Partnership filter options (FundLegalEntity records)
+    # ENDPOINT: GET /api/reporting/partnerships/
+    path('partnerships/', view_rep_filters.partnership_options, name='reporting-partnerships'),
     
     # ========================================================================
     # SUMMARY KPIs - Top bar metrics (Total UPB, Count, Avg LTV, DLQ Rate)

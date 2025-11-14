@@ -50,9 +50,9 @@
                 {{ asset.sellertape_id || '-' }}
               </div>
             </td>
-            <!-- WHAT: Address column with clickable link -->
+            <!-- WHAT: Address column shown as read-only text (non-clickable) -->
             <td>
-              <div class="address-container" @click="emit('openLoanModal', asset)">
+              <div class="address-container">
                 <div class="fw-semibold">
                   {{ formatAddress(asset) }}
                 </div>
@@ -496,15 +496,15 @@ function getGradeBadgeClass(grade: string | null | undefined): string {
   text-decoration: underline;
 }
 
-/* WHAT: Address container - entire address block is clickable as one unit */
-/* WHY: Better UX with single click area, blue text indicates it's interactive */
+/* WHAT: Address container - read-only text block */
+/* WHY: Loan number is now the only interactive element for opening the modal */
 .address-container {
-  cursor: pointer;
-  color: #3577f1;
+  cursor: default;
+  color: inherit;
 }
 
 .address-container:hover {
-  text-decoration: underline;
+  text-decoration: none;
 }
 
 /* WHAT: Inline editable value styling - matches OverviewTab style */

@@ -118,7 +118,7 @@ Filters
 ├── Trades (dropdown)
 ├── Statuses (dropdown)        ← Trade statuses (DD, AWARDED, PASS, BOARD)
 ├── Funds (dropdown)
-├── Entities (dropdown)
+├── Partnerships (dropdown)
 └── Date Range
 ```
 
@@ -129,7 +129,7 @@ Filters
 ├── Asset Track Status (dropdown)     ← NEW: AM tracks (REO, FC, DIL, etc.)
 ├── Asset Task Status (dropdown)      ← NEW: Active tasks (eviction, trashout, etc.)
 ├── Funds (dropdown)
-├── Entities (dropdown)
+├── Partnerships (dropdown)
 └── Date Range
 ```
 
@@ -176,7 +176,7 @@ GET /api/reporting/by-status/?tracks=reo,fc&task_statuses=eviction
    ├── fetchTrackOptions()     ← NEW
    ├── fetchTaskStatusOptions() ← NEW
    ├── fetchFundOptions()
-   └── fetchEntityOptions()
+   └── fetchPartnershipOptions()
 
 2. Sidebar displays loaded options in dropdowns
 

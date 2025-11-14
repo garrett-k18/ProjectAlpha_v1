@@ -5,7 +5,7 @@ from .model_co_capStack import (
     Entity, FundLegalEntity, FundMembership, EntityMembership
 )
 from .model_co_crm import MasterCRM, BrokerMSAAssignment
-from .asset_id_hub import AssetIdHub, AssetDetails
+from .model_co_assetIdHub import AssetIdHub, AssetDetails
 from .model_co_geoAssumptions import StateReference, CountyReference, MSAReference, ZIPReference
 from .model_co_assumptions import Servicer, FCStatus, FCTimelines, CommercialUnits, HOAAssumption, PropertyTypeAssumption, SquareFootageAssumption, UnitBasedAssumption
 from .model_co_lookupTables import PropertyType

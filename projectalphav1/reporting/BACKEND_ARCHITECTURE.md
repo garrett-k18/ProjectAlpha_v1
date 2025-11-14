@@ -475,7 +475,7 @@ GET /api/reporting/by-trade/grid/?trade_ids=1,2,3&statuses=DD,AWARDED
 // Get filter options
 GET /api/reporting/trades/        // List of all trades
 GET /api/reporting/statuses/      // List of all statuses
-GET /api/reporting/entities/      // List of all entities (Funds + SPVs + GP LLCs)
+GET /api/reporting/partnerships/  // List of FundLegalEntity partnerships (fund wrappers, GP LLCs, SPVs)
 ```
 
 ---

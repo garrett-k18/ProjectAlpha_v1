@@ -84,6 +84,12 @@ class SellerRawDataRowSerializer(serializers.Serializer):
     city = serializers.CharField(allow_null=True)
     state = serializers.CharField(allow_null=True)
     zip = serializers.CharField(allow_null=True)  # Map zip field from model
+    zip_normalized = serializers.CharField(allow_null=True, allow_blank=True, required=False)
+    msa = serializers.SerializerMethodField()
+    msa_code = serializers.CharField(allow_null=True, allow_blank=True, required=False)
+    msa_name = serializers.CharField(allow_null=True, allow_blank=True, required=False)
+    msa_state = serializers.CharField(allow_null=True, allow_blank=True, required=False)
+    county = serializers.SerializerMethodField()
     property_type = serializers.CharField(allow_null=True)
     # New: flow product_type to frontend rows so badges render in snapshots/modals
     product_type = serializers.CharField(allow_null=True, allow_blank=True)
@@ -525,6 +531,27 @@ class SellerRawDataDetailSerializer(serializers.ModelSerializer):
             return bool(getattr(hub, 'is_commercial', False)) if hub is not None else False
         except Exception:
             return False
+    
+    def get_msa(self, obj):
+        """Return friendly MSA display name (fall back to code)."""
+        try:
+            name = getattr(obj, 'msa_name', None)
+            code = getattr(obj, 'msa_code', None)
+            if name:
+                return name
+            if code:
+                return code
+            return None
+        except Exception:
+            return None
+    
+    def get_county(self, obj):
+        """Return county derived from ZIP reference lookup (if available)."""
+        try:
+            county_name = getattr(obj, 'msa_county', None)
+            return county_name or None
+        except Exception:
+            return None
 
 
 class SellerRawDataFieldsSerializer(serializers.Serializer):

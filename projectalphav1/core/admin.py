@@ -54,7 +54,7 @@ from acq_module.models.model_acq_seller import SellerRawData
 class AssetDetailsAdmin(admin.ModelAdmin):
     """Admin configuration for AssetDetails model linking assets to fund legal entities."""
     list_display = ("asset", "fund_legal_entity", "created_at", "updated_at")
-    search_fields = ("asset__id", "fund_legal_entity__legal_name")
+    search_fields = ("asset__id", "fund_legal_entity__nickname_name")
     autocomplete_fields = ["asset", "fund_legal_entity"]
     readonly_fields = ("created_at", "updated_at")
     fieldsets = (
@@ -264,7 +264,7 @@ class FundLegalEntityAdmin(admin.ModelAdmin):
     How: Display entity role, jurisdiction, and parent fund
     """
     list_display = (
-        "legal_name",
+        "get_display_name",
         "get_fund_name",
         "entity_role",
         "jurisdiction",
@@ -274,7 +274,7 @@ class FundLegalEntityAdmin(admin.ModelAdmin):
         "created_at",
     )
     list_filter = ("entity_role", "is_active", "jurisdiction")
-    search_fields = ("legal_name", "tax_id", "fund__name")
+    search_fields = ("nickname_name", "tax_id", "fund__name")
     list_per_page = 25
     autocomplete_fields = ['fund']
     readonly_fields = ('created_at', 'updated_at')
@@ -284,13 +284,18 @@ class FundLegalEntityAdmin(admin.ModelAdmin):
             'fields': ('fund', 'entity_role', 'is_active')
         }),
         ('Legal Details', {
-            'fields': ('legal_name', 'jurisdiction', 'tax_id')
+            'fields': ('nickname_name', 'jurisdiction', 'tax_id')
         }),
         ('Timestamps', {
             'fields': ('created_at', 'updated_at')
         }),
     )
     
+    def get_display_name(self, obj):
+        """Display nickname or fallback placeholder for entity"""
+        return obj.nickname_name if obj.nickname_name else "Unnamed Entity"
+    get_display_name.short_description = 'Entity'
+
     def get_fund_name(self, obj):
         """Display parent fund name"""
         return obj.fund.name

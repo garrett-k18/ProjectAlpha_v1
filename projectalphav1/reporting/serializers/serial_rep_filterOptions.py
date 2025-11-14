@@ -122,53 +122,27 @@ class TaskStatusOptionSerializer(serializers.Serializer):
     count = serializers.IntegerField(required=False)
 
 
-class EntityOptionSerializer(serializers.Serializer):
+class FundLegalEntityOptionSerializer(serializers.Serializer):
     """
-    WHAT: Field definitions for entity filter dropdown options
-    WHY: Define what entity data the sidebar receives (now primary fund/ownership filter)
-    WHERE: Used by /api/reporting/entities/ endpoint
+    WHAT: Field definitions for partnership (fund legal entity) filter dropdown options
+    WHY: Provide user-facing partnership selector sourced from FundLegalEntity model
+    WHERE: Used by /api/reporting/partnerships/ endpoint
     
     FIELDS:
-    - id: Entity ID
-    - name: Legal entity name
-    - entity_type: Raw DB choice (fund, spv, llc, etc.)
-    - entity_type_label: Human-readable label ("Fund", "SPV", etc.)
-    - is_active: Whether entity is active
-    - fund_id/fund_name/fund_status/fund_status_label: Optional Fund metadata if linked
-    - owned_asset_count: Number of active assets owned directly
-    - owned_entity_count: Number of active downstream entities (SPVs, etc.)
+    - id: FundLegalEntity ID
+    - nickname: User-friendly label (nickname or fallback)
+    - entity_role: Raw role code (fund, gp, lp, spv, etc.)
+    - entity_role_label: Human-readable role
+    - fund_id/fund_name: Optional link back to parent fund entity
+    - is_active: Whether partnership record is active
     """
-    # WHAT: Unique entity identifier
-    # WHY: Used in filter query params (entity_id=2)
     id = serializers.IntegerField()
-    
-    # WHAT: Entity legal name
-    # WHY: Display in dropdown
-    # SOURCE: Entity.name
-    name = serializers.CharField()
-    
-    # WHAT: Entity type (LLC, LP, Corporation, etc.)
-    # WHY: Show entity structure in dropdown
-    # SOURCE: Entity.entity_type
-    entity_type = serializers.CharField()
-    
-    # WHAT: Human-readable label for entity type
-    # WHY: Show "Fund" instead of "fund"
-    entity_type_label = serializers.CharField()
-    
-    # WHAT: Active flag
-    # WHY: Surface entity availability in UI
+    nickname = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    entity_role = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    entity_role_label = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     is_active = serializers.BooleanField()
-    
-    # WHAT: Linked fund metadata (optional)
     fund_id = serializers.IntegerField(required=False, allow_null=True)
     fund_name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
-    fund_status = serializers.CharField(required=False, allow_blank=True, allow_null=True)
-    fund_status_label = serializers.CharField(required=False, allow_blank=True, allow_null=True)
-    
-    # WHAT: Ownership counts
-    owned_asset_count = serializers.IntegerField(required=False)
-    owned_entity_count = serializers.IntegerField(required=False)
 
 
 class FundOptionSerializer(serializers.Serializer):

@@ -128,7 +128,7 @@ def trade_options(request):
 ✅ GET /api/reporting/statuses/
    Returns: [{value, label, count}, ...]
    
-✅ GET /api/reporting/entities/
+✅ GET /api/reporting/partnerships/
    Returns: [{id, name, entity_type, fund_name, owned_asset_count}, ...]
 ```
 

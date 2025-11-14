@@ -27,13 +27,13 @@ from reporting.services.serv_rep_filterOptions import (
     get_trade_options_data,
     get_status_options_data,
     get_task_status_options_data,
-    get_entity_options_data,
+    get_partnership_options_data,
 )
 from reporting.serializers.serial_rep_filterOptions import (
     TradeOptionSerializer,
     StatusOptionSerializer,
     TaskStatusOptionSerializer,
-    EntityOptionSerializer,
+    FundLegalEntityOptionSerializer,
 )
 
 
@@ -169,30 +169,25 @@ def task_status_options(request):
 
 
 @api_view(['GET'])
-def entity_options(request):
+def partnership_options(request):
     """
-    WHAT: Return all legal entities for sidebar filter dropdown
-    WHY: Entities now own all fund/SPV/GP relationships for reporting filters
+    WHAT: Return all FundLegalEntity records for sidebar Partnerships dropdown
+    WHY: Users select partnerships (fund/SPV wrappers) instead of raw Entity records
     WHERE: Called when reporting dashboard loads
     
-    ENDPOINT: GET /api/reporting/entities/
+    ENDPOINT: GET /api/reporting/partnerships/
     
-    RETURNS: 200 OK with list of entity options enriched with fund + ownership info
+    RETURNS: 200 OK with list of partnership options
     """
     try:
-        # WHAT: Delegate to service layer
-        entities = get_entity_options_data()
-        
-        # WHAT: Serialize data
-        serializer = EntityOptionSerializer(entities, many=True)
-        
+        partnerships = get_partnership_options_data()
+        serializer = FundLegalEntityOptionSerializer(partnerships, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
     except Exception as e:
         import logging
         logger = logging.getLogger(__name__)
-        logger.error(f'[FilterOptions] Entity options error: {str(e)}', exc_info=True)
+        logger.error(f'[FilterOptions] Partnership options error: {str(e)}', exc_info=True)
         return Response(
-            {'error': 'Failed to load entity options', 'detail': str(e)},
+            {'error': 'Failed to load partnership options', 'detail': str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )

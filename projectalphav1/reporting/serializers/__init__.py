@@ -26,7 +26,7 @@ from .serial_rep_filterOptions import (
     TradeOptionSerializer,
     StatusOptionSerializer,
     FundOptionSerializer,
-    EntityOptionSerializer,
+    FundLegalEntityOptionSerializer,
 )
 
 __all__ = [
@@ -37,6 +37,6 @@ __all__ = [
     'TradeOptionSerializer',
     'StatusOptionSerializer',
     'FundOptionSerializer',
-    'EntityOptionSerializer',
+    'FundLegalEntityOptionSerializer',
 ]
 

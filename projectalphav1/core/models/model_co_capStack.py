@@ -395,6 +395,9 @@ class FundLegalEntity(models.Model):
         GP = "gp", "GP"
         LP = "lp", "LP"
         SPV = "spv", "SPV"
+        JV = "jv", "Joint Venture"
+        CO_INVESTOR = "co_investor", "Co-Investor"
+        OTHER = "other", "Other"
     
     # Parent fund relationship (Entity record flagged as a fund)
     fund = models.ForeignKey(
@@ -446,13 +449,14 @@ class FundLegalEntity(models.Model):
     class Meta:
         managed = True
         db_table = "fund_legal_entity"
-        ordering = ["fund", "entity_role", "legal_name"]
+        ordering = ["fund", "entity_role", "nickname_name"]
         verbose_name = "Fund Legal Entity"
         verbose_name_plural = "Fund Legal Entities"
     
     def __str__(self):
         """String representation showing legal name and fund"""
-        return f"{self.legal_name} - {self.fund.name}"
+        nickname = self.nickname_name or "Unnamed Entity"
+        return f"{nickname} - {self.fund.name}"
 
 
 class FundMembership(models.Model):

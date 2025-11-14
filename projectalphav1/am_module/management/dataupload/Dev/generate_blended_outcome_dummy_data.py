@@ -21,7 +21,7 @@ from decimal import Decimal
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
-from core.models.asset_id_hub import AssetIdHub
+from core.models.model_co_assetIdHub import AssetIdHub
 from am_module.models.boarded_data import BlendedOutcomeModel
 
 

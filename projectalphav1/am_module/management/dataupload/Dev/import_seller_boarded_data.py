@@ -5,7 +5,7 @@ ensure AssetIdHub rows exist first (hub-first architecture).
 WHAT:
 - Reads a CSV (UTF-8 with/without BOM) and loads rows into
   am_module.models.boarded_data.SellerBoardedData.
-- Creates the associated core.models.asset_id_hub.AssetIdHub if missing.
+    - Creates the associated core.models.model_co_assetIdHub.AssetIdHub if missing.
 
 WHY:
 - Production bootstrap often starts with an empty database. Because
@@ -33,7 +33,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 # ALWAYS import models at module top (perf + clarity)
-from core.models.asset_id_hub import AssetIdHub
+from core.models.model_co_assetIdHub import AssetIdHub
 from am_module.models.boarded_data import SellerBoardedData
 
 

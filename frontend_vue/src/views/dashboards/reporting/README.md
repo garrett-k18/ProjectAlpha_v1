@@ -53,7 +53,7 @@ frontend_vue/src/views/dashboards/reporting/
 ### Primary Filters (Front & Center)
 - **Trade** (`selectedTradeIds`) - Single or multi-select by trade
 - **Status** (`selectedStatuses`) - Multi-select (DD, AWARDED, PASS, BOARD)
-- **Entity** (`selectedEntityIds`) - Multi-select of legal entities (Funds, GP LLCs, SPVs)
+- **Partnerships** (`selectedPartnershipIds`) - Multi-select of FundLegalEntity wrappers (Funds, GP LLCs, SPVs)
 
 ### Secondary Filters
 - **Date Range** (`dateRangeStart`, `dateRangeEnd`) - ISO date strings
@@ -70,7 +70,7 @@ frontend_vue/src/views/dashboards/reporting/
 // Load dropdown options
 fetchTradeOptions(force?: boolean)
 fetchStatusOptions(force?: boolean)
-fetchEntityOptions(force?: boolean)
+fetchPartnershipOptions(force?: boolean)
 
 // Load report data
 fetchReportSummary()  // Top bar KPIs
@@ -232,7 +232,7 @@ The frontend is ready and uses placeholder data. Wire these endpoints:
 ### Filter Options
 - `GET /api/reporting/trades/` → `TradeOption[]`
 - `GET /api/reporting/statuses/` → `StatusOption[]`
-- `GET /api/reporting/entities/` → `EntityOption[]`
+- `GET /api/reporting/partnerships/` → `PartnershipOption[]`
 
 ### Report Data
 - `GET /api/reporting/summary/?{filters}` → `ReportSummary`

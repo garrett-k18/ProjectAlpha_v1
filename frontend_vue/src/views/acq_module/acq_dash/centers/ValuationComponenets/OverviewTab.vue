@@ -49,10 +49,10 @@
                 {{ asset.sellertape_id || '-' }}
               </div>
             </td>
-            <!-- WHAT: Entire address block is clickable as one unit -->
-            <!-- WHY: Better UX - single click area for the whole address -->
+            <!-- WHAT: Address block displayed as read-only text (non-clickable) -->
+            <!-- WHY: Loan number now serves as the only modal trigger -->
             <td>
-              <div class="address-container" @click="emit('openLoanModal', asset)">
+              <div class="address-container">
                 <div class="fw-semibold">
                   {{ formatAddress(asset) }}
                 </div>
@@ -579,15 +579,15 @@ function statusBadgeClass(status: string): string {
   text-decoration: underline;
 }
 
-/* WHAT: Address container - entire address block is clickable as one unit */
-/* WHY: Better UX with single click area, blue text indicates it's interactive */
+/* WHAT: Address container - read-only display */
+/* WHY: Loan number retains exclusive modal access */
 .address-container {
-  cursor: pointer;
-  color: #3577f1;
+  cursor: default;
+  color: inherit;
 }
 
 .address-container:hover {
-  text-decoration: underline;
+  text-decoration: none;
 }
 
 .third-party-link {

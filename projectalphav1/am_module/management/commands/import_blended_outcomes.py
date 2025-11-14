@@ -19,7 +19,7 @@ from django.db import transaction
 from django.db.models import Field
 
 from am_module.models.boarded_data import BlendedOutcomeModel
-from core.models.asset_id_hub import AssetIdHub
+from core.models.model_co_assetIdHub import AssetIdHub
 
 logger = logging.getLogger(__name__)  # WHAT: Module-level logger for structured logging support.
 

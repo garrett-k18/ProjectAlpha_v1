@@ -18,7 +18,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.db.models import Field
 
-from core.models.asset_id_hub import AssetIdHub
+from core.models.model_co_assetIdHub import AssetIdHub
 from core.models.valuations import Valuation
 
 # WHAT: Null tokens accepted across all converters to treat common CSV placeholders as empty.
