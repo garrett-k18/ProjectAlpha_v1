@@ -7,7 +7,7 @@ Split-screen analytics dashboard with asymmetric layout (25% sidebar / 75% main 
 **Route:** `/reporting`
 
 **Features:**
-- Persistent filter sidebar with primary dimensions (Trade, Status, Fund, Entity)
+- Persistent filter sidebar with primary dimensions (Trade, Status, Entity)
 - Large chart area with interactive visualizations
 - Progressive disclosure: Summary → Report Views → Deep Dives
 - Click-through drill-downs from any chart
@@ -53,8 +53,7 @@ frontend_vue/src/views/dashboards/reporting/
 ### Primary Filters (Front & Center)
 - **Trade** (`selectedTradeIds`) - Single or multi-select by trade
 - **Status** (`selectedStatuses`) - Multi-select (DD, AWARDED, PASS, BOARD)
-- **Fund** (`selectedFundId`) - Single fund selection
-- **Entity** (`selectedEntityId`) - Single legal entity selection
+- **Entity** (`selectedEntityIds`) - Multi-select of legal entities (Funds, GP LLCs, SPVs)
 
 ### Secondary Filters
 - **Date Range** (`dateRangeStart`, `dateRangeEnd`) - ISO date strings
@@ -71,7 +70,6 @@ frontend_vue/src/views/dashboards/reporting/
 // Load dropdown options
 fetchTradeOptions(force?: boolean)
 fetchStatusOptions(force?: boolean)
-fetchFundOptions(force?: boolean)
 fetchEntityOptions(force?: boolean)
 
 // Load report data
@@ -234,7 +232,6 @@ The frontend is ready and uses placeholder data. Wire these endpoints:
 ### Filter Options
 - `GET /api/reporting/trades/` → `TradeOption[]`
 - `GET /api/reporting/statuses/` → `StatusOption[]`
-- `GET /api/reporting/funds/` → `FundOption[]`
 - `GET /api/reporting/entities/` → `EntityOption[]`
 
 ### Report Data
@@ -247,7 +244,7 @@ The frontend is ready and uses placeholder data. Wire these endpoints:
 
 **Query Params Format:**
 ```
-?trade_ids=1,2,3&statuses=DD,AWARDED&fund_id=5&entity_id=2&start_date=2024-01-01&end_date=2024-12-31
+?trade_ids=1,2,3&statuses=DD,AWARDED&entity_ids=2,5&start_date=2024-01-01&end_date=2024-12-31
 ```
 
 ---
@@ -312,7 +309,7 @@ ANALYTICAL VIEWS
 - **Progressive disclosure** - Start broad (summary) → drill into specifics (modals)
 
 ### Why Primary Filters?
-- **Trade/Status/Fund/Entity** are the most common business groupings
+- **Trade/Status/Entity** are the most common business groupings
 - Front-and-center placement reduces clicks
 - Multi-select status enables cohort analysis
 
@@ -355,7 +352,7 @@ ANALYTICAL VIEWS
 
 ## Testing Checklist
 
-- [ ] All primary filters (Trade/Status/Fund/Entity) functional
+- [ ] All primary filters (Trade/Status/Entity) functional
 - [ ] View switching works (8 views total)
 - [ ] Chart click events trigger drill-down modal
 - [ ] Export button displays message (implementation pending)

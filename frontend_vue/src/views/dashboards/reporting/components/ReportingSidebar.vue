@@ -116,41 +116,6 @@
           <div v-if="errorTaskStatuses" class="text-danger small mt-1">{{ errorTaskStatuses }}</div>
         </div>
 
-        <!-- Multi-select Funds -->
-        <div class="mb-3">
-          <label class="form-label fw-semibold">
-            <i class="mdi mdi-wallet-outline me-1"></i>
-            Funds
-          </label>
-          <div class="dropdown-multiselect">
-            <button 
-              class="btn btn-outline-secondary btn-sm w-100 text-start d-flex justify-content-between align-items-center"
-              type="button"
-              @click="toggleDropdown('funds')"
-            >
-              <span>{{ selectedFundsLabel }}</span>
-              <i class="mdi mdi-chevron-down"></i>
-            </button>
-            <div v-if="showFundsDropdown" class="dropdown-menu-custom show" @click.stop>
-              <div class="dropdown-item-custom" v-for="fund in fundOptions" :key="fund.id">
-                <input
-                  type="checkbox"
-                  :id="`fund-${fund.id}`"
-                  :value="fund.id"
-                  v-model="localFundIds"
-                  class="form-check-input me-2"
-                />
-                <label :for="`fund-${fund.id}`" class="form-check-label">
-                  {{ fund.name }}
-                </label>
-              </div>
-              <div v-if="fundOptions.length === 0" class="text-muted small p-2">
-                {{ loadingFunds ? 'Loading...' : 'No funds available' }}
-              </div>
-            </div>
-          </div>
-        </div>
-
         <!-- Multi-select Entities -->
         <div class="mb-3">
           <label class="form-label fw-semibold">
@@ -176,7 +141,14 @@
                   class="form-check-input me-2"
                 />
                 <label :for="`entity-${entity.id}`" class="form-check-label">
+                  <span class="badge rounded-pill bg-light text-dark me-2 text-uppercase small">
+                    {{ entity.entity_type_label }}
+                  </span>
                   {{ entity.name }}
+                  <span v-if="entity.fund_name" class="text-muted small"> · {{ entity.fund_name }}</span>
+                  <span v-if="entity.owned_asset_count" class="text-muted small ms-1">
+                    ({{ entity.owned_asset_count }} assets)
+                  </span>
                 </label>
               </div>
               <div v-if="entityOptions.length === 0" class="text-muted small p-2">
@@ -339,22 +311,20 @@ const {
   selectedTradeIds,
   selectedTracks,
   selectedTaskStatuses,
+  selectedEntityIds,
   dateRangeStart,
   dateRangeEnd,
   tradeOptions,
   trackOptions,
   taskStatusOptions,
-  fundOptions,
   entityOptions,
   loadingTrades,
   loadingTracks,
   loadingTaskStatuses,
-  loadingFunds,
   loadingEntities,
   errorTrades,
   errorTracks,
   errorTaskStatuses,
-  errorFunds,
   errorEntities,
   hasActiveFilters,
 } = storeToRefs(reportingStore)
@@ -364,7 +334,6 @@ const {
 const localTradeIds = ref<number[]>([])
 const localTracks = ref<string[]>([])
 const localTaskStatuses = ref<string[]>([])
-const localFundIds = ref<number[]>([])
 const localEntityIds = ref<number[]>([])
 const localDateStart = ref<string | null>(null)
 const localDateEnd = ref<string | null>(null)
@@ -374,15 +343,15 @@ const localDateEnd = ref<string | null>(null)
 const showTradesDropdown = ref<boolean>(false)
 const showTracksDropdown = ref<boolean>(false)
 const showTasksDropdown = ref<boolean>(false)
-const showFundsDropdown = ref<boolean>(false)
 const showEntitiesDropdown = ref<boolean>(false)
 
 // **WHAT**: Sync local state with store on mount
 // **WHY**: Initialize local filters from store state
-watch([selectedTradeIds, selectedTracks, selectedTaskStatuses, dateRangeStart, dateRangeEnd], () => {
+watch([selectedTradeIds, selectedTracks, selectedTaskStatuses, selectedEntityIds, dateRangeStart, dateRangeEnd], () => {
   localTradeIds.value = [...selectedTradeIds.value]
   localTracks.value = [...selectedTracks.value]
   localTaskStatuses.value = [...selectedTaskStatuses.value]
+  localEntityIds.value = [...selectedEntityIds.value]
   localDateStart.value = dateRangeStart.value
   localDateEnd.value = dateRangeEnd.value
 }, { immediate: true })
@@ -393,12 +362,11 @@ const hasChanges = computed(() => {
   const tradesChanged = JSON.stringify([...selectedTradeIds.value].sort()) !== JSON.stringify([...localTradeIds.value].sort())
   const tracksChanged = JSON.stringify([...selectedTracks.value].sort()) !== JSON.stringify([...localTracks.value].sort())
   const tasksChanged = JSON.stringify([...selectedTaskStatuses.value].sort()) !== JSON.stringify([...localTaskStatuses.value].sort())
-  const fundsChanged = JSON.stringify([...localFundIds.value].sort()) !== JSON.stringify([].sort())
-  const entitiesChanged = JSON.stringify([...localEntityIds.value].sort()) !== JSON.stringify([].sort())
+  const entitiesChanged = JSON.stringify([...selectedEntityIds.value].sort()) !== JSON.stringify([...localEntityIds.value].sort())
   const dateStartChanged = dateRangeStart.value !== localDateStart.value
   const dateEndChanged = dateRangeEnd.value !== localDateEnd.value
   
-  return tradesChanged || tracksChanged || tasksChanged || fundsChanged || entitiesChanged || dateStartChanged || dateEndChanged
+  return tradesChanged || tracksChanged || tasksChanged || entitiesChanged || dateStartChanged || dateEndChanged
 })
 
 // **WHAT**: Computed label for selected trades
@@ -434,17 +402,6 @@ const selectedTasksLabel = computed(() => {
   return `${localTaskStatuses.value.length} selected`
 })
 
-// **WHAT**: Computed label for selected funds
-// **WHY**: Show count or "All Funds" in dropdown button
-const selectedFundsLabel = computed(() => {
-  if (localFundIds.value.length === 0) return 'All Funds'
-  if (localFundIds.value.length === 1) {
-    const fund = fundOptions.value.find(f => f.id === localFundIds.value[0])
-    return fund?.name || '1 selected'
-  }
-  return `${localFundIds.value.length} selected`
-})
-
 // **WHAT**: Computed label for selected entities
 // **WHY**: Show count or "All Entities" in dropdown button
 const selectedEntitiesLabel = computed(() => {
@@ -456,13 +413,10 @@ const selectedEntitiesLabel = computed(() => {
   return `${localEntityIds.value.length} selected`
 })
 
-// **WHAT**: Toggle dropdown visibility
-// **WHY**: Open/close multi-select dropdowns, close others
-function toggleDropdown(type: 'trades' | 'tracks' | 'tasks' | 'funds' | 'entities'): void {
+function toggleDropdown(type: 'trades' | 'tracks' | 'tasks' | 'entities'): void {
   showTradesDropdown.value = type === 'trades' ? !showTradesDropdown.value : false
   showTracksDropdown.value = type === 'tracks' ? !showTracksDropdown.value : false
   showTasksDropdown.value = type === 'tasks' ? !showTasksDropdown.value : false
-  showFundsDropdown.value = type === 'funds' ? !showFundsDropdown.value : false
   showEntitiesDropdown.value = type === 'entities' ? !showEntitiesDropdown.value : false
 }
 
@@ -472,6 +426,7 @@ function applyFilters(): void {
   selectedTradeIds.value = [...localTradeIds.value]
   selectedTracks.value = [...localTracks.value]
   selectedTaskStatuses.value = [...localTaskStatuses.value]
+  selectedEntityIds.value = [...localEntityIds.value]
   dateRangeStart.value = localDateStart.value
   dateRangeEnd.value = localDateEnd.value
   
@@ -479,7 +434,6 @@ function applyFilters(): void {
   showTradesDropdown.value = false
   showTracksDropdown.value = false
   showTasksDropdown.value = false
-  showFundsDropdown.value = false
   showEntitiesDropdown.value = false
   
   emit('filters-change')
@@ -491,7 +445,6 @@ function resetFilters(): void {
   localTradeIds.value = []
   localTracks.value = []
   localTaskStatuses.value = []
-  localFundIds.value = []
   localEntityIds.value = []
   localDateStart.value = null
   localDateEnd.value = null

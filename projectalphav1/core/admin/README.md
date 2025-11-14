@@ -92,7 +92,7 @@ from .commercial_admin import *
 # core/admin/capital_admin.py
 """
 from django.contrib import admin
-from core.models import DebtFacility, CoInvestor, Fund
+from core.models import DebtFacility, CoInvestor, Entity
 
 @admin.register(DebtFacility)
 class DebtFacilityAdmin(admin.ModelAdmin):

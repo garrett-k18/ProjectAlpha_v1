@@ -122,46 +122,21 @@ class TaskStatusOptionSerializer(serializers.Serializer):
     count = serializers.IntegerField(required=False)
 
 
-class FundOptionSerializer(serializers.Serializer):
-    """
-    WHAT: Field definitions for fund filter dropdown options
-    WHY: Define what fund data the sidebar receives
-    WHERE: Used by /api/reporting/funds/ endpoint
-    
-    TODO: Update once Fund model is created
-    
-    FIELDS:
-    - id: Fund ID
-    - name: Fund name
-    - code: Fund code (short identifier)
-    """
-    # WHAT: Unique fund identifier
-    # WHY: Used in filter query params (fund_id=5)
-    id = serializers.IntegerField()
-    
-    # WHAT: Fund name
-    # WHY: Display in dropdown
-    # SOURCE: Fund.name (TODO: once Fund model exists)
-    name = serializers.CharField()
-    
-    # WHAT: Fund code (short identifier like "FUND-I")
-    # WHY: Compact display in UI
-    # SOURCE: Fund.code (TODO: once Fund model exists)
-    code = serializers.CharField(required=False, allow_blank=True)
-
-
 class EntityOptionSerializer(serializers.Serializer):
     """
     WHAT: Field definitions for entity filter dropdown options
-    WHY: Define what entity data the sidebar receives
+    WHY: Define what entity data the sidebar receives (now primary fund/ownership filter)
     WHERE: Used by /api/reporting/entities/ endpoint
-    
-    TODO: Update once Entity model is created
     
     FIELDS:
     - id: Entity ID
-    - name: Entity name
-    - entity_type: Type (LLC, LP, Corporation, etc.)
+    - name: Legal entity name
+    - entity_type: Raw DB choice (fund, spv, llc, etc.)
+    - entity_type_label: Human-readable label ("Fund", "SPV", etc.)
+    - is_active: Whether entity is active
+    - fund_id/fund_name/fund_status/fund_status_label: Optional Fund metadata if linked
+    - owned_asset_count: Number of active assets owned directly
+    - owned_entity_count: Number of active downstream entities (SPVs, etc.)
     """
     # WHAT: Unique entity identifier
     # WHY: Used in filter query params (entity_id=2)
@@ -169,11 +144,54 @@ class EntityOptionSerializer(serializers.Serializer):
     
     # WHAT: Entity legal name
     # WHY: Display in dropdown
-    # SOURCE: Entity.name (TODO: once Entity model exists)
+    # SOURCE: Entity.name
     name = serializers.CharField()
     
     # WHAT: Entity type (LLC, LP, Corporation, etc.)
     # WHY: Show entity structure in dropdown
-    # SOURCE: Entity.entity_type (TODO: once Entity model exists)
-    entity_type = serializers.CharField(required=False, allow_blank=True)
+    # SOURCE: Entity.entity_type
+    entity_type = serializers.CharField()
+    
+    # WHAT: Human-readable label for entity type
+    # WHY: Show "Fund" instead of "fund"
+    entity_type_label = serializers.CharField()
+    
+    # WHAT: Active flag
+    # WHY: Surface entity availability in UI
+    is_active = serializers.BooleanField()
+    
+    # WHAT: Linked fund metadata (optional)
+    fund_id = serializers.IntegerField(required=False, allow_null=True)
+    fund_name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    fund_status = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    fund_status_label = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    
+    # WHAT: Ownership counts
+    owned_asset_count = serializers.IntegerField(required=False)
+    owned_entity_count = serializers.IntegerField(required=False)
+
+
+class FundOptionSerializer(serializers.Serializer):
+    """
+    WHAT: Field definitions for fund filter dropdown options
+    WHY: Legacy filter contract; still imported by views even while we migrate to entity-only filters
+    WHERE: Used by /api/reporting/funds/ endpoint (kept for backward compatibility)
+
+    FIELDS:
+    - id: Fund ID
+    - fund_name: Name displayed to the user
+    - fund_type / fund_status: Raw value codes from Fund model
+    - fund_type_label / fund_status_label: Human readable versions
+    - entity_id / entity_name: Optional link to new Entity model
+    - membership_count: Number of FundMembership rows (GPs + LPs)
+    """
+    id = serializers.IntegerField()
+    fund_name = serializers.CharField()
+    fund_type = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    fund_type_label = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    fund_status = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    fund_status_label = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    entity_id = serializers.IntegerField(required=False, allow_null=True)
+    entity_name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    membership_count = serializers.IntegerField(required=False)
 

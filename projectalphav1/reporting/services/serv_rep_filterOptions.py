@@ -2,9 +2,9 @@
 Service: Filter Options
 
 WHAT: Business logic for fetching filter dropdown options
-WHY: Populate sidebar filter dropdowns (Trades, Statuses, Funds, Entities)
+WHY: Populate sidebar filter dropdowns (Trades, Statuses, Entities)
 WHERE: Imported by view_rep_filters.py
-HOW: Query Trade, Fund, Entity models for dropdown data
+HOW: Query Trade + Entity models for dropdown data
 
 FILE NAMING: serv_rep_filterOptions.py
 - serv_ = Services folder
@@ -17,11 +17,14 @@ View → This Service → Model
 Docs reviewed:
 - Django QuerySet: https://docs.djangoproject.com/en/stable/ref/models/querysets/
 - Django values(): https://docs.djangoproject.com/en/stable/ref/models/querysets/#values
+- Django aggregation docs for Count annotations:
+  https://docs.djangoproject.com/en/stable/topics/db/aggregation/
 """
 
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from django.db.models import Count, Q, F
-from acq_module.models.model_acq_seller import Trade, Seller
+from acq_module.models.model_acq_seller import Trade
+from core.models import Entity
 
 
 def get_trade_options_data() -> List[Dict[str, Any]]:
@@ -253,84 +256,62 @@ def get_task_status_options_data(track: Optional[str] = None) -> List[Dict[str, 
     return results
 
 
-def get_fund_options_data() -> List[Dict[str, Any]]:
-    """
-    WHAT: Get all funds for filter dropdown
-    WHY: Populate fund filter
-    HOW: Query Fund model (when available)
-    
-    RETURNS: List of fund option dicts
-        [
-            {
-                'id': 1,
-                'name': 'Fund I - Core Real Estate',
-                'code': 'FUND-I',
-            },
-            ...
-        ]
-    
-    TODO: Implement once Fund model is created and FK added to Trade or AssetHub
-    
-    USAGE in view:
-        fund_options = get_fund_options_data()
-        return Response(fund_options)
-    """
-    # TODO: Replace with actual Fund model query
-    # from core.models import Fund
-    # funds = (
-    #     Fund.objects
-    #     .values('id', 'name', 'code')
-    #     .order_by('name')
-    # )
-    # return list(funds)
-    
-    # WHAT: Placeholder data for testing
-    # WHY: Allow frontend development while Fund model is being built
-    # TODO: Remove once Fund model exists
-    return [
-        {'id': 1, 'name': 'Fund I - Core Real Estate', 'code': 'FUND-I'},
-        {'id': 2, 'name': 'Fund II - Opportunistic', 'code': 'FUND-II'},
-        {'id': 3, 'name': 'Fund III - Value-Add', 'code': 'FUND-III'},
-    ]
-
-
 def get_entity_options_data() -> List[Dict[str, Any]]:
     """
-    WHAT: Get all legal entities for filter dropdown
-    WHY: Populate entity filter
-    HOW: Query Entity model (when available)
+    WHAT: Get all legal entities (Funds, GP LLCs, SPVs, etc.) for dropdown
+    WHY: Entities are now the single source of truth for ownership filtering
+    HOW: Query Entity with membership annotations (fund, GP/LP, nested ownership)
     
     RETURNS: List of entity option dicts
         [
             {
                 'id': 1,
-                'name': 'Alpha Capital LLC',
-                'entity_type': 'LLC',
+                'name': 'Alpha Fund LP',
+                'entity_type': 'fund',
+                'entity_type_label': 'Fund',
+                'is_active': True,
+                'fund_id': 5,
+                'fund_name': 'Fund I - Core',
+                'fund_status': 'active',
+                'fund_status_label': 'Active/Investing',
+                'owned_asset_count': 42,
+                'owned_entity_count': 3,
             },
             ...
         ]
-    
-    TODO: Implement once Entity model is created and FK added to Trade or AssetHub
     
     USAGE in view:
         entity_options = get_entity_options_data()
         return Response(entity_options)
     """
-    # TODO: Replace with actual Entity model query
-    # from core.models import Entity
-    # entities = (
-    #     Entity.objects
-    #     .values('id', 'name', 'entity_type')
-    #     .order_by('name')
-    # )
-    # return list(entities)
+    entities = (
+        Entity.objects
+        .annotate(
+            owned_entity_count=Count(
+                'child_members',
+                filter=Q(child_members__is_active=True),
+                distinct=True,
+            ),
+        )
+        .order_by('name')
+    )
     
-    # WHAT: Placeholder data for testing
-    # WHY: Allow frontend development while Entity model is being built
-    # TODO: Remove once Entity model exists
-    return [
-        {'id': 1, 'name': 'Alpha Capital LLC', 'entity_type': 'LLC'},
-        {'id': 2, 'name': 'Beta Properties LP', 'entity_type': 'LP'},
-        {'id': 3, 'name': 'Gamma Investments Corp', 'entity_type': 'Corporation'},
-    ]
+    results: List[Dict[str, Any]] = []
+    for entity in entities:
+        is_fund = entity.entity_type == Entity.EntityType.FUND
+        results.append({
+            'id': entity.id,
+            'name': entity.name,
+            'entity_type': entity.entity_type,
+            'entity_type_label': entity.get_entity_type_display(),
+            'is_active': entity.is_active,
+            'fund_id': entity.id if is_fund else None,
+            'fund_name': entity.name if is_fund else None,
+            'fund_status': None,
+            'fund_status_label': None,
+            'owned_asset_count': 0,  # Placeholder until asset-level ownership migrates to Entities
+            'owned_entity_count': entity.owned_entity_count,
+        })
+    
+    return results
 

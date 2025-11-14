@@ -36,20 +36,20 @@ export interface TaskStatusOption {
   count?: number // Optional: show count of assets with this task
 }
 
-// **WHAT**: Fund option interface for fund-level reporting
-// **WHY**: Group reports by investment fund/vehicle
-export interface FundOption {
-  id: number
-  name: string
-  code?: string // Optional: short code like "FUND-I", "FUND-II"
-}
-
 // **WHAT**: Entity option interface for legal entity filtering
 // **WHY**: Report by legal entity (LLC, LP, etc.) for compliance/accounting
 export interface EntityOption {
   id: number
   name: string
-  entity_type?: string // Optional: LLC, LP, Corporation, etc.
+  entity_type: string
+  entity_type_label: string
+  is_active: boolean
+  fund_id?: number | null
+  fund_name?: string | null
+  fund_status?: string | null
+  fund_status_label?: string | null
+  owned_asset_count?: number
+  owned_entity_count?: number
 }
 
 // **WHAT**: Report summary data interface
@@ -89,13 +89,9 @@ export const useReportingStore = defineStore('reporting', () => {
   // **WHY**: Filter by active task types (eviction, trashout, nod_noi, etc.)
   const selectedTaskStatuses = ref<string[]>([])
   
-  // **WHAT**: Selected fund ID - single select
-  // **WHY**: Show data for a specific investment fund
-  const selectedFundId = ref<number | null>(null)
-  
-  // **WHAT**: Selected entity ID - single select
-  // **WHY**: Filter by legal entity for accounting purposes
-  const selectedEntityId = ref<number | null>(null)
+  // **WHAT**: Selected entity IDs - multi-select
+  // **WHY**: Filter by legal entities (fund wrappers, GP LLCs, SPVs)
+  const selectedEntityIds = ref<number[]>([])
   
   // ---------------------------------------------------------------------------
   // SECONDARY FILTERS
@@ -117,21 +113,18 @@ export const useReportingStore = defineStore('reporting', () => {
   const tradeOptions = ref<TradeOption[]>([])
   const trackOptions = ref<TrackOption[]>([])
   const taskStatusOptions = ref<TaskStatusOption[]>([])
-  const fundOptions = ref<FundOption[]>([])
   const entityOptions = ref<EntityOption[]>([])
   
   // Loading states for each filter
   const loadingTrades = ref<boolean>(false)
   const loadingTracks = ref<boolean>(false)
   const loadingTaskStatuses = ref<boolean>(false)
-  const loadingFunds = ref<boolean>(false)
   const loadingEntities = ref<boolean>(false)
   
   // Error states
   const errorTrades = ref<string | null>(null)
   const errorTracks = ref<string | null>(null)
   const errorTaskStatuses = ref<string | null>(null)
-  const errorFunds = ref<string | null>(null)
   const errorEntities = ref<string | null>(null)
   
   // ---------------------------------------------------------------------------
@@ -173,8 +166,7 @@ export const useReportingStore = defineStore('reporting', () => {
       selectedTradeIds.value.length > 0 ||
       selectedTracks.value.length > 0 ||
       selectedTaskStatuses.value.length > 0 ||
-      selectedFundId.value !== null ||
-      selectedEntityId.value !== null
+      selectedEntityIds.value.length > 0
     )
   })
   
@@ -192,11 +184,8 @@ export const useReportingStore = defineStore('reporting', () => {
     if (selectedTaskStatuses.value.length > 0) {
       params.append('task_statuses', selectedTaskStatuses.value.join(','))
     }
-    if (selectedFundId.value !== null) {
-      params.append('fund_id', String(selectedFundId.value))
-    }
-    if (selectedEntityId.value !== null) {
-      params.append('entity_id', String(selectedEntityId.value))
+    if (selectedEntityIds.value.length > 0) {
+      params.append('entity_ids', selectedEntityIds.value.join(','))
     }
     if (dateRangeStart.value) {
       params.append('start_date', dateRangeStart.value)
@@ -296,33 +285,6 @@ export const useReportingStore = defineStore('reporting', () => {
       taskStatusOptions.value = []
     } finally {
       loadingTaskStatuses.value = false
-    }
-  }
-  
-  /**
-   * **WHAT**: Fetch fund options for filter dropdown
-   * **WHY**: Populate fund selector
-   * **WHERE**: Called on dashboard mount
-   * **HOW**: GET /api/reporting/funds/ (Backend endpoint ready!)
-   */
-  async function fetchFundOptions(force: boolean = false): Promise<void> {
-    if (!force && fundOptions.value.length > 0) return
-    
-    loadingFunds.value = true
-    errorFunds.value = null
-    
-    try {
-      // WHAT: Call reporting funds endpoint
-      // ENDPOINT: GET /api/reporting/funds/
-      const response = await http.get<FundOption[]>('/reporting/funds/')
-      fundOptions.value = response.data
-      console.log('[ReportingStore] Loaded funds:', response.data.length)
-    } catch (error: any) {
-      console.error('[ReportingStore] fetchFundOptions error:', error)
-      errorFunds.value = error.message || 'Failed to load funds'
-      fundOptions.value = []
-    } finally {
-      loadingFunds.value = false
     }
   }
   
@@ -450,8 +412,7 @@ export const useReportingStore = defineStore('reporting', () => {
     selectedTradeIds.value = []
     selectedTracks.value = []
     selectedTaskStatuses.value = []
-    selectedFundId.value = null
-    selectedEntityId.value = null
+    selectedEntityIds.value = []
     dateRangeStart.value = null
     dateRangeEnd.value = null
   }
@@ -473,7 +434,6 @@ export const useReportingStore = defineStore('reporting', () => {
       fetchTradeOptions(true),
       fetchTrackOptions(true),
       fetchTaskStatusOptions(undefined, true),
-      fetchFundOptions(true),
       fetchEntityOptions(true),
     ])
   }
@@ -487,25 +447,21 @@ export const useReportingStore = defineStore('reporting', () => {
     selectedTradeIds,
     selectedTracks,
     selectedTaskStatuses,
-    selectedFundId,
-    selectedEntityId,
+    selectedEntityIds,
     dateRangeStart,
     dateRangeEnd,
     currentView,
     tradeOptions,
     trackOptions,
     taskStatusOptions,
-    fundOptions,
     entityOptions,
     loadingTrades,
     loadingTracks,
     loadingTaskStatuses,
-    loadingFunds,
     loadingEntities,
     errorTrades,
     errorTracks,
     errorTaskStatuses,
-    errorFunds,
     errorEntities,
     reportSummary,
     loadingSummary,
@@ -526,7 +482,6 @@ export const useReportingStore = defineStore('reporting', () => {
     fetchTradeOptions,
     fetchTrackOptions,
     fetchTaskStatusOptions,
-    fetchFundOptions,
     fetchEntityOptions,
     fetchReportSummary,
     fetchChartData,

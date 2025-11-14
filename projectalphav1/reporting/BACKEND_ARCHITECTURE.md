@@ -239,8 +239,7 @@ GROUP BY trade_id, trade.trade_name
 - `build_base_queryset()` - Optimized base query with joins
 - `apply_trade_filter()` - Filter by trade IDs
 - `apply_status_filter()` - Filter by statuses
-- `apply_fund_filter()` - Filter by fund
-- `apply_entity_filter()` - Filter by entity
+- `apply_entity_filter()` - Filter by entity (now the single ownership filter)
 - `apply_date_range_filter()` - Filter by date range
 - `build_reporting_queryset()` - Apply ALL filters
 - `parse_filter_params()` - Parse query params
@@ -251,7 +250,6 @@ GROUP BY trade_id, trade.trade_name
 - `calculate_summary_metrics()` - Top bar KPIs
 - `group_by_trade()` - GROUP BY trade with metrics
 - `group_by_status()` - GROUP BY status with metrics
-- `group_by_fund()` - GROUP BY fund (TODO)
 - `group_by_entity()` - GROUP BY entity (TODO)
 
 ### **serv_rep_byTrade.py** (Report-Specific)
@@ -426,8 +424,7 @@ GET /api/reporting/by-trade/grid/?trade_ids=1,2,3&statuses=DD,AWARDED&start_date
 {
     'trade_ids': [1, 2, 3],              # List[int]
     'statuses': ['DD', 'AWARDED'],       # List[str]
-    'fund_id': 5,                        # int | None
-    'entity_id': 2,                      # int | None
+    'entity_ids': [2, 5],                # List[int]
     'start_date': '2024-01-01',          # str | None
     'end_date': '2024-12-31',            # str | None
     'q': 'search text',                  # str | None (quick search)
@@ -459,7 +456,6 @@ urlpatterns = [
     # Filter Options
     path('trades/', get_trade_options, name='trade-options'),
     path('statuses/', get_status_options, name='status-options'),
-    path('funds/', get_fund_options, name='fund-options'),
     path('entities/', get_entity_options, name='entity-options'),
 ]
 ```
@@ -479,8 +475,7 @@ GET /api/reporting/by-trade/grid/?trade_ids=1,2,3&statuses=DD,AWARDED
 // Get filter options
 GET /api/reporting/trades/        // List of all trades
 GET /api/reporting/statuses/      // List of all statuses
-GET /api/reporting/funds/         // List of all funds
-GET /api/reporting/entities/      // List of all entities
+GET /api/reporting/entities/      // List of all entities (Funds + SPVs + GP LLCs)
 ```
 
 ---

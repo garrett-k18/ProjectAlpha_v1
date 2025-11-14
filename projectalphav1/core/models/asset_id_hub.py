@@ -66,6 +66,39 @@ class AssetIdHub(models.Model):
         # Fall back to inference
         return self._infer_is_commercial()
 
+
+class AssetDetails(models.Model):
+    """Minimal asset details linking AssetIdHub to a fund/legal entity."""
+
+    asset = models.OneToOneField(
+        AssetIdHub,
+        on_delete=models.CASCADE,
+        primary_key=True,
+        related_name='details',
+        help_text="Asset this detail row belongs to"
+    )
+
+    fund_legal_entity = models.ForeignKey(
+        'core.FundLegalEntity',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='asset_assignments',
+        help_text="Fund/Entity associated with this asset"
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "asset_details"
+        verbose_name = "Asset Detail"
+        verbose_name_plural = "Asset Details"
+
+    def __str__(self):
+        label = self.fund_legal_entity or "Unassigned"
+        return f"{label} → Asset {self.asset_id}"
+
     def save(self, *args, **kwargs):
         """Override save to auto-infer category when not explicitly set.
 

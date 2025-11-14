@@ -55,8 +55,11 @@ class CustomAdminSite(admin.AdminSite):
                 # Split core models into logical groups
                 capital_models = [
                     m for m in app_dict['models']
-                    if m['name'] in ['DebtFacility', 'CoInvestor', 'InvestorContribution', 
-                                    'InvestorDistribution', 'Fund']
+                    if m['name'] in [
+                        'DebtFacility', 'CoInvestor', 'InvestorContribution',
+                        'InvestorDistribution', 'Entity', 'FundLegalEntity',
+                        'FundMembership', 'EntityMembership'
+                    ]
                 ]
                 crm_models = [
                     m for m in app_dict['models']
@@ -70,7 +73,8 @@ class CustomAdminSite(admin.AdminSite):
                 assets_models = [
                     m for m in app_dict['models']
                     if m['name'] not in ['DebtFacility', 'CoInvestor', 'InvestorContribution',
-                                        'InvestorDistribution', 'Fund', 'MasterCRM',
+                                        'InvestorDistribution', 'Entity', 'FundLegalEntity',
+                                        'FundMembership', 'EntityMembership', 'MasterCRM',
                                         'Servicer', 'StateReference', 'FCStatus',
                                         'FCTimelines', 'CommercialUnits', 'HOAAssumption']
                 ]

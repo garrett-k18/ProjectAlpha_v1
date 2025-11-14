@@ -1,7 +1,11 @@
 # All models moved to core for hub-first architecture
-from .model_co_capStack import DebtFacility, JVEquityPartner, CoInvestor, InvestorContribution, InvestorDistribution, Fund, LegalEntity, Ownership
+from .model_co_capStack import (
+    DebtFacility, CoInvestor, InvestorContribution, InvestorDistribution,
+    # New fund administration models
+    Entity, FundLegalEntity, FundMembership, EntityMembership
+)
 from .model_co_crm import MasterCRM, BrokerMSAAssignment
-from .asset_id_hub import AssetIdHub
+from .asset_id_hub import AssetIdHub, AssetDetails
 from .model_co_geoAssumptions import StateReference, CountyReference, MSAReference, ZIPReference
 from .model_co_assumptions import Servicer, FCStatus, FCTimelines, CommercialUnits, HOAAssumption, PropertyTypeAssumption, SquareFootageAssumption, UnitBasedAssumption
 from .model_co_lookupTables import PropertyType
@@ -17,15 +21,17 @@ from .model_co_generalLedger import GeneralLedgerEntries, ChartOfAccounts
 
 __all__ = [
     'DebtFacility',
-    'JVEquityPartner',
     'CoInvestor',
     'InvestorContribution',
     'InvestorDistribution',
-    'Fund',
-    'LegalEntity',
-    'Ownership',
+    # New fund administration models
+    'Entity',
+    'FundLegalEntity',
+    'FundMembership',
+    'EntityMembership',
     'MasterCRM',
     'AssetIdHub',
+    'AssetDetails',
     'Servicer',
     'StateReference',
     'CountyReference',

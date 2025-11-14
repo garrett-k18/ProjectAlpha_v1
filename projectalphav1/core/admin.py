@@ -5,15 +5,17 @@ from django.urls import reverse
 from urllib.parse import quote
 from core.models import (
     DebtFacility,
-    JVEquityPartner,  # DEPRECATED - no admin registration
     CoInvestor,
     InvestorContribution,
     InvestorDistribution,
-    Fund,
-    LegalEntity,
-    Ownership,
+    # New fund administration models
+    Entity,
+    FundLegalEntity,
+    FundMembership,
+    EntityMembership,
     MasterCRM,
     AssetIdHub,
+    AssetDetails,
     Servicer,
     StateReference,
     CountyReference,
@@ -47,6 +49,22 @@ from core.models import (
 
 # Cross-app children that reference AssetIdHub
 from acq_module.models.model_acq_seller import SellerRawData
+# Asset Details admin
+@admin.register(AssetDetails)
+class AssetDetailsAdmin(admin.ModelAdmin):
+    """Admin configuration for AssetDetails model linking assets to fund legal entities."""
+    list_display = ("asset", "fund_legal_entity", "created_at", "updated_at")
+    search_fields = ("asset__id", "fund_legal_entity__legal_name")
+    autocomplete_fields = ["asset", "fund_legal_entity"]
+    readonly_fields = ("created_at", "updated_at")
+    fieldsets = (
+        ("Links", {
+            "fields": ("asset", "fund_legal_entity")
+        }),
+        ("Audit", {
+            "fields": ("created_at", "updated_at")
+        }),
+    )
 # DEPRECATED: SellerBoardedData - use SellerRawData instead
 # from am_module.models.boarded_data import SellerBoardedData, BlendedOutcomeModel
 from am_module.models.boarded_data import BlendedOutcomeModel
@@ -190,185 +208,223 @@ class InvestorDistributionAdmin(admin.ModelAdmin):
     get_investor_name.short_description = 'Investor'
 
 
-@admin.register(Fund)
-class FundAdmin(admin.ModelAdmin):
-    """Admin configuration for Fund model.
+# =============================================================================
+# NEW FUND ADMINISTRATION ADMIN CLASSES
+# =============================================================================
+
+
+@admin.register(Entity)
+class EntityAdmin(admin.ModelAdmin):
+    """Admin configuration for Entity model.
     
-    What: Investment fund/vehicle management.
-    Why: Track fund lifecycle, capital structure, and performance.
-    How: Displays key metrics with computed capital called percentage.
+    What: Manage all entities (individuals, LLCs, trusts, etc.)
+    Why: Universal entity tracking for fund administration
+    How: Display entity details with search and filtering
     """
     list_display = (
-        "fund_name",
-        "fund_type",
-        "fund_status",
-        "inception_date",
-        "target_fund_size",
-        "total_commitments",
-        "total_funded",
-        "get_capital_called_pct",
-        "maturity_date",
+        "name",
+        "entity_type",
+        "tax_id",
+        "email",
+        "phone",
+        "is_active",
+        "get_fund_memberships_count",
+        "created_at",
     )
-    list_filter = ("fund_status", "fund_type", "inception_date")
-    search_fields = ("fund_name", "legal_entity_name", "investment_strategy", "notes")
-    list_per_page = 5
+    list_filter = ("entity_type", "is_active")
+    search_fields = ("name", "tax_id", "email", "phone", "notes")
+    list_per_page = 25
     readonly_fields = ('created_at', 'updated_at')
-    date_hierarchy = 'inception_date'
     
     fieldsets = (
         ('Basic Information', {
-            'fields': ('fund_name', 'fund_type', 'fund_status', 'legal_entity_name', 'tax_id')
+            'fields': ('name', 'entity_type', 'is_active')
         }),
-        ('Capital Structure', {
-            'fields': ('target_fund_size', 'total_commitments', 'total_funded')
-        }),
-        ('LP/GP Ownership Split', {
-            'fields': ('lp_percentage', 'gp_percentage', 'lp_contribution_paydown', 'gp_contribution_paydown')
-        }),
-        ('Fund Lifecycle', {
-            'fields': (
-                'inception_date', 'investment_period_end', 'fund_term_years', 'maturity_date'
-            )
-        }),
-        ('Fee Structure', {
-            'fields': (
-                'management_fee_pct', 'acquisition_fee_pct', 'disposition_fee_pct',
-                'am_fees', 'acq_fees'
-            )
-        }),
-        ('Waterfall Structure', {
-            'fields': ('preferred_return_pct', 'lp_promote', 'gp_promote_pct', 'gp_catchup_pct')
-        }),
-        ('Investment Strategy', {
-            'fields': ('investment_strategy',)
+        ('Contact Information', {
+            'fields': ('email', 'phone', 'tax_id')
         }),
         ('Additional Information', {
             'fields': ('notes', 'created_at', 'updated_at')
         }),
     )
     
-    def get_capital_called_pct(self, obj):
-        """Display capital called as percentage"""
-        return f"{obj.capital_called_pct():.1f}%"
-    get_capital_called_pct.short_description = 'Capital Called %'
+    def get_fund_memberships_count(self, obj):
+        """Count fund memberships"""
+        count = obj.fund_memberships.filter(is_active=True).count()
+        return count if count > 0 else '—'
+    get_fund_memberships_count.short_description = 'Fund Memberships'
 
 
-@admin.register(LegalEntity)
-class LegalEntityAdmin(admin.ModelAdmin):
-    """Admin configuration for LegalEntity model.
+@admin.register(FundLegalEntity)
+class FundLegalEntityAdmin(admin.ModelAdmin):
+    """Admin configuration for FundLegalEntity model.
     
-    What: Manage legal entities that can own assets
-    Why: Track all ownership entities (funds, SPVs, LLCs, etc.)
-    How: Display key entity info with links to Fund records and ownership
+    What: Manage legal entities within fund structures
+    Why: Track master funds, feeders, SPVs, GP entities
+    How: Display entity role, jurisdiction, and parent fund
     """
     list_display = (
-        "entity_name",
-        "entity_type",
-        "get_fund_link",
+        "legal_name",
+        "get_fund_name",
+        "entity_role",
+        "jurisdiction",
         "tax_id",
-        "formation_state",
         "is_active",
-        "get_owned_assets_count",
+        "get_members_count",
         "created_at",
     )
-    list_filter = ("entity_type", "is_active", "formation_state")
-    search_fields = ("entity_name", "tax_id", "notes")
+    list_filter = ("entity_role", "is_active", "jurisdiction")
+    search_fields = ("legal_name", "tax_id", "fund__name")
     list_per_page = 25
     autocomplete_fields = ['fund']
     readonly_fields = ('created_at', 'updated_at')
     
     fieldsets = (
-        ('Basic Information', {
-            'fields': ('entity_name', 'entity_type', 'fund', 'is_active')
+        ('Fund Structure', {
+            'fields': ('fund', 'entity_role', 'is_active')
         }),
         ('Legal Details', {
-            'fields': ('tax_id', 'formation_date', 'formation_state')
+            'fields': ('legal_name', 'jurisdiction', 'tax_id')
         }),
-        ('Additional Information', {
-            'fields': ('notes', 'created_at', 'updated_at')
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at')
         }),
     )
     
-    def get_fund_link(self, obj):
-        """Display linked fund name if exists"""
-        if obj.fund:
-            return obj.fund.fund_name
-        return '—'
-    get_fund_link.short_description = 'Linked Fund'
+    def get_fund_name(self, obj):
+        """Display parent fund name"""
+        return obj.fund.name
+    get_fund_name.short_description = 'Fund'
+    get_fund_name.admin_order_field = 'fund__name'
     
-    def get_owned_assets_count(self, obj):
-        """Count assets directly owned by this entity"""
-        count = obj.owned_interests.filter(
-            owned_asset__isnull=False,
-            is_active=True
-        ).count()
+    def get_members_count(self, obj):
+        """Count members investing through this entity"""
+        count = obj.members.filter(is_active=True).count()
         return count if count > 0 else '—'
-    get_owned_assets_count.short_description = 'Assets Owned'
+    get_members_count.short_description = 'Members'
 
 
-@admin.register(Ownership)
-class OwnershipAdmin(admin.ModelAdmin):
-    """Admin configuration for Ownership model.
+@admin.register(FundMembership)
+class FundMembershipAdmin(admin.ModelAdmin):
+    """Admin configuration for FundMembership model.
     
-    What: Track ownership relationships between entities and assets
-    Why: Manage complex ownership structures and multi-level hierarchies
-    How: Display owner, owned object, percentage, and dates
+    What: Manage GP/LP memberships in funds
+    Why: Track capital commitments, contributions, and ownership
+    How: Display entity, fund, member type, and capital details
     """
     list_display = (
-        "get_owner_name",
-        "get_owned_object",
+        "get_entity_name",
+        "get_fund_name",
+        "member_type",
         "ownership_percentage",
-        "ownership_type",
-        "acquisition_date",
-        "disposition_date",
+        "capital_committed",
+        "capital_contributed",
+        "get_remaining_commitment",
+        "admission_date",
         "is_active",
-        "created_at",
     )
-    list_filter = ("ownership_type", "is_active", "acquisition_date")
+    list_filter = ("member_type", "is_active", "admission_date")
     search_fields = (
-        "owner_entity__entity_name",
-        "owned_asset__servicer_id",
-        "owned_entity__entity_name",
+        "entity__name",
+        "fund__name",
+    )
+    list_per_page = 25
+    autocomplete_fields = ['fund', 'entity', 'investing_through']
+    readonly_fields = ('created_at', 'updated_at')
+    date_hierarchy = 'admission_date'
+    
+    fieldsets = (
+        ('Membership Structure', {
+            'fields': ('fund', 'entity', 'member_type', 'admission_date', 'is_active')
+        }),
+        ('Ownership & Capital', {
+            'fields': ('ownership_percentage', 'capital_committed', 'capital_contributed')
+        }),
+        ('Investment Details', {
+            'fields': ('investing_through',),
+            'description': 'Optional: specify which fund legal entity they invest through'
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at')
+        }),
+    )
+    
+    def get_entity_name(self, obj):
+        """Display entity name"""
+        return obj.entity.name
+    get_entity_name.short_description = 'Entity'
+    get_entity_name.admin_order_field = 'entity__name'
+    
+    def get_fund_name(self, obj):
+        """Display fund name"""
+        return obj.fund.name
+    get_fund_name.short_description = 'Fund'
+    get_fund_name.admin_order_field = 'fund__name'
+    
+    def get_remaining_commitment(self, obj):
+        """Calculate and display remaining commitment"""
+        remaining = obj.remaining_commitment()
+        return f"${remaining:,.2f}"
+    get_remaining_commitment.short_description = 'Remaining Commitment'
+
+
+@admin.register(EntityMembership)
+class EntityMembershipAdmin(admin.ModelAdmin):
+    """Admin configuration for EntityMembership model.
+    
+    What: Manage nested entity ownership (e.g., who owns the GP entity)
+    Why: Track ultimate beneficial ownership and GP member interests
+    How: Display ownership relationships, percentages, and capital accounts
+    """
+    list_display = (
+        "get_member_name",
+        "get_parent_name",
+        "ownership_percentage",
+        "get_distribution_pct",
+        "capital_account",
+        "membership_date",
+        "is_active",
+    )
+    list_filter = ("is_active", "membership_date")
+    search_fields = (
+        "member_entity__name",
+        "parent_entity__name",
         "notes"
     )
     list_per_page = 25
-    autocomplete_fields = ['owner_entity', 'owned_asset', 'owned_entity']
+    autocomplete_fields = ['parent_entity', 'member_entity']
     readonly_fields = ('created_at', 'updated_at')
-    date_hierarchy = 'acquisition_date'
+    date_hierarchy = 'membership_date'
     
     fieldsets = (
         ('Ownership Structure', {
-            'fields': ('owner_entity', 'owned_asset', 'owned_entity'),
-            'description': 'Specify either owned_asset OR owned_entity (not both)'
+            'fields': ('parent_entity', 'member_entity', 'membership_date', 'is_active')
         }),
         ('Ownership Details', {
-            'fields': ('ownership_percentage', 'ownership_type', 'is_active')
-        }),
-        ('Dates', {
-            'fields': ('acquisition_date', 'disposition_date')
-        }),
-        ('Financial Details', {
-            'fields': ('acquisition_cost', 'current_value')
+            'fields': ('ownership_percentage', 'distribution_percentage', 'capital_account'),
+            'description': 'Distribution % defaults to ownership % if not specified'
         }),
         ('Additional Information', {
             'fields': ('notes', 'created_at', 'updated_at')
         }),
     )
     
-    def get_owner_name(self, obj):
-        """Display owner entity name"""
-        return obj.owner_entity.entity_name
-    get_owner_name.short_description = 'Owner'
-    get_owner_name.admin_order_field = 'owner_entity__entity_name'
+    def get_member_name(self, obj):
+        """Display member entity name"""
+        return obj.member_entity.name
+    get_member_name.short_description = 'Member (Owner)'
+    get_member_name.admin_order_field = 'member_entity__name'
     
-    def get_owned_object(self, obj):
-        """Display owned asset or entity"""
-        if obj.owned_asset:
-            return f"Asset: {obj.owned_asset.servicer_id or f'#{obj.owned_asset.id}'}"
-        elif obj.owned_entity:
-            return f"Entity: {obj.owned_entity.entity_name}"
-        return '—'
-    get_owned_object.short_description = 'Owned Object'
+    def get_parent_name(self, obj):
+        """Display parent entity name"""
+        return obj.parent_entity.name
+    get_parent_name.short_description = 'Parent (Owned)'
+    get_parent_name.admin_order_field = 'parent_entity__name'
+    
+    def get_distribution_pct(self, obj):
+        """Display effective distribution percentage"""
+        return f"{obj.effective_distribution_percentage()}%"
+    get_distribution_pct.short_description = 'Distribution %'
 
 
 @admin.register(MasterCRM)
