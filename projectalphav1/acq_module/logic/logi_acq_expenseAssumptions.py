@@ -6,7 +6,8 @@ from typing import Optional
 from acq_module.models.model_acq_seller import SellerRawData
 from acq_module.models.model_acq_assumptions import LoanLevelAssumption, TradeLevelAssumption
 from am_module.models.boarded_data import BlendedOutcomeModel
-from core.models.model_co_assumptions import StateReference, HOAAssumption
+from core.models.model_co_geoAssumptions import StateReference
+from core.models.model_co_assumptions import HOAAssumption
 from core.models.valuations import Valuation
 
 

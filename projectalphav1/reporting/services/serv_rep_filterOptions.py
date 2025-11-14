@@ -52,6 +52,10 @@ def get_trade_options_data() -> List[Dict[str, Any]]:
     trades = (
         Trade.objects
         .select_related('seller')  # WHAT: Join with Seller to get seller name
+        # WHAT: Filter to only BOARDED trades
+        # WHY: Reporting module only shows boarded loans, not trades in due diligence
+        # HOW: Filter by status = 'BOARD'
+        .filter(status='BOARD')
         .annotate(
             # WHAT: Count of assets in this trade
             # WHY: Show user how many assets per trade in dropdown
@@ -80,57 +84,171 @@ def get_trade_options_data() -> List[Dict[str, Any]]:
 
 def get_status_options_data() -> List[Dict[str, Any]]:
     """
-    WHAT: Get all unique trade statuses for filter dropdown
-    WHY: Populate status multi-select filter
-    HOW: Query distinct status values from Trade model
+    WHAT: Get all unique AM outcome tracks for filter dropdown
+    WHY: Populate track status multi-select filter showing which outcome track assets are on
+    HOW: Query AssetIdHub for assets with each outcome type (REO, FC, DIL, Short Sale, Modification, Note Sale)
     
-    RETURNS: List of status option dicts
+    RETURNS: List of track option dicts
         [
             {
-                'value': 'DD',
-                'label': 'Due Diligence',
-                'count': 15,  # Number of trades with this status
+                'value': 'reo',
+                'label': 'REO',
+                'count': 25,  # Number of assets on this track
             },
             ...
         ]
     
     USAGE in view:
-        status_options = get_status_options_data()
-        return Response(status_options)
+        track_options = get_status_options_data()
+        return Response(track_options)
     """
-    # WHAT: Get unique statuses with counts
-    # WHY: Show user how many trades per status
-    # HOW: Use values() + annotate() for GROUP BY
-    statuses = (
-        Trade.objects
-        .values('status')
-        .annotate(count=Count('id'))
-        .order_by('status')
+    # WHAT: Import AssetIdHub to query outcome tracks
+    # WHY: Need to check which assets have which outcome records
+    from core.models.asset_id_hub import AssetIdHub
+    from acq_module.models.model_acq_seller import SellerRawData
+    
+    # WHAT: Get all boarded assets
+    # WHY: Only show tracks for boarded assets in reporting
+    boarded_assets = (
+        SellerRawData.objects
+        .filter(trade__status='BOARD')
+        .values_list('asset_hub_id', flat=True)
     )
     
-    # WHAT: Map status codes to friendly display labels
-    # WHY: Show "Due Diligence" not "DD" in dropdown
-    # HOW: Dictionary mapping from Trade.Status choices
-    status_labels = {
-        'DD': 'Due Diligence',
-        'AWARDED': 'Awarded',
-        'PASS': 'Passed',
-        'BOARD': 'Boarded',
-        'INDICATIVE': 'Indicative',
-        'CLOSED': 'Closed',
-    }
-    
-    # WHAT: Format results
-    # WHY: Ready for serialization
-    results = [
-        {
-            'value': status['status'],
-            'label': status_labels.get(status['status'], status['status']),
-            'count': status['count'],
-        }
-        for status in statuses
-        if status['status']  # WHAT: Filter out null statuses
+    # WHAT: Define track mappings with their related names and labels
+    # WHY: Map from related_name on AssetIdHub to friendly display labels
+    # HOW: Dictionary with value, label, and related_name for query
+    track_definitions = [
+        {'value': 'reo', 'label': 'REO', 'related_name': 'reo_data'},
+        {'value': 'fc', 'label': 'Foreclosure', 'related_name': 'fc_sale'},
+        {'value': 'dil', 'label': 'DIL', 'related_name': 'dil'},
+        {'value': 'short_sale', 'label': 'Short Sale', 'related_name': 'short_sale'},
+        {'value': 'modification', 'label': 'Modification', 'related_name': 'modification'},
+        {'value': 'note_sale', 'label': 'Note Sale', 'related_name': 'note_sale'},
     ]
+    
+    # WHAT: Count assets for each track
+    # WHY: Show user how many assets are on each track
+    # HOW: Query AssetIdHub with filter for each related outcome model
+    results = []
+    for track in track_definitions:
+        # WHAT: Count assets that have this outcome record
+        # WHY: Each outcome is a 1:1 relationship, so existence means asset is on that track
+        # HOW: Use __isnull=False to check if related record exists
+        count = (
+            AssetIdHub.objects
+            .filter(id__in=boarded_assets)
+            .filter(**{f"{track['related_name']}__isnull": False})
+            .count()
+        )
+        
+        # WHAT: Only include tracks that have at least one asset
+        # WHY: Keep dropdown clean and relevant
+        if count > 0:
+            results.append({
+                'value': track['value'],
+                'label': track['label'],
+                'count': count,
+            })
+    
+    return results
+
+
+def get_task_status_options_data(track: Optional[str] = None) -> List[Dict[str, Any]]:
+    """
+    WHAT: Get all active task types for filter dropdown (optionally filtered by track)
+    WHY: Populate task status sub-filter showing active tasks within outcome tracks
+    HOW: Query task models for each outcome track and return unique task types
+    
+    ARGS:
+        track: Optional track value to filter tasks by (reo, fc, dil, short_sale, modification, note_sale)
+    
+    RETURNS: List of task status option dicts
+        [
+            {
+                'value': 'eviction',
+                'label': 'Eviction',
+                'track': 'reo',
+                'count': 10,  # Number of assets with this task
+            },
+            ...
+        ]
+    
+    USAGE in view:
+        task_options = get_task_status_options_data()
+        # OR filter by specific track:
+        reo_tasks = get_task_status_options_data(track='reo')
+        return Response(task_options)
+    """
+    # WHAT: Import task models from AM module
+    # WHY: Need to query each task type table
+    from am_module.models.am_data import REOtask, FCTask, DILTask, ShortSaleTask, ModificationTask, NoteSaleTask
+    from acq_module.models.model_acq_seller import SellerRawData
+    
+    # WHAT: Get all boarded asset IDs
+    # WHY: Only show tasks for boarded assets in reporting
+    boarded_asset_ids = list(
+        SellerRawData.objects
+        .filter(trade__status='BOARD')
+        .values_list('asset_hub_id', flat=True)
+    )
+    
+    # WHAT: Define task model mappings with their track associations
+    # WHY: Map each task model to its track and extract task types
+    # HOW: Dictionary with track value, task model, and label prefix
+    task_model_map = [
+        {'track': 'reo', 'model': REOtask, 'tasks_related': 'reo_tasks'},
+        {'track': 'fc', 'model': FCTask, 'tasks_related': 'fc_tasks'},
+        {'track': 'dil', 'model': DILTask, 'tasks_related': 'dil_tasks'},
+        {'track': 'short_sale', 'model': ShortSaleTask, 'tasks_related': 'short_sale_tasks'},
+        {'track': 'modification', 'model': ModificationTask, 'tasks_related': 'modification_tasks'},
+        {'track': 'note_sale', 'model': NoteSaleTask, 'tasks_related': 'note_sale_tasks'},
+    ]
+    
+    # WHAT: Filter task models if track is specified
+    # WHY: Allow filtering by specific outcome track
+    if track:
+        task_model_map = [tm for tm in task_model_map if tm['track'] == track]
+    
+    results = []
+    
+    # WHAT: Iterate through each task model and extract task types
+    # WHY: Get unique task types with counts across all tracks
+    for task_info in task_model_map:
+        task_model = task_info['model']
+        track_value = task_info['track']
+        
+        # WHAT: Query for unique task types in this model
+        # WHY: Get all active task types with counts
+        # HOW: Use values() + annotate() for GROUP BY on task_type
+        task_types = (
+            task_model.objects
+            .filter(asset_hub_id__in=boarded_asset_ids)
+            .values('task_type')
+            .annotate(count=Count('id'))
+            .order_by('task_type')
+        )
+        
+        # WHAT: Get TaskType choices from the model
+        # WHY: Use the model's own label mappings for display
+        task_type_choices = dict(task_model.TaskType.choices)
+        
+        # WHAT: Format each task type as a result
+        # WHY: Provide value, label, track, and count for each task
+        for task_data in task_types:
+            task_type = task_data['task_type']
+            count = task_data['count']
+            
+            # WHAT: Get friendly label from TaskType choices
+            # WHY: Display human-readable labels in dropdown
+            label = task_type_choices.get(task_type, task_type.replace('_', ' ').title())
+            
+            results.append({
+                'value': task_type,
+                'label': label,
+                'track': track_value,
+                'count': count,
+            })
     
     return results
 

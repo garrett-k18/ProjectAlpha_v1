@@ -33,6 +33,8 @@ def build_base_queryset() -> QuerySet[SellerRawData]:
     HOW: Use select_related for ForeignKey joins, annotate for field mapping
     
     RETURNS: Optimized QuerySet ready for filtering
+    
+    NOTE: By default, only shows BOARDED trades (status='BOARD')
     """
     # WHAT: Select related models to avoid N+1 queries
     # WHY: Trade, Seller, AssetHub, ServicerLoanData are frequently accessed in reporting
@@ -49,6 +51,10 @@ def build_base_queryset() -> QuerySet[SellerRawData]:
         .prefetch_related(
             'asset_hub__valuations',    # WHAT: Valuations for AIV/ARV calculations
         )
+        # WHAT: Filter to only BOARDED trades by default
+        # WHY: Reporting should only show closed/boarded loans, not trades in due diligence
+        # HOW: Filter by trade status = 'BOARD'
+        .filter(trade__status='BOARD')
     )
     
     # ========================================================================
@@ -196,25 +202,94 @@ def apply_trade_filter(
     return queryset
 
 
-def apply_status_filter(
+def apply_track_filter(
     queryset: QuerySet[SellerRawData],
-    statuses: Optional[List[str]] = None
+    tracks: Optional[List[str]] = None
 ) -> QuerySet[SellerRawData]:
     """
-    WHAT: Filter queryset by trade status
-    WHY: Users select specific statuses (DD, AWARDED, PASS, BOARD)
-    HOW: Use trade__status__in lookup
+    WHAT: Filter queryset by AM outcome tracks (REO, FC, DIL, Short Sale, Modification, Note Sale)
+    WHY: Users select specific outcome tracks to view in reporting
+    HOW: Use asset_hub relationship checks for each track type
     
     ARGS:
         queryset: Base queryset to filter
-        statuses: List of status values (None = all statuses)
+        tracks: List of track values (reo, fc, dil, short_sale, modification, note_sale) (None = all tracks)
     
     RETURNS: Filtered queryset
     """
-    if statuses and len(statuses) > 0:
-        # WHAT: Filter to only trades with selected statuses
-        # WHY: User selected specific statuses in sidebar
-        queryset = queryset.filter(trade__status__in=statuses)
+    if tracks and len(tracks) > 0:
+        # WHAT: Build OR filter for multiple tracks
+        # WHY: User can select multiple outcome tracks simultaneously
+        # HOW: Use Q objects to combine multiple track checks
+        track_q = Q()
+        
+        # WHAT: Map track values to their related names on AssetIdHub
+        # WHY: Each track corresponds to a 1:1 outcome model relationship
+        track_map = {
+            'reo': 'reo_data',
+            'fc': 'fc_sale',
+            'dil': 'dil',
+            'short_sale': 'short_sale',
+            'modification': 'modification',
+            'note_sale': 'note_sale',
+        }
+        
+        # WHAT: Add filter for each selected track
+        # WHY: Include assets that have any of the selected outcome records
+        for track in tracks:
+            related_name = track_map.get(track)
+            if related_name:
+                # WHAT: Check if related outcome model exists
+                # WHY: Existence of 1:1 outcome record means asset is on that track
+                track_q |= Q(**{f'asset_hub__{related_name}__isnull': False})
+        
+        queryset = queryset.filter(track_q)
+    
+    return queryset
+
+
+def apply_task_status_filter(
+    queryset: QuerySet[SellerRawData],
+    task_statuses: Optional[List[str]] = None
+) -> QuerySet[SellerRawData]:
+    """
+    WHAT: Filter queryset by active task statuses (eviction, trashout, nod_noi, etc.)
+    WHY: Users select specific tasks to view in reporting
+    HOW: Query task models for assets with specified task types
+    
+    ARGS:
+        queryset: Base queryset to filter
+        task_statuses: List of task type values (eviction, trashout, etc.) (None = no task filtering)
+    
+    RETURNS: Filtered queryset
+    """
+    if task_statuses and len(task_statuses) > 0:
+        # WHAT: Build OR filter for multiple task types
+        # WHY: User can select multiple task types simultaneously
+        # HOW: Use Q objects to combine multiple task checks across all task models
+        task_q = Q()
+        
+        # WHAT: Check each task type across all task models
+        # WHY: Task types can exist in any of the 6 task models
+        # HOW: Use asset_hub relationship to join task models
+        task_related_names = [
+            'reo_tasks',
+            'fc_tasks',
+            'dil_tasks',
+            'short_sale_tasks',
+            'modification_tasks',
+            'note_sale_tasks',
+        ]
+        
+        # WHAT: Add filter for each task type across all task models
+        # WHY: Find assets that have any of the selected task types active
+        for related_name in task_related_names:
+            for task_type in task_statuses:
+                # WHAT: Check if asset has this task type in this task model
+                # WHY: Task can exist in any of the 6 outcome track task models
+                task_q |= Q(**{f'asset_hub__{related_name}__task_type': task_type})
+        
+        queryset = queryset.filter(task_q)
     
     return queryset
 
@@ -336,7 +411,8 @@ def apply_quick_filter(
 def build_reporting_queryset(
     *,
     trade_ids: Optional[List[int]] = None,
-    statuses: Optional[List[str]] = None,
+    tracks: Optional[List[str]] = None,
+    task_statuses: Optional[List[str]] = None,
     fund_id: Optional[int] = None,
     entity_id: Optional[int] = None,
     start_date: Optional[str] = None,
@@ -351,7 +427,8 @@ def build_reporting_queryset(
     
     ARGS:
         trade_ids: List of trade IDs to filter by
-        statuses: List of trade statuses (DD, AWARDED, PASS, BOARD)
+        tracks: List of AM outcome tracks (reo, fc, dil, short_sale, modification, note_sale)
+        task_statuses: List of task types (eviction, trashout, nod_noi, etc.)
         fund_id: Fund ID to filter by
         entity_id: Entity ID to filter by
         start_date: Start of date range (ISO string)
@@ -362,10 +439,11 @@ def build_reporting_queryset(
     RETURNS: Fully filtered and ordered QuerySet
     
     EXAMPLE:
-        # Filter by trades 1,2,3 with status DD or AWARDED
+        # Filter by REO and FC tracks with eviction tasks
         qs = build_reporting_queryset(
             trade_ids=[1, 2, 3],
-            statuses=['DD', 'AWARDED'],
+            tracks=['reo', 'fc'],
+            task_statuses=['eviction'],
             start_date='2024-01-01',
             end_date='2024-12-31'
         )
@@ -376,7 +454,8 @@ def build_reporting_queryset(
     # WHAT: Apply filters in sequence
     # WHY: Each filter narrows down the dataset
     queryset = apply_trade_filter(queryset, trade_ids)
-    queryset = apply_status_filter(queryset, statuses)
+    queryset = apply_track_filter(queryset, tracks)
+    queryset = apply_task_status_filter(queryset, task_statuses)
     queryset = apply_fund_filter(queryset, fund_id)
     queryset = apply_entity_filter(queryset, entity_id)
     queryset = apply_date_range_filter(queryset, start_date, end_date)
@@ -407,9 +486,9 @@ def parse_filter_params(request) -> dict:
     RETURNS: Dict with parsed filter parameters
     
     EXAMPLE:
-        # Request: ?trade_ids=1,2,3&statuses=DD,AWARDED
+        # Request: ?trade_ids=1,2,3&tracks=reo,fc&task_statuses=eviction
         params = parse_filter_params(request)
-        # Returns: {'trade_ids': [1, 2, 3], 'statuses': ['DD', 'AWARDED'], ...}
+        # Returns: {'trade_ids': [1, 2, 3], 'tracks': ['reo', 'fc'], 'task_statuses': ['eviction'], ...}
     """
     params = {}
     
@@ -422,11 +501,17 @@ def parse_filter_params(request) -> dict:
         except ValueError:
             params['trade_ids'] = []
     
-    # WHAT: Parse statuses (comma-separated strings)
-    # WHY: Users can select multiple statuses
-    statuses_str = request.GET.get('statuses', '').strip()
-    if statuses_str:
-        params['statuses'] = [s.strip().upper() for s in statuses_str.split(',') if s.strip()]
+    # WHAT: Parse tracks (comma-separated strings)
+    # WHY: Users can select multiple AM outcome tracks (REO, FC, DIL, Short Sale, Modification, Note Sale)
+    tracks_str = request.GET.get('tracks', '').strip()
+    if tracks_str:
+        params['tracks'] = [s.strip().lower() for s in tracks_str.split(',') if s.strip()]
+    
+    # WHAT: Parse task statuses (comma-separated strings)
+    # WHY: Users can select multiple task types (eviction, trashout, nod_noi, etc.)
+    task_statuses_str = request.GET.get('task_statuses', '').strip()
+    if task_statuses_str:
+        params['task_statuses'] = [s.strip().lower() for s in task_statuses_str.split(',') if s.strip()]
     
     # WHAT: Parse fund ID (single integer)
     # WHY: Users select one fund at a time

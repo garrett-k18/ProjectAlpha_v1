@@ -44,39 +44,76 @@
           <div v-if="errorTrades" class="text-danger small mt-1">{{ errorTrades }}</div>
         </div>
 
-        <!-- Multi-select Statuses -->
+        <!-- Multi-select Asset Track Status -->
         <div class="mb-3">
           <label class="form-label fw-semibold">
-            <i class="mdi mdi-tag-outline me-1"></i>
-            Statuses
+            <i class="mdi mdi-sitemap me-1"></i>
+            Asset Track Status
           </label>
           <div class="dropdown-multiselect">
             <button 
               class="btn btn-outline-secondary btn-sm w-100 text-start d-flex justify-content-between align-items-center"
               type="button"
-              @click="toggleDropdown('statuses')"
+              @click="toggleDropdown('tracks')"
             >
-              <span>{{ selectedStatusesLabel }}</span>
+              <span>{{ selectedTracksLabel }}</span>
               <i class="mdi mdi-chevron-down"></i>
             </button>
-            <div v-if="showStatusesDropdown" class="dropdown-menu-custom show" @click.stop>
-              <div class="dropdown-item-custom" v-for="status in statusOptions" :key="status.value">
+            <div v-if="showTracksDropdown" class="dropdown-menu-custom show" @click.stop>
+              <div class="dropdown-item-custom" v-for="track in trackOptions" :key="track.value">
                 <input
                   type="checkbox"
-                  :id="`status-${status.value}`"
-                  :value="status.value"
-                  v-model="localStatuses"
+                  :id="`track-${track.value}`"
+                  :value="track.value"
+                  v-model="localTracks"
                   class="form-check-input me-2"
                 />
-                <label :for="`status-${status.value}`" class="form-check-label">
-                  {{ status.label }}
+                <label :for="`track-${track.value}`" class="form-check-label">
+                  {{ track.label }} <span class="text-muted small">({{ track.count }} assets)</span>
                 </label>
               </div>
-              <div v-if="statusOptions.length === 0" class="text-muted small p-2">
-                {{ loadingStatuses ? 'Loading...' : 'No statuses available' }}
+              <div v-if="trackOptions.length === 0" class="text-muted small p-2">
+                {{ loadingTracks ? 'Loading...' : 'No tracks available' }}
               </div>
             </div>
           </div>
+          <div v-if="errorTracks" class="text-danger small mt-1">{{ errorTracks }}</div>
+        </div>
+
+        <!-- Multi-select Asset Task Status -->
+        <div class="mb-3">
+          <label class="form-label fw-semibold">
+            <i class="mdi mdi-checkbox-marked-circle-outline me-1"></i>
+            Asset Task Status
+          </label>
+          <div class="dropdown-multiselect">
+            <button 
+              class="btn btn-outline-secondary btn-sm w-100 text-start d-flex justify-content-between align-items-center"
+              type="button"
+              @click="toggleDropdown('tasks')"
+            >
+              <span>{{ selectedTasksLabel }}</span>
+              <i class="mdi mdi-chevron-down"></i>
+            </button>
+            <div v-if="showTasksDropdown" class="dropdown-menu-custom show" @click.stop>
+              <div class="dropdown-item-custom" v-for="task in taskStatusOptions" :key="task.value">
+                <input
+                  type="checkbox"
+                  :id="`task-${task.value}`"
+                  :value="task.value"
+                  v-model="localTaskStatuses"
+                  class="form-check-input me-2"
+                />
+                <label :for="`task-${task.value}`" class="form-check-label">
+                  {{ task.label }} <span class="badge bg-secondary">{{ task.track.toUpperCase() }}</span> <span class="text-muted small">({{ task.count }})</span>
+                </label>
+              </div>
+              <div v-if="taskStatusOptions.length === 0" class="text-muted small p-2">
+                {{ loadingTaskStatuses ? 'Loading...' : 'No tasks available' }}
+              </div>
+            </div>
+          </div>
+          <div v-if="errorTaskStatuses" class="text-danger small mt-1">{{ errorTaskStatuses }}</div>
         </div>
 
         <!-- Multi-select Funds -->
@@ -300,28 +337,33 @@ const emit = defineEmits<{
 const reportingStore = useReportingStore()
 const {
   selectedTradeIds,
-  selectedStatuses,
+  selectedTracks,
+  selectedTaskStatuses,
   dateRangeStart,
   dateRangeEnd,
   tradeOptions,
-  statusOptions,
+  trackOptions,
+  taskStatusOptions,
   fundOptions,
   entityOptions,
   loadingTrades,
-  loadingStatuses,
+  loadingTracks,
+  loadingTaskStatuses,
   loadingFunds,
   loadingEntities,
   errorTrades,
-  errorStatuses,
+  errorTracks,
+  errorTaskStatuses,
   errorFunds,
   errorEntities,
   hasActiveFilters,
 } = storeToRefs(reportingStore)
 
 // **WHAT**: Local state for multi-select filters
-// **WHY**: Allow users to select multiple trades, funds, entities before applying
+// **WHY**: Allow users to select multiple trades, tracks, tasks before applying
 const localTradeIds = ref<number[]>([])
-const localStatuses = ref<string[]>([])
+const localTracks = ref<string[]>([])
+const localTaskStatuses = ref<string[]>([])
 const localFundIds = ref<number[]>([])
 const localEntityIds = ref<number[]>([])
 const localDateStart = ref<string | null>(null)
@@ -330,15 +372,17 @@ const localDateEnd = ref<string | null>(null)
 // **WHAT**: Dropdown visibility toggles
 // **WHY**: Control which multi-select dropdown is currently open
 const showTradesDropdown = ref<boolean>(false)
-const showStatusesDropdown = ref<boolean>(false)
+const showTracksDropdown = ref<boolean>(false)
+const showTasksDropdown = ref<boolean>(false)
 const showFundsDropdown = ref<boolean>(false)
 const showEntitiesDropdown = ref<boolean>(false)
 
 // **WHAT**: Sync local state with store on mount
 // **WHY**: Initialize local filters from store state
-watch([selectedTradeIds, selectedStatuses, dateRangeStart, dateRangeEnd], () => {
+watch([selectedTradeIds, selectedTracks, selectedTaskStatuses, dateRangeStart, dateRangeEnd], () => {
   localTradeIds.value = [...selectedTradeIds.value]
-  localStatuses.value = [...selectedStatuses.value]
+  localTracks.value = [...selectedTracks.value]
+  localTaskStatuses.value = [...selectedTaskStatuses.value]
   localDateStart.value = dateRangeStart.value
   localDateEnd.value = dateRangeEnd.value
 }, { immediate: true })
@@ -347,13 +391,14 @@ watch([selectedTradeIds, selectedStatuses, dateRangeStart, dateRangeEnd], () => 
 // **WHY**: Enable/disable Apply button
 const hasChanges = computed(() => {
   const tradesChanged = JSON.stringify([...selectedTradeIds.value].sort()) !== JSON.stringify([...localTradeIds.value].sort())
-  const statusesChanged = JSON.stringify([...selectedStatuses.value].sort()) !== JSON.stringify([...localStatuses.value].sort())
+  const tracksChanged = JSON.stringify([...selectedTracks.value].sort()) !== JSON.stringify([...localTracks.value].sort())
+  const tasksChanged = JSON.stringify([...selectedTaskStatuses.value].sort()) !== JSON.stringify([...localTaskStatuses.value].sort())
   const fundsChanged = JSON.stringify([...localFundIds.value].sort()) !== JSON.stringify([].sort())
   const entitiesChanged = JSON.stringify([...localEntityIds.value].sort()) !== JSON.stringify([].sort())
   const dateStartChanged = dateRangeStart.value !== localDateStart.value
   const dateEndChanged = dateRangeEnd.value !== localDateEnd.value
   
-  return tradesChanged || statusesChanged || fundsChanged || entitiesChanged || dateStartChanged || dateEndChanged
+  return tradesChanged || tracksChanged || tasksChanged || fundsChanged || entitiesChanged || dateStartChanged || dateEndChanged
 })
 
 // **WHAT**: Computed label for selected trades
@@ -367,15 +412,26 @@ const selectedTradesLabel = computed(() => {
   return `${localTradeIds.value.length} selected`
 })
 
-// **WHAT**: Computed label for selected statuses
-// **WHY**: Show count or "All Statuses" in dropdown button
-const selectedStatusesLabel = computed(() => {
-  if (localStatuses.value.length === 0) return 'All Statuses'
-  if (localStatuses.value.length === 1) {
-    const status = statusOptions.value.find(s => s.value === localStatuses.value[0])
-    return status?.label || '1 selected'
+// **WHAT**: Computed label for selected tracks
+// **WHY**: Show count or "All Tracks" in dropdown button
+const selectedTracksLabel = computed(() => {
+  if (localTracks.value.length === 0) return 'All Tracks'
+  if (localTracks.value.length === 1) {
+    const track = trackOptions.value.find(t => t.value === localTracks.value[0])
+    return track?.label || '1 selected'
   }
-  return `${localStatuses.value.length} selected`
+  return `${localTracks.value.length} selected`
+})
+
+// **WHAT**: Computed label for selected task statuses
+// **WHY**: Show count or "All Tasks" in dropdown button
+const selectedTasksLabel = computed(() => {
+  if (localTaskStatuses.value.length === 0) return 'All Tasks'
+  if (localTaskStatuses.value.length === 1) {
+    const task = taskStatusOptions.value.find(t => t.value === localTaskStatuses.value[0])
+    return task?.label || '1 selected'
+  }
+  return `${localTaskStatuses.value.length} selected`
 })
 
 // **WHAT**: Computed label for selected funds
@@ -402,9 +458,10 @@ const selectedEntitiesLabel = computed(() => {
 
 // **WHAT**: Toggle dropdown visibility
 // **WHY**: Open/close multi-select dropdowns, close others
-function toggleDropdown(type: 'trades' | 'statuses' | 'funds' | 'entities'): void {
+function toggleDropdown(type: 'trades' | 'tracks' | 'tasks' | 'funds' | 'entities'): void {
   showTradesDropdown.value = type === 'trades' ? !showTradesDropdown.value : false
-  showStatusesDropdown.value = type === 'statuses' ? !showStatusesDropdown.value : false
+  showTracksDropdown.value = type === 'tracks' ? !showTracksDropdown.value : false
+  showTasksDropdown.value = type === 'tasks' ? !showTasksDropdown.value : false
   showFundsDropdown.value = type === 'funds' ? !showFundsDropdown.value : false
   showEntitiesDropdown.value = type === 'entities' ? !showEntitiesDropdown.value : false
 }
@@ -413,13 +470,15 @@ function toggleDropdown(type: 'trades' | 'statuses' | 'funds' | 'entities'): voi
 // **WHY**: Update store state and trigger data refresh
 function applyFilters(): void {
   selectedTradeIds.value = [...localTradeIds.value]
-  selectedStatuses.value = [...localStatuses.value]
+  selectedTracks.value = [...localTracks.value]
+  selectedTaskStatuses.value = [...localTaskStatuses.value]
   dateRangeStart.value = localDateStart.value
   dateRangeEnd.value = localDateEnd.value
   
   // Close all dropdowns
   showTradesDropdown.value = false
-  showStatusesDropdown.value = false
+  showTracksDropdown.value = false
+  showTasksDropdown.value = false
   showFundsDropdown.value = false
   showEntitiesDropdown.value = false
   
@@ -430,7 +489,8 @@ function applyFilters(): void {
 // **WHY**: Clear button to start fresh
 function resetFilters(): void {
   localTradeIds.value = []
-  localStatuses.value = []
+  localTracks.value = []
+  localTaskStatuses.value = []
   localFundIds.value = []
   localEntityIds.value = []
   localDateStart.value = null

@@ -5,7 +5,7 @@ from acq_module.models.model_acq_seller import SellerRawData
 from acq_module.models.model_acq_assumptions import TradeLevelAssumption, LoanLevelAssumption
 from acq_module.logic.logi_acq_expenseAssumptions import monthly_tax_for_asset, monthly_insurance_for_asset
 from acq_module.logic.logi_acq_durationAssumptions import get_asset_fc_timeline
-from core.models.model_co_assumptions import StateReference
+from core.models.model_co_geoAssumptions import StateReference
 
 
 class fcoutcomeLogic:

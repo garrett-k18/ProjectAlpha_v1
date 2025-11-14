@@ -19,7 +19,8 @@ from acq_module.logic.logi_acq_expenseAssumptions import monthly_tax_for_asset, 
 from acq_module.logic.logi_acq__proceedAssumptions import reo_asis_proceeds, reo_arv_proceeds
 from acq_module.logic.logi_acq_purchasePrice import purchase_price, purchase_price_metrics
 from acq_module.logic.logi_acq_outcomespecific import fcoutcomeLogic
-from core.models.model_co_assumptions import StateReference, Servicer, HOAAssumption, PropertyTypeAssumption, SquareFootageAssumption
+from core.models.model_co_geoAssumptions import StateReference
+from core.models.model_co_assumptions import Servicer, HOAAssumption, PropertyTypeAssumption, SquareFootageAssumption
 from core.models.valuations import Valuation
 
 

@@ -153,6 +153,15 @@ const props = withDefaults(defineProps<{
       badgeClasses: 'bg-primary text-white' // Badge colors aligning with primary emphasis
     },
     {
+      id: 'broker-assignments', // Identifier for emitting broker assignments action
+      label: 'Broker Assignments', // Button label for broker assignment workflow
+      description: null, // Helper text summarizing broker assignment responsibilities
+      icon: 'mdi mdi-account-multiple-plus', // Icon referencing multiple users plus glyph
+      buttonClasses: 'btn btn-light border', // Button styling consistent for visual rhythm
+      badge: null, // Badge text placeholder showing no highlight by default
+      badgeClasses: null // Badge colors placeholder that keeps the badge visually hidden when badge is null
+    },
+    {
       id: 'trade-approvals', // Identifier for emitting approvals action
       label: 'Approval Center', // Button label for approvals workflow
       description: null, // Helper text summarizing approvals responsibilities

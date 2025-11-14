@@ -34,10 +34,15 @@ urlpatterns = [
     # RETURNS: List of {id, trade_name, seller_name, status, asset_count}
     path('trades/', view_rep_filters.trade_options, name='reporting-trades'),
     
-    # WHAT: Status filter options
+    # WHAT: Track filter options (AM outcome tracks: REO, FC, DIL, Short Sale, Modification, Note Sale)
     # ENDPOINT: GET /api/reporting/statuses/
     # RETURNS: List of {value, label, count}
     path('statuses/', view_rep_filters.status_options, name='reporting-statuses'),
+    
+    # WHAT: Task status filter options (active tasks within outcome tracks)
+    # ENDPOINT: GET /api/reporting/task-statuses/?track=reo (optional track filter)
+    # RETURNS: List of {value, label, track, count}
+    path('task-statuses/', view_rep_filters.task_status_options, name='reporting-task-statuses'),
     
     # WHAT: Fund filter options (TODO: implement once Fund model exists)
     # ENDPOINT: GET /api/reporting/funds/

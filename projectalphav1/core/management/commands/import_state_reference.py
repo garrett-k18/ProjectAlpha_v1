@@ -19,7 +19,7 @@ from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
-from core.models.model_co_assumptions import StateReference
+from core.models.model_co_geoAssumptions import StateReference
 
 
 class Command(BaseCommand):

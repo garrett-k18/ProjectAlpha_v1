@@ -12,12 +12,12 @@
     "folder-color.pathColors": [
         {
             "folderPath": "ProjectAlpha_v1\\frontend_vue\\",
-            "color": "foldercolorizer.color_ee0000",
+            "color": "foldercolorizer.color_ff0033",
             "badge": "💻"
         },
         {
             "folderPath": "ProjectAlpha_v1\\projectalphav1\\",
-            "color": "foldercolorizer.color_00cc99"
+            "color": "foldercolorizer.color_00cc33"
         },
         {
             "folderPath": "ProjectAlpha_v1\\projectalphav1\\acq_module\\",

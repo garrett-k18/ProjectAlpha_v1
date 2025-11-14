@@ -26,12 +26,14 @@ from rest_framework import status
 from reporting.services.serv_rep_filterOptions import (
     get_trade_options_data,
     get_status_options_data,
+    get_task_status_options_data,
     get_fund_options_data,
     get_entity_options_data,
 )
 from reporting.serializers.serial_rep_filterOptions import (
     TradeOptionSerializer,
     StatusOptionSerializer,
+    TaskStatusOptionSerializer,
     FundOptionSerializer,
     EntityOptionSerializer,
 )
@@ -87,37 +89,83 @@ def trade_options(request):
 @api_view(['GET'])
 def status_options(request):
     """
-    WHAT: Return all unique trade statuses for sidebar filter dropdown
-    WHY: Populate status multi-select filter
+    WHAT: Return all unique AM outcome tracks for sidebar filter dropdown
+    WHY: Populate track status multi-select filter (REO, FC, DIL, Short Sale, Modification, Note Sale)
     WHERE: Called when reporting dashboard loads
     
     ENDPOINT: GET /api/reporting/statuses/
     
-    RETURNS: 200 OK with list of status options
+    RETURNS: 200 OK with list of track options
         [
             {
-                'value': 'DD',
-                'label': 'Due Diligence',
-                'count': 15,
+                'value': 'reo',
+                'label': 'REO',
+                'count': 25,
             },
             ...
         ]
     """
     try:
         # WHAT: Delegate to service layer
-        statuses = get_status_options_data()
+        tracks = get_status_options_data()
         
         # WHAT: Serialize data
-        serializer = StatusOptionSerializer(statuses, many=True)
+        serializer = StatusOptionSerializer(tracks, many=True)
         
         return Response(serializer.data, status=status.HTTP_200_OK)
     
     except Exception as e:
         import logging
         logger = logging.getLogger(__name__)
-        logger.error(f'[FilterOptions] Status options error: {str(e)}', exc_info=True)
+        logger.error(f'[FilterOptions] Track options error: {str(e)}', exc_info=True)
         return Response(
-            {'error': 'Failed to load status options', 'detail': str(e)},
+            {'error': 'Failed to load track options', 'detail': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+def task_status_options(request):
+    """
+    WHAT: Return all active task types for sidebar sub-filter dropdown
+    WHY: Populate task status multi-select filter showing active tasks within outcome tracks
+    WHERE: Called when reporting dashboard loads or when track filter changes
+    
+    ENDPOINT: GET /api/reporting/task-statuses/
+    QUERY PARAMS: ?track=reo (optional - filter by specific track)
+    
+    RETURNS: 200 OK with list of task status options
+        [
+            {
+                'value': 'eviction',
+                'label': 'Eviction',
+                'track': 'reo',
+                'count': 10,
+            },
+            ...
+        ]
+    """
+    try:
+        # WHAT: Get optional track filter from query params
+        # WHY: Allow filtering tasks by specific outcome track
+        track = request.GET.get('track', None)
+        
+        # WHAT: Delegate to service layer
+        # WHY: Keep view thin, business logic in service
+        task_statuses = get_task_status_options_data(track=track)
+        
+        # WHAT: Serialize data using field definitions
+        # WHY: Validate and format response
+        serializer = TaskStatusOptionSerializer(task_statuses, many=True)
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f'[FilterOptions] Task status options error: {str(e)}', exc_info=True)
+        return Response(
+            {'error': 'Failed to load task status options', 'detail': str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 

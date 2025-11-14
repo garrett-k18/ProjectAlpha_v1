@@ -14,6 +14,10 @@ from core.models import (
     AssetIdHub,
     Servicer,
     StateReference,
+    CountyReference,
+    MSAReference,
+    ZIPReference,
+    BrokerMSAAssignment,
     FCStatus,
     FCTimelines,
     CommercialUnits,
@@ -376,7 +380,147 @@ class StateReferenceAdmin(admin.ModelAdmin):
     )
     search_fields = ('state_code', 'state_name')
     list_filter = ('judicialvsnonjudicial',)
-    list_per_page = 5
+    list_per_page = 50
+
+
+@admin.register(CountyReference)
+class CountyReferenceAdmin(admin.ModelAdmin):
+    """
+    WHAT: Admin configuration for CountyReference model
+    WHY: Allow viewing and managing county reference data
+    HOW: Display county FIPS, name, state, population with search and filters
+    """
+    list_display = (
+        'county_fips', 'county_name', 'get_state_code', 'population', 'county_seat'
+    )
+    search_fields = ('county_fips', 'county_name', 'county_seat')
+    list_filter = ('state',)
+    ordering = ('state', 'county_name')
+    autocomplete_fields = ['state']
+    list_per_page = 50
+    
+    def get_state_code(self, obj):
+        """Display state abbreviation"""
+        return obj.state.state_code if obj.state else '—'
+    get_state_code.short_description = 'State'
+    get_state_code.admin_order_field = 'state__state_code'
+
+
+@admin.register(MSAReference)
+class MSAReferenceAdmin(admin.ModelAdmin):
+    """
+    WHAT: Admin configuration for MSAReference model
+    WHY: Allow viewing and managing MSA reference data from Census Bureau
+    HOW: Display MSA code, name, state with search and filters
+    """
+    list_display = (
+        'msa_code', 'msa_name', 'get_state_code', 'get_zip_count', 'get_broker_count'
+    )
+    search_fields = ('msa_code', 'msa_name')
+    list_filter = ('state',)
+    ordering = ('msa_name',)
+    autocomplete_fields = ['state']
+    list_per_page = 50
+    
+    def get_state_code(self, obj):
+        """Display state abbreviation"""
+        return obj.state.state_code if obj.state else '—'
+    get_state_code.short_description = 'State'
+    get_state_code.admin_order_field = 'state__state_code'
+    
+    def get_zip_count(self, obj):
+        """Display count of ZIP codes in this MSA"""
+        return obj.zip_codes.count()
+    get_zip_count.short_description = 'ZIPs'
+    
+    def get_broker_count(self, obj):
+        """Display count of brokers assigned to this MSA"""
+        return obj.broker_assignments.filter(is_active=True).count()
+    get_broker_count.short_description = 'Brokers'
+
+
+@admin.register(ZIPReference)
+class ZIPReferenceAdmin(admin.ModelAdmin):
+    """
+    WHAT: Admin configuration for ZIPReference model
+    WHY: Allow viewing and managing ZIP code reference data
+    HOW: Display ZIP code, city, state, county, MSA with search and filters
+    """
+    list_display = (
+        'zip_code', 'city_name', 'get_state_code', 'get_county_name', 
+        'get_msa_name', 'zip_type'
+    )
+    search_fields = ('zip_code', 'city_name')
+    list_filter = ('state', 'zip_type', 'msa')
+    ordering = ('zip_code',)
+    autocomplete_fields = ['state', 'county', 'msa']
+    list_per_page = 50
+    
+    def get_state_code(self, obj):
+        """Display state abbreviation"""
+        return obj.state.state_code if obj.state else '—'
+    get_state_code.short_description = 'State'
+    get_state_code.admin_order_field = 'state__state_code'
+    
+    def get_county_name(self, obj):
+        """Display county name"""
+        return obj.county.county_name if obj.county else '—'
+    get_county_name.short_description = 'County'
+    
+    def get_msa_name(self, obj):
+        """Display MSA name (truncated)"""
+        if not obj.msa:
+            return '—'
+        name = obj.msa.msa_name
+        return name[:40] + '...' if len(name) > 40 else name
+    get_msa_name.short_description = 'MSA'
+
+
+@admin.register(BrokerMSAAssignment)
+class BrokerMSAAssignmentAdmin(admin.ModelAdmin):
+    """
+    WHAT: Admin configuration for BrokerMSAAssignment junction table
+    WHY: Allow creating and managing broker-to-MSA assignments
+    HOW: Display broker, MSA, priority, active status with filters
+    """
+    list_display = (
+        'get_broker_name', 'get_msa_name', 'priority', 'is_active', 
+        'created_at', 'updated_at'
+    )
+    search_fields = (
+        'broker__contact_name', 'broker__firm', 'msa__msa_name', 'msa__msa_code'
+    )
+    list_filter = ('is_active', 'priority', 'msa__state')
+    ordering = ('msa', 'priority', 'broker')
+    autocomplete_fields = ['broker', 'msa']
+    readonly_fields = ('created_at', 'updated_at')
+    list_per_page = 50
+    
+    fieldsets = (
+        ('Assignment Details', {
+            'fields': ('broker', 'msa', 'priority', 'is_active')
+        }),
+        ('Additional Information', {
+            'fields': ('notes',)
+        }),
+        ('Metadata', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def get_broker_name(self, obj):
+        """Display broker name"""
+        return obj.broker.contact_name or obj.broker.firm or f"Broker #{obj.broker.id}"
+    get_broker_name.short_description = 'Broker'
+    get_broker_name.admin_order_field = 'broker__contact_name'
+    
+    def get_msa_name(self, obj):
+        """Display MSA name (truncated)"""
+        name = obj.msa.msa_name
+        return name[:50] + '...' if len(name) > 50 else name
+    get_msa_name.short_description = 'MSA'
+    get_msa_name.admin_order_field = 'msa__msa_name'
 
 
 @admin.register(FCStatus)

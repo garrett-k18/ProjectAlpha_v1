@@ -12,10 +12,10 @@
 
     <div class="row">
       <div class="col-12">
-        <div class="card">
-          <div class="card-body" style="padding-bottom: 2rem;">
-            <!-- Page Header -->
-            <div class="d-flex justify-content-between align-items-center mb-3">
+        <!-- Page Header Card -->
+        <div class="card mb-3">
+          <div class="card-body py-3">
+            <div class="d-flex justify-content-between align-items-center">
               <div>
                 <h4 class="header-title mb-1">
                   <i class="mdi mdi-table-cog me-2"></i>Reference Tables & Assumptions
@@ -33,155 +33,191 @@
                 </button>
               </div>
             </div>
+          </div>
+        </div>
 
-            <!-- Tab Navigation -->
-            <ul class="nav nav-tabs nav-bordered mb-3" role="tablist">
-              <li class="nav-item" role="presentation">
-                <a 
-                  class="nav-link"
-                  :class="{ active: activeTab === 'state-assumptions' }"
-                  href="#"
-                  @click.prevent="activeTab = 'state-assumptions'"
-                  role="tab"
-                >
-                  <i class="mdi mdi-map-marker-outline me-1"></i>
-                  State Assumptions
-                </a>
-              </li>
-              <li class="nav-item" role="presentation">
-                <a 
-                  class="nav-link"
-                  :class="{ active: activeTab === 'foreclosure-timelines' }"
-                  href="#"
-                  @click.prevent="activeTab = 'foreclosure-timelines'"
-                  role="tab"
-                >
-                  <i class="mdi mdi-clock-outline me-1"></i>
-                  Foreclosure Timelines
-                </a>
-              </li>
-              <li class="nav-item" role="presentation">
-                <a 
-                  class="nav-link"
-                  :class="{ active: activeTab === 'msa-assumptions' }"
-                  href="#"
-                  @click.prevent="activeTab = 'msa-assumptions'"
-                  role="tab"
-                >
-                  <i class="mdi mdi-city-variant-outline me-1"></i>
-                  MSA Assumptions
-                </a>
-              </li>
-              <li class="nav-item" role="presentation">
-                <a 
-                  class="nav-link"
-                  :class="{ active: activeTab === 'modeling-assumptions' }"
-                  href="#"
-                  @click.prevent="activeTab = 'modeling-assumptions'"
-                  role="tab"
-                >
-                  <i class="mdi mdi-tune-variant me-1"></i>
-                  Modeling Assumptions
-                </a>
-              </li>
-              <li class="nav-item" role="presentation">
-                <a 
-                  class="nav-link"
-                  :class="{ active: activeTab === 'commercial-asset-assumptions' }"
-                  href="#"
-                  @click.prevent="activeTab = 'commercial-asset-assumptions'"
-                  role="tab"
-                >
-                  <i class="mdi mdi-office-building-cog-outline me-1"></i>
-                  Commercial Asset Assumptions
-                </a>
-              </li>
-              <li class="nav-item" role="presentation">
-                <a 
-                  class="nav-link"
-                  :class="{ active: activeTab === 'servicer-assumptions' }"
-                  href="#"
-                  @click.prevent="activeTab = 'servicer-assumptions'"
-                  role="tab"
-                >
-                  <i class="mdi mdi-account-cog-outline me-1"></i>
-                  Servicer Assumptions
-                </a>
-              </li>
-            </ul>
-
-            <!-- Tab Content -->
-            <div class="tab-content">
-              <!-- State Assumptions Tab -->
-              <div 
-                v-show="activeTab === 'state-assumptions'"
-                class="tab-pane"
-                :class="{ active: activeTab === 'state-assumptions' }"
-                role="tabpanel"
-              >
-                <StateAssumptionsTable 
-                  @changed="markAsChanged"
-                />
+        <!-- Main Content with Sidebar Layout -->
+        <div class="card">
+          <div class="card-body p-0">
+            <div class="row g-0">
+              <!-- Sidebar Navigation -->
+              <div class="col-md-3 col-lg-2 border-end">
+                <div class="sidebar-nav">
+                  <div class="nav flex-column" role="tablist">
+                    <!-- State Assumptions -->
+                    <a 
+                      class="nav-link"
+                      :class="{ active: activeTab === 'state-assumptions' }"
+                      href="#"
+                      @click.prevent="activeTab = 'state-assumptions'"
+                      role="tab"
+                    >
+                      <i class="mdi mdi-map-marker-outline me-2"></i>
+                      <span>State Assumptions</span>
+                    </a>
+                    
+                    <!-- Foreclosure Timelines -->
+                    <a 
+                      class="nav-link"
+                      :class="{ active: activeTab === 'foreclosure-timelines' }"
+                      href="#"
+                      @click.prevent="activeTab = 'foreclosure-timelines'"
+                      role="tab"
+                    >
+                      <i class="mdi mdi-clock-outline me-2"></i>
+                      <span>Foreclosure Timelines</span>
+                    </a>
+                    
+                    <!-- MSA Assumptions -->
+                    <a 
+                      class="nav-link"
+                      :class="{ active: activeTab === 'msa-assumptions' }"
+                      href="#"
+                      @click.prevent="activeTab = 'msa-assumptions'"
+                      role="tab"
+                    >
+                      <i class="mdi mdi-city-variant-outline me-2"></i>
+                      <span>MSA Assumptions</span>
+                    </a>
+                    
+                    <!-- Modeling Assumptions -->
+                    <a 
+                      class="nav-link"
+                      :class="{ active: activeTab === 'modeling-assumptions' }"
+                      href="#"
+                      @click.prevent="activeTab = 'modeling-assumptions'"
+                      role="tab"
+                    >
+                      <i class="mdi mdi-tune-variant me-2"></i>
+                      <span>Modeling Assumptions</span>
+                    </a>
+                    
+                    <!-- Commercial Asset Assumptions -->
+                    <a 
+                      class="nav-link"
+                      :class="{ active: activeTab === 'commercial-asset-assumptions' }"
+                      href="#"
+                      @click.prevent="activeTab = 'commercial-asset-assumptions'"
+                      role="tab"
+                    >
+                      <i class="mdi mdi-office-building-cog-outline me-2"></i>
+                      <span>Commercial Asset Assumptions</span>
+                    </a>
+                    
+                    <!-- Servicer Assumptions -->
+                    <a 
+                      class="nav-link"
+                      :class="{ active: activeTab === 'servicer-assumptions' }"
+                      href="#"
+                      @click.prevent="activeTab = 'servicer-assumptions'"
+                      role="tab"
+                    >
+                      <i class="mdi mdi-account-cog-outline me-2"></i>
+                      <span>Servicer Assumptions</span>
+                    </a>
+                    
+                    <!-- Broker Assignment Defaults -->
+                    <a 
+                      class="nav-link"
+                      :class="{ active: activeTab === 'broker-assignment-defaults' }"
+                      href="#"
+                      @click.prevent="activeTab = 'broker-assignment-defaults'"
+                      role="tab"
+                    >
+                      <i class="mdi mdi-account-tie-outline me-2"></i>
+                      <span>Broker Assignment Defaults</span>
+                    </a>
+                  </div>
+                </div>
               </div>
 
-              <!-- Foreclosure Timelines Tab -->
-              <div 
-                v-show="activeTab === 'foreclosure-timelines'"
-                class="tab-pane"
-                :class="{ active: activeTab === 'foreclosure-timelines' }"
-                role="tabpanel"
-              >
-                <ForeclosureTimelinesTable 
-                  @changed="markAsChanged"
-                />
-              </div>
+              <!-- Content Area -->
+              <div class="col-md-9 col-lg-10">
+                <div class="tab-content p-4">
+                  <!-- State Assumptions Tab -->
+                  <div 
+                    v-show="activeTab === 'state-assumptions'"
+                    class="tab-pane"
+                    :class="{ active: activeTab === 'state-assumptions' }"
+                    role="tabpanel"
+                  >
+                    <StateAssumptionsTable 
+                      @changed="markAsChanged"
+                    />
+                  </div>
 
-              <!-- MSA Assumptions Tab -->
-              <div 
-                v-show="activeTab === 'msa-assumptions'"
-                class="tab-pane"
-                :class="{ active: activeTab === 'msa-assumptions' }"
-                role="tabpanel"
-              >
-                <MsaAssumptionsTable 
-                  @changed="markAsChanged"
-                />
-              </div>
+                  <!-- Foreclosure Timelines Tab -->
+                  <div 
+                    v-show="activeTab === 'foreclosure-timelines'"
+                    class="tab-pane"
+                    :class="{ active: activeTab === 'foreclosure-timelines' }"
+                    role="tabpanel"
+                  >
+                    <ForeclosureTimelinesTable 
+                      @changed="markAsChanged"
+                    />
+                  </div>
 
-              <!-- Modeling Assumptions Tab -->
-              <div 
-                v-show="activeTab === 'modeling-assumptions'"
-                class="tab-pane"
-                :class="{ active: activeTab === 'modeling-assumptions' }"
-                role="tabpanel"
-              >
-                <ModelingAssumptions 
-                  @changed="markAsChanged"
-                />
-              </div>
+                  <!-- MSA Assumptions Tab -->
+                  <div 
+                    v-show="activeTab === 'msa-assumptions'"
+                    class="tab-pane"
+                    :class="{ active: activeTab === 'msa-assumptions' }"
+                    role="tabpanel"
+                  >
+                    <MsaAssumptionsTable 
+                      @changed="markAsChanged"
+                    />
+                  </div>
 
-              <!-- Commercial Asset Assumptions Tab -->
-              <div 
-                v-show="activeTab === 'commercial-asset-assumptions'"
-                class="tab-pane"
-                :class="{ active: activeTab === 'commercial-asset-assumptions' }"
-                role="tabpanel"
-              >
-                <CommercialAssetAssumptions 
-                  @changed="markAsChanged"
-                />
-              </div>
+                  <!-- Modeling Assumptions Tab -->
+                  <div 
+                    v-show="activeTab === 'modeling-assumptions'"
+                    class="tab-pane"
+                    :class="{ active: activeTab === 'modeling-assumptions' }"
+                    role="tabpanel"
+                  >
+                    <ModelingAssumptions 
+                      @changed="markAsChanged"
+                    />
+                  </div>
 
-              <!-- Servicer Assumptions Tab -->
-              <div 
-                v-show="activeTab === 'servicer-assumptions'"
-                class="tab-pane"
-                :class="{ active: activeTab === 'servicer-assumptions' }"
-                role="tabpanel"
-              >
-                <ServicerAssumptions 
-                  @changed="markAsChanged"
-                />
+                  <!-- Commercial Asset Assumptions Tab -->
+                  <div 
+                    v-show="activeTab === 'commercial-asset-assumptions'"
+                    class="tab-pane"
+                    :class="{ active: activeTab === 'commercial-asset-assumptions' }"
+                    role="tabpanel"
+                  >
+                    <CommercialAssetAssumptions 
+                      @changed="markAsChanged"
+                    />
+                  </div>
+
+                  <!-- Servicer Assumptions Tab -->
+                  <div 
+                    v-show="activeTab === 'servicer-assumptions'"
+                    class="tab-pane"
+                    :class="{ active: activeTab === 'servicer-assumptions' }"
+                    role="tabpanel"
+                  >
+                    <ServicerAssumptions 
+                      @changed="markAsChanged"
+                    />
+                  </div>
+
+                  <!-- Broker Assignment Defaults Tab -->
+                  <div 
+                    v-show="activeTab === 'broker-assignment-defaults'"
+                    class="tab-pane"
+                    :class="{ active: activeTab === 'broker-assignment-defaults' }"
+                    role="tabpanel"
+                  >
+                    <BrokerAssignmentDefaults 
+                      @changed="markAsChanged"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -218,6 +254,7 @@ import MsaAssumptionsTable from './components/MsaAssumptionsTable.vue'
 import ModelingAssumptions from './components/ModelingAssumptions.vue'
 import CommercialAssetAssumptions from './components/CommercialAssetAssumptions.vue'
 import ServicerAssumptions from './components/ServicerAssumptions.vue'
+import BrokerAssignmentDefaults from './components/BrokerAssignmentDefaults.vue'
 
 // Page metadata
 const pageTitle = ref('Assumptions & Reference Tables')
@@ -243,7 +280,8 @@ const activeTab = ref<
   'msa-assumptions' |
   'modeling-assumptions' |
   'commercial-asset-assumptions' |
-  'servicer-assumptions'
+  'servicer-assumptions' |
+  'broker-assignment-defaults'
 >('state-assumptions')
 
 // Change tracking
@@ -283,14 +321,90 @@ async function saveAllChanges() {
 
 <style scoped>
 /**
- * Styling for the assumptions management page
+ * Styling for the assumptions management page with sidebar navigation
  * Uses Bootstrap/Hyper UI utilities with minimal custom CSS
  */
-.nav-tabs .nav-link {
-  cursor: pointer;
+
+/* Sidebar Navigation Styles */
+.sidebar-nav {
+  min-height: 600px;
+  background-color: #fafbfe;
 }
 
-.nav-tabs .nav-link:hover {
+.sidebar-nav .nav {
+  padding: 0;
+}
+
+.sidebar-nav .nav-link {
+  display: flex;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  color: #6c757d;
+  text-decoration: none;
+  border-left: 3px solid transparent;
+  transition: all 0.2s ease-in-out;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.sidebar-nav .nav-link:hover {
   background-color: #f1f3fa;
+  color: #313a46;
+}
+
+.sidebar-nav .nav-link.active {
+  background-color: #fff;
+  color: #3577f1;
+  border-left-color: #3577f1;
+  font-weight: 600;
+}
+
+.sidebar-nav .nav-link i {
+  font-size: 1.1rem;
+  width: 20px;
+  text-align: center;
+}
+
+.sidebar-nav .nav-link span {
+  flex: 1;
+}
+
+/* Border styling */
+.border-end {
+  border-right: 1px solid #e3eaef !important;
+}
+
+/* Tab Content Area */
+.tab-content {
+  min-height: 600px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 767.98px) {
+  .sidebar-nav {
+    min-height: auto;
+    border-bottom: 1px solid #e3eaef;
+  }
+  
+  .sidebar-nav .nav {
+    flex-direction: row !important;
+    overflow-x: auto;
+  }
+  
+  .sidebar-nav .nav-link {
+    white-space: nowrap;
+    border-left: none;
+    border-bottom: 3px solid transparent;
+  }
+  
+  .sidebar-nav .nav-link.active {
+    border-left: none;
+    border-bottom-color: #3577f1;
+  }
+  
+  .tab-content {
+    padding: 1rem !important;
+  }
 }
 </style>

@@ -279,6 +279,32 @@
         @refresh="handleImportRefresh"
       />
     </BModal>
+
+    <!-- Broker Assignments Modal -->
+    <!-- WHAT: Modal for assigning brokers to assets in the current trade -->
+    <!-- WHY: Centralized broker assignment workflow accessible from Trade Action Dock -->
+    <BModal
+      v-model="showBrokerAssignmentsModal"
+      title="Broker Assignments"
+      size="xl"
+      centered
+    >
+      <BrokerAssignmentModal
+        v-if="selectedTradeId"
+        :rows="gridRows"
+        :selected-seller-id="selectedSellerId"
+        :selected-trade-id="selectedTradeId"
+        @open-loan-modal="onOpenLoan"
+      />
+      <div v-else class="text-center py-4">
+        <p class="text-muted">Please select a trade to assign brokers.</p>
+      </div>
+      <template #footer>
+        <div class="d-flex justify-content-end w-100 gap-2">
+          <button class="btn btn-primary" @click="showBrokerAssignmentsModal = false">Close</button>
+        </div>
+      </template>
+    </BModal>
   </Layout>
 </template>
 
@@ -309,6 +335,7 @@ import LoanLevelIndex from '@/views/acq_module/loanlvl/loanlvl_index.vue'
 import TradeDetailsModal from '@/views/acq_module/acq_dash/modals/TradeDetailsModal.vue'
 import TradeDocumentsModal from '@/views/acq_module/acq_dash/modals/TradeDocumentsModal.vue'
 import ImportSellerTapeModal from '@/views/acq_module/acq_dash/modals/ImportSellerTapeModal.vue'
+import BrokerAssignmentModal from '@/views/acq_module/acq_dash/components/BrokerAssignmentModal.vue'
 // Trade control prototype Option 1 (Action Dock)
 import TradeActionDock from '@/views/acq_module/acq_dash/components/TradeActionDock.vue';
 // Trade control prototype Option 2 (Tabbed Control Center)
@@ -350,6 +377,7 @@ export default {
     TradeDetailsModal,
     TradeDocumentsModal,
     ImportSellerTapeModal,
+    BrokerAssignmentModal,
     TradeActionDock,
   },
   setup() {
@@ -429,6 +457,7 @@ export default {
     const showTradeDetailsModal = ref<boolean>(false)
     const showTradeDocumentsModal = ref<boolean>(false)
     const showImportModal = ref<boolean>(false) // Controls visibility of the import seller tape modal
+    const showBrokerAssignmentsModal = ref<boolean>(false) // Controls visibility of the broker assignments modal
 
     // selectedSellerLabel resolves the human-readable seller name for the trade control prototypes
     const selectedSellerLabel = computed<string>(() => {
@@ -902,6 +931,7 @@ export default {
       showTradeDetailsModal,
       showTradeDocumentsModal,
       showImportModal,
+      showBrokerAssignmentsModal,
       selectedSellerLabel,
       selectedTradeLabel,
       tradeDocumentContext,
@@ -1025,6 +1055,11 @@ export default {
       }
       if (actionId === 'trade-documents' || actionId === 'documents-room') {
         this.showTradeDocumentsModal = true
+      }
+      if (actionId === 'broker-assignments') {
+        // WHAT: Open broker assignments modal when action is triggered
+        // WHY: Allow users to assign brokers to assets in the current trade
+        this.showBrokerAssignmentsModal = true
       }
       if (actionId === 'trade-approvals' || actionId === 'approvals-checklist') {
         console.log('[Acquisitions] Approvals prototype selected')

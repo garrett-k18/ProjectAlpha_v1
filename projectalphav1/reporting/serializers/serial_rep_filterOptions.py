@@ -64,28 +64,61 @@ class TradeOptionSerializer(serializers.Serializer):
 
 class StatusOptionSerializer(serializers.Serializer):
     """
-    WHAT: Field definitions for status filter dropdown options
-    WHY: Define what status data the sidebar receives
+    WHAT: Field definitions for AM outcome track filter dropdown options
+    WHY: Define what track data the sidebar receives (REO, FC, DIL, Short Sale, Modification, Note Sale)
     WHERE: Used by /api/reporting/statuses/ endpoint
     
     FIELDS:
-    - value: Status code (DD, AWARDED, etc.)
-    - label: Display label (Due Diligence, Awarded, etc.)
-    - count: Number of trades with this status
+    - value: Track code (reo, fc, dil, short_sale, modification, note_sale)
+    - label: Display label (REO, Foreclosure, DIL, etc.)
+    - count: Number of assets on this track
     """
-    # WHAT: Status code
-    # WHY: Used in filter query params (statuses=DD,AWARDED)
-    # SOURCE: Trade.status
+    # WHAT: Track code
+    # WHY: Used in filter query params (tracks=reo,fc)
+    # SOURCE: AssetIdHub outcome relationships
     value = serializers.CharField()
     
     # WHAT: Friendly display label
-    # WHY: Show "Due Diligence" not "DD" in dropdown
-    # SOURCE: Mapped from Trade.Status.choices
+    # WHY: Show "REO" or "Foreclosure" in dropdown
+    # SOURCE: Mapped from outcome model definitions
     label = serializers.CharField()
     
-    # WHAT: Count of trades with this status
-    # WHY: Show user distribution (e.g., "DD (15 trades)")
-    # SOURCE: COUNT(Trade) GROUP BY status
+    # WHAT: Count of assets on this track
+    # WHY: Show user distribution (e.g., "REO (25 assets)")
+    # SOURCE: COUNT(AssetIdHub) with outcome relationship
+    count = serializers.IntegerField(required=False)
+
+
+class TaskStatusOptionSerializer(serializers.Serializer):
+    """
+    WHAT: Field definitions for task status filter dropdown options
+    WHY: Define what task data the sidebar receives (active tasks within outcome tracks)
+    WHERE: Used by /api/reporting/task-statuses/ endpoint
+    
+    FIELDS:
+    - value: Task type code (eviction, trashout, nod_noi, etc.)
+    - label: Display label (Eviction, Trashout, NOD/NOI, etc.)
+    - track: Track this task belongs to (reo, fc, dil, short_sale, modification, note_sale)
+    - count: Number of assets with this task
+    """
+    # WHAT: Task type code
+    # WHY: Used in filter query params (tasks=eviction,trashout)
+    # SOURCE: Task model task_type field
+    value = serializers.CharField()
+    
+    # WHAT: Friendly display label
+    # WHY: Show "Eviction" not "eviction" in dropdown
+    # SOURCE: Mapped from TaskType.choices in each task model
+    label = serializers.CharField()
+    
+    # WHAT: Track this task belongs to
+    # WHY: Allow grouping and filtering by outcome track
+    # SOURCE: Task model association (REOtask->reo, FCTask->fc, etc.)
+    track = serializers.CharField()
+    
+    # WHAT: Count of assets with this task
+    # WHY: Show user distribution (e.g., "Eviction (10 assets)")
+    # SOURCE: COUNT(Task) GROUP BY task_type
     count = serializers.IntegerField(required=False)
 
 

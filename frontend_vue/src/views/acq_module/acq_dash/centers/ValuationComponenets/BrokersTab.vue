@@ -2,106 +2,16 @@
   <div>
     <h5 class="mb-3">Broker Valuations</h5>
     
-    <!-- WHAT: Advanced Filters Section -->
-    <!-- WHY: Allow users to filter broker valuations by state, city, value ranges, grade -->
-    <div class="card bg-light border mb-3">
-      <div class="card-body py-2">
-        <div class="row g-2 align-items-end">
-          <!-- Search Box (City or Loan Number) -->
-          <div class="col-md-3">
-            <label class="form-label small mb-1">Search</label>
-            <input 
-              v-model="filters.search" 
-              type="text" 
-              class="form-control form-control-sm" 
-              placeholder="Search by city or loan number..."
-              @input="applyFilters"
-            />
-          </div>
-          
-          <!-- State Filter -->
-          <div class="col-md-2">
-            <label class="form-label small mb-1">State</label>
-            <select 
-              v-model="filters.state" 
-              class="form-select form-select-sm"
-              @change="applyFilters"
-            >
-              <option value="">All States</option>
-              <option v-for="state in availableStates" :key="state" :value="state">
-                {{ state }}
-              </option>
-            </select>
-          </div>
-          
-          <!-- Grade Filter -->
-          <div class="col-md-1">
-            <label class="form-label small mb-1">Grade</label>
-            <select 
-              v-model="filters.grade" 
-              class="form-select form-select-sm"
-              @change="applyFilters"
-            >
-              <option value="">All Grades</option>
-              <option value="none">No Grade</option>
-              <option value="A+">A+</option>
-              <option value="A">A</option>
-              <option value="B">B</option>
-              <option value="C">C</option>
-              <option value="D">D</option>
-              <option value="F">F</option>
-            </select>
-          </div>
-          
-          <!-- Value Operator -->
-          <div class="col-md-2">
-            <label class="form-label small mb-1">Operator</label>
-            <select 
-              v-model="filters.valueOperator" 
-              class="form-select form-select-sm"
-              @change="applyFilters"
-            >
-              <option value=">">Greater Than</option>
-              <option value="<">Less Than</option>
-              <option value="=">Equal To</option>
-              <option value=">=">Greater or Equal</option>
-              <option value="<=">Less or Equal</option>
-            </select>
-          </div>
-          
-          <!-- Value Filter -->
-          <div class="col-md-2">
-            <label class="form-label small mb-1">Value</label>
-            <input 
-              type="text" 
-              class="form-control form-control-sm" 
-              :value="formatNumberWithCommas(filters.valueAmount)"
-              @input="handleValueFilterInput"
-              placeholder="Enter amount"
-            />
-          </div>
-          
-          <!-- Clear Filters Button -->
-          <div class="col-md-1">
-            <button 
-              class="btn btn-sm btn-light w-100" 
-              @click="clearFilters"
-              title="Clear all filters"
-            >
-              <i class="ri-filter-off-line"></i>
-            </button>
-          </div>
-        </div>
-        
-        <!-- Filter Results Count -->
-        <div class="mt-2 small text-muted">
-          Showing {{ paginatedRows.length }} of {{ filteredRows.length }} assets
-          <span v-if="filteredRows.length < (rows?.length || 0)">
-            (filtered from {{ rows?.length || 0 }} total)
-          </span>
-        </div>
-      </div>
-    </div>
+    <!-- WHAT: Reusable AssetFilters component -->
+    <!-- WHY: Consistent filtering experience using shared component -->
+    <AssetFilters
+      :config="filterConfig"
+      :available-states="availableStates"
+      :total-rows="rows?.length || 0"
+      :filtered-rows="filteredRows.length"
+      @filter-change="handleFilterChange"
+      @clear-filters="handleClearFilters"
+    />
     
     <!-- WHAT: Brokers Table with consistent styling -->
     <!-- WHY: Match OverviewTab table design for consistency, show broker valuation data -->
@@ -300,6 +210,10 @@
 import { ref, computed, onMounted } from 'vue'
 import http from '@/lib/http'
 import DetailedRehabBreakdown from '@/components/property_tabs_components/DetailedRehabBreakdown.vue'
+// WHAT: Import reusable AssetFilters component
+// WHY: Consistent filtering UX across all views
+import AssetFilters from '@/components/custom/AssetFilters.vue'
+import type { FilterValues } from '@/components/custom/AssetFilters.vue'
 
 // WHAT: Props passed from parent ValuationCenter
 // WHY: Tab needs data from parent
@@ -318,15 +232,34 @@ const emit = defineEmits<{
 const currentPage = ref(1)
 const pageSize = ref(50)
 
-// WHAT: Filter state
-// WHY: Allow users to search and filter table data
-const filters = ref({
+// WHAT: Filter state from AssetFilters component
+// WHY: Track user-selected filters for data filtering
+const filters = ref<FilterValues>({
   search: '',
   state: '',
-  valueOperator: '>' as '>' | '<' | '=' | '>=' | '<=',
-  valueAmount: null as number | null,
+  valueSource: 'seller',
+  valueOperator: '>',
+  valueAmount: null,
   grade: '',
+  msa: '',
+  county: '',
 })
+
+// WHAT: Filter configuration for AssetFilters component
+// WHY: Define which filters to show for broker valuations view
+const filterConfig = computed(() => ({
+  showSearch: true,
+  showState: true,
+  showGrade: true,
+  showValueSource: false,
+  showValueOperator: true,
+  showValueAmount: true,
+  showMsa: false,
+  showCounty: false,
+  showResultsCount: true,
+  searchLabel: 'Search',
+  searchPlaceholder: 'Search by city or loan number...',
+}))
 
 // WHAT: Extract unique states from rows for filter dropdown
 // WHY: Populate state filter options
@@ -419,21 +352,26 @@ const paginatedRows = computed(() => {
   return filteredRows.value.slice(start, end)
 })
 
-// Helper functions
-// WHAT: Apply filters and reset to page 1
-// WHY: User changed filter criteria, show first page of results
-function applyFilters() {
+// WHAT: Handle filter changes from AssetFilters component
+// WHY: Update local filter state and reset pagination
+function handleFilterChange(newFilters: FilterValues) {
+  filters.value = { ...newFilters }
   currentPage.value = 1
 }
 
-// WHAT: Clear all filters and reset pagination
-// WHY: User wants to see all data again
-function clearFilters() {
-  filters.value.search = ''
-  filters.value.state = ''
-  filters.value.valueOperator = '>'
-  filters.value.valueAmount = null
-  filters.value.grade = ''
+// WHAT: Handle clear filters event from AssetFilters component
+// WHY: Reset all filters to default state
+function handleClearFilters() {
+  filters.value = {
+    search: '',
+    state: '',
+    valueSource: 'seller',
+    valueOperator: '>',
+    valueAmount: null,
+    grade: '',
+    msa: '',
+    county: '',
+  }
   currentPage.value = 1
 }
 
@@ -562,40 +500,6 @@ function formatCurrency(val: number | null | undefined): string {
     currency: 'USD', 
     maximumFractionDigits: 0 
   }).format(val)
-}
-
-// WHAT: Truncate text to specified length
-// WHY: Keep table rows compact by limiting note display length
-function truncateText(text: string, maxLength: number): string {
-  if (!text) return ''
-  if (text.length <= maxLength) return text
-  return text.substring(0, maxLength) + '...'
-}
-
-// WHAT: Format number with commas for display
-// WHY: Make large numbers more readable in filter input
-function formatNumberWithCommas(val: number | null | undefined): string {
-  if (val == null) return ''
-  return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(val)
-}
-
-// WHAT: Handle value filter input with comma formatting
-// WHY: Auto-format numbers as user types in filter input
-function handleValueFilterInput(event: Event) {
-  const input = event.target as HTMLInputElement
-  const rawValue = input.value.replace(/[^0-9]/g, '')
-  
-  if (rawValue === '') {
-    filters.value.valueAmount = null
-    input.value = ''
-    return
-  }
-  
-  const numericValue = parseInt(rawValue, 10)
-  filters.value.valueAmount = numericValue
-  input.value = formatNumberWithCommas(numericValue)
-  
-  applyFilters()
 }
 
 // WHAT: Inspection modal state

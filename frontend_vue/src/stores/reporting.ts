@@ -19,12 +19,21 @@ export interface TradeOption {
   asset_count: number
 }
 
-// **WHAT**: Status option interface for multi-select filter
-// **WHY**: Allows filtering by multiple statuses (DD, AWARDED, etc.)
-export interface StatusOption {
+// **WHAT**: Track option interface for multi-select filter (AM outcome tracks)
+// **WHY**: Allows filtering by multiple tracks (REO, FC, DIL, Short Sale, Modification, Note Sale)
+export interface TrackOption {
   value: string
   label: string
-  count?: number // Optional: show count of assets in this status
+  count?: number // Optional: show count of assets on this track
+}
+
+// **WHAT**: Task status option interface for multi-select filter
+// **WHY**: Allows filtering by active task types within outcome tracks
+export interface TaskStatusOption {
+  value: string
+  label: string
+  track: string // Which track this task belongs to (reo, fc, dil, etc.)
+  count?: number // Optional: show count of assets with this task
 }
 
 // **WHAT**: Fund option interface for fund-level reporting
@@ -72,9 +81,13 @@ export const useReportingStore = defineStore('reporting', () => {
   // **WHY**: Filter reports by specific trades
   const selectedTradeIds = ref<number[]>([])
   
-  // **WHAT**: Selected status values - multi-select
-  // **WHY**: Filter by DD, AWARDED, PASS, BOARD, etc.
-  const selectedStatuses = ref<string[]>([])
+  // **WHAT**: Selected track values - multi-select
+  // **WHY**: Filter by AM outcome tracks (REO, FC, DIL, Short Sale, Modification, Note Sale)
+  const selectedTracks = ref<string[]>([])
+  
+  // **WHAT**: Selected task status values - multi-select
+  // **WHY**: Filter by active task types (eviction, trashout, nod_noi, etc.)
+  const selectedTaskStatuses = ref<string[]>([])
   
   // **WHAT**: Selected fund ID - single select
   // **WHY**: Show data for a specific investment fund
@@ -102,19 +115,22 @@ export const useReportingStore = defineStore('reporting', () => {
   // ---------------------------------------------------------------------------
   
   const tradeOptions = ref<TradeOption[]>([])
-  const statusOptions = ref<StatusOption[]>([])
+  const trackOptions = ref<TrackOption[]>([])
+  const taskStatusOptions = ref<TaskStatusOption[]>([])
   const fundOptions = ref<FundOption[]>([])
   const entityOptions = ref<EntityOption[]>([])
   
   // Loading states for each filter
   const loadingTrades = ref<boolean>(false)
-  const loadingStatuses = ref<boolean>(false)
+  const loadingTracks = ref<boolean>(false)
+  const loadingTaskStatuses = ref<boolean>(false)
   const loadingFunds = ref<boolean>(false)
   const loadingEntities = ref<boolean>(false)
   
   // Error states
   const errorTrades = ref<string | null>(null)
-  const errorStatuses = ref<string | null>(null)
+  const errorTracks = ref<string | null>(null)
+  const errorTaskStatuses = ref<string | null>(null)
   const errorFunds = ref<string | null>(null)
   const errorEntities = ref<string | null>(null)
   
@@ -155,7 +171,8 @@ export const useReportingStore = defineStore('reporting', () => {
   const hasActiveFilters = computed<boolean>(() => {
     return (
       selectedTradeIds.value.length > 0 ||
-      selectedStatuses.value.length > 0 ||
+      selectedTracks.value.length > 0 ||
+      selectedTaskStatuses.value.length > 0 ||
       selectedFundId.value !== null ||
       selectedEntityId.value !== null
     )
@@ -169,8 +186,11 @@ export const useReportingStore = defineStore('reporting', () => {
     if (selectedTradeIds.value.length > 0) {
       params.append('trade_ids', selectedTradeIds.value.join(','))
     }
-    if (selectedStatuses.value.length > 0) {
-      params.append('statuses', selectedStatuses.value.join(','))
+    if (selectedTracks.value.length > 0) {
+      params.append('tracks', selectedTracks.value.join(','))
+    }
+    if (selectedTaskStatuses.value.length > 0) {
+      params.append('task_statuses', selectedTaskStatuses.value.join(','))
     }
     if (selectedFundId.value !== null) {
       params.append('fund_id', String(selectedFundId.value))
@@ -221,37 +241,61 @@ export const useReportingStore = defineStore('reporting', () => {
   }
   
   /**
-   * **WHAT**: Fetch status options for filter dropdown
-   * **WHY**: Populate status multi-select with all possible statuses
+   * **WHAT**: Fetch track options for filter dropdown (AM outcome tracks)
+   * **WHY**: Populate track multi-select with all outcome tracks
    * **WHERE**: Called on dashboard mount
    * **HOW**: GET /api/reporting/statuses/ (Backend endpoint ready!)
    */
-  async function fetchStatusOptions(force: boolean = false): Promise<void> {
-    if (!force && statusOptions.value.length > 0) return
+  async function fetchTrackOptions(force: boolean = false): Promise<void> {
+    if (!force && trackOptions.value.length > 0) return
     
-    loadingStatuses.value = true
-    errorStatuses.value = null
+    loadingTracks.value = true
+    errorTracks.value = null
     
     try {
-      // WHAT: Call reporting statuses endpoint
-      // WHY: Get all unique statuses from Trade model
+      // WHAT: Call reporting tracks endpoint (statuses endpoint now returns tracks)
+      // WHY: Get all AM outcome tracks (REO, FC, DIL, Short Sale, Modification, Note Sale)
       // ENDPOINT: GET /api/reporting/statuses/
-      const response = await http.get<StatusOption[]>('/reporting/statuses/')
-      statusOptions.value = response.data
-      console.log('[ReportingStore] Loaded statuses:', response.data.length)
+      const response = await http.get<TrackOption[]>('/reporting/statuses/')
+      trackOptions.value = response.data
+      console.log('[ReportingStore] Loaded tracks:', response.data.length)
     } catch (error: any) {
-      console.error('[ReportingStore] fetchStatusOptions error:', error)
-      errorStatuses.value = error.message || 'Failed to load statuses'
-      // WHAT: Fallback to hardcoded if endpoint fails
-      statusOptions.value = [
-        { value: 'DD', label: 'Due Diligence' },
-        { value: 'AWARDED', label: 'Awarded' },
-        { value: 'PASS', label: 'Passed' },
-        { value: 'BOARD', label: 'Boarded' },
-        { value: 'INDICATIVE', label: 'Indicative' },
-      ]
+      console.error('[ReportingStore] fetchTrackOptions error:', error)
+      errorTracks.value = error.message || 'Failed to load tracks'
+      trackOptions.value = []
     } finally {
-      loadingStatuses.value = false
+      loadingTracks.value = false
+    }
+  }
+  
+  /**
+   * **WHAT**: Fetch task status options for filter dropdown
+   * **WHY**: Populate task status multi-select with active tasks
+   * **WHERE**: Called on dashboard mount or when tracks change
+   * **HOW**: GET /api/reporting/task-statuses/?track={track} (Backend endpoint ready!)
+   */
+  async function fetchTaskStatusOptions(trackFilter?: string, force: boolean = false): Promise<void> {
+    if (!force && taskStatusOptions.value.length > 0 && !trackFilter) return
+    
+    loadingTaskStatuses.value = true
+    errorTaskStatuses.value = null
+    
+    try {
+      // WHAT: Call reporting task statuses endpoint
+      // WHY: Get all active task types across all tracks (or filtered by specific track)
+      // ENDPOINT: GET /api/reporting/task-statuses/?track={track}
+      const url = trackFilter 
+        ? `/reporting/task-statuses/?track=${trackFilter}`
+        : '/reporting/task-statuses/'
+      const response = await http.get<TaskStatusOption[]>(url)
+      taskStatusOptions.value = response.data
+      console.log('[ReportingStore] Loaded task statuses:', response.data.length)
+    } catch (error: any) {
+      console.error('[ReportingStore] fetchTaskStatusOptions error:', error)
+      errorTaskStatuses.value = error.message || 'Failed to load task statuses'
+      taskStatusOptions.value = []
+    } finally {
+      loadingTaskStatuses.value = false
     }
   }
   
@@ -404,7 +448,8 @@ export const useReportingStore = defineStore('reporting', () => {
    */
   function resetFilters(): void {
     selectedTradeIds.value = []
-    selectedStatuses.value = []
+    selectedTracks.value = []
+    selectedTaskStatuses.value = []
     selectedFundId.value = null
     selectedEntityId.value = null
     dateRangeStart.value = null
@@ -426,7 +471,8 @@ export const useReportingStore = defineStore('reporting', () => {
   async function refreshAllOptions(): Promise<void> {
     await Promise.all([
       fetchTradeOptions(true),
-      fetchStatusOptions(true),
+      fetchTrackOptions(true),
+      fetchTaskStatusOptions(undefined, true),
       fetchFundOptions(true),
       fetchEntityOptions(true),
     ])
@@ -439,22 +485,26 @@ export const useReportingStore = defineStore('reporting', () => {
   return {
     // State
     selectedTradeIds,
-    selectedStatuses,
+    selectedTracks,
+    selectedTaskStatuses,
     selectedFundId,
     selectedEntityId,
     dateRangeStart,
     dateRangeEnd,
     currentView,
     tradeOptions,
-    statusOptions,
+    trackOptions,
+    taskStatusOptions,
     fundOptions,
     entityOptions,
     loadingTrades,
-    loadingStatuses,
+    loadingTracks,
+    loadingTaskStatuses,
     loadingFunds,
     loadingEntities,
     errorTrades,
-    errorStatuses,
+    errorTracks,
+    errorTaskStatuses,
     errorFunds,
     errorEntities,
     reportSummary,
@@ -474,7 +524,8 @@ export const useReportingStore = defineStore('reporting', () => {
     
     // Actions
     fetchTradeOptions,
-    fetchStatusOptions,
+    fetchTrackOptions,
+    fetchTaskStatusOptions,
     fetchFundOptions,
     fetchEntityOptions,
     fetchReportSummary,

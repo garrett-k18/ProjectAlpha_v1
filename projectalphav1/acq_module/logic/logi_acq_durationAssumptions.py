@@ -14,7 +14,8 @@ from typing import Any, Dict, List, Optional
 from django.db.models import Prefetch, Sum
 
 from acq_module.models.model_acq_seller import SellerRawData
-from core.models.model_co_assumptions import FCStatus, FCTimelines, StateReference
+from core.models.model_co_geoAssumptions import StateReference
+from core.models.model_co_assumptions import FCStatus, FCTimelines
 from .logi_acq_expenseAssumptions import (
     monthly_insurance_for_asset,
     monthly_tax_for_asset,
