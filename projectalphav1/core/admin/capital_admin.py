@@ -195,8 +195,7 @@ class FundAdmin(admin.ModelAdmin):
         }),
         ('Fund Lifecycle', {
             'fields': (
-                'inception_date', 'first_close_date', 'final_close_date',
-                'investment_period_end', 'fund_term_years', 'maturity_date'
+                'inception_date', 'investment_period_end', 'fund_term_years', 'maturity_date'
             )
         }),
         ('Fee Structure', {
@@ -209,7 +208,7 @@ class FundAdmin(admin.ModelAdmin):
             'fields': ('preferred_return_pct', 'lp_promote', 'gp_promote_pct', 'gp_catchup_pct')
         }),
         ('Investment Strategy', {
-            'fields': ('investment_strategy', 'target_geography')
+            'fields': ('investment_strategy',)
         }),
         ('Additional Information', {
             'fields': ('notes', 'created_at', 'updated_at')

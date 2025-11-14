@@ -1,5 +1,5 @@
 # All models moved to core for hub-first architecture
-from .capital import DebtFacility, JVEquityPartner, CoInvestor, InvestorContribution, InvestorDistribution, Fund
+from .model_co_capStack import DebtFacility, JVEquityPartner, CoInvestor, InvestorContribution, InvestorDistribution, Fund, LegalEntity, Ownership
 from .model_co_crm import MasterCRM, BrokerMSAAssignment
 from .asset_id_hub import AssetIdHub
 from .model_co_geoAssumptions import StateReference, CountyReference, MSAReference, ZIPReference
@@ -22,6 +22,8 @@ __all__ = [
     'InvestorContribution',
     'InvestorDistribution',
     'Fund',
+    'LegalEntity',
+    'Ownership',
     'MasterCRM',
     'AssetIdHub',
     'Servicer',

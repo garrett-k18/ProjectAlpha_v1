@@ -10,6 +10,8 @@ from core.models import (
     InvestorContribution,
     InvestorDistribution,
     Fund,
+    LegalEntity,
+    Ownership,
     MasterCRM,
     AssetIdHub,
     Servicer,
@@ -225,8 +227,7 @@ class FundAdmin(admin.ModelAdmin):
         }),
         ('Fund Lifecycle', {
             'fields': (
-                'inception_date', 'first_close_date', 'final_close_date',
-                'investment_period_end', 'fund_term_years', 'maturity_date'
+                'inception_date', 'investment_period_end', 'fund_term_years', 'maturity_date'
             )
         }),
         ('Fee Structure', {
@@ -239,7 +240,7 @@ class FundAdmin(admin.ModelAdmin):
             'fields': ('preferred_return_pct', 'lp_promote', 'gp_promote_pct', 'gp_catchup_pct')
         }),
         ('Investment Strategy', {
-            'fields': ('investment_strategy', 'target_geography')
+            'fields': ('investment_strategy',)
         }),
         ('Additional Information', {
             'fields': ('notes', 'created_at', 'updated_at')
@@ -250,6 +251,125 @@ class FundAdmin(admin.ModelAdmin):
         """Display capital called as percentage"""
         return f"{obj.capital_called_pct():.1f}%"
     get_capital_called_pct.short_description = 'Capital Called %'
+
+
+@admin.register(LegalEntity)
+class LegalEntityAdmin(admin.ModelAdmin):
+    """Admin configuration for LegalEntity model.
+    
+    What: Manage legal entities that can own assets
+    Why: Track all ownership entities (funds, SPVs, LLCs, etc.)
+    How: Display key entity info with links to Fund records and ownership
+    """
+    list_display = (
+        "entity_name",
+        "entity_type",
+        "get_fund_link",
+        "tax_id",
+        "formation_state",
+        "is_active",
+        "get_owned_assets_count",
+        "created_at",
+    )
+    list_filter = ("entity_type", "is_active", "formation_state")
+    search_fields = ("entity_name", "tax_id", "notes")
+    list_per_page = 25
+    autocomplete_fields = ['fund']
+    readonly_fields = ('created_at', 'updated_at')
+    
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('entity_name', 'entity_type', 'fund', 'is_active')
+        }),
+        ('Legal Details', {
+            'fields': ('tax_id', 'formation_date', 'formation_state')
+        }),
+        ('Additional Information', {
+            'fields': ('notes', 'created_at', 'updated_at')
+        }),
+    )
+    
+    def get_fund_link(self, obj):
+        """Display linked fund name if exists"""
+        if obj.fund:
+            return obj.fund.fund_name
+        return '—'
+    get_fund_link.short_description = 'Linked Fund'
+    
+    def get_owned_assets_count(self, obj):
+        """Count assets directly owned by this entity"""
+        count = obj.owned_interests.filter(
+            owned_asset__isnull=False,
+            is_active=True
+        ).count()
+        return count if count > 0 else '—'
+    get_owned_assets_count.short_description = 'Assets Owned'
+
+
+@admin.register(Ownership)
+class OwnershipAdmin(admin.ModelAdmin):
+    """Admin configuration for Ownership model.
+    
+    What: Track ownership relationships between entities and assets
+    Why: Manage complex ownership structures and multi-level hierarchies
+    How: Display owner, owned object, percentage, and dates
+    """
+    list_display = (
+        "get_owner_name",
+        "get_owned_object",
+        "ownership_percentage",
+        "ownership_type",
+        "acquisition_date",
+        "disposition_date",
+        "is_active",
+        "created_at",
+    )
+    list_filter = ("ownership_type", "is_active", "acquisition_date")
+    search_fields = (
+        "owner_entity__entity_name",
+        "owned_asset__servicer_id",
+        "owned_entity__entity_name",
+        "notes"
+    )
+    list_per_page = 25
+    autocomplete_fields = ['owner_entity', 'owned_asset', 'owned_entity']
+    readonly_fields = ('created_at', 'updated_at')
+    date_hierarchy = 'acquisition_date'
+    
+    fieldsets = (
+        ('Ownership Structure', {
+            'fields': ('owner_entity', 'owned_asset', 'owned_entity'),
+            'description': 'Specify either owned_asset OR owned_entity (not both)'
+        }),
+        ('Ownership Details', {
+            'fields': ('ownership_percentage', 'ownership_type', 'is_active')
+        }),
+        ('Dates', {
+            'fields': ('acquisition_date', 'disposition_date')
+        }),
+        ('Financial Details', {
+            'fields': ('acquisition_cost', 'current_value')
+        }),
+        ('Additional Information', {
+            'fields': ('notes', 'created_at', 'updated_at')
+        }),
+    )
+    
+    def get_owner_name(self, obj):
+        """Display owner entity name"""
+        return obj.owner_entity.entity_name
+    get_owner_name.short_description = 'Owner'
+    get_owner_name.admin_order_field = 'owner_entity__entity_name'
+    
+    def get_owned_object(self, obj):
+        """Display owned asset or entity"""
+        if obj.owned_asset:
+            return f"Asset: {obj.owned_asset.servicer_id or f'#{obj.owned_asset.id}'}"
+        elif obj.owned_entity:
+            return f"Entity: {obj.owned_entity.entity_name}"
+        return '—'
+    get_owned_object.short_description = 'Owned Object'
+
 
 @admin.register(MasterCRM)
 class MasterCRMAdmin(admin.ModelAdmin):

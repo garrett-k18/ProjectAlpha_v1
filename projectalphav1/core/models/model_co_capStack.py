@@ -367,7 +367,6 @@ class Fund(models.Model):
         ACTIVE = "active", "Active/Investing"
         HARVESTING = "harvesting", "Harvesting/Liquidating"
         CLOSED = "closed", "Closed"
-        LIQUIDATED = "liquidated", "Fully Liquidated"
     
     # Fund type choices
     class FundType(models.TextChoices):
@@ -376,6 +375,8 @@ class Fund(models.Model):
         SEPARATE_ACCOUNT = "separate_account", "Separate Account"
         JV = "jv", "Joint Venture"
         SPV = "spv", "Special Purpose Vehicle"
+        WHOLLY_OWNED = "wholly_owned", "Wholly Owned"
+        ASSET_MANAGEMENT = "asset_management", "Asset Management"
         OTHER = "other", "Other"
     
     # Basic fund information
@@ -428,18 +429,6 @@ class Fund(models.Model):
         null=True,
         blank=True,
         help_text="Fund inception/formation date"
-    )
-    
-    first_close_date = models.DateField(
-        null=True,
-        blank=True,
-        help_text="Date of first capital close"
-    )
-    
-    final_close_date = models.DateField(
-        null=True,
-        blank=True,
-        help_text="Date of final capital close"
     )
     
     investment_period_end = models.DateField(
@@ -576,13 +565,6 @@ class Fund(models.Model):
         help_text="Description of investment strategy and focus"
     )
     
-    target_geography = models.CharField(
-        max_length=255,
-        null=True,
-        blank=True,
-        help_text="Target geographic focus (e.g., 'US Nationwide', 'Southeast US')"
-    )
-    
     # Additional details
     legal_entity_name = models.CharField(
         max_length=255,
@@ -627,3 +609,271 @@ class Fund(models.Model):
     def remaining_commitment(self):
         """Calculate remaining uncalled capital"""
         return (self.total_commitments or Decimal('0.00')) - (self.total_funded or Decimal('0.00'))
+
+
+class LegalEntity(models.Model):
+    """Master legal entity model representing any entity that can own assets.
+    
+    What: Unified model for all ownership entities (Funds, SPVs, LLCs, etc.)
+    Why: Allows flexible ownership tracking across entity types
+    How: Polymorphic approach - entity can be linked to Fund, or standalone
+    
+    Examples:
+    - Fund I (linked to Fund model) → owns Asset #123
+    - SPV-2024-01 (standalone) → owns multiple assets
+    - Alpha Properties LLC (standalone) → co-invests with funds
+    """
+    
+    class EntityType(models.TextChoices):
+        """Entity type classification"""
+        FUND = "fund", "Fund"
+        SPV = "spv", "Special Purpose Vehicle"
+        LLC = "llc", "Limited Liability Company"
+        LP = "lp", "Limited Partnership"
+        CORPORATION = "corporation", "Corporation"
+        TRUST = "trust", "Trust"
+        OTHER = "other", "Other"
+    
+    # Basic entity information
+    entity_name = models.CharField(
+        max_length=255,
+        help_text="Legal entity name"
+    )
+    
+    entity_type = models.CharField(
+        max_length=50,
+        choices=EntityType.choices,
+        help_text="Type of legal entity"
+    )
+    
+    # Link to Fund model if this entity is a fund
+    fund = models.OneToOneField(
+        'Fund',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='legal_entity',
+        help_text="Link to Fund record if this entity is a fund"
+    )
+    
+    # Legal details
+    tax_id = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True,
+        help_text="Tax ID/EIN"
+    )
+    
+    formation_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Entity formation date"
+    )
+    
+    formation_state = models.CharField(
+        max_length=2,
+        null=True,
+        blank=True,
+        help_text="State of formation (e.g., DE, NV)"
+    )
+    
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Whether entity is currently active"
+    )
+    
+    notes = models.TextField(
+        null=True,
+        blank=True,
+        help_text="Additional notes about the entity"
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        managed = True
+        db_table = "legal_entity"
+        ordering = ["entity_name"]
+        verbose_name = "Legal Entity"
+        verbose_name_plural = "Legal Entities"
+    
+    def __str__(self):
+        """String representation showing entity name and type"""
+        return f"{self.entity_name} ({self.get_entity_type_display()})"
+
+
+class Ownership(models.Model):
+    """Flexible ownership tracking for multi-level structures.
+    
+    What: Junction model tracking owner → owned relationships with percentages
+    Why: Handle complex ownership: Fund→Asset, Fund→Fund, multiple owners per asset
+    How: FKs to LegalEntity (owner) and owned object (Asset or Entity)
+    
+    Examples:
+    - Fund I owns 80% of Asset #123
+    - Fund I owns 100% of SPV #1, SPV #1 owns 100% of Asset #123
+    - Fund I owns 60% of Asset #456, Fund II owns 40% of Asset #456
+    - Ownership can change over time (track with acquisition/disposition dates)
+    """
+    
+    class OwnershipType(models.TextChoices):
+        """Ownership position type"""
+        EQUITY = "equity", "Equity"
+        PREFERRED_EQUITY = "preferred_equity", "Preferred Equity"
+        MEZZANINE = "mezzanine", "Mezzanine Debt"
+        DEBT = "debt", "Senior Debt"
+        OTHER = "other", "Other"
+    
+    # Owner (always a legal entity)
+    owner_entity = models.ForeignKey(
+        LegalEntity,
+        on_delete=models.CASCADE,
+        related_name='owned_interests',
+        help_text="Entity that owns the interest"
+    )
+    
+    # Owned Asset (if ownership is of an asset)
+    owned_asset = models.ForeignKey(
+        'AssetIdHub',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='ownership_records',
+        help_text="Asset being owned (for direct asset ownership)"
+    )
+    
+    # Owned Entity (if ownership is of another entity - for tiered structures)
+    owned_entity = models.ForeignKey(
+        LegalEntity,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='ownership_structure',
+        help_text="Entity being owned (for entity ownership, e.g. Fund owns SPV)"
+    )
+    
+    # Ownership details
+    ownership_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        help_text="Ownership percentage (e.g., 80.00 for 80%)"
+    )
+    
+    ownership_type = models.CharField(
+        max_length=50,
+        choices=OwnershipType.choices,
+        default=OwnershipType.EQUITY,
+        help_text="Type of ownership interest"
+    )
+    
+    # Dates for tracking ownership changes
+    acquisition_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date ownership was acquired"
+    )
+    
+    disposition_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date ownership was disposed (if sold)"
+    )
+    
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Whether this ownership record is currently active"
+    )
+    
+    # Financial details
+    acquisition_cost = models.DecimalField(
+        max_digits=18,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Cost basis of acquisition"
+    )
+    
+    current_value = models.DecimalField(
+        max_digits=18,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Current estimated value"
+    )
+    
+    notes = models.TextField(
+        null=True,
+        blank=True,
+        help_text="Additional ownership notes"
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        managed = True
+        db_table = "ownership"
+        ordering = ["-acquisition_date", "-created_at"]
+        verbose_name = "Ownership Record"
+        verbose_name_plural = "Ownership Records"
+        
+        # Ensure either asset or entity is specified, not both
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    models.Q(owned_asset__isnull=False, owned_entity__isnull=True) |
+                    models.Q(owned_asset__isnull=True, owned_entity__isnull=False)
+                ),
+                name="ownership_must_be_asset_or_entity"
+            )
+        ]
+    
+    def __str__(self):
+        """String representation showing owner, percentage, and owned object"""
+        owned = self.owned_asset or self.owned_entity
+        return f"{self.owner_entity} owns {self.ownership_percentage}% of {owned}"
+    
+    def get_ultimate_owners(self):
+        """Recursively calculate ultimate ownership up the chain.
+        
+        What: Traverse ownership hierarchy to find top-level owners
+        Why: Show true beneficial ownership percentages
+        How: Recursive lookup through owned_entity relationships
+        
+        Returns: List of tuples (LegalEntity, effective_ownership_percentage)
+        
+        Example:
+            If Fund I owns 100% of SPV, and SPV owns 80% of Asset:
+            asset_ownership.get_ultimate_owners() → [(Fund I, 80.00)]
+        """
+        # If owner is not owned by anyone else, it's an ultimate owner
+        parent_ownerships = Ownership.objects.filter(
+            owned_entity=self.owner_entity,
+            is_active=True
+        )
+        
+        if not parent_ownerships.exists():
+            # This is a top-level owner
+            return [(self.owner_entity, self.ownership_percentage)]
+        
+        # Recursively calculate ownership through parents
+        ultimate_owners = []
+        for parent in parent_ownerships:
+            parent_ultimate = parent.get_ultimate_owners()
+            for entity, parent_pct in parent_ultimate:
+                # Multiply percentages (e.g., 80% of 50% = 40%)
+                effective_pct = (self.ownership_percentage * parent_pct) / 100
+                ultimate_owners.append((entity, effective_pct))
+        
+        return ultimate_owners
+    
+    def clean(self):
+        """Validate that exactly one of owned_asset or owned_entity is set"""
+        from django.core.exceptions import ValidationError
+        
+        if self.owned_asset and self.owned_entity:
+            raise ValidationError("Cannot specify both owned_asset and owned_entity")
+        
+        if not self.owned_asset and not self.owned_entity:
+            raise ValidationError("Must specify either owned_asset or owned_entity")
