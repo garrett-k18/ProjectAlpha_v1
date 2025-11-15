@@ -20,7 +20,6 @@ from core.models import (
     StateReference,
     CountyReference,
     MSAReference,
-    ZIPReference,
     HUDZIPCBSACrosswalk,
     BrokerMSAAssignment,
     FCStatus,
@@ -596,7 +595,7 @@ class MSAReferenceAdmin(admin.ModelAdmin):
     HOW: Display MSA code, name, state with search and filters
     """
     list_display = (
-        'msa_code', 'msa_name', 'get_state_code', 'get_zip_count', 'get_broker_count'
+        'msa_code', 'msa_name', 'get_state_code', 'get_broker_count'
     )
     search_fields = ('msa_code', 'msa_name')
     list_filter = ('state',)
@@ -610,52 +609,10 @@ class MSAReferenceAdmin(admin.ModelAdmin):
     get_state_code.short_description = 'State'
     get_state_code.admin_order_field = 'state__state_code'
     
-    def get_zip_count(self, obj):
-        """Display count of ZIP codes in this MSA"""
-        return obj.zip_codes.count()
-    get_zip_count.short_description = 'ZIPs'
-    
     def get_broker_count(self, obj):
         """Display count of brokers assigned to this MSA"""
         return obj.broker_assignments.filter(is_active=True).count()
     get_broker_count.short_description = 'Brokers'
-
-
-@admin.register(ZIPReference)
-class ZIPReferenceAdmin(admin.ModelAdmin):
-    """
-    WHAT: Admin configuration for ZIPReference model
-    WHY: Allow viewing and managing ZIP code reference data
-    HOW: Display ZIP code, city, state, county, MSA with search and filters
-    """
-    list_display = (
-        'zip_code', 'city_name', 'get_state_code', 'get_county_name', 
-        'get_msa_name', 'zip_type'
-    )
-    search_fields = ('zip_code', 'city_name')
-    list_filter = ('state', 'zip_type', 'msa')
-    ordering = ('zip_code',)
-    autocomplete_fields = ['state', 'county', 'msa']
-    list_per_page = 50
-    
-    def get_state_code(self, obj):
-        """Display state abbreviation"""
-        return obj.state.state_code if obj.state else '—'
-    get_state_code.short_description = 'State'
-    get_state_code.admin_order_field = 'state__state_code'
-    
-    def get_county_name(self, obj):
-        """Display county name"""
-        return obj.county.county_name if obj.county else '—'
-    get_county_name.short_description = 'County'
-    
-    def get_msa_name(self, obj):
-        """Display MSA name (truncated)"""
-        if not obj.msa:
-            return '—'
-        name = obj.msa.msa_name
-        return name[:40] + '...' if len(name) > 40 else name
-    get_msa_name.short_description = 'MSA'
 
 
 @admin.register(HUDZIPCBSACrosswalk)

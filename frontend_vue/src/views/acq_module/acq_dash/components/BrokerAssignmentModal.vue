@@ -61,7 +61,7 @@
           <div>
             <h6 class="mb-1">MSA Grouping</h6>
             <p class="text-muted small mb-0">
-              Linked via ZIPReference crosswalk so you can bulk-assign local brokers quickly.
+              Linked via the HUD ZIP→CBSA crosswalk so you can bulk-assign local brokers quickly.
             </p>
           </div>
           <span class="badge bg-primary-subtle text-primary">
