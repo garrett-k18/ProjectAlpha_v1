@@ -107,25 +107,20 @@ def _build_display_address(row: Dict[str, Optional[str]]) -> str:
 
 
 def _build_address_candidates(row: Dict[str, Optional[str]]) -> List[str]:
-    """Build address candidates for geocoding: City+State, then State.
+    """Build address candidates for geocoding: City+State only.
 
-    This intentionally ignores street address and ZIP to reduce geocoding
-    precision (acceptable for a US-wide vector map) and improve performance.
-    The goal is to geocode to the city centroid first; if that fails, use the
-    state centroid.
+    WHAT: Return single candidate (City, State) to minimize API calls.
+    WHY: Each API call costs money; no fallback to state-only.
+    HOW: If city+state fails, we skip that address (no retry).
     """
     city = str(row.get("city", "") or "").strip()
     state = str(row.get("state", "") or "").strip()
 
     candidates: List[str] = []
 
-    # 1) "City, State" (highest preference for our use case)
+    # WHAT: Build single candidate City, State
     if city and state:
         candidates.append(f"{city}, {state}")
-
-    # 2) "State" (fallback to state centroid)
-    if state and state not in candidates:
-        candidates.append(state)
 
     return candidates
 
@@ -155,70 +150,108 @@ def _get_geocodio_client(api_key: str) -> Any:
     return client
 
 
-def _geocode_geocodio(address: str, api_key: str) -> Optional[Tuple[float, float]]:
-    """Call Geocod.io API for a single address via pygeocodio.
-
-    Returns:
-        (lat, lng) tuple on success, or None on failure.
-
-    Notes:
-        - pygeocodio's `coords` returns (lng, lat), so we reorder to (lat, lng).
-        - Service coverage: US and Canada.
-    """
-    try:
-        client = _get_geocodio_client(api_key)
-        result = client.geocode(address)
-        if not result:
-            return None
-
-        # pygeocodio path: result.coords returns (lng, lat)
-        coords = getattr(result, "coords", None)
-        if coords:
-            try:
-                lng, lat = coords
-                if lat is None or lng is None:
-                    return None
-                return float(lat), float(lng)
-            except Exception:
-                pass
-
-        # Official geocodio-library-python path:
-        # result.results[0].location with lat/lng as attributes or dict keys
-        results_list = getattr(result, "results", None)
-        if results_list:
-            try:
-                first = results_list[0]
-                loc = getattr(first, "location", None)
-                if loc is not None:
-                    lat = getattr(loc, "lat", None)
-                    lng = getattr(loc, "lng", None)
-                    if lat is None or lng is None:
-                        # Handle dict-like location
-                        try:
-                            lat = lat or (loc.get("lat") if hasattr(loc, "get") else None)
-                            lng = lng or (loc.get("lng") if hasattr(loc, "get") else None)
-                        except Exception:
-                            pass
-                    if lat is not None and lng is not None:
-                        return float(lat), float(lng)
-            except Exception:
-                pass
-
+def _get_attr_or_key(obj: Any, key: str) -> Any:
+    """Return attribute or dict key value for mixed response objects."""
+    if obj is None:
         return None
-    except Exception:
-        # Swallow exceptions and return None; callers handle None as failure
-        return None
+    if isinstance(obj, dict):
+        return obj.get(key)
+    return getattr(obj, key, None)
 
 
-def _call_geocoding_api(address: str, api_key: str) -> Optional[Tuple[float, float]]:
-    """Call Geocod.io API directly for an address.
+def _get_nested_value(obj: Any, *keys: str) -> Any:
+    """Safely traverse nested attributes/keys from Geocod.io responses."""
+    current = obj
+    for key in keys:
+        current = _get_attr_or_key(current, key)
+        if current is None:
+            break
+    return current
+
+
+def _extract_msa_fields(census_obj: Any) -> Dict[str, Optional[str]]:
+    """Extract MSA/CBSA metadata from Geocodio census object.
     
-    Returns (lat, lng) tuple on success, None on failure.
+    WHAT: Parse census field to extract metropolitan_statistical_area name and code.
+    WHY: Geocodio returns MSA info in response.results[0].fields.census
+    HOW: Access object attributes for msa name and code.
+    DOCS: https://www.geocod.io/docs/
     """
+    extras: Dict[str, Optional[str]] = {}
+    
+    if not census_obj:
+        return extras
+    
+    # WHAT: Get MSA object from census
+    msa_obj = getattr(census_obj, "metropolitan_statistical_area", None)
+    
+    if not msa_obj:
+        return extras
+    
+    # WHAT: Extract name and code from MSA object attributes
+    msa_name = getattr(msa_obj, "name", None)
+    msa_code = getattr(msa_obj, "code", None)
+    
+    if isinstance(msa_code, (int, float)):
+        msa_code = str(msa_code)
+    
+    if msa_name:
+        extras["msa_name"] = str(msa_name)
+    if msa_code:
+        extras["msa_code"] = str(msa_code)
+    
+    return extras
+
+
+def _geocode_geocodio(address: str, api_key: str) -> Tuple[Optional[Tuple[float, float]], Dict[str, Optional[str]]]:
+    """Call Geocod.io API using official geocodio-library-python.
+    
+    DOCS: https://github.com/Geocodio/geocodio-library-python
+    """
+    from geocodio import Geocodio
+    import json
+    extras: Dict[str, Optional[str]] = {}
+    
+    try:
+        client = Geocodio(api_key)
+        
+        # WHAT: Call official library with fields parameter
+        # WHY: Proper way to access census/MSA data from Geocodio
+        # HOW: Use fields kwarg to request census data append
+        response = client.geocode(address, fields=['census'])
+        
+        if not response.results:
+            return None, extras
+        
+        first = response.results[0]
+        coords = getattr(first, 'coords', None)
+        
+        if not coords:
+            return None, extras
+        
+        lat, lng = coords
+        
+        # WHAT: Extract MSA/census fields from response
+        # WHY: Geocodio returns census data when fields=['census'] is requested
+        # HOW: Access response.results[0].fields.census object
+        if hasattr(first, 'fields') and hasattr(first.fields, 'census'):
+            extras.update(_extract_msa_fields(first.fields.census))
+        
+        return (float(lat), float(lng)), extras
+        
+    except Exception as e:
+        print(f"[GEOCODIO_ERROR] {e}")
+        import traceback
+        traceback.print_exc()
+        return None, extras
+
+
+def _call_geocoding_api(address: str, api_key: str) -> Tuple[Optional[Tuple[float, float]], Dict[str, Optional[str]]]:
+    """Call Geocod.io API directly for an address."""
     return _geocode_geocodio(address, api_key)
 
 
-def _try_geocoding_candidates(address_candidates: List[str], api_key: str) -> Tuple[Optional[Tuple[float, float]], Optional[str]]:
+def _try_geocoding_candidates(address_candidates: List[str], api_key: str) -> Tuple[Optional[Tuple[float, float]], Optional[str], Dict[str, Optional[str]]]:
     """Try multiple address candidates with API calls.
 
     Args:
@@ -226,15 +259,15 @@ def _try_geocoding_candidates(address_candidates: List[str], api_key: str) -> Tu
         api_key: Geocod.io API key
 
     Returns:
-        (coords, used_address)
+        (coords, used_address, extras)
             - coords: (lat, lng) or None
             - used_address: the address string that produced coords, or None
     """
     for addr in address_candidates:
-        coords = _call_geocoding_api(addr, api_key)
+        coords, extras = _call_geocoding_api(addr, api_key)
         if coords is not None:
-            return coords, addr
-    return None, None
+            return coords, addr, extras
+    return None, None, {}
 
 
 def geocode_markers_for_seller_trade(seller_id: int, trade_id: int) -> Dict[str, Any]:
@@ -294,7 +327,8 @@ def geocode_markers_for_seller_trade(seller_id: int, trade_id: int) -> Dict[str,
             "display_name": _build_display_address(r),
         })
 
-    unique_addrs = list(addr_to_rows.keys())[:MAX_UNIQUE_ADDRESSES]
+    # WHAT: Process all unique addresses
+    unique_addrs = list(addr_to_rows.keys())
     
     dedup_time = time.time() - query_start
     print(f'[GEOCODE SERVICE] Deduplicated to {len(unique_addrs)} unique addresses in {dedup_time:.2f}s')
@@ -333,6 +367,7 @@ def geocode_markers_for_seller_trade(seller_id: int, trade_id: int) -> Dict[str,
         # 1) Prefer DB-persisted geocode if present on any row for this address
         persisted = None
         used_addr = None
+        extras: Dict[str, Optional[str]] = {}
         for r in addr_to_rows[norm]:
             # Use lookup dict instead of database query
             enr = enrichment_lookup.get(r["id"])
@@ -340,22 +375,26 @@ def geocode_markers_for_seller_trade(seller_id: int, trade_id: int) -> Dict[str,
                 try:
                     persisted = (float(enr.geocode_lat), float(enr.geocode_lng))
                     used_addr = enr.geocode_used_address or None
+                    extras = {
+                        "msa_name": getattr(enr, "geocode_msa", None),
+                        "msa_code": getattr(enr, "geocode_msa_code", None),
+                    }
                     break
                 except Exception:
                     persisted = None
 
-        if persisted is not None:
-            coords, used_addr = persisted, used_addr
-            source = "db"
-        else:
-            # 2) Otherwise call API directly
-            coords, used_addr = _try_geocoding_candidates(candidates, api_key)
-            source = "api" if coords else "none"
+        # WHAT: Always call API to get MSA fields (census data).
+        # WHY: MSA enrichment is critical; don't skip API just because coords exist.
+        # HOW: Call API fresh for every address to extract msa_name and msa_code.
+        coords, used_addr, extras = _try_geocoding_candidates(candidates, api_key)
+        source = "api" if coords else "none"
 
-            # If we obtained coordinates, upsert for all rows sharing this address
-            if coords is not None:
+        # If we obtained coordinates, upsert for all rows sharing this address
+        if coords is not None:
                 lat, lng = coords
                 when = timezone.now()
+                msa_name = extras.get("msa_name")
+                msa_code = extras.get("msa_code")
                 for r in addr_to_rows[norm]:
                     # safe upsert pattern
                     enr_obj, _created = LlDataEnrichment.objects.get_or_create(
@@ -367,6 +406,8 @@ def geocode_markers_for_seller_trade(seller_id: int, trade_id: int) -> Dict[str,
                             "geocode_full_address": used_addr or candidates[0],
                             "geocode_display_address": representative.get("display_name") or "",
                             "geocoded_at": when,
+                            "geocode_msa": msa_name,
+                            "geocode_msa_code": msa_code,
                         },
                     )
                     # Ensure asset_hub mirrors the raw row's hub
@@ -397,11 +438,18 @@ def geocode_markers_for_seller_trade(seller_id: int, trade_id: int) -> Dict[str,
                         if not enr_obj.geocode_display_address:
                             enr_obj.geocode_display_address = representative.get("display_name") or ""
                             changed = True
+                        if msa_name and not enr_obj.geocode_msa:
+                            enr_obj.geocode_msa = msa_name
+                            changed = True
+                        if msa_code and not getattr(enr_obj, "geocode_msa_code", None):
+                            enr_obj.geocode_msa_code = msa_code
+                            changed = True
                         if changed:
                             enr_obj.geocoded_at = when
                             enr_obj.save(update_fields=[
                                 "geocode_lat", "geocode_lng", "geocode_used_address",
                                 "geocode_full_address", "geocode_display_address",
+                                "geocode_msa", "geocode_msa_code",
                                 "geocoded_at",
                             ])
         if source == "api":
@@ -464,12 +512,14 @@ def geocode_row(row_id: int) -> Optional[Tuple[float, float]]:
         if not candidates:
             return None
 
-        coords, used_addr = _try_geocoding_candidates(candidates, api_key)
+        coords, used_addr, extras = _try_geocoding_candidates(candidates, api_key)
         if coords is None:
             return None
 
         lat, lng = coords
         when = timezone.now()
+        msa_name = extras.get("msa_name")
+        msa_code = extras.get("msa_code")
         enr_obj, created = LlDataEnrichment.objects.get_or_create(
             seller_raw_data_id=row_id,
             defaults={
@@ -479,6 +529,8 @@ def geocode_row(row_id: int) -> Optional[Tuple[float, float]]:
                 "geocode_full_address": used_addr or candidates[0],
                 "geocode_display_address": _build_display_address(r),
                 "geocoded_at": when,
+                "geocode_msa": msa_name,
+                "geocode_msa_code": msa_code,
             },
         )
         # Ensure asset_hub mirrors the raw row's hub
@@ -508,11 +560,18 @@ def geocode_row(row_id: int) -> Optional[Tuple[float, float]]:
             if not enr_obj.geocode_display_address:
                 enr_obj.geocode_display_address = _build_display_address(r)
                 changed = True
+            if msa_name and not enr_obj.geocode_msa:
+                enr_obj.geocode_msa = msa_name
+                changed = True
+            if msa_code and not getattr(enr_obj, "geocode_msa_code", None):
+                enr_obj.geocode_msa_code = msa_code
+                changed = True
             if changed:
                 enr_obj.geocoded_at = when
                 enr_obj.save(update_fields=[
                     "geocode_lat", "geocode_lng", "geocode_used_address",
                     "geocode_full_address", "geocode_display_address",
+                    "geocode_msa", "geocode_msa_code",
                     "geocoded_at",
                 ])
         return lat, lng

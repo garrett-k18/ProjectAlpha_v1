@@ -36,7 +36,18 @@ class LlDataEnrichment(models.Model):
     geocode_display_address = models.CharField(max_length=255, null=True, blank=True)
     geocoded_at = models.DateTimeField(null=True, blank=True)
     geocode_county = models.CharField(max_length=255, null=True, blank=True)
-    geocode_msa = models.CharField(max_length=255, null=True, blank=True)
+    geocode_msa = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="Human-friendly MSA name returned by Geocodio census append.",
+    )
+    geocode_msa_code = models.CharField(
+        max_length=10,
+        null=True,
+        blank=True,
+        help_text="MSA/CBSA code returned by Geocodio census append.",
+    )
 
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)

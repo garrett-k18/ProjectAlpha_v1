@@ -841,19 +841,107 @@ class HOAAssumptionAdmin(admin.ModelAdmin):
 
 @admin.register(LlDataEnrichment)
 class LlDataEnrichmentAdmin(admin.ModelAdmin):
-    """Admin for loan-level enrichment records."""
+    """
+    WHAT: Performance-focused admin configuration for LlDataEnrichment.
+    WHY:  The default form renders every field from SellerRawData, creating massive
+          select widgets that freeze the UI for ~200 seconds.
+    HOW:  Use raw ID widgets, select_related, and trimmed fieldsets so the page only
+          fetches essential data.
+    """
+
+    # WHAT: Columns shown in the changelist for quick scan of geocode status.
     list_display = (
-        'seller_raw_data', 'geocode_lat', 'geocode_lng', 'geocoded_at',
+        'seller_raw_data',            # Reference to the underlying raw loan
+        'geocode_lat',                # Latitude from Geocodio
+        'geocode_lng',                # Longitude from Geocodio
+        'geocode_msa_code',           # CBSA/MSA code returned
+        'geocode_msa',                # Human readable MSA label
+        'geocoded_at',                # Timestamp of the API call
     )
+
+    # WHAT: Allow searching by seller, trade, or any stored address string.
     search_fields = (
         'seller_raw_data__seller__name',
         'seller_raw_data__trade__trade_name',
-        'geocode_full_address', 'geocode_used_address', 'geocode_display_address',
+        'geocode_full_address',
+        'geocode_used_address',
+        'geocode_display_address',
     )
+
+    # WHAT: Slice list view by seller/trade so ops teams can focus on one import.
     list_filter = (
-        'seller_raw_data__seller', 'seller_raw_data__trade',
+        'seller_raw_data__seller',
+        'seller_raw_data__trade',
     )
+
+    # WHAT: Keep pagination small because staff uses filters heavily.
     list_per_page = 5
+
+    # WHAT: Eliminate massive select widgets by switching to raw ID inputs.
+    raw_id_fields = (
+        'seller_raw_data',            # Millions of rows -> never render dropdown
+        'asset_hub',                  # Hub records also large; raw ID keeps form fast
+    )
+
+    # WHAT: Mark enrichment outputs as read-only to prevent hand edits and avoid validation.
+    readonly_fields = (
+        'geocode_lat',
+        'geocode_lng',
+        'geocode_used_address',
+        'geocode_full_address',
+        'geocode_display_address',
+        'geocode_county',
+        'geocode_msa',
+        'geocode_msa_code',
+        'geocoded_at',
+        'created_at',
+        'updated_at',
+    )
+
+    # WHAT: Only render a handful of fields grouped by purpose so templates stay light.
+    fieldsets = (
+        (
+            'Source Links',
+            {
+                'description': 'Pointer back to the original loan rows.',
+                'fields': ('seller_raw_data', 'asset_hub'),
+            },
+        ),
+        (
+            'Geocode Output',
+            {
+                'fields': (
+                    'geocode_used_address',
+                    'geocode_full_address',
+                    'geocode_display_address',
+                    'geocode_lat',
+                    'geocode_lng',
+                    'geocode_county',
+                    'geocode_msa',
+                    'geocode_msa_code',
+                ),
+                'classes': ('collapse',),  # Collapse to keep form compact
+            },
+        ),
+        (
+            'Audit',
+            {
+                'fields': ('geocoded_at', 'created_at', 'updated_at'),
+                'classes': ('collapse',),
+            },
+        ),
+    )
+
+    # WHAT: Ensure queryset pulls related seller/trade rows in one query.
+    def get_queryset(self, request):
+        """Load heavy foreign keys up front to avoid per-row SQL hits."""
+        qs = super().get_queryset(request)
+        return qs.select_related(
+            'seller_raw_data',                 # Base loan row
+            'seller_raw_data__trade',          # Trade info used in filters/search
+            'seller_raw_data__seller',         # Seller info used in search
+            'asset_hub',                       # Optional hub link displayed in raw ID widget
+        )
 
 
 @admin.register(PropertyTypeAssumption)

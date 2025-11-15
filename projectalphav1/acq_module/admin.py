@@ -56,7 +56,7 @@ class SellerRawDataInline(admin.TabularInline):
     fields = (
         'geocode_lat', 'geocode_lng', 'geocode_used_address',
         'geocode_full_address', 'geocode_display_address',
-        'geocode_county', 'geocode_msa', 'geocoded_at',
+        'geocode_county', 'geocode_msa_code', 'geocode_msa', 'geocoded_at',
         'created_at', 'updated_at',
     )
     readonly_fields = ('created_at', 'updated_at')
