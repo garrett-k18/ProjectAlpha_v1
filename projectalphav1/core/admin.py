@@ -21,6 +21,7 @@ from core.models import (
     CountyReference,
     MSAReference,
     ZIPReference,
+    HUDZIPCBSACrosswalk,
     BrokerMSAAssignment,
     FCStatus,
     FCTimelines,
@@ -655,6 +656,99 @@ class ZIPReferenceAdmin(admin.ModelAdmin):
         name = obj.msa.msa_name
         return name[:40] + '...' if len(name) > 40 else name
     get_msa_name.short_description = 'MSA'
+
+
+@admin.register(HUDZIPCBSACrosswalk)
+class HUDZIPCBSACrosswalkAdmin(admin.ModelAdmin):
+    """
+    WHAT: Admin configuration for HUDZIPCBSACrosswalk model that stores the raw HUD
+          ZIP-to-CBSA crosswalk file we bulk import each quarter.
+    WHY:  Product and ops teams occasionally need to audit the source rows, confirm
+          ratios for split ZIP codes, and spot-check CBSA assignments without
+          digging through the CSV on disk.
+    HOW:  Provide read-only list filters, search, and formatted ratio columns so the
+          HUD data is easy to browse directly in Django Admin.
+    """
+
+    # WHAT: Columns shown in changelist view
+    # WHY: Quickly scan ZIP, CBSA, geography, and weight ratios
+    # HOW: Include formatted ratio helpers plus imported_at timestamp for audits
+    list_display = (
+        'zip_code',
+        'cbsa_code',
+        'city',
+        'state_code',
+        'res_ratio_display',
+        'bus_ratio_display',
+        'oth_ratio_display',
+        'tot_ratio_display',
+        'imported_at',
+    )
+
+    # WHAT: Search configuration
+    # WHY: Allow quick lookup by ZIP, CBSA, or city name
+    search_fields = ('zip_code', 'cbsa_code', 'city')
+
+    # WHAT: Filters and ordering
+    # WHY: Slice records by state and ensure consistent ordering for review
+    list_filter = ('state_code',)
+    ordering = ('zip_code', '-tot_ratio')
+
+    # WHAT: Make import timestamp read-only (auto-managed)
+    readonly_fields = ('imported_at',)
+
+    # WHAT: Paginate helps keep UI responsive when browsing 47k+ rows
+    list_per_page = 100
+
+    def _format_ratio(self, value: float) -> str:
+        """
+        WHAT: Shared helper to convert Decimal ratios (0-1) into percentage strings.
+        WHY: HUD publishes ratios as decimals; humans prefer reading percentages.
+        HOW: Multiply by 100, format with one decimal place, return '--' if value missing.
+        """
+        if value is None:
+            return '--'
+        return f"{value * 100:.1f}%"
+
+    def res_ratio_display(self, obj):
+        """
+        WHAT: Display residential ratio percentage for changelist.
+        WHY: Shows concentration of residential addresses per CBSA.
+        HOW: Call helper to format obj.res_ratio.
+        """
+        return self._format_ratio(obj.res_ratio)
+
+    res_ratio_display.short_description = 'Res %'
+
+    def bus_ratio_display(self, obj):
+        """
+        WHAT: Display business ratio percentage for changelist.
+        WHY: Helps identify commercial-heavy ZIPs.
+        HOW: Format obj.bus_ratio via helper.
+        """
+        return self._format_ratio(obj.bus_ratio)
+
+    bus_ratio_display.short_description = 'Bus %'
+
+    def oth_ratio_display(self, obj):
+        """
+        WHAT: Display 'other' delivery point ratio percentage.
+        WHY: Useful for PO boxes / military ZIP diagnostics.
+        HOW: Format obj.oth_ratio via helper.
+        """
+        return self._format_ratio(obj.oth_ratio)
+
+    oth_ratio_display.short_description = 'Oth %'
+
+    def tot_ratio_display(self, obj):
+        """
+        WHAT: Display total ratio percentage (dominant CBSA weight).
+        WHY: Helps quickly confirm which CBSA dominates the ZIP.
+        HOW: Format obj.tot_ratio via helper.
+        """
+        return self._format_ratio(obj.tot_ratio)
+
+    tot_ratio_display.short_description = 'Tot %'
 
 
 @admin.register(BrokerMSAAssignment)

@@ -310,6 +310,10 @@ class ZIPReference(models.Model):
     - Census Bureau Geocoding API
     - HUD USPS ZIP-to-MSA Crosswalk (quarterly updates)
     - USPS ZIP Code Database
+    NOTE (Deprecated):
+    - HUDZIPCBSACrosswalk now provides authoritative ZIP→CBSA data.
+    - This model is kept only for legacy joins; new code should use the crosswalk table.
+    - Safe to delete once all legacy dependencies are migrated.
     """
     
     # WHAT: 5-digit ZIP code (primary key)
@@ -442,3 +446,140 @@ class ZIPReference(models.Model):
             parts.append(f"({', '.join(geo_info)})")
         
         return " - ".join(parts)
+
+
+class HUDZIPCBSACrosswalk(models.Model):
+    """
+    WHAT: Raw HUD ZIP-to-CBSA crosswalk data (quarterly snapshot)
+    WHY: Provides ZIP → MSA mapping without complex FK constraints
+    HOW: Bulk imported directly from HUD USPS ZIP_CBSA CSV file
+    
+    Use Cases:
+    - Join seller tape ZIPs to CBSA/MSA codes for broker assignments
+    - Reference table for geographic market analysis
+    - Preserves HUD's original ratio data for split ZIPs
+    
+    Data Source:
+    - HUD USPS ZIP Code Crosswalk Files (quarterly)
+    - https://www.huduser.gov/portal/datasets/usps_crosswalk.html
+    
+    Import Strategy:
+    - Truncate and reload quarterly when HUD releases new data
+    - Keep ALL rows including micro areas (filter in queries as needed)
+    - No FK constraints = fast bulk import without validation overhead
+    """
+    
+    # WHAT: 5-digit ZIP code
+    # WHY: Primary geographic identifier from seller tapes
+    # HOW: Direct from HUD CSV 'ZIP' column
+    zip_code = models.CharField(
+        max_length=5,
+        db_index=True,
+        help_text="5-digit ZIP code from HUD crosswalk"
+    )
+    
+    # WHAT: 5-digit CBSA (MSA/Micro) code
+    # WHY: Links ZIP to its Metropolitan/Micropolitan Statistical Area
+    # HOW: Direct from HUD CSV 'CBSA' column (can be blank for rural ZIPs)
+    cbsa_code = models.CharField(
+        max_length=5,
+        blank=True,
+        null=True,
+        db_index=True,
+        help_text="5-digit CBSA code (blank for rural ZIPs)"
+    )
+    
+    # WHAT: Preferred city name for this ZIP
+    # WHY: Display and filtering purposes
+    # HOW: Direct from HUD CSV 'USPS_ZIP_PREF_CITY' column
+    city = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        help_text="USPS preferred city name"
+    )
+    
+    # WHAT: Two-letter state postal abbreviation
+    # WHY: Every ZIP belongs to a state
+    # HOW: Direct from HUD CSV 'USPS_ZIP_PREF_STATE' column
+    state_code = models.CharField(
+        max_length=2,
+        db_index=True,
+        help_text="Two-letter state code"
+    )
+    
+    # WHAT: Residential address ratio
+    # WHY: Percentage of residential addresses in this ZIP within this CBSA
+    # HOW: Direct from HUD CSV 'RES_RATIO' column (0.0 to 1.0)
+    res_ratio = models.DecimalField(
+        max_digits=12,
+        decimal_places=9,
+        default=Decimal('0.0'),
+        help_text="Residential address ratio (0.0 to 1.0)"
+    )
+    
+    # WHAT: Business address ratio
+    # WHY: Percentage of business addresses in this ZIP within this CBSA
+    # HOW: Direct from HUD CSV 'BUS_RATIO' column (0.0 to 1.0)
+    bus_ratio = models.DecimalField(
+        max_digits=12,
+        decimal_places=9,
+        default=Decimal('0.0'),
+        help_text="Business address ratio (0.0 to 1.0)"
+    )
+    
+    # WHAT: Other address ratio
+    # WHY: Percentage of other delivery points in this ZIP within this CBSA
+    # HOW: Direct from HUD CSV 'OTH_RATIO' column (0.0 to 1.0)
+    oth_ratio = models.DecimalField(
+        max_digits=12,
+        decimal_places=9,
+        default=Decimal('0.0'),
+        help_text="Other address ratio (0.0 to 1.0)"
+    )
+    
+    # WHAT: Total address ratio (weighted average)
+    # WHY: Overall percentage of addresses in this ZIP within this CBSA
+    # HOW: Direct from HUD CSV 'TOT_RATIO' column (0.0 to 1.0)
+    # NOTE: Use this field to pick dominant CBSA when a ZIP spans multiple markets
+    tot_ratio = models.DecimalField(
+        max_digits=12,
+        decimal_places=9,
+        default=Decimal('0.0'),
+        db_index=True,
+        help_text="Total address ratio (0.0 to 1.0) - use for dominant CBSA selection"
+    )
+    
+    # WHAT: Import timestamp
+    # WHY: Track when this data was loaded (HUD releases quarterly)
+    # HOW: Auto-set on record creation
+    imported_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text="When this record was imported"
+    )
+    
+    class Meta:
+        verbose_name = "HUD ZIP-CBSA Crosswalk"
+        verbose_name_plural = "HUD ZIP-CBSA Crosswalks"
+        ordering = ['zip_code', '-tot_ratio']  # Order by ZIP, then dominant CBSA first
+        indexes = [
+            models.Index(fields=['zip_code']),
+            models.Index(fields=['cbsa_code']),
+            models.Index(fields=['state_code']),
+            models.Index(fields=['zip_code', 'cbsa_code']),  # Composite for join queries
+            models.Index(fields=['zip_code', '-tot_ratio']),  # For finding dominant CBSA
+        ]
+        db_table = 'hud_zip_cbsa_crosswalk'
+    
+    def __str__(self):
+        if self.cbsa_code:
+            return f"{self.zip_code} → CBSA {self.cbsa_code} ({self.tot_ratio:.1%})"
+        return f"{self.zip_code} (no CBSA)"
+    
+    def is_dominant(self) -> bool:
+        """
+        WHAT: Check if this is the dominant CBSA for this ZIP
+        WHY: ZIPs can span multiple CBSAs; we often want just the primary one
+        RETURNS: True if tot_ratio > 0.5 (majority of addresses in this CBSA)
+        """
+        return self.tot_ratio > Decimal('0.5')

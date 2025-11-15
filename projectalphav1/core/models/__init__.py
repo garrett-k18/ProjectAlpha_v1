@@ -6,7 +6,7 @@ from .model_co_capStack import (
 )
 from .model_co_crm import MasterCRM, BrokerMSAAssignment
 from .model_co_assetIdHub import AssetIdHub, AssetDetails
-from .model_co_geoAssumptions import StateReference, CountyReference, MSAReference, ZIPReference
+from .model_co_geoAssumptions import StateReference, CountyReference, MSAReference, ZIPReference, HUDZIPCBSACrosswalk
 from .model_co_assumptions import Servicer, FCStatus, FCTimelines, CommercialUnits, HOAAssumption, PropertyTypeAssumption, SquareFootageAssumption, UnitBasedAssumption
 from .model_co_lookupTables import PropertyType
 from .enrichment import LlDataEnrichment
@@ -37,6 +37,7 @@ __all__ = [
     'CountyReference',
     'MSAReference',
     'ZIPReference',
+    'HUDZIPCBSACrosswalk',
     'BrokerMSAAssignment',
     'FCStatus',
     'FCTimelines',

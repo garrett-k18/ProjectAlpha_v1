@@ -11,10 +11,10 @@ Docs reviewed:
 from __future__ import annotations
 
 from typing import Optional
-from django.db.models import QuerySet, Q, F, Value, Case, When, CharField, Prefetch, OuterRef, Subquery
+from django.db.models import QuerySet, Q, F, Value, Case, When, CharField, Prefetch, OuterRef, Subquery, Max
 from django.db.models.functions import Concat, Coalesce, Substr
 from ..models.model_acq_seller import SellerRawData
-from core.models.model_co_geoAssumptions import ZIPReference
+from core.models.model_co_geoAssumptions import HUDZIPCBSACrosswalk, MSAReference
 
 # Fields used by quick filter 'q' - common searchable text fields
 QUICK_FILTER_FIELDS = (
@@ -146,15 +146,68 @@ def build_queryset(
         )
     )
 
-    # WHAT: Join normalized ZIPs to reference table to pull MSA metadata
+    # WHAT: Join normalized ZIPs to HUD crosswalk table to pull MSA metadata
     # WHY: Broker assignment workflows group assets by MSA
-    # HOW: Subquery into ZIPReference (primary keyed by 5-digit ZIP)
-    zip_subquery = ZIPReference.objects.filter(zip_code=OuterRef('zip_normalized'))
+    # HOW: Subquery joins HUDZIPCBSACrosswalk → MSAReference via CBSA code
+    # NOTE: HUD crosswalk can have multiple CBSAs per ZIP (split markets)
+    #       We select the dominant one (highest tot_ratio) for broker assignments
+    
+    # WHAT: Get dominant CBSA code for each ZIP from crosswalk
+    # WHY: ZIPs can span multiple CBSAs; we want the primary market
+    # HOW: Filter crosswalk by zip_code, order by -tot_ratio, take first CBSA
+    dominant_cbsa_subquery = (
+        HUDZIPCBSACrosswalk.objects
+        .filter(zip_code=OuterRef('zip_normalized'))
+        .exclude(cbsa_code__isnull=True)
+        .exclude(cbsa_code='')
+        .order_by('-tot_ratio')
+        .values('cbsa_code')[:1]
+    )
+    
+    # WHAT: Get MSA name by joining crosswalk CBSA to MSAReference
+    # WHY: Broker assignment needs market name for grouping
+    # HOW: Filter crosswalk by zip_code, join to MSAReference via cbsa_code, get msa_name
+    msa_name_subquery = (
+        MSAReference.objects
+        .filter(
+            msa_code=Subquery(
+                HUDZIPCBSACrosswalk.objects
+                .filter(zip_code=OuterRef('zip_normalized'))
+                .exclude(cbsa_code__isnull=True)
+                .exclude(cbsa_code='')
+                .order_by('-tot_ratio')
+                .values('cbsa_code')[:1]
+            )
+        )
+        .values('msa_name')[:1]
+    )
+    
+    # WHAT: Get MSA state by joining crosswalk CBSA to MSAReference
+    # WHY: Broker assignment needs state for grouping
+    # HOW: Filter crosswalk by zip_code, join to MSAReference via cbsa_code, get state_code
+    msa_state_subquery = (
+        MSAReference.objects
+        .filter(
+            msa_code=Subquery(
+                HUDZIPCBSACrosswalk.objects
+                .filter(zip_code=OuterRef('zip_normalized'))
+                .exclude(cbsa_code__isnull=True)
+                .exclude(cbsa_code='')
+                .order_by('-tot_ratio')
+                .values('cbsa_code')[:1]
+            )
+        )
+        .values('state__state_code')[:1]
+    )
+    
+    # WHAT: Extract MSA code, name, and state
+    # WHY: Serializer needs these fields for broker assignment UI
+    # HOW: CBSA code from crosswalk, name/state from MSAReference join
     qs = qs.annotate(
-        msa_code=Subquery(zip_subquery.values('msa__msa_code')[:1]),
-        msa_name=Subquery(zip_subquery.values('msa__msa_name')[:1]),
-        msa_state=Subquery(zip_subquery.values('msa__state__state_code')[:1]),
-        msa_county=Subquery(zip_subquery.values('county__county_name')[:1]),
+        msa_code=Subquery(dominant_cbsa_subquery),  # CBSA code IS the MSA code
+        msa_name=Subquery(msa_name_subquery),
+        msa_state=Subquery(msa_state_subquery),
+        msa_county=Value(None, output_field=CharField()),  # HUD crosswalk doesn't include county
     )
     
     # Filter by acquisition status based on view

@@ -1,15 +1,23 @@
 """
-Management command: Load HUD ZIP→CBSA (MSA) crosswalk CSV into ZIPReference.
+Management command: Load HUD ZIP-to-CBSA (MSA) crosswalk CSV into ZIPReference.
 
 WHY:
-    - Broker assignment + reporting flows need every ZIP tied to its MSA so we can
-      aggregate assets by market. HUD publishes a quarterly CSV (ZIP_CBSA_*.csv).
-    - This command ingests that CSV, resolves State + MSA foreign keys, and writes
-      or updates `ZIPReference` records in manageable batches.
+    - Broker assignment + reporting flows used to rely on ZIPReference as the
+      canonical table for ZIP → MSA lookups.
+    - We occasionally need to rebuild that table from HUD's CSV when testing or
+      migrating legacy features that still depend on ZIPReference.
+
+NOTE:
+    This command is kept for backward compatibility with legacy code. New flows
+    should prefer HUDZIPCBSACrosswalk + query-time joins instead of mutating
+    ZIPReference. Run only when you explicitly need to repopulate the deprecated
+    table (e.g., regression testing).
 
 DOCS REVIEWED:
-    - Django bulk operations: https://docs.djangoproject.com/en/5.2/topics/db/queries/#bulk-operations
-    - Python csv module: https://docs.python.org/3/library/csv.html
+    - Django bulk operations:
+      https://docs.djangoproject.com/en/5.2/topics/db/queries/#bulk-operations
+    - Python csv module:
+      https://docs.python.org/3/library/csv.html
 """
 from __future__ import annotations
 
@@ -51,11 +59,11 @@ class ZipCrosswalkRow:
 
 
 class Command(BaseCommand):
-    """Import HUD ZIP→CBSA crosswalk CSV into ZIPReference."""
+    """Import HUD ZIP-to-CBSA crosswalk CSV into ZIPReference."""
 
     help = (
         "Load the HUD ZIP_CBSA CSV, resolve State/MSA FKs, "
-        "and bulk update ZIPReference in batches."
+        "and bulk update ZIPReference in batches (legacy support)."
     )
 
     def add_arguments(self, parser) -> None:
@@ -67,7 +75,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--csv-path",
             default=str(default_csv),
-            help="Path to the HUD ZIP→CBSA CSV export.",
+            help="Path to the HUD ZIP-to-CBSA CSV export.",
         )
         parser.add_argument(
             "--batch-size",
@@ -86,7 +94,7 @@ class Command(BaseCommand):
 
         self.stdout.write(
             self.style.NOTICE(
-                f"Loading ZIP→CBSA crosswalk from {csv_path} (batch size {batch_size})"
+                f"Loading ZIP-to-CBSA crosswalk from {csv_path} (batch size {batch_size})"
             )
         )
 
@@ -97,25 +105,35 @@ class Command(BaseCommand):
             )
         )
 
+        self.stdout.write(self.style.NOTICE("Loading State reference data..."))
         state_map = self._build_state_map()
+        self.stdout.write(self.style.NOTICE(f"Loaded {len(state_map)} states."))
+
+        self.stdout.write(self.style.NOTICE("Loading MSA reference data..."))
         msa_map = self._build_msa_map(best_rows.values())
+        self.stdout.write(self.style.NOTICE(f"Loaded {len(msa_map)} MSAs from database."))
+
+        self.stdout.write(self.style.NOTICE("Starting batch processing..."))
 
         stats = defaultdict(int)
         pending: List[ZipCrosswalkRow] = []
+        batch_count = 0
 
         for row in best_rows.values():
             pending.append(row)
             if len(pending) >= batch_size:
-                self._process_batch(pending, state_map, msa_map, stats)
+                batch_count += 1
+                self._process_batch(pending, state_map, msa_map, stats, batch_count)
                 pending.clear()
 
         if pending:
-            self._process_batch(pending, state_map, msa_map, stats)
+            batch_count += 1
+            self._process_batch(pending, state_map, msa_map, stats, batch_count)
 
         self.stdout.write(
             self.style.SUCCESS(
                 (
-                    "Import complete — "
+                    "Legacy ZIPReference import complete — "
                     f"created {stats['created']} ZIPs, "
                     f"updated {stats['updated']} ZIPs, "
                     f"skipped {stats['skipped']} (missing refs), "
@@ -149,7 +167,6 @@ class Command(BaseCommand):
                     )
                     continue
 
-                # HUD files already present 5-digit ZIPs; keep exactly as provided.
                 row = ZipCrosswalkRow(
                     zip_code=zip_code,
                     cbsa_code=cbsa_code,
@@ -179,7 +196,8 @@ class Command(BaseCommand):
         return {state.state_code.upper(): state for state in states}
 
     def _build_msa_map(
-        self, rows: Iterable[ZipCrosswalkRow]
+        self,
+        rows: Iterable[ZipCrosswalkRow],
     ) -> Dict[str, MSAReference]:
         """Prefetch the MSAReference rows needed for this import."""
 
@@ -197,6 +215,7 @@ class Command(BaseCommand):
         state_map: Dict[str, StateReference],
         msa_map: Dict[str, MSAReference],
         stats: Dict[str, int],
+        batch_num: int,
     ) -> None:
         """Insert or update a slice of ZIP rows in a single atomic transaction."""
 
@@ -210,25 +229,22 @@ class Command(BaseCommand):
         to_update: List[ZIPReference] = []
 
         for row in batch:
+            # WHAT: Resolve State FK
+            # WHY: Every ZIP must belong to a state
+            # HOW: Skip if state not found (shouldn't happen with valid HUD data)
             state = state_map.get(row.state_code)
             if not state:
                 stats["missing_state"] += 1
                 stats["skipped"] += 1
-                self.stdout.write(
-                    self.style.WARNING(
-                        f"[{row.zip_code}] State '{row.state_code}' not found; skipping."
-                    )
-                )
                 continue
 
+            # WHAT: Resolve MSA FK (if CBSA code provided and exists in our DB)
+            # WHY: Legacy ZIPReference expects actual MSA FK objects
             msa = msa_map.get(row.cbsa_code) if row.cbsa_code else None
-            if row.cbsa_code and not msa:
+            if not row.cbsa_code or not msa:
                 stats["missing_msa"] += 1
-                self.stdout.write(
-                    self.style.WARNING(
-                        f"[{row.zip_code}] CBSA '{row.cbsa_code}' missing in MSAReference."
-                    )
-                )
+                stats["skipped"] += 1
+                continue
 
             current = existing_map.get(row.zip_code)
             if current:
@@ -256,11 +272,10 @@ class Command(BaseCommand):
 
         self.stdout.write(
             self.style.SUCCESS(
-                (
-                    f"Batch processed — created {len(to_create)}, "
-                    f"updated {len(to_update)}, cumulative "
-                    f"{stats['created']} created / {stats['updated']} updated."
-                )
+                f"Legacy Batch {batch_num}: +{len(to_create)} created, "
+                f"~{len(to_update)} updated, -{len(batch) - len(to_create) - len(to_update)} skipped | "
+                f"Totals {stats['created']} created, {stats['updated']} updated, "
+                f"{stats['skipped']} skipped"
             )
         )
 
@@ -274,14 +289,24 @@ class Command(BaseCommand):
         """Apply field updates to an existing ZIPReference, returning True if mutated."""
 
         changed = False
-        if zip_obj.state_id != state.id:
+        if zip_obj.state_id != getattr(state, "id", state.pk):
             zip_obj.state = state
             changed = True
-        if zip_obj.msa_id != (msa.id if msa else None):
+        target_msa_id = getattr(msa, "id", getattr(msa, "pk", None)) if msa else None
+        if zip_obj.msa_id != target_msa_id:
             zip_obj.msa = msa
             changed = True
         if city and zip_obj.city_name != city:
             zip_obj.city_name = city
             changed = True
         return changed
-
+{
+  "cells": [],
+  "metadata": {
+    "language_info": {
+      "name": "python"
+    }
+  },
+  "nbformat": 4,
+  "nbformat_minor": 2
+}
