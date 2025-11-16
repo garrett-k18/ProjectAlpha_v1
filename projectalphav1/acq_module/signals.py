@@ -18,7 +18,7 @@ from django.db import transaction
 from django.dispatch import receiver
 
 from .models.model_acq_seller import SellerRawData
-from core.services.geocoding import geocode_row
+from core.services.serv_co_geocoding import geocode_row
 
 
 @receiver(post_save, sender=SellerRawData)

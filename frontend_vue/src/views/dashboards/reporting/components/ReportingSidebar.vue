@@ -24,7 +24,14 @@
               <i class="mdi mdi-chevron-down"></i>
             </button>
             <div v-if="showTradesDropdown" class="dropdown-menu-custom show" @click.stop>
-              <div class="dropdown-item-custom" v-for="trade in tradeOptions" :key="trade.id">
+              <div
+                class="dropdown-item-custom"
+                v-for="trade in tradeOptions"
+                :key="trade.id"
+                role="menuitemcheckbox"
+                :aria-checked="isTradeSelected(trade.id)"
+                :class="{ 'is-selected': isTradeSelected(trade.id) }"
+              >
                 <input
                   type="checkbox"
                   :id="`trade-${trade.id}`"
@@ -61,7 +68,14 @@
               <i class="mdi mdi-chevron-down"></i>
             </button>
             <div v-if="showTracksDropdown" class="dropdown-menu-custom show" @click.stop>
-              <div class="dropdown-item-custom" v-for="track in trackOptions" :key="track.value">
+              <div
+                class="dropdown-item-custom"
+                v-for="track in trackOptions"
+                :key="track.value"
+                role="menuitemcheckbox"
+                :aria-checked="isTrackSelected(track.value)"
+                :class="{ 'is-selected': isTrackSelected(track.value) }"
+              >
                 <input
                   type="checkbox"
                   :id="`track-${track.value}`"
@@ -97,7 +111,14 @@
               <i class="mdi mdi-chevron-down"></i>
             </button>
             <div v-if="showTasksDropdown" class="dropdown-menu-custom show" @click.stop>
-              <div class="dropdown-item-custom" v-for="task in taskStatusOptions" :key="task.value">
+              <div
+                class="dropdown-item-custom"
+                v-for="task in taskStatusOptions"
+                :key="task.value"
+                role="menuitemcheckbox"
+                :aria-checked="isTaskSelected(task.value)"
+                :class="{ 'is-selected': isTaskSelected(task.value) }"
+              >
                 <input
                   type="checkbox"
                   :id="`task-${task.value}`"
@@ -133,7 +154,14 @@
               <i class="mdi mdi-chevron-down"></i>
             </button>
             <div v-if="showPartnershipsDropdown" class="dropdown-menu-custom show" @click.stop>
-              <div class="dropdown-item-custom" v-for="partnership in partnershipOptions" :key="partnership.id">
+              <div
+                class="dropdown-item-custom"
+                v-for="partnership in partnershipOptions"
+                :key="partnership.id"
+                role="menuitemcheckbox"
+                :aria-checked="isPartnershipSelected(partnership.id)"
+                :class="{ 'is-selected': isPartnershipSelected(partnership.id) }"
+              >
                 <input
                   type="checkbox"
                   :id="`partnership-${partnership.id}`"
@@ -409,6 +437,46 @@ const selectedPartnershipsLabel = computed(() => {
   return `${localPartnershipIds.value.length} selected`
 })
 
+// **WHAT**: Cached Set of selected trade ids
+// **WHY**: Provides O(1) lookups so selection indicators render instantly
+const tradeSelectionSet = computed<Set<number>>(() => new Set(localTradeIds.value))
+
+// **WHAT**: Cached Set of selected track identifiers
+// **WHY**: Keeps UI responsive while toggling multiple checkboxes
+const trackSelectionSet = computed<Set<string>>(() => new Set(localTracks.value))
+
+// **WHAT**: Cached Set of selected task status identifiers
+// **WHY**: Simplifies template logic and prevents repeated array scans
+const taskSelectionSet = computed<Set<string>>(() => new Set(localTaskStatuses.value))
+
+// **WHAT**: Cached Set of selected partnership ids
+// **WHY**: Enables accessible visual cues tied to checkbox state
+const partnershipSelectionSet = computed<Set<number>>(() => new Set(localPartnershipIds.value))
+
+// **WHAT**: Helper reporting whether a trade is currently selected
+// **WHY**: Powers aria attributes plus visual confirmation icons
+function isTradeSelected(tradeId: number): boolean {
+  return tradeSelectionSet.value.has(tradeId)
+}
+
+// **WHAT**: Helper reporting whether a track is selected
+// **WHY**: Keeps template declarative and readable
+function isTrackSelected(trackValue: string): boolean {
+  return trackSelectionSet.value.has(trackValue)
+}
+
+// **WHAT**: Helper reporting whether a task status is selected
+// **WHY**: Drives badges/icons without duplicating Set logic inline
+function isTaskSelected(taskValue: string): boolean {
+  return taskSelectionSet.value.has(taskValue)
+}
+
+// **WHAT**: Helper reporting whether a partnership is selected
+// **WHY**: Aligns aria attributes with actual checkbox values
+function isPartnershipSelected(partnershipId: number): boolean {
+  return partnershipSelectionSet.value.has(partnershipId)
+}
+
 function toggleDropdown(type: 'trades' | 'tracks' | 'tasks' | 'partnerships'): void {
   showTradesDropdown.value = type === 'trades' ? !showTradesDropdown.value : false
   showTracksDropdown.value = type === 'tracks' ? !showTracksDropdown.value : false
@@ -466,10 +534,12 @@ function changeView(viewName: string): void {
   background-color: rgba(var(--bs-primary-rgb), 0.1);
 }
 
-.form-check-input:checked {
-  background-color: var(--bs-success);
-  border-color: var(--bs-success);
+.form-check-input {
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 0.65rem 0.65rem;
 }
+
 
 /* Multi-select dropdown styles */
 .dropdown-multiselect {
@@ -496,11 +566,18 @@ function changeView(viewName: string): void {
   cursor: pointer;
   display: flex;
   align-items: center;
+  gap: 0.5rem;
   transition: background-color 0.15s ease-in-out;
+  border-left: 3px solid transparent;
 }
 
 .dropdown-item-custom:hover {
   background-color: #f8f9fa;
+}
+
+.dropdown-item-custom.is-selected {
+  background-color: rgba(var(--bs-success-rgb), 0.08);
+  border-left-color: var(--bs-success);
 }
 
 .dropdown-item-custom label {
@@ -508,4 +585,5 @@ function changeView(viewName: string): void {
   margin-bottom: 0;
   flex-grow: 1;
 }
+
 </style>

@@ -100,7 +100,7 @@ export const useReportingStore = defineStore('reporting', () => {
   
   // **WHAT**: Selected report view (e.g., 'by-trade', 'by-status')
   // **WHY**: Track which report is currently displayed
-  const currentView = ref<string>('overview') // default to overview
+  const currentView = ref<string>('by-trade') // default to by-trade (overview not implemented yet)
   
   // ---------------------------------------------------------------------------
   // DROPDOWN OPTIONS CACHES

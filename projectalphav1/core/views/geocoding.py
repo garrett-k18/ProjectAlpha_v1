@@ -9,7 +9,7 @@ from __future__ import annotations
 from django.http import JsonResponse, HttpRequest
 from django.views.decorators.http import require_GET
 
-from core.services.geocoding import geocode_markers_for_seller_trade
+from core.services.serv_co_geocoding import geocode_markers_for_seller_trade
 
 
 @require_GET

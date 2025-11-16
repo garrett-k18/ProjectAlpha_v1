@@ -48,6 +48,62 @@ class LlDataEnrichment(models.Model):
         blank=True,
         help_text="MSA/CBSA code returned by Geocodio census append.",
     )
+    
+    # Additional Geocodio census fields
+    geocode_state_fips = models.CharField(
+        max_length=2,
+        null=True,
+        blank=True,
+        help_text="State FIPS code from Geocodio census data.",
+    )
+    geocode_county_fips = models.CharField(
+        max_length=5,
+        null=True,
+        blank=True,
+        help_text="County FIPS code from Geocodio census data.",
+    )
+    geocode_tract_code = models.CharField(
+        max_length=10,
+        null=True,
+        blank=True,
+        help_text="Census tract code from Geocodio census data.",
+    )
+    geocode_full_fips = models.CharField(
+        max_length=15,
+        null=True,
+        blank=True,
+        help_text="Full FIPS code from Geocodio census data.",
+    )
+    geocode_msa_type = models.CharField(
+        max_length=20,
+        null=True,
+        blank=True,
+        help_text="MSA type (metropolitan/micropolitan) from Geocodio census data.",
+    )
+    geocode_csa_name = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="Combined Statistical Area name from Geocodio census data.",
+    )
+    geocode_csa_code = models.CharField(
+        max_length=10,
+        null=True,
+        blank=True,
+        help_text="Combined Statistical Area code from Geocodio census data.",
+    )
+    geocode_county_name = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        help_text="County name from Geocodio census data.",
+    )
+    geocode_school_district = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="School district name from Geocodio school field.",
+    )
 
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)

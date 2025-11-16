@@ -24,6 +24,10 @@ const http = axios.create({
   timeout: 20000,
 });
 
+// DEBUG: Log the baseURL being used
+console.log('[http.ts] Axios baseURL:', http.defaults.baseURL)
+console.log('[http.ts] VITE_API_BASE_URL from env:', import.meta.env.VITE_API_BASE_URL)
+
 // Helper function to get CSRF token from cookies
 // Django sets csrftoken cookie which we need to send back in X-CSRFToken header
 // Docs: https://docs.djangoproject.com/en/5.2/ref/csrf/#ajax

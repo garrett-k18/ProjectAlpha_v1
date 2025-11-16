@@ -24,6 +24,7 @@ from django.utils.dateparse import parse_date
 
 from acq_module.models.model_acq_seller import SellerRawData, Seller, Trade
 from core.models import AssetIdHub
+from core.services.serv_co_geocoding import batch_geocode_row_ids
 from etl.services.serv_etl_ai_seller_matcher import AISellerMatcher
 from etl.services.serv_etl_ai_mapper import validate_choice_value
 
@@ -76,6 +77,7 @@ class DataImporter:
         # Caches for per-row lookups
         self._seller_cache = {}
         self._trade_cache = {}
+        self._new_row_ids: List[int] = []
         
         # Initialize AI seller matcher if enabled
         self._ai_matcher = AISellerMatcher(stdout=stdout) if use_ai_seller_matching else None
@@ -128,10 +130,18 @@ class DataImporter:
         # Save to database
         saved_count, updated_count, skipped_count = self._save_records(records, batch_size)
 
+        # Batch geocode newly created rows using Geocodio official client
+        geocode_stats = self._run_batch_geocode_for_new_rows()
+
         if self.stdout:
             self.stdout.write(
                 f'      [OK] Created: {saved_count}, Updated: {updated_count}, Skipped: {skipped_count}\n'
             )
+            if geocode_stats:
+                self.stdout.write(
+                    f"      [GEOCODE] Batch updated {geocode_stats.get('updated_rows', 0)} rows "
+                    f"across {geocode_stats.get('api_calls', 0)} call(s)\n"
+                )
 
         return saved_count + updated_count
 
@@ -582,6 +592,7 @@ class DataImporter:
                             with transaction.atomic():
                                 record_data['asset_hub'] = asset_hub
                                 seller_raw = SellerRawData.objects.create(**record_data)
+                                self._new_row_ids.append(seller_raw.id)
                                 
                                 # WHAT: Auto-create LoanLevelAssumption for each new asset
                                 # WHY: Required for duration overrides and loan-specific calculations
@@ -601,3 +612,23 @@ class DataImporter:
                     skipped_count += 1
 
         return saved_count, updated_count, skipped_count
+
+    def _run_batch_geocode_for_new_rows(self) -> Optional[Dict[str, Any]]:
+        """Call Geocodio batch helper for all newly created SellerRawData rows."""
+        if not self._new_row_ids:
+            return None
+
+        try:
+            stats = batch_geocode_row_ids(self._new_row_ids, chunk_size=1000, fields=['census'])
+            logger.info(
+                "Batch geocoded %s new rows (unique=%s, api_calls=%s)",
+                stats.get('updated_rows'),
+                stats.get('unique_addresses'),
+                stats.get('api_calls'),
+            )
+            return stats
+        except Exception as exc:
+            logger.warning(f"Batch geocode failed: {exc}")
+            return None
+        finally:
+            self._new_row_ids.clear()

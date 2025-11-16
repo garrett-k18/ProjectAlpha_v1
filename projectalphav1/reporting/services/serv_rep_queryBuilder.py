@@ -117,8 +117,8 @@ def build_base_queryset() -> QuerySet[SellerRawData]:
         # ──────────────────────────────────────────────────────────────────
         # WHAT: Current balance from servicing platform
         # WHY: Most up-to-date balance from servicer (vs. tape balance)
-        # SOURCE: asset_hub.servicer_data.current_balance
-        servicer_current_balance=F('asset_hub__servicer_data__current_balance'),
+        # SOURCE: asset_hub.servicer_loan_data.current_balance
+        servicer_current_balance=F('asset_hub__servicer_loan_data__current_balance'),
         
         # ====================================================================
         # 📊 ADDITIONAL SERVICER FIELDS - Available but not required
@@ -130,19 +130,19 @@ def build_base_queryset() -> QuerySet[SellerRawData]:
         
         # WHAT: Interest rate from servicer
         # WHY: Current interest rate from servicing platform
-        servicer_interest_rate=F('asset_hub__servicer_data__interest_rate'),
+        servicer_interest_rate=F('asset_hub__servicer_loan_data__interest_rate'),
         
         # WHAT: Total debt from servicer (includes fees, advances, escrow)
         # WHY: Complete debt picture from servicing platform
-        servicer_total_debt=F('asset_hub__servicer_data__total_debt'),
+        servicer_total_debt=F('asset_hub__servicer_loan_data__total_debt'),
         
         # WHAT: As of date from servicer data
         # WHY: Know when servicing data was last updated
-        servicer_as_of_date=F('asset_hub__servicer_data__as_of_date'),
+        servicer_as_of_date=F('asset_hub__servicer_loan_data__as_of_date'),
         
         # WHAT: Next due date from servicer
         # WHY: Track payment schedules
-        servicer_next_due_date=F('asset_hub__servicer_data__next_due_date'),
+        servicer_next_due_date=F('asset_hub__servicer_loan_data__next_due_date'),
         
         # ====================================================================
         # 🏢 ASSET HUB FIELDS - Master asset data
@@ -159,7 +159,7 @@ def build_base_queryset() -> QuerySet[SellerRawData]:
         # your_field_name=F('asset_hub__field_name'),
         #
         # PATTERN FOR SERVICER FIELDS:
-        # servicer_your_field=F('asset_hub__servicer_data__field_name'),
+        # servicer_your_field=F('asset_hub__servicer_loan_data__field_name'),
         #
         # PATTERN FOR TRADE FIELDS:
         # trade_your_field=F('trade__field_name'),
@@ -168,10 +168,10 @@ def build_base_queryset() -> QuerySet[SellerRawData]:
         # seller_your_field=F('trade__seller__field_name'),
         #
         # EXAMPLES TO ADD:
-        # servicer_investor_id=F('asset_hub__servicer_data__investor_id'),
-        # servicer_fc_status=F('asset_hub__servicer_data__fc_status'),
-        # servicer_bk_status=F('asset_hub__servicer_data__bk_current_status'),
-        # servicer_piti=F('asset_hub__servicer_data__piti'),
+        # servicer_investor_id=F('asset_hub__servicer_loan_data__investor_id'),
+        # servicer_fc_status=F('asset_hub__servicer_loan_data__fc_status'),
+        # servicer_bk_status=F('asset_hub__servicer_loan_data__bk_current_status'),
+        # servicer_piti=F('asset_hub__servicer_loan_data__piti'),
         # trade_bid_date=F('trade__created_at'),
         # ====================================================================
     )
