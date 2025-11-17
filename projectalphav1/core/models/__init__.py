@@ -4,12 +4,12 @@ from .model_co_capStack import (
     # New fund administration models
     Entity, FundLegalEntity, FundMembership, EntityMembership
 )
-from .model_co_crm import MasterCRM, BrokerMSAAssignment
+from .model_co_crm import FirmCRM, MasterCRM, BrokerMSAAssignment
 from .model_co_assetIdHub import AssetIdHub, AssetDetails
 from .model_co_geoAssumptions import StateReference, CountyReference, MSAReference, HUDZIPCBSACrosswalk
 from .model_co_assumptions import Servicer, FCStatus, FCTimelines, CommercialUnits, HOAAssumption, PropertyTypeAssumption, SquareFootageAssumption, UnitBasedAssumption
 from .model_co_lookupTables import PropertyType
-from .enrichment import LlDataEnrichment
+from .model_co_enrichment import LlDataEnrichment
 from .valuations import Valuation, ValuationGradeReference
 from .attachments import Photo, Document
 from .transactions import LLTransactionSummary, LLCashFlowSeries
@@ -29,6 +29,7 @@ __all__ = [
     'FundLegalEntity',
     'FundMembership',
     'EntityMembership',
+    'FirmCRM',
     'MasterCRM',
     'AssetIdHub',
     'AssetDetails',

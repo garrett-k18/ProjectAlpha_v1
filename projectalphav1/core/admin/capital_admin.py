@@ -58,7 +58,7 @@ class CoInvestorAdmin(admin.ModelAdmin):
         "is_active",
     )
     list_filter = ("is_active", "created_at")
-    search_fields = ("crm_contact__contact_name", "crm_contact__firm", "notes")
+    search_fields = ("crm_contact__contact_name", "crm_contact__firm_ref__name", "notes")
     list_per_page = 5
     autocomplete_fields = ['crm_contact']
     readonly_fields = ('created_at', 'updated_at')
@@ -108,7 +108,7 @@ class InvestorContributionAdmin(admin.ModelAdmin):
     list_filter = ("contribution_date", "payment_method")
     search_fields = (
         "co_investor__crm_contact__contact_name",
-        "co_investor__crm_contact__firm",
+        "co_investor__crm_contact__firm_ref__name",
         "reference_number",
         "notes"
     )

@@ -197,9 +197,12 @@ def list_brokers(request):
             contact_name=name,
             email=email,
             phone=phone,
-            firm=firm,
             city=city,
         )
+        # Apply firm name via property so it links/creates FirmCRM
+        if firm:
+            broker.firm = firm
+            broker.save(update_fields=["firm_ref"])
         # Attach M2M states if provided (including single 'state')
         codes: list[str] = []
         if isinstance(states_in, (list, tuple)):
@@ -243,13 +246,13 @@ def list_brokers(request):
         page_size = 25
     page_size = max(1, min(page_size, 100))
 
-    qs = MasterCRM.objects.all().prefetch_related("states").order_by("-created_at")
+    qs = MasterCRM.objects.all().select_related("firm_ref").prefetch_related("states").order_by("-created_at")
 
     if q:
         qs = qs.filter(
             Q(contact_name__icontains=q)
             | Q(email__icontains=q)
-            | Q(firm__icontains=q)
+            | Q(firm_ref__name__icontains=q)
             | Q(city__icontains=q)
         )
     if state:

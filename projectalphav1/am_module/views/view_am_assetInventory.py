@@ -17,7 +17,7 @@ from am_module.models.servicers import ServicerLoanData
 # Import acquisitions models to surface photos linked to SellerRawData (via sellertape_id)
 from acq_module.models.model_acq_seller import SellerRawData, Trade
 from core.models.attachments import Photo
-from core.models import AssetIdHub
+from core.models import AssetIdHub, AssetDetails
 from rest_framework import serializers, status
 from django.db.models import Q
 from rest_framework.permissions import IsAuthenticatedOrReadOnly, AllowAny
@@ -108,15 +108,15 @@ class AssetInventoryViewSet(ViewSet):
 
     def partial_update(self, request: Request, pk: int | str | None = None):
         """
-        Update asset fields including asset_master_status from AssetIdHub.
-        
+        Update asset fields including asset_master_status stored on AssetDetails.
+
         URL: PATCH /api/am/assets/<id>/
         Body: { "asset_master_status": "ACTIVE" | "LIQUIDATED" }
-        
-        WHAT: Allow frontend grid to update AssetIdHub.asset_status via PATCH
+
+        WHAT: Allow frontend grid to update the asset lifecycle status via PATCH
         WHY: Asset Master Status needs to be editable from the grid dropdown
-        HOW: Fetch asset, update asset_hub.asset_status, return enriched data
-        
+        HOW: Fetch asset, update AssetDetails.asset_status, return enriched data
+
         Docs: https://www.django-rest-framework.org/api-guide/viewsets/#marking-extra-actions-for-routing
         """
         asset = get_object_or_404(
@@ -125,21 +125,22 @@ class AssetInventoryViewSet(ViewSet):
             acq_status=Trade.Status.BOARD,
         )
         
-        # WHAT: Extract asset_master_status from request and validate against AssetStatus choices
+        # WHAT: Extract asset_master_status from request and validate against AssetDetails.AssetStatus choices
         asset_master_status = request.data.get('asset_master_status')
         if asset_master_status is not None:
             # WHY: Validate that the provided status is one of the allowed choices
-            valid_statuses = [choice[0] for choice in AssetIdHub.AssetStatus.choices]
+            valid_statuses = [choice[0] for choice in AssetDetails.AssetStatus.choices]
             if asset_master_status not in valid_statuses:
                 return Response(
                     {"detail": f"Invalid asset_master_status. Must be one of: {', '.join(valid_statuses)}"},
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            # HOW: Update the asset_hub.asset_status field and save
+            # HOW: Update the AssetDetails.asset_status field and save
             hub = asset.asset_hub
-            hub.asset_status = asset_master_status
-            hub.save(update_fields=['asset_status', 'updated_at'])
+            details, _ = AssetDetails.objects.get_or_create(asset=hub)
+            details.asset_status = asset_master_status
+            details.save()
         
         # WHAT: Return enriched asset data so frontend can refresh the row
         enricher = AssetInventoryEnricher()
@@ -299,7 +300,7 @@ def asset_dashboard_stats(request):
         SellerRawData.objects
         .filter(
             acq_status=Trade.Status.BOARD,  # FIELD: acq_status references Trade.Status enum
-            asset_hub__asset_status=AssetIdHub.AssetStatus.ACTIVE,  # FIELD: asset_hub.asset_status (master status)
+            asset_hub__details__asset_status=AssetDetails.AssetStatus.ACTIVE,  # FIELD: AssetDetails.asset_status (master status)
         )
         .count()
     )
@@ -307,7 +308,7 @@ def asset_dashboard_stats(request):
         SellerRawData.objects
         .filter(
             acq_status=Trade.Status.BOARD,  # FIELD: acq_status references Trade.Status enum
-            asset_hub__asset_status=AssetIdHub.AssetStatus.LIQUIDATED,  # FIELD: asset_hub.asset_status (master status)
+            asset_hub__details__asset_status=AssetDetails.AssetStatus.LIQUIDATED,  # FIELD: AssetDetails.asset_status (master status)
         )
         .count()
     )
@@ -342,9 +343,9 @@ def asset_geo_markers(request: Request):
         if value:
             filters[key] = value
     # HOW: Build the base queryset using shared service function to ensure identical joins
-    # and annotations, then constrain to assets flagged ACTIVE in the hub lifecycle enum.
+    # and annotations, then constrain to assets flagged ACTIVE in the AssetDetails lifecycle enum.
     qs = build_queryset(q=q, filters=filters, ordering=None)
-    qs = qs.filter(asset_hub__asset_status=AssetIdHub.AssetStatus.ACTIVE)
+    qs = qs.filter(asset_hub__details__asset_status=AssetDetails.AssetStatus.ACTIVE)
     # WHAT: Pull related enrichment + metadata up front to avoid N+1 lookups while iterating.
     qs = qs.select_related('enrichment', 'asset_hub', 'seller', 'trade')
     # WHY: Emit one marker per asset record so the frontend renders individual pins rather than clustered aggregates.

@@ -1,6 +1,40 @@
 from django.db import models
 from django.conf import settings
 from .model_co_geoAssumptions import StateReference, MSAReference
+from .model_co_lookupTables import CRMContactTag, YesNo
+
+
+class FirmCRM(models.Model):
+    name = models.CharField(max_length=255)
+    phone = models.CharField(max_length=255, blank=True, null=True, unique=True)
+    email = models.EmailField(blank=True, null=True)
+    states = models.ManyToManyField(
+        StateReference,
+        blank=True,
+        related_name='crm_firms',
+    )
+    tag = models.CharField(
+        max_length=32,
+        choices=CRMContactTag.choices,
+        null=True,
+        blank=True,
+        db_index=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'Firm CRM'
+        verbose_name_plural = 'Firm CRM'
+        indexes = [
+            models.Index(fields=['name']),
+            models.Index(fields=['tag']),
+        ]
+
+    def __str__(self) -> str:
+        return self.name or f'Firm {self.pk}'
+
 
 class MasterCRM(models.Model):
     """Unified Master CRM directory entry (broker-first, now generalized).
@@ -12,19 +46,17 @@ class MasterCRM(models.Model):
     Docs: https://docs.djangoproject.com/en/stable/ref/models/fields/
     """
     
-    # Contact type tag using Django 3.0+ TextChoices enum
-    # This provides better type safety and cleaner code compared to old tuple-based choices
-    class ContactTag(models.TextChoices):
-        """Enum for contact type categorization in the Master CRM"""
-        BROKER = "broker", "Broker"
-        TRADING_PARTNER = "trading_partner", "Trading Partner"
-        INVESTOR = "investor", "Investor"
-        LEGAL = "legal", "Legal"
-        VENDOR = "vendor", "Vendor"
-        SERVICER = "servicer", "Servicer"
-        TITLE_COMPANY = "title_company", "Title Company"
+    # Contact type tag using shared CRMContactTag enum.
+    # Exposed as MasterCRM.ContactTag alias for backward compatibility.
+    ContactTag = CRMContactTag
     
-    firm = models.CharField(max_length=255, blank=True, null=True)
+    firm_ref = models.ForeignKey(
+        'FirmCRM',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='contacts',
+    )
     contact_name = models.CharField(max_length=255, blank=True, null=True)
     states = models.ManyToManyField(
         StateReference,
@@ -34,6 +66,21 @@ class MasterCRM(models.Model):
     city = models.CharField(max_length=255, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
     phone = models.CharField(max_length=255, blank=True, null=True)
+    preferred = models.CharField(
+        max_length=3,
+        choices=YesNo.choices,
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="Preferred broker flag stored as yes/no text",
+    )
+    msas = models.ManyToManyField(
+        MSAReference,
+        through='BrokerMSAAssignment',
+        through_fields=('broker', 'msa'),
+        blank=True,
+        related_name='crm_brokers',
+    )
 
     # Contact type tag field using the TextChoices enum
     tag = models.CharField(
@@ -65,10 +112,25 @@ class MasterCRM(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    @property
+    def firm(self):
+        if self.firm_ref_id:
+            return self.firm_ref.name
+        return None
+
+    @firm.setter
+    def firm(self, value):
+        value = (value or "").strip()
+        if not value:
+            self.firm_ref = None
+            return
+        firm_obj, _ = FirmCRM.objects.get_or_create(name=value)
+        self.firm_ref = firm_obj
+
     class Meta:
         indexes = [
             models.Index(fields=['email']),
-            models.Index(fields=['firm']),
+            models.Index(fields=['firm_ref']),
             models.Index(fields=['tag']),
         ]
         ordering = ['-created_at']

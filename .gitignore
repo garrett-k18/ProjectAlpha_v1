@@ -16,7 +16,9 @@ htmlcov/
 # Django
 /media/
 /staticfiles/
-projectalphav1/z.Admin/
+projectalphav1/z.Admin/DataUploads/
+projectalphav1/z.Admin/Documentation/
+
 
 # Virtual envs
 .venv/

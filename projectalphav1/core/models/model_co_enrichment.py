@@ -12,12 +12,7 @@ class LlDataEnrichment(models.Model):
     artifacts without altering the core raw data schema.
     """
 
-    # One-to-one link to the core loan row (string ref to avoid cross-app import)
-    seller_raw_data = models.OneToOneField(
-        'acq_module.SellerRawData',
-        on_delete=models.CASCADE,
-        related_name='enrichment',
-    )
+
     # Stable hub link (optional for backfill; will be promoted to PK later if desired)
     asset_hub = models.OneToOneField(
         'core.AssetIdHub',
@@ -114,10 +109,10 @@ class LlDataEnrichment(models.Model):
         verbose_name_plural = "Loan Level Data Enrichments"
         ordering = ['-created_at']
         indexes = [
-            models.Index(fields=['seller_raw_data']),
+            models.Index(fields=['asset_hub']),
             models.Index(fields=['geocode_lat', 'geocode_lng']),
         ]
         db_table = 'acq_ll_data_enrichment'
 
     def __str__(self) -> str:  # pragma: no cover - simple representation
-        return f"Enrichment for {self.seller_raw_data_id}"
+        return f"Enrichment for {self.asset_hub_id}"

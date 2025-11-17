@@ -47,20 +47,35 @@
 
     <!-- AG Grid Card -->
     <div class="card mt-3">
-      <div class="card-header">
-        <h4 class="header-title mb-0">
-          <i class="mdi mdi-table me-2"></i>
-          Trade Details
-        </h4>
-        <p class="text-muted small mb-0 mt-1">
-          Customize columns, filter data, and export to CSV
-        </p>
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <div>
+          <h4 class="header-title mb-0">
+            <i class="mdi mdi-table me-2"></i>
+            Trade Details
+          </h4>
+          <p class="text-muted small mb-0 mt-1">
+            Customize columns, filter data, and export to CSV
+          </p>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <span class="text-muted small">View:</span>
+          <select
+            v-model="currentGridView"
+            class="form-select form-select-sm"
+            style="min-width: 200px;"
+          >
+            <option value="servicing">Servicing</option>
+            <option value="initial-underwriting">Initial Underwriting</option>
+            <option value="performance">Performance</option>
+            <option value="re-underwriting">Re-Underwriting</option>
+          </select>
+        </div>
       </div>
 
       <div class="card-body">
         <ReportingAgGrid
           ref="agGridRef"
-          :column-defs="columnDefs"
+          :column-defs="visibleColumnDefs"
           :row-data="gridData"
           :loading="loadingGrid"
           grid-height="600px"
@@ -80,7 +95,7 @@
  * WHY: Provides users max flexibility to customize columns, filter, sort, export
  * HOW: Uses ReportingAgGrid component with custom column definitions
  */
-import { ref, onMounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { Chart, registerables } from 'chart.js'
 import type { ColDef, ValueFormatterParams } from 'ag-grid-community'
 import ReportingAgGrid from '../components/ReportingAgGrid.vue'
@@ -108,6 +123,8 @@ const chartType = ref<'bar' | 'line' | 'pie'>('bar')
 
 // WHAT: AG Grid reference
 const agGridRef = ref<InstanceType<typeof ReportingAgGrid> | null>(null)
+
+const currentGridView = ref<'servicing' | 'initial-underwriting' | 'performance' | 're-underwriting'>('servicing')
 
 // WHAT: Value formatters (match existing grid patterns)
 // WHY: Consistent formatting across all grids
@@ -148,10 +165,10 @@ function dateFormatter(params: ValueFormatterParams): string {
 
 /**
  * WHAT: AG Grid column definitions
- * WHY: Define all available columns for trade reporting
+ * WHY: Define the core columns for trade reporting
  * HOW: Users can show/hide any column via the column panel
  */
-const columnDefs = ref<ColDef[]>([
+const baseColumnDefs = ref<ColDef[]>([
   {
     headerName: 'Trade Name',
     field: 'trade_name',
@@ -161,10 +178,26 @@ const columnDefs = ref<ColDef[]>([
     cellClass: 'ag-left-aligned-cell text-start fw-semibold',
   },
   {
-    headerName: 'Asset Count',
-    field: 'asset_count',
-    width: 130,
-    valueFormatter: numberFormatter,
+    headerName: 'Address',
+    field: 'street_address',
+    width: 260,
+    pinned: 'left',
+    headerClass: 'ag-left-aligned-header text-start',
+    cellClass: 'ag-left-aligned-cell text-start',
+  },
+  {
+    headerName: 'City',
+    field: 'city',
+    width: 180,
+    pinned: 'left',
+    headerClass: 'ag-left-aligned-header text-start',
+    cellClass: 'ag-left-aligned-cell text-start',
+  },
+  {
+    headerName: 'State',
+    field: 'state',
+    width: 110,
+    pinned: 'left',
   },
   {
     headerName: 'Total UPB',
@@ -172,19 +205,6 @@ const columnDefs = ref<ColDef[]>([
     width: 150,
     valueFormatter: currencyFormatter,
     comparator: (valueA: number, valueB: number) => valueA - valueB,
-  },
-  {
-    headerName: 'Avg LTV',
-    field: 'avg_ltv',
-    width: 120,
-    valueFormatter: percentFormatter,
-    cellClass: (params) => {
-      // WHAT: Color-code LTV by risk level
-      const ltv = params.value
-      if (ltv > 100) return 'text-danger fw-bold'
-      if (ltv >= 90) return 'text-warning fw-semibold'
-      return 'text-success'
-    },
   },
   {
     headerName: 'Status',
@@ -202,29 +222,11 @@ const columnDefs = ref<ColDef[]>([
     },
   },
   {
-    headerName: 'Bid Date',
-    field: 'bid_date',
+    // NOTE: Backend field is purchase_date; header is renamed for UX
+    headerName: 'Purchase Date',
+    field: 'purchase_date',
     width: 130,
     valueFormatter: dateFormatter,
-  },
-  {
-    headerName: 'Seller',
-    field: 'seller',
-    width: 180,
-    headerClass: 'ag-left-aligned-header text-start',
-    cellClass: 'ag-left-aligned-cell text-start',
-  },
-  {
-    headerName: 'State Count',
-    field: 'state_count',
-    width: 130,
-    valueFormatter: numberFormatter,
-  },
-  {
-    headerName: 'Delinquency Rate',
-    field: 'delinquency_rate',
-    width: 160,
-    valueFormatter: percentFormatter,
   },
   {
     headerName: 'Last Updated',
@@ -233,7 +235,148 @@ const columnDefs = ref<ColDef[]>([
     valueFormatter: dateFormatter,
     hide: true, // WHAT: Hidden by default, user can show via column panel
   },
+  {
+    headerName: 'Servicer ID',
+    field: 'servicer_id',
+    width: 160,
+    headerClass: 'ag-left-aligned-header text-start',
+    cellClass: 'ag-left-aligned-cell text-start',
+    hide: true,
+  },
+  // Servicing view specific columns
+  {
+    headerName: 'Servicer Balance',
+    field: 'servicer_current_balance',
+    width: 150,
+    valueFormatter: currencyFormatter,
+    hide: true,
+  },
+  {
+    headerName: 'Servicer Total Debt',
+    field: 'servicer_total_debt',
+    width: 150,
+    valueFormatter: currencyFormatter,
+    hide: true,
+  },
+  {
+    headerName: 'Servicer As Of',
+    field: 'servicer_as_of_date',
+    width: 130,
+    valueFormatter: dateFormatter,
+    hide: true,
+  },
+  {
+    headerName: 'Next Due Date',
+    field: 'servicer_next_due_date',
+    width: 130,
+    valueFormatter: dateFormatter,
+    hide: true,
+  },
+  {
+    headerName: 'Months DLQ',
+    field: 'months_dlq',
+    width: 120,
+    valueFormatter: numberFormatter,
+    hide: true,
+  },
+  // Initial underwriting (purchase) view columns
+  {
+    headerName: 'Purchase Price',
+    field: 'purchase_price',
+    width: 150,
+    valueFormatter: currencyFormatter,
+    hide: true,
+  },
+  // Performance view columns
+  {
+    headerName: 'Current Duration (Months)',
+    field: 'current_duration_months',
+    width: 190,
+    valueFormatter: numberFormatter,
+    hide: true,
+  },
+  {
+    headerName: 'Current Gross Cost',
+    field: 'current_gross_cost',
+    width: 170,
+    valueFormatter: currencyFormatter,
+    hide: true,
+  },
+  // Re-underwriting (projections) view columns
+  {
+    headerName: 'Projected Exit',
+    field: 'expected_exit_date',
+    width: 140,
+    valueFormatter: dateFormatter,
+    hide: true,
+  },
+  {
+    headerName: 'Projected Gross Cost',
+    field: 'projected_gross_cost',
+    width: 180,
+    valueFormatter: currencyFormatter,
+    hide: true,
+  },
+  {
+    headerName: 'Projected Gross Proceeds',
+    field: 'expected_gross_proceeds',
+    width: 190,
+    valueFormatter: currencyFormatter,
+    hide: true,
+  },
 ])
+
+const visibleColumnDefs = computed<ColDef[]>(() => {
+  const view = currentGridView.value
+  return baseColumnDefs.value.map(col => {
+    const field = col.field as string | undefined
+    if (!field) return col
+
+    const alwaysVisible = [
+      'trade_name',
+      'street_address',
+      'city',
+      'state',
+      'total_upb',
+      'status',
+      'purchase_date',
+      'last_updated',
+    ]
+
+    if (alwaysVisible.includes(field)) {
+      return { ...col, hide: col.hide === true && false }
+    }
+
+    const servicingFields = [
+      'servicer_id',
+      'servicer_current_balance',
+      'servicer_total_debt',
+      'servicer_as_of_date',
+      'servicer_next_due_date',
+      'months_dlq',
+    ]
+    const initialUnderwritingFields = [
+      'purchase_price',
+    ]
+    const performanceFields = [
+      'current_duration_months',
+      'current_gross_cost',
+    ]
+    const reUnderwritingFields = [
+      'expected_exit_date',
+      'projected_gross_cost',
+      'expected_gross_proceeds',
+    ]
+
+    let hide = true
+    if (view === 'servicing' && servicingFields.includes(field)) hide = false
+    if (view === 'initial-underwriting' && initialUnderwritingFields.includes(field)) hide = false
+    if (view === 'performance' && performanceFields.includes(field)) hide = false
+    if (view === 're-underwriting' && reUnderwritingFields.includes(field)) hide = false
+
+    return { ...col, hide }
+  })
+})
 
 function renderChart(): void {
   if (!chartCanvas.value || !props.chartData || props.chartData.length === 0) return

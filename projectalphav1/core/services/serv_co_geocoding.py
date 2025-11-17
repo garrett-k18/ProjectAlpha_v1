@@ -489,7 +489,19 @@ def _parse_geocodio_result_entry(entry: Any) -> Tuple[Optional[Tuple[float, floa
     
     if census_obj:
         logger.info("[Geocode][Census] Raw census data: %s", str(census_obj)[:500])
-        extras.update(_extract_all_census_fields(census_obj))
+        
+        # WHAT: Extract the latest year's census data
+        # WHY: Census data is year-bucketed (2024, 2020, etc.)
+        # HOW: Get the most recent year's data for MSA extraction
+        latest_data = None
+        if isinstance(census_obj, dict):
+            for year in ['2024', '2020', '2010']:
+                if year in census_obj:
+                    latest_data = census_obj[year]
+                    break
+        
+        if latest_data:
+            extras.update(_extract_all_census_fields(latest_data))
     else:
         logger.warning("[Geocode][Census] No census data found in fields object")
     

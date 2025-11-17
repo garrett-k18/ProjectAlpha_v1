@@ -35,6 +35,14 @@ class MasterCRMSerializer(serializers.ModelSerializer):
         queryset=StateReference.objects.all(),
         required=False,
     )
+    # Firm name is exposed as a simple string but backed by the firm_ref FK via
+    # the MasterCRM.firm property, so API stays stable while data is normalized.
+    firm = serializers.CharField(
+        source='firm',
+        allow_blank=True,
+        allow_null=True,
+        required=False,
+    )
     
     class Meta:
         model = MasterCRM
@@ -83,16 +91,23 @@ class MasterCRMSerializer(serializers.ModelSerializer):
         # WHAT: Extract states M2M field before creating instance
         # WHY: M2M fields must be set after instance exists in DB
         states = validated_data.pop('states', [])
-        
+        # WHAT: Extract firm name which is backed by firm_ref via property
+        firm_value = validated_data.pop('firm', None)
+
         # WHAT: Create the MasterCRM instance with all other fields
         # WHY: Instance must exist before M2M relationships can be set
         instance = MasterCRM.objects.create(**validated_data)
-        
+
+        # WHAT: Apply firm name via property so it creates/links FirmCRM
+        if firm_value is not None:
+            instance.firm = firm_value
+            instance.save(update_fields=['firm_ref'])
+
         # WHAT: Set the many-to-many states relationship
         # WHY: M2M requires instance to exist first
         if states:
             instance.states.set(states)
-        
+
         return instance
 
 

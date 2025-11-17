@@ -9,10 +9,6 @@ class AssetIdHub(models.Model):
     Snapshots store useful source identifiers for traceability and backfill logic.
     """
 
-    class AssetStatus(models.TextChoices):
-        ACTIVE = 'ACTIVE', 'Active'  # WHAT: Flag assets currently in portfolio workflows (default state)
-        LIQUIDATED = 'LIQUIDATED', 'Liquidated'  # WHAT: Represents assets sold/resolved and no longer actively managed
-
     # Optional source snapshot for backfill/traceability (indexed)
     # - sellertape_id -> acq_module.models.seller.SellerRawData.sellertape_id (external tape key)
     #   Kept to assist ETL joins and admin lookups. Authoritative relations live on spoke tables via 1:1/1:n FKs.
@@ -20,21 +16,6 @@ class AssetIdHub(models.Model):
     
     # Servicer reference for cross-app joins and admin lookups
     servicer_id = models.CharField(max_length=64, null=True, blank=True, db_index=True, help_text='External servicer ID for cross-referencing servicer loan data')
-
-    # Simple yes/no commercial tag for UI toggles
-    is_commercial = models.BooleanField(
-        null=True,
-        blank=True,
-        help_text="Simple tag: True for commercial assets, False for residential. If blank, inferred at save time."
-    )
-
-    asset_status = models.CharField(
-        max_length=32,  # WHAT: Provides headroom for future lifecycle labels beyond the current Active/Liquidated pair
-        choices=AssetStatus.choices,  # WHAT: Restricts persisted values to the canonical AssetStatus enumeration
-        default=AssetStatus.ACTIVE,  # WHY: Maintain backward compatibility by treating existing hubs as Active unless explicitly updated
-        db_index=True,  # WHY: Enable fast filtering/grouping by lifecycle status across dashboards and reports
-        help_text='Canonical lifecycle status for this asset hub (drives UI dropdown and module coordination).',  # WHAT: Document downstream usage for administrators
-    )
 
     # Audit
     created_at = models.DateTimeField(auto_now_add=True)
@@ -60,15 +41,22 @@ class AssetIdHub(models.Model):
 
         Returns the explicit boolean when set; otherwise falls back to inference.
         """
-        # Prefer explicit boolean tag
-        if self.is_commercial is not None:
-            return bool(self.is_commercial)
-        # Fall back to inference
-        return self._infer_is_commercial()
+        details = getattr(self, 'details', None)
+        if details is None:
+            return False
+        # Prefer explicit boolean tag stored on AssetDetails
+        if details.is_commercial is not None:
+            return bool(details.is_commercial)
+        # Fall back to inference on AssetDetails
+        return details._infer_is_commercial()
 
 
 class AssetDetails(models.Model):
     """Minimal asset details linking AssetIdHub to a fund/legal entity."""
+
+    class AssetStatus(models.TextChoices):
+        ACTIVE = 'ACTIVE', 'Active'  # WHAT: Flag assets currently in portfolio workflows (default state)
+        LIQUIDATED = 'LIQUIDATED', 'Liquidated'  # WHAT: Represents assets sold/resolved and no longer actively managed
 
     asset = models.OneToOneField(
         AssetIdHub,
@@ -85,6 +73,36 @@ class AssetDetails(models.Model):
         blank=True,
         related_name='asset_assignments',
         help_text="Fund/Entity associated with this asset"
+    )
+    trade = models.ForeignKey(
+        'acq_module.Trade',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='asset_details',
+        help_text="Trade associated with this asset detail"
+    )
+
+    servicer_id = models.CharField(
+        max_length=64,
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="Servicer ID snapshot copied from AssetIdHub.servicer_id for admin/SQL use."
+    )
+
+    is_commercial = models.BooleanField(
+        null=True,
+        blank=True,
+        help_text="Simple tag: True for commercial assets, False for residential. If blank, inferred at save time."
+    )
+
+    asset_status = models.CharField(
+        max_length=32,  # WHAT: Provides headroom for future lifecycle labels beyond the current Active/Liquidated pair
+        choices=AssetStatus.choices,  # WHAT: Restricts persisted values to the canonical AssetStatus enumeration
+        default=AssetStatus.ACTIVE,  # WHY: Maintain backward compatibility by treating existing hubs as Active unless explicitly updated
+        db_index=True,  # WHY: Enable fast filtering/grouping by lifecycle status across dashboards and reports
+        help_text='Canonical lifecycle status for this asset hub (drives UI dropdown and module coordination).',  # WHAT: Document downstream usage for administrators
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -106,6 +124,9 @@ class AssetDetails(models.Model):
         Why: Frontend can rely on a single source of truth without duplicating inference.
         How: Checks SellerRawData first; if absent/unspecified, falls back to data presence.
         """
+        hub = getattr(self, 'asset', None)
+        if hub is not None and hub.servicer_id and self.servicer_id != hub.servicer_id:
+            self.servicer_id = hub.servicer_id
         if self.is_commercial is None:
             # Only set boolean if not explicitly provided; follow requested order
             self.is_commercial = self._infer_is_commercial()
@@ -121,13 +142,14 @@ class AssetDetails(models.Model):
         """
         from django.apps import apps
 
+        hub = getattr(self, 'asset', None)
+
         # 1) SRD standardized tags
         try:
-            srd = getattr(self, 'acq_raw', None)
             SellerRawData = apps.get_model('acq_module', 'SellerRawData')
         except Exception:
-            srd = None
             SellerRawData = None
+        srd = getattr(hub, 'acq_raw', None) if hub is not None else None
         if srd is not None:
             pt = getattr(srd, 'property_type', None)
             prod = getattr(srd, 'product_type', None)
@@ -142,7 +164,7 @@ class AssetDetails(models.Model):
         # 2) Unit counts from ComparableProperty (comps) >=5
         try:
             ComparableProperty = apps.get_model('core', 'ComparableProperty')
-            if ComparableProperty.objects.filter(asset_hub=self, units__gte=5).exists():
+            if hub is not None and ComparableProperty.objects.filter(asset_hub=hub, units__gte=5).exists():
                 return True
         except Exception:
             pass
@@ -150,13 +172,13 @@ class AssetDetails(models.Model):
         # 3) Presence of UnitMix or RentRoll
         try:
             UnitMix = apps.get_model('core', 'UnitMix')
-            if UnitMix.objects.filter(asset_hub_id=self).exists():
+            if hub is not None and UnitMix.objects.filter(asset_hub_id=hub.pk).exists():
                 return True
         except Exception:
             pass
         try:
             RentRoll = apps.get_model('core', 'RentRoll')
-            if RentRoll.objects.filter(asset_hub_id=self).exists():
+            if hub is not None and RentRoll.objects.filter(asset_hub_id=hub.pk).exists():
                 return True
         except Exception:
             pass

@@ -8,6 +8,51 @@
           Filters
         </h5>
 
+        <!-- Multi-select Partnerships -->
+        <div class="mb-3">
+          <label class="form-label fw-semibold">
+            <i class="mdi mdi-domain me-1"></i>
+            Partnerships
+          </label>
+          <div class="dropdown-multiselect">
+            <button 
+              class="btn btn-outline-secondary btn-sm w-100 text-start d-flex justify-content-between align-items-center"
+              type="button"
+              @click="toggleDropdown('partnerships')"
+            >
+              <span>{{ selectedPartnershipsLabel }}</span>
+              <i class="mdi mdi-chevron-down"></i>
+            </button>
+            <div v-if="showPartnershipsDropdown" class="dropdown-menu-custom show" @click.stop>
+              <div
+                class="dropdown-item-custom"
+                v-for="partnership in partnershipOptions"
+                :key="partnership.id"
+                role="menuitemcheckbox"
+                :aria-checked="isPartnershipSelected(partnership.id)"
+                :class="{ 'is-selected': isPartnershipSelected(partnership.id) }"
+              >
+                <input
+                  type="checkbox"
+                  :id="`partnership-${partnership.id}`"
+                  :value="partnership.id"
+                  v-model="localPartnershipIds"
+                  class="form-check-input me-2"
+                />
+                <label :for="`partnership-${partnership.id}`" class="form-check-label">
+                  {{ partnership.nickname || partnership.fund_name || `Partnership #${partnership.id}` }}
+                  <span v-if="partnership.entity_role_label" class="text-muted small"> · {{ partnership.entity_role_label }}</span>
+                  <span v-if="partnership.fund_name" class="text-muted small"> · {{ partnership.fund_name }}</span>
+                </label>
+              </div>
+              <div v-if="partnershipOptions.length === 0" class="text-muted small p-2">
+                {{ loadingPartnerships ? 'Loading...' : 'No partnerships available' }}
+              </div>
+            </div>
+          </div>
+          <div v-if="errorPartnerships" class="text-danger small mt-1">{{ errorPartnerships }}</div>
+        </div>
+
         <!-- Multi-select Trades -->
         <div class="mb-3">
           <label class="form-label fw-semibold">
@@ -50,7 +95,6 @@
           </div>
           <div v-if="errorTrades" class="text-danger small mt-1">{{ errorTrades }}</div>
         </div>
-        <div v-if="errorPartnerships" class="text-danger small mt-1">{{ errorPartnerships }}</div>
 
         <!-- Multi-select Asset Track Status -->
         <div class="mb-3">
@@ -138,74 +182,6 @@
           <div v-if="errorTaskStatuses" class="text-danger small mt-1">{{ errorTaskStatuses }}</div>
         </div>
 
-        <!-- Multi-select Partnerships -->
-        <div class="mb-3">
-          <label class="form-label fw-semibold">
-            <i class="mdi mdi-domain me-1"></i>
-            Partnerships
-          </label>
-          <div class="dropdown-multiselect">
-            <button 
-              class="btn btn-outline-secondary btn-sm w-100 text-start d-flex justify-content-between align-items-center"
-              type="button"
-              @click="toggleDropdown('partnerships')"
-            >
-              <span>{{ selectedPartnershipsLabel }}</span>
-              <i class="mdi mdi-chevron-down"></i>
-            </button>
-            <div v-if="showPartnershipsDropdown" class="dropdown-menu-custom show" @click.stop>
-              <div
-                class="dropdown-item-custom"
-                v-for="partnership in partnershipOptions"
-                :key="partnership.id"
-                role="menuitemcheckbox"
-                :aria-checked="isPartnershipSelected(partnership.id)"
-                :class="{ 'is-selected': isPartnershipSelected(partnership.id) }"
-              >
-                <input
-                  type="checkbox"
-                  :id="`partnership-${partnership.id}`"
-                  :value="partnership.id"
-                  v-model="localPartnershipIds"
-                  class="form-check-input me-2"
-                />
-                <label :for="`partnership-${partnership.id}`" class="form-check-label">
-                  {{ partnership.nickname || partnership.fund_name || `Partnership #${partnership.id}` }}
-                  <span v-if="partnership.entity_role_label" class="text-muted small"> · {{ partnership.entity_role_label }}</span>
-                  <span v-if="partnership.fund_name" class="text-muted small"> · {{ partnership.fund_name }}</span>
-                </label>
-              </div>
-              <div v-if="partnershipOptions.length === 0" class="text-muted small p-2">
-                {{ loadingPartnerships ? 'Loading...' : 'No partnerships available' }}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Date Range -->
-        <div class="mb-3">
-          <label class="form-label fw-semibold">
-            <i class="mdi mdi-calendar-range me-1"></i>
-            Date Range
-          </label>
-          <div class="row g-2">
-            <div class="col-6">
-              <input
-                type="date"
-                class="form-control form-control-sm"
-                v-model="localDateStart"
-              />
-            </div>
-            <div class="col-6">
-              <input
-                type="date"
-                class="form-control form-control-sm"
-                v-model="localDateEnd"
-              />
-            </div>
-          </div>
-        </div>
-
         <!-- Action Buttons -->
         <div class="d-flex gap-2">
           <button
@@ -224,91 +200,6 @@
             <i class="mdi mdi-refresh me-1"></i>
             Reset
           </button>
-        </div>
-      </div>
-
-      <hr class="my-3" />
-
-      <!-- Views Section -->
-      <div>
-        <h5 class="card-title mb-3">
-          <i class="mdi mdi-view-dashboard-outline me-2"></i>
-          Views
-        </h5>
-        
-        <div class="list-group list-group-flush">
-          <a
-            href="#"
-            class="list-group-item list-group-item-action"
-            :class="{ 'active': currentView === 'overview' }"
-            @click.prevent="changeView('overview')"
-          >
-            <i class="mdi mdi-view-dashboard me-2"></i>
-            Overview
-          </a>
-          <a
-            href="#"
-            class="list-group-item list-group-item-action"
-            :class="{ 'active': currentView === 'by-trade' }"
-            @click.prevent="changeView('by-trade')"
-          >
-            <i class="mdi mdi-briefcase-outline me-2"></i>
-            By Trade
-          </a>
-          <a
-            href="#"
-            class="list-group-item list-group-item-action"
-            :class="{ 'active': currentView === 'by-status' }"
-            @click.prevent="changeView('by-status')"
-          >
-            <i class="mdi mdi-tag-outline me-2"></i>
-            By Status
-          </a>
-          <a
-            href="#"
-            class="list-group-item list-group-item-action"
-            :class="{ 'active': currentView === 'by-fund' }"
-            @click.prevent="changeView('by-fund')"
-          >
-            <i class="mdi mdi-wallet-outline me-2"></i>
-            By Fund
-          </a>
-          <a
-            href="#"
-            class="list-group-item list-group-item-action"
-            :class="{ 'active': currentView === 'by-entity' }"
-            @click.prevent="changeView('by-entity')"
-          >
-            <i class="mdi mdi-domain me-2"></i>
-            By Entity
-          </a>
-          <a
-            href="#"
-            class="list-group-item list-group-item-action"
-            :class="{ 'active': currentView === 'geographic' }"
-            @click.prevent="changeView('geographic')"
-          >
-            <i class="mdi mdi-map-marker-outline me-2"></i>
-            Geographic
-          </a>
-          <a
-            href="#"
-            class="list-group-item list-group-item-action"
-            :class="{ 'active': currentView === 'collateral' }"
-            @click.prevent="changeView('collateral')"
-          >
-            <i class="mdi mdi-home-outline me-2"></i>
-            Collateral
-          </a>
-          <a
-            href="#"
-            class="list-group-item list-group-item-action"
-            :class="{ 'active': currentView === 'timeseries' }"
-            @click.prevent="changeView('timeseries')"
-          >
-            <i class="mdi mdi-chart-line me-2"></i>
-            Time Series
-          </a>
         </div>
       </div>
     </div>

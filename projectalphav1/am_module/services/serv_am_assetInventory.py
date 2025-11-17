@@ -30,7 +30,7 @@ QUICK_FILTER_FIELDS = (
     "seller__name",  # WHAT: Map friendly seller_name search to SellerRawData->Seller join
     "trade__trade_name",  # WHAT: Surfaced trade name via ForeignKey per Django join docs
     "sellertape_id",
-    "asset_hub__asset_status",
+    "asset_hub__details__asset_status",
 )
 
 # WHAT: Set of Valuation.source strings used by asset inventory
@@ -78,6 +78,7 @@ def build_queryset(
         SellerRawData.objects
         .filter(trade__status='BOARD')  # WHAT: Limit to assets from trades that have been boarded (promoted into AM module)
         .select_related("asset_hub")
+        .select_related("asset_hub__details")
         .select_related("asset_hub__blended_outcome_model")
         .select_related("seller", "trade")  # HOW: ensure seller/trade names resolve without extra queries
         # PERFORMANCE: Prefetch all related data in bulk queries to avoid N+1
@@ -124,7 +125,7 @@ def build_queryset(
             elif key == "trade_name":
                 allowed["trade__trade_name"] = value
             elif key == "lifecycle_status":
-                allowed["asset_hub__asset_status"] = value
+                allowed["asset_hub__details__asset_status"] = value
             else:
                 allowed[key] = value
         if allowed:
@@ -254,9 +255,11 @@ class AssetInventoryEnricher:
         """
         hub = getattr(obj, 'asset_hub', None)
         if hub is not None:
-            value = getattr(hub, 'asset_status', None)
-            if value:
-                return value
+            details = getattr(hub, 'details', None)
+            if details is not None:
+                value = getattr(details, 'asset_status', None)
+                if value:
+                    return value
         return getattr(obj, 'asset_status', None)
 
     def get_delinquency_status(self, obj: SellerRawData) -> str | None:

@@ -45,7 +45,9 @@ def build_base_queryset() -> QuerySet[SellerRawData]:
             'trade',                    # WHAT: Trade details (name, status, bid_date)
             'trade__seller',            # WHAT: Seller details (name, POC)
             'asset_hub',                # WHAT: Asset hub for master asset data
+            'asset_hub__details',       # WHAT: AssetDetails for lifecycle/commercial flags
             'asset_hub__servicer_data', # WHAT: ServicerLoanData for current servicing info
+            'asset_hub__blended_outcome_model',
             'seller',                   # WHAT: Direct seller FK if exists
         )
         .prefetch_related(
@@ -144,12 +146,18 @@ def build_base_queryset() -> QuerySet[SellerRawData]:
         # WHY: Track payment schedules
         servicer_next_due_date=F('asset_hub__servicer_loan_data__next_due_date'),
         
+        purchase_date=F('asset_hub__blended_outcome_model__purchase_date'),
+        purchase_price=F('asset_hub__blended_outcome_model__purchase_price'),
+        expected_exit_date=F('asset_hub__blended_outcome_model__expected_exit_date'),
+        expected_gross_proceeds=F('asset_hub__blended_outcome_model__expected_gross_proceeds'),
+        expected_net_proceeds=F('asset_hub__blended_outcome_model__expected_net_proceeds'),
+        
         # ====================================================================
         # 🏢 ASSET HUB FIELDS - Master asset data
         # ====================================================================
-        # WHAT: Asset master status from AssetIdHub
+        # WHAT: Asset master status from AssetDetails
         # WHY: Lifecycle status (ACTIVE, LIQUIDATED)
-        asset_master_status=F('asset_hub__asset_status'),
+        asset_master_status=F('asset_hub__details__asset_status'),
         
         # ====================================================================
         # 🎯 ADD YOUR OWN FIELDS HERE - Copy patterns above!

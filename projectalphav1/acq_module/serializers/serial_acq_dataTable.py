@@ -71,7 +71,7 @@ class SellerRawDataRowSerializer(serializers.Serializer):
         """
         try:
             hub = getattr(obj, 'asset_hub', None)
-            return bool(getattr(hub, 'is_commercial', False)) if hub is not None else False
+            return bool(getattr(hub, 'is_commercial_flag', False)) if hub is not None else False
         except Exception:
             return False
     asset_status = serializers.CharField(allow_null=True)
@@ -528,7 +528,7 @@ class SellerRawDataDetailSerializer(serializers.ModelSerializer):
         """Return boolean commercial tag from AssetIdHub for detail view."""
         try:
             hub = getattr(obj, 'asset_hub', None)
-            return bool(getattr(hub, 'is_commercial', False)) if hub is not None else False
+            return bool(getattr(hub, 'is_commercial_flag', False)) if hub is not None else False
         except Exception:
             return False
     

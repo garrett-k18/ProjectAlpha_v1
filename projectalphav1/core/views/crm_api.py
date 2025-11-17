@@ -39,12 +39,25 @@ class MasterCRMViewSet(viewsets.ModelViewSet):
     How: Filters by tag, supports search across firm/name/email, paginated results
     """
     
-    queryset = MasterCRM.objects.all().prefetch_related('states').order_by('-created_at')
+    queryset = (
+        MasterCRM.objects.all()
+        .select_related('firm_ref')
+        .prefetch_related('states')
+        .order_by('-created_at')
+    )
     serializer_class = MasterCRMSerializer
     permission_classes = [AllowAny]  # Match project pattern - authentication bypassed in dev
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['firm', 'contact_name', 'email', 'phone', 'city', 'states__state_code', 'states__state_name']
-    ordering_fields = ['firm', 'contact_name', 'created_at', 'updated_at']
+    search_fields = [
+        'firm_ref__name',
+        'contact_name',
+        'email',
+        'phone',
+        'city',
+        'states__state_code',
+        'states__state_name',
+    ]
+    ordering_fields = ['firm_ref__name', 'contact_name', 'created_at', 'updated_at']
     ordering = ['-created_at']
     
     def get_queryset(self):
@@ -66,13 +79,13 @@ class MasterCRMViewSet(viewsets.ModelViewSet):
         q = self.request.query_params.get('q', None)
         if q:
             queryset = queryset.filter(
-                Q(firm__icontains=q) |
-                Q(contact_name__icontains=q) |
-                Q(email__icontains=q) |
-                Q(phone__icontains=q) |
-                Q(city__icontains=q) |
-                Q(states__state_code__icontains=q) |
-                Q(states__state_name__icontains=q)
+                Q(firm_ref__name__icontains=q)
+                | Q(contact_name__icontains=q)
+                | Q(email__icontains=q)
+                | Q(phone__icontains=q)
+                | Q(city__icontains=q)
+                | Q(states__state_code__icontains=q)
+                | Q(states__state_name__icontains=q)
             ).distinct()
 
         # Optional filter by single state code (M2M only)

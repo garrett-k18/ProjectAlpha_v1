@@ -21,6 +21,7 @@ Docs reviewed:
 
 from typing import List, Dict, Any, Optional
 from django.db.models import QuerySet
+from django.utils import timezone
 from acq_module.models.model_acq_seller import SellerRawData
 from .serv_rep_queryBuilder import build_reporting_queryset, parse_filter_params
 from .serv_rep_aggregations import group_by_trade
@@ -87,60 +88,101 @@ def get_by_trade_chart_data(request) -> List[Dict[str, Any]]:
 
 def get_by_trade_grid_data(request) -> List[Dict[str, Any]]:
     """
-    WHAT: Get detailed grid data for By Trade table (AG Grid)
-    WHY: Display granular trade-level data with all metrics
-    HOW: Parse filters, build queryset, group by trade, return full details
-    
+    WHAT: Get asset-level grid data for By Trade table (AG Grid)
+    WHY: Each row represents a single asset, filtered by trade and other sidebar filters
+    HOW: Parse filters, build asset-level queryset, project required fields into dicts
+
     ARGS:
         request: Django request with query params
-    
+
     RETURNS: List of row objects for AG Grid
         [
             {
-                'id': 1,
+                'id': 1001,                      # Asset (SellerRawData) PK
                 'trade_id': 1,
-                'trade_name': 'NPL Portfolio 2024-Q1',
-                'seller_name': 'ABC Bank',
-                'asset_count': 245,
-                'total_upb': 12500000.00,
-                'avg_upb': 51020.41,
-                'avg_ltv': 78.5,
-                'total_debt': 11200000.00,
-                'status': 'DD',
-                'bid_date': '2024-01-15',
-                'state_count': 12,
-                'delinquency_rate': 3.2,
+                'trade_name': 'NPL Portfolio',
+                'street_address': '123 Main St',
+                'city': 'Dallas',
+                'state': 'TX',
+                'total_upb': 125000.00,          # Per-asset current_balance
+                'status': 'BOARD',               # Trade status
+                'bid_date': '2024-01-15',        # Purchase date from BlendedOutcomeModel
                 'last_updated': '2024-11-01T10:30:00Z',
             },
             ...
         ]
-    
+
     EXAMPLE USAGE in view:
         grid_data = get_by_trade_grid_data(request)
         return Response(grid_data)
     """
     # WHAT: Parse filter parameters
     filters = parse_filter_params(request)
-    
-    # WHAT: Build filtered queryset
+
+    # WHAT: Build filtered queryset (asset-level SellerRawData rows)
     queryset = build_reporting_queryset(**filters)
-    
-    # WHAT: Group by trade and get full metrics
-    # WHY: AG Grid needs all columns available
-    trade_metrics = group_by_trade(queryset)
-    
-    # WHAT: Add additional fields for AG Grid
-    # WHY: Grid may display more columns than chart
-    for trade in trade_metrics:
-        # WHAT: Add last_updated timestamp
-        # WHY: Show data freshness in hidden column
-        # TODO: Get actual last_updated from Trade or max(asset updated_at)
-        trade['last_updated'] = None  # Placeholder
-        
-        # WHAT: Add seller field (already in trade_metrics from aggregations)
-        # Seller name comes from group_by_trade: trade['seller_name']
-    
-    return trade_metrics
+
+    grid_rows: List[Dict[str, Any]] = []
+    today = timezone.now().date()
+
+    for asset in queryset:
+        trade = asset.trade
+        purchase_date = getattr(asset, 'purchase_date', None)
+        purchase_price = getattr(asset, 'purchase_price', None)
+        expected_exit_date = getattr(asset, 'expected_exit_date', None)
+        expected_gross_proceeds = getattr(asset, 'expected_gross_proceeds', None)
+        expected_net_proceeds = getattr(asset, 'expected_net_proceeds', None)
+
+        purchase_date_value = purchase_date.isoformat() if purchase_date else None
+        last_updated_value = asset.updated_at.isoformat() if asset.updated_at else None
+
+        current_duration_months: Optional[int] = None
+        if purchase_date:
+            current_duration_months = (today.year - purchase_date.year) * 12 + (today.month - purchase_date.month)
+            if current_duration_months < 0:
+                current_duration_months = 0
+
+        projected_gross_cost: Optional[float] = None
+        if expected_gross_proceeds is not None and expected_net_proceeds is not None:
+            projected_gross_cost = float(expected_gross_proceeds) - float(expected_net_proceeds)
+
+        grid_rows.append({
+            # identifiers / context
+            'id': asset.pk,
+            'trade_id': asset.trade_id,
+            'trade_name': trade.trade_name if trade and trade.trade_name else '',
+            'street_address': asset.street_address or '',
+            'city': asset.city or '',
+            'state': asset.state or '',
+
+            # base financials
+            'total_upb': float(asset.current_balance or 0),
+            'status': trade.status if trade and trade.status else '',
+            'purchase_date': purchase_date_value,
+            'last_updated': last_updated_value,
+
+            # servicing view fields
+            'servicer_current_balance': float(getattr(asset, 'servicer_current_balance', 0) or 0),
+            'servicer_total_debt': float(getattr(asset, 'servicer_total_debt', 0) or 0),
+            'servicer_as_of_date': getattr(asset, 'servicer_as_of_date', None),
+            'servicer_next_due_date': getattr(asset, 'servicer_next_due_date', None),
+            'months_dlq': asset.months_dlq,
+
+            # initial underwriting view fields
+            'purchase_price': float(purchase_price or 0) if purchase_price is not None else None,
+
+            # performance view fields
+            'current_duration_months': current_duration_months,
+            'current_gross_cost': None,
+
+            # re-underwriting / projections view fields
+            'expected_exit_date': expected_exit_date,
+            'expected_gross_proceeds': float(expected_gross_proceeds or 0) if expected_gross_proceeds is not None else None,
+            'expected_net_proceeds': float(expected_net_proceeds or 0) if expected_net_proceeds is not None else None,
+            'projected_gross_cost': projected_gross_cost,
+        })
+
+    return grid_rows
 
 
 def get_trade_drill_down_data(trade_id: int) -> Dict[str, Any]:

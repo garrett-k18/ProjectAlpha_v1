@@ -63,6 +63,16 @@ class PropertyType(models.TextChoices):
     HEALTHCARE = 'Healthcare', 'Healthcare'
 
 
+class CRMContactTag(models.TextChoices):
+    BROKER = 'broker', 'Broker'
+    TRADING_PARTNER = 'trading_partner', 'Trading Partner'
+    INVESTOR = 'investor', 'Investor'
+    LEGAL = 'legal', 'Legal'
+    VENDOR = 'vendor', 'Vendor'
+    SERVICER = 'servicer', 'Servicer'
+    TITLE_COMPANY = 'title_company', 'Title Company'
+
+
 class ValuationType(models.TextChoices):
     """
     Valuation type choices for property valuations.

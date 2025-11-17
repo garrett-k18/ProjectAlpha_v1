@@ -13,6 +13,7 @@ from core.models import (
     FundLegalEntity,
     FundMembership,
     EntityMembership,
+    FirmCRM,
     MasterCRM,
     AssetIdHub,
     AssetDetails,
@@ -53,13 +54,13 @@ from acq_module.models.model_acq_seller import SellerRawData
 @admin.register(AssetDetails)
 class AssetDetailsAdmin(admin.ModelAdmin):
     """Admin configuration for AssetDetails model linking assets to fund legal entities."""
-    list_display = ("asset", "fund_legal_entity", "created_at", "updated_at")
-    search_fields = ("asset__id", "fund_legal_entity__nickname_name")
+    list_display = ("asset", "servicer_id", "fund_legal_entity", "trade", "created_at", "updated_at")
+    search_fields = ("asset__id", "servicer_id", "fund_legal_entity__nickname_name", "trade__trade_name")
     autocomplete_fields = ["asset", "fund_legal_entity"]
-    readonly_fields = ("created_at", "updated_at")
+    readonly_fields = ("servicer_id", "created_at", "updated_at")
     fieldsets = (
         ("Links", {
-            "fields": ("asset", "fund_legal_entity")
+            "fields": ("asset", "servicer_id", "fund_legal_entity", "trade")
         }),
         ("Audit", {
             "fields": ("created_at", "updated_at")
@@ -108,7 +109,7 @@ class CoInvestorAdmin(admin.ModelAdmin):
         "is_active",
     )
     list_filter = ("is_active", "created_at")
-    search_fields = ("crm_contact__contact_name", "crm_contact__firm", "notes")
+    search_fields = ("crm_contact__contact_name", "crm_contact__firm_ref__name", "notes")
     list_per_page = 5
     autocomplete_fields = ['crm_contact']
     readonly_fields = ('created_at', 'updated_at')
@@ -158,7 +159,7 @@ class InvestorContributionAdmin(admin.ModelAdmin):
     list_filter = ("contribution_date", "payment_method")
     search_fields = (
         "co_investor__crm_contact__contact_name",
-        "co_investor__crm_contact__firm",
+        "co_investor__crm_contact__firm_ref__name",
         "reference_number",
         "notes"
     )
@@ -432,6 +433,20 @@ class EntityMembershipAdmin(admin.ModelAdmin):
     get_distribution_pct.short_description = 'Distribution %'
 
 
+@admin.register(FirmCRM)
+class FirmCRMAdmin(admin.ModelAdmin):
+    list_display = (
+        'name', 'phone', 'email', 'states_list', 'created_at'
+    )
+    search_fields = ('name', 'email', 'phone')
+    list_filter = ('states',)
+    readonly_fields = ('created_at', 'updated_at')
+    list_per_page = 25
+
+    def states_list(self, obj):
+        return ", ".join(sorted([s.state_code for s in obj.states.all()])) or ''
+
+
 @admin.register(MasterCRM)
 class MasterCRMAdmin(admin.ModelAdmin):
     """Admin configuration for unified Master CRM (Brokercrm) model."""
@@ -443,7 +458,7 @@ class MasterCRMAdmin(admin.ModelAdmin):
         'states', 'tag', 'nda_flag'
     )
     search_fields = (
-        'contact_name', 'email', 'firm', 'city',
+        'contact_name', 'email', 'firm_ref__name', 'city',
         'alt_contact_name', 'alt_contact_email'
     )
     readonly_fields = ('created_at', 'updated_at')
@@ -453,8 +468,6 @@ class MasterCRMAdmin(admin.ModelAdmin):
     def states_list(self, obj):
         return ", ".join(sorted([s.state_code for s in obj.states.all()])) or '—'
     states_list.short_description = 'States'
-
-
 
 
 
@@ -720,7 +733,7 @@ class BrokerMSAAssignmentAdmin(admin.ModelAdmin):
         'created_at', 'updated_at'
     )
     search_fields = (
-        'broker__contact_name', 'broker__firm', 'msa__msa_name', 'msa__msa_code'
+        'broker__contact_name', 'broker__firm_ref__name', 'msa__msa_name', 'msa__msa_code'
     )
     list_filter = ('is_active', 'priority', 'msa__state')
     ordering = ('msa', 'priority', 'broker')
@@ -851,7 +864,7 @@ class LlDataEnrichmentAdmin(admin.ModelAdmin):
 
     # WHAT: Columns shown in the changelist for quick scan of geocode status.
     list_display = (
-        'seller_raw_data',            # Reference to the underlying raw loan
+        'asset_hub',                  # Hub link for the underlying loan
         'geocode_lat',                # Latitude from Geocodio
         'geocode_lng',                # Longitude from Geocodio
         'geocode_msa_code',           # CBSA/MSA code returned
@@ -859,19 +872,18 @@ class LlDataEnrichmentAdmin(admin.ModelAdmin):
         'geocoded_at',                # Timestamp of the API call
     )
 
-    # WHAT: Allow searching by seller, trade, or any stored address string.
+    # WHAT: Allow searching by hub ID or any stored address string.
     search_fields = (
-        'seller_raw_data__seller__name',
-        'seller_raw_data__trade__trade_name',
+        'asset_hub__id',
         'geocode_full_address',
         'geocode_used_address',
         'geocode_display_address',
     )
 
-    # WHAT: Slice list view by seller/trade so ops teams can focus on one import.
+    # WHAT: Slice list view by MSA or county so ops teams can focus on specific geographies.
     list_filter = (
-        'seller_raw_data__seller',
-        'seller_raw_data__trade',
+        'geocode_msa_code',
+        'geocode_county',
     )
 
     # WHAT: Keep pagination small because staff uses filters heavily.
@@ -879,8 +891,7 @@ class LlDataEnrichmentAdmin(admin.ModelAdmin):
 
     # WHAT: Eliminate massive select widgets by switching to raw ID inputs.
     raw_id_fields = (
-        'seller_raw_data',            # Millions of rows -> never render dropdown
-        'asset_hub',                  # Hub records also large; raw ID keeps form fast
+        'asset_hub',                  # Hub records are large; raw ID keeps form fast
     )
 
     # WHAT: Mark enrichment outputs as read-only to prevent hand edits and avoid validation.
@@ -903,8 +914,8 @@ class LlDataEnrichmentAdmin(admin.ModelAdmin):
         (
             'Source Links',
             {
-                'description': 'Pointer back to the original loan rows.',
-                'fields': ('seller_raw_data', 'asset_hub'),
+                'description': 'Pointer back to the original loan rows via hub.',
+                'fields': ('asset_hub',),
             },
         ),
         (
@@ -1430,7 +1441,7 @@ class CalendarEventAdmin(admin.ModelAdmin):
 class AssetIdHubAdmin(admin.ModelAdmin):
     """Admin for the central Asset ID Hub."""
     list_display = (
-        'id', 'servicer_id', 'is_commercial', 'servicer_refs',
+        'id', 'servicer_id', 'is_commercial_flag', 'servicer_refs',
         # PK columns showing actual IDs of related records
         'seller_raw_data_id', 'blended_outcome_model_id',  # seller_boarded_data_id removed (deprecated)
         'servicer_loan_data_id', 'valuation_id', 'photo_id', 'document_id',
@@ -1442,7 +1453,7 @@ class AssetIdHubAdmin(admin.ModelAdmin):
     search_fields = (
         'servicer_id',
     )
-    list_filter = ('is_commercial',)
+    list_filter = ('details__is_commercial',)
     actions_on_top = True
     actions_on_bottom = True
     actions = ['delete_selected', delete_hub_and_children]
