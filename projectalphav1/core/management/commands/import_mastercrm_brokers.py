@@ -28,7 +28,8 @@ from pathlib import Path
 
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
-from django.db import transaction
+from django.db import transaction, connections
+import dj_database_url
 
 from core.models.model_co_crm import MasterCRM
 from core.models.model_co_geoAssumptions import StateReference
@@ -84,6 +85,21 @@ class Command(BaseCommand):
         dry_run = options["dry_run"]
         purge = options["purge"]
         db_alias = options["database"]
+
+        if db_alias == "prod":
+            prod_url = os.environ.get("DATABASE_URL_PROD")
+            if not prod_url:
+                raise CommandError("DATABASE_URL_PROD is not set; cannot use 'prod' database alias.")
+
+            prod_cfg = dj_database_url.parse(prod_url, conn_max_age=600, ssl_require=True)
+
+            if "neon.tech" in prod_cfg.get("HOST", ""):
+                prod_cfg["HOST"] = prod_cfg["HOST"].replace("-pooler", "")
+
+            prod_cfg.setdefault("OPTIONS", {})
+            prod_cfg["OPTIONS"]["options"] = "-c search_path=core,seller_data,public"
+
+            connections.databases["prod"] = prod_cfg
 
         if not os.path.exists(csv_path):
             raise CommandError(f"CSV not found at: {csv_path}")

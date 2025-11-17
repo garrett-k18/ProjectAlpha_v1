@@ -21,7 +21,7 @@ from django.db import transaction  # WHAT: Ensure database writes occur atomical
 from django.utils.dateparse import parse_date  # WHAT: Gracefully parse ISO formatted dates.
 
 from acq_module.models.model_acq_seller import Seller, Trade, SellerRawData  # WHAT: Domain models targeted by the import.
-from core.models import AssetIdHub  # WHAT: Master hub model required for SellerRawData primary keys.
+from core.models import AssetIdHub, AssetDetails  # WHAT: Master hub model required for SellerRawData primary keys and per-asset details.
 
 
 # WHAT: Tokens that should be interpreted as null/empty when cleaning string inputs.
@@ -410,6 +410,19 @@ class Command(BaseCommand):
                             existing.seller = payload["seller"]
                             existing.trade = payload["trade"]
                             existing.save()  # WHAT: Allow auto_now timestamps (updated_at) to refresh automatically.
+
+                            # Ensure AssetDetails exists and keep trade pointer in sync for this hub
+                            try:
+                                details, created = AssetDetails.objects.get_or_create(
+                                    asset=existing.asset_hub,
+                                    defaults={"trade": existing.trade},
+                                )
+                                if not created and details.trade != existing.trade:
+                                    details.trade = existing.trade
+                                    details.save(update_fields=["trade", "updated_at"])
+                            except Exception:
+                                # Soft-fail: do not break CSV import if AssetDetails creation fails
+                                self.stderr.write(self.style.WARNING(f"[WARN] Failed to sync AssetDetails for existing hub {existing.asset_hub_id}"))
                             updated += 1
                         else:
                             skipped += 1
@@ -421,7 +434,17 @@ class Command(BaseCommand):
                     payload_copy = payload.copy()
                     payload_copy["asset_hub"] = asset_hub
 
-                    SellerRawData.objects.create(**payload_copy)
+                    seller_raw = SellerRawData.objects.create(**payload_copy)
                     created += 1
+
+                    # Ensure one-to-one AssetDetails row exists for this hub
+                    try:
+                        AssetDetails.objects.get_or_create(
+                            asset=asset_hub,
+                            defaults={"trade": seller_raw.trade},
+                        )
+                    except Exception:
+                        # Soft-fail: do not break CSV import if AssetDetails creation fails
+                        self.stderr.write(self.style.WARNING(f"[WARN] Failed to create AssetDetails for new hub {asset_hub.id}"))
 
         return created, updated, skipped, hubs_created

@@ -23,7 +23,7 @@ from django.db import transaction
 from django.utils.dateparse import parse_date
 
 from acq_module.models.model_acq_seller import SellerRawData, Seller, Trade
-from core.models import AssetIdHub
+from core.models import AssetIdHub, AssetDetails
 from core.services.serv_co_geocoding import batch_geocode_row_ids
 from etl.services.serv_etl_ai_seller_matcher import AISellerMatcher
 from etl.services.serv_etl_ai_mapper import validate_choice_value
@@ -580,6 +580,19 @@ class DataImporter:
                                     if field not in ['asset_hub', 'seller', 'trade']:
                                         setattr(existing, field, value)
                                 existing.save()
+
+                                # Ensure AssetDetails exists and keep trade pointer in sync
+                                try:
+                                    details, created = AssetDetails.objects.get_or_create(
+                                        asset=existing.asset_hub,
+                                        defaults={"trade": existing.trade},
+                                    )
+                                    if not created and details.trade != existing.trade:
+                                        details.trade = existing.trade
+                                        details.save(update_fields=["trade", "updated_at"])
+                                except Exception:
+                                    # Soft-fail: do not block ETL on AssetDetails issues
+                                    logger.exception("Failed to sync AssetDetails for existing asset_hub %s", existing.asset_hub_id)
                             updated_count += 1
                         else:
                             skipped_count += 1
@@ -602,6 +615,16 @@ class DataImporter:
                                     asset_hub=asset_hub,
                                     defaults={}  # Use model defaults
                                 )
+
+                                # Ensure one-to-one AssetDetails row exists for this hub
+                                try:
+                                    AssetDetails.objects.get_or_create(
+                                        asset=asset_hub,
+                                        defaults={"trade": seller_raw.trade},
+                                    )
+                                except Exception:
+                                    # Soft-fail: do not block ETL on AssetDetails issues
+                                    logger.exception("Failed to create AssetDetails for new asset_hub %s", asset_hub.id)
                             saved_count += 1
                         except Exception as insert_error:
                             logger.error(f'Error inserting SellerRawData for {sellertape_id}: {insert_error}')
