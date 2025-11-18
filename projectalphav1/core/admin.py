@@ -762,6 +762,8 @@ class BrokerMSAAssignmentAdmin(admin.ModelAdmin):
     
     def get_msa_name(self, obj):
         """Display MSA name (truncated)"""
+        if not obj.msa:
+            return "No MSA"
         name = obj.msa.msa_name
         return name[:50] + '...' if len(name) > 50 else name
     get_msa_name.short_description = 'MSA'
