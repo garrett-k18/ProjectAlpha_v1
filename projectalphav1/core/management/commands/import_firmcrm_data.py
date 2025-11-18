@@ -79,15 +79,23 @@ class Command(BaseCommand):
         purge = options["purge"]
         db_alias = options["database"]
 
-        # Optional dedicated prod DB alias: --database prod
+        # Optional dedicated prod DB alias: --database proddb
         # This lets you temporarily point imports at a separate Neon prod URL
-        # without hardcoding secrets in code. Set DATABASE_URL_PROD in your env.
-        if db_alias == "prod":
-            prod_url = os.environ.get("DATABASE_URL_PROD")
+        # without hardcoding secrets in code. Set proddb in your env.
+        if db_alias == "proddb":
+            # NOTE: env var name intentionally matches user's .env key: 'proddb'
+            prod_url = os.environ.get("proddb")
             if not prod_url:
-                raise CommandError("DATABASE_URL_PROD is not set; cannot use 'prod' database alias.")
+                raise CommandError("proddb is not set; cannot use 'proddb' database alias.")
 
             prod_cfg = dj_database_url.parse(prod_url, conn_max_age=600, ssl_require=True)
+
+            # Ensure required Django DB config keys are present
+            # TIME_ZONE and AUTOCOMMIT/ATOMIC_REQUESTS are accessed by Django's
+            # database wrapper, so we mirror the global defaults here.
+            prod_cfg.setdefault("TIME_ZONE", settings.TIME_ZONE)
+            prod_cfg.setdefault("AUTOCOMMIT", True)
+            prod_cfg.setdefault("ATOMIC_REQUESTS", False)
 
             # Normalize Neon host (drop -pooler) and set search_path like settings.py
             if "neon.tech" in prod_cfg.get("HOST", ""):
@@ -96,7 +104,8 @@ class Command(BaseCommand):
             prod_cfg.setdefault("OPTIONS", {})
             prod_cfg["OPTIONS"]["options"] = "-c search_path=core,seller_data,public"
 
-            connections.databases["prod"] = prod_cfg
+            # Register the dynamic proddb config
+            connections.databases["proddb"] = prod_cfg
 
         if not os.path.exists(csv_path):
             raise CommandError(f"CSV not found at: {csv_path}")
@@ -187,7 +196,12 @@ class Command(BaseCommand):
                         else:
                             tag_value = CRMContactTag.BROKER
 
+                        # Defaults to apply on create/update. Always persist the
+                        # firm name from the CSV, even when using phone as the
+                        # lookup key, so newly created rows don't end up with
+                        # a blank name.
                         defaults = {
+                            "name": name,
                             "phone": phone,
                             "email": email,
                             "tag": tag_value,
@@ -195,7 +209,7 @@ class Command(BaseCommand):
 
                         if dry_run:
                             # Instantiate for validation; skip M2M handling.
-                            _ = FirmCRM(name=name, **defaults)
+                            _ = FirmCRM(**defaults)
                             updated += 1
                             self.stdout.write(
                                 f"[FirmCRM Import][DRY-RUN] Row {rowno}: would upsert firm name='{name}', "

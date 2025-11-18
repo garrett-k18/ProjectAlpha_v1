@@ -124,7 +124,17 @@ class MasterCRM(models.Model):
         if not value:
             self.firm_ref = None
             return
-        firm_obj, _ = FirmCRM.objects.get_or_create(name=value)
+        # Avoid MultipleObjectsReturned when there are duplicate FirmCRM rows
+        # with the same name. Prefer the first existing match; only create a
+        # new FirmCRM when none exist for this name.
+        qs = FirmCRM.objects.filter(name=value).order_by("id")
+        if qs.exists():
+            firm_obj = qs.first()
+        else:
+            firm_obj = FirmCRM.objects.create(
+                name=value,
+                tag=CRMContactTag.BROKER,
+            )
         self.firm_ref = firm_obj
 
     class Meta:
