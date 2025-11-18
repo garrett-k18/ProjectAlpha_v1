@@ -11,12 +11,20 @@ from .commercial_serializers import (
     LeaseComparableUnitMixSerializer,
     LeaseComparableRentRollSerializer
 )
-from .crm_serializers import (
+from .serial_co_crm import (
     MasterCRMSerializer,
     InvestorSerializer,
     BrokerSerializer,
     TradingPartnerSerializer,
     LegalSerializer,
+    MSAReferenceSerializer,
+)
+from .serial_co_assumptions import (
+    StateReferenceSerializer,
+    FCTimelinesSerializer,
+    FCStatusSerializer,
+    CommercialUnitsSerializer,
+    ServicerSerializer,
 )
 from .serial_co_calendar import (
     CalendarEventReadSerializer,
@@ -34,6 +42,12 @@ __all__ = [
     'BrokerSerializer',
     'TradingPartnerSerializer',
     'LegalSerializer',
+    'MSAReferenceSerializer',
+    'StateReferenceSerializer',
+    'FCTimelinesSerializer',
+    'FCStatusSerializer',
+    'CommercialUnitsSerializer',
+    'ServicerSerializer',
     'CalendarEventReadSerializer',
     'CustomCalendarEventSerializer',
     'UnifiedCalendarEventSerializer',

@@ -12,7 +12,7 @@
 
     <b-row>
       <!-- Sidebar with CRM type selector -->
-      <b-col xl="3" lg="4" class="mb-3 mb-xl-0">
+      <b-col xl="1" lg="2" class="mb-3 mb-xl-0">
         <CRMSidebar
           :crm-types="crmTypes"
           v-model="activeCrmType"
@@ -20,7 +20,7 @@
       </b-col>
 
       <!-- Main content: single CRMListView with dynamic configuration -->
-      <b-col xl="9" lg="8">
+      <b-col xl="11" lg="10">
         <div class="mb-3">
           <h4 class="mb-0">{{ activeConfig.entityType }}s</h4>
           <small class="text-muted">{{ activeCrmTypeCaption }}</small>
@@ -96,6 +96,12 @@ export default defineComponent({
     // Track the currently selected CRM type
     const activeCrmType = ref('brokers')
     const statesOptions = ref<Array<{ value: string; label: string }>>([])
+    const msaOptions = ref<Array<{ 
+      value: string; 
+      label: string; 
+      state_code?: string;
+      state_codes?: string[];
+    }>>([])
 
     // Initialize stores
     const brokersStore = useBrokersCrmStore()
@@ -143,26 +149,66 @@ export default defineComponent({
             entityType: 'Broker',
             addButtonText: 'Add Broker',
             columns: [
-              { field: 'firm', header: 'Brokerage', editable: true, placeholder: 'ABC Realty' },
+              { 
+                field: 'firm', 
+                header: 'Brokerage', 
+                editable: true, 
+                placeholder: 'ABC Realty',
+                cellStyle: 'text-transform: capitalize; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;',
+                formatter: (row: any) => {
+                  // Use firm_ref.name if available, fallback to firm property
+                  const firmName = row.firm_ref?.name || row.firm || ''
+                  // Return empty string if no firm name
+                  if (!firmName) return ''
+                  // Truncate long firm names for better table fit
+                  return firmName.length > 30 ? firmName.substring(0, 30) + '...' : firmName
+                }
+              },
               {
                 field: 'name',
                 header: 'Broker Name',
                 editable: true,
                 placeholder: 'Jane Doe',
+                cellStyle: 'text-transform: capitalize; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;',
                 component: 'router-link',
                 componentProps: (row: any) => ({
                   to: `/acq/brokers/${row.id}`,
                   class: 'text-body',
                 }),
+                formatter: (row: any) => {
+                  // Use name field (mapped from contact_name)
+                  const brokerName = row.name || row.contact_name || ''
+                  // Return empty string if no broker name
+                  if (!brokerName) return ''
+                  // Truncate broker names for better table fit
+                  return brokerName.length > 20 ? brokerName.substring(0, 20) + '...' : brokerName
+                }
               },
               {
-                field: 'locale',
-                header: 'MSA',
+                field: 'msas',
+                header: 'MSA Coverage',
+                editable: true,
+                cols: 12,
+                md: 12,
+                cellStyle: 'max-width: 250px; white-space: normal; line-height: 1.2; padding: 6px; font-size: 0.9em;',
+                inputType: 'select',
+                multiple: true,
+                options: msaOptions.value, // Static options - component doesn't support optionsFunction
+                placeholder: 'Select MSAs (filtered by broker states)',
                 formatter: (row: any) => {
-                  const city = row.city || ''
-                  const state = Array.isArray(row.states) && row.states.length ? row.states[0] : ''
-                  if (city && state) return `${city}, ${state}`
-                  return city || state || '—'
+                  // Use new msas field if available (array of MSA names)
+                  if (row.msas && Array.isArray(row.msas) && row.msas.length > 0) {
+                    // Show first 2 MSAs on separate lines, then count if more
+                    const displayMsas = row.msas.slice(0, 2).map((msa: string) => 
+                      msa.length > 35 ? msa.substring(0, 35) + '...' : msa
+                    )
+                    let result = displayMsas.join('\n')
+                    if (row.msas.length > 2) {
+                      result += `\n+${row.msas.length - 2} more`
+                    }
+                    return result
+                  }
+                  return '' // Return empty string instead of dash
                 },
               },
               {
@@ -171,8 +217,15 @@ export default defineComponent({
                 editable: true,
                 cols: 6,
                 md: 6,
+                cellStyle: 'max-width: 100px; font-size: 0.9em;',
                 options: statesOptions.value,
                 multiple: true,
+                formatter: (row: any) => {
+                  if (Array.isArray(row.states) && row.states.length > 0) {
+                    return row.states.join(', ')
+                  }
+                  return '' // Return empty string instead of dash
+                }
               },
               {
                 field: 'email',
@@ -180,12 +233,24 @@ export default defineComponent({
                 editable: true,
                 inputType: 'email',
                 placeholder: 'jane@example.com',
-                formatter: (row: any) => row.email || '—',
+                cellStyle: 'max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.9em;',
+                formatter: (row: any) => {
+                  const email = row.email || ''
+                  // Return empty string if no email, otherwise truncate
+                  if (!email || email === '—') return ''
+                  return email.length > 22 ? email.substring(0, 22) + '...' : email
+                },
+                // Only show as link if email exists, otherwise just plain text
                 component: 'a',
-                componentProps: (row: any) => ({
-                  href: `mailto:${row.email}`,
-                  class: 'text-primary text-decoration-underline',
-                }),
+                componentProps: (row: any) => {
+                  if (!row.email || row.email === '—') {
+                    return { style: 'display: none;' } // Hide the link if no email
+                  }
+                  return {
+                    href: `mailto:${row.email}`,
+                    class: 'text-primary text-decoration-underline',
+                  }
+                },
               },
               {
                 field: 'phone',
@@ -193,24 +258,31 @@ export default defineComponent({
                 editable: true,
                 inputType: 'tel',
                 placeholder: '(555) 123-4567',
-                formatter: (row: any) => formatPhone(row.phone),
+                cellStyle: 'max-width: 120px; font-size: 0.9em; white-space: nowrap;',
+                formatter: (row: any) => {
+                  const phone = formatPhone(row.phone)
+                  // Return empty string if no phone or just dash
+                  if (!phone || phone === '—') return ''
+                  return phone
+                },
                 component: 'a',
-                componentProps: (row: any) => ({
-                  href: `tel:${row.phone}`,
-                  class: 'text-primary text-decoration-underline',
-                }),
+                componentProps: (row: any) => {
+                  if (!row.phone || row.phone === '—') {
+                    return { style: 'display: none;' } // Hide the link if no phone
+                  }
+                  return {
+                    href: `tel:${row.phone}`,
+                    class: 'text-primary text-decoration-underline',
+                  }
+                },
               },
             ],
             filters: [
               {
                 field: 'state',
                 label: 'State',
-                options: Array.from(
-                  new Set(
-                    brokersStore.results
-                      .flatMap((b: any) => (Array.isArray(b.states) ? b.states : []))
-                  )
-                ).sort(),
+                // Use static state options instead of reactive broker data to prevent filter triggers
+                options: statesOptions.value.map(s => s.value).sort(),
               },
             ],
           }
@@ -330,8 +402,29 @@ export default defineComponent({
         statesOptions.value = []
       })
 
+    // Load MSAs for multi-select with state information
+    http
+      .get('/core/msa-assumptions/all/')
+      .then((resp) => {
+        const results = resp.data?.results || resp.data || []
+        msaOptions.value = (results || [])
+          .map((m: any) => ({
+            value: m.msa_name,  // Use msa_name as value
+            label: m.msa_name,  // Display msa_name
+            state_code: m.state_code, // Include state code for filtering
+            state_codes: [m.state_code].filter(Boolean), // Array for easier filtering
+          }))
+          .sort((a: any, b: any) => a.label.localeCompare(b.label))
+        console.log(`Loaded ${msaOptions.value.length} MSA options`)
+      })
+      .catch((error) => {
+        console.error('Failed to load MSA options:', error)
+        msaOptions.value = []
+      })
+
     // Fetch data when CRM type changes
     const loadData = () => {
+      console.log('🔄 loadData() called for:', activeCrmType.value)
       if (activeCrmType.value === 'brokers') {
         brokersStore.fetchBrokers({ page: 1 })
       } else if (activeCrmType.value === 'tradingpartners') {
@@ -349,7 +442,7 @@ export default defineComponent({
     }
 
     const onFilter = (filters: Record<string, string>) => {
-      console.log('Filter:', filters)
+      console.log('🔍 onFilter called with:', filters)
       loadData()
     }
 

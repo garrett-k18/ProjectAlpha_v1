@@ -23,7 +23,7 @@ from am_module.models.am_data import (
 )
 from core.models import AssetIdHub
 from core.models.model_co_crm import MasterCRM  # string refs used in models but serializer type hints are fine
-from core.serializers.crm_serializers import MasterCRMSerializer
+from core.serializers.serial_co_crm import MasterCRMSerializer
 
 
 # -----------------------------

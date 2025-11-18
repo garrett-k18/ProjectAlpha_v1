@@ -19,7 +19,7 @@ from rest_framework.permissions import AllowAny
 from django.db.models import Q
 
 from core.models.model_co_crm import MasterCRM
-from core.serializers.crm_serializers import (
+from core.serializers.serial_co_crm import (
     MasterCRMSerializer,
     InvestorSerializer,
     BrokerSerializer,
@@ -42,11 +42,16 @@ class MasterCRMViewSet(viewsets.ModelViewSet):
     queryset = (
         MasterCRM.objects.all()
         .select_related('firm_ref')
-        .prefetch_related('states')
+        .prefetch_related(
+            'states',
+            'firm_ref__states',
+            'msa_assignments__msa',
+        )
         .order_by('-created_at')
     )
     serializer_class = MasterCRMSerializer
     permission_classes = [AllowAny]  # Match project pattern - authentication bypassed in dev
+    pagination_class = None  # Disable pagination to show all brokers (100+)
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = [
         'firm_ref__name',
@@ -56,6 +61,8 @@ class MasterCRMViewSet(viewsets.ModelViewSet):
         'city',
         'states__state_code',
         'states__state_name',
+        'msa_assignments__msa__msa_name',
+        'msa_assignments__msa__msa_code',
     ]
     ordering_fields = ['firm_ref__name', 'contact_name', 'created_at', 'updated_at']
     ordering = ['-created_at']
@@ -70,13 +77,16 @@ class MasterCRMViewSet(viewsets.ModelViewSet):
         """
         queryset = super().get_queryset()
         
+        # Safely get query params (handle both DRF and Django request objects)
+        query_params = getattr(self.request, 'query_params', None) or getattr(self.request, 'GET', {})
+        
         # Filter by tag if provided in query params
-        tag = self.request.query_params.get('tag', None)
+        tag = query_params.get('tag', None) if query_params else None
         if tag:
             queryset = queryset.filter(tag=tag)
         
         # Support search query parameter 'q' for frontend compatibility
-        q = self.request.query_params.get('q', None)
+        q = query_params.get('q', None) if query_params else None
         if q:
             queryset = queryset.filter(
                 Q(firm_ref__name__icontains=q)
@@ -89,18 +99,26 @@ class MasterCRMViewSet(viewsets.ModelViewSet):
             ).distinct()
 
         # Optional filter by single state code (M2M only)
-        state_code = self.request.query_params.get('state', None)
+        state_code = query_params.get('state', None) if query_params else None
         if state_code:
             queryset = queryset.filter(
                 Q(states__state_code__iexact=state_code)
             ).distinct()
 
         # Optional filter by multiple state codes: states=CA,AZ,TX
-        multi_states = self.request.query_params.get('states', None)
+        multi_states = query_params.get('states', None) if query_params else None
         if multi_states:
             codes = [s.strip().upper() for s in multi_states.split(',') if s.strip()]
             if codes:
                 queryset = queryset.filter(states__state_code__in=codes).distinct()
+
+        # Optional filter by MSA name or code: msa=Los Angeles
+        msa_filter = query_params.get('msa', None) if query_params else None
+        if msa_filter:
+            queryset = queryset.filter(
+                Q(msa_assignments__msa__msa_name__icontains=msa_filter)
+                | Q(msa_assignments__msa__msa_code__icontains=msa_filter)
+            ).distinct()
         
         return queryset
 

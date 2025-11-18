@@ -11,12 +11,13 @@ Location: projectalphav1/core/urls.py
 """
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from core.views.views_assumptions import (
+from core.views.views_co_assumptions import (
     StateReferenceViewSet,
     FCTimelinesViewSet,
     FCStatusViewSet,
     CommercialUnitsViewSet,
-    ServicerViewSet
+    ServicerViewSet,
+    MSAReferenceViewSet
 )
 from core.views.commercial_api import (
     UnitMixListView,
@@ -33,7 +34,7 @@ from core.views.macro_metrics_api_new import (
     get_sofr_api,
     get_cpi_api
 )
-from core.views.crm_api import (
+from core.views.view_co_crm import (
     MasterCRMViewSet,
     InvestorViewSet,
     BrokerViewSet,
@@ -41,6 +42,7 @@ from core.views.crm_api import (
     LegalViewSet,
     ServicerViewSet as ServicerCRMViewSet,
 )
+from core.views.view_co_brokerscrm import BrokerCRMViewSet
 from core.views.view_co_valuations import (
     create_or_update_valuation,
     get_valuations,
@@ -61,6 +63,7 @@ router = DefaultRouter()
 
 # Register assumptions-related viewsets
 router.register(r'state-assumptions', StateReferenceViewSet, basename='state-assumptions')
+router.register(r'msa-assumptions', MSAReferenceViewSet, basename='msa-assumptions')
 router.register(r'fc-timelines', FCTimelinesViewSet, basename='fc-timelines')
 router.register(r'fc-statuses', FCStatusViewSet, basename='fc-statuses')
 router.register(r'commercial-units', CommercialUnitsViewSet, basename='commercial-units')
@@ -71,10 +74,13 @@ router.register(r'calendar/events/custom', CustomCalendarEventViewSet, basename=
 
 # Register CRM viewsets for Investors, Brokers, Trading Partners, Legal, Servicers
 # These provide tag-filtered views of the MasterCRM model
+# WHAT: Clean broker-only API (new, simple)
+router.register(r'brokers', BrokerCRMViewSet, basename='brokers')
+
 # WHAT: Specific CRM endpoints registered FIRST for proper URL matching
 # WHY: DRF router checks patterns in order, specific routes must come before generic
 router.register(r'crm/investors', InvestorViewSet, basename='crm-investors')
-router.register(r'crm/brokers', BrokerViewSet, basename='crm-brokers')
+router.register(r'crm/brokers', BrokerViewSet, basename='crm-brokers')  # Legacy complex API
 router.register(r'crm/trading-partners', TradingPartnerViewSet, basename='crm-trading-partners')
 router.register(r'crm/legal', LegalViewSet, basename='crm-legal')
 router.register(r'crm/servicers', ServicerCRMViewSet, basename='crm-servicers')

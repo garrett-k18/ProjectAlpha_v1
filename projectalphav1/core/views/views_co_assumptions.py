@@ -20,13 +20,15 @@ import csv
 from io import TextIOWrapper
 
 from core.models import StateReference, FCTimelines, FCStatus, CommercialUnits, Servicer
-from core.serializers.assumptions import (
+from core.models.model_co_geoAssumptions import MSAReference
+from core.serializers.serial_co_assumptions import (
     StateReferenceSerializer,
     FCTimelinesSerializer,
     FCStatusSerializer,
     CommercialUnitsSerializer,
     ServicerSerializer,
 )
+from core.serializers.serial_co_crm import MSAReferenceSerializer
 
 
 class DevAuthBypassMixin:
@@ -633,3 +635,53 @@ class ServicerViewSet(DevAuthBypassMixin, viewsets.ModelViewSet):
     queryset = Servicer.objects.all().order_by("servicer_name")
     serializer_class = ServicerSerializer
     permission_classes = [IsAuthenticated]
+
+
+class MSAReferenceViewSet(DevAuthBypassMixin, viewsets.ModelViewSet):
+    """
+    API ViewSet for MSAReference model with state filtering.
+    
+    What: Provides MSA data for frontend broker assignment dropdowns
+    Why: Frontend needs MSA options filtered by broker's states
+    How: Returns MSAs with state information for filtering
+    
+    Endpoints:
+    - GET /api/core/msa-assumptions/ - All MSAs
+    - GET /api/core/msa-assumptions/all/ - All MSAs (no pagination)
+    - GET /api/core/msa-assumptions/?state=CA - MSAs for specific state
+    """
+    
+    queryset = MSAReference.objects.all().select_related('state').order_by('msa_name')
+    serializer_class = MSAReferenceSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = None  # Disable pagination for dropdown usage
+    
+    def get_queryset(self):
+        """Filter MSAs by state if provided"""
+        queryset = MSAReference.objects.all().select_related('state').order_by('msa_name')
+        
+        # Filter by state code if provided
+        state_code = self.request.query_params.get('state', None)
+        if state_code:
+            queryset = queryset.filter(state__state_code__iexact=state_code)
+            
+        # Filter by multiple states: ?states=CA,TX,NY
+        states = self.request.query_params.get('states', None)
+        if states:
+            state_codes = [s.strip().upper() for s in states.split(',') if s.strip()]
+            if state_codes:
+                queryset = queryset.filter(state__state_code__in=state_codes)
+        
+        return queryset
+    
+    @action(detail=False, methods=["get"], url_path="all")
+    def list_all(self, request):
+        """
+        Return all MSAs without pagination for UI option lists.
+        
+        Why: Frontend dropdowns need complete MSA list with state info
+        for filtering by broker's states.
+        """
+        msas = self.get_queryset()
+        serializer = MSAReferenceSerializer(msas, many=True)
+        return Response(serializer.data)

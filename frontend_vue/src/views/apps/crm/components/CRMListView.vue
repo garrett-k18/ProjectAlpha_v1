@@ -89,12 +89,20 @@
                   <label class="form-label">{{ column.header }}</label>
                   <!-- If options provided and multiple, render checkbox group for better UX -->
                   <div v-if="column.options && column.options.length && column.multiple" class="border rounded p-2" style="max-height: 220px; overflow: auto;">
+                    <!-- Special handling for MSA field with state filtering -->
+                    <div v-if="column.field === 'msas' && currentEditingRow" class="alert alert-info py-2 mb-2">
+                      <small>
+                        <i class="mdi mdi-information-outline me-1"></i>
+                        Showing MSAs from: {{ currentEditingRow.states?.join(', ') || 'No states assigned' }}
+                        ({{ getFilteredOptions(column).length }} of {{ column.options.length }} MSAs, including cross-state MSAs)
+                      </small>
+                    </div>
                     <div class="d-flex justify-content-end mb-2 gap-2">
-                      <button type="button" class="btn btn-sm btn-light" @click="form[column.field] = column.options.map(o => o.value)">Select all</button>
+                      <button type="button" class="btn btn-sm btn-light" @click="form[column.field] = getFilteredOptions(column).map((o: any) => o.value)">Select all</button>
                       <button type="button" class="btn btn-sm btn-light" @click="form[column.field] = []">Clear</button>
                     </div>
                     <div class="d-flex flex-column gap-1">
-                      <div class="form-check" v-for="opt in column.options" :key="opt.value">
+                      <div class="form-check" v-for="opt in getFilteredOptions(column)" :key="opt.value">
                         <input
                           class="form-check-input"
                           type="checkbox"
@@ -152,7 +160,7 @@
                       <label class="form-check-label" for="selectAll">&nbsp;</label>
                     </div>
                   </th>
-                  <th v-for="column in tableColumns" :key="column.field" :style="column.width ? `width: ${column.width}` : ''">
+                  <th v-for="column in tableColumns" :key="column.field">
                     {{ column.header }}
                   </th>
                   <th style="width: 125px;">Actions</th>
@@ -188,7 +196,7 @@
                       <label class="form-check-label" :for="`row-${row.id}`">&nbsp;</label>
                     </div>
                   </td>
-                  <td v-for="column in tableColumns" :key="column.field">
+                  <td v-for="column in tableColumns" :key="column.field" :style="column.cellStyle || ''">
                     <!-- Custom checkbox rendering for NDA flag -->
                     <div v-if="column.field === 'nda_flag'" class="form-check">
                       <input 
@@ -202,7 +210,7 @@
                     </div>
                     <!-- Array-as-chips rendering for better readability (e.g., states) -->
                     <div v-else-if="Array.isArray(row[column.field])">
-                      <span v-if="row[column.field].length === 0" class="text-muted">—</span>
+                      <span v-if="row[column.field].length === 0" class="text-muted"></span>
                       <span v-else>
                         <span
                           v-for="(val, idx) in row[column.field]"
@@ -219,7 +227,7 @@
                       :is="column.component || 'span'" 
                       v-bind="column.componentProps ? column.componentProps(row) : {}"
                     >
-                      {{ column.formatter ? column.formatter(row) : (row[column.field] || '—') }}
+                      {{ column.formatter ? column.formatter(row) : (row[column.field] || '') }}
                     </component>
                   </td>
                   <td>
@@ -259,6 +267,7 @@ export interface CRMColumn {
   field: string;              // Data field name
   header: string;             // Column header text
   width?: string;             // Optional column width
+  cellStyle?: string;         // CSS styles for table cells
   editable?: boolean;         // Show in edit modal
   inputType?: string;         // Input type for modal (text, email, tel, etc.)
   placeholder?: string;       // Placeholder for input
@@ -336,6 +345,7 @@ export default defineComponent({
       showModal: false,
       isEditing: false,
       editId: null as number | null,
+      currentEditingRow: null as any, // Store the current row being edited for state-based filtering
       form: {} as Record<string, any>,
       submitting: false,
       searchQuery: '',
@@ -361,6 +371,45 @@ export default defineComponent({
 
   methods: {
     /**
+     * Get filtered options for a column (used for state-based MSA filtering)
+     */
+    getFilteredOptions(column: any) {
+      // Special handling for MSA field - filter by broker's states
+      if (column.field === 'msas' && this.currentEditingRow && this.currentEditingRow.states) {
+        const brokerStates = this.currentEditingRow.states || []
+        if (brokerStates.length === 0) {
+          return [] // No states assigned, no MSAs available
+        }
+        
+        return column.options.filter((msa: any) => {
+          // Check primary state (from state_codes array)
+          if (msa.state_codes && msa.state_codes.some((state: string) => brokerStates.includes(state))) {
+            return true
+          }
+          
+          // Also check for cross-state MSAs by parsing the MSA name
+          // Look for state codes after comma (e.g., ", NY-NJ-PA Metro Area")
+          const msaName = msa.label || msa.value || ''
+          const statePattern = /, ([A-Z]{2}(?:-[A-Z]{2})*) /
+          const match = msaName.match(statePattern)
+          
+          if (match) {
+            const statePart = match[1]
+            const statesInMSA = statePart.split('-')
+            if (statesInMSA.some((state: string) => brokerStates.includes(state))) {
+              return true
+            }
+          }
+          
+          return false
+        })
+      }
+      
+      // For all other fields, return all options
+      return column.options || []
+    },
+
+    /**
      * Handle search input
      */
     onSearch() {
@@ -371,6 +420,7 @@ export default defineComponent({
      * Handle filter change
      */
     onFilterChange() {
+      console.log('🔍 CRMListView filter change:', this.activeFilters);
       this.$emit('filter', this.activeFilters);
     },
 
@@ -400,6 +450,7 @@ export default defineComponent({
       this.showModal = false;
       this.isEditing = false;
       this.editId = null;
+      this.currentEditingRow = null; // Clear current editing row
     },
 
     /**
@@ -408,6 +459,7 @@ export default defineComponent({
     onEdit(row: any) {
       this.isEditing = true;
       this.editId = row.id;
+      this.currentEditingRow = row; // Store current row for state-based filtering
       this.resetForm();
       
       // Populate form with row data
@@ -427,8 +479,10 @@ export default defineComponent({
       try {
         if (this.isEditing && this.editId) {
           await this.$emit('update', { id: this.editId, data: this.form });
+          console.log(`✅ ${this.entityType} updated successfully (no page reload)`);
         } else {
           await this.$emit('create', this.form);
+          console.log(`✅ ${this.entityType} created successfully`);
         }
         
         this.onCancel();

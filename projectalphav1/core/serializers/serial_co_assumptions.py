@@ -12,20 +12,6 @@ from rest_framework import serializers
 from core.models import StateReference, FCTimelines, FCStatus, CommercialUnits, Servicer
 
 
-"""
-Serializers for assumptions models (StateReference, FCTimelines, etc.)
-
-What this does:
-- Converts Django model instances to/from JSON for API responses
-- Handles validation of incoming data from frontend
-- Maps backend field names to frontend-friendly names
-
-Location: projectalphav1/core/serializers/assumptions.py
-"""
-from rest_framework import serializers
-from core.models import StateReference, FCTimelines, FCStatus, CommercialUnits, Servicer
-
-
 class StateReferenceSerializer(serializers.ModelSerializer):
     """
     Serializer for StateReference model

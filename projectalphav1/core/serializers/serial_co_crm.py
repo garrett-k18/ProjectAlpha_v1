@@ -1,5 +1,5 @@
 """
-core.serializers.crm_serializers
+core.serializers.serial_co_crm
 
 Purpose
 -------
@@ -38,24 +38,36 @@ class MasterCRMSerializer(serializers.ModelSerializer):
     # Firm name is exposed as a simple string but backed by the firm_ref FK via
     # the MasterCRM.firm property, so API stays stable while data is normalized.
     firm = serializers.CharField(
-        source='firm',
         allow_blank=True,
         allow_null=True,
         required=False,
+        help_text="Firm/company name (mapped from firm_ref.name)"
     )
+    # Expose firm_ref details for frontend
+    firm_ref = serializers.SerializerMethodField(read_only=True)
+    # MSA assignments for brokers (read-only, populated from BrokerMSAAssignment)
+    msas = serializers.SerializerMethodField(read_only=True)
+    msa_assignments = serializers.SerializerMethodField(read_only=True)
+    # Map contact_name to name for frontend compatibility
+    name = serializers.CharField(source='contact_name', allow_blank=True, allow_null=True, required=False)
     
     class Meta:
         model = MasterCRM
         fields = [
             'id',
+            'name',                      # Maps to contact_name for frontend compatibility
             'firm',
+            'firm_ref',                  # Expose firm FK details
             'contact_name',
             'states',
             'city',
+            'msas',                      # MSA names array
+            'msa_assignments',           # Full MSA assignment details
             'email',
             'phone',
             'tag',
             'tag_display',
+            'preferred',
             'alt_contact_name',
             'alt_contact_email',
             'alt_contact_phone',
@@ -81,6 +93,68 @@ class MasterCRMSerializer(serializers.ModelSerializer):
             )
         return value
     
+    def get_msas(self, obj):
+        """
+        Get MSA assignments for this broker.
+        
+        What: Returns list of MSA names assigned to this broker
+        Why: Frontend needs to display MSA coverage information
+        How: Queries BrokerMSAAssignment for active assignments and returns MSA names
+        """
+        if obj.tag != MasterCRM.ContactTag.BROKER:
+            return []
+        
+        return list(
+            obj.msa_assignments.filter(
+                is_active=True,
+                msa__isnull=False
+            ).select_related('msa').values_list('msa__msa_name', flat=True)
+        )
+    
+    def get_firm_ref(self, obj):
+        """
+        Get firm reference details.
+        
+        What: Returns firm FK details including ID, name, and states
+        Why: Frontend needs access to firm relationship data
+        How: Serializes the firm_ref FK if it exists
+        """
+        if not obj.firm_ref:
+            return None
+        
+        return {
+            'id': obj.firm_ref.id,
+            'name': obj.firm_ref.name,
+            'phone': obj.firm_ref.phone,
+            'email': obj.firm_ref.email,
+            'states': list(obj.firm_ref.states.values_list('state_code', flat=True)),
+        }
+    
+    def get_msa_assignments(self, obj):
+        """
+        Get detailed MSA assignment information.
+        
+        What: Returns full MSA assignment details with priority and status
+        Why: Frontend may need detailed assignment info for editing/management
+        How: Serializes BrokerMSAAssignment records with MSA details
+        """
+        if obj.tag != MasterCRM.ContactTag.BROKER:
+            return []
+        
+        assignments = obj.msa_assignments.select_related('msa').filter(msa__isnull=False)
+        return [
+            {
+                'id': assignment.id,
+                'msa_id': assignment.msa.id,
+                'msa_name': assignment.msa.msa_name,
+                'msa_code': assignment.msa.msa_code,
+                'priority': assignment.priority,
+                'is_active': assignment.is_active,
+                'notes': assignment.notes,
+            }
+            for assignment in assignments
+        ]
+    
     def create(self, validated_data):
         """
         WHAT: Create MasterCRM instance with proper many-to-many handling
@@ -91,6 +165,8 @@ class MasterCRMSerializer(serializers.ModelSerializer):
         # WHAT: Extract states M2M field before creating instance
         # WHY: M2M fields must be set after instance exists in DB
         states = validated_data.pop('states', [])
+        # WHAT: Extract MSAs (handled via junction table)
+        msas = validated_data.pop('msas', [])
         # WHAT: Extract firm name which is backed by firm_ref via property
         firm_value = validated_data.pop('firm', None)
 
@@ -108,7 +184,68 @@ class MasterCRMSerializer(serializers.ModelSerializer):
         if states:
             instance.states.set(states)
 
+        # WHAT: Handle MSA assignments for brokers via junction table
+        if msas and instance.tag == MasterCRM.ContactTag.BROKER:
+            self._update_msa_assignments(instance, msas)
+
         return instance
+
+    def update(self, instance, validated_data):
+        """
+        Update MasterCRM instance with proper relationship handling.
+        """
+        # Extract relationship fields
+        states = validated_data.pop('states', None)
+        msas = validated_data.pop('msas', None)
+        firm_value = validated_data.pop('firm', None)
+
+        # Update basic fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        # Handle firm update
+        if firm_value is not None:
+            instance.firm = firm_value
+
+        instance.save()
+
+        # Update states M2M
+        if states is not None:
+            instance.states.set(states)
+
+        # Update MSA assignments for brokers
+        if msas is not None and instance.tag == MasterCRM.ContactTag.BROKER:
+            self._update_msa_assignments(instance, msas)
+
+        return instance
+
+    def _update_msa_assignments(self, broker_instance, msa_names):
+        """
+        Update MSA assignments via BrokerMSAAssignment junction table.
+        
+        What: Manages broker-to-MSA assignments through junction table
+        Why: MSAs are not direct M2M but go through BrokerMSAAssignment
+        How: Clear existing assignments and create new ones with priority=1
+        """
+        from core.models.model_co_geoAssumptions import MSAReference
+        from core.models.model_co_crm import BrokerMSAAssignment
+
+        # Clear existing assignments
+        BrokerMSAAssignment.objects.filter(broker=broker_instance).delete()
+
+        # Create new assignments
+        for i, msa_name in enumerate(msa_names):
+            try:
+                msa = MSAReference.objects.get(msa_name=msa_name)
+                BrokerMSAAssignment.objects.create(
+                    broker=broker_instance,
+                    msa=msa,
+                    priority=i + 1,  # Set priority based on order
+                    is_active=True
+                )
+            except MSAReference.DoesNotExist:
+                # Skip unknown MSAs (could log warning here)
+                continue
 
 
 class InvestorSerializer(MasterCRMSerializer):
@@ -224,3 +361,35 @@ class ServicerSerializer(MasterCRMSerializer):
         # Always set tag to servicer for this endpoint
         validated_data['tag'] = MasterCRM.ContactTag.SERVICER
         return super().create(validated_data)
+
+
+class MSAReferenceSerializer(serializers.ModelSerializer):
+    """
+    Serializer for MSAReference model with state information for broker assignments.
+    
+    What: Converts MSAReference model instances to JSON for frontend broker MSA dropdowns
+    Why: Frontend needs MSA options filtered by state for broker assignments
+    How: Includes state code for filtering MSAs by broker's states
+    """
+    
+    # Include state information for filtering
+    state_code = serializers.CharField(source='state.state_code', read_only=True)
+    state_name = serializers.CharField(source='state.state_name', read_only=True)
+    
+    class Meta:
+        from core.models.model_co_geoAssumptions import MSAReference
+        model = MSAReference
+        fields = [
+            'msa_code',  # Primary key field
+            'msa_name',
+            'state_code',
+            'state_name',
+        ]
+        
+    def to_representation(self, instance):
+        """Add state_codes array for easier frontend filtering."""
+        data = super().to_representation(instance)
+        # Add state_codes as array for frontend compatibility
+        if data.get('state_code'):
+            data['state_codes'] = [data['state_code']]
+        return data
