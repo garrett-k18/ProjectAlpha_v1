@@ -16,9 +16,8 @@ import os
 from pathlib import Path
 from django.core.management.base import BaseCommand
 from django.db import transaction
-from django.conf import settings
-import dj_database_url
 from core.models import AssetIdHub, AssetDetails, Entity, FundLegalEntity
+from core.management.utils.prod_db_helper import add_prod_db_args, setup_prod_db, check_db_connection
 
 
 class Command(BaseCommand):
@@ -53,19 +52,9 @@ class Command(BaseCommand):
             default=100,
             help='Number of records to process per batch (default: 100)',
         )
-        parser.add_argument(
-            '--database',
-            dest='database',
-            default='default',
-            help='Database alias to use (default: default, uses DATABASE_URL from .env). For production, set DATABASE_URL to production URL or use --database-url',
-        )
-        parser.add_argument(
-            '--database-url',
-            dest='database_url',
-            type=str,
-            default=None,
-            help='Override DATABASE_URL with a specific connection string (e.g., production database URL)',
-        )
+        # WHAT: Add production database arguments using utility
+        # WHY: Reuse standardized --prod and --database-url flags
+        add_prod_db_args(parser)
 
     def handle(self, *args, **options):
         """
@@ -129,59 +118,16 @@ class Command(BaseCommand):
 
         self.stdout.write(f'Found {len(csv_data)} records in CSV')
 
-        # WHAT: Handle database URL override if provided
-        # WHY: Allow pointing to production database even if DATABASE_URL points to dev
-        database_url_override = options.get('database_url')
-        if database_url_override:
-            # WHAT: Temporarily override DATABASE_URL environment variable
-            # WHY: Let Django's settings.py handle the configuration properly
-            # HOW: Save original, set override, then restore after
-            original_db_url = os.environ.get('DATABASE_URL')
-            os.environ['DATABASE_URL'] = database_url_override
-            
-            # WHAT: Force Django to reload database settings
-            # WHY: Settings have already been loaded, need to reconfigure
-            from django.db import connections
-            
-            # WHAT: Re-parse DATABASE_URL using same logic as settings.py
-            # WHY: Ensure exact same configuration structure
-            db_config = dj_database_url.parse(
-                database_url_override,
-                conn_max_age=600,
-                ssl_require=True,
-            )
-            
-            # WHAT: Check if this is a Neon database
-            is_neon = 'neon.tech' in db_config.get('HOST', '')
-            if is_neon:
-                db_config['HOST'] = db_config['HOST'].replace('-pooler', '')
-            
-            # WHAT: Update default database connection with override config
-            # WHY: Use default alias but with production URL
-            settings.DATABASES['default'] = {
-                **db_config,
-                'OPTIONS': {
-                    'options': '-c search_path=core,seller_data,public'
-                },
-            }
-            
-            # WHAT: Close existing connections to force reconnection
-            # WHY: Ensure we connect to the new database
-            connections['default'].close()
-            
-            db_alias = 'default'
-            self.stdout.write(self.style.WARNING(f'Using override database URL (production)'))
-        else:
-            # WHAT: Use default database alias
-            # WHY: Standard behavior using DATABASE_URL from .env
-            db_alias = options['database']
-        
-        # WHAT: Show which database we're using
-        # WHY: Help user understand which database is being queried
-        db_config = settings.DATABASES.get(db_alias, {})
-        db_name = db_config.get('NAME', 'unknown')
-        db_host = db_config.get('HOST', 'unknown')
-        self.stdout.write(f'Using database: {db_alias} (Name: {db_name}, Host: {db_host})')
+        # WHAT: Check if user just wants to see database info
+        # WHY: Allow verification before running import
+        if options.get('check_db'):
+            check_db_connection(options, self)
+            return
+
+        # WHAT: Setup production database connection if --prod flag is used
+        # WHY: Use reusable utility to handle all database connection complexity
+        # HOW: Returns database alias to use for all queries
+        db_alias = setup_prod_db(options, command_instance=self)
 
         # WHAT: Get all entities from database to create name mapping
         # WHY: Need to standardize CSV entity names to match stored Entity names
@@ -436,7 +382,9 @@ class Command(BaseCommand):
                         # WHY: Ensure the assignment is set even if record was pre-existing
                         if not created:
                             asset_details.fund_legal_entity_id = fle_id
-                            asset_details.save(update_fields=['fund_legal_entity_id'], using=db_alias)
+                            # WHAT: Save using the same database as the queryset
+                            # WHY: Instance is already bound to db_alias from get_or_create
+                            asset_details.save(update_fields=['fund_legal_entity_id'])
                         
                         updated_count += 1
                     

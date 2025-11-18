@@ -454,9 +454,11 @@ class FundLegalEntity(models.Model):
         verbose_name_plural = "Fund Legal Entities"
     
     def __str__(self):
-        """String representation showing legal name and fund"""
-        nickname = self.nickname_name or "Unnamed Entity"
-        return f"{nickname} - {self.fund.name}"
+        """String representation showing only the legal entity nickname"""
+        # WHAT: Show only FundLegalEntity nickname, not Entity name
+        # WHY: AssetDetails should only reference FundLegalEntity, not Entity
+        nickname = self.nickname_name or self.fund.name if self.fund else "Unnamed Entity"
+        return nickname
 
 
 class FundMembership(models.Model):

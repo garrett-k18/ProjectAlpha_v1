@@ -58,9 +58,14 @@ class AssetDetailsAdmin(admin.ModelAdmin):
     search_fields = ("asset__id", "asset__servicer_id", "fund_legal_entity__nickname_name", "trade__trade_name")
     autocomplete_fields = ["asset", "fund_legal_entity"]
     readonly_fields = ("get_servicer_id", "created_at", "updated_at")
+    # WHAT: Only show fund_legal_entity, not Entity directly
+    # WHY: AssetDetails should only link to FundLegalEntity, not Entity
     fieldsets = (
         ("Links", {
             "fields": ("asset", "get_servicer_id", "fund_legal_entity", "trade")
+        }),
+        ("Status", {
+            "fields": ("asset_status", "is_commercial")
         }),
         ("Audit", {
             "fields": ("created_at", "updated_at")
