@@ -737,7 +737,7 @@ class BrokerMSAAssignmentAdmin(admin.ModelAdmin):
     )
     list_filter = ('is_active', 'priority', 'msa__state')
     ordering = ('msa', 'priority', 'broker')
-    autocomplete_fields = ['broker', 'msa']
+    autocomplete_fields = ['broker']  # Keep broker autocomplete; MSA uses filtered dropdown
     readonly_fields = ('created_at', 'updated_at')
     list_per_page = 50
     
@@ -774,8 +774,22 @@ class BrokerMSAAssignmentAdmin(admin.ModelAdmin):
         return super().get_form(request, obj, **kwargs)
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
-        if db_field.name == "msa" and hasattr(request, "_obj_") and request._obj_:
-            broker = request._obj_.broker
+        if db_field.name == "msa":
+            broker = None
+
+            # When editing an existing assignment, use its broker
+            if hasattr(request, "_obj_") and request._obj_:
+                broker = request._obj_.broker
+
+            # On add, broker may be preselected via GET/POST (?broker=<id>)
+            if broker is None:
+                broker_id = request.GET.get("broker") or request.POST.get("broker")
+                if broker_id:
+                    try:
+                        broker = MasterCRM.objects.get(pk=broker_id)
+                    except MasterCRM.DoesNotExist:  # noqa: F821
+                        broker = None
+
             if broker:
                 broker_states = broker.states.all()
                 if broker_states.exists():
