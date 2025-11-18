@@ -304,27 +304,32 @@ def apply_task_status_filter(
 
 def apply_fund_filter(
     queryset: QuerySet[SellerRawData],
-    fund_id: Optional[int] = None
+    fund_id: Optional[int] = None,
+    partnership_ids: Optional[List[int]] = None
 ) -> QuerySet[SellerRawData]:
     """
-    WHAT: Filter queryset by fund
-    WHY: Users want to see data for specific investment fund
-    HOW: Filter by fund FK on Trade or AssetHub
+    WHAT: Filter queryset by fund/partnership (FundLegalEntity)
+    WHY: Users want to see data for specific investment funds or partnerships
+    HOW: Filter by fund_legal_entity FK on AssetDetails
     
     ARGS:
         queryset: Base queryset to filter
-        fund_id: Fund ID to filter by (None = all funds)
+        fund_id: Single fund ID to filter by (deprecated, use partnership_ids)
+        partnership_ids: List of FundLegalEntity IDs to filter by (None = all funds)
     
     RETURNS: Filtered queryset
-    
-    TODO: Add fund FK to Trade or AssetHub model when fund structure is finalized
     """
-    if fund_id:
-        # WHAT: Filter by fund (once fund FK is added to model)
-        # WHY: Users want fund-specific reporting
-        # TODO: Uncomment once fund FK exists
-        # queryset = queryset.filter(trade__fund_id=fund_id)
-        pass
+    # WHAT: Support both single fund_id (legacy) and partnership_ids (new multi-select)
+    # WHY: Backward compatibility during transition
+    if partnership_ids and len(partnership_ids) > 0:
+        # WHAT: Filter by fund_legal_entity on AssetDetails
+        # WHY: AssetDetails.fund_legal_entity links assets to funds/partnerships
+        # HOW: Use asset_hub__details__fund_legal_entity relationship
+        queryset = queryset.filter(asset_hub__details__fund_legal_entity_id__in=partnership_ids)
+    elif fund_id:
+        # WHAT: Legacy single fund filter
+        # WHY: Backward compatibility
+        queryset = queryset.filter(asset_hub__details__fund_legal_entity_id=fund_id)
     
     return queryset
 
@@ -422,6 +427,7 @@ def build_reporting_queryset(
     tracks: Optional[List[str]] = None,
     task_statuses: Optional[List[str]] = None,
     fund_id: Optional[int] = None,
+    partnership_ids: Optional[List[int]] = None,
     entity_id: Optional[int] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
@@ -437,7 +443,8 @@ def build_reporting_queryset(
         trade_ids: List of trade IDs to filter by
         tracks: List of AM outcome tracks (reo, fc, dil, short_sale, modification, note_sale)
         task_statuses: List of task types (eviction, trashout, nod_noi, etc.)
-        fund_id: Fund ID to filter by
+        fund_id: Single fund ID to filter by (deprecated, use partnership_ids)
+        partnership_ids: List of FundLegalEntity IDs to filter by
         entity_id: Entity ID to filter by
         start_date: Start of date range (ISO string)
         end_date: End of date range (ISO string)
@@ -452,6 +459,7 @@ def build_reporting_queryset(
             trade_ids=[1, 2, 3],
             tracks=['reo', 'fc'],
             task_statuses=['eviction'],
+            partnership_ids=[1, 2],
             start_date='2024-01-01',
             end_date='2024-12-31'
         )
@@ -464,7 +472,7 @@ def build_reporting_queryset(
     queryset = apply_trade_filter(queryset, trade_ids)
     queryset = apply_track_filter(queryset, tracks)
     queryset = apply_task_status_filter(queryset, task_statuses)
-    queryset = apply_fund_filter(queryset, fund_id)
+    queryset = apply_fund_filter(queryset, fund_id, partnership_ids)
     queryset = apply_entity_filter(queryset, entity_id)
     queryset = apply_date_range_filter(queryset, start_date, end_date)
     queryset = apply_quick_filter(queryset, q)
@@ -521,8 +529,17 @@ def parse_filter_params(request) -> dict:
     if task_statuses_str:
         params['task_statuses'] = [s.strip().lower() for s in task_statuses_str.split(',') if s.strip()]
     
-    # WHAT: Parse fund ID (single integer)
-    # WHY: Users select one fund at a time
+    # WHAT: Parse partnership IDs (comma-separated integers)
+    # WHY: Users can select multiple funds/partnerships (FundLegalEntity)
+    partnership_ids_str = request.GET.get('partnership_ids', '').strip()
+    if partnership_ids_str:
+        try:
+            params['partnership_ids'] = [int(pid) for pid in partnership_ids_str.split(',') if pid.strip()]
+        except ValueError:
+            params['partnership_ids'] = []
+    
+    # WHAT: Parse fund ID (single integer) - DEPRECATED, use partnership_ids
+    # WHY: Backward compatibility during transition
     fund_id_str = request.GET.get('fund_id', '').strip()
     if fund_id_str:
         try:

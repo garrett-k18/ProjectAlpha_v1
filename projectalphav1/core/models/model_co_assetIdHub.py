@@ -97,6 +97,13 @@ class AssetDetails(models.Model):
         help_text='Canonical lifecycle status for this asset hub (drives UI dropdown and module coordination).',  # WHAT: Document downstream usage for administrators
     )
 
+    legacy_flag = models.BooleanField(
+        null=True,  # WHAT: Allow NULL values in the database
+        blank=True,  # WHAT: Allow blank values in forms/admin
+        db_index=True,  # WHY: Enable fast filtering/grouping by legacy status across dashboards and reports
+        help_text='Flag indicating if this asset is a legacy asset',  # WHAT: Document the purpose of this flag
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -106,8 +113,15 @@ class AssetDetails(models.Model):
         verbose_name_plural = "Asset Details"
 
     def __str__(self):
-        label = self.fund_legal_entity or "Unassigned"
-        return f"{label} → Asset {self.asset_id}"
+        # WHAT: Safely get fund_legal_entity label, handling deletion edge cases
+        # WHY: During FundLegalEntity deletion, accessing the relationship can cause errors
+        # HOW: Use try/except to safely get the string representation
+        try:
+            label = str(self.fund_legal_entity) if self.fund_legal_entity else "Unassigned"
+        except Exception:
+            # WHAT: Fallback if fund_legal_entity is being deleted or inaccessible
+            label = "Unassigned"
+        return f"{label} → Asset {self.pk}"
 
     def save(self, *args, **kwargs):
         """Override save to skip auto-inference of commercial flag.

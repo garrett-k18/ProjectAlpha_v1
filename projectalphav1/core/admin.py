@@ -54,7 +54,7 @@ from acq_module.models.model_acq_seller import SellerRawData
 @admin.register(AssetDetails)
 class AssetDetailsAdmin(admin.ModelAdmin):
     """Admin configuration for AssetDetails model linking assets to fund legal entities."""
-    list_display = ("asset", "get_servicer_id", "fund_legal_entity", "trade", "created_at", "updated_at")
+    list_display = ("asset", "get_servicer_id", "fund_legal_entity", "trade", "legacy_flag", "created_at", "updated_at")
     search_fields = ("asset__id", "asset__servicer_id", "fund_legal_entity__nickname_name", "trade__trade_name")
     autocomplete_fields = ["asset", "fund_legal_entity"]
     readonly_fields = ("get_servicer_id", "created_at", "updated_at")
@@ -65,7 +65,7 @@ class AssetDetailsAdmin(admin.ModelAdmin):
             "fields": ("asset", "get_servicer_id", "fund_legal_entity", "trade")
         }),
         ("Status", {
-            "fields": ("asset_status", "is_commercial")
+            "fields": ("asset_status", "is_commercial", "legacy_flag")
         }),
         ("Audit", {
             "fields": ("created_at", "updated_at")
@@ -1495,7 +1495,7 @@ class AssetIdHubAdmin(admin.ModelAdmin):
     search_fields = (
         'servicer_id',
     )
-    list_filter = ('details__is_commercial',)
+    list_filter = ('details__is_commercial', 'details__legacy_flag')
     actions_on_top = True
     actions_on_bottom = True
     actions = ['delete_selected', delete_hub_and_children]

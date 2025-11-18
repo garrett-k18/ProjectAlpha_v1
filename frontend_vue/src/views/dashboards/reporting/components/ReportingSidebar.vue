@@ -8,11 +8,11 @@
           Filters
         </h5>
 
-        <!-- Multi-select Partnerships -->
+        <!-- Multi-select Fund/Partnerships -->
         <div class="mb-3">
           <label class="form-label fw-semibold">
             <i class="mdi mdi-domain me-1"></i>
-            Partnerships
+            Fund
           </label>
           <div class="dropdown-multiselect">
             <button 

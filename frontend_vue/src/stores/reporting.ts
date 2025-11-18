@@ -181,7 +181,9 @@ export const useReportingStore = defineStore('reporting', () => {
       params.append('task_statuses', selectedTaskStatuses.value.join(','))
     }
     if (selectedPartnershipIds.value.length > 0) {
-      params.append('entity_ids', selectedPartnershipIds.value.join(','))
+      // WHAT: Send partnership_ids (FundLegalEntity IDs) to backend
+      // WHY: Backend filters by asset_hub__details__fund_legal_entity_id
+      params.append('partnership_ids', selectedPartnershipIds.value.join(','))
     }
     if (dateRangeStart.value) {
       params.append('start_date', dateRangeStart.value)
