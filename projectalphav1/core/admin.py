@@ -767,6 +767,21 @@ class BrokerMSAAssignmentAdmin(admin.ModelAdmin):
     get_msa_name.short_description = 'MSA'
     get_msa_name.admin_order_field = 'msa__msa_name'
 
+    def get_form(self, request, obj=None, **kwargs):
+        request._obj_ = obj
+        return super().get_form(request, obj, **kwargs)
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "msa" and hasattr(request, "_obj_") and request._obj_:
+            broker = request._obj_.broker
+            if broker:
+                broker_states = broker.states.all()
+                if broker_states.exists():
+                    kwargs["queryset"] = db_field.remote_field.model.objects.filter(
+                        state__in=broker_states
+                    )
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
 
 @admin.register(FCStatus)
 class FCStatusAdmin(admin.ModelAdmin):
