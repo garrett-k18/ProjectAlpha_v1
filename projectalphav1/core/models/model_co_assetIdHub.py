@@ -110,15 +110,15 @@ class AssetDetails(models.Model):
         return f"{label} → Asset {self.asset_id}"
 
     def save(self, *args, **kwargs):
-        """Override save to auto-infer category when not explicitly set.
-
-        What: Ensures hub has a reasonable default category based on loaded data.
-        Why: Frontend can rely on a single source of truth without duplicating inference.
-        How: Checks SellerRawData first; if absent/unspecified, falls back to data presence.
+        """Override save to skip auto-inference of commercial flag.
+        
+        What: Saves the record without automatically inferring is_commercial.
+        Why: Allow manual control over commercial flag without automatic validation.
+        How: Skips inference - is_commercial can be set manually or left as None.
         """
-        if self.is_commercial is None:
-            # Only set boolean if not explicitly provided; follow requested order
-            self.is_commercial = self._infer_is_commercial()
+        # WHAT: Skip auto-inference of is_commercial
+        # WHY: Allow manual control without automatic validation
+        # NOTE: Removed auto-inference logic - set is_commercial manually if needed
         super().save(*args, **kwargs)
 
     def _infer_is_commercial(self) -> bool:
@@ -142,12 +142,17 @@ class AssetDetails(models.Model):
         if srd is not None:
             pt = getattr(srd, 'property_type', None)
             prod = getattr(srd, 'product_type', None)
+            # WHAT: Define commercial property types as string values (what's stored in DB)
+            # WHY: These are the actual string values stored in the property_type field
             commercial_pts = {
-                getattr(SellerRawData.PropertyType, 'MULTIFAMILY', 'Multifamily 5+'),
-                getattr(SellerRawData.PropertyType, 'INDUSTRIAL', 'Industrial'),
-                getattr(SellerRawData.PropertyType, 'MIXED_USE', 'Mixed Use'),
-            } if SellerRawData else {'Multifamily 5+', 'Industrial', 'Mixed Use'}
-            if pt in commercial_pts or prod == (getattr(SellerRawData.ProductType, 'COMMERCIAL', 'Commercial') if SellerRawData else 'Commercial'):
+                'Multifamily 5+',  # WHAT: Commercial property type
+                'Industrial',      # WHAT: Commercial property type
+                'Mixed Use',       # WHAT: Commercial property type
+            }
+            # WHAT: Check if property type is commercial OR product type is Commercial
+            # WHY: Either condition indicates a commercial asset
+            # HOW: Compare against stored string values
+            if pt in commercial_pts or prod == 'Commercial':
                 return True
 
         # 2) Unit counts from ComparableProperty (comps) >=5

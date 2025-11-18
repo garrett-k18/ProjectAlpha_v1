@@ -21,7 +21,7 @@
     </b-row>
 
     <b-row class="g-2">
-      <b-col xl="3" lg="12">
+      <b-col xl="2" lg="12">
         <ReportingSidebar 
           :current-view="currentView"
           @view-change="handleViewChange"
@@ -30,7 +30,7 @@
         />
       </b-col>
 
-      <b-col xl="9" lg="12">
+      <b-col xl="10" lg="12">
         <ReportHeader 
           :summary="reportSummary"
           :loading="loadingSummary"
