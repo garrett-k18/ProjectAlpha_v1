@@ -182,12 +182,15 @@ class BrokerMSAAssignment(models.Model):
     )
     
     # WHAT: Foreign key to MSAReference (the market)
-    # WHY: Link to MSA market
+    # WHY: Link to MSA market (optional - can be set later)
+    # HOW: Allows null=True so records can be created before MSA is assigned
     msa = models.ForeignKey(
         MSAReference,
         on_delete=models.CASCADE,
         related_name='broker_assignments',
-        help_text="MSA market assigned to this broker"
+        null=True,  # WHAT: Allow null so records can be created without MSA
+        blank=True,  # WHAT: Allow blank in forms/admin
+        help_text="MSA market assigned to this broker (optional - can be set later)"
     )
     
     # WHAT: Priority for multiple brokers in same MSA
@@ -233,4 +236,5 @@ class BrokerMSAAssignment(models.Model):
     
     def __str__(self):
         broker_name = self.broker.contact_name or self.broker.firm or f"Broker #{self.broker.id}"
-        return f"{broker_name} → {self.msa.msa_name} (Priority: {self.priority})"
+        msa_name = self.msa.msa_name if self.msa else "No MSA"
+        return f"{broker_name} → {msa_name} (Priority: {self.priority})"
