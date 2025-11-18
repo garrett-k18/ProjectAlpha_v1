@@ -83,14 +83,6 @@ class AssetDetails(models.Model):
         help_text="Trade associated with this asset detail"
     )
 
-    servicer_id = models.CharField(
-        max_length=64,
-        null=True,
-        blank=True,
-        db_index=True,
-        help_text="Servicer ID snapshot copied from AssetIdHub.servicer_id for admin/SQL use."
-    )
-
     is_commercial = models.BooleanField(
         null=True,
         blank=True,
@@ -124,9 +116,6 @@ class AssetDetails(models.Model):
         Why: Frontend can rely on a single source of truth without duplicating inference.
         How: Checks SellerRawData first; if absent/unspecified, falls back to data presence.
         """
-        hub = getattr(self, 'asset', None)
-        if hub is not None and hub.servicer_id and self.servicer_id != hub.servicer_id:
-            self.servicer_id = hub.servicer_id
         if self.is_commercial is None:
             # Only set boolean if not explicitly provided; follow requested order
             self.is_commercial = self._infer_is_commercial()

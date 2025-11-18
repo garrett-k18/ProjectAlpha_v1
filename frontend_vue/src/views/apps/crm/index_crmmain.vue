@@ -190,26 +190,11 @@ export default defineComponent({
                 editable: true,
                 cols: 12,
                 md: 12,
-                cellStyle: 'max-width: 250px; white-space: normal; line-height: 1.2; padding: 6px; font-size: 0.9em;',
+                cellStyle: 'max-width: 250px; line-height: 1.4; padding: 6px; padding-right: 20px;',
                 inputType: 'select',
                 multiple: true,
                 options: msaOptions.value, // Static options - component doesn't support optionsFunction
                 placeholder: 'Select MSAs (filtered by broker states)',
-                formatter: (row: any) => {
-                  // Use new msas field if available (array of MSA names)
-                  if (row.msas && Array.isArray(row.msas) && row.msas.length > 0) {
-                    // Show first 2 MSAs on separate lines, then count if more
-                    const displayMsas = row.msas.slice(0, 2).map((msa: string) => 
-                      msa.length > 35 ? msa.substring(0, 35) + '...' : msa
-                    )
-                    let result = displayMsas.join('\n')
-                    if (row.msas.length > 2) {
-                      result += `\n+${row.msas.length - 2} more`
-                    }
-                    return result
-                  }
-                  return '' // Return empty string instead of dash
-                },
               },
               {
                 field: 'states',
@@ -217,15 +202,9 @@ export default defineComponent({
                 editable: true,
                 cols: 6,
                 md: 6,
-                cellStyle: 'max-width: 100px; font-size: 0.9em;',
+                cellStyle: 'max-width: 120px; font-size: 0.9em;',
                 options: statesOptions.value,
                 multiple: true,
-                formatter: (row: any) => {
-                  if (Array.isArray(row.states) && row.states.length > 0) {
-                    return row.states.join(', ')
-                  }
-                  return '' // Return empty string instead of dash
-                }
               },
               {
                 field: 'email',

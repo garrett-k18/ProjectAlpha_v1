@@ -208,10 +208,23 @@
                       >
                       <label class="form-check-label" :for="`nda-${row.id}`">&nbsp;</label>
                     </div>
-                    <!-- Array-as-chips rendering for better readability (e.g., states) -->
+                    <!-- If there's a custom formatter, use it (even for arrays) -->
+                    <component 
+                      v-else-if="column.formatter"
+                      :is="column.component || 'span'" 
+                      v-bind="column.componentProps ? column.componentProps(row) : {}"
+                      style="white-space: pre-line;"
+                    >
+                      {{ column.formatter(row) }}
+                    </component>
+                    <!-- Array-as-chips rendering for better readability (e.g., states) - only if NO formatter -->
                     <div v-else-if="Array.isArray(row[column.field])">
                       <span v-if="row[column.field].length === 0" class="text-muted"></span>
-                      <span v-else>
+                      <span 
+                        v-else
+                        :title="row[column.field].join(', ')"
+                        style="display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; cursor: help;"
+                      >
                         <span
                           v-for="(val, idx) in row[column.field]"
                           :key="idx + '-' + val"
@@ -227,7 +240,7 @@
                       :is="column.component || 'span'" 
                       v-bind="column.componentProps ? column.componentProps(row) : {}"
                     >
-                      {{ column.formatter ? column.formatter(row) : (row[column.field] || '') }}
+                      {{ row[column.field] || '' }}
                     </component>
                   </td>
                   <td>

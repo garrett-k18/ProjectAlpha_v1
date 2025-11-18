@@ -54,18 +54,24 @@ from acq_module.models.model_acq_seller import SellerRawData
 @admin.register(AssetDetails)
 class AssetDetailsAdmin(admin.ModelAdmin):
     """Admin configuration for AssetDetails model linking assets to fund legal entities."""
-    list_display = ("asset", "servicer_id", "fund_legal_entity", "trade", "created_at", "updated_at")
-    search_fields = ("asset__id", "servicer_id", "fund_legal_entity__nickname_name", "trade__trade_name")
+    list_display = ("asset", "get_servicer_id", "fund_legal_entity", "trade", "created_at", "updated_at")
+    search_fields = ("asset__id", "asset__servicer_id", "fund_legal_entity__nickname_name", "trade__trade_name")
     autocomplete_fields = ["asset", "fund_legal_entity"]
-    readonly_fields = ("servicer_id", "created_at", "updated_at")
+    readonly_fields = ("get_servicer_id", "created_at", "updated_at")
     fieldsets = (
         ("Links", {
-            "fields": ("asset", "servicer_id", "fund_legal_entity", "trade")
+            "fields": ("asset", "get_servicer_id", "fund_legal_entity", "trade")
         }),
         ("Audit", {
             "fields": ("created_at", "updated_at")
         }),
     )
+    
+    def get_servicer_id(self, obj):
+        """Display servicer_id from related AssetIdHub (read-only, no storage)."""
+        return obj.asset.servicer_id if obj.asset else None
+    get_servicer_id.short_description = "Servicer ID"
+    get_servicer_id.admin_order_field = "asset__servicer_id"  # Enable sorting by this field
 # DEPRECATED: SellerBoardedData - use SellerRawData instead
 # from am_module.models.boarded_data import SellerBoardedData, BlendedOutcomeModel
 from am_module.models.boarded_data import BlendedOutcomeModel
@@ -462,7 +468,7 @@ class MasterCRMAdmin(admin.ModelAdmin):
         'alt_contact_name', 'alt_contact_email'
     )
     readonly_fields = ('created_at', 'updated_at')
-    list_per_page = 5
+    list_per_page = 50
     # No fieldsets: show all fields by default
 
     def states_list(self, obj):
