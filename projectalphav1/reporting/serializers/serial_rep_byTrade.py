@@ -70,7 +70,7 @@ class TradeGridSerializer(serializers.Serializer):
     
     # WHAT: Trade ID (same as id for trade-level grouping)
     # WHY: Reference back to Trade model
-    trade_id = serializers.IntegerField()
+    trade_id = serializers.IntegerField(required=False, allow_null=True)
     
     # WHAT: Servicer ID from AssetIdHub
     # WHY: External identifier used by asset managers
@@ -88,10 +88,6 @@ class TradeGridSerializer(serializers.Serializer):
     # WHY: Who sold this portfolio
     seller_name = serializers.CharField(required=False, allow_blank=True)
     
-    # WHAT: Trade status
-    # WHY: Current lifecycle status (DD, AWARDED, PASS, BOARD)
-    status = serializers.CharField()
-    
     # WHAT: Bid date (when trade was bid on)
     # WHY: Temporal tracking
     bid_date = serializers.DateTimeField(required=False, allow_null=True)
@@ -101,7 +97,7 @@ class TradeGridSerializer(serializers.Serializer):
     # ========================================================================
     # WHAT: Number of assets in this trade
     # WHY: Portfolio size metric
-    asset_count = serializers.IntegerField()
+    asset_count = serializers.IntegerField(required=False)
     
     # WHAT: Number of unique states in this trade
     # WHY: Geographic diversification metric
@@ -112,7 +108,7 @@ class TradeGridSerializer(serializers.Serializer):
     # ========================================================================
     # WHAT: Sum of current balances across all assets
     # WHY: Total unpaid principal balance for trade
-    total_upb = serializers.DecimalField(max_digits=15, decimal_places=2)
+    total_upb = serializers.DecimalField(max_digits=15, decimal_places=2, required=False)
     
     # WHAT: Average current balance per asset
     # WHY: Average loan size in trade
@@ -166,9 +162,7 @@ class TradeGridSerializer(serializers.Serializer):
     # ========================================================================
     # 📅 TIMESTAMP FIELDS
     # ========================================================================
-    # WHAT: Last time this data was updated
-    # WHY: Data freshness indicator
-    last_updated = serializers.DateTimeField(required=False, allow_null=True)
+    # Note: last_updated removed from By Trade grid per UI simplification
     
     # ========================================================================
     # 🎯 ADD YOUR OWN FIELDS HERE - Copy patterns above!

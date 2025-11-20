@@ -71,7 +71,7 @@ class BlendedOutcomeModel(models.Model):
         #Legal
     fc_expenses = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total FC expenses.")
     fc_legal_fees = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total FC legal fees.")
-    other_fc_fees = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total other FC fees.")
+    outher_fc_fees = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total other FC fees.")
     dil_fees = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total DIL fees.")
     cfk_fees = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total CFK fees.")
     bk_legal_fees = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total BK legal fees.")
@@ -89,9 +89,10 @@ class BlendedOutcomeModel(models.Model):
 
         #Fund Expenses
     acq_costs = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="per asset fees when purchasing such as legal, DD, Title, etc.")
-    am_fees = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="total am fee over life of asset hold COuld be a per month calc or liq calc")
+    fund_am_fees = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="total am fee over life of asset hold COuld be a per month calc or liq calc")
 
             #Closing Costs
+    am_liq_fees = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total liq fees.")
     tax_title_transfer_cost = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The tax, title, and transfer costs.")
     broker_fees = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The broker fees at closing of REO.")
 
@@ -117,7 +118,11 @@ class BlendedOutcomeModel(models.Model):
     other_income = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The other income.")
 
     
-    
+    expected_hold_duration = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Expected hold duration (in months)."
+    )
 
     expected_exit_date = models.DateField(
         null=True,

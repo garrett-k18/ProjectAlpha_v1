@@ -42,7 +42,7 @@
                 <label :for="`partnership-${partnership.id}`" class="form-check-label">
                   {{ partnership.nickname || partnership.fund_name || `Partnership #${partnership.id}` }}
                   <span v-if="partnership.entity_role_label" class="text-muted small"> · {{ partnership.entity_role_label }}</span>
-                  <span v-if="partnership.fund_name" class="text-muted small"> · {{ partnership.fund_name }}</span>
+                  <span v-if="partnership.fund_name && partnership.fund_name !== partnership.nickname" class="text-muted small"> · {{ partnership.fund_name }}</span>
                 </label>
               </div>
               <div v-if="partnershipOptions.length === 0" class="text-muted small p-2">

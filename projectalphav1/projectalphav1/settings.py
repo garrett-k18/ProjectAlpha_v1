@@ -43,6 +43,49 @@ except Exception:
     # Non-fatal; continue if the extra .env is not present
     pass
 
+# WHAT: Auto-select DATABASE_URL based on DJANGO_DB
+# WHY: Separate Django app database from import command database
+# HOW: Maps DJANGO_DB to the appropriate DB_* variable
+def get_database_url():
+    """
+    Automatically select database URL for Django app based on DJANGO_DB setting.
+    Valid environments: 'dev', 'newdev', 'prod', 'local'
+    """
+    # Check if DATABASE_URL is explicitly set (manual override)
+    if os.getenv('DATABASE_URL'):
+        return os.getenv('DATABASE_URL')
+    
+    # Get Django database selector (default to 'dev' for safety)
+    db_env = os.getenv('DJANGO_DB', 'dev').lower()
+    
+    # Map environment to database URL
+    env_map = {
+        'dev': os.getenv('DB_DEV'),
+        'newdev': os.getenv('DB_NEWDEV'),
+        'prod': os.getenv('DB_PROD'),
+        'local': None,  # Use local PostgreSQL settings
+    }
+    
+    db_url = env_map.get(db_env)
+    
+    # Print which database Django is using (helpful for debugging)
+    if db_url:
+        host_identifier = 'UNKNOWN'
+        if 'ep-icy-haze' in db_url:
+            host_identifier = 'DEV'
+        elif 'ep-orange-hat' in db_url:
+            host_identifier = 'NEWDEV'
+        elif 'ep-sweet-unit' in db_url:
+            host_identifier = 'PROD'
+        print(f"Database: {db_env.upper()} ({host_identifier})")
+    else:
+        print(f"Database: LOCAL PostgreSQL")
+    
+    return db_url
+
+# Set DATABASE_URL based on DJANGO_DB
+os.environ['DATABASE_URL'] = get_database_url() or ''
+
 # Helper for parsing booleans from env in a robust way
 def env_bool(key: str, default: bool) -> bool:
     val = os.getenv(key)

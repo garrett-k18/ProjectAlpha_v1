@@ -21,7 +21,7 @@ Docs reviewed:
 """
 
 from typing import List, Dict, Any
-from django.db.models import QuerySet, Sum, Avg, Count, Max, Min, Q, F, DecimalField
+from django.db.models import QuerySet, Sum, Avg, Count, Max, Min, Q, F, DecimalField, Value, Case, When
 from django.db.models.functions import Coalesce
 from acq_module.models.model_acq_seller import SellerRawData
 
@@ -48,16 +48,22 @@ def calculate_summary_metrics(queryset: QuerySet[SellerRawData]) -> Dict[str, An
     # HOW: Use aggregate() with multiple aggregation functions
     aggregates = queryset.aggregate(
         total_upb=Coalesce(Sum('current_balance'), 0.0, output_field=DecimalField()),
-        asset_count=Count('id'),
+        asset_count=Count('pk'),
         avg_ltv=Coalesce(
             Avg(
-                F('current_balance') * 100.0 / F('seller_asis_value'),
-                output_field=DecimalField()
+                Case(
+                    When(
+                        seller_asis_value__gt=0,
+                        then=F('current_balance') * 100.0 / F('seller_asis_value')
+                    ),
+                    default=Value(None),
+                    output_field=DecimalField(),
+                )
             ),
             0.0,
             output_field=DecimalField()
         ),
-        total_delinquent=Count('id', filter=Q(months_dlq__gt=0)),
+        total_delinquent=Count('pk', filter=Q(months_dlq__gt=0)),
     )
     
     # WHAT: Calculate delinquency rate as percentage
@@ -135,7 +141,7 @@ def group_by_trade(queryset: QuerySet[SellerRawData]) -> List[Dict[str, Any]]:
             # ================================================================
             # WHAT: Count of assets in this trade
             # WHY: How many assets in this trade
-            asset_count=Count('id'),
+            asset_count=Count('pk'),
             
             # ================================================================
             # CURRENT BALANCE METRICS (from SellerRawData)
@@ -167,8 +173,14 @@ def group_by_trade(queryset: QuerySet[SellerRawData]) -> List[Dict[str, Any]]:
             # WHY: Risk metric - higher LTV = higher risk
             avg_ltv=Coalesce(
                 Avg(
-                    F('current_balance') * 100.0 / F('seller_asis_value'),
-                    output_field=DecimalField()
+                    Case(
+                        When(
+                            seller_asis_value__gt=0,
+                            then=F('current_balance') * 100.0 / F('seller_asis_value')
+                        ),
+                        default=Value(None),
+                        output_field=DecimalField(),
+                    )
                 ),
                 0.0,
                 output_field=DecimalField()
@@ -197,7 +209,7 @@ def group_by_trade(queryset: QuerySet[SellerRawData]) -> List[Dict[str, Any]]:
             # ================================================================
             # WHAT: Count of delinquent assets (months_dlq > 0)
             # WHY: Calculate delinquency rate percentage
-            delinquent_count=Count('id', filter=Q(months_dlq__gt=0)),
+            delinquent_count=Count('pk', filter=Q(months_dlq__gt=0)),
             
             # ================================================================
             # 🎯 ADD YOUR OWN AGGREGATIONS HERE - Copy patterns above!
@@ -308,7 +320,7 @@ def group_by_status(queryset: QuerySet[SellerRawData]) -> List[Dict[str, Any]]:
         queryset
         .values('trade__status')
         .annotate(
-            asset_count=Count('id'),
+            asset_count=Count('pk'),
             total_upb=Coalesce(Sum('current_balance'), 0.0, output_field=DecimalField()),
             avg_upb=Coalesce(Avg('current_balance'), 0.0, output_field=DecimalField()),
             avg_ltv=Coalesce(

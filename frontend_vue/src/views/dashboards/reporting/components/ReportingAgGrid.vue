@@ -196,6 +196,7 @@ import { themeQuartz } from 'ag-grid-community'
 import type { 
   GridApi, 
   ColDef, 
+  ColGroupDef,
   GridReadyEvent,
   RowClickedEvent,
   SelectionChangedEvent 
@@ -204,7 +205,7 @@ import type {
 // WHAT: Component props interface
 // WHY: Define all inputs needed from parent components
 interface Props {
-  columnDefs: ColDef[]           // WHAT: AG Grid column definitions
+  columnDefs: Array<ColDef | ColGroupDef> // WHAT: AG Grid column definitions (supports groups)
   rowData: any[]                 // WHAT: Array of row data objects
   loading?: boolean              // WHAT: Show loading spinner
   gridHeight?: string            // WHAT: CSS height for grid (default: 600px)
@@ -313,14 +314,33 @@ function onGridReady(params: GridReadyEvent): void {
  * WHAT: Sync column visibility state
  * WHY: Keep allColumns ref in sync with AG Grid's column state
  */
+function isGroupDef(def: ColDef | ColGroupDef): def is ColGroupDef {
+  return (def as ColGroupDef).children !== undefined
+}
+
+function getLeafColumns(defs: Array<ColDef | ColGroupDef>): ColDef[] {
+  const leaves: ColDef[] = []
+  for (const d of defs) {
+    if (isGroupDef(d) && Array.isArray(d.children)) {
+      leaves.push(...getLeafColumns(d.children as Array<ColDef | ColGroupDef>))
+    } else {
+      leaves.push(d as ColDef)
+    }
+  }
+  return leaves
+}
+
 function syncColumnState(): void {
   if (!gridApi.value) return
 
-  allColumns.value = props.columnDefs.map(col => ({
-    field: col.field as string,
-    headerName: col.headerName || col.field as string,
-    visible: col.hide !== true,
-  }))
+  const leaves = getLeafColumns(props.columnDefs)
+  allColumns.value = leaves
+    .filter(col => !!col.field)
+    .map(col => ({
+      field: col.field as string,
+      headerName: (col.headerName as string) || (col.field as string),
+      visible: col.hide !== true,
+    }))
 }
 
 /**
@@ -445,11 +465,7 @@ watch(() => props.columnDefs, () => {
  */
 watch(() => props.loading, (newVal) => {
   if (gridApi.value) {
-    if (newVal) {
-      gridApi.value.showLoadingOverlay()
-    } else {
-      gridApi.value.hideOverlay()
-    }
+    gridApi.value.setGridOption('loading', newVal)
   }
 })
 
@@ -458,10 +474,16 @@ watch(() => props.loading, (newVal) => {
  * WHY: Show no rows overlay if empty
  */
 watch(() => props.rowData, (newData) => {
-  if (gridApi.value) {
-    if (!newData || newData.length === 0) {
+  if (!gridApi.value) return
+
+  const isLoading = !!gridApi.value.getGridOption('loading')
+
+  if (!newData || newData.length === 0) {
+    if (!props.loading && !isLoading) {
       gridApi.value.showNoRowsOverlay()
-    } else {
+    }
+  } else {
+    if (!props.loading && !isLoading) {
       gridApi.value.hideOverlay()
     }
   }

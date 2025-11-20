@@ -21,7 +21,8 @@ Docs reviewed:
 """
 
 from typing import Optional, List
-from django.db.models import QuerySet, Q, F, Value, CharField
+from django.db import connection
+from django.db.models import QuerySet, Q, F, Value, CharField, DecimalField, IntegerField
 from django.db.models.functions import Coalesce
 from acq_module.models.model_acq_seller import SellerRawData, Trade
 
@@ -45,9 +46,9 @@ def build_base_queryset() -> QuerySet[SellerRawData]:
             'trade',                    # WHAT: Trade details (name, status, bid_date)
             'trade__seller',            # WHAT: Seller details (name, POC)
             'asset_hub',                # WHAT: Asset hub for master asset data
-            'asset_hub__details',       # WHAT: AssetDetails for lifecycle/commercial flags
-            'asset_hub__servicer_data', # WHAT: ServicerLoanData for current servicing info
-            'asset_hub__blended_outcome_model',
+            # NOTE: Removed 'asset_hub__details' from select_related to avoid INNER JOIN
+            # WHY: Many assets don't have AssetDetails yet, we want to show them all
+            # HOW: Django will do LEFT JOIN automatically when filtering/annotating
             'seller',                   # WHAT: Direct seller FK if exists
         )
         .prefetch_related(
@@ -58,6 +59,10 @@ def build_base_queryset() -> QuerySet[SellerRawData]:
         # HOW: Filter by trade status = 'BOARD'
         .filter(trade__status='BOARD')
     )
+
+    # Conditionally add select_related for blended outcome model if table exists
+    if 'am_module_blendedoutcomemodel' in connection.introspection.table_names():
+        queryset = queryset.select_related('asset_hub__blended_outcome_model')
     
     # ========================================================================
     # 📋 FIELD ANNOTATIONS - MAKE FIELDS FROM RELATED MODELS AVAILABLE
@@ -138,27 +143,146 @@ def build_base_queryset() -> QuerySet[SellerRawData]:
         # WHY: Complete debt picture from servicing platform
         servicer_total_debt=F('asset_hub__servicer_loan_data__total_debt'),
         
-        # WHAT: As of date from servicer data
-        # WHY: Know when servicing data was last updated
-        servicer_as_of_date=F('asset_hub__servicer_loan_data__as_of_date'),
-        
         # WHAT: Next due date from servicer
         # WHY: Track payment schedules
         servicer_next_due_date=F('asset_hub__servicer_loan_data__next_due_date'),
-        
-        purchase_date=F('asset_hub__blended_outcome_model__purchase_date'),
-        purchase_price=F('asset_hub__blended_outcome_model__purchase_price'),
-        expected_exit_date=F('asset_hub__blended_outcome_model__expected_exit_date'),
-        expected_gross_proceeds=F('asset_hub__blended_outcome_model__expected_gross_proceeds'),
-        expected_net_proceeds=F('asset_hub__blended_outcome_model__expected_net_proceeds'),
-        
+    )
+
+    # Only annotate BlendedOutcomeModel fields if the table exists
+    has_blended = 'am_module_blendedoutcomemodel' in connection.introspection.table_names()
+    if has_blended:
+        queryset = queryset.annotate(
+            purchase_date=F('asset_hub__blended_outcome_model__purchase_date'),
+            purchase_price=F('asset_hub__blended_outcome_model__purchase_price'),
+            expected_exit_date=F('asset_hub__blended_outcome_model__expected_exit_date'),
+            expected_gross_proceeds=F('asset_hub__blended_outcome_model__expected_gross_proceeds'),
+            expected_net_proceeds=F('asset_hub__blended_outcome_model__expected_net_proceeds'),
+            expected_pl=F('asset_hub__blended_outcome_model__expected_pl'),
+            expected_cf=F('asset_hub__blended_outcome_model__expected_cf'),
+            expected_irr=F('asset_hub__blended_outcome_model__expected_irr'),
+            expected_moic=F('asset_hub__blended_outcome_model__expected_moic'),
+            expected_hold_duration=F('asset_hub__blended_outcome_model__expected_hold_duration'),
+
+            # Initial underwriting percentage bids
+            bid_pct_upb=F('asset_hub__blended_outcome_model__bid_pct_upb'),
+            bid_pct_td=F('asset_hub__blended_outcome_model__bid_pct_td'),
+            bid_pct_sellerasis=F('asset_hub__blended_outcome_model__bid_pct_sellerasis'),
+            bid_pct_pv=F('asset_hub__blended_outcome_model__bid_pct_pv'),
+
+            # Exit strategy label
+            exit_strategy=F('asset_hub__blended_outcome_model__outcome_blend'),
+
+            # Hold durations
+            pre_reo_hold_duration=(
+                Coalesce(
+                    F('asset_hub__blended_outcome_model__servicing_transfer_duration'),
+                    Value(0, output_field=IntegerField()),
+                    output_field=IntegerField(),
+                )
+                + Coalesce(
+                    F('asset_hub__blended_outcome_model__pre_fc_duration'),
+                    Value(0, output_field=IntegerField()),
+                    output_field=IntegerField(),
+                )
+                + Coalesce(
+                    F('asset_hub__blended_outcome_model__fc_duration_state_avg'),
+                    Value(0, output_field=IntegerField()),
+                    output_field=IntegerField(),
+                )
+                + Coalesce(
+                    F('asset_hub__blended_outcome_model__dil_duration'),
+                    Value(0, output_field=IntegerField()),
+                    output_field=IntegerField(),
+                )
+            ),
+            reo_hold_duration=(
+                Coalesce(
+                    F('asset_hub__blended_outcome_model__eviction_duration'),
+                    Value(0, output_field=IntegerField()),
+                    output_field=IntegerField(),
+                )
+                + Coalesce(
+                    F('asset_hub__blended_outcome_model__renovation_duration'),
+                    Value(0, output_field=IntegerField()),
+                    output_field=IntegerField(),
+                )
+                + Coalesce(
+                    F('asset_hub__blended_outcome_model__reo_marketing_duration'),
+                    Value(0, output_field=IntegerField()),
+                    output_field=IntegerField(),
+                )
+                + Coalesce(
+                    F('asset_hub__blended_outcome_model__local_market_ext_duration'),
+                    Value(0, output_field=IntegerField()),
+                    output_field=IntegerField(),
+                )
+                + Coalesce(
+                    F('asset_hub__blended_outcome_model__rural_ext_duration'),
+                    Value(0, output_field=IntegerField()),
+                    output_field=IntegerField(),
+                )
+            ),
+
+            # Aggregated expense buckets
+            legal_expenses=(
+                Coalesce(F('asset_hub__blended_outcome_model__fc_expenses'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+                + Coalesce(F('asset_hub__blended_outcome_model__fc_legal_fees'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+                + Coalesce(F('asset_hub__blended_outcome_model__bk_legal_fees'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+                + Coalesce(F('asset_hub__blended_outcome_model__eviction_fees'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+                + Coalesce(F('asset_hub__blended_outcome_model__dil_fees'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+                + Coalesce(F('asset_hub__blended_outcome_model__cfk_fees'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+                + Coalesce(F('asset_hub__blended_outcome_model__outher_fc_fees'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+            ),
+            servicing_expenses=(
+                Coalesce(F('asset_hub__blended_outcome_model__servicing_board_fee'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+                + Coalesce(F('asset_hub__blended_outcome_model__servicing_current'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+                + Coalesce(F('asset_hub__blended_outcome_model__servicing_30d'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+                + Coalesce(F('asset_hub__blended_outcome_model__servicing_60d'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+                + Coalesce(F('asset_hub__blended_outcome_model__servicing_90d'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+                + Coalesce(F('asset_hub__blended_outcome_model__servicing_120d'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+                + Coalesce(F('asset_hub__blended_outcome_model__servicing_fc'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+                + Coalesce(F('asset_hub__blended_outcome_model__servicing_bk'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+                + Coalesce(F('asset_hub__blended_outcome_model__servicing_liq_fee'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+            ),
+            reo_expenses=(
+                Coalesce(F('asset_hub__blended_outcome_model__total_hoa'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+                + Coalesce(F('asset_hub__blended_outcome_model__total_utility'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+                + Coalesce(F('asset_hub__blended_outcome_model__total_other'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+            ),
+            carry_cost=(
+                Coalesce(F('asset_hub__blended_outcome_model__servicing_board_fee'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+                + Coalesce(F('asset_hub__blended_outcome_model__servicing_current'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+                + Coalesce(F('asset_hub__blended_outcome_model__servicing_30d'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+                + Coalesce(F('asset_hub__blended_outcome_model__servicing_60d'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+                + Coalesce(F('asset_hub__blended_outcome_model__servicing_90d'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+                + Coalesce(F('asset_hub__blended_outcome_model__servicing_120d'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+                + Coalesce(F('asset_hub__blended_outcome_model__servicing_fc'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+                + Coalesce(F('asset_hub__blended_outcome_model__servicing_bk'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+                + Coalesce(F('asset_hub__blended_outcome_model__servicing_liq_fee'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+                + Coalesce(F('asset_hub__blended_outcome_model__total_insurance'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+                + Coalesce(F('asset_hub__blended_outcome_model__total_property_tax'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+            ),
+            liq_fees=(
+                Coalesce(F('asset_hub__blended_outcome_model__am_liq_fees'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+                + Coalesce(F('asset_hub__blended_outcome_model__tax_title_transfer_cost'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+                + Coalesce(F('asset_hub__blended_outcome_model__broker_fees'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+                + Coalesce(F('asset_hub__blended_outcome_model__servicing_liq_fee'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+            ),
+            uw_other_fees=F('asset_hub__blended_outcome_model__total_other'),
+        )
+
+    queryset = queryset.annotate(
         # ====================================================================
         # 🏢 ASSET HUB FIELDS - Master asset data
         # ====================================================================
         # WHAT: Asset master status from AssetDetails
         # WHY: Lifecycle status (ACTIVE, LIQUIDATED)
         asset_master_status=F('asset_hub__details__asset_status'),
-        
+
+        # WHAT: Realized gross cost from LLTransactionSummary (loan-level P&L)
+        # WHY: Back current_gross_cost column in By Trade asset grid
+        current_gross_cost=F('asset_hub__ll_transaction_summary__realized_gross_cost'),
+
         # ====================================================================
         # 🎯 ADD YOUR OWN FIELDS HERE - Copy patterns above!
         # ====================================================================

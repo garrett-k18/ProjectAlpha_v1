@@ -22,21 +22,23 @@ import dj_database_url
 
 def add_prod_db_args(parser):
     """
-    WHAT: Add production database arguments to command parser
-    WHY: Standardize --prod flag across all import commands
-    HOW: Adds --prod and --database-url arguments
+    WHAT: Add database selection arguments to command parser
+    WHY: Standardize database switching across all import commands
+    HOW: Adds --prod, --database-url, and --check-db arguments
+    
+    Note: By default, commands use DB_ENVIRONMENT from .env (dev/newdev/prod/local)
     """
     parser.add_argument(
         '--prod',
         action='store_true',
-        help='Use production database (reads PROD_DATABASE_URL or proddb from .env)',
+        help='Force use of production database (DB_PROD from .env)',
     )
     parser.add_argument(
         '--database-url',
         dest='database_url',
         type=str,
         default=None,
-        help='Override DATABASE_URL with a specific connection string',
+        help='Override with a specific database connection string',
     )
     parser.add_argument(
         '--check-db',
@@ -47,26 +49,44 @@ def add_prod_db_args(parser):
 
 def get_prod_db_url(options):
     """
-    WHAT: Get production database URL from options or .env
-    WHY: Centralize logic for finding production database URL
-    HOW: Checks --prod flag, --database-url, then .env variables
+    WHAT: Get database URL for import commands using IMPORT_DB system
+    WHY: Separate import command database from Django app database
+    HOW: Checks --database-url override, then --prod flag, then uses IMPORT_DB
     """
-    use_prod = options.get('prod', False)
     database_url_override = options.get('database_url')
+    use_prod = options.get('prod', False)
     
+    # Priority 1: Explicit --database-url override
     if database_url_override:
         return database_url_override
     
+    # Priority 2: --prod flag (uses DB_PROD)
     if use_prod:
-        # Check .env for production database URL
+        prod_db_url = os.getenv('DB_PROD')
+        if prod_db_url:
+            return prod_db_url
+        # Fallback to legacy env vars
         prod_db_url = os.getenv('PROD_DATABASE_URL') or os.getenv('proddb')
         if prod_db_url:
             return prod_db_url
-        else:
-            # Fallback to hardcoded production URL if not in .env
-            return "postgresql://neondb_owner:npg_etXSFVQx7Nz3@ep-sweet-unit-afg5w70r.c-2.us-west-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+        # Final fallback to hardcoded production URL
+        return "postgresql://neondb_owner:npg_etXSFVQx7Nz3@ep-sweet-unit-afg5w70r.c-2.us-west-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
     
-    return None
+    # Priority 3: Use IMPORT_DB setting (separate from Django app database)
+    # This allows you to view dev data while importing to prod
+    import_db = os.getenv('IMPORT_DB', '').lower()
+    if import_db:
+        env_map = {
+            'dev': os.getenv('DB_DEV'),
+            'newdev': os.getenv('DB_NEWDEV'),
+            'prod': os.getenv('DB_PROD'),
+        }
+        import_url = env_map.get(import_db)
+        if import_url:
+            return import_url
+    
+    # Priority 4: Fall back to Django's DATABASE_URL
+    return None  # Will use default DATABASE_URL from settings
 
 
 def setup_prod_db(options, command_instance=None):
@@ -177,13 +197,15 @@ def setup_prod_db(options, command_instance=None):
     connections['default'].settings_dict = existing_default
     
     # WHAT: Output confirmation message if command instance provided
-    # WHY: Let user know which database is being used
+    # WHY: Let user know which database is being used for imports
     if command_instance:
         host = db_config.get('HOST', 'unknown')
         if 'ep-sweet-unit' in host:
-            command_instance.stdout.write(command_instance.style.SUCCESS('✓ Connected to PRODUCTION database'))
+            command_instance.stdout.write(command_instance.style.SUCCESS('📥 Import Target: PRODUCTION database'))
         elif 'ep-icy-haze' in host:
-            command_instance.stdout.write(command_instance.style.WARNING('⚠ Connected to DEVELOPMENT database'))
+            command_instance.stdout.write(command_instance.style.WARNING('📥 Import Target: DEVELOPMENT database'))
+        elif 'ep-orange-hat' in host:
+            command_instance.stdout.write(command_instance.style.WARNING('📥 Import Target: NEWDEV database'))
         command_instance.stdout.write(f'Database: {db_config.get("NAME", "unknown")} | Host: {host}')
     
     return 'default'

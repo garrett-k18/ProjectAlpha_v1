@@ -205,6 +205,10 @@ class LLTransactionSummary(models.Model):
         max_digits=15, decimal_places=2, null=True, blank=True,
         help_text='Actual net liquidation proceeds'
     )
+    realized_gross_cost = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        help_text='Realized gross cost basis (aggregated actual costs)'
+    )
     
     # ------------------------------
     # Metadata

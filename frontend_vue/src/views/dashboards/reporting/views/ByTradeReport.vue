@@ -64,6 +64,7 @@
             class="form-select form-select-sm"
             style="min-width: 200px;"
           >
+            <option value="all">All</option>
             <option value="servicing">Servicing</option>
             <option value="initial-underwriting">Initial Underwriting</option>
             <option value="performance">Performance</option>
@@ -97,9 +98,8 @@
  */
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { Chart, registerables } from 'chart.js'
-import type { ColDef, ValueFormatterParams } from 'ag-grid-community'
+import type { ColDef, ColGroupDef, ValueFormatterParams } from 'ag-grid-community'
 import ReportingAgGrid from '../components/ReportingAgGrid.vue'
-import BadgeCell from '@/views/acq_module/acq_dash/components/BadgeCell.vue'
 
 Chart.register(...registerables)
 
@@ -124,14 +124,15 @@ const chartType = ref<'bar' | 'line' | 'pie'>('bar')
 // WHAT: AG Grid reference
 const agGridRef = ref<InstanceType<typeof ReportingAgGrid> | null>(null)
 
-const currentGridView = ref<'servicing' | 'initial-underwriting' | 'performance' | 're-underwriting'>('servicing')
+const currentGridView = ref<'all' | 'servicing' | 'initial-underwriting' | 'performance' | 're-underwriting'>('all')
 
 // WHAT: Value formatters (match existing grid patterns)
 // WHY: Consistent formatting across all grids
 function currencyFormatter(params: ValueFormatterParams): string {
   const v = params.value
-  const num = typeof v === 'number' ? v : parseFloat(String(v))
-  if (Number.isNaN(num)) return v == null ? '' : String(v)
+  if (v === null || v === undefined || v === '') return ''
+  const num = typeof v === 'number' ? v : Number(v)
+  if (Number.isNaN(num)) return ''
   return new Intl.NumberFormat('en-US', { 
     style: 'currency', 
     currency: 'USD', 
@@ -178,6 +179,15 @@ const baseColumnDefs = ref<ColDef[]>([
     cellClass: 'ag-left-aligned-cell text-start fw-semibold',
   },
   {
+    headerName: 'Servicer ID',
+    field: 'servicer_id',
+    pinned: 'left',
+    width: 160,
+    headerClass: 'ag-left-aligned-header text-start',
+    cellClass: 'ag-left-aligned-cell text-start',
+    hide: true,
+  },
+  {
     headerName: 'Address',
     field: 'street_address',
     width: 260,
@@ -200,69 +210,25 @@ const baseColumnDefs = ref<ColDef[]>([
     pinned: 'left',
   },
   {
-    headerName: 'Total UPB',
-    field: 'total_upb',
-    width: 150,
-    valueFormatter: currencyFormatter,
-    comparator: (valueA: number, valueB: number) => valueA - valueB,
-  },
-  {
-    headerName: 'Status',
-    field: 'status',
-    width: 140,
-    cellRenderer: BadgeCell as any,
-    cellRendererParams: {
-      mode: 'enum',
-      enumMap: {
-        'DD': { label: 'DD', color: 'bg-info' },
-        'AWARDED': { label: 'Awarded', color: 'bg-success' },
-        'PASS': { label: 'Pass', color: 'bg-secondary' },
-        'BOARD': { label: 'Board', color: 'bg-primary' },
-      },
-    },
-  },
-  {
     // NOTE: Backend field is purchase_date; header is renamed for UX
     headerName: 'Purchase Date',
     field: 'purchase_date',
     width: 130,
     valueFormatter: dateFormatter,
   },
-  {
-    headerName: 'Last Updated',
-    field: 'last_updated',
-    width: 140,
-    valueFormatter: dateFormatter,
-    hide: true, // WHAT: Hidden by default, user can show via column panel
-  },
-  {
-    headerName: 'Servicer ID',
-    field: 'servicer_id',
-    width: 160,
-    headerClass: 'ag-left-aligned-header text-start',
-    cellClass: 'ag-left-aligned-cell text-start',
-    hide: true,
-  },
   // Servicing view specific columns
   {
-    headerName: 'Servicer Balance',
+    headerName: 'Current Balance',
     field: 'servicer_current_balance',
     width: 150,
     valueFormatter: currencyFormatter,
     hide: true,
   },
   {
-    headerName: 'Servicer Total Debt',
+    headerName: 'Total Debt',
     field: 'servicer_total_debt',
     width: 150,
     valueFormatter: currencyFormatter,
-    hide: true,
-  },
-  {
-    headerName: 'Servicer As Of',
-    field: 'servicer_as_of_date',
-    width: 130,
-    valueFormatter: dateFormatter,
     hide: true,
   },
   {
@@ -287,6 +253,120 @@ const baseColumnDefs = ref<ColDef[]>([
     valueFormatter: currencyFormatter,
     hide: true,
   },
+  {
+    headerName: 'Exit Strategy',
+    field: 'exit_strategy',
+    width: 160,
+    hide: true,
+  },
+  {
+    headerName: 'Bid % UPB',
+    field: 'bid_pct_upb',
+    width: 130,
+    valueFormatter: (params: ValueFormatterParams) => {
+      const v = params.value
+      if (v == null || v === '') return ''
+      const num = Number(v)
+      if (Number.isNaN(num)) return String(v)
+      return `${(num * 100).toFixed(1)}%`
+    },
+    hide: true,
+  },
+  {
+    headerName: 'Bid % TD',
+    field: 'bid_pct_td',
+    width: 120,
+    valueFormatter: (params: ValueFormatterParams) => {
+      const v = params.value
+      if (v == null || v === '') return ''
+      const num = Number(v)
+      if (Number.isNaN(num)) return String(v)
+      return `${(num * 100).toFixed(1)}%`
+    },
+    hide: true,
+  },
+  {
+    headerName: 'Bid % Seller As-Is',
+    field: 'bid_pct_sellerasis',
+    width: 170,
+    valueFormatter: (params: ValueFormatterParams) => {
+      const v = params.value
+      if (v == null || v === '') return ''
+      const num = Number(v)
+      if (Number.isNaN(num)) return String(v)
+      return `${(num * 100).toFixed(1)}%`
+    },
+    hide: true,
+  },
+  {
+    headerName: 'Bid % PV',
+    field: 'bid_pct_pv',
+    width: 120,
+    valueFormatter: (params: ValueFormatterParams) => {
+      const v = params.value
+      if (v == null || v === '') return ''
+      const num = Number(v)
+      if (Number.isNaN(num)) return String(v)
+      return `${(num * 100).toFixed(1)}%`
+    },
+    hide: true,
+  },
+  {
+    headerName: 'Pre-REO Hold (Months)',
+    field: 'pre_reo_hold_duration',
+    width: 190,
+    valueFormatter: numberFormatter,
+    hide: true,
+  },
+  {
+    headerName: 'REO Hold (Months)',
+    field: 'reo_hold_duration',
+    width: 170,
+    valueFormatter: numberFormatter,
+    hide: true,
+  },
+  {
+    headerName: 'Legal Expenses',
+    field: 'legal_expenses',
+    width: 150,
+    valueFormatter: currencyFormatter,
+    hide: true,
+  },
+  {
+    headerName: 'Monthly Servicing Expenses',
+    field: 'servicing_expenses',
+    width: 170,
+    valueFormatter: currencyFormatter,
+    hide: true,
+  },
+  {
+    headerName: 'REO Expenses',
+    field: 'reo_expenses',
+    width: 150,
+    valueFormatter: currencyFormatter,
+    hide: true,
+  },
+  {
+    headerName: 'Carry Cost',
+    field: 'carry_cost',
+    width: 170,
+    valueFormatter: currencyFormatter,
+    hide: true,
+  },
+  {
+    headerName: 'Liquidation Fees',
+    field: 'liq_fees',
+    width: 170,
+    valueFormatter: currencyFormatter,
+    hide: true,
+  },
+  {
+    headerName: 'UW Exit Duration (Months)',
+    field: 'uw_exit_duration_months',
+    width: 210,
+    valueFormatter: numberFormatter,
+    hide: true,
+  },
   // Performance view columns
   {
     headerName: 'Current Duration (Months)',
@@ -304,7 +384,7 @@ const baseColumnDefs = ref<ColDef[]>([
   },
   // Re-underwriting (projections) view columns
   {
-    headerName: 'Projected Exit',
+    headerName: 'UW Exit Date',
     field: 'expected_exit_date',
     width: 140,
     valueFormatter: dateFormatter,
@@ -318,45 +398,123 @@ const baseColumnDefs = ref<ColDef[]>([
     hide: true,
   },
   {
-    headerName: 'Projected Gross Proceeds',
+    headerName: 'UW Projected Gross Proceeds',
     field: 'expected_gross_proceeds',
     width: 190,
     valueFormatter: currencyFormatter,
     hide: true,
   },
+  {
+    headerName: 'UW Net Proceeds at Exit',
+    field: 'expected_net_proceeds',
+    width: 190,
+    valueFormatter: currencyFormatter,
+    hide: true,
+  },
+  {
+    headerName: 'UW Profit / Loss',
+    field: 'expected_pl',
+    width: 170,
+    valueFormatter: currencyFormatter,
+    hide: true,
+  },
+  {
+    headerName: 'UW Cash Flow',
+    field: 'expected_cf',
+    width: 170,
+    valueFormatter: currencyFormatter,
+    hide: true,
+  },
+  {
+    headerName: 'UW IRR',
+    field: 'expected_irr',
+    width: 130,
+    valueFormatter: percentFormatter,
+    hide: true,
+  },
+  {
+    headerName: 'UW MOIC',
+    field: 'expected_moic',
+    width: 130,
+    valueFormatter: (params: ValueFormatterParams) => {
+      const v = params.value
+      if (v == null || v === '') return ''
+      const num = Number(v)
+      if (Number.isNaN(num)) return String(v)
+      return `${num.toFixed(2)}x`
+    },
+    hide: true,
+  },
 ])
 
-const visibleColumnDefs = computed<ColDef[]>(() => {
+const visibleColumnDefs = computed<(ColDef | ColGroupDef)[]>(() => {
   const view = currentGridView.value
+  if (view === 'all') {
+    const byField = new Map<string, ColDef>()
+    for (const c of baseColumnDefs.value) {
+      const f = c.field as string | undefined
+      if (f) byField.set(f, c)
+    }
+    const pick = (fields: string[]): ColDef[] => fields
+      .map(f => byField.get(f))
+      .filter((c): c is ColDef => !!c)
+      .map(c => ({ ...c, hide: false }))
+
+    return [
+      { headerName: 'Core', marryChildren: true, children: pick(['trade_name','servicer_id','street_address','city','state']) },
+      { headerName: 'Servicing', children: pick(['servicer_current_balance','servicer_total_debt','servicer_next_due_date','months_dlq']) },
+      { headerName: 'Initial Underwriting', children: pick([
+        'purchase_price','purchase_date','exit_strategy',
+        'bid_pct_upb','bid_pct_td','bid_pct_sellerasis','bid_pct_pv',
+        'pre_reo_hold_duration','reo_hold_duration',
+        'legal_expenses','servicing_expenses','reo_expenses','carry_cost','liq_fees',
+        'uw_exit_duration_months','expected_exit_date',
+        'expected_gross_proceeds','expected_net_proceeds','expected_pl','expected_cf','expected_irr','expected_moic',
+        'projected_gross_cost',
+      ]) },
+      { headerName: 'Performance', children: pick(['current_duration_months','current_gross_cost']) },
+    ]
+  }
+
   return baseColumnDefs.value.map(col => {
     const field = col.field as string | undefined
     if (!field) return col
 
-    const alwaysVisible = [
-      'trade_name',
-      'street_address',
-      'city',
-      'state',
-      'total_upb',
-      'status',
-      'purchase_date',
-      'last_updated',
-    ]
+    const alwaysVisible = view === 'servicing'
+      ? [
+        'trade_name',
+        'street_address',
+        'city',
+        'state',
+        'servicer_id',
+      ]
+      : [
+        'trade_name',
+        'street_address',
+        'city',
+        'state',
+      ]
 
     if (alwaysVisible.includes(field)) {
-      return { ...col, hide: col.hide === true && false }
+      const updated = { ...col, hide: false }
+      return (view === 'servicing' && field === 'servicer_id') ? { ...updated, pinned: 'left' } : updated
     }
 
     const servicingFields = [
       'servicer_id',
       'servicer_current_balance',
       'servicer_total_debt',
-      'servicer_as_of_date',
       'servicer_next_due_date',
       'months_dlq',
     ]
     const initialUnderwritingFields = [
-      'purchase_price',
+      'purchase_price','purchase_date','exit_strategy',
+      'bid_pct_upb','bid_pct_td','bid_pct_sellerasis','bid_pct_pv',
+      'pre_reo_hold_duration','reo_hold_duration',
+      'legal_expenses','servicing_expenses','reo_expenses','carry_cost','liq_fees',
+      'uw_exit_duration_months','expected_exit_date',
+      'expected_gross_proceeds','expected_net_proceeds','expected_pl','expected_cf','expected_irr','expected_moic',
+      'projected_gross_cost',
     ]
     const performanceFields = [
       'current_duration_months',
@@ -364,7 +522,6 @@ const visibleColumnDefs = computed<ColDef[]>(() => {
     ]
     const reUnderwritingFields = [
       'expected_exit_date',
-      'projected_gross_cost',
       'expected_gross_proceeds',
     ]
 
