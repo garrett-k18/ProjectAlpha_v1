@@ -252,7 +252,9 @@ const fetchSellerOptions = async (): Promise<void> => {
   sellersLoading.value = true
   sellersError.value = ''
   try {
-    const response = await axios.get<SellerOption[]>('/acq/sellers/')
+    const response = await axios.get<SellerOption[]>('/acq/sellers/', {
+      params: { view: 'all' },
+    })
     const payload = Array.isArray(response.data) ? response.data : []
     sellerOptions.value = payload.map((option) => ({
       id: option.id,

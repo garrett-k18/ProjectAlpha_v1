@@ -200,21 +200,32 @@ def get_seller_rawdata_field_names(request):
 def list_sellers(request):
     """Return a minimal list of sellers (id, name) using DRF serializers."""
     try:
-        # WHAT: limit seller list to those with at least one trade still in an "active" lifecycle
-        # WHY: sellers should disappear from the selector when every trade has been passed or boarded
-        # WHERE: active statuses cover trades still in acquisition pipelines (INDICATIVE, DD, AWARDED)
-        # HOW: filter via related Trade queryset per Django ORM docs (https://docs.djangoproject.com/en/5.2/topics/db/queries/)
-        active_statuses = [
-            Trade.Status.INDICATIVE,
-            Trade.Status.DD,
-            Trade.Status.AWARDED,
+        include_all = request.GET.get("view") == "all" or request.GET.get("include_all") in [
+            "1",
+            "true",
+            "True",
+            "yes",
+            "YES",
         ]
-        sellers = (
-            Seller.objects
-            .filter(trades__status__in=active_statuses)
-            .distinct()
-            .order_by('name')
-        )
+
+        if include_all:
+            sellers = Seller.objects.all().order_by("name")
+        else:
+            # WHAT: limit seller list to those with at least one trade still in an "active" lifecycle
+            # WHY: sellers should disappear from the selector when every trade has been passed or boarded
+            # WHERE: active statuses cover trades still in acquisition pipelines (INDICATIVE, DD, AWARDED)
+            # HOW: filter via related Trade queryset per Django ORM docs (https://docs.djangoproject.com/en/5.2/topics/db/queries/)
+            active_statuses = [
+                Trade.Status.INDICATIVE,
+                Trade.Status.DD,
+                Trade.Status.AWARDED,
+            ]
+            sellers = (
+                Seller.objects
+                .filter(trades__status__in=active_statuses)
+                .distinct()
+                .order_by('name')
+            )
         serializer = SellerOptionSerializer(sellers, many=True)
         return Response(serializer.data)
     except Exception as e:

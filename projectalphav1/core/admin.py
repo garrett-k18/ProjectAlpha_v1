@@ -1483,7 +1483,7 @@ class CalendarEventAdmin(admin.ModelAdmin):
 class AssetIdHubAdmin(admin.ModelAdmin):
     """Admin for the central Asset ID Hub."""
     list_display = (
-        'id', 'servicer_id', 'is_commercial_flag', 'servicer_refs',
+        'id', 'sellertape_id', 'seller_tape_altid', 'servicer_id', 'trade_id_display', 'is_commercial_flag', 'servicer_refs',
         # PK columns showing actual IDs of related records
         'seller_raw_data_id', 'blended_outcome_model_id',  # seller_boarded_data_id removed (deprecated)
         'servicer_loan_data_id', 'valuation_id', 'photo_id', 'document_id',
@@ -1530,6 +1530,25 @@ class AssetIdHubAdmin(admin.ModelAdmin):
         count = ServicerLoanData.objects.filter(servicer_id=sid).count()
         return format_html('<a href="{}">Servicer Rows ({})</a>', servicer_url, count)
     servicer_refs.short_description = 'Servicer Data'
+
+    def seller_tape_altid(self, obj: AssetIdHub):  # type: ignore[name-defined]
+        srd = getattr(obj, 'acq_raw', None)
+        return getattr(srd, 'sellertape_altid', None) or '—'
+
+    seller_tape_altid.short_description = 'Alt ID'
+    seller_tape_altid.admin_order_field = 'acq_raw__sellertape_altid'
+
+    def trade_id_display(self, obj: AssetIdHub):  # type: ignore[name-defined]
+        srd = getattr(obj, 'acq_raw', None)
+        if srd and srd.trade_id:
+            return srd.trade_id
+        details = getattr(obj, 'details', None)
+        if details and details.trade_id:
+            return details.trade_id
+        return '—'
+
+    trade_id_display.short_description = 'Trade ID'
+    trade_id_display.admin_order_field = 'acq_raw__trade_id'
 
     # Override the built-in delete_selected to delete the hub bundle in the correct order
     @admin.action(description="Delete selected Asset ID Hub (bundle)")

@@ -50,9 +50,19 @@ def build_base_queryset() -> QuerySet[SellerRawData]:
             # WHY: Many assets don't have AssetDetails yet, we want to show them all
             # HOW: Django will do LEFT JOIN automatically when filtering/annotating
             'seller',                   # WHAT: Direct seller FK if exists
+            'asset_hub__dil',
+            'asset_hub__modification',
+            'asset_hub__reo_data',
+            'asset_hub__fc_sale',
+            'asset_hub__short_sale',
         )
         .prefetch_related(
             'asset_hub__valuations',    # WHAT: Valuations for AIV/ARV calculations
+            'asset_hub__dil_tasks',
+            'asset_hub__modification_tasks',
+            'asset_hub__reo_tasks',
+            'asset_hub__fc_tasks',
+            'asset_hub__short_sale_tasks',
         )
         # WHAT: Filter to only BOARDED trades by default
         # WHY: Reporting should only show closed/boarded loans, not trades in due diligence
@@ -226,12 +236,10 @@ def build_base_queryset() -> QuerySet[SellerRawData]:
             # Aggregated expense buckets
             legal_expenses=(
                 Coalesce(F('asset_hub__blended_outcome_model__fc_expenses'), Value(0, output_field=DecimalField()), output_field=DecimalField())
-                + Coalesce(F('asset_hub__blended_outcome_model__fc_legal_fees'), Value(0, output_field=DecimalField()), output_field=DecimalField())
                 + Coalesce(F('asset_hub__blended_outcome_model__bk_legal_fees'), Value(0, output_field=DecimalField()), output_field=DecimalField())
                 + Coalesce(F('asset_hub__blended_outcome_model__eviction_fees'), Value(0, output_field=DecimalField()), output_field=DecimalField())
                 + Coalesce(F('asset_hub__blended_outcome_model__dil_fees'), Value(0, output_field=DecimalField()), output_field=DecimalField())
                 + Coalesce(F('asset_hub__blended_outcome_model__cfk_fees'), Value(0, output_field=DecimalField()), output_field=DecimalField())
-                + Coalesce(F('asset_hub__blended_outcome_model__outher_fc_fees'), Value(0, output_field=DecimalField()), output_field=DecimalField())
             ),
             servicing_expenses=(
                 Coalesce(F('asset_hub__blended_outcome_model__servicing_board_fee'), Value(0, output_field=DecimalField()), output_field=DecimalField())

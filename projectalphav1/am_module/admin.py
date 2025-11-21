@@ -75,6 +75,8 @@ class BlendedOutcomeModelAdmin(admin.ModelAdmin):
     """
     list_display = (
         "asset_hub",
+        "servicer_id_display",
+        "trade_id_display",
         "expected_gross_proceeds",
         "expected_net_proceeds",
         "expected_pl",
@@ -85,6 +87,7 @@ class BlendedOutcomeModelAdmin(admin.ModelAdmin):
     list_filter = (
         "created_at",
         "updated_at",
+        "asset_hub__acq_raw__trade",
     )
     search_fields = (
         # Traverse hub -> boarded record for human fields
@@ -97,11 +100,30 @@ class BlendedOutcomeModelAdmin(admin.ModelAdmin):
     ordering = ("-created_at",)
     
     # No fieldsets: show all fields by default
-    list_per_page = 5
-    
+    list_per_page = 30
+
+    def servicer_id_display(self, obj):
+        hub = obj.asset_hub
+        return hub.servicer_id or "—"
+
+    servicer_id_display.short_description = "Servicer ID"
+
+    def trade_id_display(self, obj):
+        trade_id = None
+        acq_raw = getattr(obj.asset_hub, "acq_raw", None)
+        if acq_raw and acq_raw.trade_id:
+            trade_id = acq_raw.trade_id
+        else:
+            details = getattr(obj.asset_hub, "details", None)
+            if details and details.trade_id:
+                trade_id = details.trade_id
+        return trade_id or "—"
+
+    trade_id_display.short_description = "Trade ID"
+
     def total_legal_fees(self, obj):
         """Calculate total of all legal fees."""
-        total = (obj.fc_expenses or 0) + (obj.fc_legal_fees or 0) + (obj.other_fc_fees or 0) + \
+        total = (obj.fc_expenses or 0) + \
                 (obj.dil_fees or 0) + (obj.cfk_fees or 0) + (obj.bk_legal_fees or 0) + \
                 (obj.eviction_fees or 0)
         return f"${total:,.2f}" if total else "—"

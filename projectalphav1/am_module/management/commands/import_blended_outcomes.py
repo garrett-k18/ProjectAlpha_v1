@@ -40,6 +40,7 @@ ASSET_ID_COLUMNS = (
     "asset_hub",  # WHAT: Alternate header used in legacy exports.
     "assetid",  # WHAT: Common shorthand header.
     "asset_id",  # WHAT: Snake case alternate header.
+    "assetidhub",  # WHAT: Alias used in FLC33_36_38 Model.csv exports.
 )
 
 
@@ -262,6 +263,8 @@ class Command(BaseCommand):
             for field_name, field in field_state["field_map"].items():
                 raw_value = row.get(field_name)  # WHAT: Raw string from CSV column.
                 converted = _convert_value(field, raw_value)  # HOW: Normalize according to field type.
+                if field_name == "expected_irr" and isinstance(raw_value, str) and "%" in raw_value and isinstance(converted, Decimal):
+                    converted = converted / Decimal("100")
                 values[field_name] = converted  # WHERE: Store final value for upsert.
             if asset_token in prepared:
                 duplicates[asset_token] = duplicates.get(asset_token, 1) + 1  # WHY: Increment duplicate counter when later rows override earlier ones.

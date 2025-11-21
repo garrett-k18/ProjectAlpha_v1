@@ -196,7 +196,7 @@ class PerformanceSummarySerializer(serializers.Serializer):
     
     expense_am_fees_underwritten = serializers.DecimalField(
         max_digits=15, decimal_places=2, allow_null=True,
-        source='am_fees',
+        source='fund_am_fees',
         help_text='Underwritten asset management fees'
     )
     expense_am_fees_realized = serializers.SerializerMethodField()
@@ -324,9 +324,7 @@ class PerformanceSummarySerializer(serializers.Serializer):
         HOW: Add 3 fields, return 0 if all None
         """
         fc_exp = obj.fc_expenses or 0
-        fc_legal = obj.fc_legal_fees or 0
-        other_fc = obj.other_fc_fees or 0
-        return fc_exp + fc_legal + other_fc
+        return fc_exp
     
     def get_legal_foreclosure_realized(self, obj):
         if hasattr(obj.asset_hub, 'll_transaction_summary'):
@@ -665,7 +663,7 @@ class PerformanceSummarySerializer(serializers.Serializer):
     
     def get_legal_costs_total_underwritten(self, obj):
         """Legal/DIL Costs = FC + BK + DIL + CFK + Eviction"""
-        fc = (obj.fc_expenses or 0) + (obj.fc_legal_fees or 0) + (obj.other_fc_fees or 0)
+        fc = obj.fc_expenses or 0
         bk = obj.bk_legal_fees or 0
         dil = obj.dil_fees or 0
         cfk = obj.cfk_fees or 0
@@ -755,7 +753,7 @@ class PerformanceSummarySerializer(serializers.Serializer):
         from decimal import Decimal
         servicing = Decimal(str(self.get_expense_servicing_underwritten(obj) or 0))
         legal = Decimal(str(self.get_legal_costs_total_underwritten(obj) or 0))
-        am_fees = obj.am_fees or Decimal('0')
+        am_fees = obj.fund_am_fees or Decimal('0')
         property_tax = obj.total_property_tax or Decimal('0')
         insurance = obj.total_insurance or Decimal('0')
         reo = Decimal(str(self.get_reo_expenses_total_underwritten(obj) or 0))

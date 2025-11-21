@@ -23,6 +23,7 @@ from typing import List, Dict, Any, Optional
 from django.db.models import QuerySet
 from django.utils import timezone
 from acq_module.models.model_acq_seller import SellerRawData
+from am_module.services.serv_am_assetInventory import AssetInventoryEnricher
 from .serv_rep_queryBuilder import build_reporting_queryset, parse_filter_params
 from .serv_rep_aggregations import group_by_trade
 
@@ -122,6 +123,7 @@ def get_by_trade_grid_data(request) -> List[Dict[str, Any]]:
     # WHAT: Build filtered queryset (asset-level SellerRawData rows)
     queryset = build_reporting_queryset(**filters)
 
+    enricher = AssetInventoryEnricher()
     grid_rows: List[Dict[str, Any]] = []
     today = timezone.now().date()
 
@@ -137,6 +139,9 @@ def get_by_trade_grid_data(request) -> List[Dict[str, Any]]:
         expected_irr = getattr(asset, 'expected_irr', None)
         expected_moic = getattr(asset, 'expected_moic', None)
         expected_hold_duration = getattr(asset, 'expected_hold_duration', None)
+
+        active_tracks = enricher.get_active_tracks(asset)
+        active_tasks = enricher.get_active_tasks(asset)
 
         purchase_date_value = purchase_date.isoformat() if purchase_date else None
         expected_exit_date_value = expected_exit_date.isoformat() if expected_exit_date else None
@@ -223,6 +228,8 @@ def get_by_trade_grid_data(request) -> List[Dict[str, Any]]:
             'reo_expenses': float(getattr(asset, 'reo_expenses', 0) or 0),
             'carry_cost': float(getattr(asset, 'carry_cost', 0) or 0),
             'liq_fees': float(getattr(asset, 'liq_fees', 0) or 0),
+            'active_tracks': active_tracks,
+            'active_tasks': active_tasks,
         })
 
     return grid_rows
