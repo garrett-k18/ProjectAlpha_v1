@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//b/Garrett_Local_Share/ProjectAlpha_v1/**)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

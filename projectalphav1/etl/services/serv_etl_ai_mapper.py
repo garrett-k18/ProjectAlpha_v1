@@ -162,6 +162,11 @@ Return only the JSON mapping, no explanations."""
             response_text = response_text[4:].strip()
 
         mapping = json.loads(response_text)
+        
+        # Log AI response for debugging
+        logger.info(f'AI mapping response: {json.dumps(mapping, indent=2)}')
+        if self.stdout:
+            self.stdout.write(f'   [AI] Raw mapping from Claude: {len(mapping)} mappings\n')
 
         # Validate that mapped fields actually exist in the model
         valid_fields = {f.name for f in SellerRawData._meta.get_fields()
@@ -171,6 +176,13 @@ Return only the JSON mapping, no explanations."""
             source: target for source, target in mapping.items()
             if target in valid_fields and source in self.source_columns
         }
+        
+        # Log validation results
+        logger.info(f'Validated mapping: {json.dumps(validated_mapping, indent=2)}')
+        if self.stdout:
+            self.stdout.write(f'   [AI] Validated mapping: {len(validated_mapping)} valid mappings\n')
+            if 'sellertape_id' not in validated_mapping.values():
+                self.stdout.write('   [WARNING] No sellertape_id mapping found!\n')
 
         return validated_mapping
 

@@ -69,6 +69,7 @@
             <option value="initial-underwriting">Initial Underwriting</option>
             <option value="performance">Performance</option>
             <option value="re-underwriting">Re-Underwriting</option>
+            <option value="asset-management">Asset Management</option>
           </select>
         </div>
       </div>
@@ -100,6 +101,8 @@ import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { Chart, registerables } from 'chart.js'
 import type { ColDef, ColGroupDef, ValueFormatterParams } from 'ag-grid-community'
 import ReportingAgGrid from '../components/ReportingAgGrid.vue'
+import BadgeCell from '@/views/acq_module/acq_dash/components/BadgeCell.vue'
+import { activeTracksEnumMap, activeTasksColorMap } from '@/config/badgeTokens'
 
 Chart.register(...registerables)
 
@@ -124,7 +127,7 @@ const chartType = ref<'bar' | 'line' | 'pie'>('bar')
 // WHAT: AG Grid reference
 const agGridRef = ref<InstanceType<typeof ReportingAgGrid> | null>(null)
 
-const currentGridView = ref<'all' | 'servicing' | 'initial-underwriting' | 'performance' | 're-underwriting'>('all')
+const currentGridView = ref<'all' | 'servicing' | 'initial-underwriting' | 'performance' | 're-underwriting' | 'asset-management'>('all')
 
 // WHAT: Value formatters (match existing grid patterns)
 // WHY: Consistent formatting across all grids
@@ -138,6 +141,26 @@ function currencyFormatter(params: ValueFormatterParams): string {
     currency: 'USD', 
     maximumFractionDigits: 0 
   }).format(num)
+}
+
+function negativeCurrencyFormatter(params: ValueFormatterParams): string {
+  const v = params.value
+  if (v === null || v === undefined || v === '') return ''
+  const num = typeof v === 'number' ? v : Number(v)
+  if (Number.isNaN(num)) return ''
+  if (num === 0) {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      maximumFractionDigits: 0,
+    }).format(0)
+  }
+  const display = -Math.abs(num)
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  }).format(display)
 }
 
 function percentFormatter(params: ValueFormatterParams): string {
@@ -336,28 +359,32 @@ const baseColumnDefs = ref<ColDef[]>([
     headerName: 'Monthly Servicing Expenses',
     field: 'servicing_expenses',
     width: 170,
-    valueFormatter: currencyFormatter,
+    valueFormatter: negativeCurrencyFormatter,
+    cellClass: 'text-danger',
     hide: true,
   },
   {
     headerName: 'REO Expenses',
     field: 'reo_expenses',
     width: 150,
-    valueFormatter: currencyFormatter,
+    valueFormatter: negativeCurrencyFormatter,
+    cellClass: 'text-danger',
     hide: true,
   },
   {
     headerName: 'Carry Cost',
     field: 'carry_cost',
     width: 170,
-    valueFormatter: currencyFormatter,
+    valueFormatter: negativeCurrencyFormatter,
+    cellClass: 'text-danger',
     hide: true,
   },
   {
     headerName: 'Liquidation Fees',
     field: 'liq_fees',
     width: 170,
-    valueFormatter: currencyFormatter,
+    valueFormatter: negativeCurrencyFormatter,
+    cellClass: 'text-danger',
     hide: true,
   },
   {
@@ -394,7 +421,8 @@ const baseColumnDefs = ref<ColDef[]>([
     headerName: 'Projected Gross Cost',
     field: 'projected_gross_cost',
     width: 180,
-    valueFormatter: currencyFormatter,
+    valueFormatter: negativeCurrencyFormatter,
+    cellClass: 'text-danger',
     hide: true,
   },
   {
@@ -412,7 +440,7 @@ const baseColumnDefs = ref<ColDef[]>([
     hide: true,
   },
   {
-    headerName: 'UW Profit / Loss',
+    headerName: 'UW P/L',
     field: 'expected_pl',
     width: 170,
     valueFormatter: currencyFormatter,
@@ -429,7 +457,13 @@ const baseColumnDefs = ref<ColDef[]>([
     headerName: 'UW IRR',
     field: 'expected_irr',
     width: 130,
-    valueFormatter: percentFormatter,
+    valueFormatter: (params: ValueFormatterParams) => {
+      const v = params.value
+      if (v == null || v === '') return ''
+      const num = Number(v) * 100
+      if (Number.isNaN(num)) return String(v)
+      return `${num.toFixed(1)}%`
+    },
     hide: true,
   },
   {
@@ -442,6 +476,34 @@ const baseColumnDefs = ref<ColDef[]>([
       const num = Number(v)
       if (Number.isNaN(num)) return String(v)
       return `${num.toFixed(2)}x`
+    },
+    hide: true,
+  },
+  {
+    headerName: 'Active Tracks',
+    field: 'active_tracks',
+    width: 160,
+    wrapText: true,
+    autoHeight: true,
+    cellRenderer: BadgeCell as any,
+    cellRendererParams: {
+      mode: 'multi',
+      enumMap: activeTracksEnumMap,
+      size: 'sm',
+    },
+    hide: true,
+  },
+  {
+    headerName: 'Active Tasks',
+    field: 'active_tasks',
+    width: 200,
+    wrapText: true,
+    autoHeight: true,
+    cellRenderer: BadgeCell as any,
+    cellRendererParams: {
+      mode: 'multi-prefix',
+      colorMap: activeTasksColorMap,
+      size: 'sm',
     },
     hide: true,
   },
@@ -473,6 +535,7 @@ const visibleColumnDefs = computed<(ColDef | ColGroupDef)[]>(() => {
         'projected_gross_cost',
       ]) },
       { headerName: 'Performance', children: pick(['current_duration_months','current_gross_cost']) },
+      { headerName: 'Asset Management', children: pick(['active_tracks','active_tasks']) },
     ]
   }
 
@@ -524,12 +587,17 @@ const visibleColumnDefs = computed<(ColDef | ColGroupDef)[]>(() => {
       'expected_exit_date',
       'expected_gross_proceeds',
     ]
+    const assetManagementFields = [
+      'active_tracks',
+      'active_tasks',
+    ]
 
     let hide = true
     if (view === 'servicing' && servicingFields.includes(field)) hide = false
     if (view === 'initial-underwriting' && initialUnderwritingFields.includes(field)) hide = false
     if (view === 'performance' && performanceFields.includes(field)) hide = false
     if (view === 're-underwriting' && reUnderwritingFields.includes(field)) hide = false
+    if (view === 'asset-management' && assetManagementFields.includes(field)) hide = false
 
     return { ...col, hide }
   })

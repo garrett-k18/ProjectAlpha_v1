@@ -12,8 +12,8 @@ class AssetIdHub(models.Model):
     # Optional source snapshot for backfill/traceability (indexed)
     # - sellertape_id -> acq_module.models.seller.SellerRawData.sellertape_id (external tape key)
     #   Kept to assist ETL joins and admin lookups. Authoritative relations live on spoke tables via 1:1/1:n FKs.
-    sellertape_id = models.CharField(max_length=64, null=True, blank=True, db_index=True)  # This is the id that comes with seller tape so that we can cross ref internal vs external IDs
-    
+    sellertape_id = models.CharField(max_length=64, null=True, blank=True, db_index=True)
+
     # Servicer reference for cross-app joins and admin lookups
     servicer_id = models.CharField(max_length=64, null=True, blank=True, db_index=True, help_text='External servicer ID for cross-referencing servicer loan data')
 

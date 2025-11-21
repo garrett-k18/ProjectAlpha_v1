@@ -169,6 +169,7 @@ def import_seller_tape(request):
                     'seller_name': seller_name,
                     'records_imported': records_imported,
                     'output': output,
+                    'stderr': result.stderr,  # Include stderr for debugging
                     'dry_run': dry_run
                 })
             else:

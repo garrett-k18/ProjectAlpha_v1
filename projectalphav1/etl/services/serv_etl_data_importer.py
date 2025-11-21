@@ -304,6 +304,9 @@ class DataImporter:
         """
         records = []
         errors = []
+        
+        # Log first error in detail for debugging
+        first_error_logged = False
 
         for idx, row in df.iterrows():
             try:
@@ -312,6 +315,11 @@ class DataImporter:
                     records.append(record)
             except Exception as e:
                 errors.append((idx + 1, str(e)))
+                if not first_error_logged:
+                    logger.error(f'First row error (row {idx + 1}): {e}')
+                    logger.error(f'Mapping used: {mapping}')
+                    logger.error(f'Row data sample: {dict(row.head(10))}')
+                    first_error_logged = True
 
         return records, errors
 
@@ -369,9 +377,12 @@ class DataImporter:
             except Exception as e:
                 logger.warning(f'Conversion error for {target_field}: {e}')
 
-        # Validate required field: sellertape_id
-        if 'sellertape_id' not in record:
-            raise ValueError('Missing required field: sellertape_id')
+        # Auto-generate sellertape_id if missing
+        if 'sellertape_id' not in record or not record['sellertape_id']:
+            # Generate unique ID: SELLER_{seller_id}_ROW_{row_index}
+            import uuid
+            record['sellertape_id'] = f"AUTO_{uuid.uuid4().hex[:12].upper()}"
+            logger.info(f"Auto-generated sellertape_id: {record['sellertape_id']}")
 
         return record
 
@@ -605,7 +616,7 @@ class DataImporter:
                             with transaction.atomic():
                                 record_data['asset_hub'] = asset_hub
                                 seller_raw = SellerRawData.objects.create(**record_data)
-                                self._new_row_ids.append(seller_raw.id)
+                                self._new_row_ids.append(seller_raw.asset_hub_id)
                                 
                                 # WHAT: Auto-create LoanLevelAssumption for each new asset
                                 # WHY: Required for duration overrides and loan-specific calculations

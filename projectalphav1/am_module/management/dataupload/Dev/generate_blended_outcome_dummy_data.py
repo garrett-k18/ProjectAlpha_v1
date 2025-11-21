@@ -203,8 +203,6 @@ class Command(BaseCommand):
             # Legal Fees
             # ------------------------------
             'fc_expenses': rand_dec(1000, 5000),
-            'fc_legal_fees': rand_dec(2000, 8000),
-            'other_fc_fees': rand_dec(500, 3000),
             'dil_fees': rand_dec(1000, 4000),
             'cfk_fees': rand_dec(500, 5000),
             'bk_legal_fees': rand_dec(1500, 6000),
@@ -241,7 +239,7 @@ class Command(BaseCommand):
             # Fund Expenses
             # ------------------------------
             'acq_costs': rand_dec(2000, 15000),
-            'am_fees': rand_dec(1000, 10000),
+            'fund_am_fees': rand_dec(1000, 10000),
             
             # ------------------------------
             # Closing Costs

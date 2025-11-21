@@ -178,8 +178,6 @@ def calculate_legal_cost(blended_outcome):
         return 0.0
 
     fc_expenses = getattr(blended_outcome, 'fc_expenses', None) or 0
-    fc_legal_fees = getattr(blended_outcome, 'fc_legal_fees', None) or 0
-    outher_fc_fees = getattr(blended_outcome, 'outher_fc_fees', None) or 0
     dil_fees = getattr(blended_outcome, 'dil_fees', None) or 0
     cfk_fees = getattr(blended_outcome, 'cfk_fees', None) or 0
     bk_legal_fees = getattr(blended_outcome, 'bk_legal_fees', None) or 0
@@ -187,8 +185,6 @@ def calculate_legal_cost(blended_outcome):
 
     total = (
         fc_expenses
-        + fc_legal_fees
-        + outher_fc_fees
         + dil_fees
         + cfk_fees
         + bk_legal_fees
