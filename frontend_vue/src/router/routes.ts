@@ -202,6 +202,12 @@ const dashboardRoutes = [
                 meta: {authRequired: true},
                 component: () => import('@/views/dashboards/servicing/index_servicing.vue'),
             },
+            {
+                name: 'General Ledger',
+                path: 'general-ledger',
+                meta: {authRequired: true},
+                component: () => import('@/views/dashboards/general_ledger/index_generalLedger_PROTOTYPE.vue'),
+            },
 
         ]
     }

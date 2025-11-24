@@ -366,7 +366,7 @@ def valuation_completion_summary(seller_id: int, trade_id: int) -> Dict[str, int
         - Q objects: https://docs.djangoproject.com/en/stable/topics/db/queries/#complex-lookups-with-q-objects
     """
     from django.db.models import Q, Exists, OuterRef
-    from core.models.valuations import Valuation
+    from core.models.model_co_valuations import Valuation
     
     # WHAT: Get base queryset of active assets (excludes DROP status)
     # WHY: Only count valuations for assets in active bidding pool

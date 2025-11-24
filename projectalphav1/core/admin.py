@@ -46,6 +46,8 @@ from core.models import (
     LeaseComparableRentRoll,
     HistoricalPropertyCashFlow,
     CalendarEvent,
+    GeneralLedgerEntries,
+    ChartOfAccounts,
 )
 
 # Cross-app children that reference AssetIdHub
@@ -1597,3 +1599,174 @@ class AssetIdHubAdmin(admin.ModelAdmin):
         count = Document.objects.filter(asset_hub=obj).count()
         return f'{count} docs' if count > 0 else '—'
     document_id.short_description = 'Documents'
+
+
+# ------------------------------
+# General Ledger Admin
+# ------------------------------
+
+@admin.register(GeneralLedgerEntries)
+class GeneralLedgerEntriesAdmin(admin.ModelAdmin):
+    """
+    WHAT: Admin configuration for General Ledger Entries
+    WHY: Enable admin users to view, search, and manage GL entries
+    HOW: List display with key fields, filters, and search capabilities
+    """
+    list_display = (
+        'entry',
+        'posting_date',
+        'company_name',
+        'loan_number',
+        'asset_hub_link',
+        'account_number',
+        'account_name',
+        'debit_amount',
+        'credit_amount',
+        'net_amount_display',
+        'tag',
+        'bucket',
+        'requires_review_display',
+        'created_by',
+        'created_at',
+    )
+    
+    list_filter = (
+        'posting_date',
+        'tag',
+        'bucket',
+        'requires_review',
+        'created_at',
+    )
+    
+    search_fields = (
+        'entry',
+        'loan_number',
+        'company_name',
+        'borrower_name',
+        'account_number',
+        'account_name',
+        'description',
+        'document_number',
+    )
+    
+    readonly_fields = (
+        'net_amount',
+        'is_balanced',
+        'created_by',
+        'updated_by',
+        'created_at',
+        'updated_at',
+    )
+    
+    autocomplete_fields = ['asset_hub']
+    
+    date_hierarchy = 'posting_date'
+    
+    list_per_page = 50
+    
+    fieldsets = (
+        ('Entry Identification', {
+            'fields': ('entry', 'document_number', 'external_document_number', 'document_type')
+        }),
+        ('Company and Loan Information', {
+            'fields': ('company_name', 'loan_number', 'asset_hub', 'borrower_name', 'loan_type')
+        }),
+        ('Date Information', {
+            'fields': ('posting_date', 'entry_date', 'date_funded')
+        }),
+        ('Amounts', {
+            'fields': ('debit_amount', 'credit_amount', 'amount', 'net_amount', 'is_balanced')
+        }),
+        ('Account Information', {
+            'fields': ('account_number', 'account_name')
+        }),
+        ('Description and Comments', {
+            'fields': ('description', 'reason_code', 'comment')
+        }),
+        ('Cost Center', {
+            'fields': ('cost_center', 'cost_center_name')
+        }),
+        ('Classification', {
+            'fields': ('tag', 'bucket')
+        }),
+        ('Review and AI', {
+            'fields': ('requires_review', 'review_notes', 'ai_notes')
+        }),
+        ('Audit Information', {
+            'fields': ('created_by', 'created_at', 'updated_by', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    actions = ['flag_for_review', 'clear_review_flag', 'export_to_csv']
+    
+    def asset_hub_link(self, obj):
+        """WHAT: Display clickable link to asset hub"""
+        if obj.asset_hub:
+            url = reverse('admin:core_assetidhub_change', args=[obj.asset_hub.id])
+            return format_html('<a href="{}">{}</a>', url, obj.asset_hub.id)
+        return '—'
+    asset_hub_link.short_description = 'Asset Hub'
+    
+    def net_amount_display(self, obj):
+        """WHAT: Display net amount with color coding"""
+        net = obj.net_amount
+        if net > 0:
+            color = 'green'
+        elif net < 0:
+            color = 'red'
+        else:
+            color = 'gray'
+        return format_html('<span style="color: {};">${:,.2f}</span>', color, net)
+    net_amount_display.short_description = 'Net Amount'
+    net_amount_display.admin_order_field = 'debit_amount'  # Allow sorting
+    
+    def requires_review_display(self, obj):
+        """WHAT: Display review status with icon"""
+        if obj.requires_review:
+            return format_html('<span style="color: orange;">⚠ Review</span>')
+        return format_html('<span style="color: green;">✓ OK</span>')
+    requires_review_display.short_description = 'Status'
+    requires_review_display.admin_order_field = 'requires_review'
+    
+    def flag_for_review(self, request, queryset):
+        """WHAT: Admin action to flag selected entries for review"""
+        count = queryset.update(requires_review=True)
+        self.message_user(request, f'{count} entries flagged for review.')
+    flag_for_review.short_description = 'Flag selected entries for review'
+    
+    def clear_review_flag(self, request, queryset):
+        """WHAT: Admin action to clear review flag from selected entries"""
+        count = queryset.update(requires_review=False, review_notes='')
+        self.message_user(request, f'{count} entries marked as reviewed.')
+    clear_review_flag.short_description = 'Clear review flag from selected entries'
+    
+    def export_to_csv(self, request, queryset):
+        """WHAT: Admin action to export selected entries to CSV (placeholder)"""
+        self.message_user(request, f'CSV export coming soon! ({queryset.count()} entries selected)')
+    export_to_csv.short_description = 'Export selected entries to CSV'
+
+
+@admin.register(ChartOfAccounts)
+class ChartOfAccountsAdmin(admin.ModelAdmin):
+    """
+    WHAT: Admin configuration for Chart of Accounts
+    WHY: Enable admin users to manage GL account definitions
+    HOW: Simple list display with search and ordering
+    """
+    list_display = (
+        'account_number',
+        'account_name',
+        'account_type',
+        'transaction_table_reference',
+    )
+    
+    search_fields = (
+        'account_number',
+        'account_name',
+        'account_type',
+    )
+    
+    list_filter = ('account_type',)
+    
+    ordering = ('account_number',)

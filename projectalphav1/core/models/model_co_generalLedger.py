@@ -5,6 +5,7 @@ HOW: Stores detailed GL entry information including accounts, amounts, and posti
 WHERE: Used throughout the system for financial transaction tracking and reporting
 """
 from django.db import models
+from django.conf import settings
 from decimal import Decimal
 from .model_co_assetIdHub import AssetIdHub
 
@@ -54,8 +55,46 @@ class GeneralLedgerEntries(models.Model):
     """
     WHAT: Model for storing general ledger entries and financial transactions
     WHY: Need a comprehensive record of all GL entries for financial reporting and audit trails
-    HOW: Captures all relevant GL entry details including debits, credits, and metadata
+    HOW: Captures all relevant GL entry details including debits, credits, and metadata with enhanced loan tracking
     """
+    
+    # ------------------------------
+    # Tag Choices for Categorization
+    # ------------------------------
+    # WHAT: Predefined tag choices for GL entry categorization
+    # WHY: Enable quick filtering and grouping of GL entries by category
+    # HOW: TextChoices enum for dropdown/filtering in UI and API
+    class EntryTag(models.TextChoices):
+        LOAN_ORIGINATION = 'loan_origination', 'Loan Origination'
+        LOAN_PAYMENT = 'loan_payment', 'Loan Payment'
+        LOAN_MODIFICATION = 'loan_modification', 'Loan Modification'
+        PROPERTY_ACQUISITION = 'property_acquisition', 'Property Acquisition'
+        PROPERTY_DISPOSITION = 'property_disposition', 'Property Disposition'
+        OPERATING_EXPENSE = 'operating_expense', 'Operating Expense'
+        CAPITAL_EXPENSE = 'capital_expense', 'Capital Expense'
+        INTEREST_INCOME = 'interest_income', 'Interest Income'
+        INTEREST_EXPENSE = 'interest_expense', 'Interest Expense'
+        FEE_INCOME = 'fee_income', 'Fee Income'
+        IMPAIRMENT = 'impairment', 'Impairment'
+        RECOVERY = 'recovery', 'Recovery'
+        ADJUSTMENT = 'adjustment', 'Adjustment'
+        OTHER = 'other', 'Other'
+    
+    # ------------------------------
+    # Bucket Choices for Strategic Grouping
+    # ------------------------------
+    # WHAT: Bucket categories for high-level strategic grouping
+    # WHY: Enable portfolio-level analysis and AI-driven insights grouping
+    # HOW: TextChoices enum for strategic classification
+    class EntryBucket(models.TextChoices):
+        ACQUISITION = 'acquisition', 'Acquisition'
+        SERVICING = 'servicing', 'Servicing'
+        ASSET_MANAGEMENT = 'asset_management', 'Asset Management'
+        DISPOSITION = 'disposition', 'Disposition'
+        CAPITAL_MARKETS = 'capital_markets', 'Capital Markets'
+        FUND_OPERATIONS = 'fund_operations', 'Fund Operations'
+        OVERHEAD = 'overhead', 'Overhead'
+        SPECIAL_SITUATIONS = 'special_situations', 'Special Situations'
     
     # ------------------------------
     # Primary Identifier
@@ -93,6 +132,22 @@ class GeneralLedgerEntries(models.Model):
         blank=True,
         db_index=True,
         help_text='Loan number associated with this GL entry (legacy field, prefer asset_link)'
+    )
+    
+    # ------------------------------
+    # Enhanced Asset Hub Integration
+    # ------------------------------
+    # WHAT: Link GL entries to the central AssetIdHub for robust loan tracking
+    # WHY: Enable seamless cross-module joins and comprehensive asset-level financial reporting
+    # HOW: ForeignKey relationship to AssetIdHub (many GL entries per asset)
+    asset_hub = models.ForeignKey(
+        'core.AssetIdHub',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='gl_entries',
+        db_index=True,
+        help_text='Link to AssetIdHub for robust loan/asset tracking across modules'
     )
     
     borrower_name = models.CharField(
@@ -255,6 +310,84 @@ class GeneralLedgerEntries(models.Model):
     )
     
     # ------------------------------
+    # Tagging and Bucket Classification
+    # ------------------------------
+    # WHAT: Tag field for categorical grouping of GL entries
+    # WHY: Enable filtering, reporting, and AI-driven analysis by entry type
+    # HOW: Single-select from predefined EntryTag choices
+    tag = models.CharField(
+        max_length=50,
+        choices=EntryTag.choices,
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text='Categorical tag for GL entry type (e.g., Loan Origination, Property Acquisition)'
+    )
+    
+    # WHAT: Bucket field for strategic grouping of GL entries
+    # WHY: Enable high-level portfolio analysis and AI-driven insights
+    # HOW: Single-select from predefined EntryBucket choices
+    bucket = models.CharField(
+        max_length=50,
+        choices=EntryBucket.choices,
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text='Strategic bucket for high-level grouping (e.g., Acquisition, Servicing, Disposition)'
+    )
+    
+    # ------------------------------
+    # AI and Analysis Fields
+    # ------------------------------
+    # WHAT: AI-generated summary and notes field for future AI integration
+    # WHY: Enable AI-driven insights, anomaly detection, and automated categorization
+    # HOW: TextField for storing AI analysis results and suggestions
+    ai_notes = models.TextField(
+        null=True,
+        blank=True,
+        help_text='AI-generated notes, insights, or suggestions for this GL entry (future AI integration)'
+    )
+    
+    # WHAT: Flag for entries requiring review or attention
+    # WHY: Enable workflow management and exception handling
+    # HOW: Boolean flag with optional review notes
+    requires_review = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text='Flag indicating this entry requires human review or attention'
+    )
+    
+    review_notes = models.TextField(
+        null=True,
+        blank=True,
+        help_text='Notes from review process or reasons for flagging'
+    )
+    
+    # ------------------------------
+    # Audit and User Tracking
+    # ------------------------------
+    # WHAT: Track which user created and last updated this GL entry
+    # WHY: Enable audit trail and accountability for financial transactions
+    # HOW: ForeignKey to User model with SET_NULL on deletion
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='gl_entries_created',
+        help_text='User who created this GL entry'
+    )
+    
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='gl_entries_updated',
+        help_text='User who last updated this GL entry'
+    )
+    
+    # ------------------------------
     # Metadata Fields
     # ------------------------------
     created_at = models.DateTimeField(
@@ -298,7 +431,7 @@ class GeneralLedgerEntries(models.Model):
         WHY: Provide human-readable representation for admin and debugging
         HOW: Returns GL entry and company name
         """
-        return f"GL Entry {self.gl_entry} - {self.company_name}"
+        return f"GL Entry {self.entry} - {self.company_name}"
     
     def clean(self):
         """

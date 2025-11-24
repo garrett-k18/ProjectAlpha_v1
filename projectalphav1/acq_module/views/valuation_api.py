@@ -22,7 +22,7 @@ from rest_framework.response import Response
 from rest_framework import status, serializers
 
 from ..models.model_acq_seller import SellerRawData
-from core.models.valuations import Valuation
+from core.models.model_co_valuations import Valuation
 
 # WHAT: Logger for this module
 # WHY: Track source mapping and debugging
@@ -380,7 +380,7 @@ def internal_valuation_view(request, seller_id: int | str):
     grade_code = request.data.get('grade_code')
     grade_instance = None
     if grade_code:
-        from core.models.valuations import ValuationGradeReference
+        from core.models.model_co_valuations import ValuationGradeReference
         try:
             grade_instance = ValuationGradeReference.objects.get(code=grade_code)
             logger.info(f"[valuation_api] Found grade: {grade_instance.code} (id={grade_instance.id})")

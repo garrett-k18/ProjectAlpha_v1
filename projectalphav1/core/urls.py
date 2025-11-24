@@ -62,6 +62,10 @@ from core.views.view_co_egnyteDoc import (
     create_share_link,
     get_file_info,
 )
+from core.views.view_co_generalLedger import (
+    GeneralLedgerEntriesViewSet,
+    ChartOfAccountsViewSet,
+)
 
 # Create a router and register our viewsets
 router = DefaultRouter()

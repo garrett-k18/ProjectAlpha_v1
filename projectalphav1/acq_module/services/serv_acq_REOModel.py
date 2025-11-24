@@ -21,7 +21,7 @@ from acq_module.logic.logi_acq_purchasePrice import purchase_price, purchase_pri
 from acq_module.logic.logi_acq_outcomespecific import fcoutcomeLogic
 from core.models.model_co_geoAssumptions import StateReference
 from core.models.model_co_assumptions import Servicer, HOAAssumption, PropertyTypeAssumption, SquareFootageAssumption
-from core.models.valuations import Valuation
+from core.models.model_co_valuations import Valuation
 
 
 def get_reo_timeline_sums(asset_hub_id: int, reference_date: Optional[date] = None) -> Dict[str, Any]:
