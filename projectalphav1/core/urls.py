@@ -47,6 +47,11 @@ from core.views.view_co_valuations import (
     create_or_update_valuation,
     get_valuations,
 )
+from core.views.view_co_generalLedger import (
+    GeneralLedgerEntriesViewSet,
+    GeneralLedgerTagViewSet,
+    GeneralLedgerBucketViewSet
+)
 from core.views.view_co_egnyteDoc import (
     upload_document,
     list_documents,
@@ -65,9 +70,10 @@ from core.views.view_co_generalLedger import (
 # Create a router and register our viewsets
 router = DefaultRouter()
 
-# Register GL entry viewsets
-router.register(r'gl-entries', GeneralLedgerEntriesViewSet, basename='gl-entries')
-router.register(r'chart-of-accounts', ChartOfAccountsViewSet, basename='chart-of-accounts')
+# Register General Ledger viewsets
+router.register(r'general-ledger/entries', GeneralLedgerEntriesViewSet, basename='gl-entries')
+router.register(r'general-ledger/tags', GeneralLedgerTagViewSet, basename='gl-tags')
+router.register(r'general-ledger/buckets', GeneralLedgerBucketViewSet, basename='gl-buckets')
 
 # Register assumptions-related viewsets
 router.register(r'state-assumptions', StateReferenceViewSet, basename='state-assumptions')
