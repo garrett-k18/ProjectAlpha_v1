@@ -61,7 +61,7 @@ def build_queryset(
         return SellerRawData.objects.none()
     
     # WHAT: Import Valuation model for prefetch
-    from core.models.valuations import Valuation
+    from core.models.model_co_valuations import Valuation
     
     # Base queryset with necessary joins
     qs = (

@@ -15,7 +15,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_date
 
 from core.models import AssetIdHub
-from core.models.valuations import Valuation
+from core.models.model_co_valuations import Valuation
 from etl.models import (
     ComparablesETL,
     ExtractionFieldResult,

@@ -5,7 +5,7 @@ from django.db import models
 from django.core.validators import MaxValueValidator, MinValueValidator
 
 from core.models import AssetIdHub
-from core.models.valuations import Valuation
+from core.models.model_co_valuations import Valuation
 from core.models.model_co_lookupTables import (
     AppraisalPurpose,
     BpoType,

@@ -19,7 +19,7 @@ from django.db import transaction
 from django.db.models import Field
 
 from core.models.model_co_assetIdHub import AssetIdHub
-from core.models.valuations import Valuation
+from core.models.model_co_valuations import Valuation
 
 # WHAT: Null tokens accepted across all converters to treat common CSV placeholders as empty.
 NULL_TOKENS = {"", "na", "n/a", "null", "none", "nil"}

@@ -574,7 +574,7 @@ def get_fc_expense_values(
             base_values['base_sellerAsIs'] = float(raw_data.seller_asis_value) if raw_data.seller_asis_value else None
             
             # WHAT: Get internal UW as-is value from Valuation for base
-            from core.models.valuations import Valuation
+            from core.models.model_co_valuations import Valuation
             try:
                 internal_val = Valuation.objects.filter(
                     asset_hub_id=asset_hub_id, 

@@ -46,7 +46,7 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from django.db.models import Q
 
 from ...models.model_acq_seller import SellerRawData
-from core.models.valuations import Valuation
+from core.models.model_co_valuations import Valuation
 from core.models.attachments import Photo, Document
 from core.models.model_co_crm import MasterCRM
 from user_admin.models import BrokerTokenAuth
@@ -329,7 +329,7 @@ def submit_broker_values_with_token(request, token: str):
     grade_fk = None
     grade_code = data.get('broker_grade')
     if grade_code:
-        from core.models.valuations import ValuationGradeReference
+        from core.models.model_co_valuations import ValuationGradeReference
         try:
             grade_fk = ValuationGradeReference.objects.get(code=grade_code)
         except ValuationGradeReference.DoesNotExist:

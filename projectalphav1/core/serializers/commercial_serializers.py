@@ -12,7 +12,7 @@ Docs reviewed:
 """
 from rest_framework import serializers
 from core.models.commercial import UnitMix, RentRoll
-from core.models.valuations import LeaseComparableUnitMix, LeaseComparableRentRoll
+from core.models.model_co_valuations import LeaseComparableUnitMix, LeaseComparableRentRoll
 from core.models.propertycfs import HistoricalPropertyCashFlow
 
 
