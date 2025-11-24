@@ -6,6 +6,48 @@ WHERE: Used throughout the system for financial transaction tracking and reporti
 """
 from django.db import models
 from decimal import Decimal
+from .model_co_assetIdHub import AssetIdHub
+
+
+class GeneralLedgerTag(models.Model):
+    """
+    WHAT: Tag for General Ledger entries
+    WHY: Flexible tagging system for GL entries to support ad-hoc reporting and categorization
+    HOW: Simple M2M relationship with GeneralLedgerEntries
+    """
+    name = models.CharField(max_length=50, unique=True, help_text="Tag name")
+    description = models.TextField(null=True, blank=True, help_text="Optional description of the tag")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "GL Tag"
+        verbose_name_plural = "GL Tags"
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
+class GeneralLedgerBucket(models.Model):
+    """
+    WHAT: Bucket for categorizing GL entries
+    WHY: High-level categorization (buckets) for aggregating entries, useful for budgeting or specific reporting views
+    HOW: Foreign Key relationship with GeneralLedgerEntries
+    """
+    name = models.CharField(max_length=100, unique=True, help_text="Bucket name")
+    code = models.CharField(max_length=50, unique=True, null=True, blank=True, help_text="Short code for the bucket")
+    description = models.TextField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "GL Bucket"
+        verbose_name_plural = "GL Buckets"
+        ordering = ['name']
+
+    def __str__(self):
+        return f"{self.name} ({self.code})" if self.code else self.name
 
 
 class GeneralLedgerEntries(models.Model):
@@ -36,12 +78,21 @@ class GeneralLedgerEntries(models.Model):
         help_text='Name of the company associated with this GL entry'
     )
     
+    asset_link = models.ForeignKey(
+        AssetIdHub,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='gl_entries',
+        help_text='Link to the canonical Asset/Loan ID Hub for robust tracking'
+    )
+
     loan_number = models.CharField(
         max_length=100,
         null=True,
         blank=True,
         db_index=True,
-        help_text='Loan number associated with this GL entry (if applicable)'
+        help_text='Loan number associated with this GL entry (legacy field, prefer asset_link)'
     )
     
     borrower_name = models.CharField(
@@ -49,6 +100,25 @@ class GeneralLedgerEntries(models.Model):
         null=True,
         blank=True,
         help_text='Name of the borrower associated with this loan'
+    )
+
+    # ------------------------------
+    # Categorization
+    # ------------------------------
+    bucket = models.ForeignKey(
+        GeneralLedgerBucket,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='entries',
+        help_text='Bucket for high-level aggregation and reporting'
+    )
+
+    tags = models.ManyToManyField(
+        GeneralLedgerTag,
+        blank=True,
+        related_name='entries',
+        help_text='Tags for flexible categorization'
     )
     
     # ------------------------------

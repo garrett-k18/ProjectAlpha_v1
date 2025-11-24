@@ -90,11 +90,12 @@ class BlendedOutcomeModelAdmin(admin.ModelAdmin):
         "asset_hub__acq_raw__trade",
     )
     search_fields = (
-        # Traverse hub -> boarded record for human fields
-        "asset_hub__am_boarded__sellertape_id",
-        "asset_hub__am_boarded__street_address",
-        "asset_hub__am_boarded__city",
-        "asset_hub__am_boarded__state",
+        # Traverse hub -> acquisitions raw tape for human fields
+        "asset_hub__sellertape_id",
+        "asset_hub__servicer_id",
+        "asset_hub__acq_raw__street_address",
+        "asset_hub__acq_raw__city",
+        "asset_hub__acq_raw__state",
     )
     readonly_fields = ("created_at", "updated_at")
     ordering = ("-created_at",)
