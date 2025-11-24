@@ -81,6 +81,13 @@
           </router-link>
         </li>
 
+        <li class="side-nav-item">
+          <router-link to="/general-ledger" class="side-nav-link side-nav-link-ref">
+            <i class="uil-book-alt"></i>
+            <span> General Ledger </span>
+          </router-link>
+        </li>
+
         <li class="side-nav-title">Apps</li>
 
         <li class="side-nav-item">

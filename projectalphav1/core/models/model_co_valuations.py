@@ -140,6 +140,16 @@ class Valuation(models.Model):
         blank=True,
         help_text='Date of the valuation.'
     )
+
+    trashout_est_total = models.DecimalField(
+        max_digits=15, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        help_text='Total estimated trashout costs.'
+    )
+
+    # Rehab estimates
     rehab_est_total = models.DecimalField(
         max_digits=15, 
         decimal_places=2, 

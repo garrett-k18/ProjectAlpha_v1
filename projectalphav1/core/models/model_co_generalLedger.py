@@ -122,7 +122,7 @@ class GeneralLedgerEntries(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='gl_entries',
+        related_name='gl_entries_link',
         help_text='Link to the canonical Asset/Loan ID Hub for robust tracking'
     )
 
@@ -310,7 +310,7 @@ class GeneralLedgerEntries(models.Model):
     )
     
     # ------------------------------
-    # Tagging and Bucket Classification
+    # Tagging Classification
     # ------------------------------
     # WHAT: Tag field for categorical grouping of GL entries
     # WHY: Enable filtering, reporting, and AI-driven analysis by entry type
@@ -322,18 +322,6 @@ class GeneralLedgerEntries(models.Model):
         blank=True,
         db_index=True,
         help_text='Categorical tag for GL entry type (e.g., Loan Origination, Property Acquisition)'
-    )
-    
-    # WHAT: Bucket field for strategic grouping of GL entries
-    # WHY: Enable high-level portfolio analysis and AI-driven insights
-    # HOW: Single-select from predefined EntryBucket choices
-    bucket = models.CharField(
-        max_length=50,
-        choices=EntryBucket.choices,
-        null=True,
-        blank=True,
-        db_index=True,
-        help_text='Strategic bucket for high-level grouping (e.g., Acquisition, Servicing, Disposition)'
     )
     
     # ------------------------------
