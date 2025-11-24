@@ -1,15 +1,6 @@
-# ============================================================
-# DEPRECATED MODEL - DO NOT USE
-# SellerBoardedData is kept only for migration compatibility.
-# All code references have been removed.
-# Data can be safely deleted.
-# REPLACEMENT: Use SellerRawData (acq_module.models.seller) with acq_status=BOARD
-# ============================================================
-
+from decimal import Decimal
 from django.db import models
 from django.utils import timezone
-from acq_module.models.model_acq_seller import SellerRawData
-import re
 
 # Blended Outcome Model (One-to-one with AssetIdHub)
 # -----------------------------------------------------------------------------------
@@ -67,15 +58,16 @@ class BlendedOutcomeModel(models.Model):
     local_market_ext_duration = models.IntegerField(null=True, blank=True, help_text="The duration in months the loan was in local market extension status.")
     rural_ext_duration = models.IntegerField(null=True, blank=True, help_text="The duration in months the loan was in rural status.")
 
-    #Expense Details
-        #Legal
+    # Expense Details - Legal
     fc_expenses = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total FC expenses.")
+    fc_legal_fees = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total FC legal fees.")
+    other_fc_fees = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total other FC fees.")
     dil_fees = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total DIL fees.")
     cfk_fees = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total CFK fees.")
     bk_legal_fees = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total BK legal fees.")
     eviction_fees = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total eviction fees.")
 
-        #Property Expenses
+    # Expense Details - Property
     reconciled_rehab_cost = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The reconciled rehab cost.")
     trashout_cost = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The trashout cost.")
     property_preservation_cost = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The property preservation cost.")
@@ -85,29 +77,27 @@ class BlendedOutcomeModel(models.Model):
     total_utility = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total yearly utility costs.")
     total_other = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total yearly other costs.")
 
-        #Fund Expenses
+    # Expense Details - Fund
     acq_costs = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="per asset fees when purchasing such as legal, DD, Title, etc.")
     fund_am_fees = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="total am fee over life of asset hold COuld be a per month calc or liq calc")
 
-            #Closing Costs
+    # Expense Details - Closing Costs
     am_liq_fees = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total liq fees.")
     tax_title_transfer_cost = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The tax, title, and transfer costs.")
     broker_fees = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The broker fees at closing of REO.")
 
-        #Servicing Costs
+    # Expense Details - Servicing Costs
     servicing_board_fee = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total servicing board fee.")
     servicing_current = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total current servicing costs.")
     servicing_30d = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total 30 day servicing costs.")
     servicing_60d = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total 60 day servicing costs.")
     servicing_90d = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total 90 day servicing costs.")
-    servicing_120d = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total 180 day servicing costs.")
+    servicing_120d = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total 120 day servicing costs.")
     servicing_fc = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total FC servicing costs.")
     servicing_bk = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total BK servicing costs.")
     servicing_liq_fee = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total servicing costs.")
 
-
-
-    #Income
+    # Income
     principal_collect = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The principal collected.")
     interest_collect = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The interest collected.")
     mod_down_payment = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The modified down payment.")
@@ -115,7 +105,6 @@ class BlendedOutcomeModel(models.Model):
     cam_income = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The CAM income.")
     other_income = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The other income.")
 
-    
     expected_hold_duration = models.IntegerField(
         null=True,
         blank=True,
@@ -272,10 +261,6 @@ class BlendedOutcomeModel(models.Model):
         help_text="Bid percentage of present value (percent 0–100)."
     )
 
-    # NOTE: Cash flow fields removed - migrated to CashFlowPeriod model below
-
-    
-    
     # Audit timestamps
     created_at = models.DateTimeField(
         auto_now_add=True,
@@ -302,14 +287,42 @@ class UWCashFlows(models.Model):
     WHY: Flexible, scalable structure for unlimited periods with underwritten vs realized comparison
     HOW: Many-to-one relationship with AssetIdHub, one record per period
     WHERE: Replaces cf_p0-p30 fields in BlendedOutcomeModel
-    
+
     Architecture:
     - Each asset can have unlimited periods (not limited to 30)
     - Stores both underwritten (from acquisition model) and realized (actual) cash flows
     - Supports detailed line items for both underwritten and realized
     - Enables easy variance calculation and period-level queries
     """
-    
+
+    # Field name constants for DRY calculations
+    INCOME_FIELDS = (
+        'realized_income_principal',
+        'realized_income_interest',
+        'realized_income_rent',
+        'realized_income_cam',
+        'realized_income_mod_down_payment',
+        'realized_net_liquidation_proceeds',
+    )
+    EXPENSE_FIELDS = (
+        'realized_purchase_price',
+        'realized_acq_due_diligence',
+        'realized_acq_legal',
+        'realized_acq_title',
+        'realized_expense_servicing',
+        'realized_expense_am_fees',
+        'realized_expense_property_tax',
+        'realized_expense_property_insurance',
+        'realized_legal_foreclosure',
+        'realized_legal_bankruptcy',
+        'realized_reo_hoa',
+        'realized_reo_utilities',
+        'realized_reo_renovation',
+        'realized_reo_property_preservation',
+        'realized_cre_marketing',
+        'realized_cre_maintenance',
+    )
+
     # WHAT: Foreign key to AssetIdHub (many periods per asset)
     # WHY: Allows unlimited periods per asset, easy filtering/querying
     asset_hub = models.ForeignKey(
@@ -482,7 +495,6 @@ class UWCashFlows(models.Model):
         ordering = ['asset_hub', 'period_number']
         unique_together = ('asset_hub', 'period_number')
         indexes = [
-            models.Index(fields=['asset_hub', 'period_number']),
             models.Index(fields=['period_date']),
         ]
     
@@ -491,42 +503,24 @@ class UWCashFlows(models.Model):
         return f"UWCashFlowPeriod(asset={self.asset_hub_id}, period={self.period_number}, date={self.period_date})"
     
     @property
-    def variance(self) -> float:
+    def variance(self) -> Decimal:
         """Calculate variance: realized - underwritten."""
         if self.net_cash_flow_realized is None or self.net_cash_flow_underwritten is None:
-            return 0
-        return float(self.net_cash_flow_realized - self.net_cash_flow_underwritten)
-    
+            return Decimal('0')
+        return self.net_cash_flow_realized - self.net_cash_flow_underwritten
+
     @property
-    def total_income(self) -> float:
+    def total_income(self) -> Decimal:
         """Calculate total realized income for this period."""
-        return sum([
-            float(self.realized_income_principal or 0),
-            float(self.realized_income_interest or 0),
-            float(self.realized_income_rent or 0),
-            float(self.realized_income_cam or 0),
-            float(self.realized_income_mod_down_payment or 0),
-            float(self.realized_net_liquidation_proceeds or 0),
-        ])
-    
+        return sum(
+            (getattr(self, f) or Decimal('0') for f in self.INCOME_FIELDS),
+            Decimal('0')
+        )
+
     @property
-    def total_expenses(self) -> float:
+    def total_expenses(self) -> Decimal:
         """Calculate total realized expenses for this period."""
-        return sum([
-            float(self.realized_purchase_price or 0),
-            float(self.realized_acq_due_diligence or 0),
-            float(self.realized_acq_legal or 0),
-            float(self.realized_acq_title or 0),
-            float(self.realized_expense_servicing or 0),
-            float(self.realized_expense_am_fees or 0),
-            float(self.realized_expense_property_tax or 0),
-            float(self.realized_expense_property_insurance or 0),
-            float(self.realized_legal_foreclosure or 0),
-            float(self.realized_legal_bankruptcy or 0),
-            float(self.realized_reo_hoa or 0),
-            float(self.realized_reo_utilities or 0),
-            float(self.realized_reo_renovation or 0),
-            float(self.realized_reo_property_preservation or 0),
-            float(self.realized_cre_marketing or 0),
-            float(self.realized_cre_maintenance or 0),
-        ])
+        return sum(
+            (getattr(self, f) or Decimal('0') for f in self.EXPENSE_FIELDS),
+            Decimal('0')
+        )
