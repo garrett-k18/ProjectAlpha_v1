@@ -57,9 +57,17 @@ from core.views.view_co_egnyteDoc import (
     create_share_link,
     get_file_info,
 )
+from core.views.view_co_generalLedger import (
+    GeneralLedgerEntriesViewSet,
+    ChartOfAccountsViewSet,
+)
 
 # Create a router and register our viewsets
 router = DefaultRouter()
+
+# Register GL entry viewsets
+router.register(r'gl-entries', GeneralLedgerEntriesViewSet, basename='gl-entries')
+router.register(r'chart-of-accounts', ChartOfAccountsViewSet, basename='chart-of-accounts')
 
 # Register assumptions-related viewsets
 router.register(r'state-assumptions', StateReferenceViewSet, basename='state-assumptions')

@@ -286,52 +286,28 @@ const baseColumnDefs = ref<ColDef[]>([
     headerName: 'Bid % UPB',
     field: 'bid_pct_upb',
     width: 130,
-    valueFormatter: (params: ValueFormatterParams) => {
-      const v = params.value
-      if (v == null || v === '') return ''
-      const num = Number(v)
-      if (Number.isNaN(num)) return String(v)
-      return `${(num * 100).toFixed(1)}%`
-    },
+    valueFormatter: percentFormatter,
     hide: true,
   },
   {
     headerName: 'Bid % TD',
     field: 'bid_pct_td',
     width: 120,
-    valueFormatter: (params: ValueFormatterParams) => {
-      const v = params.value
-      if (v == null || v === '') return ''
-      const num = Number(v)
-      if (Number.isNaN(num)) return String(v)
-      return `${(num * 100).toFixed(1)}%`
-    },
+    valueFormatter: percentFormatter,
     hide: true,
   },
   {
     headerName: 'Bid % Seller As-Is',
     field: 'bid_pct_sellerasis',
     width: 170,
-    valueFormatter: (params: ValueFormatterParams) => {
-      const v = params.value
-      if (v == null || v === '') return ''
-      const num = Number(v)
-      if (Number.isNaN(num)) return String(v)
-      return `${(num * 100).toFixed(1)}%`
-    },
+    valueFormatter: percentFormatter,
     hide: true,
   },
   {
     headerName: 'Bid % PV',
     field: 'bid_pct_pv',
     width: 120,
-    valueFormatter: (params: ValueFormatterParams) => {
-      const v = params.value
-      if (v == null || v === '') return ''
-      const num = Number(v)
-      if (Number.isNaN(num)) return String(v)
-      return `${(num * 100).toFixed(1)}%`
-    },
+    valueFormatter: percentFormatter,
     hide: true,
   },
   {
@@ -352,7 +328,8 @@ const baseColumnDefs = ref<ColDef[]>([
     headerName: 'Legal Expenses',
     field: 'legal_expenses',
     width: 150,
-    valueFormatter: currencyFormatter,
+    valueFormatter: negativeCurrencyFormatter,
+    cellClass: 'text-danger',
     hide: true,
   },
   {
