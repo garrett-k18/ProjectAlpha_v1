@@ -15,7 +15,7 @@ from rest_framework import status
 from django.db import transaction
 import logging
 
-from core.models.valuations import Valuation
+from core.models.model_co_valuations import Valuation
 from core.models import AssetIdHub
 
 # WHAT: Module-level logger for valuation operations

@@ -71,7 +71,7 @@ def purchase_price_metrics(asset_hub_id: int) -> dict:
         - purchase_of_internalUWAsIs: Purchase price / internal UW as-is value (as percentage)
         All values are Decimal or None if metric not available
     """
-    from core.models.valuations import Valuation
+    from core.models.model_co_valuations import Valuation
     
     # print(f"\n{'='*80}")
     # print(f"PURCHASE PRICE METRICS CALCULATION - Asset Hub ID: {asset_hub_id}")

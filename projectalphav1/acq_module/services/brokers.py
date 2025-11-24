@@ -17,7 +17,7 @@ from django.db.models import QuerySet
 
 from core.models.model_co_crm import MasterCRM
 from ..models.model_acq_seller import SellerRawData
-from core.models.valuations import Valuation
+from core.models.model_co_valuations import Valuation
 from user_admin.models import BrokerTokenAuth
 
 

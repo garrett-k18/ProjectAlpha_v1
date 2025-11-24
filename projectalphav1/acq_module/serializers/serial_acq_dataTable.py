@@ -16,7 +16,7 @@ Docs reviewed:
 from rest_framework import serializers
 import logging
 from ..models.model_acq_seller import Seller, Trade, SellerRawData
-from core.models.valuations import Valuation
+from core.models.model_co_valuations import Valuation
 
 logger = logging.getLogger(__name__)
 

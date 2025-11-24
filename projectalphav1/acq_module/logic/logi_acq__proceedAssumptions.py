@@ -5,7 +5,7 @@ from typing import Optional
 
 from acq_module.models.model_acq_seller import SellerRawData
 from acq_module.models.model_acq_assumptions import NoteSaleAssumption
-from core.models.valuations import Valuation
+from core.models.model_co_valuations import Valuation
 from acq_module.logic.logi_acq_outcomespecific import fcoutcomeLogic
 
 

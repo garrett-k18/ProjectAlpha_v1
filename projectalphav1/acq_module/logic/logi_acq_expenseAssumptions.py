@@ -8,7 +8,7 @@ from acq_module.models.model_acq_assumptions import LoanLevelAssumption, TradeLe
 from am_module.models.boarded_data import BlendedOutcomeModel
 from core.models.model_co_geoAssumptions import StateReference
 from core.models.model_co_assumptions import HOAAssumption
-from core.models.valuations import Valuation
+from core.models.model_co_valuations import Valuation
 
 
 def monthly_tax_for_asset(asset_hub_id: int) -> Decimal:

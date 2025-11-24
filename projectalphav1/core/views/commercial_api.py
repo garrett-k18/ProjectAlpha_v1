@@ -17,7 +17,7 @@ Docs reviewed:
 """
 from rest_framework import generics
 from core.models.commercial import UnitMix, RentRoll
-from core.models.valuations import (
+from core.models.model_co_valuations import (
     LeaseComparableUnitMix,
     LeaseComparableRentRoll,
     ComparableProperty

@@ -10,11 +10,11 @@ from .model_co_geoAssumptions import StateReference, CountyReference, MSAReferen
 from .model_co_assumptions import Servicer, FCStatus, FCTimelines, CommercialUnits, HOAAssumption, PropertyTypeAssumption, SquareFootageAssumption, UnitBasedAssumption
 from .model_co_lookupTables import PropertyType
 from .model_co_enrichment import LlDataEnrichment
-from .valuations import Valuation, ValuationGradeReference
+from .model_co_valuations import Valuation, ValuationGradeReference
 from .attachments import Photo, Document
 from .transactions import LLTransactionSummary, LLCashFlowSeries
 from .commercial import UnitMix, RentRoll
-from .valuations import ComparableProperty, SalesComparable, LeaseComparable, LeaseComparableUnitMix, LeaseComparableRentRoll
+from .model_co_valuations import ComparableProperty, SalesComparable, LeaseComparable, LeaseComparableUnitMix, LeaseComparableRentRoll
 from .propertycfs import HistoricalPropertyCashFlow
 from .calendar_events import CalendarEvent
 from .model_co_generalLedger import GeneralLedgerEntries, ChartOfAccounts

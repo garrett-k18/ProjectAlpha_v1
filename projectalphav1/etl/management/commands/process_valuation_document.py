@@ -10,7 +10,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
 from core.models import AssetIdHub
-from core.models.valuations import Valuation
+from core.models.model_co_valuations import Valuation
 from etl.services import ValuationExtractionPipeline
 
 User = get_user_model()

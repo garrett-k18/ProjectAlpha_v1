@@ -19,7 +19,7 @@ from django.db.models import QuerySet, Q, F
 from acq_module.models.model_acq_seller import SellerRawData  # WHAT: Post-refactor boarded dataset source per docs (https://docs.djangoproject.com/en/stable/topics/db/models/)
 from am_module.models.am_data import AMMetrics
 from am_module.models.servicers import ServicerLoanData
-from core.models.valuations import Valuation
+from core.models.model_co_valuations import Valuation
 
 # Fields used by quick filter 'q'
 QUICK_FILTER_FIELDS = (

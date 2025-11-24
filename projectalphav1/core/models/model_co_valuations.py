@@ -147,7 +147,19 @@ class Valuation(models.Model):
         blank=True,
         help_text='Total estimated rehabilitation costs.'
     )
+
+    trashout_est_total = models.DecimalField(
+        max_digits=15, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        help_text='Total estimated trashout costs.'
+    )
+
+
     recommend_rehab = models.BooleanField(
+        null=True,
+        blank=True,
         default=False,
         help_text='Whether to recommend rehabilitation.'
     )
