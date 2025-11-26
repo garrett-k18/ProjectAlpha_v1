@@ -588,7 +588,7 @@ class PerformanceSummarySerializer(serializers.Serializer):
     
     def get_proceeds_realized(self, obj):
         if hasattr(obj.asset_hub, 'll_transaction_summary'):
-            return obj.asset_hub.ll_transaction_summary.proceeds_realized
+            return obj.asset_hub.ll_transaction_summary.gross_liquidation_proceeds_realized
         return None
     
     def get_net_liquidation_proceeds_realized(self, obj):

@@ -51,7 +51,7 @@ from core.models import (
 )
 
 # Cross-app children that reference AssetIdHub
-from acq_module.models.model_acq_seller import SellerRawData
+from acq_module.models.model_acq_seller import SellerRawData, Trade
 # Asset Details admin
 @admin.register(AssetDetails)
 class AssetDetailsAdmin(admin.ModelAdmin):
@@ -1314,9 +1314,10 @@ class LLTransactionSummaryAdmin(admin.ModelAdmin):
     HOW: Organized fieldsets matching Performance Summary structure
     """
     list_display = (
-        'asset_hub', 'last_updated', 'has_income', 'has_expenses', 'has_proceeds'
+        'asset_hub', 'get_asset_status', 'last_updated', 'has_income', 'has_expenses', 'has_proceeds'
     )
     search_fields = ('asset_hub__id', 'asset_hub__servicer_id')
+    list_filter = ('asset_hub__details__trade', 'asset_hub__details__asset_status')
     readonly_fields = ('last_updated', 'created_at')
     list_per_page = 5
     
@@ -1347,9 +1348,16 @@ class LLTransactionSummaryAdmin(admin.ModelAdmin):
     
     def has_proceeds(self, obj):
         """Check if proceeds data exists"""
-        return obj.proceeds_realized is not None
+        return obj.gross_liquidation_proceeds_realized is not None
     has_proceeds.boolean = True
     has_proceeds.short_description = 'Proceeds?'
+
+    def get_asset_status(self, obj):
+        """Display lifecycle status from AssetDetails."""
+        details = getattr(obj.asset_hub, 'details', None)
+        return details.asset_status if details else '—'
+    get_asset_status.short_description = 'Lifecycle Status'
+    get_asset_status.admin_order_field = 'asset_hub__details__asset_status'
 
 
 @admin.register(LLCashFlowSeries)

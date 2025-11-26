@@ -18,8 +18,8 @@ class AssetIdHub(models.Model):
     servicer_id = models.CharField(max_length=64, null=True, blank=True, db_index=True, help_text='External servicer ID for cross-referencing servicer loan data')
 
     # Audit
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True, blank=True)
 
     class Meta:
         db_table = 'core_assetidhub'
@@ -33,7 +33,8 @@ class AssetIdHub(models.Model):
 
     def __str__(self) -> str:
         label = self.sellertape_id or 'hub'
-        return f"AssetIdHub({self.pk}:{label})"
+        servicer = self.servicer_id or 'servicer?'
+        return f"AssetIdHub({self.pk}:{label}|Servicer:{servicer})"
 
     @property
     def is_commercial_flag(self) -> bool:

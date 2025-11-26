@@ -180,7 +180,7 @@ def get_by_trade_grid_data(request) -> List[Dict[str, Any]]:
             if uw_exit_duration_months < 0:
                 uw_exit_duration_months = 0
 
-        grid_rows.append({
+        row = {
             # identifiers / context
             'id': asset.pk,
             'trade_id': asset.trade_id,
@@ -191,10 +191,15 @@ def get_by_trade_grid_data(request) -> List[Dict[str, Any]]:
             'street_address': asset.street_address or '',
             'city': asset.city or '',
             'state': asset.state or '',
+            'asset_master_status': getattr(asset, 'asset_master_status', None),
 
             # initial underwriting snapshot (from BlendedOutcomeModel)
             'purchase_price': float(purchase_price or 0) if purchase_price is not None else None,
             'purchase_date': purchase_date_value,
+            'gross_purchase_price_realized': (
+                float(getattr(asset, 'gross_purchase_price_realized', 0) or 0)
+                if getattr(asset, 'gross_purchase_price_realized', None) is not None else None
+            ),
             'exit_strategy': getattr(asset, 'exit_strategy', None),
             'bid_pct_upb': float(getattr(asset, 'bid_pct_upb', 0)) if getattr(asset, 'bid_pct_upb', None) is not None else None,
             'bid_pct_td': float(getattr(asset, 'bid_pct_td', 0)) if getattr(asset, 'bid_pct_td', None) is not None else None,
@@ -213,6 +218,10 @@ def get_by_trade_grid_data(request) -> List[Dict[str, Any]]:
             'reo_hold_duration': getattr(asset, 'reo_hold_duration', None),
             'current_duration_months': current_duration_months,
             'current_gross_cost': float(getattr(asset, 'current_gross_cost', 0) or 0),
+            'realized_gross_purchase_price': float(getattr(asset, 'realized_gross_purchase_price', 0) or 0),
+            'realized_total_expenses': float(getattr(asset, 'realized_total_expenses', 0) or 0),
+            'realized_gross_liquidation_proceeds': float(getattr(asset, 'realized_gross_liquidation_proceeds', 0) or 0),
+            'realized_net_liquidation_proceeds': float(getattr(asset, 'realized_net_liquidation_proceeds', 0) or 0),
             'projected_gross_cost': projected_gross_cost,
             'expected_exit_date': expected_exit_date_value,
             'expected_gross_proceeds': float(expected_gross_proceeds or 0) if expected_gross_proceeds is not None else None,
@@ -226,11 +235,16 @@ def get_by_trade_grid_data(request) -> List[Dict[str, Any]]:
             'legal_expenses': float(getattr(asset, 'legal_expenses', 0) or 0),
             'servicing_expenses': float(getattr(asset, 'servicing_expenses', 0) or 0),
             'reo_expenses': float(getattr(asset, 'reo_expenses', 0) or 0),
+            'rehab_trashout_cost': float(getattr(asset, 'rehab_trashout_cost', 0) or 0),
             'carry_cost': float(getattr(asset, 'carry_cost', 0) or 0),
             'liq_fees': float(getattr(asset, 'liq_fees', 0) or 0),
+            'reo_closing_cost': float(getattr(asset, 'reo_closing_cost', 0) or 0),
+            'uw_total_expenses': float(getattr(asset, 'uw_total_expenses', 0) or 0),
             'active_tracks': active_tracks,
             'active_tasks': active_tasks,
-        })
+        }
+
+        grid_rows.append(row)
 
     return grid_rows
 

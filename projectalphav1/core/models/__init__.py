@@ -12,7 +12,7 @@ from .model_co_lookupTables import PropertyType
 from .model_co_enrichment import LlDataEnrichment
 from .model_co_valuations import Valuation, ValuationGradeReference
 from .attachments import Photo, Document
-from .transactions import LLTransactionSummary, LLCashFlowSeries
+from .model_co_realizedTransactions import LLTransactionSummary, LLCashFlowSeries
 from .commercial import UnitMix, RentRoll
 from .model_co_valuations import ComparableProperty, SalesComparable, LeaseComparable, LeaseComparableUnitMix, LeaseComparableRentRoll
 from .propertycfs import HistoricalPropertyCashFlow

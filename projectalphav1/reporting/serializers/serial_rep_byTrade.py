@@ -78,11 +78,15 @@ class TradeGridSerializer(serializers.Serializer):
     # servicer_id = serializers.CharField(required=False, allow_null=True)
     
     # ========================================================================
-    # 📝 CORE DESCRIPTIVE FIELDS
+    # CORE DESCRIPTIVE FIELDS
     # ========================================================================
     # WHAT: Trade name
     # WHY: Primary display name for trade
     trade_name = serializers.CharField()
+    
+    # WHAT: Asset lifecycle status (ACTIVE, LIQUIDATED)
+    # WHY: Allow reporting filters on asset state
+    asset_master_status = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     
     # WHAT: Seller name
     # WHY: Who sold this portfolio
@@ -185,8 +189,11 @@ class TradeGridSerializer(serializers.Serializer):
     # - source='other_name' - Map to different dict key
     #
     # EXAMPLES:
-    # property_type = serializers.CharField(required=False, allow_blank=True)
-    # avg_interest_rate = serializers.FloatField(required=False, allow_null=True)
+    purchase_date = serializers.DateField(required=False, allow_null=True)
+    gross_purchase_price_realized = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
+    exit_strategy = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    reo_closing_cost = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
+    uw_total_expenses = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
     # fc_count = serializers.IntegerField(required=False)
     # has_foreclosure = serializers.BooleanField(required=False)
     # ========================================================================

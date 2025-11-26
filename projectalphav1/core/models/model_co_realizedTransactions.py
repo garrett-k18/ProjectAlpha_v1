@@ -85,6 +85,11 @@ class LLTransactionSummary(models.Model):
     # ------------------------------
     # Operating Expenses (Realized)
     # ------------------------------
+    expense_other_realized = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        help_text='Actual other operating expenses'
+    )
+    
     expense_servicing_realized = models.DecimalField(
         max_digits=15, decimal_places=2, null=True, blank=True,
         help_text='Actual servicing fees paid'
@@ -186,13 +191,9 @@ class LLTransactionSummary(models.Model):
         help_text='Actual fund-level audit costs'
     )
     
+     # ------------------------------
+    # Closing COsts
     # ------------------------------
-    # Gross Liquidation Proceeds (Realized)
-    # ------------------------------
-    proceeds_realized = models.DecimalField(
-        max_digits=15, decimal_places=2, null=True, blank=True,
-        help_text='Actual gross liquidation proceeds'
-    )
     broker_closing_realized = models.DecimalField(
         max_digits=15, decimal_places=2, null=True, blank=True,
         help_text='Actual broker closing costs'
@@ -200,6 +201,47 @@ class LLTransactionSummary(models.Model):
     other_closing_realized = models.DecimalField(
         max_digits=15, decimal_places=2, null=True, blank=True,
         help_text='Actual other closing costs'
+    )
+
+
+    # ------------------------------
+    # Subtotals (Realized) Calcs
+    # ------------------------------
+    acq_total_realized = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        help_text='Total realized acquisition costs (sum of acq_*_realized)'
+    )
+    operating_expenses_total_realized = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        help_text='Total realized operating expenses (sum of expense_*_realized)'
+    )
+    legal_total_realized = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        help_text='Total realized legal/DIL costs (sum of legal_*_realized)'
+    )
+    reo_total_realized = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        help_text='Total realized REO expenses (sum of reo_*_realized)'
+    )
+    cre_total_realized = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        help_text='Total realized CRE expenses (sum of cre_*_realized)'
+    )
+    fund_total_realized = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        help_text='Total realized fund-level expenses (sum of fund_*_realized)'
+    )
+    total_expenses_realized = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        help_text='Total realized expenses (sum of all realized expense subtotals)'
+    )
+    
+    # ------------------------------
+    # Gross Liquidation Proceeds (Realized)
+    # ------------------------------
+    gross_liquidation_proceeds_realized = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        help_text='Actual gross liquidation proceeds'
     )
     net_liquidation_proceeds_realized = models.DecimalField(
         max_digits=15, decimal_places=2, null=True, blank=True,
@@ -228,6 +270,75 @@ class LLTransactionSummary(models.Model):
         verbose_name_plural = 'Loan-Level Transaction Summaries'
         ordering = ['asset_hub']
     
+    def save(self, *args, **kwargs):
+        z = lambda v: v if v is not None else Decimal('0.00')
+
+        self.acq_total_realized = (
+            z(self.acq_due_diligence_realized)
+            + z(self.acq_legal_realized)
+            + z(self.acq_title_realized)
+            + z(self.acq_other_realized)
+        )
+
+        self.operating_expenses_total_realized = (
+            z(self.expense_other_realized)
+            + z(self.expense_servicing_realized)
+            + z(self.expense_am_fees_realized)
+            + z(self.expense_property_tax_realized)
+            + z(self.expense_property_insurance_realized)
+        )
+
+        self.legal_total_realized = (
+            z(self.legal_foreclosure_realized)
+            + z(self.legal_bankruptcy_realized)
+            + z(self.legal_dil_realized)
+            + z(self.legal_cash_for_keys_realized)
+            + z(self.legal_eviction_realized)
+        )
+
+        self.reo_total_realized = (
+            z(self.reo_hoa_realized)
+            + z(self.reo_utilities_realized)
+            + z(self.reo_trashout_realized)
+            + z(self.reo_renovation_realized)
+            + z(self.reo_property_preservation_realized)
+        )
+
+        self.cre_total_realized = (
+            z(self.cre_marketing_realized)
+            + z(self.cre_ga_pool_realized)
+            + z(self.cre_maintenance_realized)
+        )
+
+        self.fund_total_realized = (
+            z(self.fund_taxes_realized)
+            + z(self.fund_legal_realized)
+            + z(self.fund_consulting_realized)
+            + z(self.fund_audit_realized)
+        )
+
+        closing_cost_total = (
+            z(self.broker_closing_realized)
+            + z(self.other_closing_realized)
+        )
+
+        self.total_expenses_realized = (
+            z(self.acq_total_realized)
+            + z(self.operating_expenses_total_realized)
+            + z(self.legal_total_realized)
+            + z(self.reo_total_realized)
+            + z(self.cre_total_realized)
+            + z(self.fund_total_realized)
+            + closing_cost_total
+        )
+
+        self.realized_gross_cost = (
+            z(self.gross_purchase_price_realized)
+            + z(self.total_expenses_realized)
+        )
+
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"Transaction Summary for Asset {self.asset_hub_id}"
 

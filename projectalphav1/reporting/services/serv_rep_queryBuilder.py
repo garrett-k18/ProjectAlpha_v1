@@ -256,6 +256,11 @@ def build_base_queryset() -> QuerySet[SellerRawData]:
                 Coalesce(F('asset_hub__blended_outcome_model__total_hoa'), Value(0, output_field=DecimalField()), output_field=DecimalField())
                 + Coalesce(F('asset_hub__blended_outcome_model__total_utility'), Value(0, output_field=DecimalField()), output_field=DecimalField())
                 + Coalesce(F('asset_hub__blended_outcome_model__total_other'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+                + Coalesce(F('asset_hub__blended_outcome_model__property_preservation_cost'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+            ),
+            rehab_trashout_cost=(
+                Coalesce(F('asset_hub__blended_outcome_model__reconciled_rehab_cost'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+                + Coalesce(F('asset_hub__blended_outcome_model__trashout_cost'), Value(0, output_field=DecimalField()), output_field=DecimalField())
             ),
             carry_cost=(
                 Coalesce(F('asset_hub__blended_outcome_model__servicing_board_fee'), Value(0, output_field=DecimalField()), output_field=DecimalField())
@@ -272,16 +277,27 @@ def build_base_queryset() -> QuerySet[SellerRawData]:
             ),
             liq_fees=(
                 Coalesce(F('asset_hub__blended_outcome_model__am_liq_fees'), Value(0, output_field=DecimalField()), output_field=DecimalField())
-                + Coalesce(F('asset_hub__blended_outcome_model__tax_title_transfer_cost'), Value(0, output_field=DecimalField()), output_field=DecimalField())
-                + Coalesce(F('asset_hub__blended_outcome_model__broker_fees'), Value(0, output_field=DecimalField()), output_field=DecimalField())
                 + Coalesce(F('asset_hub__blended_outcome_model__servicing_liq_fee'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+            ),
+            reo_closing_cost=(
+                Coalesce(F('asset_hub__blended_outcome_model__tax_title_transfer_cost'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+                + Coalesce(F('asset_hub__blended_outcome_model__broker_fees'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+            ),
+            uw_total_expenses=(
+                Coalesce(F('legal_expenses'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+                + Coalesce(F('servicing_expenses'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+                + Coalesce(F('reo_expenses'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+                + Coalesce(F('rehab_trashout_cost'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+                + Coalesce(F('carry_cost'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+                + Coalesce(F('liq_fees'), Value(0, output_field=DecimalField()), output_field=DecimalField())
+                + Coalesce(F('reo_closing_cost'), Value(0, output_field=DecimalField()), output_field=DecimalField())
             ),
             uw_other_fees=F('asset_hub__blended_outcome_model__total_other'),
         )
 
     queryset = queryset.annotate(
         # ====================================================================
-        # 🏢 ASSET HUB FIELDS - Master asset data
+        # 🏢 ASSET HUB FIELDS - Master asset data & realized P&L
         # ====================================================================
         # WHAT: Asset master status from AssetDetails
         # WHY: Lifecycle status (ACTIVE, LIQUIDATED)
@@ -290,6 +306,20 @@ def build_base_queryset() -> QuerySet[SellerRawData]:
         # WHAT: Realized gross cost from LLTransactionSummary (loan-level P&L)
         # WHY: Back current_gross_cost column in By Trade asset grid
         current_gross_cost=F('asset_hub__ll_transaction_summary__realized_gross_cost'),
+
+        # WHAT: Realized gross purchase price
+        # WHY: Show realized basis separate from expenses in performance view
+        realized_gross_purchase_price=F('asset_hub__ll_transaction_summary__gross_purchase_price_realized'),
+        gross_purchase_price_realized=F('asset_hub__ll_transaction_summary__gross_purchase_price_realized'),
+
+        # WHAT: Total realized expenses (all buckets)
+        # WHY: Support performance view for realized total expenses
+        realized_total_expenses=F('asset_hub__ll_transaction_summary__total_expenses_realized'),
+
+        # WHAT: Realized liquidation proceeds (gross and net)
+        # WHY: Expose realized exit metrics for performance reporting
+        realized_gross_liquidation_proceeds=F('asset_hub__ll_transaction_summary__gross_liquidation_proceeds_realized'),
+        realized_net_liquidation_proceeds=F('asset_hub__ll_transaction_summary__net_liquidation_proceeds_realized'),
 
         # ====================================================================
         # 🎯 ADD YOUR OWN FIELDS HERE - Copy patterns above!

@@ -71,6 +71,16 @@
             <option value="re-underwriting">Re-Underwriting</option>
             <option value="asset-management">Asset Management</option>
           </select>
+          <button
+            class="btn btn-sm"
+            :class="pinCoreColumns ? 'btn-outline-primary' : 'btn-outline-secondary'"
+            type="button"
+            @click="toggleCorePinning"
+            title="Toggle pinning for core columns"
+          >
+            <i class="mdi" :class="pinCoreColumns ? 'mdi-pin' : 'mdi-pin-off'"></i>
+            <span class="ms-1">{{ pinCoreColumns ? 'Pinned Core' : 'Scrolling Core' }}</span>
+          </button>
         </div>
       </div>
 
@@ -99,7 +109,7 @@
  */
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { Chart, registerables } from 'chart.js'
-import type { ColDef, ColGroupDef, ValueFormatterParams } from 'ag-grid-community'
+import type { ColDef, ColGroupDef, ValueFormatterParams, ValueGetterParams } from 'ag-grid-community'
 import ReportingAgGrid from '../components/ReportingAgGrid.vue'
 import BadgeCell from '@/views/acq_module/acq_dash/components/BadgeCell.vue'
 import { activeTracksEnumMap, activeTasksColorMap } from '@/config/badgeTokens'
@@ -128,6 +138,19 @@ const chartType = ref<'bar' | 'line' | 'pie'>('bar')
 const agGridRef = ref<InstanceType<typeof ReportingAgGrid> | null>(null)
 
 const currentGridView = ref<'all' | 'servicing' | 'initial-underwriting' | 'performance' | 're-underwriting' | 'asset-management'>('all')
+const pinCoreColumns = ref<boolean>(true)
+const corePinnedFields = ['trade_name','servicer_id','street_address','city','state','asset_master_status'] as const
+
+function toggleCorePinning(): void {
+  pinCoreColumns.value = !pinCoreColumns.value
+}
+
+function shouldPinField(field?: string): 'left' | undefined {
+  if (!field) return undefined
+  return pinCoreColumns.value && corePinnedFields.includes(field as typeof corePinnedFields[number])
+    ? 'left'
+    : undefined
+}
 
 // WHAT: Value formatters (match existing grid patterns)
 // WHY: Consistent formatting across all grids
@@ -196,16 +219,16 @@ const baseColumnDefs = ref<ColDef[]>([
   {
     headerName: 'Trade Name',
     field: 'trade_name',
-    pinned: 'left',
-    width: 250,
+    width: 130,
+    minWidth: 130,
     headerClass: 'ag-left-aligned-header text-start',
     cellClass: 'ag-left-aligned-cell text-start fw-semibold',
   },
   {
     headerName: 'Servicer ID',
     field: 'servicer_id',
-    pinned: 'left',
-    width: 160,
+    width: 120,
+    minWidth: 120,
     headerClass: 'ag-left-aligned-header text-start',
     cellClass: 'ag-left-aligned-cell text-start',
     hide: true,
@@ -214,7 +237,7 @@ const baseColumnDefs = ref<ColDef[]>([
     headerName: 'Address',
     field: 'street_address',
     width: 260,
-    pinned: 'left',
+    minWidth: 260,
     headerClass: 'ag-left-aligned-header text-start',
     cellClass: 'ag-left-aligned-cell text-start',
   },
@@ -222,15 +245,24 @@ const baseColumnDefs = ref<ColDef[]>([
     headerName: 'City',
     field: 'city',
     width: 180,
-    pinned: 'left',
+    minWidth: 180,
     headerClass: 'ag-left-aligned-header text-start',
     cellClass: 'ag-left-aligned-cell text-start',
   },
   {
     headerName: 'State',
     field: 'state',
-    width: 110,
-    pinned: 'left',
+    width: 90,
+    minWidth: 90,
+    hide: false,
+  },
+  {
+    headerName: 'Lifecycle Status',
+    field: 'asset_master_status',
+    width: 120,
+    minWidth: 120,
+    valueFormatter: (params: ValueFormatterParams) => params.value || '—',
+    hide: true,
   },
   {
     // NOTE: Backend field is purchase_date; header is renamed for UX
@@ -268,9 +300,9 @@ const baseColumnDefs = ref<ColDef[]>([
     valueFormatter: numberFormatter,
     hide: true,
   },
-  // Initial underwriting (purchase) view columns
+  // Purchase view columns
   {
-    headerName: 'Purchase Price',
+    headerName: 'Bid Price',
     field: 'purchase_price',
     width: 150,
     valueFormatter: currencyFormatter,
@@ -310,6 +342,7 @@ const baseColumnDefs = ref<ColDef[]>([
     valueFormatter: percentFormatter,
     hide: true,
   },
+  // Initial underwriting view columns
   {
     headerName: 'Pre-REO Hold (Months)',
     field: 'pre_reo_hold_duration',
@@ -325,6 +358,28 @@ const baseColumnDefs = ref<ColDef[]>([
     hide: true,
   },
   {
+    headerName: 'UW Exit Duration (Months)',
+    field: 'uw_exit_duration_months',
+    width: 210,
+    valueFormatter: numberFormatter,
+    hide: true,
+  },
+  {
+    headerName: 'UW Exit Date',
+    field: 'expected_exit_date',
+    width: 140,
+    valueFormatter: dateFormatter,
+    hide: true,
+  },
+  {
+    headerName: 'Realized Gross Purchase Price',
+    field: 'gross_purchase_price_realized',
+    width: 170,
+    valueFormatter: negativeCurrencyFormatter,
+    cellClass: 'text-danger',
+    hide: true,
+  },
+  {
     headerName: 'Legal Expenses',
     field: 'legal_expenses',
     width: 150,
@@ -333,7 +388,7 @@ const baseColumnDefs = ref<ColDef[]>([
     hide: true,
   },
   {
-    headerName: 'Monthly Servicing Expenses',
+    headerName: 'Servicing Fees',
     field: 'servicing_expenses',
     width: 170,
     valueFormatter: negativeCurrencyFormatter,
@@ -344,6 +399,14 @@ const baseColumnDefs = ref<ColDef[]>([
     headerName: 'REO Expenses',
     field: 'reo_expenses',
     width: 150,
+    valueFormatter: negativeCurrencyFormatter,
+    cellClass: 'text-danger',
+    hide: true,
+  },
+  {
+    headerName: 'Rehab / Trashout',
+    field: 'rehab_trashout_cost',
+    width: 160,
     valueFormatter: negativeCurrencyFormatter,
     cellClass: 'text-danger',
     hide: true,
@@ -365,10 +428,27 @@ const baseColumnDefs = ref<ColDef[]>([
     hide: true,
   },
   {
-    headerName: 'UW Exit Duration (Months)',
-    field: 'uw_exit_duration_months',
-    width: 210,
-    valueFormatter: numberFormatter,
+    headerName: 'UW Total Expenses',
+    field: 'uw_total_expenses',
+    width: 190,
+    valueFormatter: negativeCurrencyFormatter,
+    cellClass: 'text-danger',
+    hide: true,
+  },
+  {
+    headerName: 'Projected Gross Cost',
+    field: 'projected_gross_cost',
+    width: 180,
+    valueFormatter: negativeCurrencyFormatter,
+    cellClass: 'text-danger',
+    hide: true,
+  },
+  {
+    headerName: 'UW P/L',
+    field: 'expected_pl',
+    width: 170,
+    valueFormatter: negativeCurrencyFormatter,
+    cellClass: 'text-danger',
     hide: true,
   },
   // Performance view columns
@@ -383,36 +463,70 @@ const baseColumnDefs = ref<ColDef[]>([
     headerName: 'Current Gross Cost',
     field: 'current_gross_cost',
     width: 170,
-    valueFormatter: currencyFormatter,
-    hide: true,
-  },
-  // Re-underwriting (projections) view columns
-  {
-    headerName: 'UW Exit Date',
-    field: 'expected_exit_date',
-    width: 140,
-    valueFormatter: dateFormatter,
-    hide: true,
-  },
-  {
-    headerName: 'Projected Gross Cost',
-    field: 'projected_gross_cost',
-    width: 180,
     valueFormatter: negativeCurrencyFormatter,
     cellClass: 'text-danger',
     hide: true,
   },
   {
-    headerName: 'UW Projected Gross Proceeds',
+    headerName: 'Realized Gross Purchase Price',
+    field: 'realized_gross_purchase_price',
+    width: 190,
+    valueFormatter: negativeCurrencyFormatter,
+    cellClass: 'text-danger',
+    hide: true,
+  },
+  {
+    headerName: 'Realized Total Expenses',
+    field: 'realized_total_expenses',
+    width: 190,
+    valueFormatter: negativeCurrencyFormatter,
+    cellClass: 'text-danger',
+    hide: true,
+  },
+  {
+    headerName: 'Realized Gross Liquidation Proceeds',
+    field: 'realized_gross_liquidation_proceeds',
+    width: 220,
+    valueFormatter: currencyFormatter,
+    hide: true,
+  },
+  {
+    headerName: 'Realized Net Liquidation Proceeds',
+    field: 'realized_net_liquidation_proceeds',
+    width: 210,
+    valueFormatter: currencyFormatter,
+    hide: true,
+  },
+  // Re-underwriting (projections) view columns
+  {
+    headerName: 'UW Proj. Gross Proceeds',
     field: 'expected_gross_proceeds',
     width: 190,
     valueFormatter: currencyFormatter,
     hide: true,
   },
   {
-    headerName: 'UW Net Proceeds at Exit',
-    field: 'expected_net_proceeds',
+    headerName: 'REO Closing Cost',
+    field: 'reo_closing_cost',
+    width: 170,
+    valueFormatter: negativeCurrencyFormatter,
+    cellClass: 'text-danger',
+    hide: true,
+  },
+  {
+    headerName: 'UW Proj. Net Proceeds',
+    field: 'uw_proj_net_proceeds_calc',
+    colId: 'uw_proj_net_proceeds_calc',
     width: 190,
+    valueGetter: (params: ValueGetterParams<any, any>) => {
+      const gross = params.data?.expected_gross_proceeds
+      if (gross === null || gross === undefined) return null
+      const reoClosing = params.data?.reo_closing_cost ?? 0
+      const grossNum = Number(gross)
+      const closingNum = Number(reoClosing) || 0
+      if (Number.isNaN(grossNum)) return null
+      return grossNum - closingNum
+    },
     valueFormatter: currencyFormatter,
     hide: true,
   },
@@ -497,21 +611,34 @@ const visibleColumnDefs = computed<(ColDef | ColGroupDef)[]>(() => {
     const pick = (fields: string[]): ColDef[] => fields
       .map(f => byField.get(f))
       .filter((c): c is ColDef => !!c)
-      .map(c => ({ ...c, hide: false }))
+      .map(c => {
+        const fieldName = c.field as string | undefined
+        const pinned = shouldPinField(fieldName)
+        return pinned ? { ...c, hide: false, pinned } : { ...c, hide: false }
+      })
 
     return [
-      { headerName: 'Core', marryChildren: true, children: pick(['trade_name','servicer_id','street_address','city','state']) },
+      { headerName: 'Core', marryChildren: true, children: pick(['trade_name','servicer_id','street_address','city','state','asset_master_status']) },
       { headerName: 'Servicing', children: pick(['servicer_current_balance','servicer_total_debt','servicer_next_due_date','months_dlq']) },
-      { headerName: 'Initial Underwriting', children: pick([
+      { headerName: 'Purchase', children: pick([
         'purchase_price','purchase_date','exit_strategy',
         'bid_pct_upb','bid_pct_td','bid_pct_sellerasis','bid_pct_pv',
-        'pre_reo_hold_duration','reo_hold_duration',
-        'legal_expenses','servicing_expenses','reo_expenses','carry_cost','liq_fees',
-        'uw_exit_duration_months','expected_exit_date',
-        'expected_gross_proceeds','expected_net_proceeds','expected_pl','expected_cf','expected_irr','expected_moic',
-        'projected_gross_cost',
       ]) },
-      { headerName: 'Performance', children: pick(['current_duration_months','current_gross_cost']) },
+      { headerName: 'Initial Underwriting', children: pick([
+        'pre_reo_hold_duration','reo_hold_duration',
+        'uw_exit_duration_months','expected_exit_date',
+        'gross_purchase_price_realized',
+        'legal_expenses','servicing_expenses','reo_expenses','rehab_trashout_cost','carry_cost','liq_fees','uw_total_expenses','projected_gross_cost',
+        'expected_gross_proceeds','reo_closing_cost','uw_proj_net_proceeds_calc','expected_pl','expected_cf','expected_irr','expected_moic',
+      ]) },
+      { headerName: 'Performance', children: pick([
+        'current_duration_months',
+        'current_gross_cost',
+        'realized_gross_purchase_price',
+        'realized_total_expenses',
+        'realized_gross_liquidation_proceeds',
+        'realized_net_liquidation_proceeds',
+      ]) },
       { headerName: 'Asset Management', children: pick(['active_tracks','active_tasks']) },
     ]
   }
@@ -519,6 +646,7 @@ const visibleColumnDefs = computed<(ColDef | ColGroupDef)[]>(() => {
   return baseColumnDefs.value.map(col => {
     const field = col.field as string | undefined
     if (!field) return col
+    const pinned = shouldPinField(field)
 
     const alwaysVisible = view === 'servicing'
       ? [
@@ -526,6 +654,7 @@ const visibleColumnDefs = computed<(ColDef | ColGroupDef)[]>(() => {
         'street_address',
         'city',
         'state',
+        'asset_master_status',
         'servicer_id',
       ]
       : [
@@ -533,11 +662,18 @@ const visibleColumnDefs = computed<(ColDef | ColGroupDef)[]>(() => {
         'street_address',
         'city',
         'state',
+        'asset_master_status',
       ]
 
     if (alwaysVisible.includes(field)) {
-      const updated = { ...col, hide: false }
-      return (view === 'servicing' && field === 'servicer_id') ? { ...updated, pinned: 'left' } : updated
+      const updatedBase = { ...col, hide: false }
+      if (view === 'servicing' && field === 'servicer_id') {
+        return { ...updatedBase, pinned: 'left' }
+      }
+      if (pinned) {
+        return { ...updatedBase, pinned }
+      }
+      return updatedBase
     }
 
     const servicingFields = [
@@ -546,19 +682,24 @@ const visibleColumnDefs = computed<(ColDef | ColGroupDef)[]>(() => {
       'servicer_total_debt',
       'servicer_next_due_date',
       'months_dlq',
+      'asset_master_status',
     ]
     const initialUnderwritingFields = [
       'purchase_price','purchase_date','exit_strategy',
       'bid_pct_upb','bid_pct_td','bid_pct_sellerasis','bid_pct_pv',
       'pre_reo_hold_duration','reo_hold_duration',
-      'legal_expenses','servicing_expenses','reo_expenses','carry_cost','liq_fees',
       'uw_exit_duration_months','expected_exit_date',
-      'expected_gross_proceeds','expected_net_proceeds','expected_pl','expected_cf','expected_irr','expected_moic',
-      'projected_gross_cost',
+      'gross_purchase_price_realized',
+      'legal_expenses','servicing_expenses','reo_expenses','rehab_trashout_cost','carry_cost','liq_fees','uw_total_expenses','projected_gross_cost',
+      'expected_gross_proceeds','reo_closing_cost','uw_proj_net_proceeds_calc','expected_pl','expected_cf','expected_irr','expected_moic',
     ]
     const performanceFields = [
       'current_duration_months',
       'current_gross_cost',
+      'realized_gross_purchase_price',
+      'realized_total_expenses',
+      'realized_gross_liquidation_proceeds',
+      'realized_net_liquidation_proceeds',
     ]
     const reUnderwritingFields = [
       'expected_exit_date',
@@ -576,7 +717,8 @@ const visibleColumnDefs = computed<(ColDef | ColGroupDef)[]>(() => {
     if (view === 're-underwriting' && reUnderwritingFields.includes(field)) hide = false
     if (view === 'asset-management' && assetManagementFields.includes(field)) hide = false
 
-    return { ...col, hide }
+    const updated = { ...col, hide }
+    return pinned ? { ...updated, pinned } : updated
   })
 })
 

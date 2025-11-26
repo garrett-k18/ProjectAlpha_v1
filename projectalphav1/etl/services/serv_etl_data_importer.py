@@ -593,17 +593,7 @@ class DataImporter:
                                 existing.save()
 
                                 # Ensure AssetDetails exists and keep trade pointer in sync
-                                try:
-                                    details, created = AssetDetails.objects.get_or_create(
-                                        asset=existing.asset_hub,
-                                        defaults={"trade": existing.trade},
-                                    )
-                                    if not created and details.trade != existing.trade:
-                                        details.trade = existing.trade
-                                        details.save(update_fields=["trade", "updated_at"])
-                                except Exception:
-                                    # Soft-fail: do not block ETL on AssetDetails issues
-                                    logger.exception("Failed to sync AssetDetails for existing asset_hub %s", existing.asset_hub_id)
+                                self._ensure_asset_details(existing.asset_hub, existing.trade)
                             updated_count += 1
                         else:
                             skipped_count += 1
@@ -628,14 +618,7 @@ class DataImporter:
                                 )
 
                                 # Ensure one-to-one AssetDetails row exists for this hub
-                                try:
-                                    AssetDetails.objects.get_or_create(
-                                        asset=asset_hub,
-                                        defaults={"trade": seller_raw.trade},
-                                    )
-                                except Exception:
-                                    # Soft-fail: do not block ETL on AssetDetails issues
-                                    logger.exception("Failed to create AssetDetails for new asset_hub %s", asset_hub.id)
+                                self._ensure_asset_details(asset_hub, seller_raw.trade)
                             saved_count += 1
                         except Exception as insert_error:
                             logger.error(f'Error inserting SellerRawData for {sellertape_id}: {insert_error}')
@@ -646,6 +629,29 @@ class DataImporter:
                     skipped_count += 1
 
         return saved_count, updated_count, skipped_count
+
+    def _ensure_asset_details(self, asset_hub: AssetIdHub, trade: Optional[Trade]):
+        """Guarantee the AssetDetails one-to-one row exists and points to current trade."""
+        try:
+            details, created = AssetDetails.objects.get_or_create(
+                asset=asset_hub,
+                defaults={
+                    "trade": trade,
+                    "asset_status": AssetDetails.AssetStatus.ACTIVE,
+                },
+            )
+            if not created:
+                updates = []
+                if trade and details.trade_id != getattr(trade, "id", None):
+                    details.trade = trade
+                    updates.append("trade")
+                if not details.asset_status:
+                    details.asset_status = AssetDetails.AssetStatus.ACTIVE
+                    updates.append("asset_status")
+                if updates:
+                    details.save(update_fields=updates + ["updated_at"])
+        except Exception:
+            logger.exception("Failed to sync AssetDetails for asset_hub %s", asset_hub_id := getattr(asset_hub, 'id', None))
 
     def _run_batch_geocode_for_new_rows(self) -> Optional[Dict[str, Any]]:
         """Call Geocodio batch helper for all newly created SellerRawData rows."""

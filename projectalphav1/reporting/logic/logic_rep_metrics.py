@@ -279,21 +279,36 @@ def calculate_reo_cost(blended_outcome):
 
 def calculate_liq_fees(blended_outcome):
     """
-    **WHAT**: Calculate total liquidation-related fees for an asset.
-    **WHY**: Combine acquisition/AM liquidation and servicing liquidation fees into one metric.
-    **HOW**: Sum of am_liq_fees, tax_title_transfer_cost, broker_fees, servicing_liq_fee.
-    **BASIS**: Uses BlendedOutcomeModel fields am_liq_fees, tax_title_transfer_cost,
-    broker_fees, servicing_liq_fee in am_module.models.boarded_data.BlendedOutcomeModel.
+    **WHAT**: Calculate liquidation management fees (AM + servicing).
+    **WHY**: Separate people/process fees from property-level closing costs.
+    **HOW**: Sum of am_liq_fees and servicing_liq_fee.
+    **BASIS**: Uses BlendedOutcomeModel fields am_liq_fees and servicing_liq_fee.
     """
     if blended_outcome is None:
         return 0.0
 
     am_liq_fees = getattr(blended_outcome, 'am_liq_fees', None) or 0
-    tax_title_transfer_cost = getattr(blended_outcome, 'tax_title_transfer_cost', None) or 0
-    broker_fees = getattr(blended_outcome, 'broker_fees', None) or 0
     servicing_liq_fee = getattr(blended_outcome, 'servicing_liq_fee', None) or 0
 
-    total = am_liq_fees + tax_title_transfer_cost + broker_fees + servicing_liq_fee
+    total = am_liq_fees + servicing_liq_fee
+
+    return float(total or 0)
+
+
+def calculate_reo_closing_cost(blended_outcome):
+    """
+    **WHAT**: Calculate REO closing costs tied to tax/title transfer and brokers.
+    **WHY**: Track property disposition closing costs separately from liquidation fees.
+    **HOW**: Sum of tax_title_transfer_cost and broker_fees.
+    **BASIS**: Uses BlendedOutcomeModel fields tax_title_transfer_cost and broker_fees.
+    """
+    if blended_outcome is None:
+        return 0.0
+
+    tax_title_transfer_cost = getattr(blended_outcome, 'tax_title_transfer_cost', None) or 0
+    broker_fees = getattr(blended_outcome, 'broker_fees', None) or 0
+
+    total = tax_title_transfer_cost + broker_fees
 
     return float(total or 0)
 
