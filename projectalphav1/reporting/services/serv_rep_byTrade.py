@@ -155,21 +155,12 @@ def get_by_trade_grid_data(request) -> List[Dict[str, Any]]:
                 current_duration_months = 0
 
         projected_gross_cost: Optional[float] = None
-        if purchase_price is not None:
-            purchase_price_val = float(purchase_price or 0)
-            legal_expenses_val = float(getattr(asset, 'legal_expenses', 0) or 0)
-            servicing_expenses_val = float(getattr(asset, 'servicing_expenses', 0) or 0)
-            reo_expenses_val = float(getattr(asset, 'reo_expenses', 0) or 0)
-            carry_cost_val = float(getattr(asset, 'carry_cost', 0) or 0)
-            liq_fees_val = float(getattr(asset, 'liq_fees', 0) or 0)
-            projected_gross_cost = (
-                purchase_price_val
-                + legal_expenses_val
-                + servicing_expenses_val
-                + reo_expenses_val
-                + carry_cost_val
-                + liq_fees_val
-            )
+        gross_purchase_price = getattr(asset, 'gross_purchase_price', None)
+        projected_base = gross_purchase_price if gross_purchase_price is not None else purchase_price
+        if projected_base is not None:
+            base_val = float(projected_base or 0)
+            total_expenses_val = float(getattr(asset, 'uw_total_expenses', 0) or 0)
+            projected_gross_cost = base_val + total_expenses_val
 
         # UW Exit Duration (months between purchase_date and expected_exit_date)
         uw_exit_duration_months: Optional[int] = None
@@ -196,9 +187,9 @@ def get_by_trade_grid_data(request) -> List[Dict[str, Any]]:
             # initial underwriting snapshot (from BlendedOutcomeModel)
             'purchase_price': float(purchase_price or 0) if purchase_price is not None else None,
             'purchase_date': purchase_date_value,
-            'gross_purchase_price_realized': (
-                float(getattr(asset, 'gross_purchase_price_realized', 0) or 0)
-                if getattr(asset, 'gross_purchase_price_realized', None) is not None else None
+            'gross_purchase_price': (
+                float(getattr(asset, 'gross_purchase_price', 0) or 0)
+                if getattr(asset, 'gross_purchase_price', None) is not None else None
             ),
             'exit_strategy': getattr(asset, 'exit_strategy', None),
             'bid_pct_upb': float(getattr(asset, 'bid_pct_upb', 0)) if getattr(asset, 'bid_pct_upb', None) is not None else None,
@@ -220,8 +211,13 @@ def get_by_trade_grid_data(request) -> List[Dict[str, Any]]:
             'current_gross_cost': float(getattr(asset, 'current_gross_cost', 0) or 0),
             'realized_gross_purchase_price': float(getattr(asset, 'realized_gross_purchase_price', 0) or 0),
             'realized_total_expenses': float(getattr(asset, 'realized_total_expenses', 0) or 0),
+            'realized_operating_expenses': float(getattr(asset, 'realized_operating_expenses', 0) or 0),
+            'realized_legal_expenses': float(getattr(asset, 'realized_legal_expenses', 0) or 0),
+            'realized_reo_expenses': float(getattr(asset, 'realized_reo_expenses', 0) or 0),
+            'realized_rehab_trashout': float(getattr(asset, 'realized_rehab_trashout', 0) or 0),
             'realized_gross_liquidation_proceeds': float(getattr(asset, 'realized_gross_liquidation_proceeds', 0) or 0),
             'realized_net_liquidation_proceeds': float(getattr(asset, 'realized_net_liquidation_proceeds', 0) or 0),
+            'realized_gross_cost': float(getattr(asset, 'realized_gross_cost', 0) or 0),
             'projected_gross_cost': projected_gross_cost,
             'expected_exit_date': expected_exit_date_value,
             'expected_gross_proceeds': float(expected_gross_proceeds or 0) if expected_gross_proceeds is not None else None,

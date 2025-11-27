@@ -58,6 +58,14 @@ class BlendedOutcomeModel(models.Model):
     local_market_ext_duration = models.IntegerField(null=True, blank=True, help_text="The duration in months the loan was in local market extension status.")
     rural_ext_duration = models.IntegerField(null=True, blank=True, help_text="The duration in months the loan was in rural status.")
 
+    # Expense Details - Acquisition Costs
+    broker_acq_fees = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total broker fees.")
+    other_fee = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total title fees.")
+    taxtitle_fees = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total transfer fees.")
+    legal_costs = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total legal costs.")
+    due_diligence = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total due diligence costs.")
+    
+
     # Expense Details - Legal
     fc_expenses = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total FC expenses.")
     fc_legal_fees = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total FC legal fees.")
@@ -78,13 +86,13 @@ class BlendedOutcomeModel(models.Model):
     total_other = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total yearly other costs.")
 
     # Expense Details - Fund
-    acq_costs = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="per asset fees when purchasing such as legal, DD, Title, etc.")
+    fund_acq_fee = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="per asset fees when purchasing such as legal, DD, Title, etc.")
     fund_am_fees = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="total am fee over life of asset hold COuld be a per month calc or liq calc")
 
     # Expense Details - Closing Costs
     am_liq_fees = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total liq fees.")
     tax_title_transfer_cost = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The tax, title, and transfer costs.")
-    broker_fees = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The broker fees at closing of REO.")
+    broker_closing_fees = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The broker fees at closing of REO.")
 
     # Expense Details - Servicing Costs
     servicing_board_fee = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The total servicing board fee.")

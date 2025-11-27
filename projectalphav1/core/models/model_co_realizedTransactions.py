@@ -213,7 +213,7 @@ class LLTransactionSummary(models.Model):
     )
     operating_expenses_total_realized = models.DecimalField(
         max_digits=15, decimal_places=2, null=True, blank=True,
-        help_text='Total realized operating expenses (sum of expense_*_realized)'
+        help_text='Total realized operating expenses (excludes servicing fees)'
     )
     legal_total_realized = models.DecimalField(
         max_digits=15, decimal_places=2, null=True, blank=True,
@@ -230,6 +230,10 @@ class LLTransactionSummary(models.Model):
     fund_total_realized = models.DecimalField(
         max_digits=15, decimal_places=2, null=True, blank=True,
         help_text='Total realized fund-level expenses (sum of fund_*_realized)'
+    )
+    rehab_trashout_total_realized = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        help_text='Total realized rehab + trashout costs'
     )
     total_expenses_realized = models.DecimalField(
         max_digits=15, decimal_places=2, null=True, blank=True,
@@ -282,7 +286,6 @@ class LLTransactionSummary(models.Model):
 
         self.operating_expenses_total_realized = (
             z(self.expense_other_realized)
-            + z(self.expense_servicing_realized)
             + z(self.expense_am_fees_realized)
             + z(self.expense_property_tax_realized)
             + z(self.expense_property_insurance_realized)
@@ -315,6 +318,11 @@ class LLTransactionSummary(models.Model):
             + z(self.fund_legal_realized)
             + z(self.fund_consulting_realized)
             + z(self.fund_audit_realized)
+        )
+
+        self.rehab_trashout_total_realized = (
+            z(self.reo_trashout_realized)
+            + z(self.reo_renovation_realized)
         )
 
         closing_cost_total = (

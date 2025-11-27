@@ -190,7 +190,14 @@ class TradeGridSerializer(serializers.Serializer):
     #
     # EXAMPLES:
     purchase_date = serializers.DateField(required=False, allow_null=True)
+    gross_purchase_price = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
     gross_purchase_price_realized = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
+    realized_operating_expenses = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
+    realized_legal_expenses = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
+    realized_reo_expenses = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
+    realized_rehab_trashout = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
+    realized_total_expenses = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
+    realized_gross_cost = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
     exit_strategy = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     reo_closing_cost = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
     uw_total_expenses = serializers.DecimalField(max_digits=15, decimal_places=2, required=False, allow_null=True)
