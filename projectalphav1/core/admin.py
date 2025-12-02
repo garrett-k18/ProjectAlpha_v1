@@ -931,7 +931,7 @@ class LlDataEnrichmentAdmin(admin.ModelAdmin):
     )
 
     # WHAT: Keep pagination small because staff uses filters heavily.
-    list_per_page = 5
+    list_per_page = 50
 
     # WHAT: Eliminate massive select widgets by switching to raw ID inputs.
     raw_id_fields = (
@@ -992,10 +992,10 @@ class LlDataEnrichmentAdmin(admin.ModelAdmin):
         """Load heavy foreign keys up front to avoid per-row SQL hits."""
         qs = super().get_queryset(request)
         return qs.select_related(
-            'seller_raw_data',                 # Base loan row
-            'seller_raw_data__trade',          # Trade info used in filters/search
-            'seller_raw_data__seller',         # Seller info used in search
             'asset_hub',                       # Optional hub link displayed in raw ID widget
+            'asset_hub__acq_raw',              # Base loan row (SellerRawData via hub)
+            'asset_hub__acq_raw__trade',       # Trade info used in filters/search
+            'asset_hub__acq_raw__seller',      # Seller info used in search
         )
 
 

@@ -162,9 +162,6 @@ def _geocodio_http_request(addresses, api_key: str, fields=None):
                 actual_result = inner_response['results'][0]
                 logger.info("[Geocodio][HTTP] Actual result keys: %s", list(actual_result.keys()))
                 
-                # Replace the outer results with the actual geocoding results
-                data['results'] = inner_response['results']
-                
                 if 'fields' in actual_result:
                     fields = actual_result['fields']
                     logger.info("[Geocodio][HTTP] Available fields: %s", list(fields.keys()))
@@ -660,9 +657,7 @@ def _geocode_geocodio(
         # WHAT: Call Geocodio HTTP API directly since Python client is broken
         # WHY: Python client doesn't expose census data properly
         # HOW: Use direct HTTP request and parse JSON response
-        response_data = _geocodio_http_request(address, api_key, fields or [
-            'census2024', 'census', 'census2010'
-        ])
+        response_data = _geocodio_http_request(address, api_key, fields)
         
         if not response_data.get('results'):
             return None, extras
@@ -728,13 +723,21 @@ def _batch_geocode_geocodio(
         return resolved
 
     try:
-        response_data = _geocodio_http_request(list(addresses), api_key, fields or [
-            'census2024', 'census', 'census2010'
-        ])
+        response_data = _geocodio_http_request(list(addresses), api_key, fields)
         raw_results = response_data.get('results', [])
 
         for idx, addr in enumerate(addresses):
-            entry = raw_results[idx] if idx < len(raw_results) else None
+            container = raw_results[idx] if idx < len(raw_results) else None
+            entry = None
+            if isinstance(container, dict) and 'response' in container:
+                response_obj = container.get('response')
+                if isinstance(response_obj, dict):
+                    results_list = response_obj.get('results') or []
+                    if results_list:
+                        entry = results_list[0]
+            else:
+                entry = container
+
             coords, extras = _parse_geocodio_result_entry(entry)
             if coords:
                 norm = _normalize_address_for_dedup([addr])
@@ -807,49 +810,58 @@ def batch_geocode_row_ids(
         logger.warning("[Batch] No unique addresses found!")
         return stats
 
-    effective_chunk = max(1, min(chunk_size, 1000))
-    for i in range(0, len(unique_addresses), effective_chunk):
-        chunk_pairs = unique_addresses[i:i + effective_chunk]
-        payload = [addr for _norm, addr in chunk_pairs]
-        chunk_results = _batch_geocode_geocodio(payload, api_key, fields=fields)
+    for norm, addr in unique_addresses:
+        coords, used_addr, extras = _try_geocoding_candidates([addr], api_key, fields=fields)
         stats["api_calls"] += 1
+        if not coords:
+            continue
 
-        for norm, addr in chunk_pairs:
-            # WHAT: Use the original norm key that was used to create the batch
-            # WHY: Re-normalizing creates different key and causes lookup failures
-            # HOW: Use the norm from chunk_pairs directly
-            result = chunk_results.get(norm)
-            if not result:
-                continue
-            coords, extras, used_addr = result
-            
-            # WHAT: Capture raw response data for CSV export
-            # WHY: User wants to save all responses to avoid wasting API calls
-            # HOW: Store all extracted data plus raw response
-            rows_for_addr = addr_to_rows.get(norm, [])
-            for row_info in rows_for_addr:
-                asset_hub_id = row_info.get("id")
-                raw_response_data = {
-                    'asset_hub_id': asset_hub_id,
-                    'address': used_addr,
-                    'lat': coords[0] if coords else '',
-                    'lng': coords[1] if coords else '',
-                    'msa_name': extras.get('msa_name', ''),
-                    'msa_code': extras.get('msa_code', ''),
-                    'csa_name': extras.get('csa_name', ''),
-                    'csa_code': extras.get('csa_code', '')
-                }
-                stats["raw_responses"].append(raw_response_data)
-            
-            updated = _persist_enrichment_rows(
-                rows_for_addr,
-                coords,
-                extras,
-                used_addr,
-            )
-            stats["updated_rows"] += updated
+        # WHAT: Capture raw response data for CSV export
+        # WHY: User wants to save all responses to avoid wasting API calls
+        # HOW: Store all extracted data plus raw response
+        rows_for_addr = addr_to_rows.get(norm, [])
+        for row_info in rows_for_addr:
+            asset_hub_id = row_info.get("id")
+            raw_response_data = {
+                'asset_hub_id': asset_hub_id,
+                'address': used_addr,
+                'lat': coords[0] if coords else '',
+                'lng': coords[1] if coords else '',
+                'msa_name': extras.get('msa_name', ''),
+                'msa_code': extras.get('msa_code', ''),
+                'csa_name': extras.get('csa_name', ''),
+                'csa_code': extras.get('csa_code', '')
+            }
+            stats["raw_responses"].append(raw_response_data)
+        
+        updated = _persist_enrichment_rows(
+            rows_for_addr,
+            coords,
+            extras,
+            used_addr,
+        )
+        stats["updated_rows"] += updated
 
     return stats
+
+
+def geocode_missing_assets(limit: Optional[int] = None, *, chunk_size: int = 1000, fields: Optional[Sequence[str]] = None) -> Dict[str, Any]:
+    qs = SellerRawData.objects.filter(
+        Q(asset_hub__enrichment__isnull=True)
+        | Q(asset_hub__enrichment__geocode_lat__isnull=True)
+        | Q(asset_hub__enrichment__geocode_lng__isnull=True)
+    ).values_list("pk", flat=True)
+    if limit is not None:
+        qs = qs[:limit]
+    row_ids = list(qs)
+    if not row_ids:
+        return {
+            "requested_rows": 0,
+            "unique_addresses": 0,
+            "updated_rows": 0,
+            "api_calls": 0,
+        }
+    return batch_geocode_row_ids(row_ids, chunk_size=chunk_size, fields=fields)
 
 
 # Function: preview_msa_for_row_ids – fetch MSA/CSA preview data without DB writes.
@@ -1030,15 +1042,6 @@ def geocode_markers_for_seller_trade(seller_id: int, trade_id: int) -> Dict[str,
     
     start_time = time.time()
     print(f'[GEOCODE SERVICE] Starting for seller={seller_id}, trade={trade_id}')
-    
-    api_key = _env_api_key()
-    if not api_key:
-        return {
-            "markers": [],
-            "count": 0,
-            "source": "none",
-            "error": "GEOCODIO_API_KEY missing on server",
-        }
 
     # Query only the fields needed to compose addresses and labels for markers
     query_start = time.time()
@@ -1082,11 +1085,11 @@ def geocode_markers_for_seller_trade(seller_id: int, trade_id: int) -> Dict[str,
     
     try:
         enrichments = LlDataEnrichment.objects.filter(
-            seller_raw_data_id__in=all_asset_ids
-        ).only("seller_raw_data_id", "geocode_lat", "geocode_lng", "geocode_used_address")
-        
-        # Build lookup dict: seller_raw_data_id -> enrichment object
-        enrichment_lookup = {e.seller_raw_data_id: e for e in enrichments}
+            asset_hub_id__in=all_asset_ids
+        ).only("asset_hub_id", "geocode_lat", "geocode_lng", "geocode_used_address", "geocode_display_address", "geocode_msa", "geocode_msa_code")
+
+        # Build lookup dict: asset_hub_id -> enrichment object
+        enrichment_lookup = {e.asset_hub_id: e for e in enrichments}
         enrichment_prefetch_time = time.time() - enrichment_prefetch_start
         print(f'[GEOCODE SERVICE] Prefetched {len(enrichment_lookup)} enrichment records in {enrichment_prefetch_time:.2f}s')
     except Exception as e:
@@ -1105,97 +1108,22 @@ def geocode_markers_for_seller_trade(seller_id: int, trade_id: int) -> Dict[str,
         representative = addr_to_rows[norm][0]
         candidates = representative["candidates"]
         # 1) Prefer DB-persisted geocode if present on any row for this address
-        persisted = None
+        coords: Optional[Tuple[float, float]] = None
         used_addr = None
-        extras: Dict[str, Optional[str]] = {}
         for r in addr_to_rows[norm]:
-            # Use lookup dict instead of database query
             enr = enrichment_lookup.get(r["id"])
             if enr and enr.geocode_lat is not None and enr.geocode_lng is not None:
                 try:
-                    persisted = (float(enr.geocode_lat), float(enr.geocode_lng))
+                    coords = (float(enr.geocode_lat), float(enr.geocode_lng))
                     used_addr = enr.geocode_used_address or None
-                    extras = {
-                        "msa_name": getattr(enr, "geocode_msa", None),
-                        "msa_code": getattr(enr, "geocode_msa_code", None),
-                    }
                     break
                 except Exception:
-                    persisted = None
+                    coords = None
 
-        # WHAT: Always call API to get MSA fields (census data).
-        # WHY: MSA enrichment is critical; don't skip API just because coords exist.
-        # HOW: Call API fresh for every address to extract msa_name and msa_code.
-        coords, used_addr, extras = _try_geocoding_candidates(candidates, api_key)
-        source = "api" if coords else "none"
-
-        # If we obtained coordinates, upsert for all rows sharing this address
-        if coords is not None:
-                lat, lng = coords
-                when = timezone.now()
-                msa_name = extras.get("msa_name")
-                msa_code = extras.get("msa_code")
-                for r in addr_to_rows[norm]:
-                    # safe upsert pattern
-                    enr_obj, _created = LlDataEnrichment.objects.get_or_create(
-                        seller_raw_data_id=r["id"],
-                        defaults={
-                            "geocode_lat": lat,
-                            "geocode_lng": lng,
-                            "geocode_used_address": used_addr or candidates[0],
-                            "geocode_full_address": used_addr or candidates[0],
-                            "geocode_display_address": representative.get("display_name") or "",
-                            "geocoded_at": when,
-                            "geocode_msa": msa_name,
-                            "geocode_msa_code": msa_code,
-                        },
-                    )
-                    # Ensure asset_hub mirrors the raw row's hub
-                    if getattr(enr_obj, 'asset_hub_id', None) is None:
-                        try:
-                            from acq_module.models.model_acq_seller import SellerRawData as _SRD
-                            _raw = _SRD.objects.only('asset_hub_id').get(pk=r["id"])
-                            if getattr(_raw, 'asset_hub_id', None) is not None:
-                                enr_obj.asset_hub_id = _raw.asset_hub_id
-                                enr_obj.save(update_fields=[
-                                    'asset_hub',
-                                ])
-                        except Exception:
-                            pass
-                    # Update existing if empty or different
-                    if not _created:
-                        changed = False
-                        if not enr_obj.geocode_lat or not enr_obj.geocode_lng:
-                            enr_obj.geocode_lat = lat
-                            enr_obj.geocode_lng = lng
-                            changed = True
-                        if not enr_obj.geocode_used_address:
-                            enr_obj.geocode_used_address = used_addr or candidates[0]
-                            changed = True
-                        if not enr_obj.geocode_full_address:
-                            enr_obj.geocode_full_address = used_addr or candidates[0]
-                            changed = True
-                        if not enr_obj.geocode_display_address:
-                            enr_obj.geocode_display_address = representative.get("display_name") or ""
-                            changed = True
-                        if msa_name and not enr_obj.geocode_msa:
-                            enr_obj.geocode_msa = msa_name
-                            changed = True
-                        if msa_code and not getattr(enr_obj, "geocode_msa_code", None):
-                            enr_obj.geocode_msa_code = msa_code
-                            changed = True
-                        if changed:
-                            enr_obj.geocoded_at = when
-                            enr_obj.save(update_fields=[
-                                "geocode_lat", "geocode_lng", "geocode_used_address",
-                                "geocode_full_address", "geocode_display_address",
-                                "geocode_msa", "geocode_msa_code",
-                                "geocoded_at",
-                            ])
-        if source == "api":
-            any_api_calls = True
-        if not coords:
+        # If no persisted coordinates, skip this address (no external API calls).
+        if coords is None:
             continue
+
         lat, lng = coords
         markers.append({
             "lat": float(lat),
@@ -1205,10 +1133,7 @@ def geocode_markers_for_seller_trade(seller_id: int, trade_id: int) -> Dict[str,
         })
 
     # Determine overall source for response
-    if any_api_calls:
-        source = "api"
-    else:
-        source = "db"
+    source = "db"
     
     enrichment_time = time.time() - enrichment_start
     total_time = time.time() - start_time

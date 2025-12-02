@@ -67,7 +67,12 @@ def build_queryset(
     qs = (
         SellerRawData.objects
         .filter(seller_id=seller_id, trade_id=trade_id)
-        .select_related('seller', 'trade', 'asset_hub')  # Optimize joins for serializer access
+        .select_related(
+            'seller', 
+            'trade', 
+            'asset_hub',
+            'asset_hub__enrichment',  # WHAT: Include enrichment for MSA/county from Geocodio
+        )
         .prefetch_related(
             # WHAT: Prefetch valuations with grade relationship eager loaded
             # WHY: Serializer needs access to v.grade.code without N+1 queries

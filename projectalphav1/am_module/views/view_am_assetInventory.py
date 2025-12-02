@@ -96,7 +96,7 @@ class AssetInventoryViewSet(ViewSet):
         asset = get_object_or_404(
             SellerRawData.objects.select_related("asset_hub__ammetrics", "asset_hub__blended_outcome_model", "seller", "trade"),
             pk=pk,
-            acq_status=Trade.Status.BOARD,
+            trade__status=Trade.Status.BOARD,
         )
 
         # WHAT: Enrich single asset with all computed fields
@@ -122,7 +122,7 @@ class AssetInventoryViewSet(ViewSet):
         asset = get_object_or_404(
             SellerRawData.objects.select_related("asset_hub"),
             pk=pk,
-            acq_status=Trade.Status.BOARD,
+            trade__status=Trade.Status.BOARD,
         )
         
         # WHAT: Extract asset_master_status from request and validate against AssetDetails.AssetStatus choices
@@ -158,7 +158,7 @@ class AssetInventoryViewSet(ViewSet):
         asset = get_object_or_404(
             SellerRawData.objects.select_related("asset_hub"),
             pk=pk,
-            acq_status=Trade.Status.BOARD,
+            trade__status=Trade.Status.BOARD,
         )
         hub = getattr(asset, 'asset_hub', None)
         if hub is None:
@@ -187,7 +187,7 @@ class AssetInventoryViewSet(ViewSet):
         asset = get_object_or_404(
             SellerRawData.objects.select_related("asset_hub"),
             pk=pk,
-            acq_status=Trade.Status.BOARD,
+            trade__status=Trade.Status.BOARD,
         )
         hub = getattr(asset, 'asset_hub', None)
         if hub is None:
@@ -253,7 +253,7 @@ class AssetInventoryViewSet(ViewSet):
         asset = get_object_or_404(
             SellerRawData.objects.select_related("asset_hub"),
             pk=pk,
-            acq_status=Trade.Status.BOARD,
+            trade__status=Trade.Status.BOARD,
         )
         raw = asset  # WHAT: SellerRawData already contains the acquisition row; no extra lookup needed
 
@@ -299,7 +299,7 @@ def asset_dashboard_stats(request):
     active_assets_count = (
         SellerRawData.objects
         .filter(
-            acq_status=Trade.Status.BOARD,  # FIELD: acq_status references Trade.Status enum
+            trade__status=Trade.Status.BOARD,  # FIELD: acq_status references Trade.Status enum
             asset_hub__details__asset_status=AssetDetails.AssetStatus.ACTIVE,  # FIELD: AssetDetails.asset_status (master status)
         )
         .count()
@@ -307,7 +307,7 @@ def asset_dashboard_stats(request):
     liquidated_assets_count = (
         SellerRawData.objects
         .filter(
-            acq_status=Trade.Status.BOARD,  # FIELD: acq_status references Trade.Status enum
+            trade__status=Trade.Status.BOARD,  # FIELD: acq_status references Trade.Status enum
             asset_hub__details__asset_status=AssetDetails.AssetStatus.LIQUIDATED,  # FIELD: AssetDetails.asset_status (master status)
         )
         .count()
@@ -347,11 +347,12 @@ def asset_geo_markers(request: Request):
     qs = build_queryset(q=q, filters=filters, ordering=None)
     qs = qs.filter(asset_hub__details__asset_status=AssetDetails.AssetStatus.ACTIVE)
     # WHAT: Pull related enrichment + metadata up front to avoid N+1 lookups while iterating.
-    qs = qs.select_related('enrichment', 'asset_hub', 'seller', 'trade')
+    qs = qs.select_related('asset_hub__enrichment', 'asset_hub', 'seller', 'trade')
     # WHY: Emit one marker per asset record so the frontend renders individual pins rather than clustered aggregates.
     markers = []
     for row in qs:
-        enrichment = getattr(row, 'enrichment', None)
+        hub = getattr(row, 'asset_hub', None)
+        enrichment = getattr(hub, 'enrichment', None) if hub is not None else None
         lat = getattr(enrichment, 'geocode_lat', None)
         lng = getattr(enrichment, 'geocode_lng', None)
         if lat is None or lng is None:

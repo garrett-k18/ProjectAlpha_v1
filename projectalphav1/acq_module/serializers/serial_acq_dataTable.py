@@ -449,6 +449,64 @@ class SellerRawDataRowSerializer(serializers.Serializer):
         status = getattr(obj, 'acq_status', None)
         return status == getattr(SellerRawData, 'AcquisitionStatus', None).DROP if status else False
 
+    def get_msa(self, obj):
+        """Return friendly MSA display name.
+        
+        Priority:
+        1. Enrichment geocode_msa (from Geocodio - most accurate)
+        2. HUD crosswalk msa_name annotation
+        3. HUD crosswalk msa_code annotation
+        """
+        try:
+            # First try enrichment data (Geocodio)
+            hub = getattr(obj, 'asset_hub', None)
+            if hub:
+                enrichment = getattr(hub, 'enrichment', None)
+                if enrichment:
+                    geocode_msa = getattr(enrichment, 'geocode_msa', None)
+                    if geocode_msa:
+                        return geocode_msa
+            
+            # Fall back to HUD crosswalk annotations
+            name = getattr(obj, 'msa_name', None)
+            code = getattr(obj, 'msa_code', None)
+            if name:
+                return name
+            if code:
+                return code
+            return None
+        except Exception:
+            return None
+    
+    def get_county(self, obj):
+        """Return county name.
+        
+        Priority:
+        1. Enrichment geocode_county_name (from Geocodio - most accurate)
+        2. Enrichment geocode_county (legacy field)
+        3. HUD crosswalk msa_county annotation (if available)
+        """
+        try:
+            # First try enrichment data (Geocodio)
+            hub = getattr(obj, 'asset_hub', None)
+            if hub:
+                enrichment = getattr(hub, 'enrichment', None)
+                if enrichment:
+                    # Try geocode_county_name first (newer field)
+                    county_name = getattr(enrichment, 'geocode_county_name', None)
+                    if county_name:
+                        return county_name
+                    # Fall back to geocode_county (legacy field)
+                    county = getattr(enrichment, 'geocode_county', None)
+                    if county:
+                        return county
+            
+            # Fall back to HUD crosswalk annotation
+            msa_county = getattr(obj, 'msa_county', None)
+            return msa_county or None
+        except Exception:
+            return None
+
 
 class SellerOptionSerializer(serializers.ModelSerializer):
     """Serializer for seller dropdown options."""
@@ -533,8 +591,24 @@ class SellerRawDataDetailSerializer(serializers.ModelSerializer):
             return False
     
     def get_msa(self, obj):
-        """Return friendly MSA display name (fall back to code)."""
+        """Return friendly MSA display name.
+        
+        Priority:
+        1. Enrichment geocode_msa (from Geocodio - most accurate)
+        2. HUD crosswalk msa_name annotation
+        3. HUD crosswalk msa_code annotation
+        """
         try:
+            # First try enrichment data (Geocodio)
+            hub = getattr(obj, 'asset_hub', None)
+            if hub:
+                enrichment = getattr(hub, 'enrichment', None)
+                if enrichment:
+                    geocode_msa = getattr(enrichment, 'geocode_msa', None)
+                    if geocode_msa:
+                        return geocode_msa
+            
+            # Fall back to HUD crosswalk annotations
             name = getattr(obj, 'msa_name', None)
             code = getattr(obj, 'msa_code', None)
             if name:
@@ -546,10 +620,31 @@ class SellerRawDataDetailSerializer(serializers.ModelSerializer):
             return None
     
     def get_county(self, obj):
-        """Return county derived from ZIP reference lookup (if available)."""
+        """Return county name.
+        
+        Priority:
+        1. Enrichment geocode_county_name (from Geocodio - most accurate)
+        2. Enrichment geocode_county (legacy field)
+        3. HUD crosswalk msa_county annotation (if available)
+        """
         try:
-            county_name = getattr(obj, 'msa_county', None)
-            return county_name or None
+            # First try enrichment data (Geocodio)
+            hub = getattr(obj, 'asset_hub', None)
+            if hub:
+                enrichment = getattr(hub, 'enrichment', None)
+                if enrichment:
+                    # Try geocode_county_name first (newer field)
+                    county_name = getattr(enrichment, 'geocode_county_name', None)
+                    if county_name:
+                        return county_name
+                    # Fall back to geocode_county (legacy field)
+                    county = getattr(enrichment, 'geocode_county', None)
+                    if county:
+                        return county
+            
+            # Fall back to HUD crosswalk annotation
+            msa_county = getattr(obj, 'msa_county', None)
+            return msa_county or None
         except Exception:
             return None
 

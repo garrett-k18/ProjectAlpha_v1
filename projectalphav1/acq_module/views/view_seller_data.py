@@ -114,8 +114,7 @@ def get_seller_trade_data(request, seller_id, trade_id=None):
         # Used to filter by drop status: 'drops' shows dropped assets, others show active
         view = request.GET.get('view', 'snapshot')
         
-        # Build queryset using service layer with NO server-side filters/sorting.
-        # All filtering will be handled client-side by AG Grid.
+        # Build queryset using service layer with server-side filtering on drop status
         qs = build_queryset(
             seller_id=seller_id,
             trade_id=trade_id,
@@ -130,11 +129,17 @@ def get_seller_trade_data(request, seller_id, trade_id=None):
         page = paginator.paginate_queryset(qs, request)
     except Exception as e:
         logger.error(f"Query build/pagination failed for seller_id={seller_id}, trade_id={trade_id}: {e}")
-        # Attempt a minimal fallback using raw values() without service layer
+        # Attempt a minimal fallback while STILL respecting drop status
         try:
-            raw_qs = SellerRawData.objects.filter(seller_id=seller_id, trade_id=trade_id).values()
+            raw_qs = SellerRawData.objects.filter(seller_id=seller_id, trade_id=trade_id)
+            # Respect view flag even in fallback: only DROPs in drops view, KEEP otherwise
+            if view == 'drops':
+                raw_qs = raw_qs.filter(acq_status=SellerRawData.AcquisitionStatus.DROP)
+            else:
+                raw_qs = raw_qs.exclude(acq_status=SellerRawData.AcquisitionStatus.DROP)
+
             paginator = StandardResultsSetPagination()
-            page = paginator.paginate_queryset(list(raw_qs), request)
+            page = paginator.paginate_queryset(list(raw_qs.values()), request)
             return paginator.get_paginated_response(page)
         except Exception as e2:
             logger.error(f"Fallback raw values pagination failed: {e2}")

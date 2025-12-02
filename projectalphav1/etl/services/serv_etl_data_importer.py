@@ -23,7 +23,7 @@ from django.db import transaction
 from django.utils.dateparse import parse_date
 
 from acq_module.models.model_acq_seller import SellerRawData, Seller, Trade
-from core.models import AssetIdHub, AssetDetails
+from core.models import AssetIdHub, AssetDetails, LlDataEnrichment
 from core.services.serv_co_geocoding import batch_geocode_row_ids
 from etl.services.serv_etl_ai_seller_matcher import AISellerMatcher
 from etl.services.serv_etl_ai_mapper import validate_choice_value
@@ -619,6 +619,12 @@ class DataImporter:
 
                                 # Ensure one-to-one AssetDetails row exists for this hub
                                 self._ensure_asset_details(asset_hub, seller_raw.trade)
+
+                                # Ensure one-to-one LlDataEnrichment row exists for this hub
+                                LlDataEnrichment.objects.get_or_create(
+                                    asset_hub=asset_hub,
+                                    defaults={},
+                                )
                             saved_count += 1
                         except Exception as insert_error:
                             logger.error(f'Error inserting SellerRawData for {sellertape_id}: {insert_error}')
