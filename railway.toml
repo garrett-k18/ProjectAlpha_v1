@@ -15,8 +15,8 @@ cmds = [
 # Force rebuild: 2025-11-07 21:30 - Fixed BOARD status bug and migrated asset data
 
 [deploy]
-startCommand = "python manage.py migrate && python manage.py collectstatic --noinput && gunicorn projectalphav1.wsgi:application --bind 0.0.0.0:$PORT"
-healthcheckPath = "/api/"
+startCommand = "cd projectalphav1 && python manage.py migrate && python manage.py collectstatic --noinput && gunicorn projectalphav1.wsgi:application --bind 0.0.0.0:$PORT"
+healthcheckPath = "/api/health/"
 healthcheckTimeout = 100
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
@@ -25,5 +25,6 @@ restartPolicyMaxRetries = 3
 # Railway will use DATABASE_URL from your environment
 DJANGO_SETTINGS_MODULE = "projectalphav1.settings"
 PYTHONUNBUFFERED = "1"
+DJANGO_DEBUG = "0"
 
 

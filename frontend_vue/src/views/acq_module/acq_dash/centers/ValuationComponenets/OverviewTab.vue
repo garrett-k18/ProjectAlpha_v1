@@ -434,8 +434,10 @@ function formatCurrency(val: number | null): string {
 // WHY: Display values in familiar currency format
 // HOW: Accept any type and safely convert to number or null
 function formatCurrencyForInput(val: any): string {
-  const num = typeof val === 'number' ? val : null
-  if (num == null) return ''
+  // Accept numbers or numeric strings from API (DecimalField -> string)
+  if (val == null || val === '') return ''
+  const num = typeof val === 'number' ? val : Number(String(val).replace(/[^0-9.-]/g, ''))
+  if (!Number.isFinite(num)) return ''
   return '$' + new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(num)
 }
 

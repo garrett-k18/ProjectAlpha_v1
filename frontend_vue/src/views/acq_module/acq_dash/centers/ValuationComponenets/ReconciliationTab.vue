@@ -381,8 +381,10 @@ function formatCurrency(val: number | null | undefined): string {
 // WHAT: Format currency for input field (with $ symbol and commas)
 // WHY: Display values in familiar currency format
 function formatCurrencyForInput(val: any): string {
-  const num = typeof val === 'number' ? val : null
-  if (num == null) return ''
+  // Accept numbers or numeric strings from API (DecimalField -> string)
+  if (val == null || val === '') return ''
+  const num = typeof val === 'number' ? val : Number(String(val).replace(/[^0-9.-]/g, ''))
+  if (!Number.isFinite(num)) return ''
   return '$' + new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(num)
 }
 
@@ -418,7 +420,7 @@ function formatInputOnType(event: Event) {
 
 // WHAT: Save internal valuation value (AIV or ARV)
 // WHY: Update internal underwriting values on blur or enter
-function handleSaveInternalValue(asset: any, field: string, event: Event) {
+function handleSaveInternalValue(asset: any, field: 'asis' | 'arv', event: Event) {
   const input = event.target as HTMLInputElement
   const rawValue = input.value.replace(/[^0-9]/g, '')
   const numericValue = rawValue ? parseFloat(rawValue) : null

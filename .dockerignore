@@ -1,0 +1,55 @@
+# Prevent local environment files from being deployed to Railway
+# Railway should use environment variables set in the Railway Dashboard
+
+# Environment files
+.env
+.env.*
+!.env.example
+!.env.template
+
+# Local development
+.venv/
+venv/
+ENV/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+
+# IDE and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Documentation and admin files
+*.md
+!README.md
+projectalphav1/z.Admin/
+
+# Node modules (if Vue is built separately)
+node_modules/
+frontend_vue/node_modules/
+
+# Build artifacts
+*.log
+npm-debug.log*
+.npm
+
+# Local data uploads
+projectalphav1/z.Admin/DataUploads/
+Bat_Files/
+
+# Terminal history
+.cursor/
+
+# Other
+prompt_output.txt
+

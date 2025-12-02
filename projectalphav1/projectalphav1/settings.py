@@ -30,15 +30,30 @@ DATA_UPLOAD_MAX_NUMBER_FIELDS = int(
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# WHAT: Load .env files for local development only
+# WHY: Railway and production should use OS environment variables, not .env files
+# HOW: python-dotenv only loads variables that don't already exist in os.environ
+# NOTE: .dockerignore prevents .env from being deployed to Railway
+print(f"🔧 Django starting from: {BASE_DIR}")
+print(f"📝 Checking for .env files (Railway deployments use OS env vars instead)...")
+
 # Load environment variables from project `.env` if present
 # This allows local development without exporting env vars manually.
-load_dotenv(dotenv_path=str(BASE_DIR / '.env'))
+env_file_path = BASE_DIR / '.env'
+if env_file_path.exists():
+    load_dotenv(dotenv_path=str(env_file_path))
+    print(f"✅ Loaded .env from: {env_file_path}")
+else:
+    print(f"ℹ️  No .env found (expected for Railway deployment)")
 
 # ALSO load from the repository root `.env` if present (one level above BASE_DIR)
 # This supports setups where the top-level workspace stores environment vars.
 try:
     from pathlib import Path as _Path
-    load_dotenv(dotenv_path=str(_Path(BASE_DIR).parent / '.env'))
+    root_env_path = _Path(BASE_DIR).parent / '.env'
+    if root_env_path.exists():
+        load_dotenv(dotenv_path=str(root_env_path))
+        print(f"✅ Loaded root .env from: {root_env_path}")
 except Exception:
     # Non-fatal; continue if the extra .env is not present
     pass
@@ -51,9 +66,20 @@ def get_database_url():
     Automatically select database URL for Django app based on DJANGO_DB setting.
     Valid environments: 'dev', 'newdev', 'prod', 'local'
     """
-    # Check if DATABASE_URL is explicitly set (manual override)
-    if os.getenv('DATABASE_URL'):
-        return os.getenv('DATABASE_URL')
+    # Check if DATABASE_URL is explicitly set (Railway production override)
+    explicit_url = os.getenv('DATABASE_URL')
+    if explicit_url:
+        print(f"🗄️  Using explicit DATABASE_URL from environment")
+        if 'neon.tech' in explicit_url:
+            if 'ep-icy-haze' in explicit_url:
+                print(f"   → Connected to: Neon DEV branch")
+            elif 'ep-orange-hat' in explicit_url:
+                print(f"   → Connected to: Neon NEWDEV branch")
+            elif 'ep-sweet-unit' in explicit_url:
+                print(f"   → Connected to: Neon PROD branch")
+            else:
+                print(f"   → Connected to: Neon (unknown branch)")
+        return explicit_url
     
     # Get Django database selector (default to 'dev' for safety)
     db_env = os.getenv('DJANGO_DB', 'dev').lower()
@@ -77,9 +103,9 @@ def get_database_url():
             host_identifier = 'NEWDEV'
         elif 'ep-sweet-unit' in db_url:
             host_identifier = 'PROD'
-        print(f"Database: {db_env.upper()} ({host_identifier})")
+        print(f"🗄️  Using DJANGO_DB={db_env.upper()} → Neon {host_identifier} branch")
     else:
-        print(f"Database: LOCAL PostgreSQL")
+        print(f"🗄️  Using local PostgreSQL database")
     
     return db_url
 

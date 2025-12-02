@@ -19,9 +19,14 @@ from django.urls import path, include, re_path
 from django.conf import settings
 from django.conf.urls.static import static
 from django.views.generic import TemplateView, RedirectView
+from core.views.view_co_health import health_check
 
 urlpatterns = [
     path('admin/', admin.site.urls),  # Use standard Django admin
+    # WHAT: Health check endpoint for Railway deployment monitoring
+    # WHY: Railway needs a reliable endpoint to verify service is running
+    # WHERE: Used by Railway healthcheck configuration in railway.toml
+    path('api/health/', health_check, name='health-check'),
     path('api/acq/', include('acq_module.urls')),
     path('api/', include('am_module.urls')),
     path('api/core/', include('core.urls')),  # Core module API endpoints (assumptions, etc.)
