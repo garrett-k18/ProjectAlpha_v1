@@ -65,8 +65,10 @@ from .views.view_acq_status import (
     # Asset-level status management
     drop_asset,
     restore_asset,
+    bulk_drop_assets,
+    bulk_restore_assets,
 )
-from .views.view_acq_directImport import import_seller_tape
+from .views.view_acq_directImport import import_seller_tape, preview_seller_tape
 from .views.view_acq_model import (
     get_asset_model_recommendations,
     bulk_model_recommendations,
@@ -95,6 +97,8 @@ urlpatterns = [
     # Asset actions (drop/restore)
     path('assets/<int:asset_id>/drop/', drop_asset, name='api_drop_asset'),
     path('assets/<int:asset_id>/restore/', restore_asset, name='api_restore_asset'),
+    path('assets/bulk-drop/', bulk_drop_assets, name='api_bulk_drop_assets'),
+    path('assets/bulk-restore/', bulk_restore_assets, name='api_bulk_restore_assets'),
     # Model recommendations
     path('assets/<int:asset_id>/model-recommendations/', get_asset_model_recommendations, name='api_asset_model_recommendations'),
     path('model-recommendations/bulk/', bulk_model_recommendations, name='api_bulk_model_recommendations'),
@@ -186,8 +190,9 @@ urlpatterns = [
     path('state-references/judicial/', get_judicial_states, name='api_judicial_states'),
     # Asset-scoped foreclosure timeline
     path('assets/<int:id>/fc-timeline/', AssetFCTimelineView.as_view(), name='api_asset_fc_timeline'),
-    # Import seller tape endpoint
+    # Import seller tape endpoints
     path('import-seller-tape/', import_seller_tape, name='api_import_seller_tape'),
+    path('preview-seller-tape/', preview_seller_tape, name='api_preview_seller_tape'),
     # Test endpoint to verify logging
     path('test-logging/', test_logging, name='api_test_logging'),
 ]

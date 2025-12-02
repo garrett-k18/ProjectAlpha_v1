@@ -207,6 +207,106 @@ def drop_asset(request, asset_id):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 @authentication_classes([TokenAuthentication])  # Token auth only, no session = no CSRF
+def bulk_drop_assets(request):
+    """Bulk drop many assets in a single transaction.
+
+    Request JSON:
+        { "asset_ids": [123, 456, ...] }
+    """
+    asset_ids = request.data.get("asset_ids") if isinstance(request.data, dict) else None
+    if not isinstance(asset_ids, list) or not asset_ids:
+        return Response({
+            "error": "asset_ids list is required",
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # Normalize to integers and drop invalid values quietly
+    normalized_ids = []
+    for raw_id in asset_ids:
+        try:
+            normalized_ids.append(int(raw_id))
+        except (TypeError, ValueError):
+            continue
+
+    if not normalized_ids:
+        return Response({
+            "error": "No valid asset IDs provided",
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    qs = SellerRawData.objects.filter(asset_hub_id__in=normalized_ids)
+    trade_ids = list(qs.values_list("trade_id", flat=True).distinct())
+
+    with transaction.atomic():
+        updated_count = qs.update(acq_status=SellerRawData.AcquisitionStatus.DROP)
+
+        # Refresh trade-level status for affected trades
+        for trade_id in trade_ids:
+            if not trade_id:
+                continue
+            try:
+                trade = Trade.objects.get(pk=trade_id)
+                trade.refresh_status_from_assets()
+            except Trade.DoesNotExist:
+                continue
+
+    return Response({
+        "status": "dropped",
+        "updated_count": updated_count,
+        "asset_ids": normalized_ids,
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+@authentication_classes([TokenAuthentication])  # Token auth only, no session = no CSRF
+def bulk_restore_assets(request):
+    """Bulk restore many assets in a single transaction.
+
+    Request JSON:
+        { "asset_ids": [123, 456, ...] }
+    """
+    asset_ids = request.data.get("asset_ids") if isinstance(request.data, dict) else None
+    if not isinstance(asset_ids, list) or not asset_ids:
+        return Response({
+            "error": "asset_ids list is required",
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    normalized_ids = []
+    for raw_id in asset_ids:
+        try:
+            normalized_ids.append(int(raw_id))
+        except (TypeError, ValueError):
+            continue
+
+    if not normalized_ids:
+        return Response({
+            "error": "No valid asset IDs provided",
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    qs = SellerRawData.objects.filter(asset_hub_id__in=normalized_ids)
+    trade_ids = list(qs.values_list("trade_id", flat=True).distinct())
+
+    with transaction.atomic():
+        updated_count = qs.update(acq_status=SellerRawData.AcquisitionStatus.KEEP)
+
+        for trade_id in trade_ids:
+            if not trade_id:
+                continue
+            try:
+                trade = Trade.objects.get(pk=trade_id)
+                trade.refresh_status_from_assets()
+            except Trade.DoesNotExist:
+                continue
+
+    return Response({
+        "status": "restored",
+        "updated_count": updated_count,
+        "asset_ids": normalized_ids,
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+@authentication_classes([TokenAuthentication])  # Token auth only, no session = no CSRF
 def restore_asset(request, asset_id):
     """Restore a dropped asset back to active bidding pool.
     

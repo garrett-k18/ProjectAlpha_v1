@@ -156,6 +156,9 @@ def build_base_queryset() -> QuerySet[SellerRawData]:
         # WHAT: Next due date from servicer
         # WHY: Track payment schedules
         servicer_next_due_date=F('asset_hub__servicer_loan_data__next_due_date'),
+        
+        servicer_current_fico=F('asset_hub__servicer_loan_data__current_fico'),
+        servicer_maturity_date=F('asset_hub__servicer_loan_data__maturity_date'),
     )
 
     # Only annotate BlendedOutcomeModel fields if the table exists
@@ -164,12 +167,20 @@ def build_base_queryset() -> QuerySet[SellerRawData]:
         queryset = queryset.annotate(
             purchase_date=F('asset_hub__blended_outcome_model__purchase_date'),
             purchase_price=F('asset_hub__blended_outcome_model__purchase_price'),
+            expected_exit_date=F('asset_hub__blended_outcome_model__expected_exit_date'),
+            expected_gross_proceeds=F('asset_hub__blended_outcome_model__expected_gross_proceeds'),
+            expected_net_proceeds=F('asset_hub__blended_outcome_model__expected_net_proceeds'),
+            expected_pl=F('asset_hub__blended_outcome_model__expected_pl'),
+            expected_cf=F('asset_hub__blended_outcome_model__expected_cf'),
             realized_total_expenses=F('asset_hub__ll_transaction_summary__total_expenses_realized'),
             realized_operating_expenses=F('asset_hub__ll_transaction_summary__operating_expenses_total_realized'),
             realized_legal_expenses=F('asset_hub__ll_transaction_summary__legal_total_realized'),
             realized_reo_expenses=F('asset_hub__ll_transaction_summary__reo_total_realized'),
             realized_rehab_trashout=F('asset_hub__ll_transaction_summary__rehab_trashout_total_realized'),
+            expense_servicing_realized=F('asset_hub__ll_transaction_summary__expense_servicing_realized'),
+            realized_reo_closing_cost=F('asset_hub__ll_transaction_summary__reo_closing_cost_realized'),
             realized_gross_cost=F('asset_hub__ll_transaction_summary__realized_gross_cost'),
+            realized_gross_purchase_price=F('asset_hub__ll_transaction_summary__gross_purchase_price_realized'),
             expected_irr=F('asset_hub__blended_outcome_model__expected_irr'),
             expected_moic=F('asset_hub__blended_outcome_model__expected_moic'),
             expected_hold_duration=F('asset_hub__blended_outcome_model__expected_hold_duration'),
@@ -308,7 +319,7 @@ def build_base_queryset() -> QuerySet[SellerRawData]:
         # ====================================================================
         # 🏢 ASSET HUB FIELDS - Master asset data & realized P&L
         # ====================================================================
-        # WHAT: Asset master status from AssetDetails
+        asset_master_status=F('asset_hub__details__asset_status'),
 
         # Initial underwriting percentage bids
         bid_pct_upb=F('asset_hub__blended_outcome_model__bid_pct_upb'),

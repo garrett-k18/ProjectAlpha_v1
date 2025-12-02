@@ -202,6 +202,10 @@ class LLTransactionSummary(models.Model):
         max_digits=15, decimal_places=2, null=True, blank=True,
         help_text='Actual other closing costs'
     )
+    reo_closing_cost_realized = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        help_text='Actual REO closing costs (broker + other closing fees)'
+    )
 
 
     # ------------------------------
@@ -325,7 +329,7 @@ class LLTransactionSummary(models.Model):
             + z(self.reo_renovation_realized)
         )
 
-        closing_cost_total = (
+        self.reo_closing_cost_realized = (
             z(self.broker_closing_realized)
             + z(self.other_closing_realized)
         )
@@ -337,7 +341,7 @@ class LLTransactionSummary(models.Model):
             + z(self.reo_total_realized)
             + z(self.cre_total_realized)
             + z(self.fund_total_realized)
-            + closing_cost_total
+            + z(self.reo_closing_cost_realized)
         )
 
         self.realized_gross_cost = (

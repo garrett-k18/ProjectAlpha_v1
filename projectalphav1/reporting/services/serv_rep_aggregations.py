@@ -23,6 +23,7 @@ Docs reviewed:
 from typing import List, Dict, Any
 from django.db.models import QuerySet, Sum, Avg, Count, Max, Min, Q, F, DecimalField, Value, Case, When
 from django.db.models.functions import Coalesce
+from django.utils import timezone
 from acq_module.models.model_acq_seller import SellerRawData
 
 
@@ -46,25 +47,51 @@ def calculate_summary_metrics(queryset: QuerySet[SellerRawData]) -> Dict[str, An
     # WHAT: Aggregate all metrics in single query
     # WHY: More efficient than multiple queries
     # HOW: Use aggregate() with multiple aggregation functions
+    # NOTE: Avoid Coalesce with aggregate() - handle None values in Python instead
+    # NOTE: gross_purchase_price is an annotated field from build_base_queryset, use it directly
     aggregates = queryset.aggregate(
-        total_upb=Coalesce(Sum('current_balance'), 0.0, output_field=DecimalField()),
+        total_upb=Sum('current_balance'),
         asset_count=Count('pk'),
-        avg_ltv=Coalesce(
-            Avg(
-                Case(
-                    When(
-                        seller_asis_value__gt=0,
-                        then=F('current_balance') * 100.0 / F('seller_asis_value')
-                    ),
-                    default=Value(None),
-                    output_field=DecimalField(),
-                )
-            ),
-            0.0,
-            output_field=DecimalField()
+        # WHAT: Count liquidated/closed assets
+        # WHY: Display liquidated count vs total on dashboard header
+        # HOW: Filter by asset_hub__details__asset_status (same path as queryBuilder annotation)
+        liquidated_count=Count(
+            'pk', 
+            filter=Q(asset_hub__details__asset_status__iexact='LIQUIDATED') | Q(asset_hub__details__asset_status__iexact='CLOSED')
+        ),
+        # WHAT: Sum of realized gross purchase price from LLTransactionSummary
+        # WHY: Display total investment cost on dashboard header (true cost from realized transactions)
+        # HOW: Use annotated field from queryBuilder that pulls from ll_transaction_summary
+        gross_purchase_price_sum=Sum('realized_gross_purchase_price'),
+        avg_ltv=Avg(
+            Case(
+                When(
+                    seller_asis_value__gt=0,
+                    then=F('current_balance') * 100.0 / F('seller_asis_value')
+                ),
+                default=Value(None),
+                output_field=DecimalField(),
+            )
         ),
         total_delinquent=Count('pk', filter=Q(months_dlq__gt=0)),
     )
+
+    # Weighted average current hold duration (months) using purchase_price as weight
+    hold_weighted_sum = 0.0
+    hold_total_weight = 0.0
+    today = timezone.now().date()
+
+    for purchase_date, purchase_price in queryset.values_list('purchase_date', 'purchase_price'):
+        if purchase_date and purchase_price is not None:
+            months = (today.year - purchase_date.year) * 12 + (today.month - purchase_date.month)
+            if months < 0:
+                months = 0
+            weight = float(purchase_price or 0)
+            if weight > 0:
+                hold_weighted_sum += months * weight
+                hold_total_weight += weight
+
+    avg_current_hold = (hold_weighted_sum / hold_total_weight) if hold_total_weight > 0 else 0.0
     
     # WHAT: Calculate delinquency rate as percentage
     # WHY: Display as percentage (0-100) not decimal
@@ -77,8 +104,11 @@ def calculate_summary_metrics(queryset: QuerySet[SellerRawData]) -> Dict[str, An
     return {
         'total_upb': float(aggregates['total_upb'] or 0),
         'asset_count': asset_count,
+        'liquidated_count': aggregates['liquidated_count'] or 0,
+        'gross_purchase_price': float(aggregates['gross_purchase_price_sum'] or 0),
         'avg_ltv': float(aggregates['avg_ltv'] or 0),
         'delinquency_rate': round(delinquency_rate, 2),
+        'avg_current_hold': float(avg_current_hold),
     }
 
 

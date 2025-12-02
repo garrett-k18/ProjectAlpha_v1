@@ -4,6 +4,34 @@
     <div class="d-flex card-header justify-content-between align-items-center">
       <h4 class="header-title">Data Tape – {{ viewTitle }}</h4>
       <div class="d-flex align-items-center gap-2">
+        <!-- Bulk action buttons - show when rows are selected -->
+        <div v-if="selectedRowCount > 0" class="d-flex align-items-center gap-2 me-2">
+          <span class="badge bg-primary">{{ selectedRowCount }} selected</span>
+          <button 
+            v-if="activeView !== 'drops'"
+            class="btn btn-sm btn-warning text-nowrap" 
+            @click="showBulkDropModal = true"
+            title="Drop selected assets"
+          >
+            <i class="mdi mdi-arrow-down-circle me-1"></i>Bulk Drop
+          </button>
+          <button 
+            v-if="activeView === 'drops'"
+            class="btn btn-sm btn-success text-nowrap" 
+            @click="showBulkRestoreModal = true"
+            title="Restore selected assets"
+          >
+            <i class="mdi mdi-plus-circle me-1"></i>Bulk Restore
+          </button>
+          <button 
+            class="btn btn-sm btn-outline-secondary" 
+            @click="clearSelection"
+            title="Clear selection"
+          >
+            <i class="mdi mdi-close"></i>
+          </button>
+        </div>
+        
         <!-- View selector -->
         <label for="viewSelect" class="me-1 small mb-0">View</label>
         <select id="viewSelect" class="form-select form-select-sm" v-model="activeView" @change="applyView">
@@ -28,12 +56,14 @@
         :rowData="rowData"
         :columnDefs="columnDefs"
         :defaultColDef="defaultColDef"
-        :rowSelection="{ mode: 'multiRow', checkboxes: false, headerCheckbox: false, enableClickSelection: true }"
+        :rowSelection="{ mode: 'multiRow', checkboxes: true, headerCheckbox: true, selectAll: 'filtered', enableClickSelection: true }"
+        :selectionColumnDef="{ pinned: 'left', lockPosition: 'left', suppressMovable: true }"
         :pagination="true"
         :paginationPageSize="50"
         :paginationPageSizeSelector="[25, 50, 100, 200, 500]"
         overlayNoRowsTemplate="No rows"
         @grid-ready="onGridReady"
+        @selection-changed="updateSelectedRows"
       />
     </div>
   </div>
@@ -79,6 +109,66 @@
       </div>
     </template>
   </BModal>
+
+  <!-- Bulk Drop Confirmation Modal -->
+  <BModal
+    v-model="showBulkDropModal"
+    title="Drop Multiple Assets"
+    centered
+    hide-header-close
+  >
+    <div class="text-center">
+      <p class="mb-2">Are you sure you want to drop <strong>{{ selectedRowCount }}</strong> assets?</p>
+      <div v-if="selectedRows.length > 0 && selectedRows.length <= 10" class="text-start small bg-light p-2 rounded" style="max-height: 200px; overflow-y: auto;">
+        <div v-for="row in selectedRows" :key="row.id" class="mb-1">
+          • {{ row.id }} - {{ getAssetAddress(row) }}
+        </div>
+      </div>
+      <p v-if="selectedRows.length > 10" class="text-muted small">
+        (Showing summary - too many to list)
+      </p>
+    </div>
+    <template #footer>
+      <div class="d-flex justify-content-end w-100 gap-2">
+        <button class="btn btn-secondary" @click="showBulkDropModal = false" :disabled="bulkProcessing">Cancel</button>
+        <button class="btn btn-warning" @click="confirmBulkDrop" :disabled="bulkProcessing">
+          <span v-if="bulkProcessing" class="spinner-border spinner-border-sm me-1"></span>
+          <i v-else class="mdi mdi-arrow-down-circle me-1"></i>
+          Drop {{ selectedRowCount }} Assets
+        </button>
+      </div>
+    </template>
+  </BModal>
+
+  <!-- Bulk Restore Confirmation Modal -->
+  <BModal
+    v-model="showBulkRestoreModal"
+    title="Restore Multiple Assets"
+    centered
+    hide-header-close
+  >
+    <div class="text-center">
+      <p class="mb-2">Are you sure you want to restore <strong>{{ selectedRowCount }}</strong> assets?</p>
+      <div v-if="selectedRows.length > 0 && selectedRows.length <= 10" class="text-start small bg-light p-2 rounded" style="max-height: 200px; overflow-y: auto;">
+        <div v-for="row in selectedRows" :key="row.id" class="mb-1">
+          • {{ row.id }} - {{ getAssetAddress(row) }}
+        </div>
+      </div>
+      <p v-if="selectedRows.length > 10" class="text-muted small">
+        (Showing summary - too many to list)
+      </p>
+    </div>
+    <template #footer>
+      <div class="d-flex justify-content-end w-100 gap-2">
+        <button class="btn btn-secondary" @click="showBulkRestoreModal = false" :disabled="bulkProcessing">Cancel</button>
+        <button class="btn btn-success" @click="confirmBulkRestore" :disabled="bulkProcessing">
+          <span v-if="bulkProcessing" class="spinner-border spinner-border-sm me-1"></span>
+          <i v-else class="mdi mdi-plus-circle me-1"></i>
+          Restore {{ selectedRowCount }} Assets
+        </button>
+      </div>
+    </template>
+  </BModal>
 </template>
 
 <script setup lang="ts">
@@ -103,8 +193,8 @@ const constantColumns: ColDef[] = [
     headerName: 'Actions',
     colId: 'actions',
     pinned: 'left',
-    width: 220,
-    minWidth: 210,  // Keep fixed width for Actions column (has buttons)
+    width: 170,
+    minWidth: 160,
     lockPosition: true,
     suppressMovable: true,
     sortable: false,
@@ -617,6 +707,34 @@ const assetToDrop = ref<any>(null)
 const showRestoreModal = ref(false)
 const assetToRestore = ref<any>(null)
 
+// Bulk selection state
+const selectedRows = ref<any[]>([])
+const selectedRowCount = computed(() => selectedRows.value.length)
+
+// Bulk modal state
+const showBulkDropModal = ref(false)
+const showBulkRestoreModal = ref(false)
+const bulkProcessing = ref(false)
+
+/**
+ * WHAT: Update selected rows from AG Grid selection
+ * WHY: Track selection for bulk actions
+ */
+function updateSelectedRows(): void {
+  if (!gridApi.value) return
+  selectedRows.value = gridApi.value.getSelectedRows() || []
+}
+
+/**
+ * WHAT: Clear all row selections
+ * WHY: Allow user to deselect all rows
+ */
+function clearSelection(): void {
+  if (!gridApi.value) return
+  gridApi.value.deselectAll()
+  selectedRows.value = []
+}
+
 // Helper to build address string from row data
 function getAssetAddress(row: any): string {
   const street = String(row?.street_address ?? '').trim()
@@ -682,6 +800,75 @@ async function confirmRestore(): Promise<void> {
   } catch (error: any) {
     console.error('[AcqGrid] Failed to add asset back to population:', error)
     alert(`Failed to add asset back: ${error?.response?.data?.error || error?.message || 'Unknown error'}`)
+  }
+}
+
+// Confirm bulk drop action
+async function confirmBulkDrop(): Promise<void> {
+  if (selectedRows.value.length === 0) return
+  
+  bulkProcessing.value = true
+  const rows = [...selectedRows.value]
+  const assetIds = rows
+    .map(row => row?.id ?? row?.asset_hub_id)
+    .filter((id): id is number | string => id !== null && id !== undefined)
+
+  console.log('[AcqGrid] Bulk dropping', assetIds.length, 'assets')
+  
+  try {
+    await http.post('/acq/assets/bulk-drop/', {
+      asset_ids: assetIds,
+      reason: 'Bulk dropped from grid by user',
+    })
+
+    // Close modal and clear selection
+    showBulkDropModal.value = false
+    clearSelection()
+    
+    // Clear cache to force fresh data
+    gridRowsStore.clearCache()
+    
+    // Refresh view
+    await maybeFetchRows()
+    
+    // Switch to Drops view to show where they went
+    activeView.value = 'drops'
+    applyView()
+    
+  } finally {
+    bulkProcessing.value = false
+  }
+}
+
+// Confirm bulk restore action
+async function confirmBulkRestore(): Promise<void> {
+  if (selectedRows.value.length === 0) return
+  
+  bulkProcessing.value = true
+  const rows = [...selectedRows.value]
+  const assetIds = rows
+    .map(row => row?.id ?? row?.asset_hub_id)
+    .filter((id): id is number | string => id !== null && id !== undefined)
+
+  console.log('[AcqGrid] Bulk restoring', assetIds.length, 'assets')
+  
+  try {
+    await http.post('/acq/assets/bulk-restore/', {
+      asset_ids: assetIds,
+    })
+
+    // Close modal and clear selection
+    showBulkRestoreModal.value = false
+    clearSelection()
+    
+    // Clear cache to force fresh data
+    gridRowsStore.clearCache()
+    
+    // Refresh view
+    await maybeFetchRows()
+    
+  } finally {
+    bulkProcessing.value = false
   }
 }
 

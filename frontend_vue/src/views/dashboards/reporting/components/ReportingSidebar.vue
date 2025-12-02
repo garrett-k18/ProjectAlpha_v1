@@ -3,9 +3,19 @@
     <div class="card-body">
       <!-- Filters Section -->
       <div class="mb-4">
-        <h5 class="card-title mb-3">
-          <i class="mdi mdi-filter-variant me-2"></i>
-          Filters
+        <h5 class="card-title mb-3 d-flex justify-content-between align-items-center">
+          <span>
+            <i class="mdi mdi-filter-variant me-2"></i>
+            Filters
+          </span>
+          <button
+            class="btn btn-sm btn-secondary"
+            type="button"
+            @click="emit('open-settings')"
+          >
+            <i class="mdi mdi-cog me-1"></i>
+            Settings
+          </button>
         </h5>
 
         <!-- Multi-select Fund/Partnerships -->
@@ -207,7 +217,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, watchEffect } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useReportingStore } from '@/stores/reporting'
 
@@ -219,6 +229,7 @@ const emit = defineEmits<{
   (e: 'view-change', view: string): void
   (e: 'filters-change'): void
   (e: 'reset-filters'): void
+  (e: 'open-settings'): void
 }>()
 
 const reportingStore = useReportingStore()
@@ -270,6 +281,19 @@ watch([selectedTradeIds, selectedTracks, selectedTaskStatuses, selectedPartnersh
   localDateStart.value = dateRangeStart.value
   localDateEnd.value = dateRangeEnd.value
 }, { immediate: true })
+
+// **WHAT**: Re-fetch trades when partnership selection changes
+// **WHY**: Only show trades that belong to the selected partnership(s)
+// **HOW**: Watch localPartnershipIds and call fetchTradeOptions with partnership filter
+watch(localPartnershipIds, async (newPartnershipIds) => {
+  // WHAT: Clear selected trades when partnership changes
+  // WHY: Previously selected trades may not belong to the new partnership
+  localTradeIds.value = []
+  
+  // WHAT: Fetch trades filtered by selected partnerships
+  // WHY: Only show relevant trades in the dropdown
+  await reportingStore.fetchTradeOptions(true, newPartnershipIds.length > 0 ? newPartnershipIds : undefined)
+}, { deep: true })
 
 // **WHAT**: Check if any filters have changed from store state
 // **WHY**: Enable/disable Apply button
@@ -443,8 +467,6 @@ function changeView(viewName: string): void {
   left: 0;
   right: 0;
   z-index: 1000;
-  max-height: 200px;
-  overflow-y: auto;
   background-color: white;
   border: 1px solid #dee2e6;
   border-radius: 0.25rem;

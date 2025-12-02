@@ -40,11 +40,12 @@ from reporting.serializers.serial_rep_filterOptions import (
 @api_view(['GET'])
 def trade_options(request):
     """
-    WHAT: Return all trades for sidebar filter dropdown
+    WHAT: Return all trades for sidebar filter dropdown (optionally filtered by partnership)
     WHY: Populate trade multi-select filter with Trade model data
-    WHERE: Called when reporting dashboard loads
+    WHERE: Called when reporting dashboard loads or when partnership filter changes
     
     ENDPOINT: GET /api/reporting/trades/
+    QUERY PARAMS: ?partnership_ids=1,2,3 (optional - filter by partnerships)
     
     RETURNS: 200 OK with list of trade options
         [
@@ -60,12 +61,24 @@ def trade_options(request):
     
     USAGE in frontend:
         axios.get('/api/reporting/trades/')
+        // OR filter by partnership:
+        axios.get('/api/reporting/trades/?partnership_ids=1,2')
         // Populate sidebar dropdown with trade names
     """
     try:
+        # WHAT: Parse optional partnership_ids from query params
+        # WHY: Filter trades to only show those belonging to selected partnership(s)
+        partnership_ids = None
+        partnership_ids_str = request.GET.get('partnership_ids', '').strip()
+        if partnership_ids_str:
+            try:
+                partnership_ids = [int(pid) for pid in partnership_ids_str.split(',') if pid.strip()]
+            except ValueError:
+                partnership_ids = None
+        
         # WHAT: Delegate to service layer
         # WHY: Keep view thin, business logic in service
-        trades = get_trade_options_data()
+        trades = get_trade_options_data(partnership_ids=partnership_ids)
         
         # WHAT: Serialize data using field definitions
         # WHY: Validate and format response

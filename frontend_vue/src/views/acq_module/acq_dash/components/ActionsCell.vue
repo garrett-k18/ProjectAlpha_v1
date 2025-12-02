@@ -1,6 +1,6 @@
 <template>
   <!--
-    Actions cell: provides a row-select checkbox and action buttons.
+    Actions cell: provides action buttons for each row.
     - View: Opens loan-level details modal
     - Edit: Opens edit modal (future implementation)
     - Notes: Opens notes modal (future implementation)
@@ -10,17 +10,10 @@
     Buttons emit an action back to the parent via the onAction callback passed
     through cellRendererParams. Styling uses Bootstrap 5 utility classes for
     consistency with the template.
+    
+    Note: Row selection checkbox is now handled by AG Grid's built-in selection column.
   -->
   <div class="actions-cell d-flex align-items-center gap-2 h-100">
-    <!-- Row selection checkbox tied to AG Grid selection state -->
-    <input
-      class="form-check-input m-0"
-      type="checkbox"
-      :checked="isSelected"
-      @change="onToggleSelection($event)"
-      :aria-label="`Select row ${rowId}`"
-    />
-
     <!-- Compact action buttons. Show different buttons based on drop status. -->
     <div class="btn-group btn-group-sm" role="group" aria-label="Row actions">
       <button type="button" class="btn btn-outline-primary" @click="emitAction('view')" title="View">
@@ -67,12 +60,6 @@ const props = defineProps<{ params: ICellRendererParams & {
 } }>()
 
 // Access helpers
-const isSelected = computed<boolean>(() => {
-  const node = (props?.params as any)?.node
-  if (!node || typeof node.isSelected !== 'function') return false
-  return node.isSelected() === true
-})
-const rowId = computed(() => props.params.node.id)
 const acqStatus = computed<string>(() => {
   // Surface the acquisition lifecycle status string from backend row data
   const status = props.params.data?.acq_status
@@ -83,16 +70,6 @@ const isDropped = computed<boolean>(() => {
   // Treat rows with acquisition status DROP as removed from active bidding
   return acqStatus.value === 'DROP'
 })
-
-/**
- * Toggle selection using AG Grid API so the grid stays in sync.
- */
-function onToggleSelection(event: Event) {
-  const target = event.target as HTMLInputElement
-  const checked = !!target?.checked
-  // Select this node only (do not clear others); source = UI event
-  props.params.node.setSelected(checked)
-}
 
 /**
  * Emit an action back to the parent via the provided callback.

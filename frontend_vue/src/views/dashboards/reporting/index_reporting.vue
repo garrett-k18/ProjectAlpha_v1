@@ -3,18 +3,6 @@
     <b-row>
       <b-col class="col-12">
         <div class="page-title-box">
-          <div class="page-title-right">
-            <div class="d-flex gap-2">
-              <button class="btn btn-sm btn-success" @click="handleExport">
-                <i class="mdi mdi-download me-1"></i>
-                Export
-              </button>
-              <button class="btn btn-sm btn-secondary" @click="showSettingsModal = true">
-                <i class="mdi mdi-cog me-1"></i>
-                Settings
-              </button>
-            </div>
-          </div>
           <h4 class="page-title">Reporting Dashboard</h4>
         </div>
       </b-col>
@@ -27,6 +15,7 @@
           @view-change="handleViewChange"
           @filters-change="handleFiltersChange"
           @reset-filters="handleResetFilters"
+          @open-settings="showSettingsModal = true"
         />
       </b-col>
 

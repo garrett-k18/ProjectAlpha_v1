@@ -27,11 +27,14 @@ from acq_module.models.model_acq_seller import Trade
 from core.models import FundLegalEntity
 
 
-def get_trade_options_data() -> List[Dict[str, Any]]:
+def get_trade_options_data(partnership_ids: Optional[List[int]] = None) -> List[Dict[str, Any]]:
     """
-    WHAT: Get all trades for sidebar filter dropdown
+    WHAT: Get all trades for sidebar filter dropdown (optionally filtered by partnership)
     WHY: Populate trade multi-select filter
-    HOW: Query Trade model with Seller details
+    HOW: Query Trade model with Seller details, filter by partnership if provided
+    
+    ARGS:
+        partnership_ids: Optional list of FundLegalEntity IDs to filter trades by
     
     RETURNS: List of trade option dicts
         [
@@ -47,8 +50,12 @@ def get_trade_options_data() -> List[Dict[str, Any]]:
     
     USAGE in view:
         trade_options = get_trade_options_data()
+        # OR filter by partnership:
+        trade_options = get_trade_options_data(partnership_ids=[1, 2])
         return Response(trade_options)
     """
+    from acq_module.models.model_acq_seller import SellerRawData
+    
     # WHAT: Query all trades with seller details
     # WHY: Show trade name + seller name in dropdown for context
     # HOW: Use select_related to avoid N+1 queries
@@ -59,26 +66,43 @@ def get_trade_options_data() -> List[Dict[str, Any]]:
         # WHY: Reporting module only shows boarded loans, not trades in due diligence
         # HOW: Filter by status = 'BOARD'
         .filter(status='BOARD')
-        .annotate(
-            # WHAT: Count of assets in this trade
-            # WHY: Show user how many assets per trade in dropdown
-            # HOW: Count SellerRawData rows via reverse FK relationship
-            # NOTE: related_name is 'seller_raw_data' on SellerRawData.trade FK
-            asset_count=Count('seller_raw_data'),
-            # WHAT: Get seller name via FK annotation
-            # WHY: Include seller name in results
-            # HOW: Use F() expression to reference related field
-            seller_name=F('seller__name'),
-        )
-        .values(
-            'id',
-            'trade_name',
-            'seller_name',  # WHAT: Use annotated field
-            'status',
-            'asset_count',
-        )
-        .order_by('trade_name')  # WHAT: Alphabetical order for dropdown
     )
+    
+    # WHAT: Filter trades by partnership if provided
+    # WHY: When user selects a partnership, only show trades that have assets in that partnership
+    # HOW: Find trades that have at least one asset linked to the selected partnership(s)
+    if partnership_ids and len(partnership_ids) > 0:
+        # WHAT: Get trade IDs that have assets in the selected partnership(s)
+        # WHY: Filter trades based on AssetDetails.fund_legal_entity relationship
+        # HOW: Query SellerRawData → asset_hub → details → fund_legal_entity
+        trade_ids_with_partnership = (
+            SellerRawData.objects
+            .filter(
+                trade__status='BOARD',
+                asset_hub__details__fund_legal_entity_id__in=partnership_ids
+            )
+            .values_list('trade_id', flat=True)
+            .distinct()
+        )
+        trades = trades.filter(id__in=trade_ids_with_partnership)
+    
+    trades = trades.annotate(
+        # WHAT: Count of assets in this trade
+        # WHY: Show user how many assets per trade in dropdown
+        # HOW: Count SellerRawData rows via reverse FK relationship
+        # NOTE: related_name is 'seller_raw_data' on SellerRawData.trade FK
+        asset_count=Count('seller_raw_data'),
+        # WHAT: Get seller name via FK annotation
+        # WHY: Include seller name in results
+        # HOW: Use F() expression to reference related field
+        seller_name=F('seller__name'),
+    ).values(
+        'id',
+        'trade_name',
+        'seller_name',  # WHAT: Use annotated field
+        'status',
+        'asset_count',
+    ).order_by('trade_name')  # WHAT: Alphabetical order for dropdown
     
     # WHAT: Convert QuerySet to list of dicts
     # WHY: Ready for serialization

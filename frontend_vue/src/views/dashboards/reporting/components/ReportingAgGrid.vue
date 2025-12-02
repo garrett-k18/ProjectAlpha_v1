@@ -19,7 +19,7 @@
     - Loading overlay
     - Empty state
   -->
-  <div class="reporting-ag-grid-container">
+  <div :class="containerClasses">
     <!-- Grid Toolbar -->
     <div class="grid-toolbar mb-2 d-flex justify-content-between align-items-center">
       <div class="d-flex gap-2 align-items-center">
@@ -43,8 +43,7 @@
           @click="showColumnPanel = !showColumnPanel"
           title="Show/Hide Columns"
         >
-          <i class="mdi mdi-view-column me-1"></i>
-          Columns
+          <i class="mdi mdi-view-column"></i>
         </button>
 
         <!-- Auto-size All Columns -->
@@ -54,6 +53,15 @@
           title="Auto-size all columns"
         >
           <i class="mdi mdi-arrow-expand-horizontal"></i>
+        </button>
+
+        <!-- Full Window Toggle -->
+        <button
+          class="btn btn-sm btn-outline-secondary"
+          @click="toggleFullWindow"
+          :title="isFullWindow ? 'Exit full window mode' : 'Expand grid to full window'"
+        >
+          <i class="mdi" :class="isFullWindow ? 'mdi-arrow-collapse' : 'mdi-arrow-expand'"></i>
         </button>
 
         <!-- Reset Grid -->
@@ -67,33 +75,24 @@
       </div>
 
       <div class="d-flex gap-2">
-        <!-- Row Count Badge -->
-        <span class="badge bg-primary-lighten text-primary align-self-center">
-          {{ rowCount }} {{ rowCount === 1 ? 'row' : 'rows' }}
-        </span>
-
         <!-- Export Dropdown -->
         <div class="dropdown">
           <button
             class="btn btn-sm btn-success dropdown-toggle"
             type="button"
-            data-bs-toggle="dropdown"
-            aria-expanded="false"
+            @click="showExportDropdown = !showExportDropdown"
           >
             <i class="mdi mdi-download me-1"></i>
             Export
           </button>
-          <ul class="dropdown-menu dropdown-menu-end">
+          <ul
+            class="dropdown-menu dropdown-menu-end"
+            :class="{ show: showExportDropdown }"
+          >
             <li>
-              <a class="dropdown-item" href="#" @click.prevent="exportToCsv">
+              <a class="dropdown-item" href="#" @click.prevent="handleExportCsv">
                 <i class="mdi mdi-file-delimited me-2"></i>
                 Export as CSV
-              </a>
-            </li>
-            <li>
-              <a class="dropdown-item" href="#" @click.prevent="exportToExcel">
-                <i class="mdi mdi-file-excel me-2"></i>
-                Export as Excel
               </a>
             </li>
           </ul>
@@ -144,11 +143,13 @@
       <ag-grid-vue
         ref="gridRef"
         class="reporting-grid"
-        :style="{ width: '100%', height: gridHeight }"
+        :style="{ width: '100%', height: computedGridHeight }"
         :theme="themeQuartz"
         :columnDefs="columnDefs"
         :rowData="rowData"
         :defaultColDef="defaultColDef"
+        :rowClassRules="rowClassRules"
+        :getRowStyle="getRowStyle"
         :pagination="pagination"
         :paginationPageSize="pageSize"
         :paginationPageSizeSelector="pageSizeOptions"
@@ -157,11 +158,14 @@
         :animateRows="true"
         :enableCellTextSelection="true"
         :loading="loading"
+        :pinnedTopRowData="pinnedTopRowData"
         overlayNoRowsTemplate="No data available"
         overlayLoadingTemplate="Loading..."
         @grid-ready="onGridReady"
         @row-clicked="onRowClicked"
         @selection-changed="onSelectionChanged"
+        @filter-changed="onFilterOrSortChanged"
+        @sort-changed="onFilterOrSortChanged"
       />
     </div>
 
@@ -239,9 +243,11 @@ const emit = defineEmits<{
 const gridApi = ref<GridApi | null>(null)
 
 // WHAT: UI state
-// WHY: Control toolbar buttons and panels
+// WHY: Control toolbar buttons, panels, and dropdowns
 const showColumnPanel = ref<boolean>(false)
+const isFullWindow = ref<boolean>(false)
 const quickFilterText = ref<string>('')
+const showExportDropdown = ref<boolean>(false)
 
 // WHAT: Page size selector options
 // WHY: Let users choose how many rows per page
@@ -265,6 +271,27 @@ const defaultColDef = ref<ColDef>({
 // WHY: Power the column management panel
 const allColumns = ref<Array<{ field: string; headerName: string; visible: boolean }>>([])
 
+// WHAT: Row class rules
+// WHY: Use AG Grid + Bootstrap classes to style special rows (e.g., pinned aggregate row)
+const rowClassRules: { [cssClass: string]: (params: any) => boolean } = {
+  // Highlight pinned top row using Bootstrap utilities
+  'table-active fw-bold': (params: any) => params.node?.rowPinned === 'top',
+}
+
+// WHAT: Inline row styling for pinned aggregate row
+// WHY: AG Grid v34 with themeQuartz needs inline styles for reliable styling
+function getRowStyle(params: any): any {
+  if (params.node?.rowPinned === 'top') {
+    return {
+      backgroundColor: '#f8f9fa',
+      fontWeight: 'bold',
+      borderTop: '3px solid #6c757d',
+      borderBottom: '3px solid #6c757d',
+    }
+  }
+  return undefined
+}
+
 // WHAT: Computed row count
 // WHY: Display in toolbar badge
 const rowCount = computed(() => props.rowData?.length || 0)
@@ -276,6 +303,10 @@ const statusBarText = computed(() => {
   if (rowCount.value === 0) return 'No data available'
   return `Drag column headers to reorder • Right-click for options • Double-click header edge to auto-size`
 })
+
+// WHAT: Pinned top row data for aggregates
+// WHY: Show totals based on currently filtered rows, not affected by filters
+const pinnedTopRowData = ref<any[]>([])
 
 // WHAT: Loading overlay component
 // WHY: Custom loading spinner
@@ -343,6 +374,129 @@ function syncColumnState(): void {
     }))
 }
 
+// WHAT: Recalculate pinned top aggregate row from currently filtered rows
+// WHY: Show totals that always reflect current grid filters (option A)
+// HOW: Use aggFunc from column definitions to determine aggregation type
+function updatePinnedTopRowFromGrid(): void {
+  // Use rowData prop directly since sidebar filters modify it before passing to grid
+  // This ensures aggregates reflect the externally filtered data
+  const rows = props.rowData || []
+
+  if (rows.length === 0) {
+    pinnedTopRowData.value = []
+    return
+  }
+
+  // Build a map of field -> aggFunc from column definitions
+  const leaves = getLeafColumns(props.columnDefs)
+  const aggFuncMap: Record<string, { type: string; weightField?: string; numeratorField?: string; denominatorField?: string }> = {}
+  for (const col of leaves) {
+    if (col.field) {
+      const colAny = col as any
+      if (colAny.aggFunc) {
+        aggFuncMap[col.field] = typeof colAny.aggFunc === 'string' 
+          ? { type: colAny.aggFunc } 
+          : colAny.aggFunc
+      }
+    }
+  }
+
+  const totalRow: Record<string, any> = {}
+
+  // Calculate aggregates based on aggFunc
+  for (const col of leaves) {
+    const field = col.field
+    if (!field) continue
+
+    const aggConfig = aggFuncMap[field]
+    
+    if (!aggConfig) {
+      // Default: sum for numbers, skip for non-numbers
+      const firstVal = rows.find(r => r[field] != null)?.[field]
+      if (typeof firstVal === 'number') {
+        totalRow[field] = rows.reduce((sum, r) => sum + (Number(r[field]) || 0), 0)
+      }
+      continue
+    }
+
+    switch (aggConfig.type) {
+      case 'sum':
+        totalRow[field] = rows.reduce((sum, r) => sum + (Number(r[field]) || 0), 0)
+        break
+      
+      case 'count':
+        totalRow[field] = rows.filter(r => r[field] != null && r[field] !== '').length
+        break
+      
+      case 'avg':
+        const validVals = rows.filter(r => r[field] != null && !isNaN(Number(r[field])))
+        totalRow[field] = validVals.length > 0
+          ? validVals.reduce((sum, r) => sum + Number(r[field]), 0) / validVals.length
+          : 0
+        break
+      
+      case 'weightedAvg':
+        // Weighted average using weightField (e.g., purchase_price)
+        const wf = aggConfig.weightField || 'purchase_price'
+        let totalWeight = 0
+        let weightedSum = 0
+        for (const r of rows) {
+          const val = Number(r[field])
+          const weight = Number(r[wf]) || 0
+          if (!isNaN(val) && weight > 0) {
+            weightedSum += val * weight
+            totalWeight += weight
+          }
+        }
+        totalRow[field] = totalWeight > 0 ? Math.round(weightedSum / totalWeight) : 0
+        break
+      case 'ratioOfSums': {
+        // Ratio of sums for percentage fields, e.g. (Σ bid) / (Σ balance) * 100
+        const nf = aggConfig.numeratorField
+        const df = aggConfig.denominatorField
+        if (!nf || !df) {
+          totalRow[field] = ''
+          break
+        }
+        let numSum = 0
+        let denomSum = 0
+        for (const r of rows) {
+          const num = Number(r[nf])
+          const den = Number(r[df])
+          if (!isNaN(num)) numSum += num
+          if (!isNaN(den)) denomSum += den
+        }
+        totalRow[field] = denomSum > 0 ? (numSum / denomSum) * 100 : 0
+        break
+      }
+      
+      case 'skip':
+        // Don't aggregate this field
+        totalRow[field] = ''
+        break
+      
+      default:
+        // Unknown aggFunc, default to sum for numbers
+        const fv = rows.find(r => r[field] != null)?.[field]
+        if (typeof fv === 'number') {
+          totalRow[field] = rows.reduce((sum, r) => sum + (Number(r[field]) || 0), 0)
+        }
+    }
+  }
+
+  // WHAT: Label first visible column so the row is clearly a total row
+  const firstColField = allColumns.value[0]?.field
+  if (firstColField) {
+    totalRow[firstColField] = 'Aggregate'
+  }
+
+  pinnedTopRowData.value = [totalRow]
+}
+
+function onFilterOrSortChanged(): void {
+  updatePinnedTopRowFromGrid()
+}
+
 /**
  * WHAT: Toggle column visibility
  * WHY: Show/hide columns from management panel
@@ -361,6 +515,20 @@ function toggleColumn(field: string): void {
  * WHAT: Quick filter text changed
  * WHY: Apply search across all columns
  */
+const containerClasses = computed(() => ({
+  'reporting-ag-grid-container': true,
+  'full-window': isFullWindow.value,
+}))
+
+const computedGridHeight = computed(() => {
+  if (isFullWindow.value) {
+    return 'calc(100vh - 180px)'
+  }
+  return props.gridHeight
+})
+
+const fullWindowLabel = computed(() => (isFullWindow.value ? 'Contract' : 'Expand'))
+
 function onQuickFilterChanged(): void {
   if (!gridApi.value) return
   gridApi.value.setGridOption('quickFilterText', quickFilterText.value)
@@ -404,12 +572,19 @@ function resetGrid(): void {
  * WHY: Download grid data as CSV file
  */
 function exportToCsv(): void {
+  console.log('[ReportingAgGrid] Export CSV clicked, hasApi:', !!gridApi.value)
   if (!gridApi.value) return
 
   gridApi.value.exportDataAsCsv({
     fileName: `report-${new Date().toISOString().split('T')[0]}.csv`,
     columnKeys: allColumns.value.filter(c => c.visible).map(c => c.field),
+    skipPinnedTop: true,
   })
+}
+
+function handleExportCsv(): void {
+  showExportDropdown.value = false
+  exportToCsv()
 }
 
 /**
@@ -459,6 +634,16 @@ watch(() => props.columnDefs, () => {
   syncColumnState()
 }, { deep: true })
 
+function toggleFullWindow(): void {
+  isFullWindow.value = !isFullWindow.value
+  nextTick(() => {
+    if (gridApi.value) {
+      gridApi.value.resetRowHeights()
+      // Don't auto-fit columns - let them keep their natural widths with horizontal scroll
+    }
+  })
+}
+
 /**
  * WHAT: Watch for loading state changes
  * WHY: Show/hide loading overlay
@@ -487,6 +672,8 @@ watch(() => props.rowData, (newData) => {
       gridApi.value.hideOverlay()
     }
   }
+
+  updatePinnedTopRowFromGrid()
 }, { immediate: true })
 
 // WHAT: Expose methods to parent via template ref
@@ -509,11 +696,31 @@ defineExpose({
   width: 100%;
 }
 
+.reporting-ag-grid-container.full-window {
+  position: fixed;
+  top: 70px;
+  left: 20px;
+  right: 20px;
+  bottom: 20px;
+  z-index: 1050;
+  background: #fff;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+}
+
 .grid-toolbar {
   padding: 0.5rem;
   background-color: #f8f9fa;
   border: 1px solid #dee2e6;
   border-radius: 0.25rem;
+}
+
+.grid-toolbar .btn-sm {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.6rem;
+  line-height: 1.2;
 }
 
 .column-panel {
@@ -526,6 +733,18 @@ defineExpose({
   border: 1px solid #dee2e6;
   border-radius: 0.25rem;
   overflow: hidden;
+}
+
+/* WHAT: Visual outline for pinned aggregate row (thick border + subtle background) */
+:deep(.ag-row-pinned-top) {
+  box-shadow: 0 0 0 3px #495057 inset !important;
+  background-color: #e9ecef !important;
+}
+
+:deep(.ag-pinned-left-cols-container .ag-row-pinned-top),
+:deep(.ag-center-cols-container .ag-row-pinned-top) {
+  box-shadow: 0 0 0 3px #495057 inset !important;
+  background-color: #e9ecef !important;
 }
 
 .grid-status-bar {

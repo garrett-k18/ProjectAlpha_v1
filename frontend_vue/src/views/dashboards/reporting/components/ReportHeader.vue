@@ -3,11 +3,14 @@
     <b-col xl="3" lg="6">
       <div class="card tilebox-one mb-0">
         <div class="card-body pt-3 pb-2 px-3">
-          <i class="uil uil-dollar-sign float-end text-primary" aria-hidden="true"></i>
-          <h6 class="text-uppercase mt-0">Total UPB</h6>
+          <i class="uil uil-check-circle float-end text-success" aria-hidden="true"></i>
+          <h6 class="text-uppercase mt-0">Liquidated</h6>
           <h2 class="my-2">
             <span v-if="loading">...</span>
-            <span v-else class="fs-3 fs-lg-1">{{ formatCurrency(totalUpb) }}</span>
+            <span v-else class="fs-3 fs-lg-1">
+              {{ liquidatedCount }} / {{ assetCount }}
+              <em class="fs-5 text-muted ms-2">{{ formatPercent(liquidatedPercent) }}</em>
+            </span>
           </h2>
         </div>
       </div>
@@ -16,11 +19,11 @@
     <b-col xl="3" lg="6">
       <div class="card tilebox-one mb-0">
         <div class="card-body pt-3 pb-2 px-3">
-          <i class="uil uil-apps float-end text-success" aria-hidden="true"></i>
-          <h6 class="text-uppercase mt-0">Asset Count</h6>
+          <i class="uil uil-dollar-sign float-end text-danger" aria-hidden="true"></i>
+          <h6 class="text-uppercase mt-0">Gross Purchase Cost</h6>
           <h2 class="my-2">
             <span v-if="loading">...</span>
-            <span v-else class="fs-3 fs-lg-1">{{ formatNumber(assetCount) }}</span>
+            <span v-else class="fs-3 fs-lg-1 text-danger">{{ formatCurrency(grossPurchasePrice) }}</span>
           </h2>
         </div>
       </div>
@@ -30,10 +33,10 @@
       <div class="card tilebox-one mb-0">
         <div class="card-body pt-3 pb-2 px-3">
           <i class="uil uil-chart-line float-end text-warning" aria-hidden="true"></i>
-          <h6 class="text-uppercase mt-0">Avg LTV</h6>
+          <h6 class="text-uppercase mt-0">Current Hold (Months)</h6>
           <h2 class="my-2 d-flex align-items-baseline">
             <span v-if="loading">...</span>
-            <span v-else :class="['fs-3 fs-lg-1', ltvColorClass]">{{ formatPercent(avgLtv) }}</span>
+            <span v-else class="fs-3 fs-lg-1">{{ formatNumber(roundedAvgCurrentHold) }}</span>
           </h2>
         </div>
       </div>
@@ -63,15 +66,21 @@ const props = defineProps<{
   loading: boolean
 }>()
 
-const totalUpb = computed<number>(() => {
-  if (!props.summary) return 0
-  return typeof props.summary.total_upb === 'string'
-    ? parseFloat(props.summary.total_upb)
-    : props.summary.total_upb
+const liquidatedCount = computed<number>(() => {
+  return props.summary?.liquidated_count || 0
 })
 
 const assetCount = computed<number>(() => {
   return props.summary?.asset_count || 0
+})
+
+const grossPurchasePrice = computed<number>(() => {
+  return props.summary?.gross_purchase_price || 0
+})
+
+const liquidatedPercent = computed<number>(() => {
+  if (!assetCount.value) return 0
+  return (liquidatedCount.value / assetCount.value) * 100
 })
 
 const avgLtv = computed<number>(() => {
@@ -82,11 +91,19 @@ const delinquencyRate = computed<number>(() => {
   return props.summary?.delinquency_rate || 0
 })
 
+const avgCurrentHold = computed<number>(() => {
+  return props.summary?.avg_current_hold || 0
+})
+
 const ltvColorClass = computed<string>(() => {
   const ltv = avgLtv.value
   if (ltv > 100) return 'text-danger'
   if (ltv >= 90) return 'text-warning'
   return 'text-success'
+})
+
+const roundedAvgCurrentHold = computed<number>(() => {
+  return Math.round(avgCurrentHold.value || 0)
 })
 
 function formatCurrency(value: number): string {

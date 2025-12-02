@@ -203,6 +203,14 @@ def get_by_trade_grid_data(request) -> List[Dict[str, Any]]:
             'servicer_total_debt': float(getattr(asset, 'servicer_total_debt', 0) or 0),
             'servicer_next_due_date': servicer_next_due_date_value,
             'months_dlq': asset.months_dlq,
+            'servicer_current_fico': getattr(asset, 'servicer_current_fico', None),
+            'servicer_interest_rate': getattr(asset, 'servicer_interest_rate', None),
+            'servicer_maturity_date': getattr(asset, 'servicer_maturity_date', None),
+
+            # SellerRawData fields
+            'current_balance': float(getattr(asset, 'current_balance', 0) or 0),
+            'total_debt': float(getattr(asset, 'total_debt', 0) or 0),
+            'seller_asis_value': float(getattr(asset, 'seller_asis_value', 0) or 0),
 
             # hold durations and performance metrics
             'pre_reo_hold_duration': getattr(asset, 'pre_reo_hold_duration', None),
@@ -210,11 +218,13 @@ def get_by_trade_grid_data(request) -> List[Dict[str, Any]]:
             'current_duration_months': current_duration_months,
             'current_gross_cost': float(getattr(asset, 'current_gross_cost', 0) or 0),
             'realized_gross_purchase_price': float(getattr(asset, 'realized_gross_purchase_price', 0) or 0),
+            'expense_servicing_realized': float(getattr(asset, 'expense_servicing_realized', 0) or 0),
             'realized_total_expenses': float(getattr(asset, 'realized_total_expenses', 0) or 0),
             'realized_operating_expenses': float(getattr(asset, 'realized_operating_expenses', 0) or 0),
             'realized_legal_expenses': float(getattr(asset, 'realized_legal_expenses', 0) or 0),
             'realized_reo_expenses': float(getattr(asset, 'realized_reo_expenses', 0) or 0),
             'realized_rehab_trashout': float(getattr(asset, 'realized_rehab_trashout', 0) or 0),
+            'realized_reo_closing_cost': float(getattr(asset, 'realized_reo_closing_cost', 0) or 0),
             'realized_gross_liquidation_proceeds': float(getattr(asset, 'realized_gross_liquidation_proceeds', 0) or 0),
             'realized_net_liquidation_proceeds': float(getattr(asset, 'realized_net_liquidation_proceeds', 0) or 0),
             'realized_gross_cost': float(getattr(asset, 'realized_gross_cost', 0) or 0),

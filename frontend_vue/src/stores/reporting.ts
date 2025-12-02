@@ -53,6 +53,8 @@ export interface PartnershipOption {
 export interface ReportSummary {
   total_upb: number | string
   asset_count: number
+  liquidated_count: number
+  gross_purchase_price: number
   avg_ltv: number
   delinquency_rate: number
   // Add more as needed per report type
@@ -200,24 +202,28 @@ export const useReportingStore = defineStore('reporting', () => {
   // ---------------------------------------------------------------------------
   
   /**
-   * **WHAT**: Fetch trade options for filter dropdown
-   * **WHY**: Populate trade selector with all available trades
-   * **WHERE**: Called on dashboard mount
-   * **HOW**: GET /api/reporting/trades/ (Backend endpoint ready!)
+   * **WHAT**: Fetch trade options for filter dropdown (optionally filtered by partnership)
+   * **WHY**: Populate trade selector with trades, filtered by selected partnership if any
+   * **WHERE**: Called on dashboard mount and when partnership filter changes
+   * **HOW**: GET /api/reporting/trades/?partnership_ids=1,2,3
    */
-  async function fetchTradeOptions(force: boolean = false): Promise<void> {
-    if (!force && tradeOptions.value.length > 0) return // Use cache
+  async function fetchTradeOptions(force: boolean = false, partnershipIds?: number[]): Promise<void> {
+    if (!force && tradeOptions.value.length > 0 && !partnershipIds) return // Use cache only if no partnership filter
     
     loadingTrades.value = true
     errorTrades.value = null
     
     try {
-      // WHAT: Call reporting trades endpoint
-      // WHY: Get all trades from Trade model
-      // ENDPOINT: GET /api/reporting/trades/
-      const response = await http.get<TradeOption[]>('/reporting/trades/')
+      // WHAT: Build URL with optional partnership filter
+      // WHY: Filter trades to only show those belonging to selected partnership(s)
+      // ENDPOINT: GET /api/reporting/trades/?partnership_ids=1,2,3
+      let url = '/reporting/trades/'
+      if (partnershipIds && partnershipIds.length > 0) {
+        url += `?partnership_ids=${partnershipIds.join(',')}`
+      }
+      const response = await http.get<TradeOption[]>(url)
       tradeOptions.value = response.data
-      console.log('[ReportingStore] Loaded trades:', response.data.length)
+      console.log('[ReportingStore] Loaded trades:', response.data.length, partnershipIds ? `(filtered by partnerships: ${partnershipIds})` : '')
     } catch (error: any) {
       console.error('[ReportingStore] fetchTradeOptions error:', error)
       errorTrades.value = error.message || 'Failed to load trades'
