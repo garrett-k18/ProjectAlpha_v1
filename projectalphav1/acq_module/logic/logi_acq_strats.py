@@ -190,15 +190,24 @@ def _rule_edges_for_max(max_v: Decimal) -> Optional[List[Decimal]]:
     Returns None when no rule matches; callers should fall back to other strategies.
     """
     mv = Decimal(max_v or 0)
-    # New rule: very small pools (max <= 500k)
+    # Very small pools (max <= 500k)
     # Bands: <100k, 100–200k, 200–300k, 300–400k, >400k
     if mv <= Decimal('500000'):
         return [Decimal('100000'), Decimal('200000'), Decimal('300000'), Decimal('400000')]
+    # Small pools (<1m)
     if mv < Decimal('1000000'):
         return [Decimal('200000'), Decimal('400000'), Decimal('600000'), Decimal('800000')]
+    # Mid-size pools (<2m)
     if mv < Decimal('2000000'):
         return [Decimal('500000'), Decimal('1000000'), Decimal('1500000'), Decimal('2000000')]
-    return None
+    # Larger pools (<5m)
+    if mv < Decimal('5000000'):
+        return [Decimal('1000000'), Decimal('2000000'), Decimal('3000000'), Decimal('4000000')]
+    # Very large pools (<10m)
+    if mv < Decimal('10000000'):
+        return [Decimal('2000000'), Decimal('4000000'), Decimal('6000000'), Decimal('8000000')]
+    # Mega pools (>=10m) – coarse bands but never return None
+    return [Decimal('5000000'), Decimal('10000000'), Decimal('15000000'), Decimal('20000000')]
     
 
 

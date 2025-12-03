@@ -110,6 +110,16 @@
       <b-col>
         <div class="card">
           <div class="card-body">
+            <!-- Loading state while valuation rows are being fetched -->
+            <div
+              v-if="showValuationLoading"
+              class="d-flex align-items-center justify-content-center text-muted small py-3"
+            >
+              <div class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></div>
+              <span>Loading valuation rows</span>
+            </div>
+
+            <template v-else>
             <ul class="nav nav-tabs nav-bordered mb-3">
               <li class="nav-item">
                 <a 
@@ -184,6 +194,7 @@
 
               <BpoTab v-if="activeTab === 'bpo-tracker'" />
             </div>
+            </template>
           </div>
         </div>
       </b-col>
@@ -242,11 +253,11 @@
 import { ref, computed, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useAcqSelectionsStore } from '@/stores/acqSelections'
-import { useAgGridRowsStore } from '@/stores/agGridRows'
+import { useValuationCenterStore } from '@/stores/valuationCenter'
 import Layout from '@/components/layouts/layout.vue'
 import { BModal } from 'bootstrap-vue-next'
 import LoanLevelIndex from '@/views/acq_module/loanlvl/loanlvl_index.vue'
-import http from '@/lib/http'
+import http from '@/lib/http'  // Still needed for fetchPoolSummary and fetchValuationMetrics
 import OverviewTab from './ValuationComponenets/OverviewTab.vue'
 import BrokersTab from './ValuationComponenets/BrokersTab.vue'
 import BpoTab from './ValuationComponenets/BpoTab.vue'
@@ -255,8 +266,12 @@ import ReconciliationTab from './ValuationComponenets/ReconciliationTab.vue'
 // Stores
 const acqStore = useAcqSelectionsStore()
 const { selectedSellerId, selectedTradeId, sellerOptions, tradeOptions } = storeToRefs(acqStore)
-const gridStore = useAgGridRowsStore()
-const { rows } = storeToRefs(gridStore)
+const valuationStore = useValuationCenterStore()
+const { rows, loading: valuationLoading } = storeToRefs(valuationStore)
+
+// Track initial load so we don't flash an empty table before rows arrive
+const initialized = ref(false)
+const showValuationLoading = computed<boolean>(() => !initialized.value || valuationLoading.value)
 
 // Selection state
 const hasSelection = computed(() => !!selectedSellerId.value && !!selectedTradeId.value)
@@ -328,18 +343,15 @@ function openLoanModal(asset: any) {
 }
 
 async function saveGrade(asset: any, gradeCode: string) {
-  const assetHubId = asset.asset_hub_id || asset.id
-  if (!assetHubId) return
-  try {
-    await http.put(`/acq/valuations/internal/${assetHubId}/`, { grade_code: gradeCode || null }, { params: { source: 'internalInitialUW' } })
-    await new Promise(r => setTimeout(r, 200))
-    if (selectedSellerId.value && selectedTradeId.value) {
-      gridStore.clearCache()
-      await gridStore.fetchRows(selectedSellerId.value, selectedTradeId.value, 'all')
-      await fetchValuationMetrics()
-    }
-  } catch (e) {
-    console.error('saveGrade failed', e)
+  const assetId = asset.id
+  if (!assetId) {
+    console.error('[ValuationCenter] saveGrade: No asset id found!')
+    return
+  }
+  
+  const success = await valuationStore.saveGrade(assetId, gradeCode || null)
+  if (success) {
+    await fetchValuationMetrics()
   }
 }
 
@@ -357,64 +369,42 @@ async function saveInternalUW(asset: any, field: 'asis' | 'arv', eventOrValue: E
     num = eventOrValue
   }
   
-  const assetHubId = asset.asset_hub_id || asset.id
-  if (!assetHubId) return
-  const payload: any = { value_date: new Date().toISOString().split('T')[0] }
-  if (field === 'asis') payload.asis_value = num; else payload.arv_value = num
-  try {
-    await http.put(`/acq/valuations/internal/${assetHubId}/`, payload, { params: { source: 'internalInitialUW' } })
-    await new Promise(r => setTimeout(r, 200))
-    if (selectedSellerId.value && selectedTradeId.value) {
-      gridStore.clearCache()
-      await gridStore.fetchRows(selectedSellerId.value, selectedTradeId.value, 'all')
-      await fetchValuationMetrics()
-    }
-  } catch (e) {
-    console.error('saveInternalUW failed', e)
+  // WHAT: Ignore empty/invalid values
+  if (num == null) return
+  
+  const assetId = asset.id
+  if (!assetId) {
+    console.error('[ValuationCenter] saveInternalUW: No asset id found!')
+    return
+  }
+  
+  const success = await valuationStore.saveInternalUWValue(assetId, field, num)
+  if (success) {
+    await fetchValuationMetrics()
   }
 }
 
 // WHAT: Save rehab estimate to broker valuation
 // WHY: Allow users to update rehab estimates in reconciliation tab
 async function saveRehabEst(asset: any, value: number) {
-  const assetHubId = asset.asset_hub_id || asset.id
-  if (!assetHubId) return
+  const assetId = asset.id
+  if (!assetId) return
   
-  try {
-    await http.put(`/acq/valuations/internal/${assetHubId}/`, 
-      { rehab_est_total: value }, 
-      { params: { source: 'broker' } }
-    )
-    await new Promise(r => setTimeout(r, 200))
-    if (selectedSellerId.value && selectedTradeId.value) {
-      gridStore.clearCache()
-      await gridStore.fetchRows(selectedSellerId.value, selectedTradeId.value, 'all')
-      await fetchValuationMetrics()
-    }
-  } catch (e) {
-    console.error('saveRehabEst failed', e)
+  const success = await valuationStore.saveBrokerRehab(assetId, value)
+  if (success) {
+    await fetchValuationMetrics()
   }
 }
 
 // WHAT: Save recommend rehab flag to broker valuation
 // WHY: Allow users to update rehab recommendation in reconciliation tab
 async function saveRecommendRehab(asset: any, value: boolean) {
-  const assetHubId = asset.asset_hub_id || asset.id
-  if (!assetHubId) return
+  const assetId = asset.id
+  if (!assetId) return
   
-  try {
-    await http.put(`/acq/valuations/internal/${assetHubId}/`, 
-      { recommend_rehab: value }, 
-      { params: { source: 'broker' } }
-    )
-    await new Promise(r => setTimeout(r, 200))
-    if (selectedSellerId.value && selectedTradeId.value) {
-      gridStore.clearCache()
-      await gridStore.fetchRows(selectedSellerId.value, selectedTradeId.value, 'all')
-      await fetchValuationMetrics()
-    }
-  } catch (e) {
-    console.error('saveRecommendRehab failed', e)
+  const success = await valuationStore.saveBrokerRecommendRehab(assetId, value)
+  if (success) {
+    await fetchValuationMetrics()
   }
 }
 
@@ -459,11 +449,16 @@ async function fetchValuationMetrics() {
 }
 
 onMounted(async () => {
+  console.log('[ValuationCenter] onMounted - sellerId:', selectedSellerId.value, 'tradeId:', selectedTradeId.value)
   await fetchPoolSummary()
   await fetchValuationMetrics()
-  if (hasSelection.value && (!rows.value || rows.value.length === 0)) {
-    await gridStore.fetchRows(selectedSellerId.value!, selectedTradeId.value!, 'all')
+  
+  // Fetch valuation center data
+  if (hasSelection.value && selectedSellerId.value && selectedTradeId.value) {
+    await valuationStore.refresh(selectedSellerId.value, selectedTradeId.value)
+    console.log('[ValuationCenter] Loaded', rows.value?.length, 'rows')
   }
+  initialized.value = true
 })
 </script>
 

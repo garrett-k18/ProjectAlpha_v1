@@ -45,6 +45,10 @@ xlrd>=2.0.0,<3
 # Microsoft Graph API authentication (Outlook ETL)
 msal>=1.24.0
 
+# Office365 REST API Client for SharePoint integration
+# Docs: https://github.com/vgrem/office365-rest-python-client
+Office365-REST-Python-Client>=2.5.0
+
 gunicorn
 whitenoise>=6.6,<7
 

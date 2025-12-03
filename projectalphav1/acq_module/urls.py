@@ -1,18 +1,18 @@
 from django.urls import path, re_path
-from .views.view_seller_data import (
-    get_seller_trade_data,
-    get_seller_rawdata_field_names,
+from .views.view_acq_sellerTrade import (
     list_sellers,
     list_trades_by_seller,
-    get_seller_raw_by_id,
-    # State summary endpoints
+    list_active_deals,
+    get_pool_summary,
+    get_valuation_completion_summary,
+    get_collateral_completion_summary,
+    get_title_completion_summary,
     get_states_for_selection,
     get_state_count_for_selection,
     get_count_by_state,
     get_sum_current_balance_by_state,
     get_sum_total_debt_by_state,
     get_sum_seller_asis_value_by_state,
-    get_pool_summary,
     get_current_balance_stratification,
     get_total_debt_stratification,
     get_seller_asis_value_stratification,
@@ -22,19 +22,13 @@ from .views.view_seller_data import (
     get_property_type_stratification,
     get_occupancy_stratification,
     get_delinquency_stratification,
-    # LTV scatter chart data
     get_ltv_scatter_data_view,
-    # Completion summaries for centers
-    get_valuation_completion_summary,
-    get_collateral_completion_summary,
-    get_title_completion_summary,
 )
 from .views.state_reference_api import get_judicial_states
-from .views.photos_api import (
-    list_photos_by_raw_id,
-)
+from .views.photos_api import list_photos_by_raw_id
 from .views.ai_summary import generate_quick_summary
-from .views.valuation_api import internal_valuation_view
+from .views.view_acq_valuationCenter import valuation_center_list, valuation_center_update
+from .views.view_acq_grid import grid_data
 from .views.asset_fc_timeline import AssetFCTimelineView
 from .views.brokers.invites import (
     create_broker_invite,
@@ -112,23 +106,19 @@ urlpatterns = [
     path('assets/<int:asset_id>/reo-marketing-override/', update_reo_marketing_override, name='api_reo_marketing_override'),
     # Shared acquisition price endpoint
     path('assets/<int:asset_id>/acquisition-price/', update_acquisition_price, name='api_update_acquisition_price'),
-    # Get data for a specific seller and trade
-    re_path(r'^raw-data/(?P<seller_id>\d+)/(?P<trade_id>\d+)/$', get_seller_trade_data, name='api_get_seller_trade_data'),
-    # Get all trades for a specific seller
-    path('raw-data/<int:seller_id>/', get_seller_trade_data, name='api_get_seller_data'),
-    # Get a single SellerRawData by id (flat dict of fields)
-    path('raw-data/by-id/<int:id>/', get_seller_raw_by_id, name='api_get_seller_raw_by_id'),
-    # Get concrete field names for SellerRawData (for AG Grid columnDefs)
-    path('raw-data/fields/', get_seller_rawdata_field_names, name='api_get_seller_rawdata_fields'),
     # Dropdown data sources
     path('sellers/', list_sellers, name='api_list_sellers'),
+    path('trades/active-deals/', list_active_deals, name='api_list_active_deals'),
     path('trades/<int:seller_id>/', list_trades_by_seller, name='api_list_trades_by_seller'),
     # Photos endpoint (all photo types) by SellerRawData id
     path('photos/<int:id>/', list_photos_by_raw_id, name='api_list_photos_by_raw_id'),
     # AI summary endpoint
     path('ai/summary/', generate_quick_summary, name='api_ai_quick_summary'),
-    # Unified valuation endpoint (supports source param; backward compatible path)
-    path('valuations/internal/<int:seller_id>/', internal_valuation_view, name='api_internal_valuation_detail'),
+    # Valuation Center dedicated endpoints (clean, efficient)
+    path('valuation-center/<int:seller_id>/<int:trade_id>/', valuation_center_list, name='api_valuation_center_list'),
+    path('valuation-center/<int:asset_id>/', valuation_center_update, name='api_valuation_center_update'),
+    # AG Grid dedicated endpoint (clean, efficient - replaces raw-data for grid)
+    path('grid/<int:seller_id>/<int:trade_id>/', grid_data, name='api_grid_data'),
     # Broker invite/token endpoints (public)
     path('broker-invites/', create_broker_invite, name='api_create_broker_invite'),  # POST
     # Broker listing for UI (state-based batch) MUST come before the catch-all token path

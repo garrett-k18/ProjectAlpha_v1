@@ -322,6 +322,7 @@ import StratsDelinquency from "@/views/acq_module/acq_dash/strats/strats-delinqu
 import VectorMap from "@/views/acq_module/acq_dash/vectorMap.vue";
 import Widgets from "@/views/acq_module/acq_dash/widgets.vue";
 import TradeTasking from '@/views/acq_module/acq_dash/components/TradeTasking.vue';
+import http from '@/lib/http'
 // Local type for document items used by TradeDocumentsModal
 // Exported to fix TypeScript module inference when this component is imported elsewhere
 export interface DocumentItem { id: string; name: string; type: string; sizeBytes: number; previewUrl: string; downloadUrl: string }
@@ -645,48 +646,34 @@ export default {
       await saveDateChanges()
     }
 
-    // WHAT: Store all trades for all sellers for the combined pipeline dropdown
-    // WHY: Need to show all seller-trade combinations in a single dropdown
-    const allTradesMap = ref<Map<number, TradeOption[]>>(new Map())
-    
+    // WHAT: Active deals backing the combined pipeline dropdown
+    // WHY: Single call to backend instead of per-seller loops
+    const activeDeals = ref<Array<{ seller_id: number; seller_name: string; trade_id: number; trade_name: string; status?: string }>>([])
+    const activeDealsLoading = ref<boolean>(false)
+
     // WHAT: Combined pipeline options that flatten all seller-trade combinations
-    // WHY: Single dropdown showing "SellerName - TradeName" for easier selection
+    // WHY: Single dropdown showing "SELLER - Trade" for easier selection
     const pipelineOptions = computed(() => {
-      // WHAT: For each seller, get their trades and create combined options
-      // Format: { key: "sellerId:tradeId", label: "SELLER NAME - Trade Name" }
-      const options: Array<{ key: string; label: string; sellerId: number; tradeId: number }> = []
-      
-      for (const seller of sellerOptions.value) {
-        // Skip sellers without id
-        if (!seller.id) continue
-        
-        // Get trades for this seller from our map
-        const trades = allTradesMap.value.get(seller.id) || []
-        for (const trade of trades) {
-          options.push({
-            key: `${seller.id}:${trade.id}`,
-            label: `${seller.name} - ${trade.trade_name}`,
-            sellerId: seller.id,
-            tradeId: trade.id,
-          })
-        }
-      }
-      
-      return options
+      return activeDeals.value.map((deal) => ({
+        key: `${deal.seller_id}:${deal.trade_id}`,
+        label: `${String(deal.seller_name).toUpperCase()} - ${deal.trade_name}`,
+        sellerId: deal.seller_id,
+        tradeId: deal.trade_id,
+      }))
     })
-    
-    // WHAT: Load all trades for all sellers to populate the pipeline dropdown
-    // WHY: Users need to see all available deals in one place
-    async function loadAllTrades(): Promise<void> {
-      const sellers = sellerOptions.value
-      for (const seller of sellers) {
-        if (!seller.id) continue
-        try {
-          const trades = await acqStore.fetchTradeOptions(seller.id, false)
-          allTradesMap.value.set(seller.id, trades)
-        } catch (e) {
-          console.warn(`[Acq Index] Failed to load trades for seller ${seller.id}:`, e)
-        }
+
+    // WHAT: Load all active deals (seller+trade) for the pipeline dropdown
+    // WHY: Users need to see all available deals in one place without N calls
+    async function loadActiveDeals(): Promise<void> {
+      activeDealsLoading.value = true
+      try {
+        const resp = await http.get<Array<{ seller_id: number; seller_name: string; trade_id: number; trade_name: string; status?: string }>>('/acq/trades/active-deals/', { timeout: 15000 })
+        activeDeals.value = Array.isArray(resp.data) ? resp.data : []
+      } catch (e) {
+        console.warn('[Acq Index] Failed to load active deals for pipeline', e)
+        activeDeals.value = []
+      } finally {
+        activeDealsLoading.value = false
       }
     }
     
@@ -720,22 +707,18 @@ export default {
     })
     
     // WHAT: Combined loading state for pipeline dropdown
-    // WHY: Show loading indicator while fetching sellers or trades
+    // WHY: Show loading indicator while fetching sellers or active deals
     const pipelineLoading = computed<boolean>(() => {
-      return sellerOptionsLoading.value || tradeOptionsLoading.value
+      return sellerOptionsLoading.value || tradeOptionsLoading.value || activeDealsLoading.value
     })
 
-    // Watch seller selection -> load trades list and update pipeline map
+    // Watch seller selection -> reset local models and trade status when cleared
     watch(selectedSellerId, async (newSellerId) => {
       resetLocalDateModels();
-      if (newSellerId) {
-        const trades = await acqStore.fetchTradeOptions(newSellerId, true);
-        // WHAT: Update the allTradesMap so pipeline dropdown stays current
-        allTradesMap.value.set(newSellerId, trades);
-      } else {
+      if (!newSellerId) {
         acqStore.resetTradeStatus();
       }
-    });
+    })
 
     watch(selectedTradeId, async (newTradeId) => {
       if (newTradeId) {
@@ -756,9 +739,9 @@ export default {
       await acqStore.fetchSellerOptions(true);
       // WHAT: Fetch servicers list for trade assumptions modal
       await fetchServicers();
-      // WHAT: Load all trades for all sellers to populate Active Pipeline dropdown
+      // WHAT: Load all active deals to populate Active Pipeline dropdown
       // WHY: Users need to see all available deals in one combined dropdown
-      await loadAllTrades();
+      await loadActiveDeals();
       // WHAT: If a trade already selected (persisted in store), fetch its status
       if (selectedTradeId.value) {
         await acqStore.fetchTradeStatus();
@@ -857,8 +840,8 @@ export default {
     // WHAT: Refresh dropdown caches after import so new sellers/trades appear instantly.
     const handleImportRefresh = async (): Promise<void> => {
       await acqStore.refreshOptions();
-      // WHAT: Reload all trades for the Active Pipeline dropdown
-      await loadAllTrades();
+      // WHAT: Reload all active deals for the Active Pipeline dropdown
+      await loadActiveDeals();
     };
 
     // WHAT: Close modal on success, reload options, and auto-select imported seller/trade
@@ -891,6 +874,7 @@ export default {
       handleImportRefresh,
       handleImportSuccess,
       docItems,
+      gridRows,
       gridRowsLoaded,
       // WHAT: Active Pipeline combined dropdown
       pipelineOptions,
@@ -960,13 +944,24 @@ export default {
       if (addr) return addr
       return 'Asset Details'
     },
-    // First line: just the ID (if available)
+    // First line: prefer Seller Tape ID / loan # for display, fall back to internal id
     modalIdText(): string {
-      const id = this.selectedId ? String(this.selectedId) : ''
       const r: any = this.selectedRow || {}
+      // WHAT: Prefer seller tape identifier surfaced on the row
+      // WHY: Users think in terms of seller's loan number, not internal asset hub id
+      const loanId = String(
+        r.sellertape_id ??
+        r.asset_hub_display?.sellertape_id ??
+        ''
+      ).trim()
+
+      const internalId = this.selectedId ? String(this.selectedId) : ''
+
       // Try multiple common keys for trade name
       const tradeName = String(r.trade_name ?? r.trade?.trade_name ?? r.tradeName ?? '').trim()
-      const line = [id, tradeName].filter(Boolean).join(' / ')
+
+      const primaryId = loanId || internalId
+      const line = [primaryId, tradeName].filter(Boolean).join(' / ')
       return line || 'Asset'
     },
     // Second line: Address without ZIP. Prefer selectedRow fields; fallback to selectedAddr string

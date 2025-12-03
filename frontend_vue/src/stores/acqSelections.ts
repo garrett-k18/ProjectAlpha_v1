@@ -192,10 +192,13 @@ export const useAcqSelectionsStore = defineStore('acqSelections', () => {
     try {
       const resp = await http.get<SellerOption[]>('/acq/sellers/', { timeout: 10000 })
       const payload = Array.isArray(resp.data) ? resp.data : []
-      sellerOptions.value = payload.map((option) => ({
-        id: option.id,
-        name: String(option.name ?? '').toUpperCase(),
-      }))
+      sellerOptions.value = payload.map((option: any) => {
+        const rawName = option.name ?? option.seller_name ?? ''
+        return {
+          id: option.id,
+          name: String(rawName).toUpperCase(),
+        }
+      })
       return sellerOptions.value
     } catch (e: any) {
       sellerOptionsError.value = e?.message || 'Failed to load sellers'

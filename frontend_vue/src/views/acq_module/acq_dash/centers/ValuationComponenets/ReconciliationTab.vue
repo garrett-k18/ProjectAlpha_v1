@@ -139,8 +139,17 @@
     
     <!-- Pagination Controls -->
     <div class="d-flex justify-content-between align-items-center mt-3">
-      <div class="text-muted small">
-        Page {{ currentPage }} of {{ totalPages }}
+      <div class="d-flex align-items-center gap-2 text-muted small">
+        <span>Rows per page:</span>
+        <select
+          class="form-select form-select-sm w-auto"
+          v-model.number="pageSize"
+        >
+          <option :value="25">25</option>
+          <option :value="50">50</option>
+          <option :value="100">100</option>
+        </select>
+        <span class="ms-2">Page {{ currentPage }} of {{ totalPages }}</span>
       </div>
       <nav>
         <ul class="pagination pagination-sm mb-0">
@@ -165,7 +174,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 // WHAT: Import reusable AssetFilters component
 // WHY: Consistent filtering UX across all views
 import AssetFilters from '@/components/custom/AssetFilters.vue'
@@ -190,7 +199,7 @@ const emit = defineEmits<{
 // WHAT: Pagination state
 // WHY: Control page display and navigation
 const currentPage = ref(1)
-const pageSize = ref(50)
+const pageSize = ref(25)
 
 // WHAT: Filter state from AssetFilters component
 // WHY: Track user-selected filters for data filtering
@@ -294,6 +303,11 @@ const paginatedRows = computed(() => {
   const start = (currentPage.value - 1) * pageSize.value
   const end = start + pageSize.value
   return filteredRows.value.slice(start, end)
+})
+
+// WHEN: User changes page size, reset to first page to avoid out-of-range
+watch(pageSize, () => {
+  currentPage.value = 1
 })
 
 // WHAT: Calculate total pages

@@ -64,17 +64,22 @@ export const useAgGridRowsStore = defineStore('agGridRows', () => {
    * - Fetches ALL pages (not just first 500) by paginating through results
    */
   async function fetchRows(sellerId: number, tradeId: number, view: string = 'snapshot'): Promise<void> {
+    console.log('[agGridRows] fetchRows called', { sellerId, tradeId, view })
+    
     // Defensive: require both IDs
     if (!sellerId || !tradeId) {
+      console.log('[agGridRows] fetchRows: Missing sellerId or tradeId, resetting')
       resetRows()
       return
     }
 
     const key = keyFor(sellerId, tradeId, view)
+    console.log('[agGridRows] fetchRows: key =', key, 'lastKey =', lastKey.value)
 
     // Serve from cache if available
     const cached = cache.value.get(key)
     if (cached && cached.length > 0) {
+      console.log('[agGridRows] fetchRows: Serving from cache, count:', cached.length)
       setRows(cached, key)
       errorRows.value = null
       return
@@ -82,9 +87,11 @@ export const useAgGridRowsStore = defineStore('agGridRows', () => {
 
     // Dedupe: if the same key is already loaded and rows exist, skip
     if (lastKey.value === key && rows.value.length > 0) {
+      console.log('[agGridRows] fetchRows: Same key already loaded, skipping')
       return
     }
 
+    console.log('[agGridRows] fetchRows: Fetching from API...')
     loadingRows.value = true
     errorRows.value = null
     try {
@@ -99,7 +106,7 @@ export const useAgGridRowsStore = defineStore('agGridRows', () => {
       // WHY: Backend max page_size is now 10,000, request large page to minimize requests
       // HOW: Loop through pages until next is null (most portfolios will fit in 1-2 pages)
       const allRows: GridRow[] = []
-      let nextUrl: string | null = `/acq/raw-data/${sellerId}/${tradeId}/?view=${view}&page_size=5000`
+      let nextUrl: string | null = `/acq/grid/${sellerId}/${tradeId}/?view=${view}&page_size=5000`
       
       while (nextUrl) {
         const resp = await http.get<{ 
@@ -136,16 +143,16 @@ export const useAgGridRowsStore = defineStore('agGridRows', () => {
       }
 
       // Update current rows and cache with all fetched rows
+      console.log('[agGridRows] fetchRows: Fetched', allRows.length, 'rows')
       setRows(allRows, key)
       cache.value.set(key, allRows)
     } catch (e: any) {
       // Suppress cancellation errors from AbortController/Axios
       const isCanceled = e?.code === 'ERR_CANCELED' || e?.name === 'CanceledError' || e?.message === 'canceled'
       if (isCanceled) {
-        // Do not overwrite current rows on cancel
-        // console.debug('[agGridRows] fetchRows canceled', { sellerId, tradeId })
+        console.log('[agGridRows] fetchRows: Request was canceled')
       } else {
-        // Capture error message and clear current rows
+        console.error('[agGridRows] fetchRows: Error', e)
         errorRows.value = e?.message || 'Failed to fetch grid rows'
         rows.value = []
         lastKey.value = null
@@ -179,7 +186,9 @@ export const useAgGridRowsStore = defineStore('agGridRows', () => {
    * (e.g., after edits) and you want to ensure fresh loads.
    */
   function clearCache(): void {
+    console.log('[agGridRows] clearCache called - resetting lastKey and cache')
     cache.value.clear()
+    lastKey.value = null  // CRITICAL: Reset lastKey so next fetchRows actually fetches
   }
 
   return {

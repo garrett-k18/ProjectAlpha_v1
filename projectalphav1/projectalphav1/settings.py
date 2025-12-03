@@ -156,6 +156,7 @@ INSTALLED_APPS = [
 'corsheaders',
 # Shared domain models/utilities
 'core',
+'sharepoint',  # SharePoint integration
 'acq_module.apps.AcqModuleConfig',
 'am_module',
 'etl',
@@ -530,4 +531,13 @@ LOGGING = {
         'level': 'INFO',
     },
 }
+
+# ============================================================================
+# SHAREPOINT CONFIGURATION
+# ============================================================================
+SHAREPOINT_CLIENT_ID = os.getenv('SHAREPOINT_CLIENT_ID')
+SHAREPOINT_CLIENT_SECRET = os.getenv('SHAREPOINT_CLIENT_SECRET')
+SHAREPOINT_TENANT_ID = os.getenv('SHAREPOINT_TENANT_ID')
+SHAREPOINT_SITE_HOSTNAME = 'firstliencapitaldom.sharepoint.com'
+SHAREPOINT_SITE_PATH = '/sites/ProjectAlpha'
 
