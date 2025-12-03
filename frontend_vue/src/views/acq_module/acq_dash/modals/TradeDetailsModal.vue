@@ -101,36 +101,92 @@
         </h5>
       </div>
 
+      <!-- Bid Method -->
+      <div class="col-12 col-md-4 mb-3">
+        <label for="tdm-bid-method" class="form-label fw-medium">Bid Method</label>
+        <select
+          id="tdm-bid-method"
+          class="form-select"
+          :disabled="disabled"
+          :value="bidMethodLocal"
+          @change="onBidMethodInput($event)"
+        >
+          <option :value="''">Select bid method...</option>
+          <option value="PCT_UPB">Percent of UPB</option>
+          <option value="TARGET_IRR">Target IRR</option>
+        </select>
+        <small class="form-text text-muted">Choose how the initial bid is expressed</small>
+      </div>
+
       <!-- Target IRR -->
       <div class="col-12 col-md-4 mb-3">
         <label for="tdm-target-irr" class="form-label fw-medium">Target IRR (%)</label>
-        <input
-          id="tdm-target-irr"
-          type="number"
-          step="0.01"
-          class="form-control"
-          :disabled="disabled"
-          :value="targetIrrLocal"
-          @input="onTargetIrrInput($event)"
-          @change="emitChanged()"
-        />
+        <div class="input-group">
+          <input
+            id="tdm-target-irr"
+            type="number"
+            step="0.01"
+            min="0"
+            class="form-control"
+            :disabled="disabled"
+            :value="targetIrrLocal"
+            @input="onTargetIrrInput($event)"
+            @change="emitChanged()"
+            placeholder="15.00"
+          />
+          <span class="input-group-text">%</span>
+        </div>
         <small class="form-text text-muted">Target internal rate of return</small>
       </div>
 
       <!-- Discount Rate -->
       <div class="col-12 col-md-4 mb-3">
         <label for="tdm-discount-rate" class="form-label fw-medium">Discount Rate (%)</label>
-        <input
-          id="tdm-discount-rate"
-          type="number"
-          step="0.01"
-          class="form-control"
-          :disabled="disabled"
-          :value="discountRateLocal"
-          @input="onDiscountRateInput($event)"
-          @change="emitChanged()"
-        />
+        <div class="input-group">
+          <input
+            id="tdm-discount-rate"
+            type="number"
+            step="0.01"
+            min="0"
+            class="form-control"
+            :disabled="disabled"
+            :value="discountRateLocal"
+            @input="onDiscountRateInput($event)"
+            @change="emitChanged()"
+            placeholder="12.00"
+          />
+          <span class="input-group-text">%</span>
+        </div>
         <small class="form-text text-muted">Discount rate for NPV calculations</small>
+      </div>
+      <!-- Purchase price as percentage of UPB -->
+      <div class="col-12 col-md-4 mb-3">
+        <label for="tdm-pct-upb" class="form-label fw-medium">Purchase Price (% of UPB)</label>
+        <div class="input-group">
+          <input
+            id="tdm-pct-upb"
+            type="number"
+            step="0.01"
+            min="0"
+            class="form-control"
+            :disabled="disabled"
+            :value="pctUPBLocal"
+            @input="onPctUPBInput($event)"
+            @change="emitChanged()"
+            placeholder="85.00"
+          />
+          <span class="input-group-text">%</span>
+        </div>
+        <small class="form-text text-muted">Enter purchase price as percentage of UPB (e.g., 85.00)</small>
+      </div>
+    </div>
+
+    <!-- Perf/RPL Assumptions Section -->
+    <div class="row mb-4">
+      <div class="col-12">
+        <h5 class="mb-3 text-primary border-bottom pb-2">
+          <i class="mdi mdi-timer-sand me-2"></i>Perf/RPL Assumptions
+        </h5>
       </div>
 
       <!-- Perf/RPL Hold Period -->
@@ -432,6 +488,10 @@ const props = defineProps<{
   servicersLoading?: boolean
   
   // Financial Assumptions
+  /** Bid method: PCT_UPB or TARGET_IRR */
+  bidMethod?: string
+  /** Purchase price as percentage of UPB (e.g., 85.00 for 85%) */
+  pctUPB?: number | string
   /** Target IRR as decimal (e.g., 0.15 for 15%) */
   targetIrr?: number | string
   /** Discount rate as decimal (e.g., 0.12 for 12%) */
@@ -486,6 +546,8 @@ const emit = defineEmits<{
   (e: 'update:servicerId', value: number | null): void
   
   // Financial Assumptions
+  (e: 'update:bidMethod', value: string): void
+  (e: 'update:pctUPB', value: number | string): void
   (e: 'update:targetIrr', value: number | string): void
   (e: 'update:discountRate', value: number | string): void
   (e: 'update:perfRplHoldPeriod', value: number | string): void
@@ -522,8 +584,44 @@ const servicingTransferDateLocal = computed(() => props.servicingTransferDate ??
 // WHY: Handle null/undefined servicer ID safely
 const servicerIdLocal = computed(() => props.servicerId ?? null)
 
-const targetIrrLocal = computed(() => props.targetIrr ?? '')
-const discountRateLocal = computed(() => props.discountRate ?? '')
+const bidMethodLocal = computed(() => props.bidMethod ?? '')
+const pctUPBLocal = computed(() => props.pctUPB ?? '')
+
+// WHAT: Convert Target IRR from decimal to percentage for display
+// WHY: User expects to see and enter percentages (e.g., 15%) not decimals (e.g., 0.15)
+// HOW: Multiply decimal by 100 to get percentage; return empty string if no value
+const targetIrrLocal = computed(() => {
+  if (props.targetIrr === null || props.targetIrr === undefined || props.targetIrr === '') {
+    return ''
+  }
+  const numValue =
+    typeof props.targetIrr === 'string'
+      ? parseFloat(props.targetIrr)
+      : props.targetIrr
+  if (isNaN(numValue)) {
+    return ''
+  }
+  const percentage = numValue * 100
+  return Number.isFinite(percentage) ? percentage.toFixed(2) : ''
+})
+
+// WHAT: Convert discount rate from decimal to percentage for display
+// WHY: User expects to see and enter percentages (e.g., 12%) not decimals (e.g., 0.12)
+// HOW: Multiply decimal by 100 to get percentage; return empty string if no value
+const discountRateLocal = computed(() => {
+  if (props.discountRate === null || props.discountRate === undefined || props.discountRate === '') {
+    return ''
+  }
+  const numValue =
+    typeof props.discountRate === 'string'
+      ? parseFloat(props.discountRate)
+      : props.discountRate
+  if (isNaN(numValue)) {
+    return ''
+  }
+  const percentage = numValue * 100
+  return Number.isFinite(percentage) ? percentage.toFixed(2) : ''
+})
 const perfRplHoldPeriodLocal = computed(() => props.perfRplHoldPeriod ?? '')
 
 const modRateLocal = computed(() => props.modRate ?? '')
@@ -547,12 +645,13 @@ const amFeePctLocal = computed(() => {
   if (props.amFeePct === null || props.amFeePct === undefined || props.amFeePct === '') {
     return ''
   }
-  // WHAT: Convert decimal to percentage (0.01 -> 1)
+  // WHAT: Convert decimal to percentage (0.01 -> 1.00) and format with two decimals
   const numValue = typeof props.amFeePct === 'string' ? parseFloat(props.amFeePct) : props.amFeePct
   if (isNaN(numValue)) {
     return ''
   }
-  return numValue * 100
+  const percentage = numValue * 100
+  return Number.isFinite(percentage) ? percentage.toFixed(2) : ''
 })
 
 // Input handlers - Trade Dates
@@ -584,20 +683,62 @@ function onServicerInput(ev: Event) {
   emitChanged()
 }
 
+// Input handler - Bid Method
+function onBidMethodInput(ev: Event) {
+  const v = (ev.target as HTMLSelectElement)?.value ?? ''
+  emit('update:bidMethod', v)
+  emitChanged()
+}
+
 // Input handlers - Financial Assumptions
 function onTargetIrrInput(ev: Event) {
   const v = (ev.target as HTMLInputElement)?.value ?? ''
-  emit('update:targetIrr', v)
+
+  // WHAT: If empty, emit empty string
+  if (v === '' || v === null || v === undefined) {
+    emit('update:targetIrr', '')
+    return
+  }
+
+  // WHAT: Convert percentage to decimal (15 -> 0.15)
+  const percentageValue = parseFloat(v)
+  if (isNaN(percentageValue)) {
+    emit('update:targetIrr', '')
+    return
+  }
+
+  const decimalValue = percentageValue / 100
+  emit('update:targetIrr', decimalValue)
 }
 
 function onDiscountRateInput(ev: Event) {
   const v = (ev.target as HTMLInputElement)?.value ?? ''
-  emit('update:discountRate', v)
+
+  // WHAT: If empty, emit empty string
+  if (v === '' || v === null || v === undefined) {
+    emit('update:discountRate', '')
+    return
+  }
+
+  // WHAT: Convert percentage to decimal (12 -> 0.12)
+  const percentageValue = parseFloat(v)
+  if (isNaN(percentageValue)) {
+    emit('update:discountRate', '')
+    return
+  }
+
+  const decimalValue = percentageValue / 100
+  emit('update:discountRate', decimalValue)
 }
 
 function onPerfRplHoldPeriodInput(ev: Event) {
   const v = (ev.target as HTMLInputElement)?.value ?? ''
   emit('update:perfRplHoldPeriod', v)
+}
+
+function onPctUPBInput(ev: Event) {
+  const v = (ev.target as HTMLInputElement)?.value ?? ''
+  emit('update:pctUPB', v)
 }
 
 // Input handlers - Modification Assumptions

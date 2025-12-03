@@ -19,78 +19,102 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-# TODO: Uncomment and update these when you're ready to connect to your Trade/Asset models
-# Example implementation:
-#
-# @receiver(post_save, sender='acq_module.Trade')
-# def create_trade_folders(sender, instance, created, **kwargs):
-#     """
-#     Create SharePoint folders when a trade is created.
-#     
-#     Args:
-#         sender: Model class
-#         instance: Actual trade instance created
-#         created: True if this is a new record
-#         **kwargs: Additional arguments
-#     """
-#     if not created:
-#         return  # Only create folders for new trades
-#     
-#     try:
-#         client = SharePointClient()
-#         trade_id = instance.trade_id  # Adjust to match your model field
-#         
-#         # Create all trade-level folders
-#         folders = FolderStructure.get_trade_folders(trade_id)
-#         for folder_path in folders:
-#             client.create_folder(folder_path)
-#         
-#         # Store base path in trade model (add this field to your Trade model)
-#         instance.sharepoint_folder_path = FolderStructure.get_trade_base_path(trade_id)
-#         instance.save(update_fields=['sharepoint_folder_path'])
-#         
-#         logger.info(f"Created SharePoint folders for trade: {trade_id}")
-#     
-#     except Exception as e:
-#         logger.error(f"Failed to create SharePoint folders for trade {instance.trade_id}: {str(e)}")
-#         # Don't raise - folder creation failure shouldn't block trade creation
-#
-#
-# @receiver(post_save, sender='acq_module.Asset')
-# def create_asset_folders(sender, instance, created, **kwargs):
-#     """
-#     Create SharePoint folders when an asset is created.
-#     
-#     Args:
-#         sender: Model class
-#         instance: Actual asset instance created
-#         created: True if this is a new record
-#         **kwargs: Additional arguments
-#     """
-#     if not created:
-#         return  # Only create folders for new assets
-#     
-#     try:
-#         client = SharePointClient()
-#         trade_id = instance.trade.trade_id  # Adjust to match your model relationships
-#         asset_id = instance.asset_id  # Adjust to match your model field
-#         
-#         # Create all asset-level folders
-#         folders = FolderStructure.get_asset_folders(trade_id, asset_id)
-#         for folder_path in folders:
-#             client.create_folder(folder_path)
-#         
-#         # Store base path in asset model (add this field to your Asset model)
-#         instance.sharepoint_folder_path = FolderStructure.get_asset_base_path(trade_id, asset_id)
-#         instance.save(update_fields=['sharepoint_folder_path'])
-#         
-#         logger.info(f"Created SharePoint folders for asset: {trade_id}/{asset_id}")
-#     
-#     except Exception as e:
-#         logger.error(f"Failed to create SharePoint folders for asset {instance.asset_id}: {str(e)}")
-#         # Don't raise - folder creation failure shouldn't block asset creation
+@receiver(post_save, sender='acq_module.Trade')
+def create_trade_folders(sender, instance, created, **kwargs):
+    """
+    Create SharePoint folders when a trade is created.
+    Creates trade-level folders (Bid, Legal, Post Close, Asset Level).
+    """
+    if not created:
+        return  # Only for new trades
+    
+    try:
+        # Build folder name from trade_name and seller
+        trade_name = instance.trade_name
+        seller_name = instance.seller.name if instance.seller else None
+        
+        if not trade_name:
+            logger.warning(f"Trade {instance.pk} has no trade_name - skipping folder creation")
+            return
+        
+        # Sanitize folder name
+        if seller_name:
+            combined_name = f"{trade_name} - {seller_name}"
+        else:
+            combined_name = trade_name
+        
+        # Simple sanitization
+        folder_name = combined_name
+        for char in ['~', '#', '%', '&', '*', '{', '}', '\\', ':', '<', '>', '?', '/', '|', '"']:
+            folder_name = folder_name.replace(char, '_')
+        folder_name = folder_name.strip(' .')[:100]
+        
+        # Create folders
+        client = SharePointClient()
+        folders = FolderStructure.get_trade_folders(folder_name)
+        for folder_path in folders:
+            client.create_folder(folder_path)
+        
+        logger.info(f"Created SharePoint folders for trade: {combined_name}")
+    
+    except Exception as e:
+        logger.error(f"Failed to create SharePoint folders for trade {instance.pk}: {str(e)}")
+        # Don't raise - folder creation failure shouldn't block trade creation
 
 
-# Placeholder - signals will be activated once you configure your models
-logger.info("SharePoint signals module loaded (signals commented out until models configured)")
+@receiver(post_save, sender='acq_module.SellerRawData')
+def create_asset_folders(sender, instance, created, **kwargs):
+    """
+    Create SharePoint folders when an asset is created.
+    Creates all asset-level category folders with subfolders.
+    """
+    if not created:
+        return  # Only for new assets
+    
+    try:
+        # Get trade info
+        if not instance.trade or not instance.trade.trade_name:
+            logger.warning(f"Asset {instance.pk} has no trade - skipping folder creation")
+            return
+        
+        trade = instance.trade
+        trade_name = trade.trade_name
+        seller_name = trade.seller.name if trade.seller else None
+        
+        # Build trade folder name
+        if seller_name:
+            combined_trade_name = f"{trade_name} - {seller_name}"
+        else:
+            combined_trade_name = trade_name
+        
+        # Sanitize
+        trade_folder = combined_trade_name
+        for char in ['~', '#', '%', '&', '*', '{', '}', '\\', ':', '<', '>', '?', '/', '|', '"']:
+            trade_folder = trade_folder.replace(char, '_')
+        trade_folder = trade_folder.strip(' .')[:100]
+        
+        # Get asset info
+        asset_hub_id = instance.asset_hub.id if instance.asset_hub else instance.pk
+        servicer_id = instance.asset_hub.servicer_id if (instance.asset_hub and instance.asset_hub.servicer_id) else None
+        
+        # Build asset folder name
+        if servicer_id:
+            asset_folder = f"{asset_hub_id} - {servicer_id}"
+        else:
+            asset_folder = str(asset_hub_id)
+        
+        # Create folders
+        client = SharePointClient()
+        folders = FolderStructure.get_asset_folders(trade_folder, asset_folder)
+        for folder_path in folders:
+            client.create_folder(folder_path)
+        
+        logger.info(f"Created SharePoint folders for asset: {trade_name}/{asset_hub_id}")
+    
+    except Exception as e:
+        logger.error(f"Failed to create SharePoint folders for asset {instance.pk}: {str(e)}")
+        # Don't raise - folder creation failure shouldn't block asset creation
+
+
+logger.info("SharePoint signals active - auto-creating folders for new trades/assets")
 

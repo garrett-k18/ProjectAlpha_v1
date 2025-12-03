@@ -1503,9 +1503,10 @@ class AssetIdHubAdmin(admin.ModelAdmin):
     list_per_page = 5
     list_max_show_all = 2000
     search_fields = (
+        'id',
         'servicer_id',
     )
-    list_filter = ('details__is_commercial', 'details__legacy_flag')
+    list_filter = ('acq_raw__trade', 'details__is_commercial', 'details__legacy_flag')
     actions_on_top = True
     actions_on_bottom = True
     actions = ['delete_selected', delete_hub_and_children]

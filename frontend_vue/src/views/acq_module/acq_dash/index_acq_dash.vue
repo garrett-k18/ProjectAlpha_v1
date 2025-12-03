@@ -218,6 +218,8 @@
           v-model:servicerId="servicerIdModel"
           :servicers="servicers"
           :servicersLoading="servicersLoading"
+          v-model:bidMethod="bidMethodModel"
+          v-model:pctUPB="pctUPBModel"
           v-model:targetIrr="targetIrrModel"
           v-model:discountRate="discountRateModel"
           v-model:perfRplHoldPeriod="perfRplHoldPeriodModel"
@@ -353,6 +355,7 @@ import type { SellerOption, TradeOption } from '@/stores/acqSelections'
 interface ServicerOption {
   id: number
   servicerName: string
+  defaultForTradeAssumptions?: boolean
 }
 
 export default {
@@ -409,6 +412,8 @@ export default {
     const servicers = ref<ServicerOption[]>([])
     const servicersLoading = ref<boolean>(false)
     // Financial assumptions
+    const bidMethodModel = ref<string>('')
+    const pctUPBModel = ref<number | string>('')
     const targetIrrModel = ref<number | string>('')
     const discountRateModel = ref<number | string>('')
     const perfRplHoldPeriodModel = ref<number | string>('')
@@ -503,8 +508,12 @@ export default {
         settlementDateModel.value = assumptions.settlement_date ? assumptions.settlement_date.substring(0, 10) : ''
         servicingTransferDateModel.value = assumptions.servicing_transfer_date ? assumptions.servicing_transfer_date.substring(0, 10) : ''
         // Servicer selection (use type assertion for optional property)
-        servicerIdModel.value = (assumptions as any).servicer_id ?? null
+        // WHAT: Default UI selection to the configured default servicer when no servicer_id is set
+        // WHY: Trade assumptions should respect the global default configured in Servicer Assumptions
+        servicerIdModel.value = (assumptions as any).servicer_id ?? getDefaultServicerId()
         // Financial assumptions
+        bidMethodModel.value = assumptions.bid_method ?? ''
+        pctUPBModel.value = assumptions.pctUPB ?? ''
         targetIrrModel.value = assumptions.target_irr ?? ''
         discountRateModel.value = assumptions.discount_rate ?? ''
         perfRplHoldPeriodModel.value = assumptions.perf_rpl_hold_period ?? ''
@@ -525,7 +534,10 @@ export default {
         // Asset management fees
         amFeePctModel.value = assumptions.am_fee_pct ?? ''
       } else {
+        // WHAT: No existing assumptions record for this trade
+        // WHY: Show sensible defaults, using the globally configured default servicer in the UI
         resetLocalDateModels()
+        servicerIdModel.value = getDefaultServicerId()
       }
     }
     
@@ -539,6 +551,8 @@ export default {
       // Servicer selection
       servicerIdModel.value = null
       // Financial assumptions
+      bidMethodModel.value = ''
+      pctUPBModel.value = ''
       targetIrrModel.value = ''
       discountRateModel.value = ''
       perfRplHoldPeriodModel.value = ''
@@ -586,6 +600,8 @@ export default {
         // Servicer selection
         servicer_id: servicerIdModel.value || null,
         // Financial assumptions (convert to string)
+        bid_method: bidMethodModel.value || null,
+        pctUPB: pctUPBModel.value ? String(pctUPBModel.value) : null,
         target_irr: targetIrrModel.value ? String(targetIrrModel.value) : null,
         discount_rate: discountRateModel.value ? String(discountRateModel.value) : null,
         perf_rpl_hold_period: perfRplHoldPeriodModel.value ? String(perfRplHoldPeriodModel.value) : null,
@@ -639,6 +655,27 @@ export default {
       } finally {
         servicersLoading.value = false
       }
+    }
+
+    // WHAT: Determine the default servicer id for trade assumptions
+    // WHY: Use the Servicer flagged as defaultForTradeAssumptions, fall back to StateBridge or first in list
+    function getDefaultServicerId(): number | null {
+      const list = servicers.value as any[]
+      if (!list || list.length === 0) return null
+
+      const explicitDefault = list.find(s => s.defaultForTradeAssumptions)
+      if (explicitDefault && typeof explicitDefault.id === 'number') {
+        return explicitDefault.id
+      }
+
+      const stateBridge = list.find(
+        s => typeof s.servicerName === 'string' && s.servicerName.toLowerCase().includes('statebridge')
+      )
+      if (stateBridge && typeof stateBridge.id === 'number') {
+        return stateBridge.id
+      }
+
+      return typeof list[0].id === 'number' ? list[0].id : null
     }
     
     // Auto-save function triggered on input change
@@ -890,6 +927,8 @@ export default {
       servicers,
       servicersLoading,
       // Financial assumptions
+      bidMethodModel,
+      pctUPBModel,
       targetIrrModel,
       discountRateModel,
       perfRplHoldPeriodModel,

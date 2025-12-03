@@ -38,6 +38,7 @@ class TradeLevelAssumptionSerializer(serializers.ModelSerializer):
             "trade_id",
             "servicer_id",
             "servicer_name",
+            "bid_method",
             "bid_date",
             "settlement_date",
             "servicing_transfer_date",

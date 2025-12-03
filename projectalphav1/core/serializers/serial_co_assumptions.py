@@ -110,6 +110,9 @@ class ServicerSerializer(serializers.ModelSerializer):
     # WHY: User enters percentage with 2 decimals, backend converts to 4 decimal storage (0.0150)
     liqfeePct = serializers.DecimalField(source='liqfee_pct', max_digits=10, decimal_places=4, required=False, allow_null=True, coerce_to_string=False)
     liqfeeFlat = serializers.DecimalField(source='liqfee_flat', max_digits=10, decimal_places=2, required=False, allow_null=True)
+    defaultForTradeAssumptions = serializers.BooleanField(
+        source='is_default_for_trade_assumptions', required=False
+    )
     
     class Meta:
         model = Servicer
@@ -118,7 +121,7 @@ class ServicerSerializer(serializers.ModelSerializer):
             'servicingTransferDuration', 'boardFee', 'currentFee', 'thirtdayFee',
             'sixtydayFee', 'ninetydayFee', 'onetwentydayFee', 'fcFee', 'bkFee',
             'modFee', 'dilFee', 'thirdpartyFee', 'reoFee', 'reoDays',
-            'liqfeePct', 'liqfeeFlat'
+            'liqfeePct', 'liqfeeFlat', 'defaultForTradeAssumptions',
         ]
     
     def validate_liqfee_pct(self, value):
@@ -151,3 +154,17 @@ class ServicerSerializer(serializers.ModelSerializer):
             percentage_value = Decimal(str(data['liqfeePct'])) * Decimal('100')
             data['liqfeePct'] = float(percentage_value.quantize(Decimal('0.01')))
         return data
+
+    def update(self, instance, validated_data):
+        """Ensure only one Servicer is marked as default for trade assumptions.
+
+        When is_default_for_trade_assumptions is set to True on this instance,
+        clear the flag on all other Servicer records.
+        """
+        is_default = validated_data.get('is_default_for_trade_assumptions')
+        if is_default:
+            # Clear default flag on all other servicers
+            Servicer.objects.exclude(pk=instance.pk).update(
+                is_default_for_trade_assumptions=False
+            )
+        return super().update(instance, validated_data)

@@ -181,6 +181,8 @@
                 :rows="rows"
                 @openLoanModal="openLoanModal"
                 @saveInternalUW="saveInternalUW"
+                @saveInternalNotes="saveInternalNotes"
+                @saveInternalTrashout="saveInternalTrashout"
                 @saveGrade="saveGrade"
                 @saveRehabEst="saveRehabEst"
                 @saveRecommendRehab="saveRecommendRehab"
@@ -355,6 +357,22 @@ async function saveGrade(asset: any, gradeCode: string) {
   }
 }
 
+// WHAT: Save internal UW trashout estimate
+// WHY: Keep reconciliation trashout estimate in sync with internal initial underwriting valuation
+async function saveInternalTrashout(asset: any, value: number | null) {
+  const assetId = asset.id
+  if (!assetId) return
+
+  const success = await valuationStore.updateValuation(assetId, {
+    source: 'internalInitialUW',
+    trashout_est_total: value ?? null,
+  })
+
+  if (success) {
+    await fetchValuationMetrics()
+  }
+}
+
 async function saveInternalUW(asset: any, field: 'asis' | 'arv', eventOrValue: Event | any) {
   let num: number | null = null
   
@@ -379,6 +397,22 @@ async function saveInternalUW(asset: any, field: 'asis' | 'arv', eventOrValue: E
   }
   
   const success = await valuationStore.saveInternalUWValue(assetId, field, num)
+  if (success) {
+    await fetchValuationMetrics()
+  }
+}
+
+// WHAT: Save internal UW notes
+// WHY: Keep reconciliation notes in sync with internal initial underwriting valuation
+async function saveInternalNotes(asset: any, notes: string | null) {
+  const assetId = asset.id
+  if (!assetId) return
+
+  const success = await valuationStore.updateValuation(assetId, {
+    source: 'internalInitialUW',
+    notes: notes ?? null,
+  })
+
   if (success) {
     await fetchValuationMetrics()
   }

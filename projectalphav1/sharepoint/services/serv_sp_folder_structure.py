@@ -26,7 +26,7 @@ class FolderStructure:
         "Bid",
         "Legal",
         "Post Close",
-        "Assets",  # Container for all assets
+        "Asset Level",  # Container for all assets
     ]
     
     # Asset-level folders (within each asset)
@@ -38,6 +38,13 @@ class FolderStructure:
         "Title",
         "Photos",
     ]
+    
+    # Subfolders within specific asset categories
+    ASSET_SUBFOLDERS = {
+        "Valuation": ["BPO", "Appraisal", "Property Inspection"],
+        "Legal": ["Foreclosure", "DIL"],
+        # Add more as needed - others have no subfolders for now
+    }
     
     @staticmethod
     def get_trade_base_path(trade_id: str) -> str:
@@ -76,24 +83,35 @@ class FolderStructure:
             asset_id: Asset identifier
             
         Returns:
-            Base path like: /Trades/TRD-2024-001/Assets/ASSET-12345
+            Base path like: /Trades/TRD-2024-001/Asset Level/ASSET-12345
         """
-        return f"/{FolderStructure.ROOT_TRADES}/{trade_id}/Assets/{asset_id}"
+        return f"/{FolderStructure.ROOT_TRADES}/{trade_id}/Asset Level/{asset_id}"
     
     @staticmethod
     def get_asset_folders(trade_id: str, asset_id: str) -> List[str]:
         """
-        Get all folder paths for an asset.
+        Get all folder paths for an asset, including subfolders.
         
         Args:
             trade_id: Trade identifier
             asset_id: Asset identifier
             
         Returns:
-            List of folder paths to create
+            List of folder paths to create (includes main folders + subfolders)
         """
         base_path = FolderStructure.get_asset_base_path(trade_id, asset_id)
-        return [f"{base_path}/{folder}" for folder in FolderStructure.ASSET_FOLDERS]
+        folders = []
+        
+        # Add main category folders
+        for folder in FolderStructure.ASSET_FOLDERS:
+            folders.append(f"{base_path}/{folder}")
+            
+            # Add subfolders if defined for this category
+            if folder in FolderStructure.ASSET_SUBFOLDERS:
+                for subfolder in FolderStructure.ASSET_SUBFOLDERS[folder]:
+                    folders.append(f"{base_path}/{folder}/{subfolder}")
+        
+        return folders
     
     @staticmethod
     def get_document_path(trade_id: str, asset_id: str, category: str, file_name: str) -> str:

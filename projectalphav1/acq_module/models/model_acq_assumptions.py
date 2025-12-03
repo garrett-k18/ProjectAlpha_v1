@@ -225,6 +225,11 @@ class TradeLevelAssumption(models.Model):
     - Each trade operates independently with its own assumptions
     """
     
+    class BidMethod(models.TextChoices):
+        """Initial bid method options for trade pricing."""
+        PCT_UPB = 'PCT_UPB', 'Percent of UPB'
+        TARGET_IRR = 'TARGET_IRR', 'Target IRR'
+
     # Link to the trade
     trade = models.ForeignKey(Trade, on_delete=models.CASCADE, related_name='trade_assumptions')
     
@@ -248,6 +253,13 @@ class TradeLevelAssumption(models.Model):
     servicing_transfer_date = models.DateField(null=True, blank=True, help_text="Date servicing transfers to new servicer (defaults to settlement_date + 30 days if not set)")
     
     # Trade-specific financial assumptions
+    bid_method = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True,
+        choices=BidMethod.choices,
+        help_text="Method used for bid (e.g., PCT_UPB or TARGET_IRR)",
+    )
     pctUPB = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="Purchase price as percentage of UPB")
     target_irr = models.DecimalField(max_digits=6, decimal_places=4, null=True, blank=True, help_text="Target internal rate of return for this trade")
     discount_rate = models.DecimalField(max_digits=6, decimal_places=4, default=0.12, null=True, blank=True, help_text="Discount rate for NPV calculations")

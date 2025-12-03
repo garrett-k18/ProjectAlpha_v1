@@ -25,6 +25,7 @@
             <th class="text-center">Internal AIV</th>
             <th class="text-center">Internal ARV</th>
             <th class="text-center">Rehab Est</th>
+            <th class="text-center">Trashout Est</th>
             <th class="text-center">Recommend Rehab</th>
             <th class="text-center">Notes</th>
           </tr>
@@ -32,7 +33,7 @@
         <tbody>
           <!-- WHAT: Empty state row when no data or no filtered results -->
           <tr v-if="!filteredRows || filteredRows.length === 0">
-            <td colspan="8" class="text-center text-muted py-3">
+            <td colspan="9" class="text-center text-muted py-3">
               <span v-if="filters.search || filters.state || filters.valueAmount || filters.grade">
                 No assets match your filters
               </span>
@@ -113,6 +114,18 @@
                 placeholder="Add Value"
               />
             </td>
+            <!-- WHAT: Trashout estimate total (internal initial UW) - Editable -->
+            <td class="text-center">
+              <input 
+                type="text"
+                class="editable-value-inline"
+                :value="formatCurrencyForInput(asset.internal_initial_uw_trashout_est)"
+                @input="(e) => formatInputOnType(e)"
+                @blur="(e) => handleSaveInternalTrashout(asset, e)"
+                @keyup.enter="(e) => handleSaveInternalTrashout(asset, e)"
+                placeholder="Add Value"
+              />
+            </td>
             <!-- WHAT: Recommend rehab flag - Editable dropdown -->
             <td class="text-center">
               <select 
@@ -124,13 +137,16 @@
                 <option value="yes">Yes</option>
               </select>
             </td>
-            <!-- WHAT: Internal valuation notes column with 2-line display -->
-            <!-- WHY: Display internal UW notes in table with 2-line wrapping for better readability -->
+            <!-- WHAT: Internal valuation notes column with editable textarea -->
+            <!-- WHY: Allow users to add/edit internal UW notes directly in reconciliation table -->
             <td class="notes-column text-center">
-              <div v-if="asset.internal_initial_uw_notes" :title="asset.internal_initial_uw_notes">
-                {{ asset.internal_initial_uw_notes }}
-              </div>
-              <span v-else class="text-muted">-</span>
+              <textarea
+                class="form-control form-control-sm notes-textarea"
+                :value="asset.internal_initial_uw_notes || ''"
+                @blur="(e) => handleSaveInternalNotes(asset, e)"
+                placeholder="Add notes..."
+                rows="2"
+              ></textarea>
             </td>
           </tr>
         </tbody>
@@ -194,6 +210,8 @@ const emit = defineEmits<{
   saveGrade: [asset: any, grade: string]
   saveRehabEst: [asset: any, value: number]
   saveRecommendRehab: [asset: any, value: boolean]
+  saveInternalNotes: [asset: any, notes: string | null]
+  saveInternalTrashout: [asset: any, value: number | null]
 }>()
 
 // WHAT: Pagination state
@@ -347,6 +365,16 @@ function goToPage(page: number) {
   }
 }
 
+// WHAT: Save internal trashout estimate
+// WHY: Update internal initial UW trashout estimate value
+function handleSaveInternalTrashout(asset: any, event: Event) {
+  const input = event.target as HTMLInputElement
+  const rawValue = input.value.replace(/[^0-9]/g, '')
+  const numericValue = rawValue ? parseFloat(rawValue) : null
+  
+  emit('saveInternalTrashout', asset, numericValue)
+}
+
 // WHAT: Handle filter changes from AssetFilters component
 // WHY: Update local filter state and reset pagination
 function handleFilterChange(newFilters: FilterValues) {
@@ -474,6 +502,15 @@ function handleSaveRecommendRehab(asset: any, event: Event) {
   emit('saveRecommendRehab', asset, value)
 }
 
+// WHAT: Save internal UW notes
+// WHY: Sync reconciliation notes with internal initial underwriting valuation
+function handleSaveInternalNotes(asset: any, event: Event) {
+  const textarea = event.target as HTMLTextAreaElement
+  const raw = textarea.value.trim()
+  const notes = raw === '' ? null : raw
+  emit('saveInternalNotes', asset, notes)
+}
+
 // WHAT: Get CSS class for grade badge
 // WHY: Color-code grades for easy visual identification
 function getGradeBadgeClass(grade: string | null | undefined): string {
@@ -579,5 +616,10 @@ function getGradeBadgeClass(grade: string | null | undefined): string {
   word-wrap: break-word;
   text-align: center;
   margin: 0 auto;
+}
+
+.notes-textarea {
+  resize: vertical;
+  width: 100%;
 }
 </style>

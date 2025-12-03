@@ -41,6 +41,7 @@ export interface ValuationRow {
   internal_initial_uw_arv_value: number | null
   internal_initial_uw_grade: string | null
   internal_initial_uw_notes: string | null
+  internal_initial_uw_trashout_est: number | null
   
   // Broker valuation
   broker_asis_value: number | null
@@ -56,6 +57,7 @@ export interface ValuationUpdatePayload {
   arv_value?: number | null
   grade_code?: string | null
   rehab_est_total?: number | null
+  trashout_est_total?: number | null
   recommend_rehab?: boolean | null
   notes?: string | null
 }
@@ -198,6 +200,7 @@ export const useValuationCenterStore = defineStore('valuationCenter', () => {
           if (payload.arv_value !== undefined) row.internal_initial_uw_arv_value = payload.arv_value
           if (payload.grade_code !== undefined) row.internal_initial_uw_grade = payload.grade_code
           if (payload.notes !== undefined) row.internal_initial_uw_notes = payload.notes
+          if (payload.trashout_est_total !== undefined) row.internal_initial_uw_trashout_est = payload.trashout_est_total
         } else if (payload.source === 'broker') {
           if (payload.asis_value !== undefined) row.broker_asis_value = payload.asis_value
           if (payload.arv_value !== undefined) row.broker_arv_value = payload.arv_value

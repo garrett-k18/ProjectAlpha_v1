@@ -15,6 +15,7 @@ export interface TradeAssumption {
   settlement_date: string | null; // ISO format
   servicing_transfer_date?: string | null;
   // Financial assumptions
+  bid_method?: string | null;
   pctUPB?: string | null;
   target_irr?: string | null;
   discount_rate?: string | null;

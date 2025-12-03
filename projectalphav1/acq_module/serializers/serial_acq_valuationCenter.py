@@ -60,6 +60,7 @@ class ValuationCenterRowSerializer(serializers.Serializer):
     internal_initial_uw_arv_value = serializers.SerializerMethodField()
     internal_initial_uw_grade = serializers.SerializerMethodField()
     internal_initial_uw_notes = serializers.SerializerMethodField()
+    internal_initial_uw_trashout_est = serializers.SerializerMethodField()
     
     # -------------------------------------------------------------------------
     # Broker Valuation (from Valuation model, source='broker')
@@ -159,6 +160,10 @@ class ValuationCenterRowSerializer(serializers.Serializer):
         vals = self._get_all_valuations_for_source(obj, 'internalInitialUW')
         return self._get_field_from_valuations(vals, 'notes')
     
+    def get_internal_initial_uw_trashout_est(self, obj):
+        vals = self._get_all_valuations_for_source(obj, 'internalInitialUW')
+        return self._get_field_from_valuations(vals, 'trashout_est_total')
+    
     # -------------------------------------------------------------------------
     # Broker Getters
     # -------------------------------------------------------------------------
@@ -204,6 +209,7 @@ class ValuationUpdateSerializer(serializers.Serializer):
     arv_value = serializers.DecimalField(max_digits=14, decimal_places=2, required=False, allow_null=True)
     grade_code = serializers.CharField(max_length=10, required=False, allow_null=True, allow_blank=True)
     rehab_est_total = serializers.DecimalField(max_digits=14, decimal_places=2, required=False, allow_null=True)
+    trashout_est_total = serializers.DecimalField(max_digits=14, decimal_places=2, required=False, allow_null=True)
     recommend_rehab = serializers.BooleanField(required=False, allow_null=True)
     notes = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     

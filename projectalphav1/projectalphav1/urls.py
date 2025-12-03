@@ -31,6 +31,7 @@ urlpatterns = [
     path('api/', include('am_module.urls')),
     path('api/core/', include('core.urls')),  # Core module API endpoints (assumptions, etc.)
     path('api/reporting/', include('reporting.urls')),  # Reporting dashboard endpoints
+    path('api/sharepoint/', include('sharepoint.urls')),  # SharePoint document access
     # Include user_admin URLs directly (they already have the /api/auth/ prefix)
     path('', include('user_admin.urls')),
     # WHAT: Ensure favicon requests serve the static asset instead of hitting the SPA catch-all.

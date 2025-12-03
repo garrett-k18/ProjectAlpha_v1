@@ -118,7 +118,7 @@ class SharePointClient:
         logger.info(f"Retrieved drive ID: {self._drive_id}")
         return self._drive_id
     
-    def create_folder(self, folder_path: str) -> Dict[str, Any]:
+    def create_folder(self, folder_path: str, skip_parent_check: bool = False) -> Dict[str, Any]:
         """
         Create a folder in SharePoint.
         If folder exists, returns existing folder info.
@@ -139,7 +139,39 @@ class SharePointClient:
         # Remove leading/trailing slashes
         folder_path = folder_path.strip('/')
         
-        # Split path into parts to create hierarchically
+        # If skip_parent_check, check if exists first, then create if needed
+        if skip_parent_check:
+            # Check if folder exists
+            check_url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/root:/{folder_path}"
+            check_response = requests.get(check_url, headers=headers)
+            
+            if check_response.status_code == 200:
+                # Folder exists - return it
+                return check_response.json()
+            
+            # Doesn't exist - create it
+            parts = folder_path.split('/')
+            parent_path = '/'.join(parts[:-1]) if len(parts) > 1 else ''
+            folder_name = parts[-1]
+            
+            if parent_path:
+                create_url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/root:/{parent_path}:/children"
+            else:
+                create_url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/root/children"
+            
+            folder_data = {
+                "name": folder_name,
+                "folder": {}
+            }
+            
+            response = requests.post(create_url, headers=headers, json=folder_data)
+            
+            if response.status_code in [200, 201]:
+                return response.json()
+            
+            raise Exception(f"Failed to create {folder_path}: {response.text}")
+        
+        # Original hierarchical creation
         parts = folder_path.split('/')
         current_path = ""
         folder_info = None

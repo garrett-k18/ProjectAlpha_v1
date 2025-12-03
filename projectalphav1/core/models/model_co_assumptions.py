@@ -28,6 +28,10 @@ class Servicer(models.Model):
     reo_days = models.IntegerField(null=True, blank=True)
     liqfee_pct = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True, help_text="Liquidation fee percentage as decimal (e.g., 0.015 = 1.5%)")
     liqfee_flat = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    is_default_for_trade_assumptions = models.BooleanField(
+        default=False,
+        help_text="Whether this servicer should be used as the default selection in trade assumptions",
+    )
         
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)

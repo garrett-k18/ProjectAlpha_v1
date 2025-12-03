@@ -27,23 +27,29 @@ def purchase_price(asset_hub_id: int) -> Decimal:
     if loan_assumption and loan_assumption.acquisition_price:
         return Decimal(str(loan_assumption.acquisition_price))
     
-    # WHAT: Try to calculate from pctUPB if available
+    # WHAT: Try to calculate from pctUPB if available and bid method is PCT_UPB
     # WHY: Trade-level assumptions may define purchase price as % of UPB
     try:
         raw_data = SellerRawData.objects.filter(asset_hub_id=asset_hub_id).select_related('trade').first()
-        
+
         if raw_data and raw_data.trade:
             trade_assumption = TradeLevelAssumption.objects.filter(trade=raw_data.trade).first()
-            
+
             if trade_assumption and trade_assumption.pctUPB and raw_data.current_balance:
-                # WHAT: Calculate purchase price as pctUPB * current_balance
-                # WHY: Trade may define pricing as percentage of UPB
-                # NOTE: pctUPB is stored as a whole number percentage (e.g., 85.00 = 85%)
-                pct = Decimal(str(trade_assumption.pctUPB)) / Decimal('100')  # Convert percentage to decimal
-                current_bal = Decimal(str(raw_data.current_balance)) if raw_data.current_balance else Decimal('0.00')
-                price = pct * current_bal
-                # print(f"[purchase_price] Calculated from pctUPB: {trade_assumption.pctUPB}% × ${current_bal:,.2f} = ${price:,.2f}")
-                return price.quantize(Decimal('0.01'))
+                # WHAT: Respect the trade-level bid method when deriving price
+                # WHY: Only use pctUPB path when bid_method is PCT_UPB
+                # NOTE: Treat a null bid_method as PCT_UPB for backward compatibility
+                bid_method = trade_assumption.bid_method or TradeLevelAssumption.BidMethod.PCT_UPB
+
+                if bid_method == TradeLevelAssumption.BidMethod.PCT_UPB:
+                    # WHAT: Calculate purchase price as pctUPB * current_balance
+                    # WHY: Trade may define pricing as percentage of UPB
+                    # NOTE: pctUPB is stored as a whole number percentage (e.g., 85.00 = 85%)
+                    pct = Decimal(str(trade_assumption.pctUPB)) / Decimal('100')  # Convert percentage to decimal
+                    current_bal = Decimal(str(raw_data.current_balance)) if raw_data.current_balance else Decimal('0.00')
+                    price = pct * current_bal
+                    # print(f"[purchase_price] Calculated from pctUPB: {trade_assumption.pctUPB}% × ${current_bal:,.2f} = ${price:,.2f}")
+                    return price.quantize(Decimal('0.01'))
     except Exception:
         pass
     

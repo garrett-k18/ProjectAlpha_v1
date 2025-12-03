@@ -66,24 +66,12 @@
                 </div>
               </div>
             </td>
-            <!-- WHAT: Broker assignment dropdown -->
-            <!-- WHY: Allow users to assign brokers from CRM to individual assets -->
+            <!-- WHAT: Broker assignment display (read-only) -->
+            <!-- WHY: Show current broker assignment from backend without allowing inline changes -->
             <td class="text-center">
-              <select 
-                class="form-select form-select-sm broker-dropdown"
-                :value="getAssignedBrokerId(asset)"
-                @change="(e) => assignBroker(asset, e)"
-                :disabled="brokersLoading"
-              >
-                <option value="">-- Select Broker --</option>
-                <option 
-                  v-for="broker in brokers" 
-                  :key="broker.id" 
-                  :value="broker.id"
-                >
-                  {{ broker.contact_name || broker.firm || broker.email || `Broker #${broker.id}` }}
-                </option>
-              </select>
+              <span class="read-only-value">
+                {{ getAssignedBrokerDisplay(asset) }}
+              </span>
             </td>
             <!-- WHAT: Broker valuation grade -->
             <!-- WHY: Display grade assigned to broker valuation -->
@@ -463,6 +451,21 @@ function getAssignedBrokerId(asset: any): string {
   }
   
   return brokerId ? String(brokerId) : ''
+}
+
+function getAssignedBrokerDisplay(asset: any): string {
+  const display =
+    asset.broker_contact_name ||
+    asset.broker_name ||
+    asset.broker_firm ||
+    asset.broker_email
+
+  if (display) {
+    return String(display)
+  }
+
+  const id = getAssignedBrokerId(asset)
+  return id ? `Broker #${id}` : ''
 }
 
 // WHAT: Get CSS class for grade badge

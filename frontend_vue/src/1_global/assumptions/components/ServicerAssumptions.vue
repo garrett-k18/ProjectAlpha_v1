@@ -14,6 +14,17 @@
         <p class="text-muted small mb-0">Select a servicer to view its configured fees and durations</p>
       </div>
       <div class="d-flex gap-2">
+        <button
+          class="btn btn-sm btn-outline-secondary"
+          :disabled="!selectedServicerId || isSettingDefault"
+          @click="setAsTradeDefault"
+        >
+          <i
+            class="mdi me-1"
+            :class="isSelectedDefault ? 'mdi-star' : 'mdi-star-outline'"
+          ></i>
+          {{ isSelectedDefault ? 'Default for Trades' : 'Make Default' }}
+        </button>
         <button 
           class="btn btn-sm btn-primary"
           :disabled="!hasChanges || isSaving || !selectedServicerId"
@@ -251,6 +262,7 @@ interface ServicerDto {
   reoDays: number
   liqfeePct: number
   liqfeeFlat: number
+  defaultForTradeAssumptions?: boolean
 }
 
 // Local state
@@ -260,11 +272,13 @@ const selectedServicerId = ref<number | null>(null)
 
 // Derived selection
 const selectedServicer = computed(() => servicers.value.find(s => s.id === selectedServicerId.value))
+const isSelectedDefault = computed(() => !!selectedServicer.value?.defaultForTradeAssumptions)
 
 // Reactive form copy of the selected servicer
 const form = reactive<Partial<ServicerDto>>({})
 const hasChanges = ref(false)
 const isSaving = ref(false)
+const isSettingDefault = ref(false)
 
 // Sync form when selection changes
 watch(selectedServicer, (val) => {
@@ -293,14 +307,42 @@ async function loadServicers() {
 
     servicers.value = normalizedServicers
 
-    // Auto-select first servicer for convenience
+    // Auto-select default-for-trades servicer if present, else first
     if (servicers.value.length > 0) {
-      selectedServicerId.value = servicers.value[0].id
+      const defaultServicer = servicers.value.find(s => s.defaultForTradeAssumptions)
+      selectedServicerId.value = defaultServicer ? defaultServicer.id : servicers.value[0].id
     }
   } catch (err) {
     console.error('Error loading servicers:', err)
   } finally {
     isLoading.value = false
+  }
+}
+
+// Set the selected servicer as default for trade assumptions
+async function setAsTradeDefault() {
+  if (!selectedServicerId.value) return
+  isSettingDefault.value = true
+  try {
+    const resp = await fetch(`/api/core/servicers/${selectedServicerId.value}/`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ defaultForTradeAssumptions: true })
+    })
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+    const updated = await resp.json()
+    // Ensure only this servicer is marked as default in local state
+    servicers.value = servicers.value.map(s =>
+      s.id === updated.id
+        ? { ...s, ...updated }
+        : { ...s, defaultForTradeAssumptions: false }
+    )
+  } catch (err) {
+    console.error('Error setting default servicer for trades:', err)
+    alert('Failed to set default servicer for trade assumptions')
+  } finally {
+    isSettingDefault.value = false
   }
 }
 

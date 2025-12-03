@@ -11,6 +11,7 @@ Endpoints:
 """
 
 import logging
+from datetime import date
 from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404
 from rest_framework.decorators import api_view, permission_classes
@@ -155,18 +156,24 @@ def valuation_center_update(request, asset_id: int):
     source = data.pop('source')
     
     logger.info(f"[valuation_center] Updating source={source} with {data}")
-    
-    # Find or create valuation for this asset/source
-    valuation, created = Valuation.objects.get_or_create(
-        asset_hub=srd.asset_hub,
-        source=source,
-        defaults={}
-    )
-    
-    if created:
-        logger.info(f"[valuation_center] Created new valuation id={valuation.id}")
-    else:
+
+    # Find canonical valuation for this asset/source
+    # WHAT: There should effectively be a single "Internal Initial UW" record per asset
+    # HOW: If any valuations exist for this asset/source, pick the latest one; otherwise create one
+    valuations_qs = Valuation.objects.filter(asset_hub=srd.asset_hub, source=source).order_by('-created_at')
+
+    if valuations_qs.exists():
+        valuation = valuations_qs.first()
+        created = False
         logger.info(f"[valuation_center] Updating existing valuation id={valuation.id}")
+    else:
+        valuation = Valuation.objects.create(
+            asset_hub=srd.asset_hub,
+            source=source,
+            value_date=date.today(),
+        )
+        created = True
+        logger.info(f"[valuation_center] Created new valuation id={valuation.id}")
     
     # Update fields that were provided
     if 'asis_value' in data:
@@ -184,6 +191,9 @@ def valuation_center_update(request, asset_id: int):
     
     if 'rehab_est_total' in data:
         valuation.rehab_est_total = data['rehab_est_total']
+    
+    if 'trashout_est_total' in data:
+        valuation.trashout_est_total = data['trashout_est_total']
     
     if 'recommend_rehab' in data:
         valuation.recommend_rehab = data['recommend_rehab']
