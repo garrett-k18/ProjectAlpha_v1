@@ -39,12 +39,11 @@ class FolderStructure:
         "Photos",
     ]
     
-    # Subfolders within specific asset categories
-    ASSET_SUBFOLDERS = {
-        "Valuation": ["BPO", "Appraisal", "Property Inspection"],
-        "Legal": ["Foreclosure", "DIL"],
-        # Add more as needed - others have no subfolders for now
-    }
+    # Tags for Valuation files only (replaces BPO/Appraisal/Inspection subfolders)
+    VALUATION_TAGS = ["BPO", "Appraisal", "Inspection Report"]
+    
+    # No subfolders - flat structure with tags for Valuation
+    ASSET_SUBFOLDERS = {}
     
     @staticmethod
     def get_trade_base_path(trade_id: str) -> str:

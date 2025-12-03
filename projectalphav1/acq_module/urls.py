@@ -52,6 +52,10 @@ from .views.view_acq_tradeAssumptions import (
     get_trade_level_assumptions,
     update_trade_level_assumptions,
 )
+from .views.view_acq_assumptionDefaults import (
+    get_assumption_defaults,
+    update_assumption_defaults,
+)
 from .views.view_acq_status import (
     # Trade-level status management
     get_trade_status,
@@ -139,6 +143,9 @@ urlpatterns = [
     # Trade level assumptions endpoints
     path('trade-assumptions/<int:trade_id>/', get_trade_level_assumptions, name='api_get_trade_assumptions'),  # GET
     path('trade-assumptions/<int:trade_id>/update/', update_trade_level_assumptions, name='api_update_trade_assumptions'),  # POST, PUT
+    # Assumption defaults endpoints
+    path('assumption-defaults/', get_assumption_defaults, name='api_get_assumption_defaults'),  # GET
+    path('assumption-defaults/update/', update_assumption_defaults, name='api_update_assumption_defaults'),  # PATCH, PUT
     # Trade status endpoints
     path('trades/<int:trade_id>/status/', get_trade_status, name='api_get_trade_status'),  # GET
     path('trades/<int:trade_id>/status/update/', update_trade_status, name='api_update_trade_status'),  # POST, PUT

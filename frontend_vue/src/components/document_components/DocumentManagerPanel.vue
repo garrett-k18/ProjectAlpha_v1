@@ -113,6 +113,25 @@ export default defineComponent({
       return this.effectiveViewModes.find(v => v.id === this.currentViewId) || this.effectiveViewModes[0]
     },
   },
+  watch: {
+    assetId(newVal, oldVal) {
+      // Reload data when assetId changes (e.g., when parent sets it)
+      if (newVal && newVal !== oldVal) {
+        console.log('Asset ID changed to:', newVal, '- reloading data')
+        this.loadData()
+      }
+    },
+    row: {
+      deep: true,
+      handler(newVal, oldVal) {
+        // Reload when row changes
+        if (newVal && newVal !== oldVal && newVal.id) {
+          console.log('Row changed - reloading data')
+          this.loadData()
+        }
+      }
+    }
+  },
   mounted() {
     // Set initial view from prop or default to first available
     if (this.initialViewId) {

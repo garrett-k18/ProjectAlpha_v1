@@ -56,24 +56,41 @@ class SharePointFilesService:
         
         base_path = FolderStructure.get_asset_base_path(trade_folder, asset_folder)
         
-        # Get folder contents (non-recursive for speed - lazy load subfolders)
-        try:
-            folder_data = self._get_folder_contents(base_path, recursive=False)
-            return {
-                'success': True,
-                'asset_hub_id': asset_hub_id,
-                'servicer_id': servicer_id,
-                'base_path': base_path,
-                'folders': folder_data['folders'],
-                'files': folder_data['files']
+        # Return static folder structure (no API call - instant!)
+        folders = []
+        base_url = f"https://firstliencapitaldom.sharepoint.com/sites/ProjectAlpha/Shared%20Documents"
+        
+        # Build folder structure from FolderStructure definition
+        for folder_name in FolderStructure.ASSET_FOLDERS:
+            folder_path = f"{base_path}/{folder_name}"
+            folder_info = {
+                'name': folder_name,
+                'path': folder_path,
+                'web_url': f"{base_url}/{folder_path.replace('/', '%20')}",
+                'files': [],
+                'subfolders': []
             }
-        except Exception as e:
-            logger.error(f"Failed to get folders for asset {asset_hub_id}: {str(e)}")
-            return {
-                'success': False,
-                'error': str(e),
-                'asset_hub_id': asset_hub_id
-            }
+            
+            # Add predefined subfolders if any
+            if folder_name in FolderStructure.ASSET_SUBFOLDERS:
+                for subfolder_name in FolderStructure.ASSET_SUBFOLDERS[folder_name]:
+                    folder_info['subfolders'].append({
+                        'name': subfolder_name,
+                        'path': f"{folder_path}/{subfolder_name}",
+                        'web_url': f"{base_url}/{folder_path.replace('/', '%20')}%20{subfolder_name.replace(' ', '%20')}",
+                        'file_count': 0
+                    })
+            
+            folders.append(folder_info)
+        
+        return {
+            'success': True,
+            'asset_hub_id': asset_hub_id,
+            'servicer_id': servicer_id,
+            'base_path': base_path,
+            'folders': folders,
+            'files': []
+        }
     
     def _get_folder_contents(self, folder_path: str, recursive: bool = False) -> Dict[str, List]:
         """
@@ -116,20 +133,41 @@ class SharePointFilesService:
                     'file_count': item.get('folder', {}).get('childCount', 0),
                 }
                 
-                # Only recurse if requested (for lazy loading)
-                if recursive:
-                    try:
-                        subfolder_contents = self._get_folder_contents(f"{folder_path}/{folder_name}", recursive=True)
-                        folder_info['files'] = subfolder_contents['files']
-                        folder_info['subfolders'] = subfolder_contents['folders']
-                    except Exception as e:
-                        logger.warning(f"Could not get contents of {folder_name}: {str(e)}")
-                        folder_info['files'] = []
+                # Always fetch immediate children (one level), but don't recurse deeper
+                try:
+                    # Get immediate children of this folder
+                    subfolder_path = f"{folder_path}/{folder_name}"
+                    subfolder_url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/root:/{subfolder_path}:/children"
+                    subfolder_response = requests.get(subfolder_url, headers=headers)
+                    
+                    if subfolder_response.status_code == 200:
+                        sub_items = subfolder_response.json().get('value', [])
+                        folder_info['subfolders'] = [
+                            {
+                                'name': sub['name'],
+                                'path': f"{subfolder_path}/{sub['name']}",
+                                'web_url': sub.get('webUrl'),
+                                'file_count': sub.get('folder', {}).get('childCount', 0)
+                            }
+                            for sub in sub_items if 'folder' in sub
+                        ]
+                        folder_info['files'] = [
+                            {
+                                'name': sub['name'],
+                                'size': sub.get('size', 0),
+                                'web_url': sub.get('webUrl'),
+                                'download_url': sub.get('@microsoft.graph.downloadUrl'),
+                                'modified': sub.get('lastModifiedDateTime'),
+                            }
+                            for sub in sub_items if 'file' in sub
+                        ]
+                    else:
                         folder_info['subfolders'] = []
-                else:
-                    # Just indicate there might be subfolders
-                    folder_info['files'] = []
+                        folder_info['files'] = []
+                except Exception as e:
+                    logger.warning(f"Could not get contents of {folder_name}: {str(e)}")
                     folder_info['subfolders'] = []
+                    folder_info['files'] = []
                 
                 folders.append(folder_info)
             

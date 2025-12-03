@@ -11,7 +11,7 @@ from rest_framework.response import Response
 from rest_framework import status
 import logging
 
-from ..models.model_acq_assumptions import TradeLevelAssumption
+from ..models.model_acq_assumptions import TradeLevelAssumption, ModelingDefaults
 from ..models.model_acq_seller import Trade
 from ..serializers import TradeLevelAssumptionSerializer
 
@@ -71,7 +71,8 @@ def update_trade_level_assumptions(request, trade_id):
         # WHY: Handle cases where duplicates exist (use first record, log warning)
         # HOW: Try get_or_create first, fall back to filter().first() if multiple exist
         try:
-            assumption, _ = TradeLevelAssumption.objects.get_or_create(trade=trade)
+            defaults = ModelingDefaults.current_trade_defaults()
+            assumption, _ = TradeLevelAssumption.objects.get_or_create(trade=trade, defaults=defaults)
         except TradeLevelAssumption.MultipleObjectsReturned:
             # WHAT: Handle duplicate TradeLevelAssumption records
             # WHY: Database has duplicate records for this trade (data integrity issue)

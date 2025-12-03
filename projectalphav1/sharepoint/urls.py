@@ -30,5 +30,12 @@ urlpatterns = [
         view_sp_documents.upload_file,
         name='upload_file'
     ),
+    
+    # Get available tags
+    path(
+        'tags/',
+        view_sp_documents.get_available_tags,
+        name='available_tags'
+    ),
 ]
 

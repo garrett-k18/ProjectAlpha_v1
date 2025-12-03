@@ -34,7 +34,7 @@ class Command(BaseCommand):
         parser.add_argument(
             'action',
             type=str,
-            choices=['init', 'sync', 'cleanup', 'rename'],
+            choices=['init', 'sync', 'cleanup', 'rename', 'update-metadata'],
             help='Action to perform'
         )
         
@@ -64,6 +64,8 @@ class Command(BaseCommand):
             self._handle_cleanup(options)
         elif action == 'rename':
             self._handle_rename(options)
+        elif action == 'update-metadata':
+            self._handle_update_metadata(options)
     
     def _sanitize(self, name):
         """Sanitize folder name for SharePoint"""
@@ -164,6 +166,13 @@ class Command(BaseCommand):
                 servicer_id = asset.asset_hub.servicer_id if (asset.asset_hub and asset.asset_hub.servicer_id) else None
                 sellertape_id = asset.asset_hub.sellertape_id if (asset.asset_hub and asset.asset_hub.sellertape_id) else None
                 
+                # Get address
+                street = asset.street_address or ''
+                city = asset.city or ''
+                state = asset.state or ''
+                zip_code = asset.zip or ''
+                full_address = f"{street}, {city}, {state} {zip_code}".strip(', ')
+                
                 # Build asset folder name (servicer_id as primary)
                 if servicer_id:
                     asset_folder = str(servicer_id)
@@ -176,7 +185,8 @@ class Command(BaseCommand):
                     'servicer_id': servicer_id,
                     'sellertape_id': sellertape_id,
                     'trade_id': trade.pk,
-                    'trade_name': trade.trade_name
+                    'trade_name': trade.trade_name,
+                    'address': full_address
                 }
                 
                 if dry_run:
@@ -316,6 +326,95 @@ class Command(BaseCommand):
         
         self.stdout.write(self.style.SUCCESS(f'\n✓ Renamed {renamed} folders'))
     
+    def _handle_update_metadata(self, options):
+        """Update metadata on existing folders without recreating them"""
+        dry_run = options.get('dry_run', False)
+        trade_filter = options.get('trade_filter')
+        trade_id = options.get('trade_id')
+        
+        self.stdout.write(self.style.MIGRATE_HEADING('Updating folder metadata\n'))
+        
+        # Get models
+        Trade = apps.get_model('acq_module', 'Trade')
+        Asset = apps.get_model('acq_module', 'SellerRawData')
+        
+        # Query trades
+        trades = Trade.objects.all()
+        
+        if trade_id:
+            trades = trades.filter(pk=trade_id)
+        elif trade_filter:
+            trades = trades.filter(pk__gte=trade_filter)
+        
+        client = SharePointClient() if not dry_run else None
+        drive_id = client._get_drive_id() if client else None
+        updated = 0
+        
+        # Process each trade
+        for trade in trades:
+            trade_name = trade.trade_name
+            seller_name = trade.seller.name if trade.seller else None
+            
+            if not trade_name:
+                continue
+            
+            combined = f"{trade_name} - {seller_name}" if seller_name else trade_name
+            folder_name = self._sanitize(combined)
+            
+            self.stdout.write(f'\n{combined}')
+            
+            # Get assets
+            assets = Asset.objects.filter(trade=trade)
+            
+            for asset in assets:
+                asset_hub_id = asset.asset_hub.id if asset.asset_hub else asset.pk
+                servicer_id = asset.asset_hub.servicer_id if (asset.asset_hub and asset.asset_hub.servicer_id) else None
+                sellertape_id = asset.asset_hub.sellertape_id if (asset.asset_hub and asset.asset_hub.sellertape_id) else None
+                
+                # Get address
+                street = asset.street_address or ''
+                city = asset.city or ''
+                state = asset.state or ''
+                zip_code = asset.zip or ''
+                full_address = f"{street}, {city}, {state} {zip_code}".strip(', ')
+                
+                asset_folder = str(servicer_id) if servicer_id else f"NO_SERVICER_{asset_hub_id}"
+                base_path = FolderStructure.get_asset_base_path(folder_name, asset_folder)
+                
+                # Build metadata
+                metadata = {
+                    'asset_hub_id': asset_hub_id,
+                    'servicer_id': servicer_id,
+                    'sellertape_id': sellertape_id,
+                    'address': full_address,
+                    'trade_id': trade.pk,
+                    'trade_name': trade.trade_name
+                }
+                
+                if dry_run:
+                    continue
+                
+                # Find folder in SharePoint and update metadata
+                try:
+                    # Get folder ID
+                    folder_path = base_path.strip('/')
+                    get_url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/root:/{folder_path}"
+                    token = client._get_access_token()
+                    headers = {'Authorization': f'Bearer {token}'}
+                    
+                    response = requests.get(get_url, headers=headers)
+                    if response.status_code == 200:
+                        folder_id = response.json()['id']
+                        self._set_folder_metadata(client, folder_id, metadata)
+                        updated += 1
+                
+                except Exception as e:
+                    self.stdout.write(f'  ⚠ Failed {asset_folder}: {str(e)[:50]}')
+            
+            self.stdout.write(f'  ✓ Updated {assets.count()} assets')
+        
+        self.stdout.write(self.style.SUCCESS(f'\n✓ Updated metadata on {updated} folders'))
+    
     def _make_folder_request(self, folder_path, request_id):
         """Build batch request for folder creation"""
         parts = folder_path.strip('/').split('/')
@@ -415,6 +514,8 @@ class Command(BaseCommand):
             desc_parts.append(f"Servicer:{metadata['servicer_id']}")
         if metadata.get('sellertape_id'):
             desc_parts.append(f"Tape:{metadata['sellertape_id']}")
+        if metadata.get('address'):
+            desc_parts.append(f"Address:{metadata['address']}")
         if metadata.get('trade_id'):
             desc_parts.append(f"TradeID:{metadata['trade_id']}")
         if metadata.get('trade_name'):

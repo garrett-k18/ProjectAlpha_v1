@@ -31,6 +31,7 @@ class SharePointUploadService:
         asset_hub_id: int,
         category: str,
         subcategory: str = None,
+        tags: list = None,
         uploaded_by=None
     ) -> dict:
         """
@@ -91,6 +92,19 @@ class SharePointUploadService:
             
             file_data = response.json()
             
+            # Set tags on file in SharePoint (as description)
+            if tags:
+                try:
+                    tags_str = ', '.join(tags)
+                    update_url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/items/{file_data['id']}"
+                    update_response = requests.patch(
+                        update_url,
+                        headers={'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'},
+                        json={'description': f"Tags: {tags_str}"}
+                    )
+                except Exception as e:
+                    logger.warning(f"Could not set tags on file: {str(e)}")
+            
             # Create database record
             SharePointDocument.objects.create(
                 trade_id=str(trade.pk),
@@ -104,6 +118,7 @@ class SharePointUploadService:
                 sharepoint_drive_id=drive_id,
                 sharepoint_web_url=file_data.get('webUrl', ''),
                 uploaded_by=uploaded_by,
+                tags=tags or [],
                 is_validated=True,
             )
             

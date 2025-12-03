@@ -248,11 +248,12 @@ class DataImporter:
             
             # WHAT: Auto-create TradeLevelAssumption for new trade
             # WHY: Required for timeline calculations and financial modeling
-            # HOW: Import and create with default values from model definition
-            from acq_module.models.model_acq_assumptions import TradeLevelAssumption
+            # HOW: Create with modeling defaults so UI-controlled settings are applied
+            from acq_module.models.model_acq_assumptions import TradeLevelAssumption, ModelingDefaults
+            defaults = ModelingDefaults.current_trade_defaults()
             trade_assumption, created = TradeLevelAssumption.objects.get_or_create(
                 trade=trade,
-                defaults={}  # Use model defaults
+                defaults=defaults,
             )
             if created and self.stdout:
                 self.stdout.write(f'[OK] Created TradeLevelAssumption for Trade ID: {trade.id}\n')

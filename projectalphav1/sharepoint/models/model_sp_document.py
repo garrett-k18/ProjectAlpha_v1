@@ -104,6 +104,13 @@ class SharePointDocument(models.Model):
         help_text="Direct URL to view file in SharePoint",
     )
     
+    # Tags for categorization
+    tags = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Tags for categorizing file (e.g., ['BPO', 'Updated', '2024'])",
+    )
+    
     # Validation tracking
     is_validated = models.BooleanField(
         default=False,

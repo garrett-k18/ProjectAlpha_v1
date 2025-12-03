@@ -16,6 +16,7 @@ from rest_framework import status
 from django.apps import apps
 from sharepoint.services.serv_sp_files import SharePointFilesService
 from sharepoint.services.serv_sp_upload import SharePointUploadService
+from sharepoint.services.serv_sp_folder_structure import FolderStructure
 import logging
 
 logger = logging.getLogger(__name__)
@@ -215,3 +216,18 @@ def upload_file(request):
             'success': False,
             'error': str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+def get_available_tags(request):
+    """
+    Get available tags for categorizing files.
+    
+    GET /api/sharepoint/tags/
+    
+    Returns:
+        Dict of category -> available tags
+    """
+    return Response({
+        'valuation': FolderStructure.VALUATION_TAGS,
+    })

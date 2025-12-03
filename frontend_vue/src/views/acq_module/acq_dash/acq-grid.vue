@@ -968,21 +968,36 @@ const emit = defineEmits<{
   overflow: hidden;
 }
 
-/* Center-align grid headers and cells by default */
-:deep(.acq-grid .ag-header-cell-label) {
-  justify-content: center;
-}
-:deep(.acq-grid .ag-cell) {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-}
+ /* Center-align grid headers and cells by default */
+ :deep(.acq-grid .ag-header-cell-label) {
+   justify-content: center;
+ }
+ :deep(.acq-grid .ag-cell) {
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   text-align: center;
+ }
 
-/* Multi-line header support - allow wrapping */
-:deep(.acq-grid .ag-header-cell-text) {
-  white-space: normal !important;
-  line-height: 1.2;
-  word-break: break-word;
-}
+ /* Ensure selection column checkboxes (header + rows) are centered */
+ :deep(.acq-grid .ag-header-select-all),
+ :deep(.acq-grid .ag-selection-checkbox) {
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   width: 100%;
+   height: 100%;
+ }
+
+ :deep(.acq-grid .ag-header-select-all .ag-checkbox-input-wrapper),
+ :deep(.acq-grid .ag-selection-checkbox .ag-checkbox-input-wrapper) {
+   margin: 0 auto;
+ }
+
+ /* Multi-line header support - allow wrapping */
+ :deep(.acq-grid .ag-header-cell-text) {
+   white-space: normal !important;
+   line-height: 1.2;
+   word-break: break-word;
+ }
 </style>
