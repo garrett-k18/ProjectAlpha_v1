@@ -23,5 +23,12 @@ urlpatterns = [
         view_sp_documents.get_trade_documents,
         name='trade_documents'
     ),
+    
+    # Upload file
+    path(
+        'upload/',
+        view_sp_documents.upload_file,
+        name='upload_file'
+    ),
 ]
 

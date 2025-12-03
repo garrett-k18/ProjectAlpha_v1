@@ -6,10 +6,17 @@
           :viewModes="effectiveViewModes"
           :currentViewId="currentViewId"
           @switch:view="switchView"
+          @upload:files="handleUpload"
         />
       </div>
 
-      <div class="page-aside-right">
+      <div
+        class="page-aside-right"
+        @drop.prevent="handleDrop"
+        @dragover.prevent="dragOver = true"
+        @dragleave="dragOver = false"
+        :class="{ 'drag-over': dragOver }"
+      >
         <DocumentTopBar :currentView="currentView" v-model:displayMode="displayMode" />
 
         <DocumentBreadcrumbs
@@ -93,6 +100,8 @@ export default defineComponent({
       folders: [] as EgnyteFolder[],
       files: [] as EgnyteFile[],
       displayMode: 'grid' as 'grid' | 'list',
+      dragOver: false,
+      uploading: false,
     }
   },
   computed: {
@@ -105,13 +114,15 @@ export default defineComponent({
     },
   },
   mounted() {
-    // Align current view with provided initialViewId or first available mode if needed
+    // Set initial view from prop or default to first available
     if (this.initialViewId) {
       const exists = this.effectiveViewModes.some(m => m.id === this.initialViewId)
       this.currentViewId = exists ? this.initialViewId : (this.effectiveViewModes[0]?.id || this.currentViewId)
     } else if (!this.effectiveViewModes.some(m => m.id === this.currentViewId)) {
       this.currentViewId = this.effectiveViewModes[0]?.id || this.currentViewId
     }
+    
+    console.log('DocumentManagerPanel mounted - initialViewId:', this.initialViewId, 'currentViewId:', this.currentViewId)
     this.loadData()
   },
   methods: {
@@ -120,17 +131,27 @@ export default defineComponent({
       this.currentPath = []
       this.loadData()
     },
-    loadData() {
+    async loadData() {
       this.loading = true
-      setTimeout(() => {
-        if (this.currentViewId === 'by-trade') this.loadByTrade()
-        else if (this.currentViewId === 'by-type') this.loadByType()
-        else if (this.currentViewId === 'by-status') this.loadByStatus()
-        else if (this.currentViewId === 'recent') this.loadRecent()
-        // Apply client-side filtering by selected ID (assetId or row.id) until backend is wired
-        this.applySelectedFilter()
+      try {
+        if (this.currentViewId === 'by-trade') {
+          this.loadByTrade()
+          this.applySelectedFilter()  // Only filter for mock data views
+        }
+        else if (this.currentViewId === 'by-type') {
+          await this.loadByType()  // SharePoint data - no filtering needed
+        }
+        else if (this.currentViewId === 'by-status') {
+          this.loadByStatus()
+          this.applySelectedFilter()
+        }
+        else if (this.currentViewId === 'recent') {
+          this.loadRecent()
+          this.applySelectedFilter()
+        }
+      } finally {
         this.loading = false
-      }, 300)
+      }
     },
     applySelectedFilter() {
       const key = this.assetId != null ? String(this.assetId) : (this.row && (this.row as any).id != null ? String((this.row as any).id) : '')
@@ -171,22 +192,73 @@ export default defineComponent({
         ]
       }
     },
-    loadByType() {
-      if (this.currentPath.length === 0) {
-        this.folders = [
-          { id: 'dt1', name: 'Contracts', path: '/types/contracts', count: 45 },
-          { id: 'dt2', name: 'Financials', path: '/types/financials', count: 78 },
-          { id: 'dt3', name: 'Legal Documents', path: '/types/legal', count: 23 },
-          { id: 'dt4', name: 'Photos', path: '/types/photos', count: 156 },
-          { id: 'dt5', name: 'Reports', path: '/types/reports', count: 34 },
-        ]
-        this.files = []
-      } else {
+    async loadByType() {
+      // Get asset_hub_id from props
+      const assetHubId = this.assetId || (this.row && this.row.id)
+      
+      console.log('loadByType - assetId:', this.assetId, 'row:', this.row, 'assetHubId:', assetHubId)
+      
+      if (!assetHubId) {
+        // No asset selected yet - show empty state
         this.folders = []
-        this.files = [
-          { id: 'f1', name: 'Sample Contract 1.pdf', path: '/file1.pdf', type: 'PDF', size: 2456789, modified: '2024-01-15T10:30:00Z', tags: ['Trade-2024-001', 'Signed'] },
-          { id: 'f2', name: 'Sample Contract 2.pdf', path: '/file2.pdf', type: 'PDF', size: 1834567, modified: '2024-01-12T11:45:00Z', tags: ['Trade-2024-002', 'Draft'] },
-        ]
+        this.files = []
+        return
+      }
+      
+      // Fetch from SharePoint API
+      console.log('Fetching SharePoint documents for asset:', assetHubId)
+      try {
+        const response = await fetch(`/api/sharepoint/assets/${assetHubId}/documents/`)
+        const data = await response.json()
+        
+        console.log('SharePoint API response:', data)
+        console.log('Folders count:', data.folders?.length)
+        console.log('Files count:', data.files?.length)
+        
+        if (!data.success) {
+          console.error('SharePoint fetch failed:', data.error)
+          this.folders = []
+          this.files = []
+          return
+        }
+        
+        if (this.currentPath.length === 0) {
+          // Show main category folders
+          console.log('Mapping folders:', data.folders)
+          this.folders = (data.folders || []).map((folder: any) => {
+            console.log('Mapping folder:', folder)
+            return {
+              id: folder.name,
+              name: folder.name,
+              path: folder.path,
+              count: (folder.files?.length || 0) + (folder.subfolders?.length || 0)
+            }
+          })
+          console.log('Mapped folders:', this.folders)
+          this.files = data.files || []
+        } else {
+          // In subfolder - show files
+          const currentFolder = this.currentPath[this.currentPath.length - 1]
+          const folderData = (data.folders || []).find((f: any) => f.name === currentFolder.name)
+          
+          if (folderData) {
+            // Show subfolders if any
+            this.folders = (folderData.subfolders || []).map((sub: any) => ({
+              id: sub.name,
+              name: sub.name,
+              path: sub.path,
+              count: sub.files?.length || 0
+            }))
+            this.files = folderData.files || []
+          } else {
+            this.folders = []
+            this.files = []
+          }
+        }
+      } catch (error) {
+        console.error('Error loading SharePoint documents:', error)
+        this.folders = []
+        this.files = []
       }
     },
     loadByDate() {
@@ -242,10 +314,70 @@ export default defineComponent({
       const date = new Date(dateStr)
       return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     },
+    handleDrop(event: DragEvent) {
+      this.dragOver = false
+      const files = event.dataTransfer?.files
+      if (files && files.length > 0) {
+        this.handleUpload(Array.from(files))
+      }
+    },
+    async handleUpload(files: File[]) {
+      console.log('handleUpload called with', files.length, 'files')
+      const assetHubId = this.assetId || (this.row && this.row.id)
+      console.log('Asset ID:', assetHubId)
+      if (!assetHubId) {
+        alert('No asset selected')
+        return
+      }
+      
+      // Get category from current path (folder user is viewing)
+      let category = 'Valuation'  // Default
+      let subcategory = null
+      
+      if (this.currentPath.length > 0) {
+        category = this.currentPath[0].name  // Main category folder
+        if (this.currentPath.length > 1) {
+          subcategory = this.currentPath[1].name  // Subfolder
+        }
+      }
+      
+      console.log('Uploading to category:', category, 'subcategory:', subcategory)
+      
+      this.uploading = true
+      
+      for (const file of files) {
+        try {
+          const formData = new FormData()
+          formData.append('file', file)
+          formData.append('asset_hub_id', String(assetHubId))
+          formData.append('category', category)
+          
+          const response = await fetch('/api/sharepoint/upload/', {
+            method: 'POST',
+            body: formData
+          })
+          
+          if (response.ok) {
+            console.log(`✓ Uploaded: ${file.name}`)
+          } else {
+            console.error(`✗ Failed: ${file.name}`)
+          }
+        } catch (error) {
+          console.error(`Error uploading ${file.name}:`, error)
+        }
+      }
+      
+      this.uploading = false
+      this.loadData()  // Refresh to show new files
+    },
   },
 })
 </script>
 
 <style scoped>
 /* Keep minimal; panel reuses page styles */
+.drag-over {
+  border: 2px dashed #4CAF50;
+  background-color: rgba(76, 175, 80, 0.05);
+}
 </style>

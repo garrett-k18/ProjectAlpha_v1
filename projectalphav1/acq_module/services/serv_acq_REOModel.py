@@ -298,16 +298,13 @@ def get_reo_expense_values(
     broker_fees = Decimal('0.0')
     servicer_liquidation_fee = Decimal('0.0')
     
-    # WHAT: Get asset data with optimized queries
-    # WHY: Use select_related to fetch trade and servicer in a single query to avoid N+1
+    # Get asset data with optimized queries
     raw_data = SellerRawData.objects.filter(asset_hub_id=asset_hub_id).select_related('trade').first()
     
     if not raw_data:
-        print(f"No SellerRawData found for asset_hub_id {asset_hub_id}")
         return {}
     
-    # WHAT: Fetch TradeLevelAssumption ONCE and reuse throughout function
-    # WHY: PERFORMANCE - Avoid querying the same data 9+ times (N+1 query problem)
+    # Fetch TradeLevelAssumption ONCE and reuse throughout function
     trade_assumption = None
     servicer = None
     if raw_data.trade:
@@ -337,13 +334,6 @@ def get_reo_expense_values(
             servicing_fees += fc_fee * Decimal(foreclosure_months)
         if reo_duration_months:
             servicing_fees += reo_fee * Decimal(reo_duration_months)
-        
-        print(f"\nServicing Fees Calculation:")
-        print(f"  Board Fee: ${board_fee:,.2f}")
-        print(f"  120-Day Fee ({servicing_transfer_months} months): ${onetwentyday_fee * Decimal(servicing_transfer_months if servicing_transfer_months else 0):,.2f}")
-        print(f"  FC Fee ({foreclosure_months} months): ${fc_fee * Decimal(foreclosure_months if foreclosure_months else 0):,.2f}")
-        print(f"  REO Fee ({reo_duration_months} months): ${reo_fee * Decimal(reo_duration_months):,.2f}")
-        print(f"  Total Servicing Fees: ${servicing_fees:,.2f}")
     
     # WHAT: Calculate taxes and insurance
     # WHY: These carry costs apply throughout entire timeline
@@ -352,7 +342,6 @@ def get_reo_expense_values(
             monthly_tax = monthly_tax_for_asset(asset_hub_id)
             if monthly_tax is not None:
                 taxes = monthly_tax * Decimal(total_timeline_months)
-                print(f"Taxes: ${monthly_tax:,.2f}/month * {total_timeline_months} months = ${taxes:,.2f}")
         except Exception as e:
             print(f"ERROR calculating taxes: {str(e)}")
         
@@ -360,7 +349,6 @@ def get_reo_expense_values(
             monthly_ins = monthly_insurance_for_asset(asset_hub_id)
             if monthly_ins is not None:
                 insurance = monthly_ins * Decimal(total_timeline_months)
-                print(f"Insurance: ${monthly_ins:,.2f}/month * {total_timeline_months} months = ${insurance:,.2f}")
         except Exception as e:
             print(f"ERROR calculating insurance: {str(e)}")
     
@@ -370,7 +358,6 @@ def get_reo_expense_values(
             state_ref = StateReference.objects.filter(state_code=raw_data.state).first()
             if state_ref and state_ref.fc_legal_fees_avg:
                 legal_cost = state_ref.fc_legal_fees_avg
-                print(f"Legal Cost (State {raw_data.state}): ${legal_cost:,.2f}")
         except Exception as e:
             print(f"ERROR getting legal costs: {str(e)}")
     
@@ -387,9 +374,6 @@ def get_reo_expense_values(
             property_type = raw_data.property_type if raw_data else None
             square_feet = raw_data.sq_ft if raw_data else None
             
-            print(f"\n=== REO HOLDING COSTS CALCULATION ===")
-            print(f"Property Type: {property_type}, Square Feet: {square_feet}, REO Marketing Months: {reo_marketing_months}")
-            
             # WHAT: Calculate monthly HOA fee
             # HOW: Lookup by property type in HOAAssumption table
             if property_type:
@@ -397,9 +381,6 @@ def get_reo_expense_values(
                     hoa_record = HOAAssumption.objects.filter(property_type__iexact=property_type).first()
                     if hoa_record:
                         monthly_hoa = hoa_record.monthly_hoa_fee
-                        print(f"HOA Fee: ${monthly_hoa:,.2f}/month (from HOAAssumption table)")
-                    else:
-                        print(f"No HOA assumption found for property type: {property_type}")
                 except Exception as e:
                     print(f"ERROR getting HOA fee: {str(e)}")
             
@@ -425,16 +406,12 @@ def get_reo_expense_values(
                             ((sqft_record.utility_trash_per_sqft or Decimal('0.0')) * Decimal(str(square_feet))) +
                             ((sqft_record.utility_other_per_sqft or Decimal('0.0')) * Decimal(str(square_feet)))
                         )
-                        print(f"Utilities: ${monthly_utilities:,.2f}/month (from SquareFootageAssumption - {square_feet} sqft)")
-                        
+
                         # WHAT: Calculate property preservation from per-sqft rates
                         monthly_property_pres = (
                             ((sqft_record.security_cost_per_sqft or Decimal('0.0')) * Decimal(str(square_feet))) +
                             ((sqft_record.landscaping_per_sqft or Decimal('0.0')) * Decimal(str(square_feet)))
                         )
-                        print(f"Property Preservation: ${monthly_property_pres:,.2f}/month (from SquareFootageAssumption - {square_feet} sqft)")
-                    else:
-                        print(f"No active RESIDENTIAL SquareFootageAssumption found - will try PropertyTypeAssumption")
                 except Exception as e:
                     print(f"ERROR using square footage model: {str(e)}")
             
@@ -453,7 +430,6 @@ def get_reo_expense_values(
                                 (prop_type_record.utility_trash_monthly or Decimal('0.0')) +
                                 (prop_type_record.utility_other_monthly or Decimal('0.0'))
                             )
-                            print(f"Utilities: ${monthly_utilities:,.2f}/month (from PropertyTypeAssumption table)")
                         
                         # WHAT: Only use property type values if sqft model didn't provide them
                         if monthly_property_pres == 0:
@@ -461,7 +437,6 @@ def get_reo_expense_values(
                                 (prop_type_record.security_cost_monthly or Decimal('0.0')) +
                                 (prop_type_record.landscaping_monthly or Decimal('0.0'))
                             )
-                            print(f"Property Preservation: ${monthly_property_pres:,.2f}/month (from PropertyTypeAssumption table)")
                     else:
                         print(f"No PropertyTypeAssumption found for property type: {property_type}")
                 except Exception as e:
@@ -469,19 +444,15 @@ def get_reo_expense_values(
             
             # WHAT: Calculate total monthly holding cost
             monthly_holding = monthly_hoa + monthly_utilities + monthly_property_pres
-            print(f"Total Monthly Holding Cost: ${monthly_holding:,.2f} (HOA: ${monthly_hoa:,.2f} + Utilities: ${monthly_utilities:,.2f} + Prop Pres: ${monthly_property_pres:,.2f})")
-            
+
             # TODO: Add eviction duration to REO holding period calculation
             # WHAT: Calculate REO holding duration (BOTH renovation + marketing)
             # WHY: Holding costs (HOA, utilities, property preservation) accrue during entire REO ownership
             # NOTE: Whether renovating or marketing, property still incurs HOA, utilities, maintenance costs
             reo_holding_duration = (reo_renovation_months or 0) + (reo_marketing_months or 0)
-            print(f"REO Holding Duration: {reo_holding_duration} months (Renovation: {reo_renovation_months or 0} + Marketing: {reo_marketing_months or 0})")
-            
+
             # WHAT: Multiply monthly holding cost by total REO duration (renovation + marketing)
             reo_holding_costs = monthly_holding * Decimal(reo_holding_duration)
-            print(f"REO Holding Costs: ${monthly_holding:,.2f}/month * {reo_holding_duration} months = ${reo_holding_costs:,.2f}")
-            print(f"=== END REO HOLDING COSTS ===\n")
             
             # WHAT: Store monthly rates for frontend recalculation (individual components)
             monthly_reo_holding = monthly_holding
@@ -498,11 +469,8 @@ def get_reo_expense_values(
     # WHY: Cost to clear out property after foreclosure/eviction
     # HOW: Use SquareFootageAssumption if square feet available, otherwise PropertyTypeAssumption
     try:
-        print(f"\n=== TRASHOUT COST CALCULATION ===")
         property_type = raw_data.property_type if raw_data else None
         square_feet = raw_data.sq_ft if raw_data else None
-        
-        print(f"Property Type: {property_type}, Square Feet: {square_feet}")
         
         # WHAT: Try square footage model first if square feet is available
         # HOW: Use RESIDENTIAL category for SquareFootageAssumption (independent of property_type)
@@ -515,9 +483,6 @@ def get_reo_expense_values(
                 ).first()
                 if sqft_record and sqft_record.trashout_per_sqft:
                     trashout_cost = Decimal(str(square_feet)) * sqft_record.trashout_per_sqft
-                    print(f"Trashout Cost (Square Foot Model - RESIDENTIAL): {square_feet} sqft * ${sqft_record.trashout_per_sqft:.4f}/sqft = ${trashout_cost:,.2f}")
-                else:
-                    print(f"No active RESIDENTIAL SquareFootageAssumption with trashout_per_sqft found")
             except Exception as e:
                 print(f"ERROR using square footage model: {str(e)}")
         
@@ -527,14 +492,10 @@ def get_reo_expense_values(
                 prop_type_record = PropertyTypeAssumption.objects.filter(property_type__iexact=property_type).first()
                 if prop_type_record and prop_type_record.trashout_cost:
                     trashout_cost = prop_type_record.trashout_cost
-                    print(f"Trashout Cost (Property Type Model): ${trashout_cost:,.2f}")
                 else:
                     print(f"No PropertyTypeAssumption with trashout_cost found for property type: {property_type}")
             except Exception as e:
                 print(f"ERROR using property type model: {str(e)}")
-        
-        print(f"Final Trashout Cost: ${trashout_cost:,.2f}")
-        print(f"=== END TRASHOUT COST ===\n")
         
     except Exception as e:
         print(f"ERROR calculating trashout cost: {str(e)}")
@@ -545,11 +506,8 @@ def get_reo_expense_values(
     # WHY: Cost to renovate property before REO sale
     # HOW: Priority 1 - Internal UW rehab estimate, 2 - Square footage model, 3 - Property type model
     try:
-        print(f"\n=== RENOVATION COST CALCULATION ===")
         property_type = raw_data.property_type if raw_data else None
         square_feet = raw_data.sq_ft if raw_data else None
-        
-        print(f"Property Type: {property_type}, Square Feet: {square_feet}")
         
         # WHAT: Priority 1 - Check for Internal Initial UW valuation rehab estimate
         # WHY: Most accurate if underwriter provided specific rehab estimate
@@ -558,16 +516,9 @@ def get_reo_expense_values(
                 asset_hub_id=asset_hub_id,
                 source='internalInitialUW'
             ).only('rehab_est_total').first()
-            
-            print(f"Internal UW Valuation found: {internal_uw_val is not None}")
-            if internal_uw_val:
-                print(f"rehab_est_total value: {internal_uw_val.rehab_est_total}")
-            
+
             if internal_uw_val and internal_uw_val.rehab_est_total:
                 renovation_cost = Decimal(str(internal_uw_val.rehab_est_total))
-                print(f"✓ Renovation Cost (Internal UW Estimate): ${renovation_cost:,.2f}")
-            else:
-                print(f"No Internal UW rehab estimate found - will try square footage model")
         except Exception as e:
             print(f"ERROR getting Internal UW rehab estimate: {str(e)}")
             import traceback
@@ -582,9 +533,6 @@ def get_reo_expense_values(
                 ).first()
                 if sqft_record and sqft_record.renovation_per_sqft:
                     renovation_cost = Decimal(str(square_feet)) * sqft_record.renovation_per_sqft
-                    print(f"Renovation Cost (Square Foot Model - RESIDENTIAL): {square_feet} sqft * ${sqft_record.renovation_per_sqft:.4f}/sqft = ${renovation_cost:,.2f}")
-                else:
-                    print(f"No active RESIDENTIAL SquareFootageAssumption with renovation_per_sqft found")
             except Exception as e:
                 print(f"ERROR using square footage model: {str(e)}")
         
@@ -594,14 +542,10 @@ def get_reo_expense_values(
                 prop_type_record = PropertyTypeAssumption.objects.filter(property_type__iexact=property_type).first()
                 if prop_type_record and prop_type_record.renovation_cost:
                     renovation_cost = prop_type_record.renovation_cost
-                    print(f"Renovation Cost (Property Type Model): ${renovation_cost:,.2f}")
                 else:
                     print(f"No PropertyTypeAssumption with renovation_cost found for property type: {property_type}")
             except Exception as e:
                 print(f"ERROR using property type model: {str(e)}")
-        
-        print(f"Final Renovation Cost: ${renovation_cost:,.2f}")
-        print(f"=== END RENOVATION COST ===\n")
         
     except Exception as e:
         print(f"ERROR calculating renovation cost: {str(e)}")
@@ -615,7 +559,6 @@ def get_reo_expense_values(
         proceeds = reo_asis_proceeds(asset_hub_id)
         if proceeds is not None:
             expected_proceeds_asis = proceeds
-            print(f"Expected Proceeds (REO As-Is): ${expected_proceeds_asis:,.2f}")
     except Exception as e:
         print(f"ERROR calculating REO As-Is proceeds: {str(e)}")
     
@@ -626,7 +569,6 @@ def get_reo_expense_values(
         proceeds_arv = reo_arv_proceeds(asset_hub_id)
         if proceeds_arv is not None:
             expected_proceeds_arv = proceeds_arv
-            print(f"Expected Proceeds (REO ARV): ${expected_proceeds_arv:,.2f}")
     except Exception as e:
         print(f"ERROR calculating REO ARV proceeds: {str(e)}")
     
@@ -642,7 +584,6 @@ def get_reo_expense_values(
             if trade_assumption.liq_broker_cc_pct:
                 broker_fee_pct = trade_assumption.liq_broker_cc_pct
                 broker_fees = (broker_fee_pct * expected_proceeds).quantize(Decimal('0.01'))
-                print(f"Broker Fees (As-Is): {broker_fee_pct} × ${expected_proceeds:,.2f} = ${broker_fees:,.2f}")
         except Exception as e:
             print(f"ERROR calculating broker fees: {str(e)}")
     
@@ -655,15 +596,14 @@ def get_reo_expense_values(
                 
                 # WHAT: Get flat fee option
                 flat_fee = servicer.liqfee_flat or Decimal('0.0')
-                
+
                 # WHAT: Get percentage fee option
                 pct_fee = Decimal('0.0')
                 if servicer.liqfee_pct and expected_proceeds > 0:
                     pct_fee = (servicer.liqfee_pct * expected_proceeds).quantize(Decimal('0.01'))
-                
+
                 # WHAT: Take the maximum of the two options
                 servicer_liquidation_fee = max(flat_fee, pct_fee)
-                print(f"Servicer Liquidation Fee: MAX(${flat_fee:,.2f}, ${pct_fee:,.2f}) = ${servicer_liquidation_fee:,.2f}")
         except Exception as e:
             print(f"ERROR calculating servicer liquidation fee: {str(e)}")
     
@@ -713,7 +653,6 @@ def get_reo_expense_values(
                 # WHY: AM fee is always a percentage of exit proceeds
                 am_fee_pct = trade_assumption.liq_am_fee_pct
                 am_liquidation_fee = (am_fee_pct * expected_proceeds).quantize(Decimal('0.01'))
-                print(f"AM Liquidation Fee (As-Is): {am_fee_pct} × ${expected_proceeds:,.2f} = ${am_liquidation_fee:,.2f}")
         except Exception as e:
             print(f"ERROR calculating AM liquidation fee: {str(e)}")
     
@@ -733,7 +672,6 @@ def get_reo_expense_values(
                 if trade_assumption.liq_broker_cc_pct:
                     broker_fee_pct = trade_assumption.liq_broker_cc_pct
                     broker_fees_arv = (broker_fee_pct * expected_proceeds_arv).quantize(Decimal('0.01'))
-                    print(f"Broker Fees (ARV): {broker_fee_pct} × ${expected_proceeds_arv:,.2f} = ${broker_fees_arv:,.2f}")
             except Exception as e:
                 print(f"ERROR calculating ARV broker fees: {str(e)}")
         
@@ -743,7 +681,6 @@ def get_reo_expense_values(
                 flat_fee = servicer.liqfee_flat or Decimal('0.0')
                 pct_fee = (servicer.liqfee_pct * expected_proceeds_arv).quantize(Decimal('0.01')) if servicer.liqfee_pct else Decimal('0.0')
                 servicer_liquidation_fee_arv = max(flat_fee, pct_fee)
-                print(f"Servicer Liquidation Fee ARV: MAX(${flat_fee:,.2f}, ${pct_fee:,.2f}) = ${servicer_liquidation_fee_arv:,.2f}")
             except Exception as e:
                 print(f"ERROR calculating ARV servicer liquidation fee: {str(e)}")
         
@@ -756,7 +693,6 @@ def get_reo_expense_values(
                     # WHAT: Simple percentage calculation (no MAX, no flat fee)
                     am_fee_pct = trade_assumption.liq_am_fee_pct
                     am_liquidation_fee_arv = (am_fee_pct * expected_proceeds_arv).quantize(Decimal('0.01'))
-                    print(f"AM Liquidation Fee (ARV): {am_fee_pct} × ${expected_proceeds_arv:,.2f} = ${am_liquidation_fee_arv:,.2f}")
             except Exception as e:
                 print(f"ERROR calculating ARV AM liquidation fee: {str(e)}")
     
@@ -764,11 +700,6 @@ def get_reo_expense_values(
     # WHY: These KPIs are calculated exclusively in FRONTEND using instant recalculated values
     # NOTE: Frontend has real-time carry costs (taxes, insurance, servicing, REO holding) that backend doesn't have
     # RESULT: Backend only provides raw expense data, frontend calculates all KPIs
-    print(f"\n=== BACKEND DOES NOT CALCULATE KPIs ===")
-    print(f"Total Costs, Net PL, MOIC, and Annualized ROI are calculated in frontend only")
-    print(f"Backend provides raw data: acquisition costs, carry costs, liquidation expenses")
-    print(f"Frontend recalculates carry costs instantly and computes all KPIs")
-    print(f"=== END BACKEND NOTE ===")
     
     # WHAT: Get purchase price metrics (ratios as percentages)
     price_metrics = {}

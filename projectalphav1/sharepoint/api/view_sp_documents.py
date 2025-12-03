@@ -9,11 +9,13 @@ Module: SharePoint
 Purpose: API for frontend to access SharePoint documents
 """
 
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, parser_classes
+from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from rest_framework import status
 from django.apps import apps
 from sharepoint.services.serv_sp_files import SharePointFilesService
+from sharepoint.services.serv_sp_upload import SharePointUploadService
 import logging
 
 logger = logging.getLogger(__name__)
@@ -54,9 +56,10 @@ def get_asset_documents(request, asset_hub_id):
         SellerRawData = apps.get_model('acq_module', 'SellerRawData')
         
         try:
+            # SellerRawData PK = asset_hub, so query by pk
             asset = SellerRawData.objects.select_related(
                 'asset_hub', 'trade', 'trade__seller'
-            ).get(asset_hub_id=asset_hub_id)
+            ).get(pk=asset_hub_id)
         except SellerRawData.DoesNotExist:
             return Response({
                 'success': False,
@@ -156,3 +159,59 @@ def get_trade_documents(request, trade_id):
             'error': str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+@api_view(['POST'])
+@parser_classes([MultiPartParser, FormParser])
+def upload_file(request):
+    """
+    Upload file to SharePoint.
+    
+    POST /api/sharepoint/upload/
+    Form data:
+        - file: File object
+        - asset_hub_id: Asset ID
+        - category: Category folder name
+        - subcategory: Optional subfolder
+        
+    Returns:
+        Upload result with SharePoint URL
+    """
+    try:
+        file_obj = request.FILES.get('file')
+        asset_hub_id = request.data.get('asset_hub_id')
+        category = request.data.get('category')
+        subcategory = request.data.get('subcategory')
+        
+        if not file_obj:
+            return Response({
+                'success': False,
+                'error': 'No file provided'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        if not asset_hub_id or not category:
+            return Response({
+                'success': False,
+                'error': 'asset_hub_id and category required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Upload to SharePoint
+        service = SharePointUploadService()
+        result = service.upload_file(
+            file_obj=file_obj,
+            asset_hub_id=int(asset_hub_id),
+            category=category,
+            subcategory=subcategory,
+            uploaded_by=request.user if request.user.is_authenticated else None
+        )
+        
+        if result['success']:
+            return Response(result, status=status.HTTP_201_CREATED)
+        else:
+            return Response(result, status=status.HTTP_400_BAD_REQUEST)
+        
+    except Exception as e:
+        logger.error(f"Upload error: {str(e)}")
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

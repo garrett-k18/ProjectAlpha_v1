@@ -1,8 +1,11 @@
 """Purchase price calculation logic for acquisition."""
 
+import logging
 from decimal import Decimal
 from acq_module.models.model_acq_assumptions import LoanLevelAssumption, TradeLevelAssumption
 from acq_module.models.model_acq_seller import SellerRawData
+
+logger = logging.getLogger(__name__)
 
 def purchase_price(asset_hub_id: int) -> Decimal:
     """Return the acquisition price for the provided asset.
@@ -25,7 +28,14 @@ def purchase_price(asset_hub_id: int) -> Decimal:
     loan_assumption = LoanLevelAssumption.objects.filter(asset_hub_id=asset_hub_id).first()
     
     if loan_assumption and loan_assumption.acquisition_price:
-        return Decimal(str(loan_assumption.acquisition_price))
+        price = Decimal(str(loan_assumption.acquisition_price))
+        logger.info(
+            "=== ACQ PRICE LOG === source=user_entered asset_hub_id=%s loan_assumption_id=%s price=%s",
+            asset_hub_id,
+            getattr(loan_assumption, "id", None),
+            price,
+        )
+        return price
     
     # WHAT: Try to calculate from pctUPB if available and bid method is PCT_UPB
     # WHY: Trade-level assumptions may define purchase price as % of UPB
@@ -36,6 +46,7 @@ def purchase_price(asset_hub_id: int) -> Decimal:
             trade_assumption = TradeLevelAssumption.objects.filter(trade=raw_data.trade).first()
 
             if trade_assumption and trade_assumption.pctUPB and raw_data.current_balance:
+
                 # WHAT: Respect the trade-level bid method when deriving price
                 # WHY: Only use pctUPB path when bid_method is PCT_UPB
                 # NOTE: Treat a null bid_method as PCT_UPB for backward compatibility
@@ -48,13 +59,30 @@ def purchase_price(asset_hub_id: int) -> Decimal:
                     pct = Decimal(str(trade_assumption.pctUPB)) / Decimal('100')  # Convert percentage to decimal
                     current_bal = Decimal(str(raw_data.current_balance)) if raw_data.current_balance else Decimal('0.00')
                     price = pct * current_bal
-                    # print(f"[purchase_price] Calculated from pctUPB: {trade_assumption.pctUPB}% × ${current_bal:,.2f} = ${price:,.2f}")
-                    return price.quantize(Decimal('0.01'))
+                    price = price.quantize(Decimal('0.01'))
+                    logger.info(
+                        "=== ACQ PRICE LOG === source=pct_upb asset_hub_id=%s trade_id=%s bid_method=%s pctUPB=%s current_balance=%s price=%s",
+                        asset_hub_id,
+                        getattr(raw_data, "trade_id", None),
+                        bid_method,
+                        trade_assumption.pctUPB,
+                        raw_data.current_balance,
+                        price,
+                    )
+                    return price
     except Exception:
-        pass
+        logger.warning(
+            "=== ACQ PRICE LOG === source=error asset_hub_id=%s",
+            asset_hub_id,
+            exc_info=True,
+        )
     
     # WHAT: Return 0.00 if no price available
     # WHY: Fallback when no pricing data exists
+    logger.info(
+        "=== ACQ PRICE LOG === source=fallback_zero asset_hub_id=%s",
+        asset_hub_id,
+    )
     return Decimal('0.00')
 
 

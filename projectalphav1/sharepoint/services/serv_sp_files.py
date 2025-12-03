@@ -56,9 +56,9 @@ class SharePointFilesService:
         
         base_path = FolderStructure.get_asset_base_path(trade_folder, asset_folder)
         
-        # Get folder contents
+        # Get folder contents (non-recursive for speed - lazy load subfolders)
         try:
-            folder_data = self._get_folder_contents(base_path)
+            folder_data = self._get_folder_contents(base_path, recursive=False)
             return {
                 'success': True,
                 'asset_hub_id': asset_hub_id,
@@ -75,12 +75,13 @@ class SharePointFilesService:
                 'asset_hub_id': asset_hub_id
             }
     
-    def _get_folder_contents(self, folder_path: str) -> Dict[str, List]:
+    def _get_folder_contents(self, folder_path: str, recursive: bool = False) -> Dict[str, List]:
         """
         Get contents of a folder (subfolders and files).
         
         Args:
             folder_path: SharePoint folder path
+            recursive: If True, fetch all subfolder contents (slow). If False, just list folders (fast).
             
         Returns:
             Dict with 'folders' and 'files' lists
@@ -106,22 +107,29 @@ class SharePointFilesService:
         
         for item in items:
             if 'folder' in item:
-                # It's a folder - recursively get its contents
+                # It's a folder
                 folder_name = item['name']
                 folder_info = {
                     'name': folder_name,
                     'path': f"{folder_path}/{folder_name}",
                     'web_url': item.get('webUrl'),
-                    'files': []
+                    'file_count': item.get('folder', {}).get('childCount', 0),
                 }
                 
-                # Get files in this folder
-                try:
-                    subfolder_contents = self._get_folder_contents(f"{folder_path}/{folder_name}")
-                    folder_info['files'] = subfolder_contents['files']
-                    folder_info['subfolders'] = subfolder_contents['folders']
-                except Exception as e:
-                    logger.warning(f"Could not get contents of {folder_name}: {str(e)}")
+                # Only recurse if requested (for lazy loading)
+                if recursive:
+                    try:
+                        subfolder_contents = self._get_folder_contents(f"{folder_path}/{folder_name}", recursive=True)
+                        folder_info['files'] = subfolder_contents['files']
+                        folder_info['subfolders'] = subfolder_contents['folders']
+                    except Exception as e:
+                        logger.warning(f"Could not get contents of {folder_name}: {str(e)}")
+                        folder_info['files'] = []
+                        folder_info['subfolders'] = []
+                else:
+                    # Just indicate there might be subfolders
+                    folder_info['files'] = []
+                    folder_info['subfolders'] = []
                 
                 folders.append(folder_info)
             

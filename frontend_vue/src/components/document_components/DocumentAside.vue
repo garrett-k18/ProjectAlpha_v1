@@ -7,29 +7,21 @@
     How: Accepts `viewModes` and `currentViewId` as props; emits `switch:view` when user changes view
   -->
   <div>
-    <!-- Upload / Create New Dropdown -->
-    <b-dropdown menu-class="dropdown-menu" toggle-class="btn btn-lg btn-link arrow-none">
-      <template #button-content>
-        <b-button
-          variant="success"
-          class="dropdown-toggle w-100"
-          data-bs-toggle="dropdown"
-          aria-haspopup="true"
-          aria-expanded="false"
-        >
-          <i class="mdi mdi-plus"></i> Create New
-        </b-button>
-      </template>
-      <b-dropdown-item class="mb-0" href="#">
-        <i class="mdi mdi-folder-plus-outline me-1"></i> Folder
-      </b-dropdown-item>
-      <b-dropdown-item class="mb-0" href="#">
-        <i class="mdi mdi-file-plus-outline me-1"></i> File
-      </b-dropdown-item>
-      <b-dropdown-item class="mb-0" href="#">
-        <i class="mdi mdi-upload me-1"></i> Upload File
-      </b-dropdown-item>
-    </b-dropdown>
+    <!-- Upload Button -->
+    <input
+      ref="fileInput"
+      type="file"
+      multiple
+      style="display: none"
+      @change="handleFileSelect"
+    />
+    <b-button
+      variant="success"
+      class="w-100"
+      @click="$refs.fileInput.click()"
+    >
+      <i class="mdi mdi-upload"></i> Upload Files
+    </b-button>
 
     <!-- View Modes List -->
     <div class="email-menu-list mt-3">
@@ -92,6 +84,20 @@ export default defineComponent({
     viewModes: { type: Array as PropType<ViewMode[]>, required: true },
     currentViewId: { type: String, required: true },
   },
-  emits: ['switch:view'],
+  emits: ['switch:view', 'upload:files'],
+  methods: {
+    handleFileSelect(event: Event) {
+      console.log('File select triggered', event)
+      const target = event.target as HTMLInputElement
+      const files = target.files
+      console.log('Files selected:', files?.length)
+      if (files && files.length > 0) {
+        console.log('Emitting upload:files with', files.length, 'files')
+        this.$emit('upload:files', Array.from(files))
+        // Reset input so same file can be selected again
+        target.value = ''
+      }
+    },
+  },
 })
 </script>

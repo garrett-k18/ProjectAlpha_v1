@@ -210,6 +210,185 @@ class StaticModelAssumptions(models.Model):
         return f"Model Assumptions ({self.version_name})"
 
 
+class ModelingDefaults(models.Model):
+    """Global modeling defaults for new trade assumptions.
+
+    This model replaces ad-hoc hard-coded defaults so that UI can control
+    portfolio-wide starting values for new TradeLevelAssumption rows.
+    """
+
+    # Trade-level pricing and discounting
+    default_pct_upb = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Default purchase price as percentage of UPB for new trades (e.g., 85.00 = 85%)",
+    )
+    default_discount_rate = models.DecimalField(
+        max_digits=6,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        help_text="Default discount rate for new trades as decimal (e.g., 0.12 = 12%)",
+    )
+    default_perf_rpl_hold_period = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Default Perf/RPL hold period in months for new trades",
+    )
+
+    # Modification assumptions
+    default_mod_rate = models.DecimalField(
+        max_digits=6,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        help_text="Default modification interest rate as decimal (e.g., 0.04 = 4%)",
+    )
+    default_mod_legal_term = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Default modification legal term in months",
+    )
+    default_mod_amort_term = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Default modification amortization term in months",
+    )
+    default_max_mod_ltv = models.DecimalField(
+        max_digits=6,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        help_text="Default maximum LTV for modifications as decimal (e.g., 0.95 = 95%)",
+    )
+    default_mod_io_flag = models.BooleanField(
+        default=False,
+        help_text="Default IO (interest-only) flag for modifications",
+    )
+    default_mod_down_pmt = models.DecimalField(
+        max_digits=6,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        help_text="Default modification down payment as decimal (e.g., 0.05 = 5%)",
+    )
+    default_mod_orig_cost = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Default modification origination cost in dollars per loan",
+    )
+    default_mod_setup_duration = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Default modification setup duration in months",
+    )
+    default_mod_hold_duration = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Default modification hold duration in months",
+    )
+
+    # Acquisition costs (per-loan dollar amounts)
+    default_acq_legal_cost = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Default acquisition legal cost in dollars per loan",
+    )
+    default_acq_dd_cost = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Default acquisition due diligence cost in dollars per loan",
+    )
+    default_acq_tax_title_cost = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Default acquisition tax/title cost in dollars per loan",
+    )
+
+    # Asset management fee (stored as decimal, e.g., 0.01 = 1%)
+    default_am_fee_pct = models.DecimalField(
+        max_digits=6,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        help_text="Default AM fee as decimal for new trades (e.g., 0.01 = 1%)",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Modeling Defaults"
+        verbose_name_plural = "Modeling Defaults"
+        db_table = "acq_modeling_defaults"
+
+    @classmethod
+    def get_active(cls):
+        """Return the single active ModelingDefaults instance, creating if needed."""
+        obj, _ = cls.objects.get_or_create(id=1)
+        return obj
+
+    @classmethod
+    def current_trade_defaults(cls) -> dict:
+        """Return a dict of defaults suitable for TradeLevelAssumption(**defaults).
+
+        Only fields with non-null values are included so callers can safely
+        pass this into get_or_create(defaults=...).
+        """
+
+        obj = cls.get_active()
+        defaults = {}
+
+        if obj.default_pct_upb is not None:
+            defaults["pctUPB"] = obj.default_pct_upb
+        if obj.default_discount_rate is not None:
+            defaults["discount_rate"] = obj.default_discount_rate
+        if obj.default_perf_rpl_hold_period is not None:
+            defaults["perf_rpl_hold_period"] = obj.default_perf_rpl_hold_period
+
+        if obj.default_mod_rate is not None:
+            defaults["mod_rate"] = obj.default_mod_rate
+        if obj.default_mod_legal_term is not None:
+            defaults["mod_legal_term"] = obj.default_mod_legal_term
+        if obj.default_mod_amort_term is not None:
+            defaults["mod_amort_term"] = obj.default_mod_amort_term
+        if obj.default_max_mod_ltv is not None:
+            defaults["max_mod_ltv"] = obj.default_max_mod_ltv
+        # mod_io_flag always has a default; only include if explicitly set True
+        if obj.default_mod_io_flag:
+            defaults["mod_io_flag"] = obj.default_mod_io_flag
+        if obj.default_mod_down_pmt is not None:
+            defaults["mod_down_pmt"] = obj.default_mod_down_pmt
+        if obj.default_mod_orig_cost is not None:
+            defaults["mod_orig_cost"] = obj.default_mod_orig_cost
+        if obj.default_mod_setup_duration is not None:
+            defaults["mod_setup_duration"] = obj.default_mod_setup_duration
+        if obj.default_mod_hold_duration is not None:
+            defaults["mod_hold_duration"] = obj.default_mod_hold_duration
+
+        if obj.default_acq_legal_cost is not None:
+            defaults["acq_legal_cost"] = obj.default_acq_legal_cost
+        if obj.default_acq_dd_cost is not None:
+            defaults["acq_dd_cost"] = obj.default_acq_dd_cost
+        if obj.default_acq_tax_title_cost is not None:
+            defaults["acq_tax_title_cost"] = obj.default_acq_tax_title_cost
+
+        if obj.default_am_fee_pct is not None:
+            defaults["liq_am_fee_pct"] = obj.default_am_fee_pct
+
+        return defaults
+
+
 class TradeLevelAssumption(models.Model):
     """Model to store trade-specific assumptions for portfolio calculations.
     
@@ -260,7 +439,7 @@ class TradeLevelAssumption(models.Model):
         choices=BidMethod.choices,
         help_text="Method used for bid (e.g., PCT_UPB or TARGET_IRR)",
     )
-    pctUPB = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="Purchase price as percentage of UPB")
+    pctUPB = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, default=Decimal('85.00'), help_text="Purchase price as percentage of UPB")
     target_irr = models.DecimalField(max_digits=6, decimal_places=4, null=True, blank=True, help_text="Target internal rate of return for this trade")
     discount_rate = models.DecimalField(max_digits=6, decimal_places=4, default=0.12, null=True, blank=True, help_text="Discount rate for NPV calculations")
     
