@@ -72,7 +72,7 @@
         </router-link>
 
         <!-- Title Checks -->
-        <router-link to="/acquisitions/title-center" class="status-item-link mb-2">
+        <router-link to="/acquisitions/title-center" class="status-item-link mb-3">
           <div class="status-item">
             <div class="d-flex justify-content-between align-items-center mb-1">
               <div class="d-flex align-items-center">
@@ -92,6 +92,31 @@
                 :aria-valuenow="titleCompleted" 
                 :aria-valuemin="0" 
                 :aria-valuemax="totalAssets"
+              ></div>
+            </div>
+          </div>
+        </router-link>
+
+        <!-- Modeling Center -->
+        <router-link to="/acquisitions/modeling-center" class="status-item-link mb-2">
+          <div class="status-item">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <div class="d-flex align-items-center">
+                <i class="mdi mdi-calculator-variant me-2 text-warning fs-4"></i>
+                <span class="fw-semibold fs-5">Modeling Center</span>
+              </div>
+              <span class="badge bg-secondary">
+                Pool Modeling & Pricing
+              </span>
+            </div>
+            <div class="progress" style="height: 8px;">
+              <div 
+                class="progress-bar bg-warning" 
+                role="progressbar" 
+                style="width: 100%;"
+                aria-valuenow="100" 
+                aria-valuemin="0" 
+                aria-valuemax="100"
               ></div>
             </div>
           </div>

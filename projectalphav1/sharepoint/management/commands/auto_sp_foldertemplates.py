@@ -34,7 +34,7 @@ class Command(BaseCommand):
         parser.add_argument(
             'action',
             type=str,
-            choices=['init', 'sync', 'cleanup', 'rename', 'update-metadata'],
+            choices=['init', 'sync', 'cleanup', 'rename', 'update-metadata', 'migrate-names'],
             help='Action to perform'
         )
         
@@ -66,6 +66,8 @@ class Command(BaseCommand):
             self._handle_rename(options)
         elif action == 'update-metadata':
             self._handle_update_metadata(options)
+        elif action == 'migrate-names':
+            self._handle_migrate_names(options)
     
     def _sanitize(self, name):
         """Sanitize folder name for SharePoint"""
@@ -173,11 +175,13 @@ class Command(BaseCommand):
                 zip_code = asset.zip or ''
                 full_address = f"{street}, {city}, {state} {zip_code}".strip(', ')
                 
-                # Build asset folder name (servicer_id as primary)
+                # Build asset folder name (servicer_id primary, sellertape_id fallback)
                 if servicer_id:
                     asset_folder = str(servicer_id)
+                elif sellertape_id:
+                    asset_folder = str(sellertape_id)
                 else:
-                    asset_folder = f"NO_SERVICER_{asset_hub_id}"
+                    asset_folder = f"UNKNOWN_{asset_hub_id}"
                 
                 # Metadata to store on folder
                 metadata = {
@@ -414,6 +418,107 @@ class Command(BaseCommand):
             self.stdout.write(f'  ✓ Updated {assets.count()} assets')
         
         self.stdout.write(self.style.SUCCESS(f'\n✓ Updated metadata on {updated} folders'))
+    
+    def _handle_migrate_names(self, options):
+        """Rename existing folders to new naming convention (servicer_id or sellertape_id)"""
+        dry_run = options.get('dry_run', False)
+        trade_filter = options.get('trade_filter')
+        trade_id = options.get('trade_id')
+        
+        self.stdout.write(self.style.MIGRATE_HEADING('Migrating folder names to new convention\n'))
+        
+        if not dry_run:
+            self.stdout.write(self.style.WARNING('This will rename folders in SharePoint'))
+            confirm = input('Type "RENAME" to confirm: ')
+            if confirm != 'RENAME':
+                self.stdout.write('Cancelled')
+                return
+        
+        # Get models  
+        Trade = apps.get_model('acq_module', 'Trade')
+        Asset = apps.get_model('acq_module', 'SellerRawData')
+        
+        # Query trades
+        trades = Trade.objects.all()
+        
+        if trade_id:
+            trades = trades.filter(pk=trade_id)
+        elif trade_filter:
+            trades = trades.filter(pk__gte=trade_filter)
+        
+        client = SharePointClient() if not dry_run else None
+        renamed = 0
+        
+        for trade in trades:
+            trade_name = trade.trade_name
+            seller_name = trade.seller.name if trade.seller else None
+            
+            if not trade_name:
+                continue
+            
+            combined = f"{trade_name} - {seller_name}" if seller_name else trade_name
+            folder_name = self._sanitize(combined)
+            
+            self.stdout.write(f'\n{combined}')
+            
+            # Get assets
+            assets = Asset.objects.filter(trade=trade)
+            
+            for asset in assets:
+                asset_hub_id = asset.asset_hub.id if asset.asset_hub else asset.pk
+                servicer_id = asset.asset_hub.servicer_id if (asset.asset_hub and asset.asset_hub.servicer_id) else None
+                sellertape_id = asset.asset_hub.sellertape_id if (asset.asset_hub and asset.asset_hub.sellertape_id) else None
+                
+                # Determine new name
+                if servicer_id:
+                    new_name = str(servicer_id)
+                elif sellertape_id:
+                    new_name = str(sellertape_id)
+                else:
+                    new_name = f"UNKNOWN_{asset_hub_id}"
+                
+                # Possible old names
+                old_names = [
+                    f"{asset_hub_id} - {servicer_id}" if servicer_id else None,
+                    f"NO_SERVICER_{asset_hub_id}",
+                    str(asset_hub_id),
+                ]
+                old_names = [n for n in old_names if n and n != new_name]
+                
+                if dry_run:
+                    self.stdout.write(f'  Would rename to: {new_name}')
+                    continue
+                
+                # Try to find and rename folder
+                try:
+                    drive_id = client._get_drive_id()
+                    token = client._get_access_token()
+                    headers = {'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'}
+                    
+                    # Try each possible old name
+                    for old_name in old_names:
+                        old_path = FolderStructure.get_asset_base_path(folder_name, old_name).strip('/')
+                        get_url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/root:/{old_path}"
+                        
+                        response = requests.get(get_url, headers={'Authorization': f'Bearer {token}'})
+                        
+                        if response.status_code == 200:
+                            # Found folder - rename it
+                            folder_id = response.json()['id']
+                            rename_url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/items/{folder_id}"
+                            rename_response = requests.patch(rename_url, headers=headers, json={'name': new_name})
+                            
+                            if rename_response.status_code == 200:
+                                self.stdout.write(self.style.SUCCESS(f'  ✓ {old_name} → {new_name}'))
+                                renamed += 1
+                                break
+                            else:
+                                self.stdout.write(f'  ⚠ Rename failed: {rename_response.text[:50]}')
+                
+                except Exception as e:
+                    self.stdout.write(f'  ✗ Error: {str(e)[:50]}')
+        
+        self.stdout.write(self.style.SUCCESS(f'\n✓ Renamed {renamed} folders'))
     
     def _make_folder_request(self, folder_path, request_id):
         """Build batch request for folder creation"""

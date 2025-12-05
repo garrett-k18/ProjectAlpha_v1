@@ -61,9 +61,16 @@ class SharePointUploadService:
             combined_trade = f"{trade_name} - {seller_name}" if seller_name else trade_name
             trade_folder = self._sanitize(combined_trade)
             
-            # Get servicer_id for folder name
+            # Get servicer_id for folder name (or fallback to sellertape_id)
             servicer_id = asset.asset_hub.servicer_id if (asset.asset_hub and asset.asset_hub.servicer_id) else None
-            asset_folder = servicer_id if servicer_id else f"NO_SERVICER_{asset_hub_id}"
+            sellertape_id = asset.asset_hub.sellertape_id if (asset.asset_hub and asset.asset_hub.sellertape_id) else None
+            
+            if servicer_id:
+                asset_folder = str(servicer_id)
+            elif sellertape_id:
+                asset_folder = str(sellertape_id)
+            else:
+                asset_folder = f"UNKNOWN_{asset_hub_id}"
             
             # Build file path
             base_path = FolderStructure.get_asset_base_path(trade_folder, asset_folder)

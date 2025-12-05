@@ -160,6 +160,12 @@ const dashboardRoutes = [
                 component: () => import('@/views/acq_module/acq_dash/centers/TitleCenter.vue'),
             },
             {
+                name: 'Modeling Center',
+                path: 'acquisitions/modeling-center',
+                meta: {authRequired: true},
+                component: () => import('@/views/acq_module/acq_dash/centers/ModelingCenter.vue'),
+            },
+            {
                 name: 'Asset Mgmt',
                 path: 'asset-mgmt',
                 alias: '/ecommerce',

@@ -987,11 +987,24 @@ const emit = defineEmits<{
    justify-content: center;
    width: 100%;
    height: 100%;
+   padding: 0;
+ }
+ 
+ :deep(.acq-grid .ag-header-select-all .ag-checkbox-input-wrapper) {
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   margin: 0 auto;
+   padding: 0;
+   transform: translateX(-4px); /* slight nudge left to align with row checkboxes */
  }
 
- :deep(.acq-grid .ag-header-select-all .ag-checkbox-input-wrapper),
  :deep(.acq-grid .ag-selection-checkbox .ag-checkbox-input-wrapper) {
+   display: flex;
+   align-items: center;
+   justify-content: center;
    margin: 0 auto;
+   padding: 0;
  }
 
  /* Multi-line header support - allow wrapping */

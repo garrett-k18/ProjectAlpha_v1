@@ -49,6 +49,10 @@ msal>=1.24.0
 # Docs: https://github.com/vgrem/office365-rest-python-client
 Office365-REST-Python-Client>=2.5.0
 
+# Playwright for HTML to PDF conversion and secure document handling
+# Docs: https://playwright.dev/python/
+playwright>=1.40.0
+
 gunicorn
 whitenoise>=6.6,<7
 

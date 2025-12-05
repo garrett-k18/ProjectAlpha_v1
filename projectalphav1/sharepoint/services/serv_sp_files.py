@@ -51,8 +51,20 @@ class SharePointFilesService:
         combined_trade = f"{trade_name} - {seller_name}" if seller_name else trade_name
         trade_folder = self._sanitize(combined_trade)
         
-        # Asset folder name is servicer_id
-        asset_folder = servicer_id if servicer_id else f"NO_SERVICER_{asset_hub_id}"
+        # Asset folder name (servicer_id primary, sellertape_id fallback)
+        sellertape_id = None  # Will get from asset if needed
+        
+        if servicer_id:
+            asset_folder = str(servicer_id)
+        else:
+            # Get sellertape_id as fallback
+            SellerRawData = apps.get_model('acq_module', 'SellerRawData')
+            try:
+                asset = SellerRawData.objects.select_related('asset_hub').get(pk=asset_hub_id)
+                sellertape_id = asset.asset_hub.sellertape_id if (asset.asset_hub and asset.asset_hub.sellertape_id) else None
+                asset_folder = str(sellertape_id) if sellertape_id else f"UNKNOWN_{asset_hub_id}"
+            except:
+                asset_folder = f"UNKNOWN_{asset_hub_id}"
         
         base_path = FolderStructure.get_asset_base_path(trade_folder, asset_folder)
         

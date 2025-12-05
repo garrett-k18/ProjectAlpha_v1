@@ -78,6 +78,7 @@ from .views.view_acq_model import (
     update_reo_marketing_override,
     update_acquisition_price,
 )
+from .views.view_acq_modelingCenter import modeling_center_data
 
 # Test endpoint to verify Django is responding
 from rest_framework.decorators import api_view
@@ -123,6 +124,8 @@ urlpatterns = [
     path('valuation-center/<int:asset_id>/', valuation_center_update, name='api_valuation_center_update'),
     # AG Grid dedicated endpoint (clean, efficient - replaces raw-data for grid)
     path('grid/<int:seller_id>/<int:trade_id>/', grid_data, name='api_grid_data'),
+    # Modeling Center bulk endpoint (efficient - single query for all assets)
+    path('modeling-center/<int:seller_id>/<int:trade_id>/', modeling_center_data, name='api_modeling_center_data'),
     # Broker invite/token endpoints (public)
     path('broker-invites/', create_broker_invite, name='api_create_broker_invite'),  # POST
     # Broker listing for UI (state-based batch) MUST come before the catch-all token path
