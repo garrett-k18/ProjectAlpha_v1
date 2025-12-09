@@ -298,7 +298,7 @@ class PerformanceSummarySerializer(serializers.Serializer):
     # Closing Costs (nested under Gross Liquidation Proceeds)
     broker_closing_underwritten = serializers.DecimalField(
         max_digits=15, decimal_places=2, allow_null=True,
-        source='broker_fees',
+        source='broker_closing_fees',
         help_text='Underwritten broker closing costs'
     )
     broker_closing_realized = serializers.SerializerMethodField()
@@ -361,9 +361,8 @@ class PerformanceSummarySerializer(serializers.Serializer):
         return None
     
     def get_acq_due_diligence_underwritten(self, obj):
-        """Map from acq_costs field (split evenly for now)"""
-        from decimal import Decimal
-        return obj.acq_costs * Decimal('0.25') if obj.acq_costs else None
+        """Get due diligence costs from BlendedOutcomeModel.due_diligence field"""
+        return float(obj.due_diligence) if obj.due_diligence else None
     
     def get_acq_due_diligence_realized(self, obj):
         if hasattr(obj.asset_hub, 'll_transaction_summary'):
@@ -371,8 +370,8 @@ class PerformanceSummarySerializer(serializers.Serializer):
         return None
     
     def get_acq_legal_underwritten(self, obj):
-        from decimal import Decimal
-        return obj.acq_costs * Decimal('0.25') if obj.acq_costs else None
+        """Get legal costs from BlendedOutcomeModel.legal_costs field"""
+        return float(obj.legal_costs) if obj.legal_costs else None
     
     def get_acq_legal_realized(self, obj):
         if hasattr(obj.asset_hub, 'll_transaction_summary'):
@@ -380,8 +379,8 @@ class PerformanceSummarySerializer(serializers.Serializer):
         return None
     
     def get_acq_title_underwritten(self, obj):
-        from decimal import Decimal
-        return obj.acq_costs * Decimal('0.25') if obj.acq_costs else None
+        """Get title costs from BlendedOutcomeModel.taxtitle_fees field"""
+        return float(obj.taxtitle_fees) if obj.taxtitle_fees else None
     
     def get_acq_title_realized(self, obj):
         if hasattr(obj.asset_hub, 'll_transaction_summary'):
@@ -389,8 +388,12 @@ class PerformanceSummarySerializer(serializers.Serializer):
         return None
     
     def get_acq_other_underwritten(self, obj):
+        """Get other acquisition costs from BlendedOutcomeModel.other_fee + broker_acq_fees fields"""
         from decimal import Decimal
-        return obj.acq_costs * Decimal('0.25') if obj.acq_costs else None
+        other = obj.other_fee or Decimal('0')
+        broker = obj.broker_acq_fees or Decimal('0')
+        total = other + broker
+        return float(total) if total > 0 else None
     
     def get_acq_other_realized(self, obj):
         if hasattr(obj.asset_hub, 'll_transaction_summary'):
@@ -398,14 +401,14 @@ class PerformanceSummarySerializer(serializers.Serializer):
         return None
     
     def get_acq_costs_total_underwritten(self, obj):
-        """Acquisition Costs Total = Due Diligence + Legal + Title + Other"""
+        """Acquisition Costs Total = Due Diligence + Legal + Title + Other + Broker Acq Fees"""
         from decimal import Decimal
-        # Each is 25% of total acq_costs
-        due_diligence = obj.acq_costs * Decimal('0.25') if obj.acq_costs else Decimal('0')
-        legal = obj.acq_costs * Decimal('0.25') if obj.acq_costs else Decimal('0')
-        title = obj.acq_costs * Decimal('0.25') if obj.acq_costs else Decimal('0')
-        other = obj.acq_costs * Decimal('0.25') if obj.acq_costs else Decimal('0')
-        total = due_diligence + legal + title + other
+        due_diligence = obj.due_diligence or Decimal('0')
+        legal = obj.legal_costs or Decimal('0')
+        title = obj.taxtitle_fees or Decimal('0')
+        other = obj.other_fee or Decimal('0')
+        broker = obj.broker_acq_fees or Decimal('0')
+        total = due_diligence + legal + title + other + broker
         try:
             return float(total)
         except Exception:
@@ -424,10 +427,10 @@ class PerformanceSummarySerializer(serializers.Serializer):
         return None
     
     def get_gross_cost_total_underwritten(self, obj):
-        """Gross Cost = Purchase Price + Acquisition Costs"""
+        """Gross Cost = Purchase Price + Acquisition Costs Total"""
         from decimal import Decimal
         purchase_price = obj.purchase_price or Decimal('0')
-        acq_costs = obj.acq_costs or Decimal('0')
+        acq_costs = Decimal(str(self.get_acq_costs_total_underwritten(obj) or 0))
         total = purchase_price + acq_costs
         try:
             return float(total)
@@ -435,14 +438,22 @@ class PerformanceSummarySerializer(serializers.Serializer):
             return 0.0
     
     def get_gross_cost_total_realized(self, obj):
-        if hasattr(obj.asset_hub, 'll_transaction_summary'):
+        """Use pre-computed realized_gross_cost from LLTransactionSummary"""
+        try:
+            ts = getattr(obj.asset_hub, 'll_transaction_summary', None)
+            if ts is None:
+                return None
+            # Use pre-computed total from model save() if available
+            if ts.realized_gross_cost is not None:
+                return float(ts.realized_gross_cost)
+            # Fallback: calculate from parts
             from decimal import Decimal
-            ts = obj.asset_hub.ll_transaction_summary
             purchase = ts.purchase_price_realized or Decimal('0')
-            acq_total = self.get_acq_costs_total_realized(obj) or 0
-            total = purchase + Decimal(str(acq_total))
+            acq_total = ts.acq_total_realized or Decimal('0')
+            total = purchase + acq_total
             return float(total) if total > 0 else None
-        return None
+        except Exception:
+            return None
     
     # ------------------------------
     # Income Methods
@@ -609,7 +620,7 @@ class PerformanceSummarySerializer(serializers.Serializer):
     def get_closing_costs_total_underwritten(self, obj):
         """Closing Costs Total = Broker Closing + Other Closing"""
         from decimal import Decimal
-        broker = obj.broker_fees or Decimal('0')
+        broker = obj.broker_closing_fees or Decimal('0')
         other = obj.tax_title_transfer_cost or Decimal('0')
         total = broker + other
         try:
@@ -649,9 +660,12 @@ class PerformanceSummarySerializer(serializers.Serializer):
             return 0.0
     
     def get_income_total_realized(self, obj):
-        if hasattr(obj.asset_hub, 'll_transaction_summary'):
+        """Sum all realized income fields from LLTransactionSummary"""
+        try:
+            ts = getattr(obj.asset_hub, 'll_transaction_summary', None)
+            if ts is None:
+                return None
             from decimal import Decimal
-            ts = obj.asset_hub.ll_transaction_summary
             total = Decimal('0')
             total += ts.income_principal_realized or Decimal('0')
             total += ts.income_interest_realized or Decimal('0')
@@ -659,7 +673,8 @@ class PerformanceSummarySerializer(serializers.Serializer):
             total += ts.income_cam_realized or Decimal('0')
             total += ts.income_mod_down_payment_realized or Decimal('0')
             return float(total) if total > 0 else None
-        return None
+        except Exception:
+            return None
     
     def get_legal_costs_total_underwritten(self, obj):
         """Legal/DIL Costs = FC + BK + DIL + CFK + Eviction"""
@@ -765,19 +780,27 @@ class PerformanceSummarySerializer(serializers.Serializer):
             return 0.0
     
     def get_operating_expenses_total_realized(self, obj):
-        if hasattr(obj.asset_hub, 'll_transaction_summary'):
+        """Use pre-computed total_expenses_realized from LLTransactionSummary"""
+        try:
+            ts = getattr(obj.asset_hub, 'll_transaction_summary', None)
+            if ts is None:
+                return None
+            # Use pre-computed total from model save() if available
+            if ts.total_expenses_realized is not None:
+                return float(ts.total_expenses_realized)
+            # Fallback: calculate from parts
             from decimal import Decimal
-            ts = obj.asset_hub.ll_transaction_summary
             total = Decimal('0')
             total += ts.expense_servicing_realized or Decimal('0')
-            total += Decimal(str(self.get_legal_costs_total_realized(obj) or 0))
+            total += ts.legal_total_realized or Decimal('0')
             total += ts.expense_am_fees_realized or Decimal('0')
             total += ts.expense_property_tax_realized or Decimal('0')
             total += ts.expense_property_insurance_realized or Decimal('0')
-            total += Decimal(str(self.get_reo_expenses_total_realized(obj) or 0))
-            total += Decimal(str(self.get_fund_expenses_total_realized(obj) or 0))
+            total += ts.reo_total_realized or Decimal('0')
+            total += ts.fund_total_realized or Decimal('0')
             return float(total) if total > 0 else None
-        return None
+        except Exception:
+            return None
     
     def get_net_pl_underwritten(self, obj):
         """Net P&L = (Proceeds + Income) - (Operating Expenses + Gross Cost)"""
@@ -793,7 +816,11 @@ class PerformanceSummarySerializer(serializers.Serializer):
             return 0.0
     
     def get_net_pl_realized(self, obj):
-        if hasattr(obj.asset_hub, 'll_transaction_summary'):
+        """Net P&L Realized = (Proceeds + Income) - (Expenses + Gross Cost)"""
+        try:
+            ts = getattr(obj.asset_hub, 'll_transaction_summary', None)
+            if ts is None:
+                return None
             from decimal import Decimal
             proceeds = Decimal(str(self.get_proceeds_realized(obj) or 0))
             income = Decimal(str(self.get_income_total_realized(obj) or 0))
@@ -801,5 +828,7 @@ class PerformanceSummarySerializer(serializers.Serializer):
             gross_cost = Decimal(str(self.get_gross_cost_total_realized(obj) or 0))
             
             net_pl = (proceeds + income) - (operating_expenses + gross_cost)
-            return float(net_pl) if net_pl > 0 else None
-        return None
+            # Return value even if negative (to show realized loss)
+            return float(net_pl) if net_pl != 0 else None
+        except Exception:
+            return None

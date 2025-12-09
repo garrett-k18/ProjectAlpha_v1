@@ -89,6 +89,7 @@ def build_queryset(
         .prefetch_related("asset_hub__fc_tasks")  # Load all FC tasks in ONE query
         .prefetch_related("asset_hub__short_sale_tasks")  # Load all Short Sale tasks in ONE query
         .prefetch_related("asset_hub__servicer_loan_data")  # Load all servicer data in ONE query
+        .prefetch_related("asset_hub__ammetrics")  # Load all AMMetrics in ONE query for delinquency status
         # Also prefetch the outcome models themselves (used by get_active_tracks)
         .select_related("asset_hub__dil")  # OneToOne relationships use select_related
         .select_related("asset_hub__modification")
@@ -100,10 +101,9 @@ def build_queryset(
             trade_name=F("trade__trade_name"),
         )
     )
-    # NOTE: Not including asset_hub__ammetrics in select_related because:
+    # NOTE: AMMetrics uses prefetch_related (not select_related) because:
     # 1. AMMetrics is a ForeignKey (not OneToOne), so it may have 0 or multiple records
-    # 2. Production environment shows this relation doesn't exist on AssetIdHub yet
-    # 3. The enricher will query AMMetrics only when needed per asset
+    # 2. The enricher uses the prefetched data and sorts in Python to find the latest record
 
     if q:
         q_obj = Q()
@@ -281,18 +281,24 @@ class AssetInventoryEnricher:
         if not hub:
             return None
 
-        # WHAT: Access AMMetrics via 'ammetrics' reverse relation (ForeignKey, may not exist in prod)
-        # WHY: Production may not have AMMetrics relation migrated yet
-        # HOW: Gracefully handle missing relation or missing records
+        # WHAT: Access AMMetrics via 'ammetrics' reverse relation using prefetched data
+        # WHY: Avoid N+1 queries - data was prefetched in build_queryset
+        # HOW: Use prefetched list and sort in Python instead of database query
         try:
             # Check if the relation exists on this hub instance
             if not hasattr(hub, 'ammetrics'):
                 return None
 
-            # ammetrics is a reverse ForeignKey manager, get the latest record
-            metrics = hub.ammetrics.order_by('-updated_at').first()
-            if metrics is None:
+            # WHAT: Use prefetched ammetrics data (NO new query!)
+            # WHY: build_queryset already prefetched all ammetrics in ONE query
+            # HOW: Sort in Python memory to find latest record by updated_at
+            ammetrics_list = list(hub.ammetrics.all())  # Uses prefetched data
+            if not ammetrics_list:
                 return None
+            
+            # Sort by updated_at descending in Python memory
+            ammetrics_list.sort(key=lambda m: m.updated_at or '', reverse=True)
+            metrics = ammetrics_list[0]
 
             return getattr(metrics, 'delinquency_status', None)
         except (AttributeError, Exception):
@@ -508,11 +514,14 @@ class AssetInventoryEnricher:
         if asset_cache is None:
             # WHAT: Use prefetched valuations from asset_hub.valuations (already in memory)
             # WHY: Eliminates per-asset database queries - prefetch_related loaded all valuations in ONE query
-            # HOW: Filter and sort prefetched data in Python instead of hitting database
-            # PERFORMANCE: This change reduced load time from ~18s to <2s for 50 assets
+            # HOW: Use .all() to access prefetch cache, then filter in Python (NOT .filter() which bypasses cache!)
+            # PERFORMANCE: .filter() on prefetched data triggers new DB query - must filter in Python!
             
-            # Get all valuations from prefetched data (NO database query!)
-            all_valuations = list(hub.valuations.filter(source__in=VALUATION_SOURCES))
+            # CRITICAL: Use .all() to access prefetched data, NOT .filter() which bypasses prefetch cache
+            all_valuations = [
+                v for v in hub.valuations.all()  # Uses prefetch cache (NO new query)
+                if v.source in VALUATION_SOURCES  # Filter in Python memory
+            ]
             
             # Sort by value_date (desc), then created_at (desc) - most recent first
             all_valuations.sort(

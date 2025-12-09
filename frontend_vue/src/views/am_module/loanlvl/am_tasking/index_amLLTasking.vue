@@ -227,7 +227,7 @@
 </template>
 
 <script setup lang="ts">
-import { withDefaults, defineProps, ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import axios from 'axios'
 defineOptions({
   name: 'AmLlTasking',
@@ -895,8 +895,7 @@ function handleTrackOutside(e: MouseEvent) {
   if (!root) return
   if (showTrackMenu.value && !root.contains(e.target as Node)) showTrackMenu.value = false
 }
-onMounted(() => document.addEventListener('click', handleTrackOutside))
-onBeforeUnmount(() => document.removeEventListener('click', handleTrackOutside))
+// NOTE: Lifecycle hooks consolidated at end of script section for clarity
 
 // Confirm deletion modal
 const confirm = ref<{ open: boolean; type: OutcomeType | null; busy: boolean }>({ open: false, type: null, busy: false })
@@ -938,31 +937,48 @@ async function confirmDelete() {
 // Hydrate visible cards when hub changes
 // WHAT: Checks which outcome tracks exist in backend and shows their cards
 // WHY: On page load/refresh, we need to restore the visible track cards
-// HOW: Fetches each outcome type and sets visibility flag if it exists
+// HOW: Fetches all outcome types in PARALLEL for better performance
 async function refreshVisible() {
   visibleOutcomes.value = { dil: false, fc: false, reo: false, short_sale: false, modification: false, note_sale: false }
   const id = hubId.value
   if (!id) return
+  
   const types: OutcomeType[] = ['dil', 'fc', 'reo', 'short_sale', 'modification', 'note_sale']
-  for (const t of types) {
-    try {
-      const exists = await outcomesStore.fetchOutcome(id, t)
-      if (exists) {
-        visibleOutcomes.value[t] = true
-        // Preload task lists for the KPI widget
-        if (t === 'fc') await outcomesStore.listFcTasks(id)
-        else if (t === 'reo') await outcomesStore.listReoTasks(id)
-        else if (t === 'short_sale') await outcomesStore.listShortSaleTasks(id)
-        else if (t === 'dil') await outcomesStore.listDilTasks(id)
-        else if (t === 'note_sale') await outcomesStore.listNoteSaleTasks(id)
-        else if (t === 'modification') await outcomesStore.listModificationTasks(id)
-      }
-    } catch (err) {
-      console.error(`[AM Tasking] Error fetching outcome ${t}:`, err)
+  
+  // WHAT: Fetch all outcomes in parallel instead of sequentially
+  // WHY: Reduces load time from 6 sequential calls to 1 parallel batch
+  // HOW: Use Promise.allSettled to handle individual failures gracefully
+  const outcomeResults = await Promise.allSettled(
+    types.map(t => outcomesStore.fetchOutcome(id, t).then(exists => ({ type: t, exists })))
+  )
+  
+  // WHAT: Process results and set visibility flags
+  const existingTypes: OutcomeType[] = []
+  for (const result of outcomeResults) {
+    if (result.status === 'fulfilled' && result.value.exists) {
+      visibleOutcomes.value[result.value.type] = true
+      existingTypes.push(result.value.type)
+    } else if (result.status === 'rejected') {
+      console.error('[AM Tasking] Error fetching outcome:', result.reason)
     }
   }
+  
+  // WHAT: Preload task lists in parallel for existing outcomes
+  // WHY: KPI widget needs task data; parallel fetch is faster
+  const taskFetchers: Promise<any>[] = []
+  for (const t of existingTypes) {
+    if (t === 'fc') taskFetchers.push(outcomesStore.listFcTasks(id))
+    else if (t === 'reo') taskFetchers.push(outcomesStore.listReoTasks(id))
+    else if (t === 'short_sale') taskFetchers.push(outcomesStore.listShortSaleTasks(id))
+    else if (t === 'dil') taskFetchers.push(outcomesStore.listDilTasks(id))
+    else if (t === 'note_sale') taskFetchers.push(outcomesStore.listNoteSaleTasks(id))
+    else if (t === 'modification') taskFetchers.push(outcomesStore.listModificationTasks(id))
+  }
+  
+  if (taskFetchers.length) {
+    await Promise.allSettled(taskFetchers)
+  }
 }
-onMounted(refreshVisible)
 watch(hubId, refreshVisible)
 
 // Utility functions
@@ -1005,13 +1021,21 @@ const handleMetricsRefresh = () => {
   if (hubId.value) fetchTaskMetrics()
 }
 
-// WHAT: Event listeners for track and task changes
-// WHY: Refresh metrics when tracks are added/deleted or tasks are added
-// HOW: Listen to eventBus events and call fetchTaskMetrics
+// WHAT: Consolidated lifecycle hooks
+// WHY: Single onMounted/onBeforeUnmount for all initialization and cleanup
+// HOW: Combine all event listeners, data fetching, and DOM handlers
 onMounted(() => {
   if (amId.value) {
     currentAssetId.value = amId.value
   }
+  
+  // WHAT: Initialize track menu outside click handler
+  // WHY: Close menu when clicking outside
+  document.addEventListener('click', handleTrackOutside)
+  
+  // WHAT: Load visible outcome cards on mount
+  // WHY: Restore track cards when page loads
+  refreshVisible()
   
   // WHAT: Listen for track and task change events
   // WHY: Update KPI cards when data changes
@@ -1022,9 +1046,10 @@ onMounted(() => {
   eventBus.on('task:updated', handleMetricsRefresh)
 })
 
-// WHAT: Clean up event listeners on unmount
+// WHAT: Clean up all event listeners on unmount
 // WHY: Prevent memory leaks
 onBeforeUnmount(() => {
+  document.removeEventListener('click', handleTrackOutside)
   eventBus.off('track:added', handleMetricsRefresh)
   eventBus.off('track:deleted', handleMetricsRefresh)
   eventBus.off('task:added', handleMetricsRefresh)

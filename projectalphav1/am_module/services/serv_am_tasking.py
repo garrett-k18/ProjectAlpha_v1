@@ -230,9 +230,7 @@ def _get_outcome_tone(outcome_type: str) -> str:
         'modification': 'modification-green',
         'notesale': 'secondary',
     }
-    result = tone_map.get(outcome_type, 'secondary')
-    print(f"DEBUG: get_outcome_tone({outcome_type}) = {result}")
-    return result
+    return tone_map.get(outcome_type, 'secondary')
 
 
 def get_active_outcome_tracks(hub_id: int) -> Dict[str, Any]:
@@ -295,7 +293,7 @@ def get_active_outcome_tracks(hub_id: int) -> Dict[str, Any]:
         'modification': {
             'outcome_model': Modification,
             'task_model': ModificationTask,
-            'completion_types': ['failed'],  # Note: Could also include 'started' as completion
+            'completion_types': ['mod_failed'],  # Fixed: must match task_type value with mod_ prefix
             'label': 'Modification',
             'tone': 'modification-green',
         },
@@ -323,15 +321,11 @@ def get_active_outcome_tracks(hub_id: int) -> Dict[str, Any]:
         
         # WHAT: Check if outcome has any completed tasks
         # WHY: Completed tasks mean the track is done
-        # HOW: Query tasks and check for completion task_types
-        tasks = config['task_model'].objects.filter(asset_hub_id=hub_id)
-        has_completed_task = False
-        
-        for task in tasks:
-            task_type_lower = task.task_type.lower() if task.task_type else ''
-            if task_type_lower in config['completion_types']:
-                has_completed_task = True
-                break
+        # HOW: Use exists() with __in for single optimized query instead of N+1 loop
+        has_completed_task = config['task_model'].objects.filter(
+            asset_hub_id=hub_id,
+            task_type__in=config['completion_types']
+        ).exists()
         
         if has_completed_task:
             completed_tracks.append(outcome_type)
@@ -384,10 +378,10 @@ def get_track_milestones(hub_id: int) -> List[Dict[str, Any]]:
                 'nod_noi',        # NOD/NOI (Notice of Default/Notice of Intent)
                 'fc_filing',      # FC Filing
                 'mediation',      # Mediation
-                'judgment',       # Judgment
+                'judgement',      # Judgement
                 'redemption',     # Redemption period
-                'sale_schedule',  # Sale Schedule
-                'sold',          # Sold (completion)
+                'sale_scheduled', # Sale Scheduled
+                'sold',           # Sold (completion)
             ]
         },
         'modification': {
@@ -458,9 +452,6 @@ def get_track_milestones(hub_id: int) -> List[Dict[str, Any]]:
     active_data = get_active_outcome_tracks(hub_id)
     active_tracks = active_data['active_tracks']
     
-    print(f"DEBUG: Hub ID {hub_id} has active tracks: {active_tracks}")
-    print(f"DEBUG: Available track sequences: {list(TRACK_SEQUENCES.keys())}")
-    
     for track_type in active_tracks:
         if track_type not in TRACK_SEQUENCES:
             continue
@@ -468,20 +459,13 @@ def get_track_milestones(hub_id: int) -> List[Dict[str, Any]]:
         config = TRACK_SEQUENCES[track_type]
         task_model = config['task_model']
         sequence = config['sequence']
-        print(f"DEBUG: Raw sequence from config: {sequence}")
         
         # WHAT: Get all tasks for this track and hub
         # WHY: Need to find current task position in sequence
         # HOW: Query task model, order by creation date
         tasks = task_model.objects.filter(asset_hub_id=hub_id).order_by('created_at')
         
-        print(f"DEBUG: Track {track_type} has {tasks.count()} tasks")
-        if tasks.exists():
-            for task in tasks:
-                print(f"DEBUG: - Task ID {task.id}: task_type='{task.task_type}', created={task.created_at}")
-        
         if not tasks.exists():
-            print(f"DEBUG: No tasks found for track {track_type}, skipping")
             continue
             
         # WHAT: Find current task (latest non-completion task)
@@ -492,20 +476,12 @@ def get_track_milestones(hub_id: int) -> List[Dict[str, Any]]:
         
         for task in tasks:
             task_type_lower = task.task_type.lower() if task.task_type else ''
-            print(f"DEBUG: Found task with task_type: '{task.task_type}' (lowercase: '{task_type_lower}')")
-            print(f"DEBUG: Sequence for {track_type}: {sequence}")
             if task_type_lower in sequence:
                 current_index = sequence.index(task_type_lower)
                 current_task = task
-                print(f"DEBUG: Task matches sequence at index {current_index}")
-            else:
-                print(f"DEBUG: Task type '{task_type_lower}' NOT found in sequence {sequence}")
         
         if not current_task:
-            print(f"DEBUG: No current task found for track {track_type}, skipping")
             continue
-            
-        print(f"DEBUG: Current task for {track_type}: {current_task.task_type} (index {current_index})")
             
         # WHAT: Determine upcoming task (next in sequence)
         # WHY: Show what's coming next in the workflow
@@ -524,9 +500,9 @@ def get_track_milestones(hub_id: int) -> List[Dict[str, Any]]:
                 # Foreclosure intervals
                 'fc_filing': 30,        # 30 days after NOD/NOI
                 'mediation': 45,        # 45 days after filing
-                'judgment': 60,         # 60 days after mediation
+                'judgement': 60,        # 60 days after mediation
                 'redemption': 30,       # 30 days redemption period
-                'sale_schedule': 21,    # 21 days to schedule sale
+                'sale_scheduled': 21,   # 21 days to schedule sale
                 # Modification intervals
                 'mod_executed': 30,         # 30 days to execute
                 'mod_rpl': 60,              # 60 days for re-performing status
@@ -573,11 +549,8 @@ def get_track_milestones(hub_id: int) -> List[Dict[str, Any]]:
             'upcoming_task': upcoming_task
         }
         
-        print(f"DEBUG: Adding track group for {track_type}: {track_group}")
-        print(f"DEBUG: Final track_groups count: {len(track_groups) + 1}")
         track_groups.append(track_group)
     
-    print(f"DEBUG: Returning {len(track_groups)} track groups total")
     return track_groups
 
 
@@ -593,9 +566,9 @@ def _format_task_label(task_type: str) -> str:
         'nod_noi': 'NOD/NOI Filed',
         'fc_filing': 'FC Filing',
         'mediation': 'Mediation',
-        'judgment': 'Judgment',
+        'judgement': 'Judgement',
         'redemption': 'Redemption Period',
-        'sale_schedule': 'Sale Scheduled',
+        'sale_scheduled': 'Sale Scheduled',
         'sold': 'Property Sold',
         # Modification labels
         'mod_drafted': 'Drafted',

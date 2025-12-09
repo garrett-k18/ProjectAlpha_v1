@@ -41,8 +41,13 @@ class PerformanceSummaryViewSet(ViewSet):
             PerformanceSummarySerializer data with all P&L metrics
         """
         # BlendedOutcomeModel uses asset_hub as primary key (1:1 relationship)
+        # WHAT: Select related ll_transaction_summary for realized values
+        # WHY: Avoids N+1 query when serializer accesses realized fields
+        # HOW: ll_transaction_summary is 1:1 on AssetIdHub, use select_related chain
         outcome_model = get_object_or_404(
-            BlendedOutcomeModel.objects.select_related('asset_hub'),
+            BlendedOutcomeModel.objects
+                .select_related('asset_hub')
+                .select_related('asset_hub__ll_transaction_summary'),
             asset_hub_id=pk
         )
         

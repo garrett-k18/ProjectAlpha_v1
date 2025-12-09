@@ -80,7 +80,7 @@
       <!-- Bottom-right pagination controls -->
       <div class="d-flex justify-content-end align-items-center gap-2 mt-2">
         <label for="pageSizeSelect" class="small mb-0">Rows</label>
-        <select id="pageSizeSelect" class="form-select form-select-sm" v-model="pageSizeSelection" @change="onPageSizeChange" style="width: auto;">
+        <select id="pageSizeSelect" class="form-select form-select-sm" v-model.number="pageSizeSelection" @change="onPageSizeChange" autocomplete="off" style="width: auto;">
           <option :value="50">50</option>
           <option :value="100">100</option>
           <option :value="200">200</option>
@@ -576,7 +576,7 @@ const rowData = ref<any[]>([])
 const loading = ref<boolean>(false)
 const page = ref<number>(1)
 const pageSize = ref<number>(50)
-const pageSizeSelection = ref<string | number>(50)
+const pageSizeSelection = ref<number | 'ALL'>(50)
 const viewAll = ref<boolean>(false)
 const totalCount = ref<number | null>(null)
 const totalPages = ref<number | null>(null)
@@ -670,6 +670,14 @@ function updateGridSize(): void {
 
 function onGridReady(e: GridReadyEvent) {
   gridApi.value = e.api
+  
+  // WHAT: Sync pageSize with pageSizeSelection on initial load
+  // WHY: Browser autofill may have changed the select value without triggering @change
+  // HOW: Read current selection and update pageSize before fetching
+  if (pageSizeSelection.value !== 'ALL' && typeof pageSizeSelection.value === 'number') {
+    pageSize.value = pageSizeSelection.value
+  }
+  
   // WHAT: Don't call updateGridSize here - let it happen after data loads in fetchRows
   // WHY: Autosizing before data loads causes columns to size based only on headers, not content
   fetchRows()
@@ -776,13 +784,22 @@ async function fetchAllRows(): Promise<void> {
 }
 
 function onPageSizeChange(): void {
+  // WHAT: Handle page size selection change
+  // WHY: Sync internal pageSize with dropdown and fetch new data
+  // HOW: Check for 'ALL' special case, otherwise convert to number
   if (pageSizeSelection.value === 'ALL') {
     viewAll.value = true
     // keep pageSize for future use but fetch all now
     fetchAllRows()
   } else {
     viewAll.value = false
-    pageSize.value = Number(pageSizeSelection.value)
+    // Ensure we have a valid number (v-model.number should handle this, but be safe)
+    const newSize = typeof pageSizeSelection.value === 'number' 
+      ? pageSizeSelection.value 
+      : Number(pageSizeSelection.value)
+    if (newSize > 0 && Number.isFinite(newSize)) {
+      pageSize.value = newSize
+    }
     page.value = 1
     fetchRows()
   }
