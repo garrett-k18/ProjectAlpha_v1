@@ -28,7 +28,8 @@ from django.db.models import (
 from django.db.models.functions import Coalesce, Cast, Extract
 
 from .common import sellertrade_qs
-from core.models.model_co_assumptions import StateReference
+from core.models.model_co_assumptions import StateReference, Servicer
+from acq_module.models.model_acq_assumptions import TradeLevelAssumption, LoanLevelAssumption
 from acq_module.models.model_acq_seller import SellerRawData
 from core.models.propertycfs import HistoricalPropertyCashFlow
 
@@ -110,6 +111,118 @@ def get_ltv_scatter_data(seller_id: int, trade_id: int) -> List[LtvDataItem]:
     
     # Filter out items with null LTV values
     return [item for item in all_data if item['ltv'] is not None]
+
+
+def calculate_asset_model_data_fast(
+    raw_data: SellerRawData,
+    trade_assumption: Optional[TradeLevelAssumption],
+    loan_assumption: Optional[LoanLevelAssumption],
+    state_ref: Optional[StateReference],
+    servicer: Optional[Servicer],
+    bid_pct: Decimal = Decimal('0.85'),
+) -> Dict[str, Any]:
+    """
+    Fast modeling calculations shared by the Modeling Center grid.
+    """
+    current_balance = raw_data.current_balance or Decimal('0')
+    total_debt = raw_data.total_debt or Decimal('0')
+    seller_asis = raw_data.seller_asis_value or Decimal('0')
+
+    acq_price = current_balance * bid_pct
+
+    servicing_transfer_months = 1
+    if servicer and servicer.servicing_transfer_duration:
+        servicing_transfer_months = servicer.servicing_transfer_duration
+
+    foreclosure_months = 12
+    if state_ref and state_ref.fc_state_months:
+        foreclosure_months = state_ref.fc_state_months
+    if loan_assumption and loan_assumption.reo_fc_duration_override_months:
+        foreclosure_months = max(0, foreclosure_months + loan_assumption.reo_fc_duration_override_months)
+
+    reo_marketing_months = 6
+    if state_ref and state_ref.reo_marketing_duration:
+        reo_marketing_months = state_ref.reo_marketing_duration
+
+    reo_renovation_months = 3
+    if state_ref and state_ref.rehab_duration:
+        reo_renovation_months = state_ref.rehab_duration
+
+    total_timeline_asis = servicing_transfer_months + foreclosure_months + reo_marketing_months
+    total_timeline_arv = total_timeline_asis + reo_renovation_months
+
+    proceeds_asis = raw_data.seller_asis_value or current_balance * Decimal('0.70')
+    proceeds_arv = raw_data.seller_arv_value or proceeds_asis * Decimal('1.15')
+
+    acq_costs = Decimal('0')
+    if trade_assumption:
+        acq_costs += trade_assumption.acq_broker_fees or Decimal('0')
+        acq_costs += trade_assumption.acq_other_costs or Decimal('0')
+        acq_costs += trade_assumption.acq_legal_cost or Decimal('0')
+        acq_costs += trade_assumption.acq_dd_cost or Decimal('0')
+        acq_costs += trade_assumption.acq_tax_title_cost or Decimal('0')
+
+    monthly_carry = Decimal('450')
+    carry_costs_asis = monthly_carry * Decimal(total_timeline_asis)
+    carry_costs_arv = monthly_carry * Decimal(total_timeline_arv)
+
+    legal_cost = Decimal('5000')
+    if state_ref and state_ref.fc_legal_fees_avg:
+        legal_cost = state_ref.fc_legal_fees_avg
+
+    liq_pct = Decimal('0.06')
+    if servicer and servicer.liqfee_pct:
+        liq_pct += servicer.liqfee_pct
+    liq_costs_asis = proceeds_asis * liq_pct
+    liq_costs_arv = proceeds_arv * liq_pct
+
+    total_costs_asis = acq_costs + carry_costs_asis + legal_cost + liq_costs_asis
+    total_costs_arv = acq_costs + carry_costs_arv + legal_cost + liq_costs_arv
+
+    net_pl_asis = proceeds_asis - acq_price - total_costs_asis
+    net_pl_arv = proceeds_arv - acq_price - total_costs_arv
+
+    moic_asis = Decimal('0')
+    moic_arv = Decimal('0')
+    if acq_price > 0:
+        moic_asis = (proceeds_asis - total_costs_asis) / acq_price
+        moic_arv = (proceeds_arv - total_costs_arv) / acq_price
+
+    bid_pct_upb_val = Decimal('0')
+    bid_pct_td_val = Decimal('0')
+    bid_pct_sellerasis_val = Decimal('0')
+    if current_balance > 0:
+        bid_pct_upb_val = (acq_price / current_balance) * 100
+    if total_debt > 0:
+        bid_pct_td_val = (acq_price / total_debt) * 100
+    if seller_asis > 0:
+        bid_pct_sellerasis_val = (acq_price / seller_asis) * 100
+
+    return {
+        'id': raw_data.pk,
+        'asset_hub_id': raw_data.asset_hub_id,
+        'seller_loan_id': raw_data.sellertape_id,
+        'street_address': raw_data.street_address,
+        'city': raw_data.city,
+        'state': raw_data.state,
+        'current_balance': float(current_balance),
+        'total_debt': float(total_debt),
+        'primary_model': 'reo_sale',
+        'total_duration_months_asis': total_timeline_asis,
+        'total_duration_months_arv': total_timeline_arv,
+        'acquisition_price': float(acq_price),
+        'total_costs_asis': float(total_costs_asis),
+        'expected_proceeds_asis': float(proceeds_asis),
+        'net_pl_asis': float(net_pl_asis),
+        'moic_asis': float(moic_asis),
+        'total_costs_arv': float(total_costs_arv),
+        'expected_proceeds_arv': float(proceeds_arv),
+        'net_pl_arv': float(net_pl_arv),
+        'moic_arv': float(moic_arv),
+        'bid_pct_upb': float(bid_pct_upb_val),
+        'bid_pct_td': float(bid_pct_td_val),
+        'bid_pct_sellerasis': float(bid_pct_sellerasis_val),
+    }
 
 
 # -------------------------------------------------------------------------------------------------
