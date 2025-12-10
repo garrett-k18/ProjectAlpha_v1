@@ -95,16 +95,11 @@ def create_asset_folders(sender, instance, created, **kwargs):
         
         # Get asset info
         asset_hub_id = instance.asset_hub.id if instance.asset_hub else instance.pk
-        servicer_id = instance.asset_hub.servicer_id if (instance.asset_hub and instance.asset_hub.servicer_id) else None
-        sellertape_id = instance.asset_hub.sellertape_id if (instance.asset_hub and instance.asset_hub.sellertape_id) else None
         
-        # Build asset folder name (servicer_id primary, sellertape_id fallback)
-        if servicer_id:
-            asset_folder = str(servicer_id)
-        elif sellertape_id:
-            asset_folder = str(sellertape_id)
-        else:
-            asset_folder = f"UNKNOWN_{asset_hub_id}"
+        # WHAT: Use asset_hub_id directly as folder name
+        # WHY: SharePoint folders use asset_hub_id as metadata identifier for linkage
+        # HOW: Use asset_hub_id as the folder name - it's always present and stable
+        asset_folder = str(asset_hub_id)
         
         # Create folders
         client = SharePointClient()

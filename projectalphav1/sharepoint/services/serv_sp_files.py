@@ -32,7 +32,6 @@ class SharePointFilesService:
         self,
         trade_name: str,
         seller_name: str,
-        servicer_id: str,
         asset_hub_id: int
     ) -> Dict[str, Any]:
         """
@@ -41,8 +40,7 @@ class SharePointFilesService:
         Args:
             trade_name: Trade name (e.g., "FLC-27")
             seller_name: Seller name (e.g., "Archwest")
-            servicer_id: Servicer ID (folder name)
-            asset_hub_id: Asset hub ID
+            asset_hub_id: Asset hub ID (used as folder name and metadata identifier)
             
         Returns:
             Dict with folder structure and files
@@ -51,20 +49,10 @@ class SharePointFilesService:
         combined_trade = f"{trade_name} - {seller_name}" if seller_name else trade_name
         trade_folder = self._sanitize(combined_trade)
         
-        # Asset folder name (servicer_id primary, sellertape_id fallback)
-        sellertape_id = None  # Will get from asset if needed
-        
-        if servicer_id:
-            asset_folder = str(servicer_id)
-        else:
-            # Get sellertape_id as fallback
-            SellerRawData = apps.get_model('acq_module', 'SellerRawData')
-            try:
-                asset = SellerRawData.objects.select_related('asset_hub').get(pk=asset_hub_id)
-                sellertape_id = asset.asset_hub.sellertape_id if (asset.asset_hub and asset.asset_hub.sellertape_id) else None
-                asset_folder = str(sellertape_id) if sellertape_id else f"UNKNOWN_{asset_hub_id}"
-            except:
-                asset_folder = f"UNKNOWN_{asset_hub_id}"
+        # WHAT: Use asset_hub_id directly as folder name
+        # WHY: SharePoint folders use asset_hub_id as metadata identifier for linkage
+        # HOW: Use asset_hub_id as the folder name - it's always present and stable
+        asset_folder = str(asset_hub_id)
         
         base_path = FolderStructure.get_asset_base_path(trade_folder, asset_folder)
         
@@ -98,7 +86,59 @@ class SharePointFilesService:
         return {
             'success': True,
             'asset_hub_id': asset_hub_id,
-            'servicer_id': servicer_id,
+            'base_path': base_path,
+            'folders': folders,
+            'files': []
+        }
+    
+    def get_trade_folders(
+        self,
+        trade_name: str,
+        seller_name: str,
+        trade_id: int
+    ) -> Dict[str, Any]:
+        """
+        Get folder structure for trade-level documents.
+        
+        Args:
+            trade_name: Trade name (e.g., "FLC-27")
+            seller_name: Seller name (e.g., "Archwest")
+            trade_id: Trade database ID
+            
+        Returns:
+            Dict with trade-level folder structure (Bid, Legal, Post Close - excludes Asset Level)
+        """
+        # Build paths
+        combined_trade = f"{trade_name} - {seller_name}" if seller_name else trade_name
+        trade_folder = self._sanitize(combined_trade)
+        
+        # Get trade base path
+        base_path = FolderStructure.get_trade_base_path(trade_folder)
+        
+        # Return static folder structure (no API call - instant!)
+        folders = []
+        base_url = f"https://firstliencapitaldom.sharepoint.com/sites/ProjectAlpha/Shared%20Documents"
+        
+        # WHAT: Build trade-level folders (Bid, Legal, Post Close)
+        # WHY: Trade-level documents are stored in these folders
+        # HOW: Use TRADE_FOLDERS but exclude "Asset Level" (that's for asset documents)
+        trade_level_folders = [f for f in FolderStructure.TRADE_FOLDERS if f != "Asset Level"]
+        
+        for folder_name in trade_level_folders:
+            folder_path = f"{base_path}/{folder_name}"
+            folder_info = {
+                'name': folder_name,
+                'path': folder_path,
+                'web_url': f"{base_url}/{folder_path.replace('/', '%20')}",
+                'files': [],
+                'subfolders': []
+            }
+            folders.append(folder_info)
+        
+        return {
+            'success': True,
+            'trade_id': trade_id,
+            'trade_name': combined_trade,
             'base_path': base_path,
             'folders': folders,
             'files': []

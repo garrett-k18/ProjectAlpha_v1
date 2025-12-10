@@ -1,5 +1,6 @@
 <template>
   <DocumentManagerPanel
+    :tradeId="tradeId ?? undefined"
     :assetId="assetId ?? undefined"
     :row="row ?? null"
     module="acq"

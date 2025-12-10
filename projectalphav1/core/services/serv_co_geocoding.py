@@ -313,7 +313,7 @@ def _extract_msa_fields(census_obj: Any) -> Dict[str, Optional[str]]:
 
 # Function: _extract_all_census_fields – extract all requested census fields including MSA/CSA data.
 def _extract_all_census_fields(census_obj: Any) -> Dict[str, Optional[str]]:
-    """Extract comprehensive census data including MSA, CSA, FIPS codes, and county info."""
+    """Extract comprehensive census data including FIPS, tract/block, MSA/CSA, place and county info."""
     extras: Dict[str, Optional[str]] = {}
     
     if not census_obj:
@@ -358,8 +358,20 @@ def _extract_all_census_fields(census_obj: Any) -> Dict[str, Optional[str]]:
         value = str(value).strip()
         return value or None
 
-    # ONLY extract MSA/CSA data - NO FIPS codes or other census data
-    
+    # Core FIPS / tract / block info
+    extras["state_fips"] = _as_str(payload.get("state_fips"))
+    extras["county_fips"] = _as_str(payload.get("county_fips"))
+    extras["tract_code"] = _as_str(payload.get("tract_code"))
+    extras["block_code"] = _as_str(payload.get("block_code"))
+    extras["block_group"] = _as_str(payload.get("block_group"))
+    extras["full_fips"] = _as_str(payload.get("full_fips"))
+
+    # Place
+    place_obj = payload.get("place")
+    if isinstance(place_obj, dict):
+        extras["place_name"] = _as_str(place_obj.get("name"))
+        extras["place_fips"] = _as_str(place_obj.get("fips"))
+
     # Extract MSA data
     msa_sources = [
         payload.get("metro_micro_statistical_area"),
@@ -377,13 +389,33 @@ def _extract_all_census_fields(census_obj: Any) -> Dict[str, Optional[str]]:
     if csa_obj and isinstance(csa_obj, dict):
         extras["csa_name"] = _as_str(csa_obj.get("name"))
         extras["csa_code"] = _as_str(csa_obj.get("area_code") or csa_obj.get("code"))
-    
+
+    # Metropolitan division
+    metdiv_obj = payload.get("metropolitan_division")
+    if metdiv_obj and isinstance(metdiv_obj, dict):
+        extras["metdiv_name"] = _as_str(metdiv_obj.get("name"))
+        extras["metdiv_code"] = _as_str(metdiv_obj.get("area_code") or metdiv_obj.get("code"))
+
+    # County subdivision
+    csub_obj = payload.get("county_subdivision")
+    if csub_obj and isinstance(csub_obj, dict):
+        extras["county_subdivision_name"] = _as_str(csub_obj.get("name"))
+        extras["county_subdivision_fips"] = _as_str(csub_obj.get("fips"))
+        fips_class = csub_obj.get("fips_class")
+        if isinstance(fips_class, dict):
+            extras["county_subdivision_class_code"] = _as_str(fips_class.get("class_code"))
+            extras["county_subdivision_class_desc"] = _as_str(fips_class.get("description"))
+
+    # Year and source
+    extras["census_year"] = _as_str(payload.get("census_year"))
+    extras["census_source"] = _as_str(payload.get("source"))
+
     return {k: v for k, v in extras.items() if v}
 
 
 # Function: _extract_school_fields – extract school district name from Geocodio school data.
 def _extract_school_fields(school_obj: Any) -> Dict[str, Optional[str]]:
-    """Extract school district name from Geocodio school field."""
+    """Extract school district details from Geocodio school field."""
     extras: Dict[str, Optional[str]] = {}
     
     if not school_obj or not isinstance(school_obj, dict):
@@ -398,13 +430,32 @@ def _extract_school_fields(school_obj: Any) -> Dict[str, Optional[str]]:
     # School data can have different structures - check for unified, elementary, secondary
     for school_type in ["unified", "elementary", "secondary"]:
         schools = school_obj.get(school_type)
-        if schools and isinstance(schools, list) and len(schools) > 0:
-            first_school = schools[0]
-            if isinstance(first_school, dict):
-                school_name = _as_str(first_school.get("name"))
-                if school_name:
-                    extras["school_district"] = school_name
+        if not schools:
+            continue
+
+        # Geocodio may return a single dict or a list of dicts
+        first_school: Optional[Dict[str, Any]] = None
+        if isinstance(schools, list):
+            for candidate in schools:
+                if isinstance(candidate, dict):
+                    first_school = candidate
                     break
+        elif isinstance(schools, dict):
+            first_school = schools
+
+        if not first_school or not isinstance(first_school, dict):
+            continue
+
+        school_name = _as_str(first_school.get("name"))
+        if not school_name:
+            continue
+
+        extras["school_district"] = school_name
+        extras["school_district_lea_code"] = _as_str(first_school.get("lea_code"))
+        extras["school_district_grade_low"] = _as_str(first_school.get("grade_low"))
+        extras["school_district_grade_high"] = _as_str(first_school.get("grade_high"))
+        extras["school_district_type"] = school_type
+        break
     
     return {k: v for k, v in extras.items() if v}
 
@@ -504,8 +555,8 @@ def _parse_geocodio_result_entry(entry: Any) -> Tuple[Optional[Tuple[float, floa
     
     # WHAT: Extract school district data
     # WHY: User wants school district name
-    # HOW: Parse school field from Geocodio response
-    school_obj = fields_obj.get('school') if fields_obj and isinstance(fields_obj, dict) else None
+    # HOW: Parse school_districts field from Geocodio response when fields=school is requested
+    school_obj = fields_obj.get('school_districts') if fields_obj and isinstance(fields_obj, dict) else None
     if school_obj:
         logger.info("[Geocode][School] Raw school data: %s", str(school_obj)[:300])
         extras.update(_extract_school_fields(school_obj))
@@ -542,6 +593,30 @@ def _persist_enrichment_rows(
     when = timezone.now()
     msa_name = extras.get("msa_name")
     msa_code = extras.get("msa_code")
+    msa_type = extras.get("msa_type")
+    csa_name = extras.get("csa_name")
+    csa_code = extras.get("csa_code")
+    state_fips = extras.get("state_fips")
+    county_fips = extras.get("county_fips")
+    tract_code = extras.get("tract_code")
+    block_code = extras.get("block_code")
+    block_group = extras.get("block_group")
+    full_fips = extras.get("full_fips")
+    place_name = extras.get("place_name")
+    place_fips = extras.get("place_fips")
+    metdiv_name = extras.get("metdiv_name")
+    metdiv_code = extras.get("metdiv_code")
+    county_subdivision_name = extras.get("county_subdivision_name")
+    county_subdivision_fips = extras.get("county_subdivision_fips")
+    county_subdivision_class_code = extras.get("county_subdivision_class_code")
+    county_subdivision_class_desc = extras.get("county_subdivision_class_desc")
+    census_year = extras.get("census_year")
+    census_source = extras.get("census_source")
+    school_name = extras.get("school_district")
+    school_lea = extras.get("school_district_lea_code")
+    school_grade_low = extras.get("school_district_grade_low")
+    school_grade_high = extras.get("school_district_grade_high")
+    school_type = extras.get("school_district_type")
     updated_rows = 0
     
     # WHAT: Log what we're about to persist
@@ -568,6 +643,30 @@ def _persist_enrichment_rows(
             "geocoded_at": when,
             "geocode_msa": msa_name or "",  # Store empty string instead of None
             "geocode_msa_code": msa_code or "",  # Store empty string instead of None
+            "geocode_msa_type": msa_type or "",
+            "geocode_csa_name": csa_name or "",
+            "geocode_csa_code": csa_code or "",
+            "geocode_state_fips": state_fips or "",
+            "geocode_county_fips": county_fips or "",
+            "geocode_tract_code": tract_code or "",
+            "geocode_block_code": block_code or "",
+            "geocode_block_group": block_group or "",
+            "geocode_full_fips": full_fips or "",
+            "geocode_place_name": place_name or "",
+            "geocode_place_fips": place_fips or "",
+            "geocode_metdiv_name": metdiv_name or "",
+            "geocode_metdiv_code": metdiv_code or "",
+            "geocode_county_subdivision_name": county_subdivision_name or "",
+            "geocode_county_subdivision_fips": county_subdivision_fips or "",
+            "geocode_county_subdivision_class_code": county_subdivision_class_code or "",
+            "geocode_county_subdivision_class_desc": county_subdivision_class_desc or "",
+            "geocode_census_year": census_year or "",
+            "geocode_census_source": census_source or "",
+            "geocode_school_district": school_name or "",
+            "geocode_school_district_lea_code": school_lea or "",
+            "geocode_school_district_grade_low": school_grade_low or "",
+            "geocode_school_district_grade_high": school_grade_high or "",
+            "geocode_school_district_type": school_type or "",
         }
         
         # WHAT: Log what we're saving for this specific row
@@ -612,6 +711,71 @@ def _persist_enrichment_rows(
                 changed = True
             if not enr_obj.geocode_display_address and display_name:
                 enr_obj.geocode_display_address = display_name
+                changed = True
+            # Update census metadata when available
+            if state_fips and getattr(enr_obj, "geocode_state_fips", None) != state_fips:
+                enr_obj.geocode_state_fips = state_fips
+                changed = True
+            if county_fips and getattr(enr_obj, "geocode_county_fips", None) != county_fips:
+                enr_obj.geocode_county_fips = county_fips
+                changed = True
+            if tract_code and getattr(enr_obj, "geocode_tract_code", None) != tract_code:
+                enr_obj.geocode_tract_code = tract_code
+                changed = True
+            if block_code and getattr(enr_obj, "geocode_block_code", None) != block_code:
+                enr_obj.geocode_block_code = block_code
+                changed = True
+            if block_group and getattr(enr_obj, "geocode_block_group", None) != block_group:
+                enr_obj.geocode_block_group = block_group
+                changed = True
+            if full_fips and getattr(enr_obj, "geocode_full_fips", None) != full_fips:
+                enr_obj.geocode_full_fips = full_fips
+                changed = True
+            if place_name and getattr(enr_obj, "geocode_place_name", None) != place_name:
+                enr_obj.geocode_place_name = place_name
+                changed = True
+            if place_fips and getattr(enr_obj, "geocode_place_fips", None) != place_fips:
+                enr_obj.geocode_place_fips = place_fips
+                changed = True
+            if metdiv_name and getattr(enr_obj, "geocode_metdiv_name", None) != metdiv_name:
+                enr_obj.geocode_metdiv_name = metdiv_name
+                changed = True
+            if metdiv_code and getattr(enr_obj, "geocode_metdiv_code", None) != metdiv_code:
+                enr_obj.geocode_metdiv_code = metdiv_code
+                changed = True
+            if county_subdivision_name and getattr(enr_obj, "geocode_county_subdivision_name", None) != county_subdivision_name:
+                enr_obj.geocode_county_subdivision_name = county_subdivision_name
+                changed = True
+            if county_subdivision_fips and getattr(enr_obj, "geocode_county_subdivision_fips", None) != county_subdivision_fips:
+                enr_obj.geocode_county_subdivision_fips = county_subdivision_fips
+                changed = True
+            if county_subdivision_class_code and getattr(enr_obj, "geocode_county_subdivision_class_code", None) != county_subdivision_class_code:
+                enr_obj.geocode_county_subdivision_class_code = county_subdivision_class_code
+                changed = True
+            if county_subdivision_class_desc and getattr(enr_obj, "geocode_county_subdivision_class_desc", None) != county_subdivision_class_desc:
+                enr_obj.geocode_county_subdivision_class_desc = county_subdivision_class_desc
+                changed = True
+            if census_year and getattr(enr_obj, "geocode_census_year", None) != census_year:
+                enr_obj.geocode_census_year = census_year
+                changed = True
+            if census_source and getattr(enr_obj, "geocode_census_source", None) != census_source:
+                enr_obj.geocode_census_source = census_source
+                changed = True
+            # Update school district metadata when available
+            if school_name and getattr(enr_obj, "geocode_school_district", None) != school_name:
+                enr_obj.geocode_school_district = school_name
+                changed = True
+            if school_lea and getattr(enr_obj, "geocode_school_district_lea_code", None) != school_lea:
+                enr_obj.geocode_school_district_lea_code = school_lea
+                changed = True
+            if school_grade_low and getattr(enr_obj, "geocode_school_district_grade_low", None) != school_grade_low:
+                enr_obj.geocode_school_district_grade_low = school_grade_low
+                changed = True
+            if school_grade_high and getattr(enr_obj, "geocode_school_district_grade_high", None) != school_grade_high:
+                enr_obj.geocode_school_district_grade_high = school_grade_high
+                changed = True
+            if school_type and getattr(enr_obj, "geocode_school_district_type", None) != school_type:
+                enr_obj.geocode_school_district_type = school_type
                 changed = True
             # WHAT: Always update MSA fields, even if empty
             # WHY: User wants to track which addresses were processed but have no MSA

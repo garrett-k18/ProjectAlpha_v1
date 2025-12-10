@@ -284,7 +284,7 @@ const decoratedStatusOptions = computed(() => {
       return { ...option, label: 'Board' }
     }
     if (option.value === 'INDICATIVE') {
-      return { ...option, label: 'Indicative (Initial)' }
+      return { ...option, label: 'Indicative' }
     }
     return option
   })

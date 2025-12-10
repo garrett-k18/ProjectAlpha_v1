@@ -78,22 +78,14 @@ def get_asset_documents(request, asset_hub_id):
         trade_name = trade.trade_name
         seller_name = trade.seller.name if trade.seller else None
         
-        # Get asset info
-        servicer_id = asset.asset_hub.servicer_id if (asset.asset_hub and asset.asset_hub.servicer_id) else None
-        
-        if not servicer_id:
-            return Response({
-                'success': False,
-                'error': 'Asset has no servicer ID - folder not created',
-                'note': f'Using fallback: NO_SERVICER_{asset_hub_id}'
-            }, status=status.HTTP_404_NOT_FOUND)
-        
-        # Fetch SharePoint data
+        # Fetch SharePoint data - service uses asset_hub_id directly for folder naming
         service = SharePointFilesService()
+        # WHAT: Use asset_hub_id as folder identifier
+        # WHY: SharePoint folders use asset_hub_id as metadata identifier for linkage, not servicer_id
+        # HOW: Service.get_asset_folders() uses asset_hub_id directly as folder name
         result = service.get_asset_folders(
             trade_name=trade_name,
             seller_name=seller_name,
-            servicer_id=servicer_id,
             asset_hub_id=asset_hub_id
         )
         
@@ -115,13 +107,13 @@ def get_asset_documents(request, asset_hub_id):
 @api_view(['GET'])
 def get_trade_documents(request, trade_id):
     """
-    Get SharePoint folders for trade-level documents.
+    Get SharePoint folders and files for trade-level documents.
     
     Args:
         trade_id: Trade database ID
         
     Returns:
-        JSON with trade-level folder structure
+        JSON with trade-level folder structure (Bid, Legal, Post Close)
     """
     try:
         Trade = apps.get_model('acq_module', 'Trade')
@@ -134,27 +126,25 @@ def get_trade_documents(request, trade_id):
                 'error': f'Trade {trade_id} not found'
             }, status=status.HTTP_404_NOT_FOUND)
         
-        # Build folder path
+        # Get trade info
         trade_name = trade.trade_name
         seller_name = trade.seller.name if trade.seller else None
-        combined = f"{trade_name} - {seller_name}" if seller_name else trade_name
         
-        # Return folder URLs
-        base_url = f"https://firstliencapitaldom.sharepoint.com/sites/ProjectAlpha/Shared%20Documents/Trades/{combined}"
+        # Fetch SharePoint data using service
+        service = SharePointFilesService()
+        # WHAT: Get trade-level folders (Bid, Legal, Post Close)
+        # WHY: Trade-level documents are stored in these folders, not Asset Level
+        # HOW: Service.get_trade_folders() returns folder structure excluding Asset Level
+        result = service.get_trade_folders(
+            trade_name=trade_name,
+            seller_name=seller_name,
+            trade_id=trade_id
+        )
         
-        return Response({
-            'success': True,
-            'trade_id': trade_id,
-            'trade_name': combined,
-            'folders': {
-                'bid': f"{base_url}/Bid",
-                'legal': f"{base_url}/Legal",
-                'post_close': f"{base_url}/Post%20Close",
-                'asset_level': f"{base_url}/Asset%20Level"
-            }
-        })
+        return Response(result)
     
     except Exception as e:
+        logger.error(f"Error fetching documents for trade {trade_id}: {str(e)}")
         return Response({
             'success': False,
             'error': str(e)

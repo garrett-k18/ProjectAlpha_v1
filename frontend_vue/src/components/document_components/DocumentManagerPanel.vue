@@ -77,6 +77,7 @@ export default defineComponent({
   },
   props: {
     assetId: { type: [String, Number], required: false, default: null },
+    tradeId: { type: [String, Number], required: false, default: null },
     row: { type: Object as () => Record<string, any> | null, required: false, default: null },
     module: { type: String as () => 'acq' | 'am' | undefined, required: false, default: undefined },
     // Optional override for available view modes (e.g., hide 'by-trade' in tab usage)
@@ -212,11 +213,78 @@ export default defineComponent({
       }
     },
     async loadByType() {
-      // Get asset_hub_id from props
+      // WHAT: Check if this is trade-level or asset-level documents
+      // WHY: Trade-level uses tradeId, asset-level uses assetId
+      // HOW: Check tradeId prop first, then fall back to assetId
+      const tradeId = this.tradeId || (this.row && (this.row as any).tradeId) || (this.row && (this.row as any).trade?.id)
       const assetHubId = this.assetId || (this.row && this.row.id)
       
-      console.log('loadByType - assetId:', this.assetId, 'row:', this.row, 'assetHubId:', assetHubId)
+      console.log('loadByType - tradeId:', tradeId, 'assetId:', this.assetId, 'row:', this.row, 'assetHubId:', assetHubId)
       
+      // WHAT: Handle trade-level documents
+      // WHY: Trade-level shows Bid, Legal, Post Close folders (static structure)
+      // HOW: Call trade documents API which returns static folder structure
+      if (tradeId && !assetHubId) {
+        console.log('Fetching SharePoint documents for trade:', tradeId)
+        try {
+          const response = await fetch(`/api/sharepoint/trades/${tradeId}/documents/`)
+          const data = await response.json()
+          
+          console.log('SharePoint trade API response:', data)
+          
+          if (!data.success) {
+            console.error('SharePoint trade fetch failed:', data.error)
+            this.folders = []
+            this.files = []
+            return
+          }
+          
+          if (this.currentPath.length === 0) {
+            // WHAT: Show trade-level category folders (Bid, Legal, Post Close)
+            // WHY: Static folder structure - no API call needed for folders
+            // HOW: Map API response folders to display format
+            console.log('Mapping trade folders:', data.folders)
+            this.folders = (data.folders || []).map((folder: any) => {
+              return {
+                id: folder.name,
+                name: folder.name,
+                path: folder.path,
+                count: (folder.files?.length || 0) + (folder.subfolders?.length || 0)
+              }
+            })
+            console.log('Mapped trade folders:', this.folders)
+            this.files = data.files || []
+          } else {
+            // WHAT: In a trade-level folder - show files
+            // WHY: User clicked into Bid, Legal, or Post Close folder
+            // HOW: Find folder data and show its files
+            const currentFolder = this.currentPath[this.currentPath.length - 1]
+            const folderData = (data.folders || []).find((f: any) => f.name === currentFolder.name)
+            
+            if (folderData) {
+              // Show subfolders if any
+              this.folders = (folderData.subfolders || []).map((sub: any) => ({
+                id: sub.name,
+                name: sub.name,
+                path: sub.path,
+                count: sub.files?.length || 0
+              }))
+              this.files = folderData.files || []
+            } else {
+              this.folders = []
+              this.files = []
+            }
+          }
+        } catch (error) {
+          console.error('Error loading SharePoint trade documents:', error)
+          this.folders = []
+          this.files = []
+        }
+        return
+      }
+      
+      // WHAT: Handle asset-level documents (existing logic)
+      // WHY: Asset-level shows Valuation, Collateral, Legal, Tax, Title, Photos folders
       if (!assetHubId) {
         // No asset selected yet - show empty state
         this.folders = []
@@ -224,7 +292,7 @@ export default defineComponent({
         return
       }
       
-      // Fetch from SharePoint API
+      // Fetch from SharePoint API for asset
       console.log('Fetching SharePoint documents for asset:', assetHubId)
       try {
         const response = await fetch(`/api/sharepoint/assets/${assetHubId}/documents/`)

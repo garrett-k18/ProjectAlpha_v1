@@ -666,7 +666,11 @@ class DataImporter:
             return None
 
         try:
-            stats = batch_geocode_row_ids(self._new_row_ids, chunk_size=1000, fields=['census'])
+            stats = batch_geocode_row_ids(
+                self._new_row_ids,
+                chunk_size=1000,
+                fields=["census2024", "census", "school"],
+            )
             logger.info(
                 "Batch geocoded %s new rows (unique=%s, api_calls=%s)",
                 stats.get('updated_rows'),

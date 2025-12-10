@@ -93,11 +93,107 @@ class LlDataEnrichment(models.Model):
         blank=True,
         help_text="County name from Geocodio census data.",
     )
+    geocode_block_code = models.CharField(
+        max_length=10,
+        null=True,
+        blank=True,
+        help_text="Census block code from Geocodio census data.",
+    )
+    geocode_block_group = models.CharField(
+        max_length=10,
+        null=True,
+        blank=True,
+        help_text="Census block group from Geocodio census data.",
+    )
+    geocode_place_name = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="Place name from Geocodio census data.",
+    )
+    geocode_place_fips = models.CharField(
+        max_length=10,
+        null=True,
+        blank=True,
+        help_text="Place FIPS code from Geocodio census data.",
+    )
+    geocode_metdiv_name = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="Metropolitan division name from Geocodio census data.",
+    )
+    geocode_metdiv_code = models.CharField(
+        max_length=10,
+        null=True,
+        blank=True,
+        help_text="Metropolitan division code from Geocodio census data.",
+    )
+    geocode_county_subdivision_name = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="County subdivision name from Geocodio census data.",
+    )
+    geocode_county_subdivision_fips = models.CharField(
+        max_length=10,
+        null=True,
+        blank=True,
+        help_text="County subdivision FIPS code from Geocodio census data.",
+    )
+    geocode_county_subdivision_class_code = models.CharField(
+        max_length=10,
+        null=True,
+        blank=True,
+        help_text="County subdivision class code from Geocodio census data.",
+    )
+    geocode_county_subdivision_class_desc = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="County subdivision class description from Geocodio census data.",
+    )
+    geocode_census_year = models.CharField(
+        max_length=4,
+        null=True,
+        blank=True,
+        help_text="Census year used for Geocodio census data.",
+    )
+    geocode_census_source = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="Source string from Geocodio census data.",
+    )
     geocode_school_district = models.CharField(
         max_length=255,
         null=True,
         blank=True,
         help_text="School district name from Geocodio school field.",
+    )
+    geocode_school_district_lea_code = models.CharField(
+        max_length=20,
+        null=True,
+        blank=True,
+        help_text="School district LEA code from Geocodio school field.",
+    )
+    geocode_school_district_grade_low = models.CharField(
+        max_length=10,
+        null=True,
+        blank=True,
+        help_text="Lowest grade served by the school district (e.g. PK, KG).",
+    )
+    geocode_school_district_grade_high = models.CharField(
+        max_length=10,
+        null=True,
+        blank=True,
+        help_text="Highest grade served by the school district.",
+    )
+    geocode_school_district_type = models.CharField(
+        max_length=32,
+        null=True,
+        blank=True,
+        help_text="School district type reported by Geocodio (unified, elementary, secondary).",
     )
 
     # Timestamps
