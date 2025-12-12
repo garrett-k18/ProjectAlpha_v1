@@ -34,6 +34,8 @@ export interface TradeAssumption {
   acq_legal_cost?: string | null;
   acq_dd_cost?: string | null;
   acq_tax_title_cost?: string | null;
+  acq_broker_fees?: string | null;
+  acq_other_costs?: string | null;
   // Asset management fees
   am_fee_pct?: string | null;
   // Legacy fields (may be removed in future)
@@ -58,15 +60,17 @@ export const useTradeAssumptionsStore = defineStore('tradeAssumptions', () => {
   /**
    * Fetch trade level assumptions for a specific trade
    * @param tradeId The ID of the trade
+   * @param forceRefresh If true, bypass cache and always fetch fresh data from backend
    */
-  async function fetchAssumptions(tradeId: number): Promise<void> {
+  async function fetchAssumptions(tradeId: number, forceRefresh: boolean = false): Promise<void> {
     if (!tradeId) {
       resetState()
       return
     }
 
-    // Skip if we already have data for this trade
-    if (lastTradeId.value === tradeId && assumptions.value) {
+    // WHAT: Skip if we already have data for this trade (unless forceRefresh is true)
+    // WHY: Avoid unnecessary API calls, but allow forcing refresh when needed (e.g., when modal opens)
+    if (!forceRefresh && lastTradeId.value === tradeId && assumptions.value) {
       return
     }
 
@@ -103,11 +107,17 @@ export const useTradeAssumptionsStore = defineStore('tradeAssumptions', () => {
       const response = await http.post(`/acq/trade-assumptions/${tradeId}/update/`, data)
       
       if (response.data && response.data.success) {
-        // Update the local state with the returned data
+        // WHAT: Update the local state with the returned data, excluding the success flag
+        // WHY: The backend returns {success: true, ...fields} but we only want the assumption fields
+        // HOW: Destructure to exclude success flag and merge with existing assumptions
+        const { success, ...assumptionData } = response.data
         assumptions.value = {
           ...assumptions.value,
-          ...response.data
+          ...assumptionData
         }
+        // WHAT: Update lastTradeId to ensure cache is valid
+        // WHY: After update, we want to keep the cache so subsequent fetches don't re-fetch unnecessarily
+        lastTradeId.value = tradeId
         return true
       }
       return false

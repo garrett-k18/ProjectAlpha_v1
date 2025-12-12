@@ -417,6 +417,48 @@
         />
         <small class="form-text text-muted">Dollar amount per loan</small>
       </div>
+
+      <!-- Acquisition Broker Fee Percentage -->
+      <div class="col-12 col-md-4 mb-3">
+        <label for="tdm-acq-broker-fee-pct" class="form-label fw-medium">Broker Fee (%)</label>
+        <div class="input-group">
+          <input
+            id="tdm-acq-broker-fee-pct"
+            type="number"
+            step="0.01"
+            min="0"
+            class="form-control"
+            :disabled="disabled"
+            :value="acqBrokerFeesLocal"
+            @input="onAcqBrokerFeesInput($event)"
+            @change="emitChanged()"
+            placeholder="1.00"
+          />
+          <span class="input-group-text">%</span>
+        </div>
+        <small class="form-text text-muted">Enter as percentage (e.g., 1.00 for 1%)</small>
+      </div>
+
+      <!-- Acquisition Other Costs Percentage -->
+      <div class="col-12 col-md-4 mb-3">
+        <label for="tdm-acq-other-costs-pct" class="form-label fw-medium">Other Costs (%)</label>
+        <div class="input-group">
+          <input
+            id="tdm-acq-other-costs-pct"
+            type="number"
+            step="0.01"
+            min="0"
+            class="form-control"
+            :disabled="disabled"
+            :value="acqOtherCostsLocal"
+            @input="onAcqOtherCostsInput($event)"
+            @change="emitChanged()"
+            placeholder="1.00"
+          />
+          <span class="input-group-text">%</span>
+        </div>
+        <small class="form-text text-muted">Enter as percentage (e.g., 1.00 for 1%)</small>
+      </div>
     </div>
 
     <!-- Asset Management Fees Section -->
@@ -452,107 +494,53 @@
 </template>
 
 <script setup lang="ts">
-// ----------------------------------------------------------------------------------
-// TradeDetailsModal.vue (Trade Assumptions)
-// ----------------------------------------------------------------------------------
-// Comprehensive trade-level assumptions form with v-model bindings for all fields.
-// The parent controls persistence. We emit updates and a generic "changed" signal
-// on field change so the parent can auto-save.
-// ----------------------------------------------------------------------------------
 import { computed } from 'vue'
 
-// Servicer interface for dropdown options
-// WHAT: Export this interface to prevent Vue type inference issues
-// WHY: Vue Volar type checker needs explicit exports for component prop types
 export interface Servicer {
   id: number
   servicerName: string
 }
 
-// Props definition with v-model aliases for all trade assumption fields
 const props = defineProps<{
-  // Trade Dates
-  /** ISO date string: YYYY-MM-DD */
   bidDate?: string
-  /** ISO date string: YYYY-MM-DD */
   settlementDate?: string
-  /** ISO date string: YYYY-MM-DD */
   servicingTransferDate?: string
-  
-  // Servicer Selection
-  /** Selected servicer ID */
   servicerId?: number | null
-  /** List of available servicers for dropdown */
   servicers?: Servicer[]
-  /** Loading state for servicers */
   servicersLoading?: boolean
-  
-  // Financial Assumptions
-  /** Bid method: PCT_UPB or TARGET_IRR */
   bidMethod?: string
-  /** Purchase price as percentage of UPB (e.g., 85.00 for 85%) */
   pctUPB?: number | string
-  /** Target IRR as decimal (e.g., 0.15 for 15%) */
   targetIrr?: number | string
-  /** Discount rate as decimal (e.g., 0.12 for 12%) */
   discountRate?: number | string
-  /** Perf/RPL hold period in months */
   perfRplHoldPeriod?: number | string
-  
-  // Modification Assumptions
-  /** Modification rate as decimal (e.g., 0.04 for 4%) */
   modRate?: number | string
-  /** Modification legal term in months */
   modLegalTerm?: number | string
-  /** Modification amortization term in months */
   modAmortTerm?: number | string
-  /** Maximum modification LTV as decimal (e.g., 0.95 for 95%) */
   maxModLtv?: number | string
-  /** Interest-only flag for modifications */
   modIoFlag?: boolean
-  /** Modification down payment as decimal (e.g., 0.05 for 5%) */
   modDownPmt?: number | string
-  /** Modification origination cost in dollars per loan */
   modOrigCost?: number | string
-  /** Modification setup duration in months */
   modSetupDuration?: number | string
-  /** Modification hold duration in months */
   modHoldDuration?: number | string
-  
-  // Acquisition Costs (dollar amounts per loan)
-  /** Acquisition legal cost in dollars per loan */
   acqLegalCost?: number | string
-  /** Acquisition DD cost in dollars per loan */
   acqDdCost?: number | string
-  /** Acquisition tax/title cost in dollars per loan */
   acqTaxTitleCost?: number | string
-  
-  // Asset Management Fees (stored as decimal but displayed as percentage)
-  /** AM fee stored as decimal (e.g., 0.01) but displayed as percentage (e.g., 1) */
+  acqBrokerFees?: number | string
+  acqOtherCosts?: number | string
   amFeePct?: number | string
-  
-  /** Disable inputs while saving */
   disabled?: boolean
 }>()
 
-// Emits: two-way model updates for all fields and a generic changed event
 const emit = defineEmits<{
-  // Trade Dates
   (e: 'update:bidDate', value: string): void
   (e: 'update:settlementDate', value: string): void
   (e: 'update:servicingTransferDate', value: string): void
-  
-  // Servicer Selection
   (e: 'update:servicerId', value: number | null): void
-  
-  // Financial Assumptions
   (e: 'update:bidMethod', value: string): void
   (e: 'update:pctUPB', value: number | string): void
   (e: 'update:targetIrr', value: number | string): void
   (e: 'update:discountRate', value: number | string): void
   (e: 'update:perfRplHoldPeriod', value: number | string): void
-  
-  // Modification Assumptions
   (e: 'update:modRate', value: number | string): void
   (e: 'update:modLegalTerm', value: number | string): void
   (e: 'update:modAmortTerm', value: number | string): void
@@ -562,68 +550,49 @@ const emit = defineEmits<{
   (e: 'update:modOrigCost', value: number | string): void
   (e: 'update:modSetupDuration', value: number | string): void
   (e: 'update:modHoldDuration', value: number | string): void
-  
-  // Acquisition Costs
   (e: 'update:acqLegalCost', value: number | string): void
   (e: 'update:acqDdCost', value: number | string): void
   (e: 'update:acqTaxTitleCost', value: number | string): void
-  
-  // Asset Management Fees
+  (e: 'update:acqBrokerFees', value: number | string): void
+  (e: 'update:acqOtherCosts', value: number | string): void
   (e: 'update:amFeePct', value: number | string): void
-  
-  /** Generic change signal so parent can auto-save */
   (e: 'changed'): void
 }>()
 
-// Local computed wrappers for all fields to handle empty/null values safely
 const bidDateLocal = computed(() => props.bidDate ?? '')
 const settlementDateLocal = computed(() => props.settlementDate ?? '')
 const servicingTransferDateLocal = computed(() => props.servicingTransferDate ?? '')
-
-// WHAT: Servicer selection local wrapper
-// WHY: Handle null/undefined servicer ID safely
 const servicerIdLocal = computed(() => props.servicerId ?? null)
-
 const bidMethodLocal = computed(() => props.bidMethod ?? '')
 const pctUPBLocal = computed(() => props.pctUPB ?? '')
 
-// WHAT: Convert Target IRR from decimal to percentage for display
-// WHY: User expects to see and enter percentages (e.g., 15%) not decimals (e.g., 0.15)
-// HOW: Multiply decimal by 100 to get percentage; return empty string if no value
 const targetIrrLocal = computed(() => {
-  if (props.targetIrr === null || props.targetIrr === undefined || props.targetIrr === '') {
+  const raw = props.targetIrr
+  if (raw === null || raw === undefined || raw === '') {
     return ''
   }
-  const numValue =
-    typeof props.targetIrr === 'string'
-      ? parseFloat(props.targetIrr)
-      : props.targetIrr
-  if (isNaN(numValue)) {
+  const numValue = typeof raw === 'string' ? parseFloat(raw) : raw
+  if (typeof numValue !== 'number' || isNaN(numValue)) {
     return ''
   }
   const percentage = numValue * 100
   return Number.isFinite(percentage) ? percentage.toFixed(2) : ''
 })
 
-// WHAT: Convert discount rate from decimal to percentage for display
-// WHY: User expects to see and enter percentages (e.g., 12%) not decimals (e.g., 0.12)
-// HOW: Multiply decimal by 100 to get percentage; return empty string if no value
 const discountRateLocal = computed(() => {
-  if (props.discountRate === null || props.discountRate === undefined || props.discountRate === '') {
+  const raw = props.discountRate
+  if (raw === null || raw === undefined || raw === '') {
     return ''
   }
-  const numValue =
-    typeof props.discountRate === 'string'
-      ? parseFloat(props.discountRate)
-      : props.discountRate
-  if (isNaN(numValue)) {
+  const numValue = typeof raw === 'string' ? parseFloat(raw) : raw
+  if (typeof numValue !== 'number' || isNaN(numValue)) {
     return ''
   }
   const percentage = numValue * 100
   return Number.isFinite(percentage) ? percentage.toFixed(2) : ''
 })
-const perfRplHoldPeriodLocal = computed(() => props.perfRplHoldPeriod ?? '')
 
+const perfRplHoldPeriodLocal = computed(() => props.perfRplHoldPeriod ?? '')
 const modRateLocal = computed(() => props.modRate ?? '')
 const modLegalTermLocal = computed(() => props.modLegalTerm ?? '')
 const modAmortTermLocal = computed(() => props.modAmortTerm ?? '')
@@ -633,28 +602,49 @@ const modDownPmtLocal = computed(() => props.modDownPmt ?? '')
 const modOrigCostLocal = computed(() => props.modOrigCost ?? '')
 const modSetupDurationLocal = computed(() => props.modSetupDuration ?? '')
 const modHoldDurationLocal = computed(() => props.modHoldDuration ?? '')
-
 const acqLegalCostLocal = computed(() => props.acqLegalCost ?? '')
 const acqDdCostLocal = computed(() => props.acqDdCost ?? '')
 const acqTaxTitleCostLocal = computed(() => props.acqTaxTitleCost ?? '')
 
-// WHAT: Convert AM Fee from decimal to percentage for display
-// WHY: User expects to see and enter percentages (e.g., 1%) not decimals (e.g., 0.01)
-// HOW: Multiply decimal by 100 to get percentage; return empty string if no value
-const amFeePctLocal = computed(() => {
-  if (props.amFeePct === null || props.amFeePct === undefined || props.amFeePct === '') {
+const acqBrokerFeesLocal = computed(() => {
+  const raw = props.acqBrokerFees
+  if (raw === null || raw === undefined || raw === '') {
     return ''
   }
-  // WHAT: Convert decimal to percentage (0.01 -> 1.00) and format with two decimals
-  const numValue = typeof props.amFeePct === 'string' ? parseFloat(props.amFeePct) : props.amFeePct
-  if (isNaN(numValue)) {
+  const numValue = typeof raw === 'string' ? parseFloat(raw) : raw
+  if (typeof numValue !== 'number' || isNaN(numValue)) {
     return ''
   }
   const percentage = numValue * 100
   return Number.isFinite(percentage) ? percentage.toFixed(2) : ''
 })
 
-// Input handlers - Trade Dates
+const acqOtherCostsLocal = computed(() => {
+  const raw = props.acqOtherCosts
+  if (raw === null || raw === undefined || raw === '') {
+    return ''
+  }
+  const numValue = typeof raw === 'string' ? parseFloat(raw) : raw
+  if (typeof numValue !== 'number' || isNaN(numValue)) {
+    return ''
+  }
+  const percentage = numValue * 100
+  return Number.isFinite(percentage) ? percentage.toFixed(2) : ''
+})
+
+const amFeePctLocal = computed(() => {
+  const raw = props.amFeePct
+  if (raw === null || raw === undefined || raw === '') {
+    return ''
+  }
+  const numValue = typeof raw === 'string' ? parseFloat(raw) : raw
+  if (typeof numValue !== 'number' || isNaN(numValue)) {
+    return ''
+  }
+  const percentage = numValue * 100
+  return Number.isFinite(percentage) ? percentage.toFixed(2) : ''
+})
+
 function onBidInput(ev: Event) {
   const v = (ev.target as HTMLInputElement)?.value ?? ''
   emit('update:bidDate', v)
@@ -670,63 +660,45 @@ function onServicingTransferInput(ev: Event) {
   emit('update:servicingTransferDate', v)
 }
 
-// Input handler - Servicer Selection
-// WHAT: Handle servicer dropdown selection
-// WHY: Update parent component with selected servicer ID
-// HOW: Convert string value to number, emit null if empty
 function onServicerInput(ev: Event) {
   const v = (ev.target as HTMLSelectElement)?.value ?? ''
-  // WHAT: Convert to number or null
-  // WHY: Backend expects number ID or null
   const servicerId = v === '' || v === 'null' ? null : parseInt(v, 10)
   emit('update:servicerId', servicerId)
   emitChanged()
 }
 
-// Input handler - Bid Method
 function onBidMethodInput(ev: Event) {
   const v = (ev.target as HTMLSelectElement)?.value ?? ''
   emit('update:bidMethod', v)
   emitChanged()
 }
 
-// Input handlers - Financial Assumptions
 function onTargetIrrInput(ev: Event) {
   const v = (ev.target as HTMLInputElement)?.value ?? ''
-
-  // WHAT: If empty, emit empty string
   if (v === '' || v === null || v === undefined) {
     emit('update:targetIrr', '')
     return
   }
-
-  // WHAT: Convert percentage to decimal (15 -> 0.15)
   const percentageValue = parseFloat(v)
   if (isNaN(percentageValue)) {
     emit('update:targetIrr', '')
     return
   }
-
   const decimalValue = percentageValue / 100
   emit('update:targetIrr', decimalValue)
 }
 
 function onDiscountRateInput(ev: Event) {
   const v = (ev.target as HTMLInputElement)?.value ?? ''
-
-  // WHAT: If empty, emit empty string
   if (v === '' || v === null || v === undefined) {
     emit('update:discountRate', '')
     return
   }
-
-  // WHAT: Convert percentage to decimal (12 -> 0.12)
   const percentageValue = parseFloat(v)
   if (isNaN(percentageValue)) {
     emit('update:discountRate', '')
     return
   }
-
   const decimalValue = percentageValue / 100
   emit('update:discountRate', decimalValue)
 }
@@ -741,7 +713,6 @@ function onPctUPBInput(ev: Event) {
   emit('update:pctUPB', v)
 }
 
-// Input handlers - Modification Assumptions
 function onModRateInput(ev: Event) {
   const v = (ev.target as HTMLInputElement)?.value ?? ''
   emit('update:modRate', v)
@@ -788,7 +759,6 @@ function onModHoldDurationInput(ev: Event) {
   emit('update:modHoldDuration', v)
 }
 
-// Input handlers - Acquisition Costs
 function onAcqLegalCostInput(ev: Event) {
   const v = (ev.target as HTMLInputElement)?.value ?? ''
   emit('update:acqLegalCost', v)
@@ -804,38 +774,56 @@ function onAcqTaxTitleCostInput(ev: Event) {
   emit('update:acqTaxTitleCost', v)
 }
 
-// Input handlers - Asset Management Fees
-// WHAT: Handle AM Fee input and convert from percentage to decimal
-// WHY: User enters percentage (1) but backend expects decimal (0.01)
-// HOW: Divide input by 100 to convert percentage to decimal
+function onAcqBrokerFeesInput(ev: Event) {
+  const v = (ev.target as HTMLInputElement)?.value ?? ''
+  if (v === '' || v === null || v === undefined) {
+    emit('update:acqBrokerFees', '')
+    return
+  }
+  const percentageValue = parseFloat(v)
+  if (isNaN(percentageValue)) {
+    emit('update:acqBrokerFees', '')
+    return
+  }
+  const decimalValue = percentageValue / 100
+  emit('update:acqBrokerFees', decimalValue)
+}
+
+function onAcqOtherCostsInput(ev: Event) {
+  const v = (ev.target as HTMLInputElement)?.value ?? ''
+  if (v === '' || v === null || v === undefined) {
+    emit('update:acqOtherCosts', '')
+    return
+  }
+  const percentageValue = parseFloat(v)
+  if (isNaN(percentageValue)) {
+    emit('update:acqOtherCosts', '')
+    return
+  }
+  const decimalValue = percentageValue / 100
+  emit('update:acqOtherCosts', decimalValue)
+}
+
 function onAmFeePctInput(ev: Event) {
   const v = (ev.target as HTMLInputElement)?.value ?? ''
-  
-  // WHAT: If empty, emit empty string
   if (v === '' || v === null || v === undefined) {
     emit('update:amFeePct', '')
     return
   }
-  
-  // WHAT: Convert percentage to decimal (1 -> 0.01)
   const percentageValue = parseFloat(v)
   if (isNaN(percentageValue)) {
     emit('update:amFeePct', '')
     return
   }
-  
-  // WHAT: Divide by 100 to convert percentage to decimal
   const decimalValue = percentageValue / 100
   emit('update:amFeePct', decimalValue)
 }
 
-// Generic change signal emitter
 function emitChanged() {
-  // Parent may auto-save on this signal
   emit('changed')
 }
 </script>
 
 <style scoped>
-/* Keep styling minimal; rely on Bootstrap/Hyper UI utilities */
+  /* Keep styling minimal; rely on Bootstrap/Hyper UI utilities */
 </style>

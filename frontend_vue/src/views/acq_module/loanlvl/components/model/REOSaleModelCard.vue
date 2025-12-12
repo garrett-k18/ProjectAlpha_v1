@@ -196,7 +196,7 @@
               <div class="d-flex flex-column gap-2">
                 <div class="d-flex align-items-baseline gap-2">
                   <small class="text-muted d-block" style="min-width: 140px;">Servicing Transfer:</small>
-                  <span class="fw-semibold text-dark">
+                  <span class="fw-semibold text-dark timeline-months-value">
                     {{ timelineData.servicing_transfer_months != null ? timelineData.servicing_transfer_months : '—' }} months
                   </span>
                 </div>
@@ -205,7 +205,7 @@
                 <div class="d-flex align-items-baseline gap-2">
                   <small class="text-muted d-block" style="min-width: 140px;">Foreclosure:</small>
                   <div class="d-flex align-items-center gap-2">
-                    <span class="fw-semibold text-dark">
+                    <span class="fw-semibold text-dark timeline-months-value">
                       {{ timelineData.foreclosure_months != null ? timelineData.foreclosure_months : '—' }} months
                     </span>
                     <div class="btn-group btn-group-sm reo-duration-controls" role="group">
@@ -243,7 +243,7 @@
                 <div v-if="reoScenario === 'rehab'" class="d-flex align-items-baseline gap-2">
                   <small class="text-muted d-block" style="min-width: 140px;">REO Renovation:</small>
                   <div class="d-flex align-items-center gap-2">
-                    <span class="fw-semibold text-dark">
+                    <span class="fw-semibold text-dark timeline-months-value">
                       {{ timelineData.reo_renovation_months != null ? timelineData.reo_renovation_months : '—' }} months
                     </span>
                     <div class="btn-group btn-group-sm reo-duration-controls" role="group">
@@ -281,7 +281,7 @@
                 <div class="d-flex align-items-baseline gap-2">
                   <small class="text-muted d-block" style="min-width: 140px;">REO Marketing:</small>
                   <div class="d-flex align-items-center gap-2">
-                    <span class="fw-semibold text-dark">
+                    <span class="fw-semibold text-dark timeline-months-value">
                       {{ timelineData.reo_marketing_months != null ? timelineData.reo_marketing_months : '—' }} months
                     </span>
                     <div class="btn-group btn-group-sm reo-duration-controls" role="group">
@@ -425,6 +425,14 @@
           <li v-for="message in validationMessages" :key="message">{{ message }}</li>
         </ul>
       </div>
+
+      <!-- WHAT: Cash Flow Series Component (horizontal expandable) -->
+      <!-- WHY: Display period-by-period cash flow breakdown in horizontal format -->
+      <REOCashFlowSeries 
+        v-if="assetId"
+        :assetId="assetId"
+        :initialScenario="reoScenario === 'as_is' ? 'as_is' : 'arv'"
+      />
     </div>
   </div>
 </template>
@@ -432,6 +440,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch, onMounted } from 'vue'
 import http from '@/lib/http'
+import REOCashFlowSeries from '@/components/custom/REOCashFlowSeries.vue'
 
 // WHAT: Props for the REOSaleModelCard component
 const props = defineProps<{
@@ -1313,6 +1322,13 @@ input[type="number"] {
   background-color: rgba(13, 110, 253, 0.05) !important;
   color: #0b5ed7 !important;
   text-decoration: none;
+}
+
+/* WHAT: Fixed width for timeline months values to keep +/- buttons aligned */
+.timeline-months-value {
+  min-width: 90px;
+  display: inline-block;
+  text-align: left;
 }
 </style>
 

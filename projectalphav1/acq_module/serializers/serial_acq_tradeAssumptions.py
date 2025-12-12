@@ -58,6 +58,8 @@ class TradeLevelAssumptionSerializer(serializers.ModelSerializer):
             "acq_legal_cost",
             "acq_dd_cost",
             "acq_tax_title_cost",
+            "acq_broker_fees",
+            "acq_other_costs",
             "am_fee_pct",  # Mapped to liq_am_fee_pct via source parameter above
         ]
         read_only_fields = ["id", "trade_id", "servicer_name"]

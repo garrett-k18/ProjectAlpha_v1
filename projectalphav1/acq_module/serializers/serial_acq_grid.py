@@ -77,6 +77,12 @@ class GridRowSerializer(serializers.Serializer):
     seller_value_date = serializers.DateField(read_only=True)
     
     # -------------------------------------------------------------------------
+    # Enrichment (MSA)
+    # -------------------------------------------------------------------------
+    msa = serializers.SerializerMethodField()
+    msa_code = serializers.SerializerMethodField()
+    
+    # -------------------------------------------------------------------------
     # Internal Initial UW Valuation (computed from prefetched data)
     # -------------------------------------------------------------------------
     internal_initial_uw_asis_value = serializers.SerializerMethodField()
@@ -161,3 +167,13 @@ class GridRowSerializer(serializers.Serializer):
     
     def get_broker_recommend_rehab(self, obj):
         return self._get_field_from_source(obj, 'broker', 'recommend_rehab')
+
+    def get_msa(self, obj):
+        hub = getattr(obj, 'asset_hub', None)
+        enrichment = getattr(hub, 'enrichment', None) if hub else None
+        return getattr(enrichment, 'geocode_msa', None) if enrichment else None
+
+    def get_msa_code(self, obj):
+        hub = getattr(obj, 'asset_hub', None)
+        enrichment = getattr(hub, 'enrichment', None) if hub else None
+        return getattr(enrichment, 'geocode_msa_code', None) if enrichment else None

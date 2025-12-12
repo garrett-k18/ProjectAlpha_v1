@@ -19,6 +19,7 @@ from ..models.model_acq_seller import SellerRawData
 from ..services.serv_acq_modelRecs import ModelRecommendationService
 from ..services.serv_acq_FCModel import get_fc_timeline_sums, get_fc_expense_values
 from ..services.serv_acq_REOModel import get_reo_timeline_sums, get_reo_expense_values
+from ..services.serv_acq_REOCashFlows import generate_reo_cashflow_series
 from ..models.model_acq_assumptions import LoanLevelAssumption
 
 # Logger for model recommendation and timeline views
@@ -675,3 +676,133 @@ def update_acquisition_price(request, asset_id):
         )
 
 
+@api_view(['GET'])
+@permission_classes(get_permission_classes())
+def get_reo_cashflow_series(request, asset_id):
+    """
+    Get period-by-period cash flow series for REO Sale outcome model.
+    
+    GET /api/acq/assets/<asset_id>/reo-cashflow-series/?scenario=as_is
+    
+    Query Parameters:
+        scenario (optional): 'as_is' or 'arv' - defaults to 'as_is'
+    
+    Returns:
+        {
+            "scenario": "as_is",
+            "total_months": 15,
+            "periods": [0, 1, 2, 3, ..., 15],
+            "period_labels": [
+                "Period 0 (Settlement)",
+                "Month 1 (Servicing)",
+                "Month 2 (Servicing)",
+                "Month 3 (Foreclosure)",
+                ...
+                "Month 15 (Sale)"
+            ],
+            "cash_flows": {
+                "acquisition_price": [-50000, 0, 0, ...],
+                "acq_costs": [-2050, 0, 0, ...],
+                "servicing_fees": [0, -150, -150, ...],
+                "taxes": [0, -250, -250, ...],
+                "insurance": [0, -100, -100, ...],
+                "legal_cost": [0, 0, 0, ..., -2000],
+                "reo_holding_costs": [0, 0, 0, ..., -450],
+                "trashout_cost": [0, 0, 0, -1500, ...],
+                "renovation_cost": [0, 0, 0, ...],  # ARV only
+                "liquidation_fees": [0, 0, 0, ..., -8000],
+                "proceeds": [0, 0, 0, ..., 95000],
+                "net_cash_flow": [-52050, -500, -500, ..., 84550]
+            },
+            "cumulative_cash_flow": [-52050, -52550, -53050, ..., 31500],
+            "timeline_summary": {
+                "servicing_transfer": {"start_period": 1, "end_period": 2, "duration_months": 2},
+                "foreclosure": {"start_period": 3, "end_period": 14, "duration_months": 12},
+                "renovation": {"start_period": null, "end_period": null, "duration_months": 0},
+                "marketing": {"start_period": 15, "end_period": 15, "duration_months": 1},
+                "sale": {"period": 15, "duration_months": 0}
+            },
+            "totals": {
+                "total_acquisition_price": -50000.00,
+                "total_acq_costs": -2050.00,
+                "total_servicing_fees": -3000.00,
+                "total_taxes": -3750.00,
+                "total_insurance": -1500.00,
+                "total_legal_cost": -2000.00,
+                "total_reo_holding_costs": -450.00,
+                "total_trashout_cost": -1500.00,
+                "total_renovation_cost": 0.00,
+                "total_liquidation_fees": -8000.00,
+                "total_proceeds": 95000.00,
+                "total_net_cash_flow": 31500.00,
+                "final_cumulative": 31500.00
+            },
+            "expense_breakdown": {
+                "acquisition_price": 50000.00,
+                "acq_broker_fees": 1000.00,
+                "acq_other_fees": 500.00,
+                "acq_legal": 300.00,
+                "acq_dd": 150.00,
+                "acq_tax_title": 100.00,
+                "monthly_tax": 250.00,
+                "monthly_insurance": 100.00,
+                "monthly_reo_holding": 450.00,
+                "board_fee": 500.00,
+                "onetwentyday_fee": 150.00,
+                "fc_fee": 200.00,
+                "reo_fee": 300.00,
+                "legal_cost": 2000.00,
+                "trashout_cost": 1500.00,
+                "renovation_cost": 0.00,
+                "broker_fees": 5000.00,
+                "servicer_liq_fee": 2000.00,
+                "am_liq_fee": 1000.00,
+                "expected_proceeds": 95000.00
+            }
+        }
+    
+    WHAT: Generate period-by-period cash flow arrays for REO Sale model
+    WHY: Enable waterfall visualizations, NPV calculations, and cash flow timing analysis
+    HOW: Uses generate_reo_cashflow_series service to build complete cash flow timeline
+    """
+    # WHAT: Get asset by primary key
+    # WHY: SellerRawData uses asset_hub as its primary key
+    asset = get_object_or_404(SellerRawData, pk=asset_id)
+    
+    # WHAT: Get scenario from query parameters (default to 'as_is')
+    # WHY: Support both As-Is and ARV scenarios for cash flow generation
+    scenario = request.query_params.get('scenario', 'as_is')
+    
+    # WHAT: Validate scenario parameter
+    # WHY: Only support 'as_is' and 'arv' scenarios
+    if scenario not in ['as_is', 'arv']:
+        return Response(
+            {'error': f"Invalid scenario: {scenario}. Must be 'as_is' or 'arv'"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    logger.info(f'[REO CASHFLOW] Request for asset_id={asset_id}, scenario={scenario}')
+    
+    try:
+        # WHAT: Generate cash flow series using service
+        # WHY: Service handles all timeline and expense calculations
+        cashflow_data = generate_reo_cashflow_series(
+            asset_hub_id=asset.asset_hub_id,
+            scenario=scenario
+        )
+        
+        logger.info(f'[REO CASHFLOW] Generated {len(cashflow_data["periods"])} periods for asset {asset_id}')
+        
+        return Response(cashflow_data, status=status.HTTP_200_OK)
+    
+    except Exception as e:
+        logger.exception(f'[REO CASHFLOW] Exception for asset_id={asset_id}: {e}')
+        import traceback
+        return Response(
+            {
+                'error': 'Failed to generate REO cash flow series',
+                'detail': str(e),
+                'traceback': traceback.format_exc() if settings.DEBUG else None
+            },
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

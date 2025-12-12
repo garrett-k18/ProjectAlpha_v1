@@ -18,7 +18,7 @@ from decimal import Decimal
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
 from ..models.model_acq_seller import SellerRawData
-from ..logic.ll_metrics import get_single_asset_metrics
+from ..logic.logi_acq_metrics import get_single_asset_metrics
 
 
 @dataclass
@@ -98,7 +98,7 @@ class ModelRecommendationService:
     
     def _get_asset_metrics(self) -> Dict:
         """
-        Calculate key metrics for the asset using backend ll_metrics functions.
+        Calculate key metrics for the asset using backend logi_acq_metrics functions.
         
         Returns:
             Dict of calculated metrics

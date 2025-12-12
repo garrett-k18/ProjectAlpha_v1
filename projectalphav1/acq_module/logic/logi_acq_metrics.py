@@ -1,7 +1,7 @@
 # this is for loan level metrics like LTVs, days months delingquent etc
 
 """
-acq_module.logic.ll_metrics
+acq_module.logic.logi_acq_metrics
 
 Logic for loan-level metrics calculations such as LTV (Loan-to-Value),
 days/months delinquent, and other property-specific metrics.
@@ -11,7 +11,7 @@ derived values that aren't directly stored in the database.
 """
 from __future__ import annotations
 
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from typing import Dict, List, Optional, Any, TypedDict
 
 from django.db.models import (
@@ -32,6 +32,8 @@ from core.models.model_co_assumptions import StateReference, Servicer
 from acq_module.models.model_acq_assumptions import TradeLevelAssumption, LoanLevelAssumption
 from acq_module.models.model_acq_seller import SellerRawData
 from core.models.propertycfs import HistoricalPropertyCashFlow
+from acq_module.logic.logi_acq_purchasePrice import purchase_price
+from acq_module.logic.logi_acq_summaryStats import count_upb_td_val_summary
 
 
 class LtvDataItem(TypedDict):
@@ -222,6 +224,162 @@ def calculate_asset_model_data_fast(
         'bid_pct_upb': float(bid_pct_upb_val),
         'bid_pct_td': float(bid_pct_td_val),
         'bid_pct_sellerasis': float(bid_pct_sellerasis_val),
+    }
+
+
+def annualized_roi(
+    total_return: Decimal,
+    total_invested: Decimal,
+    weighted_duration_months: Decimal,
+) -> float:
+    """Calculate an annualized simple return for a pool.
+
+    Definition (simple annualized return):
+        (total_return / total_invested) / years
+
+    where years is based on an acquisition-weighted average duration
+    derived from ``weighted_duration_months``.
+    """
+    if not total_invested or total_invested <= 0:
+        return 0.0
+    if not weighted_duration_months or weighted_duration_months <= 0:
+        return 0.0
+
+    try:
+        avg_months = float(weighted_duration_months / total_invested)
+    except Exception:
+        return 0.0
+    if avg_months <= 0:
+        return 0.0
+
+    years = avg_months / 12.0
+    if years <= 0:
+        return 0.0
+
+    simple_return = float(total_return) / float(total_invested)
+    return simple_return / years
+
+
+def summarize_modeling_pool(results: List[Dict[str, Any]], seller_id: int, trade_id: int) -> Dict[str, Any]:
+    """Aggregate per-asset modeling results into pool-level metrics for Modeling Center.
+
+    The input ``results`` list is expected to contain the dictionaries returned by
+    :func:`calculate_asset_model_data_fast`.
+    """
+    total_acq = Decimal("0")
+    total_costs_asis = Decimal("0")
+    total_proceeds_asis = Decimal("0")
+    total_costs_arv = Decimal("0")
+    total_proceeds_arv = Decimal("0")
+    modeled_count = 0
+
+    weighted_duration_asis = Decimal("0")
+    weighted_duration_arv = Decimal("0")
+
+    for row in results:
+        acq = Decimal(str(row.get('acquisition_price') or "0"))
+        if acq <= 0:
+            continue
+
+        modeled_count += 1
+        total_acq += acq
+
+        costs_asis = Decimal(str(row.get('total_costs_asis') or "0"))
+        proceeds_asis = Decimal(str(row.get('expected_proceeds_asis') or "0"))
+        total_costs_asis += costs_asis
+        total_proceeds_asis += proceeds_asis
+
+        costs_arv = Decimal(str(row.get('total_costs_arv') or "0"))
+        proceeds_arv = Decimal(str(row.get('expected_proceeds_arv') or "0"))
+        total_costs_arv += costs_arv
+        total_proceeds_arv += proceeds_arv
+
+        dur_asis = Decimal(str(row.get('total_duration_months_asis') or "0"))
+        dur_arv = Decimal(str(row.get('total_duration_months_arv') or "0"))
+
+        if dur_asis > 0:
+            weighted_duration_asis += acq * dur_asis
+        if dur_arv > 0:
+            weighted_duration_arv += acq * dur_arv
+
+    net_pl_asis = total_proceeds_asis - total_acq - total_costs_asis
+    net_pl_arv = total_proceeds_arv - total_acq - total_costs_arv
+
+    moic_asis = Decimal("0")
+    moic_arv = Decimal("0")
+    if total_acq > 0:
+        moic_asis = (total_proceeds_asis - total_costs_asis) / total_acq
+        moic_arv = (total_proceeds_arv - total_costs_arv) / total_acq
+
+    def _approx_irr(moic: Decimal, weighted_duration_months: Decimal) -> float:
+        if moic <= 0 or total_acq <= 0 or weighted_duration_months <= 0:
+            return 0.0
+        try:
+            avg_months = float(weighted_duration_months / total_acq)
+        except Exception:
+            return 0.0
+        if avg_months <= 0:
+            return 0.0
+        years = avg_months / 12.0
+        if years <= 0:
+            return 0.0
+        moic_f = float(moic)
+        if moic_f <= 0:
+            return 0.0
+        try:
+            irr = pow(moic_f, 1.0 / years) - 1.0
+        except Exception:
+            return 0.0
+        if irr != irr or irr in (float('inf'), float('-inf')):
+            return 0.0
+        return irr
+
+    irr_asis = _approx_irr(moic_asis, weighted_duration_asis)
+    irr_arv = _approx_irr(moic_arv, weighted_duration_arv)
+
+    annualized_roi_asis = annualized_roi(net_pl_asis, total_acq, weighted_duration_asis)
+    annualized_roi_arv = annualized_roi(net_pl_arv, total_acq, weighted_duration_arv)
+
+    pool_totals = count_upb_td_val_summary(seller_id, trade_id)
+    upb_sum: Decimal = pool_totals.get("current_balance") or Decimal("0")
+    td_sum: Decimal = pool_totals.get("total_debt") or Decimal("0")
+    asis_sum: Decimal = pool_totals.get("seller_asis_value") or Decimal("0")
+
+    bid_pct_upb = Decimal("0")
+    bid_pct_td = Decimal("0")
+    bid_pct_seller_asis = Decimal("0")
+    if upb_sum and upb_sum != 0 and total_acq > 0:
+        bid_pct_upb = (total_acq * Decimal("100")) / upb_sum
+    if td_sum and td_sum != 0 and total_acq > 0:
+        bid_pct_td = (total_acq * Decimal("100")) / td_sum
+    if asis_sum and asis_sum != 0 and total_acq > 0:
+        bid_pct_seller_asis = (total_acq * Decimal("100")) / asis_sum
+
+    return {
+        'total_acquisition_price': float(total_acq),
+        'underwritten_asis_total': float(total_proceeds_asis),
+        'modeled_count': modeled_count,
+        'bid_pct_upb': float(bid_pct_upb),
+        'bid_pct_total_debt': float(bid_pct_td),
+        'bid_pct_seller_asis': float(bid_pct_seller_asis),
+        'as_is': {
+            'total_costs': float(total_costs_asis),
+            'total_proceeds': float(total_proceeds_asis),
+            'net_pl': float(net_pl_asis),
+            'moic': float(moic_asis),
+            'irr': irr_asis,
+            'annualized_roi': annualized_roi_asis,
+            'npv': float(net_pl_asis),
+        },
+        'arv': {
+            'total_costs': float(total_costs_arv),
+            'total_proceeds': float(total_proceeds_arv),
+            'net_pl': float(net_pl_arv),
+            'moic': float(moic_arv),
+            'irr': irr_arv,
+            'annualized_roi': annualized_roi_arv,
+            'npv': float(net_pl_arv),
+        },
     }
 
 
@@ -532,3 +690,115 @@ def acq_seller_as_is_cap_rate(seller_id: int, asset_hub_id: int) -> Decimal:
 
     cap = (noi / value) * Decimal('100')
     return cap.quantize(Decimal('0.01'))
+
+
+# -------------------------------------------------------------------------------------------------
+# Pool-Level Bid Percentage Calculations
+# -------------------------------------------------------------------------------------------------
+
+class PoolBidPercentages(TypedDict):
+    """Type definition for pool-level bid percentage metrics."""
+    total_acquisition_price: Decimal
+    bid_pct_upb: Decimal
+    bid_pct_total_debt: Decimal
+    bid_pct_seller_asis: Decimal
+
+
+def get_pool_bid_percentages(seller_id: int, trade_id: int) -> PoolBidPercentages:
+    """
+    Calculate pool-level bid percentages for a selected seller and trade.
+    
+    WHAT: Calculates three bid percentage metrics at the pool level:
+    - Bid % of UPB: (Total Acquisition Price / Total UPB) * 100
+    - Bid % of Total Debt: (Total Acquisition Price / Total Debt) * 100
+    - Bid % of Seller As-Is: (Total Acquisition Price / Seller As-Is Value) * 100
+    
+    WHY: These metrics show the acquisition price as percentages of key pool denominators,
+         providing insight into the bid strategy relative to current balance, total debt, and seller valuation.
+    
+    WHERE: Used by Modeling Center and other pool-level analysis views.
+    
+    HOW:
+    1. Get pool summary (UPB, Total Debt, Seller As-Is Value) from count_upb_td_val_summary()
+    2. Calculate total acquisition price by summing purchase_price() for all assets in the pool
+    3. Calculate each bid percentage using the total acquisition price and respective denominator
+    4. Return all metrics in a typed dictionary
+    
+    Args:
+        seller_id: Seller primary key to filter by.
+        trade_id: Trade primary key to filter by.
+        
+    Returns:
+        PoolBidPercentages dict containing:
+        - total_acquisition_price: Sum of all asset acquisition prices
+        - bid_pct_upb: Bid percentage of UPB (0-100+)
+        - bid_pct_total_debt: Bid percentage of Total Debt (0-100+)
+        - bid_pct_seller_asis: Bid percentage of Seller As-Is Value (0-100+)
+    
+    Notes:
+        - All percentages are expressed as 0-100+ (e.g., 85.0 for 85%)
+        - Returns 0.00 for percentages if denominator is zero or missing
+        - Uses purchase_price() logic which prioritizes user-entered values over calculated
+        - Calculation is done in Python after database aggregation for flexibility
+    """
+    # WHAT: Get pool summary data (UPB, Total Debt, Seller As-Is Value)
+    # WHY: Need denominators for bid percentage calculations
+    # HOW: Use existing pool summary function
+    pool_summary = count_upb_td_val_summary(seller_id, trade_id)
+    
+    # WHAT: Extract pool totals from summary
+    # WHY: Use as denominators in bid percentage calculations
+    # HOW: Get from pool_summary dict, default to 0 if missing
+    total_upb = pool_summary.get('current_balance', Decimal('0.00')) or Decimal('0.00')
+    total_debt = pool_summary.get('total_debt', Decimal('0.00')) or Decimal('0.00')
+    seller_asis_value = pool_summary.get('seller_asis_value', Decimal('0.00')) or Decimal('0.00')
+    
+    # WHAT: Get base queryset for selected seller and trade
+    # WHY: Need to iterate through all assets to sum acquisition prices
+    # HOW: Use common sellertrade_qs function for consistent filtering
+    qs = sellertrade_qs(seller_id, trade_id)
+    
+    # WHAT: Calculate total acquisition price by summing purchase_price for all assets
+    # WHY: Need numerator for all three bid percentage calculations
+    # HOW: Iterate through queryset and sum purchase_price() for each asset
+    total_acquisition_price = Decimal('0.00')
+    for asset in qs:
+        # WHAT: Get acquisition price for this asset
+        # WHY: purchase_price() handles user-entered vs calculated logic
+        # HOW: Call purchase_price() with asset_hub_id
+        acq_price = purchase_price(asset.asset_hub_id)
+        total_acquisition_price += acq_price
+    
+    # WHAT: Helper function to calculate percentage safely
+    # WHY: Avoid division by zero and ensure consistent rounding
+    # HOW: Return 0.00 if denominator is zero, otherwise calculate percentage
+    def _calculate_pct(numerator: Decimal, denominator: Decimal) -> Decimal:
+        """Calculate percentage: (numerator / denominator) * 100, handling division by zero."""
+        if not denominator or denominator == 0:
+            return Decimal('0.00')
+        return ((numerator * Decimal('100')) / denominator).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    
+    # WHAT: Calculate Bid % of UPB
+    # WHY: Shows acquisition price as percentage of current balance
+    # HOW: (Total Acquisition Price / Total UPB) * 100
+    bid_pct_upb = _calculate_pct(total_acquisition_price, total_upb)
+    
+    # WHAT: Calculate Bid % of Total Debt
+    # WHY: Shows acquisition price as percentage of total debt
+    # HOW: (Total Acquisition Price / Total Debt) * 100
+    bid_pct_total_debt = _calculate_pct(total_acquisition_price, total_debt)
+    
+    # WHAT: Calculate Bid % of Seller As-Is Value
+    # WHY: Shows acquisition price as percentage of seller's as-is valuation
+    # HOW: (Total Acquisition Price / Seller As-Is Value) * 100
+    bid_pct_seller_asis = _calculate_pct(total_acquisition_price, seller_asis_value)
+    
+    # WHAT: Return all metrics in typed dictionary
+    # WHY: Consistent return format for API consumption
+    # HOW: Use TypedDict structure
+    return {
+        'total_acquisition_price': total_acquisition_price,
+        'bid_pct_upb': bid_pct_upb,
+        'bid_pct_total_debt': bid_pct_total_debt,
+        'bid_pct_seller_asis': bid_pct_seller_asis,
+    }

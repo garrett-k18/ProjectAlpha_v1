@@ -56,7 +56,7 @@ def build_grid_queryset(seller_id: int, trade_id: int, view: str = 'snapshot'):
     qs = (
         SellerRawData.objects
         .filter(seller_id=seller_id, trade_id=trade_id)
-        .select_related('trade', 'asset_hub')
+        .select_related('trade', 'asset_hub', 'asset_hub__enrichment')
         .prefetch_related(
             Prefetch(
                 'asset_hub__valuations',

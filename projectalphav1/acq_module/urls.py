@@ -72,13 +72,14 @@ from .views.view_acq_model import (
     bulk_model_recommendations,
     get_fc_model_timeline_sums,
     get_reo_model_timeline_sums,
+    get_reo_cashflow_series,
     update_fc_duration_override,
     update_reo_fc_duration_override,
     update_reo_renovation_override,
     update_reo_marketing_override,
     update_acquisition_price,
 )
-from .views.view_acq_modelingCenter import modeling_center_data
+from .views.view_acq_modelingCenter import modeling_center_data, pooled_cashflow_series
 
 # Test endpoint to verify Django is responding
 from rest_framework.decorators import api_view
@@ -106,6 +107,7 @@ urlpatterns = [
     path('assets/<int:asset_id>/fc-duration-override/', update_fc_duration_override, name='api_fc_duration_override'),
     # REO model timeline sums
     path('assets/<int:asset_id>/reo-model-sums/', get_reo_model_timeline_sums, name='api_reo_model_timeline_sums'),
+    path('assets/<int:asset_id>/reo-cashflow-series/', get_reo_cashflow_series, name='api_reo_cashflow_series'),
     path('assets/<int:asset_id>/reo-fc-duration-override/', update_reo_fc_duration_override, name='api_reo_fc_duration_override'),
     path('assets/<int:asset_id>/reo-renovation-override/', update_reo_renovation_override, name='api_reo_renovation_override'),
     path('assets/<int:asset_id>/reo-marketing-override/', update_reo_marketing_override, name='api_reo_marketing_override'),
@@ -126,6 +128,7 @@ urlpatterns = [
     path('grid/<int:seller_id>/<int:trade_id>/', grid_data, name='api_grid_data'),
     # Modeling Center bulk endpoint (efficient - single query for all assets)
     path('modeling-center/<int:seller_id>/<int:trade_id>/', modeling_center_data, name='api_modeling_center_data'),
+    path('modeling-center/<int:seller_id>/<int:trade_id>/pooled-cashflows/', pooled_cashflow_series, name='api_pooled_cashflow_series'),
     # Broker invite/token endpoints (public)
     path('broker-invites/', create_broker_invite, name='api_create_broker_invite'),  # POST
     # Broker listing for UI (state-based batch) MUST come before the catch-all token path

@@ -206,17 +206,13 @@
             <!-- WHAT: Broker Assignment Dropdown -->
             <!-- WHY: Allow selecting broker for this asset -->
             <td>
-              <select 
-                class="form-select form-select-sm"
-                :value="getAssetBrokerId(asset)"
-                @change="(e) => handleBrokerAssignment(asset, (e.target as HTMLSelectElement).value)"
+              <BrokerSelectDropdown
+                :brokers="getBrokersForAsset(asset)"
+                :model-value="getAssetBrokerId(asset)"
                 :disabled="assigningBrokers"
-              >
-                <option :value="null">Assign broker...</option>
-                <option v-for="broker in brokers" :key="broker.id" :value="broker.id">
-                  {{ broker.name || broker.firm || `Broker ${broker.id}` }}
-                </option>
-              </select>
+                placeholder="Assign broker..."
+                @update:modelValue="(val) => handleBrokerAssignment(asset, val)"
+              />
             </td>
             
             <!-- WHAT: Action buttons per row -->
@@ -275,16 +271,17 @@
 // WHAT: Vue composition imports for reactive state management
 // WHY: Enable reactive filtering, pagination, and broker assignments
 import { ref, computed, onMounted, watch } from 'vue'
-// WHAT: Pinia store for accessing brokers from CRM
-// WHY: Centralized broker data management
-import { useBrokersCrmStore } from '@/stores/brokerscrm'
+    // WHAT: Pinia store for accessing brokers from CRM
+    // WHY: Centralized broker data management
+    import { useBrokersCrmStore } from '@/stores/brokerscrm'
 import { storeToRefs } from 'pinia'
 // WHAT: HTTP client for API calls
 // WHY: Assign brokers and send invitations via backend
 import http from '@/lib/http'
-// WHAT: Reusable filter component
-// WHY: Consistent filtering UX across all asset views
-import AssetFilters from '@/components/custom/AssetFilters.vue'
+    // WHAT: Reusable filter component
+    // WHY: Consistent filtering UX across all asset views
+    import AssetFilters from '@/components/custom/AssetFilters.vue'
+    import BrokerSelectDropdown from '@/components/custom/BrokerSelectDropdown.vue'
 import type { FilterValues } from '@/components/custom/AssetFilters.vue'
 
 // WHAT: Props from parent component
@@ -633,6 +630,67 @@ function getAssetBrokerId(asset: any): number | null {
   return asset.assigned_broker_id || asset.broker_id || null
 }
 
+function formatBrokerLabel(broker: any): string {
+  const name: string | null = broker?.name || broker?.contact_name || null
+  const firm: string | null = broker?.firm || broker?.firm_ref?.name || null
+  let base = ''
+  if (name && firm) {
+    base = `${name} - ${firm}`
+  } else if (name) {
+    base = name
+  } else if (firm) {
+    base = firm
+  } else {
+    base = `Broker ${broker?.id ?? ''}`.trim()
+  }
+
+  let msaNames: string[] = []
+  if (Array.isArray(broker?.msas) && broker.msas.length) {
+    msaNames = broker.msas.filter((m: any) => !!m).map((m: any) => String(m))
+  } else if (Array.isArray(broker?.msa_assignments) && broker.msa_assignments.length) {
+    msaNames = broker.msa_assignments
+      .map((a: any) => a?.msa_name)
+      .filter((m: any) => !!m)
+      .map((m: any) => String(m))
+  }
+
+  if (!msaNames.length) {
+    return base
+  }
+
+  const uniqueMsas = Array.from(new Set(msaNames))
+  const visibleList = uniqueMsas.slice(0, 3)
+  const extraCount = uniqueMsas.length - 3
+  const msaChips = visibleList.map((m) => `[${m}]`).join(' ')
+  const extra = extraCount > 0 ? ` [+${extraCount} more]` : ''
+  // Use newline to render second line in option (requires CSS white-space: pre-line)
+  return `${base}\n${msaChips}${extra}`
+}
+
+function brokerMatchesState(broker: any, stateCode: string | null): boolean {
+  if (!stateCode) return false
+  const code = String(stateCode).toUpperCase().trim()
+  if (!code) return false
+  const directStates: string[] = Array.isArray(broker?.states) ? broker.states : []
+  const firmStates: string[] = Array.isArray(broker?.firm_ref?.states) ? broker.firm_ref.states : []
+  const allStates = [...directStates, ...firmStates]
+    .map((s) => String(s).toUpperCase().trim())
+    .filter(Boolean)
+  return allStates.includes(code)
+}
+
+function getBrokersForAsset(asset: any) {
+  const rawState: string | null = asset.state || asset.property_state || null
+  if (!rawState) {
+    return brokers.value
+  }
+  const stateCode = String(rawState).toUpperCase().trim()
+  if (!stateCode) {
+    return brokers.value
+  }
+  return brokers.value.filter((broker) => brokerMatchesState(broker, stateCode))
+}
+
 // WHAT: Handle broker assignment for single asset
 // WHY: Allow per-asset broker assignment
 async function handleBrokerAssignment(asset: any, brokerIdStr: string) {
@@ -855,6 +913,11 @@ watch(() => props.selectedTradeId, () => {
 
 .address-link:hover {
   text-decoration: underline;
+}
+
+select.form-select-sm option {
+  white-space: pre-line;
+  font-size: 0.85rem;
 }
 </style>
 

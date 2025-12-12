@@ -20,93 +20,156 @@
       </b-col>
     </b-row>
 
-    <!-- Pool-Level KPI Widgets -->
-    <b-row v-if="hasSelection" class="g-2 mb-3">
-      <!-- Total Acquisition Cost -->
-      <b-col xl="2" lg="4" md="6">
-        <div class="card tilebox-one mb-0">
+    <!-- WHAT: Pool-Level Key Metrics - 3 focused metric cards -->
+    <!-- WHY: Display high-level financial metrics in clean, prominent cards -->
+    <!-- HOW: Three equal-width cards showing Bid % UPB, Total Proceeds, and Net P&L -->
+    <!-- LAYOUT: metrics-row + h-100 on cards use flexbox so all three tiles share the same height and bottom whitespace -->
+    <b-row v-if="hasSelection" class="g-2 mb-3 metrics-row">
+      <!-- WHAT: Purchase Price & Bid Percentages Metric Card -->
+      <!-- WHY: Display key acquisition metrics in a single consolidated card -->
+      <!-- HOW: Show Total Purchase Price as primary metric, then three bid percentages below -->
+      <b-col xl="4" lg="4" md="12">
+        <!-- LAYOUT: h-100 lets this tile stretch to match the tallest sibling in metrics-row -->
+        <div class="card tilebox-one mb-0 h-100">
           <div class="card-body pt-3 pb-2 px-3">
-            <i class="mdi mdi-cash-multiple float-end text-primary"></i>
-            <h6 class="text-uppercase mt-0">Total Acquisition</h6>
-            <h2 class="my-2 fs-4">{{ formatCurrency(poolMetrics.totalAcquisitionPrice) }}</h2>
-            <p class="mb-0 text-muted">
-              <span class="badge bg-info">{{ poolMetrics.modeledCount }} / {{ totalAssets }}</span>
-              <span class="ms-2">Assets Modeled</span>
-            </p>
+            <!-- WHAT: Header row for label + icon -->
+            <!-- WHY: Keep title and icon on same line without overlapping the divider -->
+            <div class="d-flex align-items-center justify-content-between mb-1">
+              <!-- WHAT: Primary metric label - Total Purchase Price -->
+              <!-- WHY: Most important metric - total acquisition cost -->
+              <h6 class="text-uppercase mt-0 mb-0">Total Purchase Price</h6>
+              <!-- WHAT: Icon indicator for purchase/acquisition metric -->
+              <!-- WHY: Visual cue for metric type -->
+              <i class="mdi mdi-cash-multiple text-primary"></i>
+            </div>
+            <!-- WHAT: Primary metric value displayed prominently -->
+            <!-- WHY: Most important information - total acquisition price -->
+            <h2 class="my-2 fs-3">{{ formatCurrency(poolMetrics.totalAcquisitionPrice) }}</h2>
+            
+            <!-- WHAT: Secondary metrics section showing bid percentages -->
+            <!-- WHY: Display multiple related metrics in the same card -->
+            <!-- HOW: Use divider and smaller text for secondary metrics; clearfix ensures border/content start below floated icon -->
+            <div class="border-top pt-2 mt-2 clearfix">
+              <!-- WHAT: Bid % of UPB metric -->
+              <!-- WHY: Shows acquisition as percentage of current balance -->
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="text-muted small">Bid % of UPB</span>
+                <span class="fw-semibold">{{ poolMetrics.bidPctUPB.toFixed(1) }}%</span>
+              </div>
+              <!-- WHAT: Bid % of Total Debt metric -->
+              <!-- WHY: Shows acquisition as percentage of total debt -->
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="text-muted small">Bid % of Total Debt</span>
+                <span class="fw-semibold">{{ poolMetrics.bidPctTotalDebt.toFixed(1) }}%</span>
+              </div>
+              <!-- WHAT: Bid % of Seller As-Is metric -->
+              <!-- WHY: Shows acquisition as percentage of seller's as-is valuation -->
+              <div class="d-flex justify-content-between align-items-center">
+                <span class="text-muted small">Bid % of Seller As-Is</span>
+                <span class="fw-semibold">{{ poolMetrics.bidPctSellerAsIs.toFixed(1) }}%</span>
+              </div>
+            </div>
           </div>
         </div>
       </b-col>
 
-      <!-- Total Costs -->
-      <b-col xl="2" lg="4" md="6">
-        <div class="card tilebox-one mb-0">
+      <!-- Total Proceeds Metric Card -->
+      <b-col xl="4" lg="4" md="12">
+        <!-- LAYOUT: Same flex/height pattern keeps Pool Totals tile aligned with neighbors in this row -->
+        <div class="card tilebox-one mb-0 h-100">
           <div class="card-body pt-3 pb-2 px-3">
-            <i class="mdi mdi-trending-down float-end text-danger"></i>
-            <h6 class="text-uppercase mt-0">Total Costs</h6>
-            <h2 class="my-2 fs-4">{{ formatCurrency(poolMetrics.totalCosts) }}</h2>
-            <p class="mb-0 text-muted">
-              <span class="text-muted small">Acq + Carry + Liq</span>
-            </p>
+            <!-- WHAT: Header row for Pool Totals label + icon -->
+            <!-- WHY: Align text and icon cleanly above divider without collision -->
+            <div class="d-flex align-items-center justify-content-between mb-1">
+              <!-- WHAT: Metric label -->
+              <!-- WHY: Clear identification of what the metric represents -->
+              <h6 class="text-uppercase mt-0 mb-0">POOL TOTALS</h6>
+              <!-- WHAT: Icon indicator for proceeds/revenue metric -->
+              <!-- WHY: Visual cue for metric type -->
+              <i class="mdi mdi-trending-up text-success"></i>
+            </div>
+            <!-- WHAT: Description text and related pool-level totals -->
+            <!-- WHY: Help users understand the metric context and related balances; clearfix keeps divider below icon -->
+            <div class="border-top pt-2 mt-2 clearfix">
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="text-muted small">Total UPB</span>
+                <span class="fw-semibold">{{ formatCurrency(totalUPB) }}</span>
+              </div>
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="text-muted small">Total Debt</span>
+                <span class="fw-semibold">{{ formatCurrency(totalDebt) }}</span>
+              </div>
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="text-muted small">Seller As-Is</span>
+                <span class="fw-semibold">{{ formatCurrency(sellerAsIsValue) }}</span>
+              </div>
+              <div class="d-flex justify-content-between align-items-center">
+                <span class="text-muted small">Underwritten As-Is</span>
+                <span class="fw-semibold">{{ formatCurrency(totalUnderwrittenAsIs) }}</span>
+              </div>
+            </div>
           </div>
         </div>
       </b-col>
 
-      <!-- Total Proceeds -->
-      <b-col xl="2" lg="4" md="6">
-        <div class="card tilebox-one mb-0">
+      <!-- Net P&L Metric Card -->
+      <b-col xl="4" lg="4" md="12">
+        <!-- LAYOUT: Return Metrics tile reuses same h-100 flex pattern so all three headers line up cleanly -->
+        <div class="card tilebox-one mb-0 h-100">
           <div class="card-body pt-3 pb-2 px-3">
-            <i class="mdi mdi-trending-up float-end text-success"></i>
-            <h6 class="text-uppercase mt-0">Total Proceeds</h6>
-            <h2 class="my-2 fs-4">{{ formatCurrency(poolMetrics.totalProceeds) }}</h2>
-            <p class="mb-0 text-muted">
-              <span class="text-muted small">Expected Recovery</span>
-            </p>
-          </div>
-        </div>
-      </b-col>
-
-      <!-- Net P&L -->
-      <b-col xl="2" lg="4" md="6">
-        <div class="card tilebox-one mb-0">
-          <div class="card-body pt-3 pb-2 px-3">
-            <i class="mdi mdi-chart-line float-end" :class="poolMetrics.netPL >= 0 ? 'text-success' : 'text-danger'"></i>
-            <h6 class="text-uppercase mt-0">Net P&L</h6>
-            <h2 class="my-2 fs-4" :class="poolMetrics.netPL >= 0 ? 'text-success' : 'text-danger'">
-              {{ formatCurrency(poolMetrics.netPL) }}
+            <!-- WHAT: Header row for Return Metrics label + icon -->
+            <!-- WHY: Align label and icon on one row and keep divider below both -->
+            <div class="d-flex align-items-center justify-content-between mb-1">
+              <!-- WHAT: Metric label -->
+              <!-- WHY: Clear identification of what the metric represents -->
+              <h6 class="text-uppercase mt-0 mb-0">Return Metrics</h6>
+              <!-- WHAT: Icon indicator for profit/loss metric with conditional color -->
+              <!-- WHY: Visual cue for metric type, color indicates positive/negative -->
+              <i
+                class="mdi mdi-chart-line"
+                :class="poolMetrics.netPL >= 0 ? 'text-success' : 'text-danger'"
+              ></i>
+            </div>
+            <!-- WHAT: Primary metric value displayed prominently with conditional color -->
+            <!-- WHY: Most important information - profit or loss amount, color indicates performance -->
+            <h2 class="my-2 fs-3" :class="poolMetrics.netPL >= 0 ? 'text-success' : 'text-danger'">
+              {{ poolIRR > 0 ? (poolIRR * 100).toFixed(1) + '%' : '-' }}
+              /
+              {{ poolMetrics.poolMOIC > 0 ? poolMetrics.poolMOIC.toFixed(2) + 'x' : '-' }}
             </h2>
-            <p class="mb-0 text-muted">
-              <span class="text-muted small">Proceeds - Acq - Costs</span>
-            </p>
+            <!-- WHAT: Secondary metrics section for NPV and Net P&L -->
+            <!-- WHY: Group related return metrics under the main IRR / MOIC header; clearfix keeps line below icon -->
+            <div class="border-top pt-2 mt-2 clearfix">
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="text-muted small">NPV</span>
+                <span class="fw-semibold">{{ formatCurrency(poolNPV) }}</span>
+              </div>
+              <div class="d-flex justify-content-between align-items-center">
+                <span class="text-muted small">Net P&L</span>
+                <span class="fw-semibold" :class="poolMetrics.netPL >= 0 ? 'text-success' : 'text-danger'">
+                  {{ formatCurrency(poolMetrics.netPL) }}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </b-col>
+    </b-row>
 
-      <!-- Pool MOIC -->
-      <b-col xl="2" lg="4" md="6">
-        <div class="card tilebox-one mb-0">
-          <div class="card-body pt-3 pb-2 px-3">
-            <i class="mdi mdi-multiplication float-end" :class="poolMetrics.poolMOIC >= 1 ? 'text-success' : 'text-danger'"></i>
-            <h6 class="text-uppercase mt-0">Pool MOIC</h6>
-            <h2 class="my-2 fs-4" :class="poolMetrics.poolMOIC >= 1 ? 'text-success' : 'text-danger'">
-              {{ poolMetrics.poolMOIC.toFixed(2) }}x
-            </h2>
-            <p class="mb-0 text-muted">
-              <span class="text-muted small">Multiple on Invested</span>
-            </p>
-          </div>
-        </div>
-      </b-col>
-
-      <!-- Bid % of UPB -->
-      <b-col xl="2" lg="4" md="6">
-        <div class="card tilebox-one mb-0">
-          <div class="card-body pt-3 pb-2 px-3">
-            <i class="mdi mdi-percent float-end text-info"></i>
-            <h6 class="text-uppercase mt-0">Bid % of UPB</h6>
-            <h2 class="my-2 fs-4">{{ poolMetrics.bidPctUPB.toFixed(1) }}%</h2>
-            <p class="mb-0 text-muted">
-              <span class="text-muted small">Acq / Current Balance</span>
-            </p>
+    <!-- WHAT: Pooled Cash Flow Table -->
+    <!-- WHY: Show aggregated cash flows for all assets in the pool -->
+    <!-- NOTE: Only show for REO Sale model type (FC Sale cash flows can be added later) -->
+    <b-row v-if="hasSelection" class="mb-3">
+      <b-col>
+        <div class="card">
+          <div class="card-body">
+            <PooledCashFlowSeries
+              :key="`pooled-cf-${selectedSellerId}-${selectedTradeId}-${reoScenario}`"
+              :sellerId="selectedSellerId"
+              :tradeId="selectedTradeId"
+              modelType="reo_sale"
+              :initialScenario="reoScenario"
+            />
           </div>
         </div>
       </b-col>
@@ -115,7 +178,10 @@
     <!-- Main Content Card -->
     <b-row v-if="hasSelection">
       <b-col>
-        <div class="card">
+        <!-- WHAT: Card Container - Wrapper for full window grid functionality -->
+        <!-- WHY: Need a container element that can expand to fill viewport -->
+        <!-- HOW: Use CSS class binding to toggle full window mode -->
+        <div class="card" :class="{ 'full-window-grid': isFullScreen }">
           <div class="card-body">
             <!-- Loading state -->
             <div
@@ -185,17 +251,36 @@
                   </div>
                 </div>
 
-                <!-- Refresh Button -->
-                <button class="btn btn-sm btn-outline-secondary" @click="refreshData" :disabled="loading">
-                  <i class="mdi mdi-refresh me-1" :class="{ 'mdi-spin': loading }"></i>
-                  Refresh
-                </button>
+                <!-- Action Buttons -->
+                <div class="d-flex gap-2">
+                  <!-- WHAT: Full Window Button - Toggle grid to full window mode -->
+                  <!-- WHY: Allow users to view more rows at once by expanding grid to fill viewport -->
+                  <!-- HOW: Toggle CSS class to expand grid container to full window size -->
+                  <button 
+                    class="btn btn-sm btn-outline-primary" 
+                    @click="toggleFullWindow"
+                    :title="isFullScreen ? 'Exit Full Window' : 'Expand to Full Window'"
+                    type="button"
+                  >
+                    <i class="mdi" :class="isFullScreen ? 'mdi-fullscreen-exit' : 'mdi-fullscreen'"></i>
+                    {{ isFullScreen ? 'Exit Full Window' : 'Full Window' }}
+                  </button>
+                  <!-- WHAT: Refresh Button - Reload modeling data from API -->
+                  <!-- WHY: Allow users to refresh data after backend updates -->
+                  <!-- HOW: Call refreshData function which fetches latest data from API -->
+                  <button class="btn btn-sm btn-outline-secondary" @click="refreshData" :disabled="loading">
+                    <i class="mdi mdi-refresh me-1" :class="{ 'mdi-spin': loading }"></i>
+                    Refresh
+                  </button>
+                </div>
               </div>
 
-              <!-- AG Grid Table -->
+              <!-- WHAT: AG Grid Table - Main data grid component -->
+              <!-- WHY: Display modeling data in an interactive, sortable, filterable table -->
+              <!-- HOW: Use ag-grid-vue component with column definitions and row data -->
               <ag-grid-vue
                 class="acq-grid"
-                :style="{ width: '100%', height: '600px' }"
+                :style="{ width: '100%', height: gridHeight }"
                 :theme="themeQuartz"
                 :columnDefs="columnDefs"
                 :rowData="filteredRows"
@@ -271,7 +356,9 @@ import { BModal } from 'bootstrap-vue-next'
 import LoanLevelIndex from '@/views/acq_module/loanlvl/loanlvl_index.vue'
 import { AgGridVue } from 'ag-grid-vue3'
 import { themeQuartz } from 'ag-grid-community'
+import type { ColDef } from 'ag-grid-community'
 import http from '@/lib/http'
+import PooledCashFlowSeries from '@/components/custom/PooledCashFlowSeries.vue'
 
 // Stores
 const acqStore = useAcqSelectionsStore()
@@ -287,6 +374,17 @@ const reoScenario = ref<'as_is' | 'arv'>('as_is')
 // Pool summary for total assets and UPB
 const poolSummary = ref<any>(null)
 
+// Modeling summary from backend (pool-level metrics)
+const modelingSummary = ref<any>(null)
+
+// Underwritten As-Is total derived from modeling data (as-is proceeds)
+const totalUnderwrittenAsIs = computed(() => {
+  const summary = modelingSummary.value
+  if (!summary) return 0
+  const v = Number(summary.underwritten_asis_total ?? 0)
+  return Number.isNaN(v) ? 0 : v
+})
+
 // Selection state
 const hasSelection = computed(() => !!selectedSellerId.value && !!selectedTradeId.value)
 
@@ -299,15 +397,46 @@ const selectedAddr = ref<string | null>(null)
 // AG Grid instance
 const gridApi = ref<any>(null)
 
+// WHAT: Full window state - Tracks whether grid is in full window mode
+// WHY: Needed to update button icon and text based on current state
+// HOW: Boolean ref that tracks full window status (CSS-based, not browser fullscreen API)
+const isFullScreen = ref(false)
+
+// WHAT: Grid height - Dynamic height for the grid component
+// WHY: Default height is 720px (20% taller than original 600px), adjusts in full window mode
+// HOW: Computed property that returns appropriate height based on full window state
+const gridHeight = computed(() => {
+  // WHAT: Default height increased by 20% (600px * 1.2 = 720px)
+  // WHY: User requested 20% taller grid to see more rows at once
+  const defaultHeight = '720px'
+  // WHAT: Full window mode uses 100% height (flex layout handles sizing)
+  // WHY: In full window mode, grid is in flex container and will expand automatically
+  // HOW: Return 100% so flex layout can properly size the grid
+  return isFullScreen.value ? '100%' : defaultHeight
+})
+
 // Current trade name
 const currentTradeName = computed(() => {
   const trade = tradeOptions.value.find(t => t.id === selectedTradeId.value)
   return trade?.trade_name || 'Unknown'
 })
 
-// Total assets from pool summary
+// WHAT: Total assets from pool summary
+// WHY: Used to show modeled count vs total assets
+// HOW: Get from pool summary API response
 const totalAssets = computed(() => poolSummary.value?.assets ?? 0)
+// WHAT: Total UPB (Unpaid Principal Balance) from pool summary
+// WHY: Used to calculate Bid % of UPB
+// HOW: Get from pool summary API response
 const totalUPB = computed(() => poolSummary.value?.current_balance ?? 0)
+// WHAT: Total Debt from pool summary
+// WHY: Used to calculate Bid % of Total Debt
+// HOW: Get from pool summary API response
+const totalDebt = computed(() => Number(poolSummary.value?.total_debt ?? 0))
+// WHAT: Seller As-Is Value from pool summary
+// WHY: Used to calculate Bid % of Seller As-Is
+// HOW: Get from pool summary API response
+const sellerAsIsValue = computed(() => Number(poolSummary.value?.seller_asis_value ?? 0))
 
 // Modal header text
 const modalIdText = computed(() => {
@@ -323,10 +452,11 @@ const filteredRows = computed(() => {
   return rows.value.filter(r => r.primary_model === modelFilter.value)
 })
 
-// Pool-level metrics computed from rows
+// Pool-level metrics from backend modeling summary (scenario-aware)
 const poolMetrics = computed(() => {
-  const data = rows.value
-  if (!data.length) {
+  const summary = modelingSummary.value
+  const scenarioKey = reoScenario.value === 'arv' ? 'arv' : 'as_is'
+  if (!summary || !summary[scenarioKey]) {
     return {
       totalAcquisitionPrice: 0,
       totalCosts: 0,
@@ -334,41 +464,43 @@ const poolMetrics = computed(() => {
       netPL: 0,
       poolMOIC: 0,
       bidPctUPB: 0,
+      bidPctTotalDebt: 0,
+      bidPctSellerAsIs: 0,
       modeledCount: 0,
     }
   }
 
-  let totalAcq = 0
-  let totalCosts = 0
-  let totalProceeds = 0
-  let modeledCount = 0
-
-  for (const row of data) {
-    const acqPrice = row.acquisition_price || 0
-    const costs = row.total_costs || 0
-    const proceeds = row.expected_proceeds || 0
-
-    if (acqPrice > 0) {
-      totalAcq += acqPrice
-      totalCosts += costs
-      totalProceeds += proceeds
-      modeledCount++
-    }
-  }
-
-  const netPL = totalProceeds - totalAcq - totalCosts
-  const poolMOIC = totalAcq > 0 ? (totalProceeds - totalCosts) / totalAcq : 0
-  const bidPctUPB = totalUPB.value > 0 ? (totalAcq / totalUPB.value) * 100 : 0
+  const branch = summary[scenarioKey] || {}
 
   return {
-    totalAcquisitionPrice: totalAcq,
-    totalCosts,
-    totalProceeds,
-    netPL,
-    poolMOIC,
-    bidPctUPB,
-    modeledCount,
+    totalAcquisitionPrice: Number(summary.total_acquisition_price ?? 0),
+    totalCosts: Number(branch.total_costs ?? 0),
+    totalProceeds: Number(branch.total_proceeds ?? 0),
+    netPL: Number(branch.net_pl ?? 0),
+    poolMOIC: Number(branch.moic ?? 0),
+    bidPctUPB: Number(summary.bid_pct_upb ?? 0),
+    bidPctTotalDebt: Number(summary.bid_pct_total_debt ?? 0),
+    bidPctSellerAsIs: Number(summary.bid_pct_seller_asis ?? 0),
+    modeledCount: Number(summary.modeled_count ?? 0),
   }
+})
+
+// Pool-level annualized simple return from backend modeling summary
+const poolIRR = computed(() => {
+  const summary = modelingSummary.value
+  const scenarioKey = reoScenario.value === 'arv' ? 'arv' : 'as_is'
+  if (!summary || !summary[scenarioKey]) return 0
+  const v = Number(summary[scenarioKey].annualized_roi ?? 0)
+  return Number.isNaN(v) ? 0 : v
+})
+
+// Pool-level NPV from backend modeling summary (placeholder equals Net P&L)
+const poolNPV = computed(() => {
+  const summary = modelingSummary.value
+  const scenarioKey = reoScenario.value === 'arv' ? 'arv' : 'as_is'
+  if (!summary || !summary[scenarioKey]) return 0
+  const v = Number(summary[scenarioKey].npv ?? 0)
+  return Number.isNaN(v) ? 0 : v
 })
 
 // AG Grid column definitions
@@ -384,22 +516,27 @@ const columnDefs = computed(() => [
     headerName: 'Address',
     field: 'street_address',
     width: 200,
-    cellClass: 'text-center cursor-pointer',
+    headerClass: ['ag-left-aligned-header', 'text-start'],
+    cellClass: ['ag-left-aligned-cell', 'text-start', 'cursor-pointer'],
+    cellStyle: { justifyContent: 'flex-start', textAlign: 'left' },
   },
   {
     headerName: 'City',
     field: 'city',
-    width: 120,
+    width: 140,
+    headerClass: ['ag-left-aligned-header', 'text-start'],
+    cellClass: ['ag-left-aligned-cell', 'text-start'],
+    cellStyle: { justifyContent: 'flex-start', textAlign: 'left' },
   },
   {
     headerName: 'State',
     field: 'state',
-    width: 80,
+    width: 90,
   },
   {
-    headerName: 'Model',
+    headerName: 'Strategy',
     field: 'primary_model',
-    width: 100,
+    width: 120,
     cellRenderer: (params: any) => {
       const model = params.value
       if (model === 'fc_sale') return '<span class="badge bg-warning">FC Sale</span>'
@@ -410,24 +547,21 @@ const columnDefs = computed(() => [
   {
     headerName: 'Acquisition Price',
     field: 'acquisition_price',
-    width: 140,
-    type: 'numericColumn',
+    width: 130,
     valueFormatter: (params: any) => formatCurrency(params.value),
     cellClass: 'text-center fw-semibold',
   },
   {
     headerName: 'Total Costs',
     field: 'total_costs',
-    width: 120,
-    type: 'numericColumn',
+    width: 130,
     valueFormatter: (params: any) => formatCurrency(params.value),
     cellClass: 'text-center text-danger',
   },
   {
     headerName: 'Expected Proceeds',
     field: 'expected_proceeds',
-    width: 140,
-    type: 'numericColumn',
+    width: 120,
     valueFormatter: (params: any) => formatCurrency(params.value),
     cellClass: 'text-center text-success',
   },
@@ -435,7 +569,6 @@ const columnDefs = computed(() => [
     headerName: 'Net P&L',
     field: 'net_pl',
     width: 120,
-    type: 'numericColumn',
     valueFormatter: (params: any) => formatCurrency(params.value),
     cellClass: (params: any) => `text-center fw-bold ${params.value >= 0 ? 'text-success' : 'text-danger'}`,
   },
@@ -443,48 +576,44 @@ const columnDefs = computed(() => [
     headerName: 'MOIC',
     field: 'moic',
     width: 90,
-    type: 'numericColumn',
     valueFormatter: (params: any) => params.value ? `${params.value.toFixed(2)}x` : '—',
     cellClass: (params: any) => `text-center ${params.value >= 1 ? 'text-success' : 'text-danger'}`,
   },
   {
     headerName: 'Duration',
     field: 'total_duration_months',
-    width: 100,
-    type: 'numericColumn',
+    width: 110,
     valueFormatter: (params: any) => params.value ? `${params.value} mo` : '—',
   },
   {
     headerName: 'Bid % UPB',
     field: 'bid_pct_upb',
-    width: 100,
-    type: 'numericColumn',
+    width: 120,
     valueFormatter: (params: any) => params.value ? `${params.value.toFixed(1)}%` : '—',
   },
   {
     headerName: 'Bid % TD',
     field: 'bid_pct_td',
-    width: 110,
-    type: 'numericColumn',
+    width: 120,
     valueFormatter: (params: any) => params.value ? `${params.value.toFixed(1)}%` : '—',
   },
   {
-    headerName: 'Bid % Seller As-Is',
+    headerName: 'Bid % Seller AIV',
     field: 'bid_pct_sellerasis',
-    width: 150,
-    type: 'numericColumn',
+    width: 120,
     valueFormatter: (params: any) => params.value ? `${params.value.toFixed(1)}%` : '—',
   },
 ])
 
-const defaultColDef = {
-  sortable: true,
-  filter: true,
+const defaultColDef: ColDef = {
   resizable: true,
+  filter: true,
   wrapHeaderText: true,
   autoHeaderHeight: true,
   headerClass: 'text-center',
   cellClass: 'text-center',
+  floatingFilter: false,
+  menuTabs: ['filterMenuTab'],
 }
 
 // Format currency
@@ -501,6 +630,16 @@ function formatCurrency(value: number | null | undefined): string {
 // Grid ready handler
 function onGridReady(params: any) {
   gridApi.value = params.api
+}
+
+// WHAT: Toggle Full Window - Enter or exit full window mode for the grid
+// WHY: Allow users to maximize grid viewport to see more rows at once without using browser fullscreen
+// HOW: Toggle CSS class to expand grid container to fill viewport using fixed positioning
+function toggleFullWindow() {
+  // WHAT: Toggle full window state
+  // WHY: Switch between normal and full window view
+  // HOW: Simply toggle the boolean state, CSS will handle the visual changes
+  isFullScreen.value = !isFullScreen.value
 }
 
 // Row click handler - open loan modal
@@ -557,6 +696,7 @@ async function fetchModelingData() {
     // Use the new bulk modeling center endpoint - single request for all assets
     const resp = await http.get(`/acq/modeling-center/${selectedSellerId.value}/${selectedTradeId.value}/`)
     rawAssets.value = resp.data?.results || []
+    modelingSummary.value = resp.data?.summary || null
     
     console.log(`[ModelingCenter] Bulk endpoint returned ${rawAssets.value.length} assets`)
 
@@ -568,6 +708,7 @@ async function fetchModelingData() {
     console.error('[ModelingCenter] fetchModelingData failed', e)
     rows.value = []
     rawAssets.value = []
+    modelingSummary.value = null
   } finally {
     loading.value = false
   }
@@ -593,11 +734,15 @@ watch(reoScenario, () => {
 })
 
 // Initial load
+// WHAT: Load pool summary + modeling data when component mounts
+// WHY: When a trade is already selected, user should see data without clicking Refresh
+// HOW: Call refreshData once on mount if hasSelection is true
 onMounted(() => {
   if (hasSelection.value) {
     refreshData()
   }
 })
+
 </script>
 
 <style scoped>
@@ -653,5 +798,55 @@ onMounted(() => {
   white-space: normal !important;
   line-height: 1.2;
   word-break: break-word;
+}
+
+/* Metrics row cards - ensure equal height and consistent whitespace */
+.metrics-row > .col,
+.metrics-row > [class*="col-"] {
+  display: flex;
+}
+
+.metrics-row .card.tilebox-one {
+  flex: 1 1 auto;
+}
+
+/* WHAT: Full Window Grid Card - Styles when card is in full window mode */
+/* WHY: Make grid card fill entire viewport without using browser fullscreen API */
+/* HOW: Use fixed positioning to overlay the card on top of the page */
+.card.full-window-grid {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 9999;
+  margin: 0;
+  border-radius: 0;
+  background-color: var(--bs-body-bg, #fff);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* WHAT: Full Window Card Body - Ensure card body expands in full window mode */
+/* WHY: Card body should take available space and allow scrolling */
+/* HOW: Use flex layout with overflow handling */
+.card.full-window-grid .card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 1.5rem;
+}
+
+/* WHAT: Full Window Grid - Ensure grid expands to fill available space */
+/* WHY: Grid should take all available vertical space in full window mode */
+/* HOW: Use flex-grow to fill available space with minimum height constraint */
+.card.full-window-grid .acq-grid {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
 }
 </style>

@@ -235,6 +235,8 @@
           v-model:acqLegalCost="acqLegalCostModel"
           v-model:acqDdCost="acqDdCostModel"
           v-model:acqTaxTitleCost="acqTaxTitleCostModel"
+          v-model:acqBrokerFees="acqBrokerFeesModel"
+          v-model:acqOtherCosts="acqOtherCostsModel"
           v-model:amFeePct="amFeePctModel"
           :disabled="dateFieldsLoading"
           @changed="autosaveDateChanges"
@@ -431,6 +433,8 @@ export default {
     const acqLegalCostModel = ref<number | string>('')
     const acqDdCostModel = ref<number | string>('')
     const acqTaxTitleCostModel = ref<number | string>('')
+    const acqBrokerFeesModel = ref<number | string>('')
+    const acqOtherCostsModel = ref<number | string>('')
     // Asset management fees
     const amFeePctModel = ref<number | string>('')
     
@@ -531,6 +535,8 @@ export default {
         acqLegalCostModel.value = assumptions.acq_legal_cost ?? ''
         acqDdCostModel.value = assumptions.acq_dd_cost ?? ''
         acqTaxTitleCostModel.value = assumptions.acq_tax_title_cost ?? ''
+        acqBrokerFeesModel.value = assumptions.acq_broker_fees ?? ''
+        acqOtherCostsModel.value = assumptions.acq_other_costs ?? ''
         // Asset management fees
         amFeePctModel.value = assumptions.am_fee_pct ?? ''
       } else {
@@ -570,6 +576,8 @@ export default {
       acqLegalCostModel.value = ''
       acqDdCostModel.value = ''
       acqTaxTitleCostModel.value = ''
+      acqBrokerFeesModel.value = ''
+      acqOtherCostsModel.value = ''
       // Asset management fees
       amFeePctModel.value = ''
     }
@@ -619,6 +627,8 @@ export default {
         acq_legal_cost: acqLegalCostModel.value ? String(acqLegalCostModel.value) : null,
         acq_dd_cost: acqDdCostModel.value ? String(acqDdCostModel.value) : null,
         acq_tax_title_cost: acqTaxTitleCostModel.value ? String(acqTaxTitleCostModel.value) : null,
+        acq_broker_fees: acqBrokerFeesModel.value ? String(acqBrokerFeesModel.value) : null,
+        acq_other_costs: acqOtherCostsModel.value ? String(acqOtherCostsModel.value) : null,
         // Asset management fees (convert to string)
         am_fee_pct: amFeePctModel.value ? String(amFeePctModel.value) : null,
       } as any
@@ -768,6 +778,32 @@ export default {
       } else {
         resetLocalDateModels()
         acqStore.resetTradeStatus()
+      }
+    })
+
+    // WHAT: Watch for modal opening to ensure data is loaded and displayed
+    // WHY: When modal opens, we need to refresh data from backend and update local models
+    // HOW: Fetch assumptions with forceRefresh and update local models when modal becomes visible
+    watch(showTradeDetailsModal, async (isOpen) => {
+      if (isOpen && selectedTradeId.value) {
+        // WHAT: Fetch fresh data from backend when modal opens
+        // WHY: Ensure we're showing the latest data, not stale cached data
+        dateFieldsLoading.value = true
+        try {
+          // WHAT: Force refresh to bypass cache and get latest data from backend
+          // WHY: The store caches data, but we want fresh data when modal opens to show current backend values
+          await tradeAssumptionsStore.fetchAssumptions(selectedTradeId.value, true)
+          // WHAT: Update local form models with fresh data from backend
+          // WHY: Ensure form fields display the current backend values in the modal
+          updateLocalDateModels()
+        } catch (error) {
+          console.error('[Acq Index] Failed to load trade assumptions for modal:', error)
+          // WHAT: Even if fetch fails, try to update models with cached data if available
+          // WHY: Better UX to show cached data than empty fields
+          updateLocalDateModels()
+        } finally {
+          dateFieldsLoading.value = false
+        }
       }
     })
 

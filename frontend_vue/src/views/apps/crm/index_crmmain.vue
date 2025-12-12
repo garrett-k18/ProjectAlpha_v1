@@ -11,16 +11,20 @@
     <Breadcrumb :title="title" :items="breadcrumbItems" />
 
     <b-row>
-      <!-- Sidebar with CRM type selector -->
-      <b-col xl="1" lg="2" class="mb-3 mb-xl-0">
+      <!-- WHAT: Sidebar with CRM type selector (Brokers, Trading Partners, Investors, Legal) -->
+      <!-- WHY: Users need to switch between different CRM entity types -->
+      <!-- HOW: Bootstrap column layout - balanced width to accommodate captions without taking too much space -->
+      <b-col xl="2" lg="3" class="mb-3 mb-xl-0">
         <CRMSidebar
           :crm-types="crmTypes"
           v-model="activeCrmType"
         />
       </b-col>
 
-      <!-- Main content: single CRMListView with dynamic configuration -->
-      <b-col xl="11" lg="10">
+      <!-- WHAT: Main content area showing selected CRM list view -->
+      <!-- WHY: Displays the actual CRM data (brokers, trading partners, etc.) -->
+      <!-- HOW: Bootstrap column layout - remaining space after sidebar -->
+      <b-col xl="10" lg="9">
         <div class="mb-3">
           <h4 class="mb-0">{{ activeConfig.entityType }}s</h4>
           <small class="text-muted">{{ activeCrmTypeCaption }}</small>

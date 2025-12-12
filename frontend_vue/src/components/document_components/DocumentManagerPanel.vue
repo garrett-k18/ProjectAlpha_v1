@@ -51,7 +51,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent } from 'vue'
+import { defineComponent, nextTick } from 'vue'
 import type { PropType } from 'vue'
 import DocumentAside from '@/components/document_components/DocumentAside.vue'
 import DocumentTopBar from '@/components/document_components/DocumentTopBar.vue'
@@ -122,6 +122,15 @@ export default defineComponent({
         this.loadData()
       }
     },
+    tradeId(newVal, oldVal) {
+      // WHAT: Reload data when tradeId changes (e.g., when modal opens with trade selected)
+      // WHY: Trade-level documents need to load when tradeId becomes available
+      // HOW: Call loadData() when tradeId is set or changes
+      if (newVal && newVal !== oldVal) {
+        console.log('Trade ID changed to:', newVal, '- reloading data')
+        this.loadData()
+      }
+    },
     row: {
       deep: true,
       handler(newVal, oldVal) {
@@ -133,8 +142,10 @@ export default defineComponent({
       }
     }
   },
-  mounted() {
-    // Set initial view from prop or default to first available
+  async mounted() {
+    // WHAT: Set initial view from prop or default to first available
+    // WHY: Ensure correct view mode is selected when component mounts
+    // HOW: Check if initialViewId exists in available view modes, otherwise use first available
     if (this.initialViewId) {
       const exists = this.effectiveViewModes.some(m => m.id === this.initialViewId)
       this.currentViewId = exists ? this.initialViewId : (this.effectiveViewModes[0]?.id || this.currentViewId)
@@ -142,7 +153,17 @@ export default defineComponent({
       this.currentViewId = this.effectiveViewModes[0]?.id || this.currentViewId
     }
     
-    console.log('DocumentManagerPanel mounted - initialViewId:', this.initialViewId, 'currentViewId:', this.currentViewId)
+    console.log('DocumentManagerPanel mounted - initialViewId:', this.initialViewId, 'currentViewId:', this.currentViewId, 'tradeId:', this.tradeId, 'assetId:', this.assetId, 'row:', this.row)
+    
+    // WHAT: Wait for next tick to ensure props are fully available, then load data
+    // WHY: Props might not be set immediately on mount, especially in modals
+    // HOW: Use nextTick to ensure tradeId/assetId props are available before loading
+    await nextTick()
+    
+    // WHAT: Always load data on mount - loadData() will handle empty states
+    // WHY: Show folders immediately when modal opens with correct view, don't wait for user interaction
+    // HOW: Call loadData() which checks currentViewId and loads appropriate data (or shows empty state)
+    // NOTE: loadData() handles cases where tradeId/assetId might not be available yet
     this.loadData()
   },
   methods: {
