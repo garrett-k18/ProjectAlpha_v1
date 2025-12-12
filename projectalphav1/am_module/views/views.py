@@ -5,12 +5,17 @@ HOW: Django REST Framework views and viewsets
 WHERE: Registered in am_module/urls.py
 """
 from rest_framework import status
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.shortcuts import get_object_or_404
+from django.conf import settings
+from django.db.models import Q
+from datetime import datetime
 
 from core.models import AssetIdHub, LLCashFlowSeries
 from am_module.serializers.serial_am_cashFlows import CashFlowSeriesSerializer
+from am_module.models.statebridgeservicing import SBDailyLoanData
 
 
 @api_view(['GET'])
@@ -97,3 +102,119 @@ def cash_flow_series_view(request, asset_id):
     print(f"DEBUG: Response periods length: {len(response_data['periods'])}")
     
     return Response(response_data, status=status.HTTP_200_OK)
+
+
+def _raw_permission_classes():
+    return [AllowAny] if getattr(settings, 'DEBUG', False) else [IsAuthenticated]
+
+
+def _date_variants_and_iso(date_str: str | None):
+    """Return (variants, iso) for a raw date string.
+
+    The SBDailyLoanData.date field is stored as a raw string from vendor CSVs,
+    and can be either YYYY-MM-DD or M/D/YYYY (or MM/DD/YYYY).
+    """
+    if not date_str:
+        return [], None
+
+    s = str(date_str).strip()
+    if not s:
+        return [], None
+
+    # If already ISO, generate slash variants.
+    if '-' in s and len(s) >= 10:
+        try:
+            dt = datetime.strptime(s[:10], '%Y-%m-%d')
+            iso = dt.strftime('%Y-%m-%d')
+            mdyyyy = f"{dt.month}/{dt.day}/{dt.year}"
+            mmddyyyy = dt.strftime('%m/%d/%Y')
+            return [s, iso, mdyyyy, mmddyyyy], iso
+        except Exception:
+            return [s], None
+
+    # Slash variants.
+    if '/' in s:
+        parts = [p.strip() for p in s.split('/') if p.strip()]
+        if len(parts) == 3:
+            try:
+                m = int(parts[0])
+                d = int(parts[1])
+                y = int(parts[2])
+                if y < 100:
+                    y = 2000 + y
+                iso = f"{y:04d}-{m:02d}-{d:02d}"
+                mdyyyy = f"{m}/{d}/{y}"
+                mmddyyyy = f"{m:02d}/{d:02d}/{y:04d}"
+                return [s, iso, mdyyyy, mmddyyyy], iso
+            except Exception:
+                return [s], None
+
+    return [s], None
+
+
+def _date_q(date_str: str | None):
+    variants, iso = _date_variants_and_iso(date_str)
+    q = Q()
+    for v in variants:
+        if v:
+            q |= Q(date=v)
+    return q, iso
+
+
+@api_view(['GET'])
+@permission_classes(_raw_permission_classes())
+def sb_daily_loan_data_raw(request):
+    requested_date = request.query_params.get('date')
+
+    try:
+        limit = int(request.query_params.get('limit', '500'))
+    except (TypeError, ValueError):
+        limit = 500
+
+    try:
+        offset = int(request.query_params.get('offset', '0'))
+    except (TypeError, ValueError):
+        offset = 0
+
+    limit = max(1, min(limit, 5000))
+    offset = max(0, offset)
+
+    qs = SBDailyLoanData.objects.all()
+
+    # Default to the most recently ingested date if none specified.
+    applied_date = None
+    applied_date_iso = None
+    if requested_date:
+        applied_date = requested_date
+        date_q, applied_date_iso = _date_q(requested_date)
+        qs = qs.filter(date_q)
+    else:
+        latest_date = (
+            SBDailyLoanData.objects
+            .exclude(date__isnull=True)
+            .exclude(date='')
+            .order_by('-id')
+            .values_list('date', flat=True)
+            .first()
+        )
+        if latest_date:
+            applied_date = str(latest_date)
+            date_q, applied_date_iso = _date_q(applied_date)
+            if date_q:
+                qs = qs.filter(date_q)
+
+    qs = qs.order_by('-id')
+
+    total = qs.count()
+    field_names = [f.name for f in SBDailyLoanData._meta.fields]
+    rows = list(qs.values(*field_names)[offset:offset + limit])
+
+    return Response(
+        {
+            'count': total,
+            'applied_date': applied_date,
+            'applied_date_iso': applied_date_iso,
+            'results': rows,
+        },
+        status=status.HTTP_200_OK,
+    )

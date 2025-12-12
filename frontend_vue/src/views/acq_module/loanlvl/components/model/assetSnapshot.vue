@@ -43,6 +43,18 @@
           </div>
         </div>
 
+        <!-- Trade Assumptions Shortcut -->
+        <div v-if="row?.trade_id || row?.trade" class="border-top pt-3 mb-3">
+          <button 
+            class="btn btn-outline-primary btn-sm w-100 d-flex align-items-center justify-content-center gap-2"
+            @click="handleTradeAssumptionsClick"
+            title="Open Trade Assumptions"
+          >
+            <i class="mdi mdi-cog-outline"></i>
+            <span>Trade Assumptions</span>
+          </button>
+        </div>
+
         <!-- Smart Analysis Section -->
         <div class="border-top pt-3">
           <div class="d-flex align-items-center gap-2 mb-2">
@@ -140,6 +152,21 @@ const props = defineProps<{
   recommendations?: any | null
   loadingRecommendations?: boolean
 }>()
+
+// WHAT: Emit events to parent component
+const emit = defineEmits<{
+  openTradeAssumptions: [tradeId: number | string]
+}>()
+
+// WHAT: Handle trade assumptions button click
+function handleTradeAssumptionsClick() {
+  const tradeId = props.row?.trade_id || props.row?.trade?.id || props.row?.trade
+  if (tradeId) {
+    emit('openTradeAssumptions', tradeId)
+  } else {
+    console.warn('[assetSnapshot] No trade ID found in row data')
+  }
+}
 
 // WHAT: Debug logging to track recommendations data flow
 // WHY: Help diagnose why Smart Analysis isn't loading

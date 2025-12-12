@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 from am_module.views.view_am_assetInventory import AssetInventoryViewSet, asset_dashboard_stats, asset_geo_markers
 from am_module.views.notes import AMNoteViewSet
 from am_module.views.view_performance_summary import PerformanceSummaryViewSet
-from am_module.views.views import cash_flow_series_view
+from am_module.views.views import cash_flow_series_view, sb_daily_loan_data_raw
 from am_module.views.view_am_assetcrmcontact import AssetCRMContactViewSet
 from am_module.views.view_am_taskOutcomes import (
     REODataViewSet, REOTaskViewSet,
@@ -46,6 +46,7 @@ urlpatterns = [
     # WHY: Retrieve period-by-period cash flow data for time-series grid
     # WHERE: Used by CashFlowSeries.vue component
     path('am/cash-flow-series/<int:asset_id>/', cash_flow_series_view, name='cash-flow-series'),
+    path('am/raw/statebridge/daily-loan-data/', sb_daily_loan_data_raw, name='sb-daily-loan-data-raw'),
     # WHAT: Task metrics endpoint for tasking dashboard
     # WHY: Provide active vs completed task counts and badge data
     # WHERE: Called by am_ll_tasking.vue to populate KPI cards

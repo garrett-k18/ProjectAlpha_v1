@@ -59,6 +59,7 @@
     "jvectormap-next": "^3.1.2",
     "metismenujs": "^1.4.0",
     "moment": "^2.29.4",
+    "node-irr": "^2.0.5",
     "pinia": "^2.1.6",
     "popper.js": "^1.16.1",
     "prismjs": "^1.29.0",

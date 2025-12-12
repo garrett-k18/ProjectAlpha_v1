@@ -350,7 +350,6 @@ import { useAgGridRowsStore } from '@/stores/agGridRows'
 import { useTradeAssumptionsStore } from '@/stores/tradeAssumptions'
 import { storeToRefs } from 'pinia'
 import { ref, watch, onMounted, computed } from 'vue'
-import type { SellerOption, TradeOption } from '@/stores/acqSelections'
 
 // WHAT: Local servicer type to avoid circular type dependencies
 // WHY: Prevents Vue type inference issues with TradeDetailsModal
@@ -923,8 +922,8 @@ export default {
       
       // Auto-select the imported seller and trade
       if (payload?.sellerId && payload?.tradeId) {
-        acqStore.selectedSellerId = payload.sellerId;
-        acqStore.selectedTradeId = payload.tradeId;
+        acqStore.setSeller(payload.sellerId);
+        acqStore.setTrade(payload.tradeId);
       }
       
       showImportModal.value = false;
@@ -982,6 +981,8 @@ export default {
       acqLegalCostModel,
       acqDdCostModel,
       acqTaxTitleCostModel,
+      acqBrokerFeesModel,
+      acqOtherCostsModel,
       // Asset management fees
       amFeePctModel,
       // Loading state
@@ -1057,7 +1058,7 @@ export default {
     /**
      * Handle successful import - refresh data
      */
-    handleImportSuccess(): void {
+    handleImportSuccessLegacy(): void {
       // Refresh sellers list after import
       (this as any).fetchSellers?.()
       this.showImportModal = false

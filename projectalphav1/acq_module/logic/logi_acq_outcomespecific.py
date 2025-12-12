@@ -1,5 +1,7 @@
 from decimal import Decimal
-from typing import Optional
+from typing import Optional, List
+import numpy as np
+from numpy_financial import irr, npv
 
 from acq_module.models.model_acq_seller import SellerRawData
 from acq_module.models.model_acq_assumptions import TradeLevelAssumption, LoanLevelAssumption
@@ -285,3 +287,250 @@ class fcoutcomeLogic:
         
         # print(f"{'='*80}\n")
         return result
+
+
+def calculate_irr_from_cashflows(cashflows: List[float]) -> float:
+    """
+    Calculate Internal Rate of Return (IRR) from a cash flow series.
+    
+    WHAT: Calculates the discount rate that makes NPV = 0, then annualizes it
+    WHY: IRR shows the annualized return rate accounting for cash flow timing
+    WHERE: Used by all outcome types (REO As-Is, REO ARV, FC Sale) to calculate returns
+    HOW: Uses numpy-financial.irr() which returns monthly rate, then annualizes: (1 + monthly_irr)^12 - 1
+    
+    NOTE: This is equivalent to Excel's XIRR when cash flows are monthly with equal periods.
+    Excel's XIRR uses actual dates, but since we have monthly periods, we annualize the monthly IRR.
+    
+    Args:
+        cashflows: List of cash flows (negative for outflows, positive for inflows)
+                  First period is typically period 0 (acquisition)
+                  Cash flows are assumed to be monthly periods
+    
+    Returns:
+        float: Annualized IRR as decimal (e.g., 0.15 for 15% annual return)
+               Returns 0.0 if calculation fails or invalid
+    """
+    if not cashflows or len(cashflows) < 2:
+        return 0.0
+    
+    # WHAT: Check if we have both positive and negative cash flows
+    # WHY: IRR requires both investment (negative) and return (positive)
+    has_negative = any(cf < 0 for cf in cashflows)
+    has_positive = any(cf > 0 for cf in cashflows)
+    
+    if not (has_negative and has_positive):
+        return 0.0
+    
+    try:
+        # WHAT: Calculate monthly IRR using numpy-financial
+        # WHY: numpy-financial.irr() returns rate per period (monthly in our case)
+        monthly_irr = irr(cashflows)
+        
+        # WHAT: Validate result
+        if monthly_irr is None or np.isnan(monthly_irr) or np.isinf(monthly_irr):
+            return 0.0
+        
+        # WHAT: Cap monthly IRR at reasonable bounds before annualization
+        if monthly_irr < -0.99 or monthly_irr > 10.0:
+            return 0.0
+        
+        # WHAT: Annualize the monthly IRR
+        # WHY: Convert monthly rate to annual rate (equivalent to Excel XIRR for monthly periods)
+        # HOW: (1 + monthly_rate)^12 - 1 = annual_rate
+        annualized_irr = (1 + monthly_irr) ** 12 - 1
+        
+        # WHAT: Validate annualized result
+        if np.isnan(annualized_irr) or np.isinf(annualized_irr):
+            return 0.0
+        
+        # WHAT: Cap annualized IRR at reasonable bounds (-99% to 1000%)
+        if annualized_irr < -0.99 or annualized_irr > 10.0:
+            return 0.0
+        
+        return float(annualized_irr)
+    except Exception:
+        return 0.0
+
+
+def calculate_npv_from_cashflows(cashflows: List[float], discount_rate_annual: float = 0.10) -> float:
+    """
+    Calculate Net Present Value (NPV) from a cash flow series.
+    
+    WHAT: Calculates present value of future cash flows at a given discount rate
+    WHY: NPV shows the value of investment in today's dollars, accounting for time value of money
+    WHERE: Used by all outcome types to evaluate investment attractiveness
+    HOW: Uses numpy-financial.npv() with monthly discount rate conversion
+    
+    Args:
+        cashflows: List of cash flows (negative for outflows, positive for inflows)
+        discount_rate_annual: Annual discount rate as decimal (default 0.10 = 10%)
+    
+    Returns:
+        float: NPV value in dollars
+              Returns 0.0 if calculation fails
+    """
+    if not cashflows:
+        return 0.0
+    
+    try:
+        # WHAT: Convert annual discount rate to monthly rate
+        # WHY: Cash flows are typically monthly, so we need monthly discount rate
+        monthly_rate = (1 + discount_rate_annual) ** (1/12) - 1
+        
+        # WHAT: Calculate NPV using numpy-financial
+        calculated_npv = npv(monthly_rate, cashflows)
+        
+        # WHAT: Validate result
+        if calculated_npv is None or np.isnan(calculated_npv) or np.isinf(calculated_npv):
+            return 0.0
+        
+        return float(calculated_npv)
+    except Exception:
+        return 0.0
+
+
+class reoAsIsOutcomeLogic:
+    """
+    Main logic class for REO As-Is outcome calculations.
+    
+    WHAT: Handles IRR and NPV calculations for REO As-Is sale outcomes
+    WHY: Centralize REO As-Is outcome financial metrics logic
+    WHERE: projectalphav1/acq_module/logic/logi_acq_outcomespecific.py
+    HOW: Initialize and call calculation methods with cash flow data
+    """
+    
+    def __init__(self):
+        pass
+    
+    def calculate_irr(self, cashflows: List[float]) -> float:
+        """
+        Calculate IRR for REO As-Is outcome.
+        
+        WHAT: Calculates Internal Rate of Return for As-Is scenario
+        WHY: As-Is scenario has different cash flow timing than ARV (no renovation)
+        WHERE: Used in Modeling Center grid and REO model cards
+        HOW: Calls calculate_irr_from_cashflows with As-Is cash flow series
+        
+        Args:
+            cashflows: Cash flow series from generate_reo_cashflow_series(scenario='as_is')
+        
+        Returns:
+            float: IRR as decimal (e.g., 0.15 for 15%)
+        """
+        return calculate_irr_from_cashflows(cashflows)
+    
+    def calculate_npv(self, cashflows: List[float], discount_rate: float = 0.10) -> float:
+        """
+        Calculate NPV for REO As-Is outcome.
+        
+        WHAT: Calculates Net Present Value for As-Is scenario
+        WHY: NPV shows investment value at given discount rate
+        WHERE: Used in Modeling Center grid and REO model cards
+        HOW: Calls calculate_npv_from_cashflows with As-Is cash flow series
+        
+        Args:
+            cashflows: Cash flow series from generate_reo_cashflow_series(scenario='as_is')
+            discount_rate: Annual discount rate as decimal (default 0.10 = 10%)
+        
+        Returns:
+            float: NPV value in dollars
+        """
+        return calculate_npv_from_cashflows(cashflows, discount_rate)
+
+
+class reoArvOutcomeLogic:
+    """
+    Main logic class for REO ARV outcome calculations.
+    
+    WHAT: Handles IRR and NPV calculations for REO ARV sale outcomes
+    WHY: Centralize REO ARV outcome financial metrics logic
+    WHERE: projectalphav1/acq_module/logic/logi_acq_outcomespecific.py
+    HOW: Initialize and call calculation methods with cash flow data
+    """
+    
+    def __init__(self):
+        pass
+    
+    def calculate_irr(self, cashflows: List[float]) -> float:
+        """
+        Calculate IRR for REO ARV outcome.
+        
+        WHAT: Calculates Internal Rate of Return for ARV scenario
+        WHY: ARV scenario includes renovation costs and higher proceeds
+        WHERE: Used in Modeling Center grid and REO model cards
+        HOW: Calls calculate_irr_from_cashflows with ARV cash flow series
+        
+        Args:
+            cashflows: Cash flow series from generate_reo_cashflow_series(scenario='arv')
+        
+        Returns:
+            float: IRR as decimal (e.g., 0.15 for 15%)
+        """
+        return calculate_irr_from_cashflows(cashflows)
+    
+    def calculate_npv(self, cashflows: List[float], discount_rate: float = 0.10) -> float:
+        """
+        Calculate NPV for REO ARV outcome.
+        
+        WHAT: Calculates Net Present Value for ARV scenario
+        WHY: NPV shows investment value at given discount rate
+        WHERE: Used in Modeling Center grid and REO model cards
+        HOW: Calls calculate_npv_from_cashflows with ARV cash flow series
+        
+        Args:
+            cashflows: Cash flow series from generate_reo_cashflow_series(scenario='arv')
+            discount_rate: Annual discount rate as decimal (default 0.10 = 10%)
+        
+        Returns:
+            float: NPV value in dollars
+        """
+        return calculate_npv_from_cashflows(cashflows, discount_rate)
+
+
+class fcOutcomeLogic:
+    """
+    Main logic class for FC (Foreclosure Sale) outcome calculations.
+    
+    WHAT: Handles IRR and NPV calculations for FC sale outcomes
+    WHY: Centralize FC outcome financial metrics logic
+    WHERE: projectalphav1/acq_module/logic/logi_acq_outcomespecific.py
+    HOW: Initialize and call calculation methods with cash flow data
+    """
+    
+    def __init__(self):
+        pass
+    
+    def calculate_irr_fc(self, cashflows: List[float]) -> float:
+        """
+        Calculate IRR for FC Sale outcome.
+        
+        WHAT: Calculates Internal Rate of Return for FC sale scenario
+        WHY: FC sale has different timeline and proceeds than REO outcomes
+        WHERE: Used in Modeling Center grid and FC model cards
+        HOW: Calls calculate_irr_from_cashflows with FC cash flow series
+        
+        Args:
+            cashflows: Cash flow series for FC sale (to be generated by FC cash flow service)
+        
+        Returns:
+            float: IRR as decimal (e.g., 0.15 for 15%)
+        """
+        return calculate_irr_from_cashflows(cashflows)
+    
+    def calculate_npv_fc(self, cashflows: List[float], discount_rate: float = 0.10) -> float:
+        """
+        Calculate NPV for FC Sale outcome.
+        
+        WHAT: Calculates Net Present Value for FC sale scenario
+        WHY: NPV shows investment value at given discount rate
+        WHERE: Used in Modeling Center grid and FC model cards
+        HOW: Calls calculate_npv_from_cashflows with FC cash flow series
+        
+        Args:
+            cashflows: Cash flow series for FC sale (to be generated by FC cash flow service)
+            discount_rate: Annual discount rate as decimal (default 0.10 = 10%)
+        
+        Returns:
+            float: NPV value in dollars
+        """
+        return calculate_npv_from_cashflows(cashflows, discount_rate)

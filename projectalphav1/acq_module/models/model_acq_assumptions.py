@@ -443,6 +443,24 @@ class TradeLevelAssumption(models.Model):
     target_irr = models.DecimalField(max_digits=6, decimal_places=4, null=True, blank=True, help_text="Target internal rate of return for this trade")
     discount_rate = models.DecimalField(max_digits=6, decimal_places=4, default=0.12, null=True, blank=True, help_text="Discount rate for NPV calculations")
     
+    # WHAT: WACC (Weighted Average Cost of Capital) fields
+    # WHY: WACC is used as discount rate for NPV calculations and investment decision-making
+    # NOTE: WACC calculation will be implemented later. For now, total_discount field is provided for testing.
+    wacc = models.DecimalField(
+        max_digits=6,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        help_text="Weighted Average Cost of Capital as decimal (e.g., 0.12 for 12%) - will be calculated later"
+    )
+    total_discount = models.DecimalField(
+        max_digits=6,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        help_text="Total discount rate (WACC result) - placeholder for testing, will be calculated later"
+    )
+    
     # Perf/RPL assumptions
     perf_rpl_hold_period = models.IntegerField(default=12, null=True, blank=True, help_text="Hold period for performing/re-performing loans (months)")
     

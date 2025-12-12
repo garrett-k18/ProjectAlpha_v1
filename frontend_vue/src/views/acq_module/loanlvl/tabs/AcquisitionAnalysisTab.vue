@@ -3,7 +3,12 @@
     <div class="row g-3">
       <!-- Asset Snapshot - 20% width -->
       <div class="col-md-3 col-xl-2">
-        <AssetSnapshot :row="row" :recommendations="recommendations" :loading-recommendations="loadingRecommendations" />
+        <AssetSnapshot 
+          :row="row" 
+          :recommendations="recommendations" 
+          :loading-recommendations="loadingRecommendations"
+          @open-trade-assumptions="handleOpenTradeAssumptions"
+        />
       </div>
 
       <!-- Model Outcomes and Model Cards - 80% width -->
@@ -23,6 +28,7 @@
 
 <script setup lang="ts">
 import { withDefaults, defineProps, ref, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import AssetSnapshot from '@/views/acq_module/loanlvl/components/model/assetSnapshot.vue'
 import ModelOutcomes from '@/views/acq_module/loanlvl/components/model/ModelOutcomes.vue'
 import http from '@/lib/http'
@@ -39,9 +45,26 @@ const props = withDefaults(defineProps<{
 
 console.log('[AcquisitionAnalysisTab] MOUNTED with props assetId=', props.assetId, 'row=', props.row)
 
+// WHAT: Router instance for navigation
+const router = useRouter()
+
 // WHAT: Backend recommendations state
 const recommendations = ref<any>(null)
 const loadingRecommendations = ref(false)
+
+// WHAT: Handle trade assumptions button click from AssetSnapshot
+function handleOpenTradeAssumptions(tradeId: number | string) {
+  // WHAT: Navigate to trade dashboard with trade assumptions modal open
+  // WHY: Trade assumptions modal is in the main dashboard, so we navigate there
+  // HOW: Use query parameter to indicate modal should open
+  router.push({
+    name: 'acq-dash',
+    query: { 
+      trade: tradeId,
+      openModal: 'trade-assumptions'
+    }
+  })
+}
 
 // WHAT: Fetch recommendations from backend API
 async function fetchRecommendations() {

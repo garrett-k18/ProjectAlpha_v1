@@ -73,45 +73,6 @@
         </div>
       </b-col>
 
-      <!-- Total Proceeds Metric Card -->
-      <b-col xl="4" lg="4" md="12">
-        <!-- LAYOUT: Same flex/height pattern keeps Pool Totals tile aligned with neighbors in this row -->
-        <div class="card tilebox-one mb-0 h-100">
-          <div class="card-body pt-3 pb-2 px-3">
-            <!-- WHAT: Header row for Pool Totals label + icon -->
-            <!-- WHY: Align text and icon cleanly above divider without collision -->
-            <div class="d-flex align-items-center justify-content-between mb-1">
-              <!-- WHAT: Metric label -->
-              <!-- WHY: Clear identification of what the metric represents -->
-              <h6 class="text-uppercase mt-0 mb-0">POOL TOTALS</h6>
-              <!-- WHAT: Icon indicator for proceeds/revenue metric -->
-              <!-- WHY: Visual cue for metric type -->
-              <i class="mdi mdi-trending-up text-success"></i>
-            </div>
-            <!-- WHAT: Description text and related pool-level totals -->
-            <!-- WHY: Help users understand the metric context and related balances; clearfix keeps divider below icon -->
-            <div class="border-top pt-2 mt-2 clearfix">
-              <div class="d-flex justify-content-between align-items-center mb-1">
-                <span class="text-muted small">Total UPB</span>
-                <span class="fw-semibold">{{ formatCurrency(totalUPB) }}</span>
-              </div>
-              <div class="d-flex justify-content-between align-items-center mb-1">
-                <span class="text-muted small">Total Debt</span>
-                <span class="fw-semibold">{{ formatCurrency(totalDebt) }}</span>
-              </div>
-              <div class="d-flex justify-content-between align-items-center mb-1">
-                <span class="text-muted small">Seller As-Is</span>
-                <span class="fw-semibold">{{ formatCurrency(sellerAsIsValue) }}</span>
-              </div>
-              <div class="d-flex justify-content-between align-items-center">
-                <span class="text-muted small">Underwritten As-Is</span>
-                <span class="fw-semibold">{{ formatCurrency(totalUnderwrittenAsIs) }}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </b-col>
-
       <!-- Net P&L Metric Card -->
       <b-col xl="4" lg="4" md="12">
         <!-- LAYOUT: Return Metrics tile reuses same h-100 flex pattern so all three headers line up cleanly -->
@@ -149,6 +110,34 @@
                 <span class="fw-semibold" :class="poolMetrics.netPL >= 0 ? 'text-success' : 'text-danger'">
                   {{ formatCurrency(poolMetrics.netPL) }}
                 </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </b-col>
+
+      <!-- Total Proceeds Metric Card -->
+      <b-col xl="4" lg="4" md="12">
+        <!-- LAYOUT: Same flex/height pattern keeps Pool Totals tile aligned with neighbors in this row -->
+        <div class="card tilebox-one mb-0 h-100">
+          <div class="card-body pt-3 pb-2 px-3">
+            <!-- WHAT: Pool-level totals without header or divider -->
+            <div>
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="text-muted small">Total UPB</span>
+                <span class="fw-semibold">{{ formatCurrency(totalUPB) }}</span>
+              </div>
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="text-muted small">Total Debt</span>
+                <span class="fw-semibold">{{ formatCurrency(totalDebt) }}</span>
+              </div>
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="text-muted small">Seller As-Is</span>
+                <span class="fw-semibold">{{ formatCurrency(sellerAsIsValue) }}</span>
+              </div>
+              <div class="d-flex justify-content-between align-items-center">
+                <span class="text-muted small">Underwritten As-Is</span>
+                <span class="fw-semibold">{{ formatCurrency(totalUnderwrittenAsIs) }}</span>
               </div>
             </div>
           </div>
@@ -227,32 +216,30 @@
                     </div>
                   </div>
 
-                  <!-- Scenario Toggle (for REO) -->
-                  <div v-if="modelFilter === 'reo_sale' || modelFilter === 'all'" class="d-flex align-items-center gap-2">
-                    <span class="fw-semibold text-muted small">REO Scenario:</span>
-                    <div class="btn-group btn-group-sm" role="group">
-                      <button
-                        type="button"
-                        class="btn"
-                        :class="reoScenario === 'as_is' ? 'btn-secondary' : 'btn-outline-secondary'"
-                        @click="reoScenario = 'as_is'"
-                      >
-                        As-Is
-                      </button>
-                      <button
-                        type="button"
-                        class="btn"
-                        :class="reoScenario === 'arv' ? 'btn-secondary' : 'btn-outline-secondary'"
-                        @click="reoScenario = 'arv'"
-                      >
-                        ARV
-                      </button>
-                    </div>
-                  </div>
                 </div>
 
                 <!-- Action Buttons -->
                 <div class="d-flex gap-2">
+                  <button
+                    class="btn btn-sm btn-outline-secondary"
+                    type="button"
+                    @click="openRawViewer('monthly_remit')"
+                    title="View Monthly Remit raw file data"
+                  >
+                    <i class="mdi mdi-file-document-outline"></i>
+                    Monthly Remit
+                  </button>
+
+                  <button
+                    class="btn btn-sm btn-outline-secondary"
+                    type="button"
+                    @click="openRawViewer('daily_loan_data')"
+                    title="View Daily Loan Data raw feed"
+                  >
+                    <i class="mdi mdi-table"></i>
+                    Daily Loan Data
+                  </button>
+
                   <!-- WHAT: Full Window Button - Toggle grid to full window mode -->
                   <!-- WHY: Allow users to view more rows at once by expanding grid to fill viewport -->
                   <!-- HOW: Toggle CSS class to expand grid container to full window size -->
@@ -264,13 +251,6 @@
                   >
                     <i class="mdi" :class="isFullScreen ? 'mdi-fullscreen-exit' : 'mdi-fullscreen'"></i>
                     {{ isFullScreen ? 'Exit Full Window' : 'Full Window' }}
-                  </button>
-                  <!-- WHAT: Refresh Button - Reload modeling data from API -->
-                  <!-- WHY: Allow users to refresh data after backend updates -->
-                  <!-- HOW: Call refreshData function which fetches latest data from API -->
-                  <button class="btn btn-sm btn-outline-secondary" @click="refreshData" :disabled="loading">
-                    <i class="mdi mdi-refresh me-1" :class="{ 'mdi-spin': loading }"></i>
-                    Refresh
                   </button>
                 </div>
               </div>
@@ -344,6 +324,57 @@
         :standalone="false"
       />
     </BModal>
+
+    <BModal
+      v-model="showRawModal"
+      size="xl"
+      body-class="p-3 bg-body text-body"
+      hide-footer
+    >
+      <template #header>
+        <div class="d-flex align-items-center w-100">
+          <h5 class="modal-title mb-0">
+            {{ rawViewerTitle }}
+          </h5>
+          <div class="ms-auto d-flex align-items-center gap-2">
+            <input
+              v-if="rawViewerType === 'daily_loan_data'"
+              v-model="rawDateFilter"
+              type="date"
+              class="form-control form-control-sm"
+              style="max-width: 160px;"
+              :disabled="rawLoading"
+              @change="fetchRawViewerData"
+            />
+            <button type="button" class="btn-close" @click="showRawModal = false" aria-label="Close" />
+          </div>
+        </div>
+      </template>
+
+      <div v-if="rawLoading" class="d-flex align-items-center justify-content-center text-muted small py-5">
+        <div class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></div>
+        <span>Loading raw data...</span>
+      </div>
+
+      <div v-else-if="rawError" class="alert alert-warning mb-0">
+        {{ rawError }}
+      </div>
+
+      <div v-else>
+        <ag-grid-vue
+          class="acq-grid"
+          :style="{ width: '100%', height: '70vh' }"
+          :theme="themeQuartz"
+          :columnDefs="rawColumnDefs"
+          :rowData="rawRows"
+          :defaultColDef="rawDefaultColDef"
+          :animateRows="true"
+          :pagination="true"
+          :paginationPageSize="100"
+          :enableCellTextSelection="true"
+        />
+      </div>
+    </BModal>
   </Layout>
 </template>
 
@@ -393,6 +424,14 @@ const showLoanModal = ref(false)
 const selectedAssetId = ref<string | null>(null)
 const selectedRow = ref<any>(null)
 const selectedAddr = ref<string | null>(null)
+
+const showRawModal = ref(false)
+const rawViewerType = ref<'daily_loan_data' | 'monthly_remit'>('daily_loan_data')
+const rawLoading = ref(false)
+const rawError = ref<string | null>(null)
+const rawRows = ref<any[]>([])
+const rawColumnDefs = ref<ColDef[]>([])
+const rawDateFilter = ref<string>('')
 
 // AG Grid instance
 const gridApi = ref<any>(null)
@@ -445,6 +484,11 @@ const modalIdText = computed(() => {
   return row.seller_loan_id || row.id || (row.asset_hub_id ? `AH-${row.asset_hub_id}` : '-')
 })
 const modalAddrText = computed(() => selectedAddr.value || '-')
+
+const rawViewerTitle = computed(() => {
+  if (rawViewerType.value === 'daily_loan_data') return 'Daily Loan Data (Raw)'
+  return 'Monthly Remit (Raw)'
+})
 
 // Filtered rows based on model type
 const filteredRows = computed(() => {
@@ -503,8 +547,9 @@ const poolNPV = computed(() => {
   return Number.isNaN(v) ? 0 : v
 })
 
-// AG Grid column definitions
+// AG Grid column definitions with header groups
 const columnDefs = computed(() => [
+  // WHAT: Loan ID pinned separately (can't be in a group when pinned)
   {
     headerName: 'Loan ID',
     field: 'seller_loan_id',
@@ -512,100 +557,230 @@ const columnDefs = computed(() => [
     width: 140,
     cellClass: 'fw-semibold text-primary text-center cursor-pointer',
   },
+  // WHAT: Identification section - basic asset info
   {
-    headerName: 'Address',
-    field: 'street_address',
-    width: 200,
-    headerClass: ['ag-left-aligned-header', 'text-start'],
-    cellClass: ['ag-left-aligned-cell', 'text-start', 'cursor-pointer'],
-    cellStyle: { justifyContent: 'flex-start', textAlign: 'left' },
+    headerName: 'Identification',
+    children: [
+      {
+        headerName: 'Address',
+        field: 'street_address',
+        width: 200,
+        headerClass: ['ag-left-aligned-header', 'text-start'],
+        cellClass: ['ag-left-aligned-cell', 'text-start', 'cursor-pointer'],
+        cellStyle: { justifyContent: 'flex-start', textAlign: 'left' },
+      },
+      {
+        headerName: 'City',
+        field: 'city',
+        width: 140,
+        headerClass: ['ag-left-aligned-header', 'text-start'],
+        cellClass: ['ag-left-aligned-cell', 'text-start'],
+        cellStyle: { justifyContent: 'flex-start', textAlign: 'left' },
+      },
+      {
+        headerName: 'State',
+        field: 'state',
+        width: 90,
+      },
+      {
+        headerName: 'Strategy',
+        field: 'primary_model',
+        width: 120,
+        cellRenderer: (params: any) => {
+          const model = params.value
+          if (model === 'fc_sale') return '<span class="badge bg-warning">FC Sale</span>'
+          if (model === 'reo_sale') return '<span class="badge bg-info">REO Sale</span>'
+          return '<span class="badge bg-secondary">—</span>'
+        },
+      },
+    ],
   },
+  // WHAT: Acquisition section - purchase price and bid percentages (shared across all outcomes)
   {
-    headerName: 'City',
-    field: 'city',
-    width: 140,
-    headerClass: ['ag-left-aligned-header', 'text-start'],
-    cellClass: ['ag-left-aligned-cell', 'text-start'],
-    cellStyle: { justifyContent: 'flex-start', textAlign: 'left' },
+    headerName: 'Acquisition',
+    children: [
+      {
+        headerName: 'Acquisition Price',
+        field: 'acquisition_price',
+        width: 130,
+        valueFormatter: (params: any) => formatCurrency(params.value),
+        cellClass: 'text-center fw-semibold',
+      },
+      {
+        headerName: 'Bid % UPB',
+        field: 'bid_pct_upb',
+        width: 120,
+        valueFormatter: (params: any) => params.value ? `${params.value.toFixed(1)}%` : '—',
+      },
+      {
+        headerName: 'Bid % TD',
+        field: 'bid_pct_td',
+        width: 120,
+        valueFormatter: (params: any) => params.value ? `${params.value.toFixed(1)}%` : '—',
+      },
+      {
+        headerName: 'Bid % Seller AIV',
+        field: 'bid_pct_sellerasis',
+        width: 120,
+        valueFormatter: (params: any) => params.value ? `${params.value.toFixed(1)}%` : '—',
+      },
+    ],
   },
+  // WHAT: REO As-Is outcome section
   {
-    headerName: 'State',
-    field: 'state',
-    width: 90,
+    headerName: 'REO As-Is',
+    children: [
+      {
+        headerName: 'Total Costs',
+        field: 'total_costs_asis',
+        width: 120,
+        valueFormatter: (params: any) => formatCurrency(params.value),
+        cellClass: 'text-center text-danger',
+      },
+      {
+        headerName: 'Expected Proceeds',
+        field: 'expected_proceeds_asis',
+        width: 120,
+        valueFormatter: (params: any) => formatCurrency(params.value),
+        cellClass: 'text-center text-success',
+      },
+      {
+        headerName: 'Net P&L',
+        field: 'net_pl_asis',
+        width: 120,
+        valueFormatter: (params: any) => formatCurrency(params.value),
+        cellClass: (params: any) => `text-center fw-bold ${params.value >= 0 ? 'text-success' : 'text-danger'}`,
+      },
+      {
+        headerName: 'MOIC',
+        field: 'moic_asis',
+        width: 90,
+        valueFormatter: (params: any) => params.value ? `${params.value.toFixed(2)}x` : '—',
+        cellClass: (params: any) => `text-center ${params.value >= 1 ? 'text-success' : 'text-danger'}`,
+      },
+      {
+        headerName: 'IRR',
+        field: 'irr_asis',
+        width: 90,
+        valueFormatter: (params: any) => params.value ? `${(params.value * 100).toFixed(1)}%` : '—',
+        cellClass: (params: any) => `text-center ${params.value >= 0 ? 'text-success' : 'text-danger'}`,
+      },
+      {
+        headerName: 'Duration',
+        field: 'total_duration_months_asis',
+        width: 100,
+        valueFormatter: (params: any) => params.value ? `${params.value} mo` : '—',
+      },
+    ],
   },
+  // WHAT: REO ARV outcome section
   {
-    headerName: 'Strategy',
-    field: 'primary_model',
-    width: 120,
-    cellRenderer: (params: any) => {
-      const model = params.value
-      if (model === 'fc_sale') return '<span class="badge bg-warning">FC Sale</span>'
-      if (model === 'reo_sale') return '<span class="badge bg-info">REO Sale</span>'
-      return '<span class="badge bg-secondary">—</span>'
-    },
+    headerName: 'REO ARV',
+    children: [
+      {
+        headerName: 'Total Costs',
+        field: 'total_costs_arv',
+        width: 120,
+        valueFormatter: (params: any) => formatCurrency(params.value),
+        cellClass: 'text-center text-danger',
+      },
+      {
+        headerName: 'Expected Proceeds',
+        field: 'expected_proceeds_arv',
+        width: 120,
+        valueFormatter: (params: any) => formatCurrency(params.value),
+        cellClass: 'text-center text-success',
+      },
+      {
+        headerName: 'Net P&L',
+        field: 'net_pl_arv',
+        width: 120,
+        valueFormatter: (params: any) => formatCurrency(params.value),
+        cellClass: (params: any) => `text-center fw-bold ${params.value >= 0 ? 'text-success' : 'text-danger'}`,
+      },
+      {
+        headerName: 'MOIC',
+        field: 'moic_arv',
+        width: 90,
+        valueFormatter: (params: any) => params.value ? `${params.value.toFixed(2)}x` : '—',
+        cellClass: (params: any) => `text-center ${params.value >= 1 ? 'text-success' : 'text-danger'}`,
+      },
+      {
+        headerName: 'IRR',
+        field: 'irr_arv',
+        width: 90,
+        valueFormatter: (params: any) => params.value ? `${(params.value * 100).toFixed(1)}%` : '—',
+        cellClass: (params: any) => `text-center ${params.value >= 0 ? 'text-success' : 'text-danger'}`,
+      },
+      {
+        headerName: 'Duration',
+        field: 'total_duration_months_arv',
+        width: 100,
+        valueFormatter: (params: any) => params.value ? `${params.value} mo` : '—',
+      },
+    ],
   },
+  // WHAT: FC Sale outcome section
   {
-    headerName: 'Acquisition Price',
-    field: 'acquisition_price',
-    width: 130,
-    valueFormatter: (params: any) => formatCurrency(params.value),
-    cellClass: 'text-center fw-semibold',
-  },
-  {
-    headerName: 'Total Costs',
-    field: 'total_costs',
-    width: 130,
-    valueFormatter: (params: any) => formatCurrency(params.value),
-    cellClass: 'text-center text-danger',
-  },
-  {
-    headerName: 'Expected Proceeds',
-    field: 'expected_proceeds',
-    width: 120,
-    valueFormatter: (params: any) => formatCurrency(params.value),
-    cellClass: 'text-center text-success',
-  },
-  {
-    headerName: 'Net P&L',
-    field: 'net_pl',
-    width: 120,
-    valueFormatter: (params: any) => formatCurrency(params.value),
-    cellClass: (params: any) => `text-center fw-bold ${params.value >= 0 ? 'text-success' : 'text-danger'}`,
-  },
-  {
-    headerName: 'MOIC',
-    field: 'moic',
-    width: 90,
-    valueFormatter: (params: any) => params.value ? `${params.value.toFixed(2)}x` : '—',
-    cellClass: (params: any) => `text-center ${params.value >= 1 ? 'text-success' : 'text-danger'}`,
-  },
-  {
-    headerName: 'Duration',
-    field: 'total_duration_months',
-    width: 110,
-    valueFormatter: (params: any) => params.value ? `${params.value} mo` : '—',
-  },
-  {
-    headerName: 'Bid % UPB',
-    field: 'bid_pct_upb',
-    width: 120,
-    valueFormatter: (params: any) => params.value ? `${params.value.toFixed(1)}%` : '—',
-  },
-  {
-    headerName: 'Bid % TD',
-    field: 'bid_pct_td',
-    width: 120,
-    valueFormatter: (params: any) => params.value ? `${params.value.toFixed(1)}%` : '—',
-  },
-  {
-    headerName: 'Bid % Seller AIV',
-    field: 'bid_pct_sellerasis',
-    width: 120,
-    valueFormatter: (params: any) => params.value ? `${params.value.toFixed(1)}%` : '—',
+    headerName: 'FC Sale',
+    children: [
+      {
+        headerName: 'Total Costs',
+        field: 'total_costs_fc',
+        width: 120,
+        valueFormatter: (params: any) => formatCurrency(params.value),
+        cellClass: 'text-center text-danger',
+      },
+      {
+        headerName: 'Expected Recovery',
+        field: 'expected_recovery_fc',
+        width: 120,
+        valueFormatter: (params: any) => formatCurrency(params.value),
+        cellClass: 'text-center text-success',
+      },
+      {
+        headerName: 'Net P&L',
+        field: 'net_pl_fc',
+        width: 120,
+        valueFormatter: (params: any) => formatCurrency(params.value),
+        cellClass: (params: any) => `text-center fw-bold ${params.value >= 0 ? 'text-success' : 'text-danger'}`,
+      },
+      {
+        headerName: 'MOIC',
+        field: 'moic_fc',
+        width: 90,
+        valueFormatter: (params: any) => params.value ? `${params.value.toFixed(2)}x` : '—',
+        cellClass: (params: any) => `text-center ${params.value >= 1 ? 'text-success' : 'text-danger'}`,
+      },
+      {
+        headerName: 'IRR',
+        field: 'irr_fc',
+        width: 90,
+        valueFormatter: (params: any) => params.value ? `${(params.value * 100).toFixed(1)}%` : '—',
+        cellClass: (params: any) => `text-center ${params.value >= 0 ? 'text-success' : 'text-danger'}`,
+      },
+      {
+        headerName: 'Duration',
+        field: 'total_duration_months_fc',
+        width: 100,
+        valueFormatter: (params: any) => params.value ? `${params.value} mo` : '—',
+      },
+    ],
   },
 ])
 
 const defaultColDef: ColDef = {
+  resizable: true,
+  filter: true,
+  wrapHeaderText: true,
+  autoHeaderHeight: true,
+  headerClass: 'text-center',
+  cellClass: 'text-center',
+  floatingFilter: false,
+  menuTabs: ['filterMenuTab'],
+}
+
+const rawDefaultColDef: ColDef = {
   resizable: true,
   filter: true,
   wrapHeaderText: true,
@@ -653,6 +828,61 @@ function onRowClicked(event: any) {
   showLoanModal.value = true
 }
 
+function openRawViewer(type: 'daily_loan_data' | 'monthly_remit') {
+  rawViewerType.value = type
+  rawError.value = null
+  rawRows.value = []
+  rawColumnDefs.value = []
+  showRawModal.value = true
+  fetchRawViewerData()
+}
+
+function buildRawColumnDefs(rowsIn: any[]): ColDef[] {
+  const first = rowsIn && rowsIn.length > 0 ? rowsIn[0] : null
+  if (!first) return []
+  return Object.keys(first).map((k) => ({
+    headerName: k.replace(/_/g, ' '),
+    field: k,
+    minWidth: 120,
+    flex: 1,
+  }))
+}
+
+async function fetchRawViewerData() {
+  rawLoading.value = true
+  rawError.value = null
+  rawRows.value = []
+  rawColumnDefs.value = []
+  try {
+    if (rawViewerType.value === 'daily_loan_data') {
+      const params: any = { limit: 500 }
+      if (rawDateFilter.value) params.date = rawDateFilter.value
+      const resp = await http.get('/am/raw/statebridge/daily-loan-data/', { params })
+      const payload = resp?.data
+      if (!rawDateFilter.value && payload?.applied_date_iso) {
+        rawDateFilter.value = payload.applied_date_iso
+      }
+      const rowsOut = Array.isArray(payload?.results) ? payload.results : []
+      rawRows.value = rowsOut
+      rawColumnDefs.value = buildRawColumnDefs(rowsOut)
+
+      if (!rowsOut || rowsOut.length === 0) {
+        rawError.value = rawDateFilter.value
+          ? `No Daily Loan Data found for ${rawDateFilter.value}.`
+          : 'No Daily Loan Data found.'
+      }
+      return
+    }
+
+    rawError.value = 'Monthly Remit raw data source is not configured yet. Tell me where this data lives (DB table/model or file location) and I will wire it up.'
+  } catch (e) {
+    console.error('[ModelingCenter] fetchRawViewerData failed', e)
+    rawError.value = 'Failed to load raw data.'
+  } finally {
+    rawLoading.value = false
+  }
+}
+
 // Fetch pool summary
 async function fetchPoolSummary() {
   if (!selectedSellerId.value || !selectedTradeId.value) {
@@ -668,18 +898,20 @@ async function fetchPoolSummary() {
   }
 }
 
-// Map raw assets to scenario-specific values (instant, no API call)
+// WHAT: Map raw assets - now showing all outcomes side-by-side, no scenario filtering needed
+// WHY: Grid displays REO As-Is, REO ARV, and FC Sale outcomes simultaneously
 function mapAssetsToScenario() {
-  const isAsIs = reoScenario.value === 'as_is'
-  
+  // WHAT: Use raw assets directly - all outcome fields are already in the data
+  // WHY: Columns now reference _asis, _arv, and _fc fields directly
   rows.value = rawAssets.value.map((asset: any) => ({
     ...asset,
-    // Use scenario-specific values
-    total_costs: isAsIs ? asset.total_costs_asis : asset.total_costs_arv,
-    expected_proceeds: isAsIs ? asset.expected_proceeds_asis : asset.expected_proceeds_arv,
-    net_pl: isAsIs ? asset.net_pl_asis : asset.net_pl_arv,
-    moic: isAsIs ? asset.moic_asis : asset.moic_arv,
-    total_duration_months: isAsIs ? asset.total_duration_months_asis : asset.total_duration_months_arv,
+    // WHAT: FC Sale fields - will be populated when backend adds FC Sale calculations
+    // WHY: Structure is ready for FC Sale data when available
+    total_costs_fc: asset.total_costs_fc || 0,
+    expected_recovery_fc: asset.expected_recovery_fc || 0,
+    net_pl_fc: asset.net_pl_fc || 0,
+    moic_fc: asset.moic_fc || 0,
+    total_duration_months_fc: asset.total_duration_months_fc || 0,
   }))
 }
 

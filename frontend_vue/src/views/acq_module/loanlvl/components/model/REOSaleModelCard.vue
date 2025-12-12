@@ -109,17 +109,23 @@
           </div>
           <div class="col-md-2">
             <div class="text-center p-2 bg-light rounded h-100">
-              <small class="text-muted d-block">MOIC</small>
-              <span class="fw-bold" :class="liveMOIC >= 1 ? 'text-success' : 'text-danger'">
-                {{ liveMOIC.toFixed(2) }}x
+              <small class="text-muted d-block">IRR | MOIC</small>
+              <span class="fw-bold">
+                <span :class="(liveIRR ?? 0) >= 0 ? 'text-success' : 'text-danger'">
+                  {{ liveIRR != null ? ((liveIRR * 100).toFixed(1) + '%') : '—' }}
+                </span>
+                <span class="text-muted mx-1">|</span>
+                <span :class="liveMOIC >= 1 ? 'text-success' : 'text-danger'">
+                  {{ liveMOIC.toFixed(2) }}x
+                </span>
               </span>
             </div>
           </div>
           <div class="col-md-2">
             <div class="text-center p-2 bg-light rounded h-100">
-              <small class="text-muted d-block">Annualized ROI</small>
-              <span class="fw-bold" :class="liveAnnualizedROI >= 0 ? 'text-success' : 'text-danger'">
-                {{ (liveAnnualizedROI * 100).toFixed(1) }}%
+              <small class="text-muted d-block">NPV</small>
+              <span class="fw-bold" :class="(liveNPV ?? 0) >= 0 ? 'text-success' : 'text-danger'">
+                {{ liveNPV != null ? formatCurrency(liveNPV) : '—' }}
               </span>
             </div>
           </div>
@@ -128,9 +134,6 @@
 
       <!-- Key Inputs Section -->
       <div class="mb-4 p-3 bg-light rounded border text-center acquisition-price-card">
-        <h6 class="text-uppercase text-muted small fw-semibold mb-3">
-          Key Assumption
-        </h6>
         <div class="d-inline-flex align-items-center gap-2 mb-3">
           <label class="form-label fw-semibold mb-0 fs-5 text-muted">
             Acquisition Price
@@ -189,129 +192,166 @@
           <!-- Timelines Column -->
           <div class="col-md-3">
             <div class="p-3 bg-light rounded border h-100">
-              <h6 class="fw-semibold text-body mb-2">
-                <i class="mdi mdi-clock-outline me-2 text-warning"></i>
-                Timelines
-              </h6>
+              <div class="d-flex align-items-center justify-content-between mb-2">
+                <h6 class="fw-semibold text-body mb-0">
+                  <i class="mdi mdi-clock-outline me-2 text-warning"></i>
+                  Timelines
+                </h6>
+                <!-- Reset to Default Button -->
+                <button
+                  v-if="hasTimelineOverrides"
+                  type="button"
+                  class="btn btn-sm btn-outline-secondary"
+                  @click="resetTimelineOverrides"
+                  :disabled="loadingTimelines"
+                  title="Reset all timeline overrides to default"
+                >
+                  <i v-if="loadingTimelines" class="mdi mdi-refresh mdi-spin"></i>
+                  <i v-else class="mdi mdi-restore"></i>
+                  <span class="ms-1 d-none d-sm-inline">Reset</span>
+                </button>
+              </div>
               <div class="d-flex flex-column gap-2">
-                <div class="d-flex align-items-baseline gap-2">
-                  <small class="text-muted d-block" style="min-width: 140px;">Servicing Transfer:</small>
-                  <span class="fw-semibold text-dark timeline-months-value">
-                    {{ timelineData.servicing_transfer_months != null ? timelineData.servicing_transfer_months : '—' }} months
-                  </span>
+                <div class="timeline-row">
+                  <small class="timeline-label text-muted">Servicing Transfer:</small>
+                  <div class="timeline-value-group">
+                    <span class="timeline-override-badge is-empty"></span>
+                    <span class="fw-semibold text-dark timeline-months-value">
+                      {{ timelineData.servicing_transfer_months != null ? timelineData.servicing_transfer_months : '—' }} months
+                    </span>
+                  </div>
+                  <div class="timeline-controls-placeholder"></div>
                 </div>
                 
                 <!-- Foreclosure with +/- controls -->
-                <div class="d-flex align-items-baseline gap-2">
-                  <small class="text-muted d-block" style="min-width: 140px;">Foreclosure:</small>
-                  <div class="d-flex align-items-center gap-2">
+                <div class="timeline-row">
+                  <small class="timeline-label text-muted">Foreclosure:</small>
+                  <div class="timeline-value-group">
+                    <span 
+                      class="timeline-override-badge"
+                      :class="{
+                        'is-empty': !timelineData.reo_fc_duration_override_months,
+                        'bg-danger text-white': (timelineData.reo_fc_duration_override_months || 0) > 0,
+                        'bg-success text-white': (timelineData.reo_fc_duration_override_months || 0) < 0
+                      }"
+                    >
+                      <template v-if="timelineData.reo_fc_duration_override_months">
+                        {{ timelineData.reo_fc_duration_override_months > 0 ? '+' : '' }}{{ timelineData.reo_fc_duration_override_months }}
+                      </template>
+                    </span>
                     <span class="fw-semibold text-dark timeline-months-value">
                       {{ timelineData.foreclosure_months != null ? timelineData.foreclosure_months : '—' }} months
                     </span>
-                    <div class="btn-group btn-group-sm reo-duration-controls" role="group">
-                      <button
-                        type="button"
-                        class="btn btn-outline-secondary"
-                        @click="adjustReoFcDuration(-1)"
-                        :disabled="loadingTimelines || timelineData.foreclosure_months_base == null"
-                        title="Subtract 1 month"
-                      >
-                        <i v-if="loadingTimelines" class="mdi mdi-refresh mdi-spin"></i>
-                        <i v-else class="mdi mdi-minus"></i>
-                      </button>
-                      <button
-                        type="button"
-                        class="btn btn-outline-secondary"
-                        @click="adjustReoFcDuration(1)"
-                        :disabled="loadingTimelines || timelineData.foreclosure_months_base == null"
-                        title="Add 1 month"
-                      >
-                        <i v-if="loadingTimelines" class="mdi mdi-refresh mdi-spin"></i>
-                        <i v-else class="mdi mdi-plus"></i>
-                      </button>
-                    </div>
-                    <span v-if="timelineData.reo_fc_duration_override_months != null && timelineData.reo_fc_duration_override_months !== 0" 
-                          class="badge" 
-                          :class="timelineData.reo_fc_duration_override_months > 0 ? 'bg-success' : 'bg-danger'"
-                          style="font-size: 0.7rem;">
-                      {{ timelineData.reo_fc_duration_override_months > 0 ? '+' : '' }}{{ timelineData.reo_fc_duration_override_months }}
-                    </span>
+                  </div>
+                  <div class="btn-group btn-group-sm reo-duration-controls" role="group">
+                    <button
+                      type="button"
+                      class="btn btn-outline-secondary"
+                      @click="adjustReoFcDuration(-1)"
+                      :disabled="loadingTimelines || timelineData.foreclosure_months_base == null"
+                      title="Subtract 1 month"
+                    >
+                      <i v-if="loadingTimelines" class="mdi mdi-refresh mdi-spin"></i>
+                      <i v-else class="mdi mdi-minus"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-outline-secondary"
+                      @click="adjustReoFcDuration(1)"
+                      :disabled="loadingTimelines || timelineData.foreclosure_months_base == null"
+                      title="Add 1 month"
+                    >
+                      <i v-if="loadingTimelines" class="mdi mdi-refresh mdi-spin"></i>
+                      <i v-else class="mdi mdi-plus"></i>
+                    </button>
                   </div>
                 </div>
                 
                 <!-- REO Renovation with +/- controls (only shown in Rehab scenario) -->
-                <div v-if="reoScenario === 'rehab'" class="d-flex align-items-baseline gap-2">
-                  <small class="text-muted d-block" style="min-width: 140px;">REO Renovation:</small>
-                  <div class="d-flex align-items-center gap-2">
+                <div v-if="reoScenario === 'rehab'" class="timeline-row">
+                  <small class="timeline-label text-muted">REO Renovation:</small>
+                  <div class="timeline-value-group">
+                    <span 
+                      class="timeline-override-badge"
+                      :class="{
+                        'is-empty': !timelineData.reo_renovation_override_months,
+                        'bg-danger text-white': (timelineData.reo_renovation_override_months || 0) > 0,
+                        'bg-success text-white': (timelineData.reo_renovation_override_months || 0) < 0
+                      }"
+                    >
+                      <template v-if="timelineData.reo_renovation_override_months">
+                        {{ timelineData.reo_renovation_override_months > 0 ? '+' : '' }}{{ timelineData.reo_renovation_override_months }}
+                      </template>
+                    </span>
                     <span class="fw-semibold text-dark timeline-months-value">
                       {{ timelineData.reo_renovation_months != null ? timelineData.reo_renovation_months : '—' }} months
                     </span>
-                    <div class="btn-group btn-group-sm reo-duration-controls" role="group">
-                      <button
-                        type="button"
-                        class="btn btn-outline-secondary"
-                        @click="adjustReoRenovationDuration(-1)"
-                        :disabled="loadingTimelines"
-                        title="Subtract 1 month"
-                      >
-                        <i v-if="loadingTimelines" class="mdi mdi-refresh mdi-spin"></i>
-                        <i v-else class="mdi mdi-minus"></i>
-                      </button>
-                      <button
-                        type="button"
-                        class="btn btn-outline-secondary"
-                        @click="adjustReoRenovationDuration(1)"
-                        :disabled="loadingTimelines"
-                        title="Add 1 month"
-                      >
-                        <i v-if="loadingTimelines" class="mdi mdi-refresh mdi-spin"></i>
-                        <i v-else class="mdi mdi-plus"></i>
-                      </button>
-                    </div>
-                    <span v-if="timelineData.reo_renovation_override_months != null && timelineData.reo_renovation_override_months !== 0" 
-                          class="badge" 
-                          :class="timelineData.reo_renovation_override_months > 0 ? 'bg-success' : 'bg-danger'"
-                          style="font-size: 0.7rem;">
-                      {{ timelineData.reo_renovation_override_months > 0 ? '+' : '' }}{{ timelineData.reo_renovation_override_months }}
-                    </span>
+                  </div>
+                  <div class="btn-group btn-group-sm reo-duration-controls" role="group">
+                    <button
+                      type="button"
+                      class="btn btn-outline-secondary"
+                      @click="adjustReoRenovationDuration(-1)"
+                      :disabled="loadingTimelines"
+                      title="Subtract 1 month"
+                    >
+                      <i v-if="loadingTimelines" class="mdi mdi-refresh mdi-spin"></i>
+                      <i v-else class="mdi mdi-minus"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-outline-secondary"
+                      @click="adjustReoRenovationDuration(1)"
+                      :disabled="loadingTimelines"
+                      title="Add 1 month"
+                    >
+                      <i v-if="loadingTimelines" class="mdi mdi-refresh mdi-spin"></i>
+                      <i v-else class="mdi mdi-plus"></i>
+                    </button>
                   </div>
                 </div>
                 
                 <!-- REO Marketing with +/- controls -->
-                <div class="d-flex align-items-baseline gap-2">
-                  <small class="text-muted d-block" style="min-width: 140px;">REO Marketing:</small>
-                  <div class="d-flex align-items-center gap-2">
+                <div class="timeline-row">
+                  <small class="timeline-label text-muted">REO Marketing:</small>
+                  <div class="timeline-value-group">
+                    <span 
+                      class="timeline-override-badge"
+                      :class="{
+                        'is-empty': !timelineData.reo_marketing_override_months,
+                        'bg-danger text-white': (timelineData.reo_marketing_override_months || 0) > 0,
+                        'bg-success text-white': (timelineData.reo_marketing_override_months || 0) < 0
+                      }"
+                    >
+                      <template v-if="timelineData.reo_marketing_override_months">
+                        {{ timelineData.reo_marketing_override_months > 0 ? '+' : '' }}{{ timelineData.reo_marketing_override_months }}
+                      </template>
+                    </span>
                     <span class="fw-semibold text-dark timeline-months-value">
                       {{ timelineData.reo_marketing_months != null ? timelineData.reo_marketing_months : '—' }} months
                     </span>
-                    <div class="btn-group btn-group-sm reo-duration-controls" role="group">
-                      <button
-                        type="button"
-                        class="btn btn-outline-secondary"
-                        @click="adjustReoMarketingDuration(-1)"
-                        :disabled="loadingTimelines || timelineData.reo_marketing_months_base == null"
-                        title="Subtract 1 month"
-                      >
-                        <i v-if="loadingTimelines" class="mdi mdi-refresh mdi-spin"></i>
-                        <i v-else class="mdi mdi-minus"></i>
-                      </button>
-                      <button
-                        type="button"
-                        class="btn btn-outline-secondary"
-                        @click="adjustReoMarketingDuration(1)"
-                        :disabled="loadingTimelines || timelineData.reo_marketing_months_base == null"
-                        title="Add 1 month"
-                      >
-                        <i v-if="loadingTimelines" class="mdi mdi-refresh mdi-spin"></i>
-                        <i v-else class="mdi mdi-plus"></i>
-                      </button>
-                    </div>
-                    <span v-if="timelineData.reo_marketing_override_months != null && timelineData.reo_marketing_override_months !== 0" 
-                          class="badge" 
-                          :class="timelineData.reo_marketing_override_months > 0 ? 'bg-success' : 'bg-danger'"
-                          style="font-size: 0.7rem;">
-                      {{ timelineData.reo_marketing_override_months > 0 ? '+' : '' }}{{ timelineData.reo_marketing_override_months }}
-                    </span>
+                  </div>
+                  <div class="btn-group btn-group-sm reo-duration-controls" role="group">
+                    <button
+                      type="button"
+                      class="btn btn-outline-secondary"
+                      @click="adjustReoMarketingDuration(-1)"
+                      :disabled="loadingTimelines || timelineData.reo_marketing_months_base == null"
+                      title="Subtract 1 month"
+                    >
+                      <i v-if="loadingTimelines" class="mdi mdi-refresh mdi-spin"></i>
+                      <i v-else class="mdi mdi-minus"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-outline-secondary"
+                      @click="adjustReoMarketingDuration(1)"
+                      :disabled="loadingTimelines || timelineData.reo_marketing_months_base == null"
+                      title="Add 1 month"
+                    >
+                      <i v-if="loadingTimelines" class="mdi mdi-refresh mdi-spin"></i>
+                      <i v-else class="mdi mdi-plus"></i>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -428,10 +468,12 @@
 
       <!-- WHAT: Cash Flow Series Component (horizontal expandable) -->
       <!-- WHY: Display period-by-period cash flow breakdown in horizontal format -->
-      <REOCashFlowSeries 
+      <REOCashFlowSeries
         v-if="assetId"
         :assetId="assetId"
         :initialScenario="reoScenario === 'as_is' ? 'as_is' : 'arv'"
+        @irr-changed="handleIrrChanged"
+        @npv-changed="handleNpvChanged"
       />
     </div>
   </div>
@@ -441,6 +483,7 @@
 import { computed, reactive, ref, watch, onMounted } from 'vue'
 import http from '@/lib/http'
 import REOCashFlowSeries from '@/components/custom/REOCashFlowSeries.vue'
+import { calculateXIRR, calculateNPV } from '@/lib/financial'
 
 // WHAT: Props for the REOSaleModelCard component
 const props = defineProps<{
@@ -632,6 +675,120 @@ const loadingTimelines = ref(false)
 // WHAT: REO scenario toggle (As-Is vs Rehab)
 // WHY: Allow user to switch between different REO scenarios
 const reoScenario = ref<'as_is' | 'rehab'>('as_is')
+
+// WHAT: Build simplified cash flow array with dates from current inputs for instant XIRR/NPV calculation
+// WHY: Calculate XIRR/NPV instantly from current data without waiting for backend API
+// HOW: Create monthly cash flow with actual dates: period 0 = -acq, monthly = -carry, final = +proceeds
+const simplifiedCashFlow = computed(() => {
+  const acqPrice = acquisitionPrice.value || 0
+  const totalCosts = calculatedTotalCosts.value
+  const expectedProceeds = reoScenario.value === 'as_is' 
+    ? (timelineData.expected_proceeds_asis || 0)
+    : (timelineData.expected_proceeds_arv || 0)
+  const totalDuration = calculatedTotalDuration.value || 0
+  
+  if (totalDuration <= 0) {
+    return []
+  }
+  
+  // WHAT: Get settlement date (default to today if not available)
+  // WHY: XIRR requires actual dates for accurate calculation
+  let settlementDate: Date
+  try {
+    // WHAT: Try to get settlement date from cash flow data if available
+    // NOTE: For now, use today as start date - can be enhanced to get from API later
+    settlementDate = new Date()
+  } catch {
+    settlementDate = new Date()
+  }
+  
+  // WHAT: Acquisition costs (one-time at period 0)
+  const acquisitionCosts = (
+    (timelineData.acq_broker_fees || 0) +
+    (timelineData.acq_other_fees || 0) +
+    (timelineData.acq_legal || 0) +
+    (timelineData.acq_dd || 0) +
+    (timelineData.acq_tax_title || 0)
+  )
+  
+  // WHAT: Build cash flow array with dates for XIRR
+  const cashFlows: Array<{ amount: number; date: Date }> = []
+  
+  // WHAT: Period 0: Acquisition price + acquisition costs (negative = outflow) at settlement date
+  cashFlows.push({
+    amount: -(acqPrice + acquisitionCosts),
+    date: new Date(settlementDate)
+  })
+  
+  // WHAT: Monthly periods: spread remaining costs evenly (negative = outflow)
+  const remainingCosts = totalCosts - acquisitionCosts
+  const monthlyCarry = remainingCosts / totalDuration
+  
+  for (let i = 0; i < totalDuration; i++) {
+    // WHAT: Calculate date for this period (add i+1 months to settlement date)
+    const periodDate = new Date(settlementDate)
+    periodDate.setMonth(periodDate.getMonth() + i + 1)
+    
+    cashFlows.push({
+      amount: -monthlyCarry,
+      date: periodDate
+    })
+  }
+  
+  // WHAT: Final period: add proceeds (positive = inflow)
+  cashFlows[cashFlows.length - 1].amount += expectedProceeds
+  
+  return cashFlows
+})
+
+// WHAT: Calculate XIRR from simplified cash flow array with dates for instant updates
+// WHY: Update XIRR instantly when acquisition price, costs, proceeds, or duration change
+// HOW: Uses XIRR with actual dates for more accurate calculation (equivalent to Excel XIRR)
+const liveIRR = computed(() => {
+  const cashFlows = simplifiedCashFlow.value
+  if (!cashFlows || cashFlows.length < 2) {
+    return null
+  }
+  // WHAT: Convert to format expected by node-irr xirr function (date as string YYYY-MM-DD)
+  const xirrInputs = cashFlows.map(cf => ({
+    amount: cf.amount,
+    date: cf.date.toISOString().split('T')[0] // Format as YYYY-MM-DD
+  }))
+  const calculatedIRR = calculateXIRR(xirrInputs)
+  return calculatedIRR > 0 ? calculatedIRR : null
+})
+
+// WHAT: Calculate NPV from simplified cash flow array with dates for instant updates
+// WHY: Update NPV instantly when acquisition price, costs, proceeds, or duration change
+// NOTE: Uses 10% discount rate - can be made configurable later with total_discount from trade assumptions
+const liveNPV = computed(() => {
+  const cashFlows = simplifiedCashFlow.value
+  if (!cashFlows || cashFlows.length === 0) {
+    return null
+  }
+  // WHAT: Convert to format expected by calculateNPV (date as string YYYY-MM-DD)
+  const npvInputs = cashFlows.map(cf => ({
+    amount: cf.amount,
+    date: cf.date.toISOString().split('T')[0] // Format as YYYY-MM-DD
+  }))
+  const discountRate = 0.10 // 10% annual discount rate (can use total_discount from trade assumptions later)
+  return calculateNPV(npvInputs, discountRate)
+})
+
+// WHAT: Cash flow IRR and NPV values from backend (fallback if frontend calc fails)
+// WHY: Store IRR and NPV calculated from detailed cash flow series as backup
+const cashFlowIrr = ref<number | null>(null)
+const cashFlowNpv = ref<number | null>(null)
+
+// WHAT: Handle IRR changes from cash flow component (detailed backend calculation)
+function handleIrrChanged(irr: number | null) {
+  cashFlowIrr.value = irr
+}
+
+// WHAT: Handle NPV changes from cash flow component (detailed backend calculation)
+function handleNpvChanged(npv: number | null) {
+  cashFlowNpv.value = npv
+}
 
 // WHAT: Editable acquisition price - computed to directly use shared parent value
 // WHY: Ensure both models use literally the same value, not separate synced copies
@@ -1138,6 +1295,69 @@ async function adjustReoMarketingDuration(change: number) {
   })
 }
 
+// WHAT: Computed property to check if any timeline overrides exist
+// WHY: Show reset button only when overrides are present
+const hasTimelineOverrides = computed(() => {
+  return (
+    (timelineData.reo_fc_duration_override_months != null && timelineData.reo_fc_duration_override_months !== 0) ||
+    (timelineData.reo_renovation_override_months != null && timelineData.reo_renovation_override_months !== 0) ||
+    (timelineData.reo_marketing_override_months != null && timelineData.reo_marketing_override_months !== 0)
+  )
+})
+
+// WHAT: Function to reset all timeline overrides to default (0)
+// WHY: Allow users to quickly revert all manual timeline adjustments
+async function resetTimelineOverrides() {
+  if (!props.assetId) {
+    console.warn('[REOSaleModelCard] No assetId provided, cannot reset timeline overrides')
+    return
+  }
+
+  loadingTimelines.value = true
+
+  try {
+    // WHAT: Reset all override values to 0
+    timelineData.reo_fc_duration_override_months = 0
+    timelineData.reo_renovation_override_months = 0
+    timelineData.reo_marketing_override_months = 0
+
+    // WHAT: Recalculate actual months from base values
+    const fcBaseMonths = timelineData.foreclosure_months_base || 0
+    const renovationBaseMonths = timelineData.reo_renovation_months_base || 0
+    const marketingBaseMonths = timelineData.reo_marketing_months_base || 0
+
+    timelineData.foreclosure_months = fcBaseMonths
+    timelineData.reo_renovation_months = renovationBaseMonths
+    timelineData.reo_marketing_months = marketingBaseMonths
+
+    // WHAT: Update total timeline (servicing + foreclosure + renovation + marketing)
+    const servicingMonths = timelineData.servicing_transfer_months || 0
+    timelineData.total_timeline_months = servicingMonths + fcBaseMonths + renovationBaseMonths + marketingBaseMonths
+
+    // WHAT: Recalculate carry costs with reset durations
+    recalculateCarryCosts()
+
+    // WHAT: Save all resets to backend
+    await Promise.all([
+      http.post(`/acq/assets/${props.assetId}/reo-fc-duration-override/`, {
+        reo_fc_duration_override_months: 0
+      }),
+      http.post(`/acq/assets/${props.assetId}/reo-renovation-override/`, {
+        reo_renovation_override_months: 0
+      }),
+      http.post(`/acq/assets/${props.assetId}/reo-marketing-override/`, {
+        reo_marketing_override_months: 0
+      })
+    ])
+  } catch (error) {
+    console.error('[REOSaleModelCard] Failed to reset timeline overrides:', error)
+    // WHAT: Reload timeline data on error to restore correct state
+    await fetchTimelineData()
+  } finally {
+    loadingTimelines.value = false
+  }
+}
+
 // WHAT: Function to fetch timeline data from backend API
 async function fetchTimelineData() {
   if (!props.assetId) {
@@ -1278,6 +1498,45 @@ watch(() => props.assetId, (newAssetId) => {
 .reo-duration-controls .btn i {
   /* WHAT: Smaller icon size */
   font-size: 0.85rem;
+}
+
+.timeline-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.timeline-label {
+  min-width: 140px;
+}
+
+.timeline-value-group {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 150px;
+}
+
+.timeline-override-badge {
+  min-width: 34px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 0.7rem;
+  padding: 0;
+  border-radius: 0.35rem;
+  line-height: 1;
+}
+
+.timeline-override-badge.is-empty {
+  visibility: hidden;
+}
+
+.timeline-controls-placeholder {
+  width: 64px;
+  height: 30px;
 }
 
 /* WHAT: Hide number input spinner arrows */

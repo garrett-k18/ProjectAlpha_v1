@@ -12,7 +12,7 @@ derived values that aren't directly stored in the database.
 from __future__ import annotations
 
 from decimal import Decimal, ROUND_HALF_UP
-from typing import Dict, List, Optional, Any, TypedDict
+from typing import Dict, List, Optional, Any, TypedDict, Tuple
 
 from django.db.models import (
     F,
@@ -34,6 +34,7 @@ from acq_module.models.model_acq_seller import SellerRawData
 from core.models.propertycfs import HistoricalPropertyCashFlow
 from acq_module.logic.logi_acq_purchasePrice import purchase_price
 from acq_module.logic.logi_acq_summaryStats import count_upb_td_val_summary
+from acq_module.logic.logi_acq_outcomespecific import reoAsIsOutcomeLogic, reoArvOutcomeLogic
 
 
 class LtvDataItem(TypedDict):
@@ -190,6 +191,70 @@ def calculate_asset_model_data_fast(
         moic_asis = (proceeds_asis - total_costs_asis) / acq_price
         moic_arv = (proceeds_arv - total_costs_arv) / acq_price
 
+    # WHAT: Calculate IRR and NPV from simplified cash flow series
+    # WHY: Use cash flow timing to get accurate IRR/NPV (not just totals)
+    # HOW: Create simplified monthly cash flow array and use outcome-specific logic
+    
+    def build_simplified_cashflow(
+        acq_price: Decimal,
+        total_costs: Decimal,
+        proceeds: Decimal,
+        duration_months: int,
+        acq_costs: Decimal
+    ) -> List[float]:
+        """
+        Build simplified monthly cash flow array for fast IRR/NPV calculation.
+        
+        WHAT: Creates a simplified monthly cash flow: period 0 = acquisition, monthly carry, final = proceeds
+        WHY: Fast calculation without generating full detailed cash flow series
+        HOW: Spread costs evenly across months, proceeds at end
+        """
+        if duration_months <= 0:
+            return []
+        
+        # WHAT: Build simplified cash flow array
+        # Period 0: Acquisition price + acquisition costs (negative = outflow)
+        cash_flows = [float(-(acq_price + acq_costs))]
+        
+        # WHAT: Monthly periods: spread remaining costs evenly (negative = outflow)
+        remaining_costs = float(total_costs - acq_costs)  # Total costs minus acq costs already in period 0
+        monthly_carry = remaining_costs / duration_months if duration_months > 0 else 0.0
+        
+        for _ in range(duration_months):
+            cash_flows.append(-monthly_carry)
+        
+        # WHAT: Final period: add proceeds (positive = inflow)
+        cash_flows[-1] += float(proceeds)
+        
+        return cash_flows
+    
+    # WHAT: Use outcome-specific logic to calculate IRR and NPV
+    # WHY: Each outcome type has its own class for better separation of concerns
+    reo_asis_logic = reoAsIsOutcomeLogic()
+    reo_arv_logic = reoArvOutcomeLogic()
+    
+    # WHAT: Build cash flows and calculate metrics for As-Is scenario
+    cashflows_asis = build_simplified_cashflow(
+        acq_price=acq_price,
+        total_costs=total_costs_asis,
+        proceeds=proceeds_asis,
+        duration_months=total_timeline_asis,
+        acq_costs=acq_costs
+    )
+    irr_asis = reo_asis_logic.calculate_irr(cashflows_asis)
+    npv_asis = reo_asis_logic.calculate_npv(cashflows_asis)
+    
+    # WHAT: Build cash flows and calculate metrics for ARV scenario
+    cashflows_arv = build_simplified_cashflow(
+        acq_price=acq_price,
+        total_costs=total_costs_arv,
+        proceeds=proceeds_arv,
+        duration_months=total_timeline_arv,
+        acq_costs=acq_costs
+    )
+    irr_arv = reo_arv_logic.calculate_irr(cashflows_arv)
+    npv_arv = reo_arv_logic.calculate_npv(cashflows_arv)
+
     bid_pct_upb_val = Decimal('0')
     bid_pct_td_val = Decimal('0')
     bid_pct_sellerasis_val = Decimal('0')
@@ -217,10 +282,14 @@ def calculate_asset_model_data_fast(
         'expected_proceeds_asis': float(proceeds_asis),
         'net_pl_asis': float(net_pl_asis),
         'moic_asis': float(moic_asis),
+        'irr_asis': irr_asis,
+        'npv_asis': npv_asis,
         'total_costs_arv': float(total_costs_arv),
         'expected_proceeds_arv': float(proceeds_arv),
         'net_pl_arv': float(net_pl_arv),
         'moic_arv': float(moic_arv),
+        'irr_arv': irr_arv,
+        'npv_arv': npv_arv,
         'bid_pct_upb': float(bid_pct_upb_val),
         'bid_pct_td': float(bid_pct_td_val),
         'bid_pct_sellerasis': float(bid_pct_sellerasis_val),

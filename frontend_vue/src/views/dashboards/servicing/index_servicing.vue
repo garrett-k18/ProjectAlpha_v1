@@ -26,12 +26,36 @@
                 <h5 class="mb-0">Select Servicer</h5>
               </div>
               <div class="col-md-8">
-                <select v-model="selectedServicer" class="form-select" @change="loadServicingData">
-                  <option value="">-- Select a Servicer --</option>
-                  <option v-for="servicer in servicers" :key="servicer.id" :value="servicer.id">
-                    {{ servicer.name }}
-                  </option>
-                </select>
+                <div class="d-flex flex-wrap gap-2 align-items-center">
+                  <select v-model="selectedServicer" class="form-select" style="min-width: 240px; flex: 1 1 240px;" @change="loadServicingData" :disabled="isLoadingServicers">
+                    <option value="">-- Select a Servicer --</option>
+                    <option v-if="isLoadingServicers" disabled value="">Loading servicers...</option>
+                    <option v-for="servicer in servicers" :key="servicer.id" :value="String(servicer.id)">
+                      {{ servicer.name }}
+                    </option>
+                  </select>
+
+                  <button
+                    class="btn btn-sm btn-outline-secondary"
+                    type="button"
+                    @click="openRawViewer('monthly_remit')"
+                    :disabled="!selectedServicer"
+                    title="View Monthly Remit raw file data"
+                  >
+                    <i class="mdi mdi-file-document-outline"></i>
+                    Monthly Remit
+                  </button>
+
+                  <button
+                    class="btn btn-sm btn-outline-secondary"
+                    type="button"
+                    @click="openRawViewer('daily_loan_data')"
+                    title="View Daily Loan Data raw feed"
+                  >
+                    <i class="mdi mdi-table"></i>
+                    Daily Loan Data
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -378,6 +402,63 @@
       </div>
     </div>
 
+    <BModal
+      v-model="showRawModal"
+      size="xl"
+      body-class="p-3 bg-body text-body"
+      hide-footer
+    >
+      <template #header>
+        <div class="d-flex align-items-center w-100">
+          <h5 class="modal-title mb-0">{{ rawViewerTitle }}</h5>
+          <div class="ms-auto d-flex align-items-center gap-2">
+            <input
+              v-if="rawViewerType === 'daily_loan_data'"
+              v-model="rawDateFilter"
+              type="date"
+              class="form-control form-control-sm"
+              style="max-width: 160px;"
+              :disabled="rawLoading"
+              @change="fetchRawViewerData"
+            />
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-secondary"
+              @click="toggleRawFullWindow"
+              :title="rawIsFullWindow ? 'Exit Full Window' : 'Full Window'"
+            >
+              <i class="mdi" :class="rawIsFullWindow ? 'mdi-fullscreen-exit' : 'mdi-fullscreen'"></i>
+            </button>
+            <button type="button" class="btn-close" @click="showRawModal = false" aria-label="Close" />
+          </div>
+        </div>
+      </template>
+
+      <div v-if="rawLoading" class="d-flex align-items-center justify-content-center text-muted small py-5">
+        <div class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></div>
+        <span>Loading raw data...</span>
+      </div>
+
+      <div v-else-if="rawError" class="alert alert-warning mb-0">
+        {{ rawError }}
+      </div>
+
+      <div v-else>
+        <ag-grid-vue
+          class="acq-grid"
+          :style="{ width: '100%', height: rawGridHeight }"
+          :theme="themeQuartz"
+          :columnDefs="rawColumnDefs"
+          :rowData="rawRows"
+          :defaultColDef="rawDefaultColDef"
+          :animateRows="true"
+          :pagination="true"
+          :paginationPageSize="100"
+          :enableCellTextSelection="true"
+        />
+      </div>
+    </BModal>
+
     </div>
   </Layout>
 </template>
@@ -385,22 +466,45 @@
 <script>
 import ApexCharts from 'apexcharts';
 import Layout from "@/components/layouts/layout.vue";
+import http from "@/lib/http";
+import { BModal } from 'bootstrap-vue-next';
+import { AgGridVue } from 'ag-grid-vue3';
+import { themeQuartz } from 'ag-grid-community';
 
 export default {
   name: 'ServicingDashboard',
   components: {
-    Layout
+    Layout,
+    BModal,
+    AgGridVue,
   },
   
   data() {
     return {
       selectedServicer: '',
-      servicers: [
-        { id: 1, name: 'ABC Servicing Co.' },
-        { id: 2, name: 'Premier Loan Services' },
-        { id: 3, name: 'National Servicing Group' },
-        { id: 4, name: 'Midwest Servicing LLC' },
-      ],
+      servicers: [],
+      isLoadingServicers: false,
+
+      showRawModal: false,
+      rawViewerType: 'daily_loan_data',
+      rawLoading: false,
+      rawError: null,
+      rawRows: [],
+      rawColumnDefs: [],
+      rawDateFilter: '',
+      rawIsFullWindow: false,
+      rawDefaultColDef: {
+        resizable: true,
+        filter: true,
+        wrapHeaderText: true,
+        autoHeaderHeight: true,
+        headerClass: 'text-center',
+        cellClass: 'text-center',
+        floatingFilter: false,
+        menuTabs: ['filterMenuTab'],
+      },
+
+      themeQuartz,
       
       metrics: {
         totalCollections: 0,
@@ -444,8 +548,21 @@ export default {
       }
     };
   },
+
+  mounted() {
+    this.loadServicers();
+  },
   
   computed: {
+    rawGridHeight() {
+      return this.rawIsFullWindow ? '85vh' : '70vh'
+    },
+
+    rawViewerTitle() {
+      if (this.rawViewerType === 'daily_loan_data') return 'Daily Loan Data (Raw)'
+      return 'Monthly Remit (Raw)'
+    },
+
     netToInvestor() {
       return this.remittanceData.reduce((sum, item) => {
         if (item.category === 'Total Collections') return sum + item.amount;
@@ -474,6 +591,91 @@ export default {
   },
   
   methods: {
+    toggleRawFullWindow() {
+      this.rawIsFullWindow = !this.rawIsFullWindow
+    },
+
+    openRawViewer(type) {
+      this.rawViewerType = type
+      this.rawError = null
+      this.rawRows = []
+      this.rawColumnDefs = []
+      this.rawIsFullWindow = false
+      this.showRawModal = true
+      this.fetchRawViewerData()
+    },
+
+    buildRawColumnDefs(rows) {
+      const first = Array.isArray(rows) && rows.length > 0 ? rows[0] : null
+      if (!first) return []
+      return Object.keys(first).map((k) => ({
+        headerName: String(k).replace(/_/g, ' '),
+        field: k,
+        minWidth: 120,
+        flex: 1,
+      }))
+    },
+
+    async fetchRawViewerData() {
+      this.rawLoading = true
+      this.rawError = null
+      this.rawRows = []
+      this.rawColumnDefs = []
+      try {
+        if (this.rawViewerType === 'daily_loan_data') {
+          const params = { limit: 500 }
+          if (this.rawDateFilter) params.date = this.rawDateFilter
+          const resp = await http.get('/am/raw/statebridge/daily-loan-data/', { params })
+          const payload = resp?.data
+          if (!this.rawDateFilter && payload?.applied_date_iso) {
+            this.rawDateFilter = payload.applied_date_iso
+          }
+          const rowsOut = Array.isArray(payload?.results) ? payload.results : []
+          this.rawRows = rowsOut
+          this.rawColumnDefs = this.buildRawColumnDefs(rowsOut)
+
+          if (!rowsOut || rowsOut.length === 0) {
+            this.rawError = this.rawDateFilter
+              ? `No Daily Loan Data found for ${this.rawDateFilter}.`
+              : 'No Daily Loan Data found.'
+          }
+          return
+        }
+
+        this.rawError = 'Monthly Remit raw data source is not configured yet. Tell me where this data lives (DB table/model or file location) and I will wire it up.'
+      } catch (err) {
+        console.error('Error loading raw data:', err)
+        this.rawError = 'Failed to load raw data.'
+      } finally {
+        this.rawLoading = false
+      }
+    },
+
+    async loadServicers() {
+      this.isLoadingServicers = true;
+      try {
+        const resp = await http.get('/core/servicers/');
+        const payload = resp?.data;
+        const rows = Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload?.results)
+            ? payload.results
+            : [];
+
+        this.servicers = rows
+          .map((s) => ({
+            id: s.id,
+            name: s.servicerName ?? s.servicer_name ?? s.name,
+          }))
+          .filter((s) => s.id != null && s.name);
+      } catch (err) {
+        console.error('Error loading servicers:', err);
+        this.servicers = [];
+      } finally {
+        this.isLoadingServicers = false;
+      }
+    },
+
     async loadServicingData() {
       if (!this.selectedServicer) return;
       

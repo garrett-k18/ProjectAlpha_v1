@@ -25,6 +25,7 @@ from dateutil.relativedelta import relativedelta
 from acq_module.models.model_acq_seller import SellerRawData
 from acq_module.models.model_acq_assumptions import TradeLevelAssumption, LoanLevelAssumption
 from acq_module.services.serv_acq_REOModel import get_reo_timeline_sums, get_reo_expense_values
+from acq_module.logic.logi_acq_outcomespecific import reoAsIsOutcomeLogic, reoArvOutcomeLogic
 from core.models.model_co_geoAssumptions import StateReference
 from core.models.model_co_assumptions import Servicer
 
@@ -105,15 +106,23 @@ def generate_reo_cashflow_series(
     if scenario not in ['as_is', 'arv']:
         raise ValueError(f"Invalid scenario: {scenario}. Must be 'as_is' or 'arv'")
     
-    # WHAT: Get asset and trade data to access settlement_date
-    # WHY: Need settlement_date to generate MM/YYYY period dates
+    # WHAT: Get asset and trade data to access settlement_date and total_discount
+    # WHY: Need settlement_date to generate MM/YYYY period dates, total_discount (WACC) for NPV calculation
     try:
         raw_data = SellerRawData.objects.get(asset_hub_id=asset_hub_id)
         trade = raw_data.trade
         trade_assumptions = TradeLevelAssumption.objects.filter(trade=trade).first()
         settlement_date = trade_assumptions.settlement_date if trade_assumptions else None
+        # WHAT: Get total_discount (WACC) from trade assumptions, fallback to discount_rate, then default to 12%
+        if trade_assumptions and trade_assumptions.total_discount is not None:
+            discount_rate = float(trade_assumptions.total_discount)
+        elif trade_assumptions and trade_assumptions.discount_rate is not None:
+            discount_rate = float(trade_assumptions.discount_rate)
+        else:
+            discount_rate = 0.12  # Default to 12% if neither is set
     except SellerRawData.DoesNotExist:
         settlement_date = None
+        discount_rate = 0.12  # Default to 12% if no trade data
     
     # WHAT: Default to today if no settlement date available
     if settlement_date is None:
@@ -396,6 +405,22 @@ def generate_reo_cashflow_series(
     }
     
     # -------------------------------------------------------------------------
+    # CALCULATE IRR AND NPV FROM CASH FLOWS
+    # -------------------------------------------------------------------------
+    # WHAT: Calculate Internal Rate of Return (IRR) and Net Present Value (NPV)
+    # WHY: IRR shows annualized return rate, NPV shows present value at discount rate
+    # HOW: Use outcome-specific logic classes (separate for As-Is and ARV scenarios)
+    # NOTE: NPV uses discount_rate from TradeLevelAssumption (defaults to 12% if not set)
+    if scenario == 'as_is':
+        reo_logic = reoAsIsOutcomeLogic()
+        calculated_irr = reo_logic.calculate_irr(net_cash_flow)
+        calculated_npv = reo_logic.calculate_npv(net_cash_flow, discount_rate)
+    else:  # scenario == 'arv'
+        reo_logic = reoArvOutcomeLogic()
+        calculated_irr = reo_logic.calculate_irr(net_cash_flow)
+        calculated_npv = reo_logic.calculate_npv(net_cash_flow, discount_rate)
+    
+    # -------------------------------------------------------------------------
     # TOTALS FOR VALIDATION
     # -------------------------------------------------------------------------
     # WHAT: Calculate totals for each category to validate against expense_data
@@ -412,7 +437,10 @@ def generate_reo_cashflow_series(
         'total_liquidation_fees': float(sum(cf_liquidation_fees)),
         'total_proceeds': float(sum(cf_proceeds)),
         'total_net_cash_flow': sum(net_cash_flow),
-        'final_cumulative': cumulative_cash_flow[-1] if cumulative_cash_flow else 0.0
+        'final_cumulative': cumulative_cash_flow[-1] if cumulative_cash_flow else 0.0,
+        'irr': calculated_irr,  # WHAT: Internal Rate of Return (as decimal)
+        'npv': calculated_npv,  # WHAT: Net Present Value at total_discount (WACC) from TradeLevelAssumption
+        'discount_rate': discount_rate,  # WHAT: Discount rate used for NPV calculation (total_discount or discount_rate fallback)
     }
     
     # -------------------------------------------------------------------------
@@ -442,6 +470,9 @@ def generate_reo_cashflow_series(
         'cumulative_cash_flow': cumulative_cash_flow,
         'timeline_summary': timeline_summary,
         'totals': totals,
+        'irr': calculated_irr,  # WHAT: IRR calculated from cash flow series
+        'npv': calculated_npv,  # WHAT: NPV at total_discount (WACC) from TradeLevelAssumption
+        'discount_rate': discount_rate,  # WHAT: Discount rate used for NPV calculation (total_discount or discount_rate fallback)
         # WHAT: Include expense breakdown for frontend display
         'expense_breakdown': {
             'acquisition_price': float(acquisition_price),

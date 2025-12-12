@@ -39,6 +39,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import http from '@/lib/http'
 import CashFlowSeriesTable from '@/components/shared/CashFlowSeriesTable.vue'
+import { calculateXIRR, calculateNPV } from '@/lib/financial'
 
 // WHAT: Component props
 const props = defineProps<{
@@ -51,6 +52,116 @@ const loading = ref(false)
 const error = ref<string | null>(null)
 const cashFlowData = ref<any>(null)
 const scenario = ref<'as_is' | 'arv'>(props.initialScenario || 'as_is')
+
+// WHAT: Define emits to expose IRR and NPV to parent component
+const emit = defineEmits<{
+  irrChanged: [irr: number | null]
+  npvChanged: [npv: number | null]
+}>()
+
+// WHAT: Computed properties for IRR and NPV - calculate from cash flows with dates for instant updates
+// WHY: Calculate on frontend so values update instantly when data changes
+// HOW: Use XIRR with actual dates from cash flow data for more accurate calculation
+const irr = computed(() => {
+  const netCashFlow = netCashFlowArray.value
+  const dates = periodDates.value
+  const settlementDate = cashFlowData.value?.settlement_date
+  
+  if (!netCashFlow || netCashFlow.length < 2) {
+    return null
+  }
+  
+  // WHAT: Build XIRR input with dates
+  // WHY: XIRR requires dates for accurate calculation
+  const xirrInputs: Array<{ amount: number; date: string }> = []
+  
+  // WHAT: Use settlement_date from API if available, otherwise use period_dates
+  if (settlementDate) {
+    // WHAT: Parse settlement date and generate dates for each period
+    const startDate = new Date(settlementDate)
+    for (let i = 0; i < netCashFlow.length; i++) {
+      const periodDate = new Date(startDate)
+      periodDate.setMonth(periodDate.getMonth() + i)
+      xirrInputs.push({
+        amount: netCashFlow[i],
+        date: periodDate.toISOString().split('T')[0] // Format as YYYY-MM-DD
+      })
+    }
+  } else if (dates && dates.length === netCashFlow.length) {
+    // WHAT: Fallback: use period_dates from API (MM/YYYY format)
+    for (let i = 0; i < netCashFlow.length; i++) {
+      const [month, year] = dates[i].split('/')
+      const periodDate = new Date(parseInt(year), parseInt(month) - 1, 1) // First day of month
+      xirrInputs.push({
+        amount: netCashFlow[i],
+        date: periodDate.toISOString().split('T')[0] // Format as YYYY-MM-DD
+      })
+    }
+  } else {
+    // WHAT: Last resort: use today as start date
+    const startDate = new Date()
+    for (let i = 0; i < netCashFlow.length; i++) {
+      const periodDate = new Date(startDate)
+      periodDate.setMonth(periodDate.getMonth() + i)
+      xirrInputs.push({
+        amount: netCashFlow[i],
+        date: periodDate.toISOString().split('T')[0]
+      })
+    }
+  }
+  
+  // WHAT: Calculate XIRR from cash flows with dates
+  const calculatedIRR = calculateXIRR(xirrInputs)
+  return calculatedIRR > 0 ? calculatedIRR : null
+})
+
+const npv = computed(() => {
+  const netCashFlow = netCashFlowArray.value
+  const dates = periodDates.value
+  const settlementDate = cashFlowData.value?.settlement_date
+  
+  if (!netCashFlow || netCashFlow.length === 0) {
+    return null
+  }
+  
+  // WHAT: Build NPV input with dates (same logic as IRR)
+  const npvInputs: Array<{ amount: number; date: string }> = []
+  
+  if (settlementDate) {
+    const startDate = new Date(settlementDate)
+    for (let i = 0; i < netCashFlow.length; i++) {
+      const periodDate = new Date(startDate)
+      periodDate.setMonth(periodDate.getMonth() + i)
+      npvInputs.push({
+        amount: netCashFlow[i],
+        date: periodDate.toISOString().split('T')[0]
+      })
+    }
+  } else if (dates && dates.length === netCashFlow.length) {
+    for (let i = 0; i < netCashFlow.length; i++) {
+      const [month, year] = dates[i].split('/')
+      const periodDate = new Date(parseInt(year), parseInt(month) - 1, 1)
+      npvInputs.push({
+        amount: netCashFlow[i],
+        date: periodDate.toISOString().split('T')[0]
+      })
+    }
+  } else {
+    const startDate = new Date()
+    for (let i = 0; i < netCashFlow.length; i++) {
+      const periodDate = new Date(startDate)
+      periodDate.setMonth(periodDate.getMonth() + i)
+      npvInputs.push({
+        amount: netCashFlow[i],
+        date: periodDate.toISOString().split('T')[0]
+      })
+    }
+  }
+  
+  // WHAT: Calculate NPV at 10% discount rate (can be made configurable later)
+  const discountRate = 0.10 // 10% annual discount rate
+  return calculateNPV(npvInputs, discountRate)
+})
 
 // WHAT: Periods array
 const periods = computed(() => cashFlowData.value?.periods || [])
@@ -153,6 +264,11 @@ async function fetchCashFlowData() {
     
     cashFlowData.value = response.data
     console.log('[REOCashFlowSeries] Loaded cash flow data:', response.data)
+    console.log('[REOCashFlowSeries] IRR:', response.data?.irr, 'NPV:', response.data?.npv)
+    
+    // WHAT: Emit IRR and NPV values to parent component
+    emit('irrChanged', response.data?.irr ?? null)
+    emit('npvChanged', response.data?.npv ?? null)
   } catch (e: any) {
     console.error('[REOCashFlowSeries] Failed to fetch cash flow data:', e)
     error.value = e?.response?.data?.detail || e?.message || 'Failed to load cash flow data'
@@ -182,6 +298,20 @@ watch(() => props.initialScenario, (newScenario) => {
     fetchCashFlowData()
   }
 })
+
+// WHAT: Watch IRR and NPV changes and emit to parent (when data is loaded)
+// WHY: Ensure parent gets updated values when cash flow data changes
+watch(irr, (newIrr) => {
+  if (cashFlowData.value) {
+    emit('irrChanged', newIrr)
+  }
+}, { immediate: true })
+
+watch(npv, (newNpv) => {
+  if (cashFlowData.value) {
+    emit('npvChanged', newNpv)
+  }
+}, { immediate: true })
 
 // WHAT: Initial data fetch on mount
 onMounted(() => {

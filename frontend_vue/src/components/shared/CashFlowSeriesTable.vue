@@ -7,9 +7,9 @@
   -->
   <div class="cash-flow-series-container">
     <!-- WHAT: Header with title and controls -->
-    <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+    <div class="d-flex justify-content-between align-items-center mb-3">
       <div>
-        <h6 class="mb-1 fw-semibold">{{ title }}</h6>
+        <h5 class="card-title mb-0">{{ title }}</h5>
         <small v-if="subtitle" class="text-muted">{{ subtitle }}</small>
       </div>
       <div class="d-flex gap-2 align-items-center">

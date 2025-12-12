@@ -32,6 +32,9 @@ geocodio-library-python>=0.2.0,<1
 # Data processing and ETL
 # Docs: https://numpy.org/doc/
 numpy>=1.24.0
+# Financial calculations (IRR, NPV)
+# Docs: https://numpy-financial.readthedocs.io/
+numpy-financial>=1.0.0
 # Docs: https://pandas.pydata.org/docs/
 pandas>=2.2.0,<3
 
