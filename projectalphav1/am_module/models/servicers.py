@@ -23,7 +23,7 @@ class ServicerLoanData(models.Model):
         help_text='Link to hub; multiple loan data records per asset over time.',
     )
     raw_source_snapshot = models.ForeignKey(  # WHAT: Audit trail linking cleaned record to the specific raw daily snapshot it was derived from (docs reviewed: https://docs.djangoproject.com/en/5.0/ref/models/fields/#foreignkey).
-        'am_module.SBDailyLoanData',
+        'etl.SBDailyLoanData',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,

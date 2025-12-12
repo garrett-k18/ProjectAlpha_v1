@@ -23,10 +23,10 @@ import { xirr } from 'node-irr'
  *                    Date format: YYYY-MM-DD, YYYYMMDD, or YYYY/MM/DD
  * @returns Annualized IRR as decimal (e.g., 0.15 for 15% annual return), or 0.0 if calculation fails
  */
-export function calculateXIRR(cashflows: Array<{ amount: number; date: string | Date }>): number {
+export function calculateXIRR(cashflows: Array<{ amount: number; date: string | Date }>): number | null {
   // WHAT: Validate input
   if (!cashflows || cashflows.length < 2) {
-    return 0.0
+    return null
   }
   
   // WHAT: Check if we have both positive and negative cash flows
@@ -35,7 +35,7 @@ export function calculateXIRR(cashflows: Array<{ amount: number; date: string | 
   const hasPositive = cashflows.some(cf => cf.amount > 0)
   
   if (!hasNegative || !hasPositive) {
-    return 0.0
+    return null
   }
   
   try {
@@ -48,18 +48,19 @@ export function calculateXIRR(cashflows: Array<{ amount: number; date: string | 
     
     // WHAT: Validate result
     if (annualizedIRR == null || isNaN(annualizedIRR) || !isFinite(annualizedIRR)) {
-      return 0.0
+      return null
     }
     
     // WHAT: Cap annualized IRR at reasonable bounds (-99% to 1000%)
+    // WHY: Values outside this range are likely calculation errors
     if (annualizedIRR < -0.99 || annualizedIRR > 10.0) {
-      return 0.0
+      return null
     }
     
     return annualizedIRR
   } catch (error) {
-    console.error('[calculateXIRR] Error calculating XIRR:', error)
-    return 0.0
+    console.error('[calculateXIRR] Error calculating XIRR:', error, { cashflows })
+    return null
   }
 }
 

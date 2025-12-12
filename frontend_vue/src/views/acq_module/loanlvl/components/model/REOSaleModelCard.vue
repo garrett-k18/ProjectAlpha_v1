@@ -15,6 +15,20 @@
             <span class="badge bg-primary ms-2">{{ reoProbability }}% Probability</span>
           </h5>
         <div class="d-flex gap-2 align-items-center">
+          <!-- Reset to Defaults Button -->
+          <button
+            v-if="hasTimelineOverrides"
+            type="button"
+            class="btn btn-outline-secondary btn-reset-defaults"
+            @click="resetTimelineOverrides"
+            :disabled="loadingTimelines"
+            title="Reset all timeline overrides to default"
+          >
+            <i v-if="loadingTimelines" class="mdi mdi-refresh mdi-spin"></i>
+            <i v-else class="mdi mdi-restore"></i>
+            <span class="ms-1">Reset to Defaults</span>
+          </button>
+          
           <!-- REO Sale Probability Input -->
           <div class="d-flex align-items-center gap-2">
             <label class="form-label fw-semibold mb-0 text-body">
@@ -112,7 +126,7 @@
               <small class="text-muted d-block">IRR | MOIC</small>
               <span class="fw-bold">
                 <span :class="(liveIRR ?? 0) >= 0 ? 'text-success' : 'text-danger'">
-                  {{ liveIRR != null ? ((liveIRR * 100).toFixed(1) + '%') : '—' }}
+                  {{ liveIRR != null ? ((liveIRR * 100).toFixed(2) + '%') : '—' }}
                 </span>
                 <span class="text-muted mx-1">|</span>
                 <span :class="liveMOIC >= 1 ? 'text-success' : 'text-danger'">
@@ -192,25 +206,10 @@
           <!-- Timelines Column -->
           <div class="col-md-3">
             <div class="p-3 bg-light rounded border h-100">
-              <div class="d-flex align-items-center justify-content-between mb-2">
-                <h6 class="fw-semibold text-body mb-0">
-                  <i class="mdi mdi-clock-outline me-2 text-warning"></i>
-                  Timelines
-                </h6>
-                <!-- Reset to Default Button -->
-                <button
-                  v-if="hasTimelineOverrides"
-                  type="button"
-                  class="btn btn-sm btn-outline-secondary"
-                  @click="resetTimelineOverrides"
-                  :disabled="loadingTimelines"
-                  title="Reset all timeline overrides to default"
-                >
-                  <i v-if="loadingTimelines" class="mdi mdi-refresh mdi-spin"></i>
-                  <i v-else class="mdi mdi-restore"></i>
-                  <span class="ms-1 d-none d-sm-inline">Reset</span>
-                </button>
-              </div>
+              <h6 class="fw-semibold text-body mb-2">
+                <i class="mdi mdi-clock-outline me-2 text-warning"></i>
+                Timelines
+              </h6>
               <div class="d-flex flex-column gap-2">
                 <div class="timeline-row">
                   <small class="timeline-label text-muted">Servicing Transfer:</small>
@@ -726,8 +725,15 @@ const simplifiedCashFlow = computed(() => {
   
   for (let i = 0; i < totalDuration; i++) {
     // WHAT: Calculate date for this period (add i+1 months to settlement date)
+    // WHY: Use proper date arithmetic to handle month/year rollovers correctly
     const periodDate = new Date(settlementDate)
-    periodDate.setMonth(periodDate.getMonth() + i + 1)
+    // WHAT: Add months properly (handles year rollover)
+    const targetMonth = periodDate.getMonth() + i + 1
+    periodDate.setMonth(targetMonth)
+    // WHAT: Ensure date is valid (handles cases where target month doesn't exist, e.g., Jan 31 + 1 month)
+    if (periodDate.getMonth() !== (targetMonth % 12)) {
+      periodDate.setDate(0) // Set to last day of previous month
+    }
     
     cashFlows.push({
       amount: -monthlyCarry,
@@ -749,13 +755,81 @@ const liveIRR = computed(() => {
   if (!cashFlows || cashFlows.length < 2) {
     return null
   }
+  
+  // WHAT: Validate cash flows have both positive and negative values
+  // WHY: IRR requires both investment (negative) and return (positive) to calculate
+  const hasNegative = cashFlows.some(cf => cf.amount < 0)
+  const hasPositive = cashFlows.some(cf => cf.amount > 0)
+  if (!hasNegative || !hasPositive) {
+    return null
+  }
+  
   // WHAT: Convert to format expected by node-irr xirr function (date as string YYYY-MM-DD)
-  const xirrInputs = cashFlows.map(cf => ({
-    amount: cf.amount,
-    date: cf.date.toISOString().split('T')[0] // Format as YYYY-MM-DD
-  }))
-  const calculatedIRR = calculateXIRR(xirrInputs)
-  return calculatedIRR > 0 ? calculatedIRR : null
+  const xirrInputs = cashFlows.map(cf => {
+    // WHAT: Ensure date is valid
+    const dateStr = cf.date instanceof Date 
+      ? cf.date.toISOString().split('T')[0]
+      : typeof cf.date === 'string'
+      ? cf.date
+      : new Date().toISOString().split('T')[0]
+    
+    return {
+      amount: cf.amount,
+      date: dateStr
+    }
+  })
+  
+  try {
+    // WHAT: Calculate total investment and return for validation
+    const totalOutflow = Math.abs(cashFlows.filter(cf => cf.amount < 0).reduce((sum, cf) => sum + cf.amount, 0))
+    const totalInflow = cashFlows.filter(cf => cf.amount > 0).reduce((sum, cf) => sum + cf.amount, 0)
+    const expectedProceeds = reoScenario.value === 'as_is' 
+      ? (timelineData.expected_proceeds_asis || 0)
+      : (timelineData.expected_proceeds_arv || 0)
+    const acqPrice = acquisitionPrice.value || 0
+    const totalCosts = calculatedTotalCosts.value
+    const totalDuration = calculatedTotalDuration.value || 0
+    
+    // WHAT: Calculate expected MOIC for comparison
+    const expectedMOIC = totalOutflow > 0 ? totalInflow / totalOutflow : 0
+    
+    // WHAT: Calculate simple annualized return for comparison (if MOIC is known)
+    // WHY: If MOIC = 1.07 over 2 years, simple annualized = (1.07^(1/2)) - 1 ≈ 3.44%
+    const years = totalDuration / 12
+    const simpleAnnualizedReturn = years > 0 && expectedMOIC > 0 
+      ? (Math.pow(expectedMOIC, 1 / years) - 1) * 100 
+      : 0
+    
+    const calculatedIRR = calculateXIRR(xirrInputs)
+    
+    // WHAT: Debug logging to help diagnose IRR calculation issues
+    // WHY: Always log to console so user can see what's happening (open browser DevTools Console to view)
+    // WHERE: Check browser console (F12 -> Console tab) to see this debug info
+    console.log('[REOSaleModelCard] IRR calculation result:', {
+      calculatedIRR: calculatedIRR != null ? (calculatedIRR * 100).toFixed(2) + '%' : 'null',
+      expectedMOIC: expectedMOIC.toFixed(2) + 'x',
+      simpleAnnualizedReturn: simpleAnnualizedReturn.toFixed(2) + '% (for comparison)',
+      cashFlowCount: cashFlows.length,
+      totalOutflow: totalOutflow.toFixed(2),
+      totalInflow: totalInflow.toFixed(2),
+      netProfit: (totalInflow - totalOutflow).toFixed(2),
+      expectedProceeds: expectedProceeds.toFixed(2),
+      acquisitionPrice: acqPrice.toFixed(2),
+      totalCosts: totalCosts.toFixed(2),
+      totalDuration: totalDuration + ' months (' + (totalDuration / 12).toFixed(2) + ' years)',
+      firstCashFlow: xirrInputs[0],
+      lastCashFlow: xirrInputs[xirrInputs.length - 1],
+      allCashFlows: xirrInputs // Show all cash flows for debugging
+    })
+    
+    // WHAT: Return calculated IRR (can be positive, negative, or 0)
+    // WHY: calculateXIRR now returns null on error, so we can distinguish errors from valid 0% returns
+    // HOW: Return the value (including 0) if valid, null if error
+    return calculatedIRR
+  } catch (error) {
+    console.error('[REOSaleModelCard] Error calculating IRR:', error, { xirrInputs })
+    return null
+  }
 })
 
 // WHAT: Calculate NPV from simplified cash flow array with dates for instant updates
@@ -1337,8 +1411,9 @@ async function resetTimelineOverrides() {
     // WHAT: Recalculate carry costs with reset durations
     recalculateCarryCosts()
 
-    // WHAT: Save all resets to backend
-    await Promise.all([
+    // WHAT: Save all resets to backend (explicitly set to 0, not null)
+    // WHY: Ensure backend saves 0 values correctly to reset overrides
+    const [fcResult, renovationResult, marketingResult] = await Promise.all([
       http.post(`/acq/assets/${props.assetId}/reo-fc-duration-override/`, {
         reo_fc_duration_override_months: 0
       }),
@@ -1349,6 +1424,44 @@ async function resetTimelineOverrides() {
         reo_marketing_override_months: 0
       })
     ])
+    
+    // WHAT: Verify all saves were successful
+    // WHY: Ensure backend actually saved the 0 values
+    if (!fcResult.data?.success || !renovationResult.data?.success || !marketingResult.data?.success) {
+      console.error('[REOSaleModelCard] One or more reset saves failed:', {
+        fc: fcResult.data,
+        renovation: renovationResult.data,
+        marketing: marketingResult.data
+      })
+      throw new Error('Failed to save reset values to backend')
+    }
+    
+    // WHAT: Small delay to ensure backend has processed all saves
+    // WHY: Give backend time to commit all changes before fetching
+    await new Promise(resolve => setTimeout(resolve, 200))
+    
+    // WHAT: Refresh timeline data from backend to ensure sync
+    // WHY: Ensure we have the latest state from backend after reset
+    await fetchTimelineData()
+    
+    // WHAT: Verify overrides were actually reset (should be 0 or null after refresh)
+    // WHY: Log to help debug if reset didn't work
+    const remainingOverrides = {
+      fc: timelineData.reo_fc_duration_override_months,
+      renovation: timelineData.reo_renovation_override_months,
+      marketing: timelineData.reo_marketing_override_months
+    }
+    
+    // WHAT: Check if any overrides are still non-zero
+    const hasRemainingOverrides = Object.values(remainingOverrides).some(
+      val => val != null && val !== 0
+    )
+    
+    if (hasRemainingOverrides) {
+      console.warn('[REOSaleModelCard] Overrides not fully reset after save:', remainingOverrides)
+    } else {
+      console.log('[REOSaleModelCard] All overrides successfully reset to 0')
+    }
   } catch (error) {
     console.error('[REOSaleModelCard] Failed to reset timeline overrides:', error)
     // WHAT: Reload timeline data on error to restore correct state
@@ -1518,15 +1631,15 @@ watch(() => props.assetId, (newAssetId) => {
 }
 
 .timeline-override-badge {
-  min-width: 34px;
-  height: 22px;
+  min-width: 24px;
+  height: 15px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   text-align: center;
-  font-size: 0.7rem;
+  font-size: 0.6rem;
   padding: 0;
-  border-radius: 0.35rem;
+  border-radius: 0.25rem;
   line-height: 1;
 }
 
@@ -1588,6 +1701,13 @@ input[type="number"] {
   min-width: 90px;
   display: inline-block;
   text-align: left;
+}
+
+/* WHAT: Extra small reset button in card header */
+.btn-reset-defaults {
+  padding: 0.2rem 0.5rem;
+  font-size: 0.75rem;
+  line-height: 1.2;
 }
 </style>
 

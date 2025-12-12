@@ -13,6 +13,7 @@ from .model_etl_document_extraction import (
     ExtractionStatus,
     ExtractionMethod,
 )
+from .model_etl_statebridge_raw import SBDailyLoanData
 
 __all__ = [
     "ValuationETL",
@@ -24,4 +25,5 @@ __all__ = [
     "ExtractionLogEntry",
     "ExtractionStatus",
     "ExtractionMethod",
+    "SBDailyLoanData",
 ]

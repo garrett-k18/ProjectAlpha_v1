@@ -201,17 +201,34 @@ def get_reo_timeline_sums(asset_hub_id: int, reference_date: Optional[date] = No
         import traceback
         traceback.print_exc()
     
+    # WHAT: Always return override values if they exist in the database (even if 0)
+    # WHY: Frontend needs to know if override was explicitly set to 0 vs not set at all
+    # HOW: Check loan_assumption directly to see if override was saved, regardless of base value
+    fc_override_to_return = None
+    renovation_override_to_return = None
+    marketing_override_to_return = None
+    
+    if loan_assumption:
+        # WHAT: Return override value if it was explicitly set (including 0)
+        # WHY: Distinguish between "not set" (None) and "explicitly reset to 0"
+        if loan_assumption.reo_fc_duration_override_months is not None:
+            fc_override_to_return = loan_assumption.reo_fc_duration_override_months
+        if loan_assumption.reo_renovation_override_months is not None:
+            renovation_override_to_return = loan_assumption.reo_renovation_override_months
+        if loan_assumption.reo_marketing_override_months is not None:
+            marketing_override_to_return = loan_assumption.reo_marketing_override_months
+    
     return {
         'servicing_transfer_months': servicing_transfer_months,
         'foreclosure_months': foreclosure_months,
         'foreclosure_months_base': foreclosure_months_base,
-        'reo_fc_duration_override_months': reo_fc_override_months if foreclosure_months_base is not None else None,
+        'reo_fc_duration_override_months': fc_override_to_return,
         'reo_renovation_months': reo_renovation_months,
         'reo_renovation_months_base': reo_renovation_months_base,
-        'reo_renovation_override_months': reo_renovation_override_months if reo_renovation_months_base is not None else None,
+        'reo_renovation_override_months': renovation_override_to_return,
         'reo_marketing_months': reo_marketing_months,
         'reo_marketing_months_base': reo_marketing_months_base,
-        'reo_marketing_override_months': reo_marketing_override_months if reo_marketing_months_base is not None else None,
+        'reo_marketing_override_months': marketing_override_to_return,
         'total_timeline_months': total_timeline_months,
         'expected_recovery': expected_recovery,
         'acquisition_price': acq_price

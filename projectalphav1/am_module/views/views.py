@@ -15,7 +15,7 @@ from datetime import datetime
 
 from core.models import AssetIdHub, LLCashFlowSeries
 from am_module.serializers.serial_am_cashFlows import CashFlowSeriesSerializer
-from am_module.models.statebridgeservicing import SBDailyLoanData
+from etl.models import SBDailyLoanData
 
 
 @api_view(['GET'])

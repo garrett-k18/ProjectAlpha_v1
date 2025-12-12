@@ -36,7 +36,7 @@ from django.db import transaction
 
 # WHAT: Always import models at module top for performance and clarity.
 # WHY: Avoids repeated import overhead and makes dependencies explicit.
-from am_module.models.statebridgeservicing import SBDailyLoanData
+from etl.models import SBDailyLoanData
 
 
 # ------------------

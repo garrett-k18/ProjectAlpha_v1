@@ -16,7 +16,7 @@ import inspect
 import logging
 import re
 
-from am_module.models.statebridgeservicing import SBDailyLoanData
+from etl.models import SBDailyLoanData
 from am_module.models.servicers import ServicerLoanData
 from core.models import AssetIdHub
 
