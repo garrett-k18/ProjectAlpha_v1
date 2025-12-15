@@ -10,8 +10,8 @@ from pathlib import Path
 
 import google.generativeai as genai
 
-from etl.services.serv_etl_gemini_client import build_valuation_gemini_vision_client
-from etl.services.serv_etl_valuation_vision_extractor import (
+from etl.services.services_valuationExtract.serv_etl_gemini_client import build_valuation_gemini_vision_client
+from etl.services.services_valuationExtract.serv_etl_valuation_vision_extractor import (
     GeminiVisionExtractionService,
     DocumentExtractionResult,
 )
@@ -158,7 +158,7 @@ class OptimizedGeminiExtractor:
             logger.warning(f"Address: {has_address}, Value: {has_value}")
             # Return empty result with warning
             from django.utils import timezone
-            from etl.services.serv_etl_valuation_vision_extractor import DocumentExtractionResult
+            from etl.services.services_valuationExtract.serv_etl_valuation_vision_extractor import DocumentExtractionResult
             return DocumentExtractionResult(
                 file_path=file_path,
                 mime_type="application/pdf",

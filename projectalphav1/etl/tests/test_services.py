@@ -29,7 +29,7 @@ class GeminiVisionExtractionServiceTestCase(TestCase):
         """Set up test data."""
         pass
 
-    @patch('etl.services.serv_etl_gemini_client.build_valuation_gemini_vision_client')
+    @patch('etl.services.services_valuationExtract.serv_etl_gemini_client.build_valuation_gemini_vision_client')
     def test_service_initialization(self, mock_client):
         """Test that the service initializes correctly."""
         mock_client.return_value = Mock()
@@ -55,7 +55,7 @@ class ValuationExtractionPipelineTestCase(TestCase):
         """Set up test data."""
         pass
 
-    @patch('etl.services.serv_etl_valuationPipeline.build_valuation_gemini_vision_client')
+    @patch('etl.services.services_valuationExtract.serv_etl_valuationPipeline.build_valuation_gemini_vision_client')
     def test_pipeline_initialization(self, mock_client):
         """Test that the pipeline initializes correctly."""
         mock_client.return_value = Mock()

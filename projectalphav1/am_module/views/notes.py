@@ -3,7 +3,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.request import Request
 
-from am_module.models.am_data import AMNote
+from am_module.models.model_am_amData import AMNote
 from am_module.serializers.serial_am_note import AMNoteSerializer
 
 

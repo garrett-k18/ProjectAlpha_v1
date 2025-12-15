@@ -11,7 +11,7 @@ from typing import Any, Dict
 from rest_framework import serializers
 from django.core.exceptions import ValidationError as DjangoValidationError
 
-from am_module.models.am_data import (
+from am_module.models.model_am_amData import (
     REOData, REOtask,
     FCSale, FCTask,
     DIL, DILTask,

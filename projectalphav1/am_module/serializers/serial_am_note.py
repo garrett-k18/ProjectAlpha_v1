@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from rest_framework import serializers
-from am_module.models.am_data import AMNote
+from am_module.models.model_am_amData import AMNote
 
 
 class AMNoteSerializer(serializers.ModelSerializer):

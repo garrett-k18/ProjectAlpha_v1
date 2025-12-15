@@ -12,7 +12,7 @@ if __name__ == "__main__":
     django.setup()
 
 from etl.models import ValuationETL, ComparablesETL, RepairItem
-from etl.services.serv_etl_valuation_vision_extractor import _SKIP_FIELD_NAMES
+from etl.services.services_valuationExtract.serv_etl_valuation_vision_extractor import _SKIP_FIELD_NAMES
 
 # Use the actual skip list from the vision extractor
 SKIP = _SKIP_FIELD_NAMES

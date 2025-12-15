@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from am_module.views.view_am_assetInventory import AssetInventoryViewSet, asset_dashboard_stats, asset_geo_markers
+from am_module.views.view_am_assetInventory import AssetInventoryViewSet, asset_dashboard_stats, asset_geo_markers, am_pipeline_dashboard
 from am_module.views.notes import AMNoteViewSet
 from am_module.views.view_performance_summary import PerformanceSummaryViewSet
 from am_module.views.views import cash_flow_series_view, sb_daily_loan_data_raw
@@ -42,6 +42,7 @@ urlpatterns = [
     path('am/', include(router.urls)),
     path('am/dashboard/stats/', asset_dashboard_stats, name='am-dashboard-stats'),
     path('am/dashboard/markers/', asset_geo_markers, name='am-dashboard-markers'),
+    path('am/dashboard/pipeline/', am_pipeline_dashboard, name='am-pipeline-dashboard'),
     # WHAT: Cash flow series endpoint
     # WHY: Retrieve period-by-period cash flow data for time-series grid
     # WHERE: Used by CashFlowSeries.vue component

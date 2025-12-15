@@ -12,7 +12,7 @@ How: Validates and serializes AssetCRMContact model with nested CRM details
 """
 
 from rest_framework import serializers
-from am_module.models.am_data import AssetCRMContact
+from am_module.models.model_am_amData import AssetCRMContact
 from core.models import AssetIdHub, MasterCRM
 from core.serializers.serial_co_crm import MasterCRMSerializer
 

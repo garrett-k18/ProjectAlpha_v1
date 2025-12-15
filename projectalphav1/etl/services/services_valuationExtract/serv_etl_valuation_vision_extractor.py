@@ -23,7 +23,7 @@ from django.db import models as dj_models
 from django.utils import timezone
 
 from etl.models import ComparablesETL, RepairItem, ValuationETL
-from etl.services.serv_etl_gemini_client import build_valuation_gemini_vision_client
+from etl.services.services_valuationExtract.serv_etl_gemini_client import build_valuation_gemini_vision_client
 
 # Import pypdf for PDF processing and compression
 try:  # pragma: no cover - optional dependency

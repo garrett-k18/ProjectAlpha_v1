@@ -13,8 +13,8 @@ if __name__ == "__main__":
     django.setup()
 
 from core.models import AssetIdHub
-from etl.services.serv_etl_valuationPipeline import ValuationExtractionPipeline
-from etl.services.serv_etl_gemini_multipass import MultiPassGeminiExtractor
+from etl.services.services_valuationExtract.serv_etl_valuationPipeline import ValuationExtractionPipeline
+from etl.services.services_valuationExtract.serv_etl_gemini_multipass import MultiPassGeminiExtractor
 
 # Get PDF path
 pdf_path = sys.argv[1] if len(sys.argv) > 1 else "C:\\Users\\garre\\Documents\\2004954286.Pdf"

@@ -20,7 +20,7 @@ from rest_framework import viewsets, filters, status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
-from am_module.models.am_data import AssetCRMContact
+from am_module.models.model_am_amData import AssetCRMContact
 from am_module.serializers.serial_am_crm import AssetCRMContactSerializer
 
 

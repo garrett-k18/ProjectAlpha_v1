@@ -21,6 +21,13 @@
     <!-- Stats Row - Key metrics tiles -->
     <StatsWidget />
 
+    <!-- Pipeline Widget - Asset pipeline stages by outcome track -->
+    <b-row class="mt-3">
+      <b-col cols="12">
+        <PipelineWidget />
+      </b-col>
+    </b-row>
+
     <!-- 
       Note: Macro Rates Widget removed - Financial Ticker Banner shown at bottom of home page only
       The ticker provides auto-scrolling market indicators (SOFR, Fed Funds, 30-Year Mortgage, etc.)
@@ -96,6 +103,8 @@ import FinancialTicker from '@/components/FinancialTicker.vue'
 import HomeCalendarWidget from '@/components/widgets/HomeCalendarWidget.vue'
 // Stats widget - key metrics tiles (Assets, Tasks, Brokers, Docs)
 import StatsWidget from './components/StatsWidget.vue'
+// Pipeline widget - asset pipeline stages by outcome track (FC, REO, etc.)
+import PipelineWidget from './components/PipelineWidget.vue'
 // Django auth store for user data
 import { useDjangoAuthStore } from '@/stores/djangoAuth'
 
@@ -108,6 +117,7 @@ export default {
     FinancialTicker,
     HomeCalendarWidget,
     StatsWidget,
+    PipelineWidget,
   },
   // Options API state for simplicity and broad compatibility across the app
   data() {

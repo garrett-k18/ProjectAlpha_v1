@@ -17,7 +17,7 @@ from __future__ import annotations
 from typing import Iterable, Optional
 from django.db.models import QuerySet, Q, F
 from acq_module.models.model_acq_seller import SellerRawData  # WHAT: Post-refactor boarded dataset source per docs (https://docs.djangoproject.com/en/stable/topics/db/models/)
-from am_module.models.am_data import AMMetrics
+from am_module.models.model_am_amData import AMMetrics
 from am_module.models.servicers import ServicerLoanData
 from core.models.model_co_valuations import Valuation
 

@@ -12,7 +12,7 @@ from am_module.models.statebridgeservicing import (
     SBDailyPayHistoryData,
     SBDailyTransactionData,
 )
-from am_module.models.am_data import (
+from am_module.models.model_am_amData import (
     AMMetrics, AuditLog, AssetCRMContact,
     AMNote, REOData, FCSale, DIL, ShortSale, Modification, NoteSale,
     REOtask, FCTask, DILTask, ShortSaleTask, ModificationTask, NoteSaleTask,

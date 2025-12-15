@@ -17,7 +17,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
 
-from am_module.models.am_data import (
+from am_module.models.model_am_amData import (
     REOData, REOtask,
     FCSale, FCTask,
     DIL, DILTask,

@@ -9,8 +9,8 @@ from pathlib import Path
 from typing import Dict, Any, List
 from django.utils import timezone
 
-from etl.services.serv_etl_gemini_client import build_valuation_gemini_vision_client
-from etl.services.serv_etl_valuation_vision_extractor import (
+from etl.services.services_valuationExtract.serv_etl_gemini_client import build_valuation_gemini_vision_client
+from etl.services.services_valuationExtract.serv_etl_valuation_vision_extractor import (
     DocumentExtractionResult,
     _build_schema_guide,
 )
