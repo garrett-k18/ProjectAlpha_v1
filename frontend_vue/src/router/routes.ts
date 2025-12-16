@@ -12,19 +12,13 @@ const homeRoute = [
 
 // Root route component that handles authentication-based redirects
 // This component will be loaded at the root path and redirect based on auth status
-const rootRoute: RouteRecordRaw[] = [
-    {
-        path: '/',
-        name: 'root',
-        // Mark as requiring auth - this will trigger the beforeEach guard
-        meta: { authRequired: true },
-        // Use beforeEnter to redirect authenticated users to home
-        // The router guard will catch unauthenticated users and send them to login
-        beforeEnter: (to, from, next) => {
-            next({ name: 'home' });
-        },
-    },
-];
+const rootRoute: RouteRecordRaw = {
+    path: '/',
+    name: 'root',
+    // Mark as requiring auth - this will trigger the beforeEach guard
+    meta: { authRequired: true },
+    redirect: { name: 'home' },
+};
 
 // legacy redirects (keep old URLs working)
 const legacyRedirects: RouteRecordRaw[] = [
@@ -467,16 +461,26 @@ const pagesRoutes = [
                 name: "timeline",
                 component: () => import("@/views/pages/timeline.vue")
             },
+            {
+                path: "activity",
+                name: "activity",
+                component: () => import("@/views/base-ui/notifications.vue")
+            },
         ]
     },
 ];
 
 // landing
+// WHAT: Public landing page route - no authentication required
+// WHY: Allows visitors to learn about ProjectAlpha before logging in
+// WHERE: Accessible at /landing, public access
 const landingRoutes = [
     {
         path: '/landing',
         name: 'Landing',
         icon: 'uil-globe',
+        // Explicitly mark as public (no auth required)
+        meta: { authRequired: false },
         component: () => import('@/views/landing/index.vue'),
     }
 ];
@@ -1055,7 +1059,7 @@ const componentRoutes = [...uiRoutes, ...extendedRoutes, ...widgetRoute, ...icon
 export const authProtectedRoutes: RouteRecordRaw[] = [...dashboardRoutes as any, ...appRoutes as any, ...customRoutes as any, ...componentRoutes as any]
 
 export const allRoutes: RouteRecordRaw[] = [
-    ...rootRoute,
+    rootRoute,
     ...homeRoute,
     ...legacyRedirects,
     ...landingRoutes,

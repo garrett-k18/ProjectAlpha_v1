@@ -18,6 +18,7 @@ from am_module.models.servicers import ServicerLoanData
 from acq_module.models.model_acq_seller import SellerRawData, Trade
 from core.models.attachments import Photo
 from core.models import AssetIdHub, AssetDetails
+from core.models.model_core_notification import Notification
 from rest_framework import serializers, status
 from django.db.models import Q
 from rest_framework.permissions import IsAuthenticatedOrReadOnly, AllowAny
@@ -142,8 +143,22 @@ class AssetInventoryViewSet(ViewSet):
             # HOW: Update the AssetDetails.asset_status field and save
             hub = asset.asset_hub
             details, _ = AssetDetails.objects.get_or_create(asset=hub)
+            prev_status = details.asset_status
             details.asset_status = asset_master_status
             details.save()
+
+            if (
+                asset_master_status == AssetDetails.AssetStatus.LIQUIDATED
+                and prev_status != AssetDetails.AssetStatus.LIQUIDATED
+            ):
+                Notification.objects.create(
+                    event_type=Notification.EventType.ASSET_LIQUIDATED,
+                    title="Asset liquidated",
+                    message=f"Asset hub {hub.id} marked as LIQUIDATED.",
+                    asset_hub=hub,
+                    created_by=getattr(request, 'user', None) if getattr(request, 'user', None) and request.user.is_authenticated else None,
+                    metadata={"previous_status": prev_status, "new_status": asset_master_status},
+                )
         
         # WHAT: Return enriched asset data so frontend can refresh the row
         enricher = AssetInventoryEnricher()

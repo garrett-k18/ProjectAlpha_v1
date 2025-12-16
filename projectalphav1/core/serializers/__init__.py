@@ -33,6 +33,11 @@ from .serial_co_calendar import (
     CALENDAR_DATE_FIELDS,
 )
 
+from .serial_core_notification import (
+    NotificationSerializer,
+    ActivityItemSerializer,
+)
+
 __all__ = [
     'UnitMixSerializer',
     'LeaseComparableUnitMixSerializer',
@@ -52,4 +57,6 @@ __all__ = [
     'CustomCalendarEventSerializer',
     'UnifiedCalendarEventSerializer',
     'CALENDAR_DATE_FIELDS',
+    'NotificationSerializer',
+    'ActivityItemSerializer',
 ]

@@ -7,13 +7,17 @@
   -->
   <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
-      <h5 class="mb-0">
-        <i class="mdi mdi-chart-timeline-variant me-2"></i>
-        Asset Pipeline
-      </h5>
-      <div>
-        <span class="badge bg-primary me-2">{{ activeAssetCount }} Active</span>
-        <span class="badge bg-success">{{ liquidatedAssetCount }} Liquidated</span>
+      <h4 class="header-title">Asset Pipeline</h4>
+      <div class="d-flex align-items-center gap-2">
+        <span class="badge bg-primary">{{ activeAssetCount }} Active</span>
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-secondary"
+          @click="showFilters = !showFilters"
+        >
+          <i class="mdi mdi-tune-variant"></i>
+          <span v-if="activeFilterCount" class="badge bg-secondary ms-1">{{ activeFilterCount }}</span>
+        </button>
       </div>
     </div>
     <div class="card-body">
@@ -32,6 +36,43 @@
 
       <!-- Pipeline content -->
       <div v-else>
+        <div class="mb-3">
+          <div v-if="activeFilterCount" class="d-flex flex-wrap align-items-center gap-2 mb-2">
+            <span class="text-muted small">Filters:</span>
+            <span
+              v-for="(f, idx) in activeFilters"
+              :key="`af-${idx}`"
+              class="badge bg-soft-primary text-primary"
+            >
+              {{ f }}
+            </span>
+            <button type="button" class="btn btn-sm btn-link p-0" @click="clearFilters">Clear</button>
+          </div>
+
+          <div v-if="showFilters" class="p-3 bg-light rounded border">
+            <b-row class="g-2">
+              <b-col cols="12" md="4">
+                <label class="form-label mb-1 small text-muted">Trade</label>
+                <select v-model="tradeFilter" class="form-select form-select-sm">
+                  <option v-for="opt in tradeOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                </select>
+              </b-col>
+              <b-col cols="12" md="4">
+                <label class="form-label mb-1 small text-muted">Partnership</label>
+                <select v-model="partnershipFilter" class="form-select form-select-sm">
+                  <option v-for="opt in partnershipOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                </select>
+              </b-col>
+              <b-col cols="12" md="4">
+                <label class="form-label mb-1 small text-muted">Asset Manager</label>
+                <select v-model="assetManagerFilter" class="form-select form-select-sm">
+                  <option v-for="opt in assetManagerOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                </select>
+              </b-col>
+            </b-row>
+          </div>
+        </div>
+
         <!-- Track tabs -->
         <ul class="nav nav-tabs nav-bordered mb-3">
           <li v-for="track in trackOrder" :key="track.key" class="nav-item">
@@ -116,23 +157,7 @@
           </b-col>
         </b-row>
 
-        <!-- Summary row - top stages across all tracks -->
-        <div v-if="activeTrack !== 'liquidated'" class="mt-3 pt-3 border-top">
-          <h6 class="text-muted mb-2">
-            <i class="mdi mdi-trending-up me-1"></i>
-            Top Active Stages
-          </h6>
-          <div class="d-flex flex-wrap gap-2">
-            <span 
-              v-for="item in topStages" 
-              :key="`${item.track}-${item.task_type}`"
-              class="badge bg-soft-primary text-primary px-3 py-2 cursor-pointer"
-              @click="navigateToAssets(item.track, item.task_type)"
-            >
-              {{ item.stage }}: {{ item.count }}
-            </span>
-          </div>
-        </div>
+ 
       </div>
     </div>
   </div>
@@ -160,6 +185,12 @@ interface RecentlyLiquidated {
   total: number;
 }
 
+interface LiquidatedCard {
+  key: 'fc_sale' | 'reo' | 'short_sale' | 'note_sale';
+  label: string;
+  count: number;
+}
+
 interface PipelineData {
   tracks: Record<string, Record<string, number>>;
   summary: StageItem[];
@@ -176,14 +207,47 @@ export default defineComponent({
     const loading = ref(true);
     const error = ref<string | null>(null);
     const pipelineData = ref<PipelineData | null>(null);
-    const activeTrack = ref('fc');
+    const activeTrack = ref('modification');
+
+    const emptyRecentlyLiquidated: RecentlyLiquidated = {
+      fc_sale: 0,
+      reo: 0,
+      short_sale: 0,
+      note_sale: 0,
+      dil: 0,
+      modification: 0,
+      total: 0,
+    };
+
+    const showFilters = ref(false);
+    const tradeFilter = ref('');
+    const partnershipFilter = ref('');
+    const assetManagerFilter = ref('');
+
+    const tradeOptions = [
+      { value: '', label: 'All Trades' },
+      { value: 'trade_1', label: 'Trade 1' },
+      { value: 'trade_2', label: 'Trade 2' },
+    ];
+
+    const partnershipOptions = [
+      { value: '', label: 'All Partnerships' },
+      { value: 'fund_a', label: 'Fund A' },
+      { value: 'jv_1', label: 'JV 1' },
+    ];
+
+    const assetManagerOptions = [
+      { value: '', label: 'All Asset Managers' },
+      { value: 'am_1', label: 'AM 1' },
+      { value: 'am_2', label: 'AM 2' },
+    ];
 
     const trackOrder = [
-      { key: 'fc', label: 'Foreclosure' },
-      { key: 'reo', label: 'REO' },
-      { key: 'dil', label: 'DIL' },
-      { key: 'short_sale', label: 'Short Sale' },
       { key: 'modification', label: 'Modification' },
+      { key: 'short_sale', label: 'Short Sale' },
+      { key: 'fc', label: 'Foreclosure' },
+      { key: 'dil', label: 'DIL' },
+      { key: 'reo', label: 'REO Sale' },
       { key: 'note_sale', label: 'Note Sale' },
     ];
 
@@ -230,22 +294,43 @@ export default defineComponent({
     const activeAssetCount = computed(() => pipelineData.value?.active_asset_count || 0);
     const liquidatedAssetCount = computed(() => pipelineData.value?.liquidated_asset_count || 0);
     const totals = computed(() => pipelineData.value?.totals || {});
-    const recentlyLiquidated = computed(() => pipelineData.value?.recently_liquidated || { total: 0 });
+    const recentlyLiquidated = computed<RecentlyLiquidated>(() => pipelineData.value?.recently_liquidated || emptyRecentlyLiquidated);
     
     // Liquidated breakdown for display cards
     const liquidatedBreakdown = computed(() => {
-      const liq = pipelineData.value?.recently_liquidated || {};
-      return [
-        { key: 'fc_sale', label: 'FC Sale', count: liq.fc_sale || 0 },
-        { key: 'reo', label: 'REO Sale', count: liq.reo || 0 },
-        { key: 'short_sale', label: 'Short Sale', count: liq.short_sale || 0 },
-        { key: 'note_sale', label: 'Note Sale', count: liq.note_sale || 0 },
+      const liq = recentlyLiquidated.value;
+      const cards: LiquidatedCard[] = [
+        { key: 'fc_sale', label: 'FC Sale', count: liq.fc_sale },
+        { key: 'reo', label: 'REO Sale', count: liq.reo },
+        { key: 'short_sale', label: 'Short Sale', count: liq.short_sale },
+        { key: 'note_sale', label: 'Note Sale', count: liq.note_sale },
       ];
+      return cards;
     });
 
     const visibleLiquidatedTotal = computed(() => {
-      return liquidatedBreakdown.value.reduce((sum, item) => sum + (item.count || 0), 0);
+      return liquidatedBreakdown.value.reduce((sum: number, item: LiquidatedCard) => sum + item.count, 0);
     });
+
+    const activeFilters = computed(() => {
+      const labels: string[] = [];
+      const tradeLabel = tradeOptions.find(o => o.value === tradeFilter.value)?.label;
+      const partnershipLabel = partnershipOptions.find(o => o.value === partnershipFilter.value)?.label;
+      const amLabel = assetManagerOptions.find(o => o.value === assetManagerFilter.value)?.label;
+
+      if (tradeFilter.value && tradeLabel) labels.push(tradeLabel);
+      if (partnershipFilter.value && partnershipLabel) labels.push(partnershipLabel);
+      if (assetManagerFilter.value && amLabel) labels.push(amLabel);
+      return labels;
+    });
+
+    const activeFilterCount = computed(() => activeFilters.value.length);
+
+    const clearFilters = () => {
+      tradeFilter.value = '';
+      partnershipFilter.value = '';
+      assetManagerFilter.value = '';
+    };
 
     const topStages = computed(() => {
       if (!pipelineData.value?.summary) return [];
@@ -301,6 +386,16 @@ export default defineComponent({
       trackOrder,
       activeAssetCount,
       liquidatedAssetCount,
+      showFilters,
+      tradeFilter,
+      partnershipFilter,
+      assetManagerFilter,
+      tradeOptions,
+      partnershipOptions,
+      assetManagerOptions,
+      activeFilters,
+      activeFilterCount,
+      clearFilters,
       totals,
       recentlyLiquidated,
       liquidatedBreakdown,

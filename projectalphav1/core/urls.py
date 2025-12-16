@@ -51,6 +51,7 @@ from core.views.view_co_generalLedger import (
     GeneralLedgerEntriesViewSet,
     ChartOfAccountsViewSet,
 )
+from core.views.view_co_notifications import NotificationViewSet, ActivityFeedView
 from core.views.view_co_egnyteDoc import (
     upload_document,
     list_documents,
@@ -84,6 +85,9 @@ router.register(r'calendar/events/custom', CustomCalendarEventViewSet, basename=
 # These provide tag-filtered views of the MasterCRM model
 # WHAT: Clean broker-only API (new, simple)
 router.register(r'brokers', BrokerCRMViewSet, basename='brokers')
+
+# Notifications
+router.register(r'notifications', NotificationViewSet, basename='notifications')
 
 # WHAT: Specific CRM endpoints registered FIRST for proper URL matching
 # WHY: DRF router checks patterns in order, specific routes must come before generic
@@ -131,4 +135,7 @@ urlpatterns = [
     path('documents/search/', search_documents, name='document-search'),
     path('documents/share/', create_share_link, name='document-share'),
     path('documents/info/', get_file_info, name='document-info'),
+
+    # Activity feed - combines notifications + audit log
+    path('activity/', ActivityFeedView.as_view(), name='activity-feed'),
 ]

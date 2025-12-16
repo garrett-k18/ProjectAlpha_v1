@@ -24,6 +24,7 @@ from django.core.files.uploadedfile import UploadedFile
 import logging
 
 from acq_module.models.model_acq_seller import SellerRawData
+from core.models.model_core_notification import Notification
 
 logger = logging.getLogger(__name__)
 
@@ -193,6 +194,19 @@ def import_seller_tape(request):
                 records_match = re.search(r'Created: (\d+)', output)
                 if records_match:
                     records_imported = int(records_match.group(1))
+
+                Notification.objects.create(
+                    event_type=Notification.EventType.TRADE_IMPORT,
+                    title="New trade import",
+                    message=f"Imported {records_imported} records for seller {seller_name}.",
+                    created_by=getattr(request, 'user', None) if getattr(request, 'user', None) and request.user.is_authenticated else None,
+                    metadata={
+                        "seller_id": seller_id,
+                        "trade_id": trade_id,
+                        "seller_name": seller_name,
+                        "records_imported": records_imported,
+                    },
+                )
                 
                 # Success
                 return Response({

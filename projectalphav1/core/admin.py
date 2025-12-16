@@ -48,10 +48,28 @@ from core.models import (
     CalendarEvent,
     GeneralLedgerEntries,
     ChartOfAccounts,
+    Notification,
+    NotificationRead,
 )
 
 # Cross-app children that reference AssetIdHub
 from acq_module.models.model_acq_seller import SellerRawData, Trade
+
+
+@admin.register(Notification)
+class NotificationAdmin(admin.ModelAdmin):
+    list_display = ("id", "event_type", "title", "asset_hub", "created_at")
+    list_filter = ("event_type", "created_at")
+    search_fields = ("title", "message", "asset_hub__id")
+    readonly_fields = ("created_at",)
+
+
+@admin.register(NotificationRead)
+class NotificationReadAdmin(admin.ModelAdmin):
+    list_display = ("id", "notification", "user", "read_at")
+    list_filter = ("read_at",)
+    search_fields = ("notification__title", "user__username", "user__email")
+    readonly_fields = ("read_at",)
 # Asset Details admin
 @admin.register(AssetDetails)
 class AssetDetailsAdmin(admin.ModelAdmin):

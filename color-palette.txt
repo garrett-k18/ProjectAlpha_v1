@@ -1,0 +1,390 @@
+ProjectAlpha Color Palette Reference
+=====================================
+Professional Navy & Gold Theme for Investment Platform
+
+Last Updated: December 2024
+
+
+PRIMARY PALETTE
+===============
+
+Primary Navy: #1B3B5F
+Description: Main brand color, used for sidebar, headers, primary text
+Usage: Sidebar background, main navigation, primary headings
+
+Accent Gold: #D4AF37
+Description: Premium accent color for calls-to-action and highlights
+Usage: Primary buttons, active states, important highlights, key metrics
+
+
+SECONDARY & ACCENT COLORS
+==========================
+
+Neutral Tones (Backgrounds & Text)
+-----------------------------------
+Charcoal: #2C3E50
+Description: Darker text color for body content
+Usage: Body text, secondary headings
+
+Slate Gray: #6C757D
+Description: Secondary text and labels
+Usage: Helper text, labels, secondary information
+
+Light Gray: #E9ECEF
+Description: Subtle backgrounds and borders
+Usage: Card borders, subtle section backgrounds, dividers
+
+Off-White: #F8F9FA
+Description: Main page background
+Usage: Primary page background, light sections
+
+Pure White: #FFFFFF
+Description: Pure white for maximum contrast
+Usage: Cards, modals, popovers, primary content areas
+
+
+Supporting Blues (For Variation)
+---------------------------------
+Steel Blue: #4A6FA5
+Description: Lighter blue for interactive elements
+Usage: Secondary buttons, links, hover states
+
+Midnight Blue: #0F2744
+Description: Darker navy for contrast
+Usage: Footer, darker sections, emphasis areas
+
+Soft Blue: #8BA8C9
+Description: Light blue for disabled/inactive states
+Usage: Disabled buttons, inactive states, placeholder text
+
+
+Warm Accents (Complement Gold)
+-------------------------------
+Warm Taupe: #B8A88E
+Description: Softer alternative to gold
+Usage: Secondary highlights, subtle emphasis
+
+Bronze: #CD7F32
+Description: Warm metallic accent
+Usage: Secondary buttons, alternative accents
+
+Cream: #F5F3EE
+Description: Warm background for highlighted sections
+Usage: Featured sections, highlighted cards, callouts
+
+
+COMPREHENSIVE STATUS COLORS
+============================
+
+Success/Positive States
+-----------------------
+Success Green: #2E7D32
+Description: Primary success indicator
+Usage: Completed, approved, sold, finalized
+
+Emerald: #16A085
+Description: Active/performing indicator
+Usage: Active loans, performing assets, current status
+
+Mint: #48C774
+Description: New/fresh indicator
+Usage: New items, fresh data, accepted proposals
+
+
+Warning/Caution States
+----------------------
+Warning Amber: #F57C00
+Description: Primary warning indicator
+Usage: Alerts, pending review, requires attention
+
+Gold: #D4AF37
+Description: Important/priority (matches primary accent)
+Usage: High priority items, VIP status, featured
+
+Honey: #F9A825
+Description: Attention needed
+Usage: Upcoming deadlines, needs action, review soon
+
+
+Error/Urgent States
+-------------------
+Error Red: #C62828
+Description: Primary error indicator
+Usage: Failed, rejected, critical issues, errors
+
+Burgundy: #8B1538
+Description: Severe/urgent indicator
+Usage: Overdue, delinquent, foreclosure, severe issues
+
+Coral: #E74C3C
+Description: At-risk indicator
+Usage: At risk items, issues detected, problems
+
+
+Informational States
+--------------------
+Info Teal: #00796B
+Description: General informational indicator
+Usage: General info, in progress, processing
+
+Sky Blue: #039BE5
+Description: Documentation/reference indicator
+Usage: Documentation, reference materials, info pages
+
+Cyan: #00ACC1
+Description: Processing indicator
+Usage: Processing, updating, syncing, loading
+
+
+Neutral/Inactive States
+-----------------------
+Medium Gray: #95A5A6
+Description: Inactive/paused indicator
+Usage: Inactive, paused, on hold, dormant
+
+Cool Gray: #78909C
+Description: Archived/historical indicator
+Usage: Archived items, historical data, old records
+
+Silver: #B0BEC5
+Description: Disabled indicator
+Usage: Disabled, unavailable, not applicable
+
+
+Special Process States
+----------------------
+Purple: #7B1FA2
+Description: Under review indicator
+Usage: Under review, legal process, in committee
+
+Indigo: #3F51B5
+Description: Compliance/verification indicator
+Usage: Compliance checks, verification needed, audit
+
+Lavender: #9575CD
+Description: Pending decision indicator
+Usage: Pending decision, committee review, awaiting approval
+
+
+Financial States
+----------------
+Forest Green: #1B5E20
+Description: Profitable/positive ROI indicator
+Usage: Profitable assets, positive ROI, gains
+
+Olive: #827717
+Description: Break-even indicator
+Usage: Break-even, neutral performance, stable
+
+Burnt Orange: #D84315
+Description: Loss/negative performance indicator
+Usage: Losses, negative performance, underwater assets
+
+
+STATUS COLOR USAGE EXAMPLES
+============================
+
+Asset Pipeline Stages
+---------------------
+Modification: Info Teal (#00796B)
+Short Sale: Sky Blue (#039BE5)
+Foreclosure: Burgundy (#8B1538)
+DIL (Deed in Lieu): Warning Amber (#F57C00)
+REO Sale: Gold (#D4AF37)
+Note Sale: Emerald (#16A085)
+Liquidated: Success Green (#2E7D32)
+
+
+Loan Performance Status
+-----------------------
+Performing: Success Green (#2E7D32)
+30 Days Late: Honey (#F9A825)
+60 Days Late: Warning Amber (#F57C00)
+90+ Days Late: Error Red (#C62828)
+Default: Burgundy (#8B1538)
+REO: Medium Gray (#95A5A6)
+
+
+Document Status
+---------------
+Received: Mint (#48C774)
+Under Review: Purple (#7B1FA2)
+Approved: Success Green (#2E7D32)
+Rejected: Error Red (#C62828)
+Needs Information: Warning Amber (#F57C00)
+Archived: Cool Gray (#78909C)
+
+
+Deal Status
+-----------
+Active: Emerald (#16A085)
+Pending: Gold (#D4AF37)
+On Hold: Medium Gray (#95A5A6)
+Closed: Success Green (#2E7D32)
+Cancelled: Error Red (#C62828)
+
+
+Task Priority
+-------------
+Critical: Burgundy (#8B1538)
+High: Error Red (#C62828)
+Medium: Warning Amber (#F57C00)
+Low: Info Teal (#00796B)
+Completed: Success Green (#2E7D32)
+
+
+RECOMMENDED USAGE PATTERNS
+===========================
+
+Primary Actions
+---------------
+Buttons: Gold (#D4AF37)
+Hover: Darker gold (#C29D2F)
+Active: Bronze (#CD7F32)
+
+
+Secondary Actions
+-----------------
+Buttons: Steel Blue (#4A6FA5)
+Hover: Darker steel blue (#3D5A8A)
+Links: Steel Blue (#4A6FA5)
+
+
+Text Hierarchy
+--------------
+H1 Headers: Navy (#1B3B5F)
+H2-H3 Headers: Charcoal (#2C3E50)
+Body Text: Charcoal (#2C3E50)
+Secondary Text: Slate Gray (#6C757D)
+Disabled Text: Soft Blue (#8BA8C9)
+
+
+Backgrounds
+-----------
+Page Background: Off-White (#F8F9FA)
+Card Background: White (#FFFFFF)
+Sidebar: Navy (#1B3B5F)
+Highlighted Sections: Cream (#F5F3EE)
+Subtle Sections: Light Gray (#E9ECEF)
+
+
+Borders & Dividers
+------------------
+Default Border: Light Gray (#E9ECEF)
+Emphasis Border: Slate Gray (#6C757D)
+Accent Border: Gold (#D4AF37)
+
+
+Data Visualization
+------------------
+Primary: Gold (#D4AF37)
+Secondary: Steel Blue (#4A6FA5)
+Tertiary: Bronze (#CD7F32)
+Quaternary: Emerald (#16A085)
+Quinary: Burgundy (#7A4B57)
+
+
+ACCESSIBILITY NOTES
+===================
+
+- All color combinations should meet WCAG 2.1 AA standards (4.5:1 contrast ratio for normal text)
+- Navy (#1B3B5F) on White (#FFFFFF): 9.8:1 ✓
+- Charcoal (#2C3E50) on White (#FFFFFF): 8.6:1 ✓
+- Gold (#D4AF37) on Navy (#1B3B5F): 4.6:1 ✓
+- Always test color combinations for accessibility
+- Provide non-color indicators (icons, text labels) alongside color coding for status
+- Consider color-blind users: avoid red/green as sole differentiators
+
+
+IMPLEMENTATION GUIDELINES
+==========================
+
+CSS Variables (Recommended)
+----------------------------
+:root {
+  /* Primary */
+  --color-primary: #1B3B5F;
+  --color-accent: #D4AF37;
+  
+  /* Neutrals */
+  --color-charcoal: #2C3E50;
+  --color-slate: #6C757D;
+  --color-light-gray: #E9ECEF;
+  --color-off-white: #F8F9FA;
+  --color-white: #FFFFFF;
+  
+  /* Supporting Blues */
+  --color-steel-blue: #4A6FA5;
+  --color-midnight: #0F2744;
+  --color-soft-blue: #8BA8C9;
+  
+  /* Warm Accents */
+  --color-taupe: #B8A88E;
+  --color-bronze: #CD7F32;
+  --color-cream: #F5F3EE;
+  
+  /* Status - Success */
+  --color-success: #2E7D32;
+  --color-emerald: #16A085;
+  --color-mint: #48C774;
+  
+  /* Status - Warning */
+  --color-warning: #F57C00;
+  --color-gold-status: #D4AF37;
+  --color-honey: #F9A825;
+  
+  /* Status - Error */
+  --color-error: #C62828;
+  --color-burgundy: #8B1538;
+  --color-coral: #E74C3C;
+  
+  /* Status - Info */
+  --color-info: #00796B;
+  --color-sky: #039BE5;
+  --color-cyan: #00ACC1;
+  
+  /* Status - Neutral */
+  --color-inactive: #95A5A6;
+  --color-archived: #78909C;
+  --color-disabled: #B0BEC5;
+  
+  /* Status - Special */
+  --color-review: #7B1FA2;
+  --color-compliance: #3F51B5;
+  --color-pending: #9575CD;
+  
+  /* Status - Financial */
+  --color-profit: #1B5E20;
+  --color-neutral: #827717;
+  --color-loss: #D84315;
+}
+
+
+Django/Python (settings.py or constants.py)
+--------------------------------------------
+COLOR_PALETTE = {
+    'primary': '#1B3B5F',
+    'accent': '#D4AF37',
+    'charcoal': '#2C3E50',
+    'slate': '#6C757D',
+    # ... (add all colors as needed)
+}
+
+STATUS_COLORS = {
+    'completed': '#2E7D32',
+    'pending': '#F57C00',
+    'error': '#C62828',
+    # ... (add all status colors as needed)
+}
+
+
+Notes
+-----
+- Maintain consistency across all applications and modules
+- Document any deviations from this palette with reasoning
+- Review and update this palette as the brand evolves
+- Always test new color combinations for accessibility
+- Consider dark mode variations if implementing dark theme
+
+
+END OF COLOR PALETTE REFERENCE

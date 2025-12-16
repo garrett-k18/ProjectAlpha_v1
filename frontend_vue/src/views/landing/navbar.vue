@@ -1,11 +1,14 @@
 <template>
 <!-- NAVBAR START -->
+<!-- WHAT: Navigation bar for ProjectAlpha landing page
+     WHY: Provides navigation to different sections and login access
+     WHERE: Top of landing page, sticky navigation -->
 <nav class="navbar navbar-expand-lg py-lg-3 navbar-dark">
     <b-container>
 
         <!-- logo -->
-        <router-link to="/" class="navbar-brand me-lg-5">
-            <img src="https://placehold.co/240x70/transparent/000000/png?text=ProjectAlpha&fontSize=34" alt="ProjectAlpha" class="logo-dark" height="50" />
+        <router-link to="/landing" class="navbar-brand me-lg-5">
+            <span class="text-white fw-bold fs-3">ProjectAlpha</span>
         </router-link>
 
         <b-button class="navbar-toggler" v-b-toggle.navbarNavDropdown>
@@ -18,32 +21,29 @@
             <!-- left menu -->
             <ul class="navbar-nav me-auto align-items-center">
                 <li class="nav-item mx-lg-1">
-                    <router-link class="nav-link active" to="">Home</router-link>
+                    <a class="nav-link active" href="#home">Home</a>
                 </li>
                 <li class="nav-item mx-lg-1">
-                    <router-link class="nav-link text-white" to="">Features</router-link>
+                    <a class="nav-link text-white" href="#features">Features</a>
                 </li>
                 <li class="nav-item mx-lg-1">
-                    <router-link class="nav-link text-white" to="">Pricing</router-link>
+                    <a class="nav-link text-white" href="#services">Services</a>
                 </li>
                 <li class="nav-item mx-lg-1">
-                    <router-link class="nav-link text-white" to="">FAQs</router-link>
+                    <a class="nav-link text-white" href="#faq">FAQs</a>
                 </li>
                 <li class="nav-item mx-lg-1">
-                    <router-link class="nav-link text-white" to="">Clients</router-link>
-                </li>
-                <li class="nav-item mx-lg-1">
-                    <router-link class="nav-link text-white" to="">Contact</router-link>
+                    <a class="nav-link text-white" href="#contact">Contact</a>
                 </li>
             </ul>
 
             <!-- right menu -->
             <ul class="navbar-nav ms-auto align-items-center">
                 <li class="nav-item me-0">
-                    <a href="#" target="_blank" class="nav-link d-lg-none">Purchase now</a>
-                    <a href="#" target="_blank" class="btn btn-sm btn-light rounded-pill d-none d-lg-inline-flex">
-                        <i class="mdi mdi-basket me-2"></i> Purchase Now
-                    </a>
+                    <router-link to="/login" class="nav-link d-lg-none text-white">Login</router-link>
+                    <router-link to="/login" class="btn btn-sm btn-light rounded-pill d-none d-lg-inline-flex">
+                        <i class="mdi mdi-login me-2"></i> Login
+                    </router-link>
                 </li>
             </ul>
 

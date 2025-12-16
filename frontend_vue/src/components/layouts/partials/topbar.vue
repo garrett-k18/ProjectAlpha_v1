@@ -161,7 +161,7 @@
                   <h6 class="m-0 font-16 fw-semibold">Notification</h6>
                 </b-col>
                 <b-col class="col-auto">
-                  <a class="text-dark text-decoration-underline">
+                  <a class="text-dark text-decoration-underline" @click.prevent="clearAllNotifications">
                     <small>Clear All</small>
                   </a>
                 </b-col>
@@ -175,14 +175,11 @@
                                class="p-0 mb-2 notify-item unread-noti card m-0 shadow-none"
               >
                 <div class="card-body" style="width: inherit">
-                  <span class="float-end noti-close-btn text-muted"><i class="mdi mdi-close"></i></span>
+                  <span class="float-end noti-close-btn text-muted" @click.stop.prevent="markNotificationRead(item.id)"><i class="mdi mdi-close"></i></span>
                   <div class="d-flex align-items-center">
                     <div class="flex-shrink-0">
-                      <div v-if="item.icon" class="notify-icon" :class="`bg-${item.iconColor}`">
-                        <i :class="`${item.icon}`"></i>
-                      </div>
-                      <div v-if="item.user" class="notify-icon">
-                        <img :src="`${item.user}`" class="img-fluid rounded-circle" alt=""/>
+                      <div class="notify-icon" :class="`bg-primary`">
+                        <i class="mdi mdi-bell-outline"></i>
                       </div>
                     </div>
                     <div class="flex-grow-1 text-truncate ms-2">
@@ -196,14 +193,18 @@
                   </div>
                 </div>
               </b-dropdown-item>
-              <div class="text-center">
+              <div v-if="isLoadingNotifications" class="text-center">
                 <i class="mdi mdi-dots-circle mdi-spin text-muted h3 mt-0"></i>
+              </div>
+              <div v-if="!isLoadingNotifications && notificationItems.length === 0" class="text-center text-muted py-2">
+                <small>No unread notifications</small>
               </div>
             </simplebar>
             <!-- All-->
             <b-dropdown-item
                 class="text-center text-primary text-decoration-underline fw-bold p-0"
                 link-class=" border-top"
+                @click="goToActivity"
             >
               <div class="py-2">View All</div>
             </b-dropdown-item>
@@ -362,9 +363,40 @@
 import simplebar from 'simplebar-vue'
 import {useLayoutStore} from "@/stores/layout";
 import { useDjangoAuthStore } from '@/stores/djangoAuth'
+import http from '@/lib/http'
 import defaultAvatar from '@/assets/images/users/avatar-1.jpg'
-import avatar2 from '@/assets/images/users/avatar-2.jpg'
-import avatar4 from '@/assets/images/users/avatar-4.jpg'
+
+type TopbarNotificationItem = {
+  id: number
+  text: string
+  subText: string
+}
+
+function formatRelativeTime(dateStr: string): string {
+  if (!dateStr) return ''
+  try {
+    const date = new Date(dateStr)
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const diffSec = Math.floor(diffMs / 1000)
+    const diffMin = Math.floor(diffSec / 60)
+    const diffHr = Math.floor(diffMin / 60)
+    const diffDay = Math.floor(diffHr / 24)
+
+    if (diffSec < 60) return 'Just now'
+    if (diffMin < 60) return `${diffMin} min ago`
+    if (diffHr < 24) return `${diffHr} hr ago`
+    if (diffDay < 7) return `${diffDay} day${diffDay > 1 ? 's' : ''} ago`
+
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
+    })
+  } catch {
+    return dateStr
+  }
+}
 
 export default {
   components: {simplebar},
@@ -374,50 +406,11 @@ export default {
       useLayout,
       // Pinia Django auth store instance (initialized in src/main.ts)
       auth: useDjangoAuthStore(),
-      notificationItems: [
-        {
-          id: 1,
-          icon: 'mdi mdi-comment-account-outline',
-          iconColor: 'primary',
-          text: 'Caleb Flakelar commented on Admin',
-          subText: '1 min ago',
-        },
-        {
-          id: 2,
-          icon: 'mdi mdi-account-plus',
-          iconColor: 'info',
-          text: 'New user registered.',
-          subText: '5 hours ago',
-        },
-        {
-          id: 3,
-          user: avatar2,
-          text: 'Cristina Pride',
-          subText: 'Hi, How are you? What about our next meeting',
-        },
-        {
-          id: 4,
-          icon: 'mdi mdi-comment-account-outline',
-          iconColor: 'primary',
-          text: 'Caleb Flakelar commented on Admin',
-          subText: '4 days ago',
-        },
-        {
-          id: 5,
-          user: avatar4,
-          text: 'Karen Robinson',
-          subText: 'Wow ! this admin looks good and awesome design',
-        },
-        {
-          id: 6,
-          icon: 'mdi mdi-heart',
-          iconColor: 'secondary',
-          text: 'Carlos Crouch liked Admin',
-          subText: '13 days ago',
-        },
-      ],
+      notificationItems: [] as TopbarNotificationItem[],
+      isLoadingNotifications: false,
     }
   },
+
   computed: {
     // Current authenticated user from the Django auth store
     currentUser(): any {
@@ -441,7 +434,52 @@ export default {
       return u.is_superuser || u.is_staff ? 'Admin' : 'Member'
     },
   },
+  async mounted() {
+    await this.loadUnreadNotifications()
+  },
   methods: {
+    async loadUnreadNotifications() {
+      this.isLoadingNotifications = true
+      try {
+        const res = await http.get('/core/notifications/unread/')
+        const data = (res as any)?.data
+        const rows = Array.isArray(data) ? data : (data?.results || [])
+
+        this.notificationItems = rows.map((n: any) => {
+          return {
+            id: n.id,
+            text: n.title || 'Notification',
+            subText: formatRelativeTime(n.created_at),
+          }
+        })
+      } catch (e) {
+        console.error('Failed to load notifications:', e)
+        this.notificationItems = []
+      } finally {
+        this.isLoadingNotifications = false
+      }
+    },
+    async markNotificationRead(notificationId: number) {
+      try {
+        await http.post(`/core/notifications/${notificationId}/mark-read/`)
+      } catch (e) {
+        console.error('Failed to mark notification read:', e)
+      } finally {
+        this.notificationItems = this.notificationItems.filter((n: any) => n.id !== notificationId)
+      }
+    },
+    async clearAllNotifications() {
+      try {
+        await http.post('/core/notifications/clear-all/')
+      } catch (e) {
+        console.error('Failed to clear notifications:', e)
+      } finally {
+        this.notificationItems = []
+      }
+    },
+    goToActivity() {
+      this.$router.push('/pages/activity')
+    },
     toggleRightSidebar() {
       this.useLayout.isRightSidebarOpen = !this.useLayout.isRightSidebarOpen
     },

@@ -27,6 +27,7 @@ from am_module.models.model_am_amData import (
     REOScope,
     Offers,
 )
+from core.models.model_core_notification import Notification
 from am_module.serializers.serial_am_outcomes import (
     REODataSerializer, REOTaskSerializer,
     FCSaleSerializer, FCTaskSerializer,
@@ -130,6 +131,64 @@ class _TaskBaseViewSet(mixins.ListModelMixin,
     pagination_class = None
 
     parent_field_name: str = ''  # e.g., 'dil', 'fc_sale', etc.
+
+    def perform_create(self, serializer):
+        actor = getattr(self.request, 'user', None) if getattr(self.request, 'user', None) and self.request.user.is_authenticated else None
+        obj = serializer.save()
+        if actor is not None and hasattr(obj, 'set_actor'):
+            try:
+                obj.set_actor(actor)
+            except Exception:
+                pass
+
+        try:
+            Notification.objects.create(
+                event_type=Notification.EventType.TASK_CHANGED,
+                title="AM task created",
+                message=f"Task {getattr(obj, 'task_type', '')} created for asset hub {getattr(obj, 'asset_hub_id', None)}.",
+                asset_hub=getattr(obj, 'asset_hub', None),
+                created_by=actor,
+                metadata={
+                    "model": obj.__class__.__name__,
+                    "task_id": getattr(obj, 'id', None),
+                    "task_type": getattr(obj, 'task_type', None),
+                },
+            )
+        except Exception:
+            pass
+
+    def perform_update(self, serializer):
+        instance = self.get_object()
+        prev_task_type = getattr(instance, 'task_type', None)
+
+        actor = getattr(self.request, 'user', None) if getattr(self.request, 'user', None) and self.request.user.is_authenticated else None
+
+        if actor is not None and hasattr(instance, 'set_actor'):
+            try:
+                instance.set_actor(actor)
+            except Exception:
+                pass
+
+        obj = serializer.save()
+
+        new_task_type = getattr(obj, 'task_type', None)
+        if prev_task_type != new_task_type:
+            try:
+                Notification.objects.create(
+                    event_type=Notification.EventType.TASK_CHANGED,
+                    title="AM task changed",
+                    message=f"Task changed from {prev_task_type} to {new_task_type} for asset hub {getattr(obj, 'asset_hub_id', None)}.",
+                    asset_hub=getattr(obj, 'asset_hub', None),
+                    created_by=actor,
+                    metadata={
+                        "model": obj.__class__.__name__,
+                        "task_id": getattr(obj, 'id', None),
+                        "previous_task_type": prev_task_type,
+                        "new_task_type": new_task_type,
+                    },
+                )
+            except Exception:
+                pass
 
     def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         qs = self.get_queryset()

@@ -1,15 +1,17 @@
 <template>
 <!-- START PRICING -->
+<!-- WHAT: Pricing section (optional - can be hidden if not needed)
+     WHY: Displays pricing tiers or contact for pricing information
+     WHERE: Landing page, after features section -->
 <section class="py-5 bg-light-lighten border-top border-bottom border-light">
     <b-container>
         <b-row>
             <b-col lg="12">
                 <div class="text-center">
-                    <h1 class="mt-0"><i class="mdi mdi-tag-multiple"></i></h1>
-                    <h3>Choose Simple <span class="text-primary">Pricing</span></h3>
-                    <p class="text-muted mt-2">The clean and well commented code allows easy customization of the
-                        theme.It's designed for
-                        <br>describing your app, agency or business.</p>
+                    <h1 class="mt-0"><i class="mdi mdi-handshake"></i></h1>
+                    <h3>Enterprise <span class="text-primary">Solutions</span> for Real Estate Teams</h3>
+                    <p class="text-muted mt-2">ProjectAlpha is designed for real estate investment firms, asset managers, and trading partners.
+                        <br>Contact us to discuss how we can customize the platform for your organization.</p>
                 </div>
             </b-col>
         </b-row>
@@ -18,67 +20,60 @@
             <b-col md="4">
                 <b-card class="card-pricing">
                     <div class="text-center">
-                        <p class="card-pricing-plan-name fw-bold text-uppercase">Standard License </p>
-                        <i class="card-pricing-icon ri-user-line text-primary"></i>
-                        <h2 class="card-pricing-price">$49 <span>/ License</span></h2>
+                        <p class="card-pricing-plan-name fw-bold text-uppercase">Starter</p>
+                        <i class="card-pricing-icon mdi mdi-account text-primary font-32"></i>
+                        <h2 class="card-pricing-price">Contact Us</h2>
                         <ul class="card-pricing-features">
-                            <li>10 GB Storage</li>
-                            <li>500 GB Bandwidth</li>
-                            <li>No Domain</li>
-                            <li>1 User</li>
+                            <li>Acquisition Analysis</li>
+                            <li>Basic Asset Management</li>
+                            <li>Standard Reporting</li>
+                            <li>Up to 5 Users</li>
                             <li>Email Support</li>
-                            <li>24x7 Support</li>
+                            <li>Document Management</li>
                         </ul>
-                        <button class="btn btn-primary mt-4 mb-2 rounded-pill">Choose Plan</button>
+                        <a href="#contact" class="btn btn-primary mt-4 mb-2 rounded-pill">Get Started</a>
                     </div>
                 </b-card>
-                <!-- end Pricing_card -->
             </b-col>
-            <!-- end col -->
 
             <b-col md="4">
                 <b-card class="card-pricing card-pricing-recommended">
                     <div class="text-center">
                         <div class="card-pricing-plan-tag">Recommended</div>
-                        <p class="card-pricing-plan-name fw-bold text-uppercase">Multiple License</p>
-                        <i class="card-pricing-icon ri-briefcase-line text-primary"></i>
-                        <h2 class="card-pricing-price">$99 <span>/ License</span></h2>
+                        <p class="card-pricing-plan-name fw-bold text-uppercase">Professional</p>
+                        <i class="card-pricing-icon mdi mdi-briefcase text-primary font-32"></i>
+                        <h2 class="card-pricing-price">Contact Us</h2>
                         <ul class="card-pricing-features">
-                            <li>50 GB Storage</li>
-                            <li>900 GB Bandwidth</li>
-                            <li>2 Domain</li>
-                            <li>10 User</li>
-                            <li>Email Support</li>
-                            <li>24x7 Support</li>
+                            <li>Full Platform Access</li>
+                            <li>Advanced Analytics</li>
+                            <li>Custom Reporting</li>
+                            <li>Up to 25 Users</li>
+                            <li>Priority Support</li>
+                            <li>API Access</li>
                         </ul>
-                        <button class="btn btn-primary mt-4 mb-2 rounded-pill">Choose Plan</button>
+                        <a href="#contact" class="btn btn-primary mt-4 mb-2 rounded-pill">Get Started</a>
                     </div>
                 </b-card>
-                <!-- end Pricing_card -->
             </b-col>
-            <!-- end col -->
 
             <b-col md="4">
                 <b-card class="card-pricing">
                     <div class="text-center">
-                        <p class="card-pricing-plan-name fw-bold text-uppercase">Extended License</p>
-                        <i class="card-pricing-icon ri-store-2-line text-primary"></i>
-                        <h2 class="card-pricing-price">$599 <span>/ License</span></h2>
+                        <p class="card-pricing-plan-name fw-bold text-uppercase">Enterprise</p>
+                        <i class="card-pricing-icon mdi mdi-office-building text-primary font-32"></i>
+                        <h2 class="card-pricing-price">Contact Us</h2>
                         <ul class="card-pricing-features">
-                            <li>100 GB Storege</li>
-                            <li>Unlimited Bandwidth</li>
-                            <li>10 Domain</li>
-                            <li>Unlimited User</li>
-                            <li>Email Support</li>
-                            <li>24x7 Support</li>
+                            <li>Unlimited Everything</li>
+                            <li>Custom Integrations</li>
+                            <li>Dedicated Support</li>
+                            <li>Unlimited Users</li>
+                            <li>24/7 Support</li>
+                            <li>On-Premise Options</li>
                         </ul>
-                        <b-button pill variant="primary" class="mt-4 mb-2">Choose Plan</b-button>
+                        <a href="#contact" class="btn btn-primary mt-4 mb-2 rounded-pill">Contact Sales</a>
                     </div>
                 </b-card>
-                <!-- end Pricing_card -->
             </b-col>
-            <!-- end col -->
-
         </b-row>
 
     </b-container>
