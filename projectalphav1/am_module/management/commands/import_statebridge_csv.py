@@ -3,7 +3,7 @@ Django management command to import StateBridge daily loan data from CSV.
 
 WHAT:
 - Reads a CSV (UTF-8 with/without BOM) and loads rows into
-  am_module.models.statebridgeservicing.SBDailyLoanData.
+  etl.models.SBDailyLoanData.
 - Supports both creating new records and updating existing ones (upsert pattern).
 
 WHY:

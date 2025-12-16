@@ -3,7 +3,7 @@ Django management command to import StateBridge daily bankruptcy data from CSV.
 
 WHAT:
 - Reads a CSV (UTF-8 with/without BOM) and loads rows into
-  am_module.models.statebridgeservicing.SBDailyBankruptcyData.
+  etl.models.SBDailyBankruptcyData.
 - Supports both creating new records and updating existing ones (upsert pattern).
 
 WHY:
@@ -26,7 +26,7 @@ from typing import Optional, Dict, Any, List
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
-from am_module.models.statebridgeservicing import SBDailyBankruptcyData
+from etl.models import SBDailyBankruptcyData
 
 
 def _clean_string(val: Optional[str]) -> Optional[str]:

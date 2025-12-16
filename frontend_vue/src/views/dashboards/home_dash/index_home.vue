@@ -48,27 +48,37 @@
     -->
     <b-row class="mt-1">
       <!-- Recent Activity -->
-      <b-col cols="12" xl="8" class="mb-3">
+      <b-col cols="12" xl="6" class="mb-3">
         <div class="card h-100">
-          <div class="card-header">
+          <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0">Recent Activity</h5>
+            <button type="button" class="btn btn-sm btn-outline-primary" @click="goToActivity">View All</button>
           </div>
-          <div class="card-body">
-            <ul class="list-unstyled mb-0">
-              <li v-for="(evt, idx) in recentActivity" :key="`evt-${idx}`" class="d-flex align-items-start mb-3">
-                <i class="mdi mdi-checkbox-blank-circle-outline text-primary me-2 mt-1"></i>
-                <div>
-                  <div class="fw-semibold">{{ evt.title }}</div>
-                  <small class="text-muted">{{ evt.when }}</small>
-                </div>
-              </li>
-            </ul>
+          <div class="card-body" style="max-height: 360px; overflow-y: auto;">
+            <div v-if="isLoadingRecentActivity" class="text-center py-4">
+              <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+            </div>
+            <div v-else>
+              <ul v-if="recentActivity.length" class="list-unstyled mb-0">
+                <li v-for="(evt, idx) in recentActivity" :key="`evt-${idx}`" class="d-flex align-items-start mb-3">
+                  <i class="mdi mdi-checkbox-blank-circle-outline text-primary me-2 mt-1"></i>
+                  <div>
+                    <div class="fw-semibold">{{ evt.title }}</div>
+                    <div v-if="evt.message" class="text-muted small">{{ evt.message }}</div>
+                    <small class="text-muted">{{ evt.when }}</small>
+                  </div>
+                </li>
+              </ul>
+              <div v-else class="text-muted small">No recent activity</div>
+            </div>
           </div>
         </div>
       </b-col>
 
       <!-- Getting Started / Docs -->
-      <b-col cols="12" xl="4" class="mb-3">
+      <b-col cols="12" xl="6" class="mb-3">
         <div class="card h-100">
           <div class="card-header">
             <h5 class="mb-0">Getting Started</h5>
@@ -107,6 +117,47 @@ import StatsWidget from './components/StatsWidget.vue'
 import PipelineWidget from './components/PipelineWidget.vue'
 // Django auth store for user data
 import { useDjangoAuthStore } from '@/stores/djangoAuth'
+import http from '@/lib/http'
+
+type ActivityRow = {
+  id: string
+  source: string
+  created_at: string
+  title: string
+  message: string
+}
+
+type RecentActivityItem = {
+  title: string
+  message?: string
+  when: string
+}
+
+function formatRelativeTime(dateStr: string): string {
+  if (!dateStr) return ''
+  try {
+    const date = new Date(dateStr)
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const diffSec = Math.floor(diffMs / 1000)
+    const diffMin = Math.floor(diffSec / 60)
+    const diffHr = Math.floor(diffMin / 60)
+    const diffDay = Math.floor(diffHr / 24)
+
+    if (diffSec < 60) return 'Just now'
+    if (diffMin < 60) return `${diffMin} min ago`
+    if (diffHr < 24) return `${diffHr} hr ago`
+    if (diffDay < 7) return `${diffDay} day${diffDay > 1 ? 's' : ''} ago`
+
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
+    })
+  } catch {
+    return dateStr
+  }
+}
 
 export default {
   // Explicit component name for devtools and tracing
@@ -122,13 +173,12 @@ export default {
   // Options API state for simplicity and broad compatibility across the app
   data() {
     return {
-      // recentActivity: placeholder list of recent events; replace with real data later
-      recentActivity: [
-        { title: "Uploaded new Seller Data Tape (Q4)", when: "2 hours ago" },
-        { title: "Assigned 12 loans to Broker CRM", when: "Yesterday" },
-        { title: "Updated assumptions: state reference table", when: "2 days ago" },
-      ],
+      recentActivity: [] as RecentActivityItem[],
+      isLoadingRecentActivity: false,
     };
+  },
+  async mounted() {
+    await this.loadRecentActivity()
   },
   computed: {
     /**
@@ -153,6 +203,32 @@ export default {
       
       return `Good ${timeOfDay}, ${firstName}`;
     }
+  },
+  methods: {
+    async loadRecentActivity() {
+      this.isLoadingRecentActivity = true
+      try {
+        const res = await http.get('/core/activity/?limit=8')
+        const rows: ActivityRow[] = (res as any)?.data || []
+
+        this.recentActivity = (rows || []).map((row: ActivityRow) => {
+          const msg = (row.message || '').trim()
+          return {
+            title: row.title || 'Activity',
+            message: msg ? msg : undefined,
+            when: formatRelativeTime(row.created_at),
+          }
+        })
+      } catch (e) {
+        console.error('Failed to load recent activity:', e)
+        this.recentActivity = []
+      } finally {
+        this.isLoadingRecentActivity = false
+      }
+    },
+    goToActivity() {
+      this.$router.push('/pages/activity')
+    },
   },
 };
 </script>

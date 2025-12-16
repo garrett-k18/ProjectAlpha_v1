@@ -167,7 +167,7 @@
 import { defineComponent, ref, computed, onMounted } from 'vue';
 import axios from 'axios';
 
-interface StageItem {
+export interface StageItem {
   stage: string;
   count: number;
   track: string;
@@ -175,7 +175,7 @@ interface StageItem {
   order: number;
 }
 
-interface RecentlyLiquidated {
+export interface RecentlyLiquidated {
   fc_sale: number;
   reo: number;
   short_sale: number;
@@ -185,13 +185,13 @@ interface RecentlyLiquidated {
   total: number;
 }
 
-interface LiquidatedCard {
+export interface LiquidatedCard {
   key: 'fc_sale' | 'reo' | 'short_sale' | 'note_sale';
   label: string;
   count: number;
 }
 
-interface PipelineData {
+export interface PipelineData {
   tracks: Record<string, Record<string, number>>;
   summary: StageItem[];
   totals: Record<string, number>;

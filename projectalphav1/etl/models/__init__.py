@@ -13,7 +13,15 @@ from .model_etl_document_extraction import (
     ExtractionStatus,
     ExtractionMethod,
 )
-from .model_etl_statebridge_raw import SBDailyLoanData
+from .model_etl_statebridge_raw import (
+    SBDailyLoanData,
+    SBDailyArmData,
+    SBDailyForeclosureData,
+    SBDailyBankruptcyData,
+    SBDailyCommentData,
+    SBDailyPayHistoryData,
+    SBDailyTransactionData,
+)
 
 __all__ = [
     "ValuationETL",
@@ -26,4 +34,10 @@ __all__ = [
     "ExtractionStatus",
     "ExtractionMethod",
     "SBDailyLoanData",
+    "SBDailyArmData",
+    "SBDailyForeclosureData",
+    "SBDailyBankruptcyData",
+    "SBDailyCommentData",
+    "SBDailyPayHistoryData",
+    "SBDailyTransactionData",
 ]

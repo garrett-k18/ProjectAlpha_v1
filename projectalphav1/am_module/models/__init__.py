@@ -2,7 +2,6 @@
 # DEPRECATED: SellerBoardedData - use SellerRawData from acq_module instead
 # from .boarded_data import SellerBoardedData
 from .servicers import ServicerLoanData
-from .statebridgeservicing import SBDailyLoanData
 
 # Import BlendedOutcomeModel from boarded_data.py
 from .boarded_data import BlendedOutcomeModel
@@ -25,7 +24,6 @@ from .model_am_amData import (
 __all__ = [
     # Servicer data
     'ServicerLoanData',
-    'SBDailyLoanData',
     # Outcome models
     'BlendedOutcomeModel',
     'AssetCRMContact',

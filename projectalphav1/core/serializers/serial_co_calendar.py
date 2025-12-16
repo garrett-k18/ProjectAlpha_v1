@@ -26,6 +26,7 @@ Edit the FIELDS list in the appropriate config class below (SellerRawDataCalenda
 from rest_framework import serializers
 from django.utils import timezone
 from core.models import CalendarEvent
+from core.views.view_co_notifications import _resolve_request_user
 
 
 # ============================================================================
@@ -240,6 +241,8 @@ class CustomCalendarEventSerializer(serializers.ModelSerializer):
             'trade',
             'asset_hub',
             'is_reminder',
+            'is_public',
+            'reason',
             'created_by',
             'created_at',
             'updated_at',
@@ -258,7 +261,13 @@ class CustomCalendarEventSerializer(serializers.ModelSerializer):
         Where: Called during serialization for each CalendarEvent instance
         How: Always returns True since custom events are user-created
         """
-        return True
+        request = self.context.get('request')
+        if request is None:
+            return False
+        user = _resolve_request_user(request)
+        if user is None:
+            return False
+        return bool(obj.created_by_id) and obj.created_by_id == user.id
     
     def get_source_model(self, obj):
         """

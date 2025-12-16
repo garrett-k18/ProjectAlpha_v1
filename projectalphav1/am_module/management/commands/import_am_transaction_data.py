@@ -3,7 +3,7 @@ Django management command to import StateBridge daily transaction data from CSV.
 
 WHAT:
 - Reads a CSV (UTF-8 with/without BOM) and loads rows into
-  am_module.models.statebridgeservicing.SBDailyTransactionData.
+  etl.models.SBDailyTransactionData.
 - Inserts every row exactly as received (no deduping) to preserve audit history.
 
 WHY:
@@ -26,7 +26,7 @@ from typing import Optional, Dict, Any, List, TextIO, Tuple
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
-from am_module.models.statebridgeservicing import SBDailyTransactionData
+from etl.models import SBDailyTransactionData
 
 
 def _clean_string(val: Optional[str]) -> Optional[str]:

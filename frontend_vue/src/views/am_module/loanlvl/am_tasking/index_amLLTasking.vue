@@ -35,6 +35,17 @@
           <span class="fw-semibold text-dark">{{ formatCurrencyRange(headerAsset?.uwAsIsValue, headerAsset?.uwArvValue) }}</span>
         </div>
       </div>
+
+      <button
+        v-if="hubId"
+        type="button"
+        class="btn btn-sm btn-outline-primary followup-trigger"
+        @click="openFollowupModal"
+        :title="followups.length ? `Follow-ups: ${followups.length}` : 'Add follow-up'"
+      >
+        Follow-up
+        <span v-if="followups.length" class="badge bg-primary ms-2">{{ followups.length }}</span>
+      </button>
     </div>
 
     <!-- KPI Cards Row -->
@@ -215,6 +226,118 @@
                 <span v-if="confirm.busy" class="spinner-border spinner-border-sm me-2"></span>
                 Delete
               </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <template v-if="followupModalOpen">
+      <div class="modal-backdrop fade show" style="z-index: 1050;"></div>
+      <div class="modal fade show" tabindex="-1" role="dialog" aria-modal="true"
+           style="display: block; position: fixed; inset: 0; z-index: 1055;">
+        <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title d-flex align-items-center">
+                Follow-ups
+              </h5>
+              <div class="d-flex align-items-center gap-3">
+                <div class="form-check form-switch m-0">
+                  <input
+                    id="followup-public"
+                    v-model="newFollowup.is_public"
+                    class="form-check-input"
+                    type="checkbox"
+                    role="switch"
+                  />
+                  <label class="form-check-label small" for="followup-public">Public Follow-up</label>
+                </div>
+                <button type="button" class="btn-close" aria-label="Close" @click="closeFollowupModal"></button>
+              </div>
+            </div>
+            <div class="modal-body">
+              <div class="row g-2 align-items-end">
+                <div class="col-12 col-md-4">
+                  <label class="form-label small mb-1">Reason</label>
+                  <select v-model="newFollowup.reason" class="form-select form-select-sm">
+                    <option value="">Select…</option>
+                    <option v-for="opt in followupReasonOptions" :key="opt.value" :value="opt.value">
+                      {{ opt.label }}
+                    </option>
+                  </select>
+                </div>
+
+                <div class="col-12 col-md-4">
+                  <label class="form-label small mb-1">Date</label>
+                  <div class="input-group input-group-sm">
+                    <input v-model="newFollowup.date" type="date" class="form-control form-control-sm" />
+                    <button type="button" class="btn btn-outline-primary" @click="setFollowupDateOffset(15)">+15</button>
+                    <button type="button" class="btn btn-outline-primary" @click="setFollowupDateOffset(30)">+30</button>
+                  </div>
+                </div>
+
+                <div class="col-12 col-md-4">
+                  <label class="form-label small mb-1">Title (optional)</label>
+                  <div class="input-group input-group-sm">
+                    <input
+                      v-model="newFollowup.title"
+                      type="text"
+                      class="form-control form-control-sm"
+                      placeholder="Task title..."
+                      @keyup.enter="createFollowup"
+                    />
+                    <button
+                      type="button"
+                      class="btn btn-primary"
+                      :disabled="followupCreateBusy || !newFollowup.date"
+                      @click="createFollowup"
+                    >
+                      <span v-if="followupCreateBusy" class="spinner-border spinner-border-sm me-1"></span>
+                      Add
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="followupsLoading" class="text-muted small d-flex align-items-center gap-2 mt-3">
+                <span class="spinner-border spinner-border-sm"></span>
+                Loading…
+              </div>
+              <div v-else-if="followupsError" class="text-danger small mt-3">{{ followupsError }}</div>
+
+              <template v-else-if="followups.length">
+                <hr class="my-3" />
+
+                <div class="followups-list">
+                  <div class="followups-items">
+                    <div v-for="f in followups" :key="f.id" class="followup-item">
+                      <div class="followup-main">
+                        <div class="followup-line">
+                          <span class="followup-date">{{ f.date }}</span>
+                          <UiBadge :tone="f.is_public ? 'primary' : 'secondary'" size="sm">{{ f.is_public ? 'Public' : 'Private' }}</UiBadge>
+                          <span v-if="f.reason" class="text-muted small">{{ reasonLabel(f.reason) }}</span>
+                        </div>
+                        <div class="followup-title">{{ f.title }}</div>
+                      </div>
+
+                      <button
+                        v-if="f.editable"
+                        type="button"
+                        class="btn btn-sm btn-outline-success"
+                        :disabled="followupDeleteBusyId === f.id"
+                        @click="deleteFollowup(f.id)"
+                      >
+                        <span v-if="followupDeleteBusyId === f.id" class="spinner-border spinner-border-sm me-2"></span>
+                        Done
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </template>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-light" @click="closeFollowupModal">Close</button>
             </div>
           </div>
         </div>
@@ -607,6 +730,153 @@ const hubId = computed<number | null>(() => {
   return raw != null ? Number(raw) : null
 })
 
+type FollowupReason = 'nod_noi' | 'fc_counsel' | 'escrow' | 'reo'
+type FollowupEvent = {
+  id: number
+  title: string
+  date: string
+  is_public: boolean
+  reason: FollowupReason | null
+  editable: boolean
+}
+
+const followupReasonOptions = [
+  { value: 'nod_noi', label: 'NOD/NOI' },
+  { value: 'fc_counsel', label: 'FC Counsel' },
+  { value: 'escrow', label: 'Escrow' },
+  { value: 'reo', label: 'REO' },
+] as const
+
+const followups = ref<FollowupEvent[]>([])
+const followupsLoading = ref(false)
+const followupsError = ref('')
+const followupCreateBusy = ref(false)
+const followupDeleteBusyId = ref<number | null>(null)
+const followupModalOpen = ref(false)
+
+const newFollowup = ref<{ reason: FollowupReason | ''; date: string; title: string; is_public: boolean }>({
+  reason: '',
+  date: '',
+  title: '',
+  is_public: false,
+})
+
+function todayIso(): string {
+  const d = new Date()
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
+
+function addDaysIso(baseIso: string, days: number): string {
+  const base = baseIso ? new Date(`${baseIso}T00:00:00`) : new Date()
+  base.setDate(base.getDate() + days)
+  const yyyy = base.getFullYear()
+  const mm = String(base.getMonth() + 1).padStart(2, '0')
+  const dd = String(base.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
+
+function setFollowupDateOffset(days: number) {
+  newFollowup.value.date = addDaysIso(todayIso(), days)
+}
+
+function reasonLabel(reason: FollowupReason): string {
+  const found = followupReasonOptions.find((o) => o.value === reason)
+  return found ? found.label : reason
+}
+
+async function fetchFollowups() {
+  const id = hubId.value
+  if (!id) {
+    followups.value = []
+    return
+  }
+  followupsLoading.value = true
+  followupsError.value = ''
+  try {
+    const resp = await axios.get('/api/core/calendar/events/custom/', {
+      params: {
+        asset_hub_id: id,
+        is_reminder: true,
+        start_date: todayIso(),
+      },
+    })
+
+    const rows = Array.isArray(resp.data) ? resp.data : []
+    followups.value = rows.map((r: any) => ({
+      id: Number(r.id),
+      title: String(r.title ?? ''),
+      date: String(r.date ?? ''),
+      is_public: Boolean(r.is_public),
+      reason: (r.reason as FollowupReason | null) ?? null,
+      editable: Boolean(r.editable),
+    }))
+  } catch (e: any) {
+    followupsError.value = 'Failed to load follow-ups.'
+    console.error('[Followups] fetch failed', e)
+  } finally {
+    followupsLoading.value = false
+  }
+}
+
+function openFollowupModal() {
+  followupModalOpen.value = true
+  fetchFollowups()
+}
+
+function closeFollowupModal() {
+  followupModalOpen.value = false
+}
+
+async function createFollowup() {
+  const id = hubId.value
+  if (!id) return
+  if (!newFollowup.value.date) return
+
+  followupCreateBusy.value = true
+  try {
+    const reason = newFollowup.value.reason ? newFollowup.value.reason : null
+    const title = newFollowup.value.title?.trim()
+      ? newFollowup.value.title.trim()
+      : (reason ? `Follow-up: ${reasonLabel(reason)}` : 'Follow-up')
+
+    await axios.post('/api/core/calendar/events/custom/', {
+      title,
+      date: newFollowup.value.date,
+      time: 'All Day',
+      description: '',
+      category: 'bg-warning',
+      asset_hub: id,
+      is_reminder: true,
+      is_public: newFollowup.value.is_public,
+      reason,
+    })
+
+    newFollowup.value.title = ''
+    await fetchFollowups()
+  } catch (e: any) {
+    console.error('[Followups] create failed', e)
+    alert('Failed to create follow-up. Please try again.')
+  } finally {
+    followupCreateBusy.value = false
+  }
+}
+
+async function deleteFollowup(eventId: number) {
+  followupDeleteBusyId.value = eventId
+  try {
+    await axios.delete(`/api/core/calendar/events/custom/${eventId}/`)
+    await fetchFollowups()
+  } catch (e: any) {
+    console.error('[Followups] delete failed', e)
+    alert('Failed to delete follow-up. Please try again.')
+  } finally {
+    followupDeleteBusyId.value = null
+  }
+}
+
 // Active outcome types for KPI header badges
 const activeTypes = computed<OutcomeType[]>(() => {
   return (Object.keys(visibleOutcomes.value) as OutcomeType[]).filter(
@@ -981,6 +1251,10 @@ async function refreshVisible() {
 }
 watch(hubId, refreshVisible)
 
+watch(hubId, () => {
+  fetchFollowups()
+}, { immediate: true })
+
 // Utility functions
 const formatCurrency = (amount?: number | null) => {
   const numeric = typeof amount === 'string' ? Number.parseFloat(amount) : amount
@@ -1079,6 +1353,50 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   gap: 2rem;
+  position: relative;
+}
+
+.followup-trigger {
+  position: absolute;
+  right: 1rem;
+  top: 1rem;
+}
+
+.followup-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem;
+  border-top: 1px solid #f1f3f5;
+  border-radius: 0.375rem;
+  transition: background-color 0.2s ease;
+}
+
+.followup-item:hover {
+  background-color: #f8f9fa;
+}
+
+.followup-item:first-child {
+  border-top: none;
+}
+
+.followup-line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.followup-date {
+  font-weight: 600;
+  color: #212529;
+}
+
+.followup-title {
+  font-size: 0.95rem;
+  color: #212529;
+  margin-top: 0.1rem;
 }
 
 .header-badges {

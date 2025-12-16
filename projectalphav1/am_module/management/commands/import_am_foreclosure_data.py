@@ -3,7 +3,7 @@ Django management command to import StateBridge daily foreclosure data from CSV.
 
 WHAT:
 - Reads a CSV (UTF-8 with/without BOM) and loads rows into
-  am_module.models.statebridgeservicing.SBDailyForeclosureData.
+  etl.models.SBDailyForeclosureData.
 - Supports both creating new records and updating existing ones (upsert pattern).
 
 WHY:
@@ -27,7 +27,7 @@ from typing import Optional, Dict, Any, List, TextIO, Tuple
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
-from am_module.models.statebridgeservicing import SBDailyForeclosureData
+from etl.models import SBDailyForeclosureData
 
 
 def _clean_string(val: Optional[str]) -> Optional[str]:

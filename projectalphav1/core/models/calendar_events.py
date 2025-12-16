@@ -31,6 +31,12 @@ class CalendarEvent(models.Model):
     - asset_hub: Optional link to a specific asset
     - is_reminder: Flag to indicate if this is a reminder/alert
     """
+
+    class FollowUpReason(models.TextChoices):
+        NOD_NOI = "nod_noi", "NOD/NOI"
+        FC_COUNSEL = "fc_counsel", "FC Counsel"
+        ESCROW = "escrow", "Escrow"
+        REO = "reo", "REO"
     
     # Event details
     title = models.CharField(
@@ -114,6 +120,19 @@ class CalendarEvent(models.Model):
     is_reminder = models.BooleanField(
         default=False,
         help_text="Is this a reminder/alert?"
+    )
+
+    is_public = models.BooleanField(
+        default=False,
+        help_text="Visible to all users when true; otherwise private to creator",
+    )
+
+    reason = models.CharField(
+        max_length=32,
+        choices=FollowUpReason.choices,
+        null=True,
+        blank=True,
+        help_text="Standardized follow-up reason",
     )
     
     # Timestamps

@@ -4,14 +4,6 @@ from django.contrib import admin
 # from am_module.models.asset_metrics import AssetMetrics
 from am_module.models.boarded_data import BlendedOutcomeModel  # Keep only BlendedOutcomeModel (not deprecated)
 from am_module.models.servicers import ServicerLoanData
-from am_module.models.statebridgeservicing import (
-    SBDailyLoanData,
-    SBDailyForeclosureData,
-    SBDailyBankruptcyData,
-    SBDailyCommentData,
-    SBDailyPayHistoryData,
-    SBDailyTransactionData,
-)
 from am_module.models.model_am_amData import (
     AMMetrics, AuditLog, AssetCRMContact,
     AMNote, REOData, FCSale, DIL, ShortSale, Modification, NoteSale,
@@ -168,53 +160,6 @@ class ServicerLoanDataAdmin(admin.ModelAdmin):
         return "N/A"
     
     reporting_period.short_description = "Period"
-
-
-@admin.register(SBDailyLoanData)
-class SBDailyLoanDataAdmin(admin.ModelAdmin):
-    list_display = tuple(field.name for field in SBDailyLoanData._meta.fields)
-    readonly_fields = ("created_at", "updated_at")
-    list_per_page = 5
-
-
-@admin.register(SBDailyForeclosureData)
-class SBDailyForeclosureDataAdmin(admin.ModelAdmin):
-    # Show all fields by default to aid auditing of raw snapshots
-    list_display = tuple(field.name for field in SBDailyForeclosureData._meta.fields)
-    readonly_fields = ("created_at", "updated_at")
-    list_per_page = 5
-
-
-@admin.register(SBDailyBankruptcyData)
-class SBDailyBankruptcyDataAdmin(admin.ModelAdmin):
-    # Show all fields by default to aid auditing of raw snapshots
-    list_display = tuple(field.name for field in SBDailyBankruptcyData._meta.fields)
-    readonly_fields = ("created_at", "updated_at")
-    list_per_page = 5
-
-
-@admin.register(SBDailyCommentData)
-class SBDailyCommentDataAdmin(admin.ModelAdmin):
-    # Show all fields by default to aid auditing of raw snapshots
-    list_display = tuple(field.name for field in SBDailyCommentData._meta.fields)
-    readonly_fields = ("created_at", "updated_at")
-    list_per_page = 5
-
-
-@admin.register(SBDailyPayHistoryData)
-class SBDailyPayHistoryDataAdmin(admin.ModelAdmin):
-    # Show all fields by default to aid auditing of raw snapshots
-    list_display = tuple(field.name for field in SBDailyPayHistoryData._meta.fields)
-    readonly_fields = ("created_at", "updated_at")
-    list_per_page = 5
-
-
-@admin.register(SBDailyTransactionData)
-class SBDailyTransactionDataAdmin(admin.ModelAdmin):
-    # Show all fields by default to aid auditing of raw snapshots
-    list_display = tuple(field.name for field in SBDailyTransactionData._meta.fields)
-    readonly_fields = ("created_at", "updated_at")
-    list_per_page = 5
 
 
 @admin.register(REOtask)

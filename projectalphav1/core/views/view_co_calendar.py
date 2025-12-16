@@ -31,6 +31,8 @@ from rest_framework.response import Response
 from rest_framework import status, viewsets
 from django.db.models import Q
 
+from rest_framework.exceptions import PermissionDenied
+
 # Import models that contain date fields
 from acq_module.models.model_acq_seller import SellerRawData, Seller, Trade
 from acq_module.models.model_acq_assumptions import TradeLevelAssumption
@@ -42,6 +44,8 @@ from core.serializers.serial_co_calendar import (
     UnifiedCalendarEventSerializer,
     CALENDAR_DATE_FIELDS,
 )
+
+from core.views.view_co_notifications import _resolve_request_user
 
 
 @api_view(['GET'])
@@ -148,7 +152,7 @@ def get_calendar_events(request):
     
     # 4. Custom CalendarEvent records (user-created events)
     # All fields from CalendarEvent model
-    events.extend(_get_custom_calendar_events(start_date, end_date, seller_id, trade_id))
+    events.extend(_get_custom_calendar_events(request, start_date, end_date, seller_id, trade_id))
     
     # Filter by categories if specified
     # What: Remove events that don't match requested categories
@@ -441,7 +445,7 @@ def _get_trade_assumption_events(start_date=None, end_date=None, seller_id=None,
     return events
 
 
-def _get_custom_calendar_events(start_date=None, end_date=None, seller_id=None, trade_id=None):
+def _get_custom_calendar_events(request, start_date=None, end_date=None, seller_id=None, trade_id=None):
     """
     Extract calendar events from CalendarEvent model (user-created custom events).
     
@@ -465,9 +469,14 @@ def _get_custom_calendar_events(start_date=None, end_date=None, seller_id=None, 
     Note: Unlike model-based events, these have editable=True and can be modified via API
     """
     events = []
-    
-    # Build queryset with filters
+
+    user = _resolve_request_user(request)
+
     queryset = CalendarEvent.objects.all()
+    if user is None:
+        queryset = queryset.filter(is_public=True)
+    else:
+        queryset = queryset.filter(Q(is_public=True) | Q(created_by=user))
     
     if seller_id:
         queryset = queryset.filter(seller_id=seller_id)
@@ -496,7 +505,7 @@ def _get_custom_calendar_events(start_date=None, end_date=None, seller_id=None, 
             'description': event.description,
             'category': event.category,
             'source_model': 'CalendarEvent',
-            'editable': True,  # Custom events are always editable
+            'editable': bool(user is not None and event.created_by_id and event.created_by_id == user.id),
             'url': url
         })
     
@@ -545,6 +554,12 @@ class CustomCalendarEventViewSet(viewsets.ModelViewSet):
         Allows filtering by date range, seller, trade, or asset.
         """
         queryset = super().get_queryset()
+
+        user = _resolve_request_user(self.request)
+        if user is None:
+            queryset = queryset.filter(is_public=True)
+        else:
+            queryset = queryset.filter(Q(is_public=True) | Q(created_by=user))
         
         # Date range filters
         start_date = self.request.query_params.get('start_date')
@@ -576,6 +591,22 @@ class CustomCalendarEventViewSet(viewsets.ModelViewSet):
         asset_hub_id = self.request.query_params.get('asset_hub_id')
         if asset_hub_id:
             queryset = queryset.filter(asset_hub_id=asset_hub_id)
+
+        is_reminder = self.request.query_params.get('is_reminder')
+        if is_reminder is not None:
+            is_reminder_bool = str(is_reminder).strip().lower() in {'1', 'true', 't', 'yes', 'y'}
+            queryset = queryset.filter(is_reminder=is_reminder_bool)
+
+        reason = self.request.query_params.get('reason')
+        if reason:
+            queryset = queryset.filter(reason=reason)
+
+        mine = self.request.query_params.get('mine')
+        if mine is not None and str(mine).strip().lower() in {'1', 'true', 't', 'yes', 'y'}:
+            if user is None:
+                queryset = queryset.none()
+            else:
+                queryset = queryset.filter(created_by=user)
         
         return queryset.order_by('date', 'time')
     
@@ -588,7 +619,24 @@ class CustomCalendarEventViewSet(viewsets.ModelViewSet):
         Where: Called automatically by DRF during POST operations
         How: Checks if user is authenticated and sets created_by before save
         """
-        if self.request.user.is_authenticated:
-            serializer.save(created_by=self.request.user)
+        user = _resolve_request_user(self.request)
+        if user is not None:
+            serializer.save(created_by=user)
         else:
-            serializer.save()
+            serializer.save(is_public=True)
+
+    def perform_update(self, serializer):  # type: ignore[override]
+        user = _resolve_request_user(self.request)
+        if user is None:
+            raise PermissionDenied('Authentication required')
+        if serializer.instance.created_by_id != user.id:
+            raise PermissionDenied('Only the creator can edit this event')
+        serializer.save()
+
+    def perform_destroy(self, instance):  # type: ignore[override]
+        user = _resolve_request_user(self.request)
+        if user is None:
+            raise PermissionDenied('Authentication required')
+        if instance.created_by_id != user.id:
+            raise PermissionDenied('Only the creator can delete this event')
+        instance.delete()

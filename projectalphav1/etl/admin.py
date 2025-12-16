@@ -11,6 +11,13 @@ from etl.models import (
     ValuationDocument,
     ExtractionFieldResult,
     ExtractionLogEntry,
+    SBDailyLoanData,
+    SBDailyArmData,
+    SBDailyForeclosureData,
+    SBDailyBankruptcyData,
+    SBDailyCommentData,
+    SBDailyPayHistoryData,
+    SBDailyTransactionData,
 )
 
 
@@ -782,3 +789,52 @@ class ValuationPhotoAdmin(admin.ModelAdmin):
         return "No image"
     
     image_preview.short_description = "Image Preview"
+
+
+@admin.register(SBDailyLoanData)
+class SBDailyLoanDataAdmin(admin.ModelAdmin):
+    list_display = tuple(field.name for field in SBDailyLoanData._meta.fields)
+    readonly_fields = ("created_at", "updated_at")
+    list_per_page = 5
+
+
+@admin.register(SBDailyArmData)
+class SBDailyArmDataAdmin(admin.ModelAdmin):
+    list_display = tuple(field.name for field in SBDailyArmData._meta.fields)
+    readonly_fields = ("created_at", "updated_at")
+    list_per_page = 5
+
+
+@admin.register(SBDailyForeclosureData)
+class SBDailyForeclosureDataAdmin(admin.ModelAdmin):
+    list_display = tuple(field.name for field in SBDailyForeclosureData._meta.fields)
+    readonly_fields = ("created_at", "updated_at")
+    list_per_page = 5
+
+
+@admin.register(SBDailyBankruptcyData)
+class SBDailyBankruptcyDataAdmin(admin.ModelAdmin):
+    list_display = tuple(field.name for field in SBDailyBankruptcyData._meta.fields)
+    readonly_fields = ("created_at", "updated_at")
+    list_per_page = 5
+
+
+@admin.register(SBDailyCommentData)
+class SBDailyCommentDataAdmin(admin.ModelAdmin):
+    list_display = tuple(field.name for field in SBDailyCommentData._meta.fields)
+    readonly_fields = ("created_at", "updated_at")
+    list_per_page = 5
+
+
+@admin.register(SBDailyPayHistoryData)
+class SBDailyPayHistoryDataAdmin(admin.ModelAdmin):
+    list_display = tuple(field.name for field in SBDailyPayHistoryData._meta.fields)
+    readonly_fields = ("created_at", "updated_at")
+    list_per_page = 5
+
+
+@admin.register(SBDailyTransactionData)
+class SBDailyTransactionDataAdmin(admin.ModelAdmin):
+    list_display = tuple(field.name for field in SBDailyTransactionData._meta.fields)
+    readonly_fields = ("created_at", "updated_at")
+    list_per_page = 5
