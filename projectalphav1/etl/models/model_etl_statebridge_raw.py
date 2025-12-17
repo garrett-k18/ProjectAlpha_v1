@@ -306,6 +306,17 @@ class SBDailyLoanData(models.Model):
             models.Index(fields=['loan_number', 'date'], name='loan_record_loan_nu_c13584_idx'),
         ]
 
+        constraints = [
+            models.UniqueConstraint(
+                fields=["date", "loan_number"],
+                name="uniq_loan_date_loannum",
+                condition=models.Q(date__isnull=False)
+                & ~models.Q(date="")
+                & models.Q(loan_number__isnull=False)
+                & ~models.Q(loan_number=""),
+            ),
+        ]
+
     def __str__(self):
         return f"Loan {self.loan_number} - {self.borrower_last_name}, {self.borrower_first_name}"
 
@@ -328,7 +339,46 @@ class SBDailyArmData(models.Model):
     loan_id = models.CharField(max_length=50, null=True, blank=True, db_index=True)
     loan_number = models.CharField(max_length=50, null=True, blank=True, db_index=True)
     investor_id = models.CharField(max_length=50, null=True, blank=True, db_index=True)
-    row_data = models.JSONField(null=True, blank=True)
+
+    previous_ln_num = models.CharField(max_length=255, null=True, blank=True)
+    manual_adjustment = models.CharField(max_length=255, null=True, blank=True)
+    audit_flag = models.CharField(max_length=255, null=True, blank=True)
+    carry_over_flag = models.CharField(max_length=255, null=True, blank=True)
+    convertible_flag = models.CharField(max_length=255, null=True, blank=True)
+    current_index = models.CharField(max_length=255, null=True, blank=True)
+    floor_rate = models.CharField(max_length=255, null=True, blank=True)
+    frst_chg_period_dec = models.CharField(max_length=255, null=True, blank=True)
+    frst_chg_period_inc = models.CharField(max_length=255, null=True, blank=True)
+    frst_pichg_date = models.CharField(max_length=255, null=True, blank=True)
+    frst_rate_chg_date = models.CharField(max_length=255, null=True, blank=True)
+    index = models.CharField(max_length=255, null=True, blank=True)
+    letter_lead_days = models.CharField(max_length=255, null=True, blank=True)
+    lookback_period = models.CharField(max_length=255, null=True, blank=True)
+    margin = models.CharField(max_length=255, null=True, blank=True)
+    life_rate_decrease = models.CharField(max_length=255, null=True, blank=True)
+    life_rate_increase = models.CharField(max_length=255, null=True, blank=True)
+    min_rate_chg = models.CharField(max_length=255, null=True, blank=True)
+    period_rate_dec = models.CharField(max_length=255, null=True, blank=True)
+    period_rate_inc = models.CharField(max_length=255, null=True, blank=True)
+    neg_am_cap_flag = models.CharField(max_length=255, null=True, blank=True)
+    neg_am_cap = models.CharField(max_length=255, null=True, blank=True)
+    next_pichg_date = models.CharField(max_length=255, null=True, blank=True)
+    next_rate_chg_date = models.CharField(max_length=255, null=True, blank=True)
+    original_index = models.CharField(max_length=255, null=True, blank=True)
+    original_int_rate = models.CharField(max_length=255, null=True, blank=True)
+    original_pipmt = models.CharField(max_length=255, null=True, blank=True)
+    pichg_frequency = models.CharField(max_length=255, null=True, blank=True)
+    pipmt_cap_flag = models.CharField(max_length=255, null=True, blank=True)
+    pipmt_cap = models.CharField(max_length=255, null=True, blank=True)
+    rate_calc = models.CharField(max_length=255, null=True, blank=True)
+    rate_chg_frequency = models.CharField(max_length=255, null=True, blank=True)
+    rounding = models.CharField(max_length=255, null=True, blank=True)
+    rounding_factor = models.CharField(max_length=255, null=True, blank=True)
+    teaser_rate = models.CharField(max_length=255, null=True, blank=True)
+    tot_carry_over_percent = models.CharField(max_length=255, null=True, blank=True)
+    investor_margin = models.CharField(max_length=255, null=True, blank=True)
+    recast_year = models.CharField(max_length=255, null=True, blank=True)
+    pipmt_down_cap = models.CharField(max_length=255, null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -343,6 +393,17 @@ class SBDailyArmData(models.Model):
             models.Index(fields=["loan_id"], name="arm_record_loan_id_1e6f7e_idx"),
             models.Index(fields=["investor_id"], name="arm_record_investo_8fbe0c_idx"),
             models.Index(fields=["file_date"], name="arm_record_file_d_24dd7b_idx"),
+        ]
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=["file_date", "loan_id"],
+                name="uniq_arm_fdate_loanid",
+                condition=models.Q(file_date__isnull=False)
+                & ~models.Q(file_date="")
+                & models.Q(loan_id__isnull=False)
+                & ~models.Q(loan_id=""),
+            ),
         ]
 
 
@@ -464,6 +525,17 @@ class SBDailyForeclosureData(models.Model):
             ),
         ]
 
+        constraints = [
+            models.UniqueConstraint(
+                fields=["file_date", "loan_id"],
+                name="uniq_fc_fdate_loanid",
+                condition=models.Q(file_date__isnull=False)
+                & ~models.Q(file_date="")
+                & models.Q(loan_id__isnull=False)
+                & ~models.Q(loan_id=""),
+            ),
+        ]
+
     def __str__(self):
         return f"Foreclosure {self.loan_id} - {self.borrower_last_name}, {self.borrower_first_name}"
 
@@ -472,6 +544,7 @@ class SBDailyBankruptcyData(models.Model):
 
     # Basic Loan Information
     asset_manager = models.CharField(max_length=100, null=True, blank=True)
+    file_date = models.CharField(max_length=20, null=True, blank=True)
     loan_id = models.CharField(max_length=50, null=True, blank=True, db_index=True)
     investor_loan_id = models.CharField(max_length=50, null=True, blank=True)
     previous_ln_num = models.CharField(max_length=50, null=True, blank=True)
@@ -567,6 +640,19 @@ class SBDailyBankruptcyData(models.Model):
             ),
         ]
 
+        constraints = [
+            models.UniqueConstraint(
+                fields=["file_date", "loan_id", "case_number"],
+                name="uniq_bk_fdate_loanid_case",
+                condition=models.Q(file_date__isnull=False)
+                & ~models.Q(file_date="")
+                & models.Q(loan_id__isnull=False)
+                & ~models.Q(loan_id="")
+                & models.Q(case_number__isnull=False)
+                & ~models.Q(case_number=""),
+            ),
+        ]
+
     def __str__(self):
         return f"Bankruptcy {self.loan_id} - Case {self.case_number}"
 
@@ -575,6 +661,7 @@ class SBDailyCommentData(models.Model):
 
     # Basic Loan Information
     investor_id = models.CharField(max_length=50, null=True, blank=True)
+    file_date = models.CharField(max_length=20, null=True, blank=True)
     loan_number = models.CharField(max_length=50, null=True, blank=True, db_index=True)
     investor_loan_number = models.CharField(max_length=50, null=True, blank=True)
     prior_servicer_loan_number = models.CharField(max_length=50, null=True, blank=True)
@@ -605,6 +692,21 @@ class SBDailyCommentData(models.Model):
             ),
         ]
 
+        constraints = [
+            models.UniqueConstraint(
+                fields=["file_date", "loan_number", "comment_date", "department"],
+                name="uniq_comment_fdate_ln_cdt_dept",
+                condition=models.Q(file_date__isnull=False)
+                & ~models.Q(file_date="")
+                & models.Q(loan_number__isnull=False)
+                & ~models.Q(loan_number="")
+                & models.Q(comment_date__isnull=False)
+                & ~models.Q(comment_date="")
+                & models.Q(department__isnull=False)
+                & ~models.Q(department=""),
+            ),
+        ]
+
     def __str__(self):
         return f"Comment {self.loan_number} - {self.comment_date}"
 
@@ -613,6 +715,7 @@ class SBDailyPayHistoryData(models.Model):
 
     # Basic Loan Information
     investor = models.CharField(max_length=50, null=True, blank=True)
+    file_date = models.CharField(max_length=20, null=True, blank=True)
     loan_number = models.CharField(max_length=50, null=True, blank=True, db_index=True)
     previous_ln_num = models.CharField(max_length=50, null=True, blank=True)
 
@@ -761,6 +864,17 @@ class SBDailyPayHistoryData(models.Model):
             ),
         ]
 
+        constraints = [
+            models.UniqueConstraint(
+                fields=["file_date", "loan_number"],
+                name="uniq_payhist_fdate_loannum",
+                condition=models.Q(file_date__isnull=False)
+                & ~models.Q(file_date="")
+                & models.Q(loan_number__isnull=False)
+                & ~models.Q(loan_number=""),
+            ),
+        ]
+
     def __str__(self):
         return f"PayHistory {self.loan_number} - Due {self.next_payment_due_dt}"
 
@@ -769,6 +883,7 @@ class SBDailyTransactionData(models.Model):
 
     # Basic Loan Information
     investor_id = models.CharField(max_length=50, null=True, blank=True)
+    file_date = models.CharField(max_length=20, null=True, blank=True)
     loan_id = models.CharField(max_length=50, null=True, blank=True, db_index=True)
     previous_ln_num = models.CharField(max_length=50, null=True, blank=True)
 
@@ -828,6 +943,17 @@ class SBDailyTransactionData(models.Model):
             models.Index(
                 fields=["loan_id", "transaction_date"],
                 name="transaction_loan_id_cf33b5_idx",
+            ),
+        ]
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=["file_date", "loan_transaction_id"],
+                name="uniq_trans_fdate_txnid",
+                condition=models.Q(file_date__isnull=False)
+                & ~models.Q(file_date="")
+                & models.Q(loan_transaction_id__isnull=False)
+                & ~models.Q(loan_transaction_id=""),
             ),
         ]
 

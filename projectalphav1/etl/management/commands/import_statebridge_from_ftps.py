@@ -8,6 +8,7 @@ import time
 from dataclasses import dataclass
 from ftplib import FTP_TLS
 from pathlib import Path
+import socket
 from typing import Any, Dict, Optional
 
 from django.conf import settings
@@ -22,10 +23,23 @@ class ImplicitFTP_TLS(FTP_TLS):
         self._implicit = True
 
     def connect(self, host: str = "", port: int = 0, timeout: Any = -999):
-        super().connect(host=host, port=port, timeout=timeout)
+        if host:
+            self.host = host
+        if port:
+            self.port = port
+        if timeout != -999:
+            self.timeout = timeout
+
+        # Implicit FTPS requires TLS negotiation immediately after TCP connect,
+        # before the server sends the FTP welcome banner.
+        self.sock = socket.create_connection((self.host, self.port), self.timeout)
+        self.af = self.sock.family
+
         if self._implicit:
             self.sock = self.context.wrap_socket(self.sock, server_hostname=self.host)
-            self.file = self.sock.makefile("r", encoding=self.encoding)
+
+        self.file = self.sock.makefile("r", encoding=self.encoding)
+        self.welcome = self.getresp()
         return self.welcome
 
 
@@ -108,6 +122,40 @@ def _download_one(ftp: FTP_TLS, remote_name: str, dest: Path) -> DownloadedFile:
     return DownloadedFile(local_path=dest, remote_name=remote_name, sha256=sha256, bytes_written=bytes_written)
 
 
+def _matches_kind(remote_name: str, kind: str) -> bool:
+    name = (remote_name or "").lower()
+    kind_norm = (kind or "").strip().lower()
+
+    kind_aliases = {
+        "loan": {"loan", "loandata"},
+        "foreclosure": {"foreclosure", "foreclosuredata"},
+        "bankruptcy": {"bankruptcy", "bankruptcydata"},
+        "comment": {"comment", "commentdata"},
+        "pay_history": {"pay_history", "payhistory", "pay_history_report", "payhistoryreport"},
+        "transaction": {"transaction", "transactiondata"},
+        "arm": {"arm", "armdata"},
+    }
+
+    kind_key = None
+    for canonical, aliases in kind_aliases.items():
+        if kind_norm in aliases:
+            kind_key = canonical
+            break
+
+    if not kind_key:
+        return False
+
+    return {
+        "loan": "_loandata_" in name,
+        "foreclosure": "_foreclosuredata_" in name,
+        "bankruptcy": "_bankruptcydata_" in name,
+        "comment": "_commentdata_" in name,
+        "pay_history": "_payhistoryreport_" in name,
+        "transaction": "_transactiondata_" in name,
+        "arm": "_armdata_" in name,
+    }[kind_key]
+
+
 class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("--batch-size", dest="batch_size", type=int, default=2000)
@@ -115,12 +163,18 @@ class Command(BaseCommand):
         parser.add_argument("--max-files", dest="max_files", type=int, default=0)
         parser.add_argument("--force", dest="force", action="store_true")
         parser.add_argument("--staging-dir", dest="staging_dir", default="")
+        parser.add_argument("--keep-local", dest="keep_local", action="store_true")
+        parser.add_argument("--kind", dest="kind", default="")
+        parser.add_argument("--latest-only", dest="latest_only", action="store_true")
 
     def handle(self, *args, **options):
         batch_size = int(options["batch_size"])
         dry_run = bool(options["dry_run"])
         max_files = int(options["max_files"])
         force = bool(options["force"])
+        keep_local = bool(options.get("keep_local"))
+        kind = str(options.get("kind") or "").strip()
+        latest_only = bool(options.get("latest_only"))
 
         staging_dir_opt = str(options.get("staging_dir") or "").strip()
         staging_dir = Path(staging_dir_opt) if staging_dir_opt else (Path(settings.MEDIA_ROOT) / "statebridge" / "ftps")
@@ -137,12 +191,17 @@ class Command(BaseCommand):
         if not host or not username or not password:
             raise CommandError("Missing STATEBRIDGE_FTPS_HOST/STATEBRIDGE_FTPS_USERNAME/STATEBRIDGE_FTPS_PASSWORD")
 
+        if "your_username_here" in username or "your_password_here" in password:
+            raise CommandError("StateBridge credentials in .env are still placeholders. Please update them with real values.")
+
         manifest = _load_manifest(staging_dir)
 
         try:
             ftp = _connect_ftps(host=host, port=port, username=username, password=password, implicit=implicit)
         except Exception as exc:
-            raise CommandError(f"FTPS connect failed: {exc}")
+            import traceback
+            self.stderr.write(traceback.format_exc())
+            raise CommandError(f"FTPS connect failed: {repr(exc)}")
 
         with ftp:
             try:
@@ -161,6 +220,12 @@ class Command(BaseCommand):
             ]
             candidates.sort()
 
+            if kind:
+                candidates = [n for n in candidates if _matches_kind(n, kind)]
+
+            if latest_only and candidates:
+                candidates = [candidates[-1]]
+
             processed = []
             skipped = []
             errors = []
@@ -171,7 +236,21 @@ class Command(BaseCommand):
                     break
 
                 if not force and _is_processed(manifest, remote_name):
-                    skipped.append({"remote": remote_name, "reason": "already_processed"})
+                    local_existing = staging_dir / remote_name
+                    deleted_local = False
+                    if not keep_local and local_existing.exists():
+                        try:
+                            local_existing.unlink(missing_ok=True)
+                            deleted_local = True
+                        except Exception:
+                            deleted_local = False
+                    skipped.append(
+                        {
+                            "remote": remote_name,
+                            "reason": "already_processed",
+                            "deleted_local": deleted_local,
+                        }
+                    )
                     continue
 
                 local_path = staging_dir / remote_name
@@ -188,6 +267,38 @@ class Command(BaseCommand):
                         dry_run=False,
                         batch_size=batch_size,
                     )
+                    if import_result.skipped_due_to_duplicates:
+                        _record_processed(
+                            manifest,
+                            remote_name,
+                            {
+                                "remote_dir": remote_dir,
+                                "downloaded_at": int(time.time()),
+                                "sha256": downloaded.sha256,
+                                "bytes": downloaded.bytes_written,
+                                "model": import_result.model_name,
+                                "rows_read": import_result.rows_read,
+                                "rows_inserted": import_result.rows_inserted,
+                                "skipped_due_to_duplicates": True,
+                            },
+                        )
+                        _save_manifest(staging_dir, manifest)
+                        skipped.append(
+                            {
+                                "remote": remote_name,
+                                "local": str(downloaded.local_path),
+                                "sha256": downloaded.sha256,
+                                "reason": "duplicate_in_db",
+                                "model": import_result.model_name,
+                            }
+                        )
+                        if not keep_local:
+                            try:
+                                downloaded.local_path.unlink(missing_ok=True)
+                            except Exception:
+                                pass
+                        count_processed += 1
+                        continue
                     _record_processed(
                         manifest,
                         remote_name,
@@ -199,10 +310,25 @@ class Command(BaseCommand):
                             "model": import_result.model_name,
                             "rows_read": import_result.rows_read,
                             "rows_inserted": import_result.rows_inserted,
+                            "skipped_due_to_duplicates": False,
                         },
                     )
                     _save_manifest(staging_dir, manifest)
-                    processed.append({"remote": remote_name, "local": str(downloaded.local_path), "sha256": downloaded.sha256})
+                    processed.append(
+                        {
+                            "remote": remote_name,
+                            "local": str(downloaded.local_path),
+                            "sha256": downloaded.sha256,
+                            "model": import_result.model_name,
+                            "rows_read": import_result.rows_read,
+                            "rows_inserted": import_result.rows_inserted,
+                        }
+                    )
+                    if not keep_local:
+                        try:
+                            downloaded.local_path.unlink(missing_ok=True)
+                        except Exception:
+                            pass
                     count_processed += 1
                 except Exception as exc:
                     errors.append({"remote": remote_name, "error": str(exc)})

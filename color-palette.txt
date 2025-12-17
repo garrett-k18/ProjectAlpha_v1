@@ -34,9 +34,9 @@ Light Gray: #E9ECEF
 Description: Subtle backgrounds and borders
 Usage: Card borders, subtle section backgrounds, dividers
 
-Off-White: #F8F9FA
-Description: Main page background
-Usage: Primary page background, light sections
+Off-White Beige: #EDE7E1
+Description: Warm beige-tinted background for main page
+Usage: Primary page background, light sections, warm neutral base
 
 Pure White: #FFFFFF
 Description: Pure white for maximum contrast
@@ -86,23 +86,23 @@ Emerald: #16A085
 Description: Active/performing indicator
 Usage: Active loans, performing assets, current status
 
-Mint: #48C774
-Description: New/fresh indicator
+Sage Green: #6B8E6B
+Description: Muted green for new/fresh indicator
 Usage: New items, fresh data, accepted proposals
 
 
 Warning/Caution States
 ----------------------
-Warning Amber: #F57C00
-Description: Primary warning indicator
+Warning Amber: #C97A3A
+Description: Muted amber for professional warning indicator
 Usage: Alerts, pending review, requires attention
 
 Gold: #D4AF37
-Description: Important/priority (matches primary accent)
-Usage: High priority items, VIP status, featured
+Description: Primary accent color (same as Accent Gold above)
+Usage: Primary buttons, featured items, key highlights (Note: Use Honey for status indicators to avoid confusion)
 
-Honey: #F9A825
-Description: Attention needed
+Honey: #C99A4F
+Description: Muted honey for attention needed
 Usage: Upcoming deadlines, needs action, review soon
 
 
@@ -116,8 +116,8 @@ Burgundy: #8B1538
 Description: Severe/urgent indicator
 Usage: Overdue, delinquent, foreclosure, severe issues
 
-Coral: #E74C3C
-Description: At-risk indicator
+Dusty Red: #B85A4F
+Description: Muted red for at-risk indicator
 Usage: At risk items, issues detected, problems
 
 
@@ -127,12 +127,12 @@ Info Teal: #00796B
 Description: General informational indicator
 Usage: General info, in progress, processing
 
-Sky Blue: #039BE5
-Description: Documentation/reference indicator
+Steel Teal: #4A7A8A
+Description: Muted blue-teal for documentation/reference
 Usage: Documentation, reference materials, info pages
 
-Cyan: #00ACC1
-Description: Processing indicator
+Slate Teal: #5A8A95
+Description: Muted teal for processing indicator
 Usage: Processing, updating, syncing, loading
 
 
@@ -153,16 +153,16 @@ Usage: Disabled, unavailable, not applicable
 
 Special Process States
 ----------------------
-Purple: #7B1FA2
-Description: Under review indicator
+Muted Plum: #6B5A7A
+Description: Professional plum for under review indicator
 Usage: Under review, legal process, in committee
 
 Indigo: #3F51B5
 Description: Compliance/verification indicator
 Usage: Compliance checks, verification needed, audit
 
-Lavender: #9575CD
-Description: Pending decision indicator
+Dusty Lavender: #8A7A9A
+Description: Muted lavender for pending decision indicator
 Usage: Pending decision, committee review, awaiting approval
 
 
@@ -176,8 +176,8 @@ Olive: #827717
 Description: Break-even indicator
 Usage: Break-even, neutral performance, stable
 
-Burnt Orange: #D84315
-Description: Loss/negative performance indicator
+Burnt Sienna: #B85A3A
+Description: Muted sienna for loss/negative performance indicator
 Usage: Losses, negative performance, underwater assets
 
 
@@ -187,9 +187,9 @@ STATUS COLOR USAGE EXAMPLES
 Asset Pipeline Stages
 ---------------------
 Modification: Info Teal (#00796B)
-Short Sale: Sky Blue (#039BE5)
+Short Sale: Steel Teal (#4A7A8A)
 Foreclosure: Burgundy (#8B1538)
-DIL (Deed in Lieu): Warning Amber (#F57C00)
+DIL (Deed in Lieu): Warning Amber (#C97A3A)
 REO Sale: Gold (#D4AF37)
 Note Sale: Emerald (#16A085)
 Liquidated: Success Green (#2E7D32)
@@ -198,8 +198,8 @@ Liquidated: Success Green (#2E7D32)
 Loan Performance Status
 -----------------------
 Performing: Success Green (#2E7D32)
-30 Days Late: Honey (#F9A825)
-60 Days Late: Warning Amber (#F57C00)
+30 Days Late: Honey (#C99A4F)
+60 Days Late: Warning Amber (#C97A3A)
 90+ Days Late: Error Red (#C62828)
 Default: Burgundy (#8B1538)
 REO: Medium Gray (#95A5A6)
@@ -207,11 +207,11 @@ REO: Medium Gray (#95A5A6)
 
 Document Status
 ---------------
-Received: Mint (#48C774)
-Under Review: Purple (#7B1FA2)
+Received: Sage Green (#6B8E6B)
+Under Review: Muted Plum (#6B5A7A)
 Approved: Success Green (#2E7D32)
 Rejected: Error Red (#C62828)
-Needs Information: Warning Amber (#F57C00)
+Needs Information: Warning Amber (#C97A3A)
 Archived: Cool Gray (#78909C)
 
 
@@ -228,7 +228,7 @@ Task Priority
 -------------
 Critical: Burgundy (#8B1538)
 High: Error Red (#C62828)
-Medium: Warning Amber (#F57C00)
+Medium: Warning Amber (#C97A3A)
 Low: Info Teal (#00796B)
 Completed: Success Green (#2E7D32)
 
@@ -261,7 +261,7 @@ Disabled Text: Soft Blue (#8BA8C9)
 
 Backgrounds
 -----------
-Page Background: Off-White (#F8F9FA)
+Page Background: Off-White Beige (#EDE7E1)
 Card Background: White (#FFFFFF)
 Sidebar: Navy (#1B3B5F)
 Highlighted Sections: Cream (#F5F3EE)
@@ -281,7 +281,7 @@ Primary: Gold (#D4AF37)
 Secondary: Steel Blue (#4A6FA5)
 Tertiary: Bronze (#CD7F32)
 Quaternary: Emerald (#16A085)
-Quinary: Burgundy (#7A4B57)
+Quinary: Burgundy (#8B1538)
 
 
 ACCESSIBILITY NOTES
@@ -310,7 +310,7 @@ CSS Variables (Recommended)
   --color-charcoal: #2C3E50;
   --color-slate: #6C757D;
   --color-light-gray: #E9ECEF;
-  --color-off-white: #F8F9FA;
+  --color-off-white: #EDE7E1;
   --color-white: #FFFFFF;
   
   /* Supporting Blues */
@@ -326,22 +326,22 @@ CSS Variables (Recommended)
   /* Status - Success */
   --color-success: #2E7D32;
   --color-emerald: #16A085;
-  --color-mint: #48C774;
+  --color-sage-green: #6B8E6B;
   
   /* Status - Warning */
-  --color-warning: #F57C00;
+  --color-warning: #C97A3A;
   --color-gold-status: #D4AF37;
-  --color-honey: #F9A825;
+  --color-honey: #C99A4F;
   
   /* Status - Error */
   --color-error: #C62828;
   --color-burgundy: #8B1538;
-  --color-coral: #E74C3C;
+  --color-dusty-red: #B85A4F;
   
   /* Status - Info */
   --color-info: #00796B;
-  --color-sky: #039BE5;
-  --color-cyan: #00ACC1;
+  --color-steel-teal: #4A7A8A;
+  --color-slate-teal: #5A8A95;
   
   /* Status - Neutral */
   --color-inactive: #95A5A6;
@@ -349,14 +349,14 @@ CSS Variables (Recommended)
   --color-disabled: #B0BEC5;
   
   /* Status - Special */
-  --color-review: #7B1FA2;
+  --color-review: #6B5A7A;
   --color-compliance: #3F51B5;
-  --color-pending: #9575CD;
+  --color-pending: #8A7A9A;
   
   /* Status - Financial */
   --color-profit: #1B5E20;
   --color-neutral: #827717;
-  --color-loss: #D84315;
+  --color-loss: #B85A3A;
 }
 
 
@@ -372,7 +372,7 @@ COLOR_PALETTE = {
 
 STATUS_COLORS = {
     'completed': '#2E7D32',
-    'pending': '#F57C00',
+    'pending': '#C97A3A',
     'error': '#C62828',
     # ... (add all status colors as needed)
 }

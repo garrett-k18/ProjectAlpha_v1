@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -8,7 +9,7 @@ from typing import Any, Dict, Iterable, Optional, Tuple, Type
 
 import pandas as pd
 from django.core.management.base import BaseCommand, CommandError
-from django.db import transaction
+from django.db import IntegrityError, transaction
 
 from etl.models import (
     SBDailyArmData,
@@ -19,7 +20,6 @@ from etl.models import (
     SBDailyPayHistoryData,
     SBDailyTransactionData,
 )
-from etl.services.services_sellerTapeImport.serv_etl_file_processor import FileProcessor
 
 
 @dataclass(frozen=True)
@@ -27,6 +27,7 @@ class ImportResult:
     model_name: str
     rows_read: int
     rows_inserted: int
+    skipped_due_to_duplicates: bool = False
 
 
 def _normalize_header(value: str) -> str:
@@ -44,8 +45,31 @@ def _to_str_or_none(value: Any) -> Optional[str]:
         return None
     if pd.isna(value):
         return None
-    s = str(value).strip()
-    return s if s else None
+    return str(value)
+
+
+def _read_statebridge_dataframe(file_path: Path) -> pd.DataFrame:
+    suffix = file_path.suffix.lower()
+    if suffix in {".xlsx", ".xls"}:
+        engine = "openpyxl" if suffix == ".xlsx" else "xlrd"
+        return pd.read_excel(
+            file_path,
+            sheet_name=0,
+            dtype=str,
+            engine=engine,
+            keep_default_na=False,
+            na_values=[],
+        )
+
+    if suffix == ".csv":
+        return pd.read_csv(
+            file_path,
+            dtype=str,
+            keep_default_na=False,
+            na_values=[],
+        )
+
+    raise ValueError(f"Unsupported StateBridge file extension: {suffix}")
 
 
 def _extract_file_date_iso(filename: str) -> Optional[str]:
@@ -114,12 +138,6 @@ def _df_to_model_instances(
         rows_read += 1
         kwargs: Dict[str, Any] = {}
 
-        if model is SBDailyArmData:
-            raw_payload: Dict[str, Any] = {}
-            for col in df.columns.tolist():
-                raw_payload[str(col)] = _to_str_or_none(row.get(col))
-            kwargs["row_data"] = raw_payload
-
         for norm_key, original_col in column_map.items():
             model_field = normalized_to_model_field.get(norm_key)
             if not model_field:
@@ -150,8 +168,7 @@ def import_statebridge_file(
     kind = _infer_kind_from_filename(filename)
     model = _model_for_kind(kind)
 
-    processor = FileProcessor(file_path)
-    df = processor.read(sheet=0, skip_rows=0)
+    df = _read_statebridge_dataframe(file_path)
 
     instances, rows_read = _df_to_model_instances(df, model, filename)
 
@@ -159,13 +176,25 @@ def import_statebridge_file(
         return ImportResult(model_name=model.__name__, rows_read=rows_read, rows_inserted=0)
 
     total_inserted = 0
-    with transaction.atomic():
-        for start in range(0, len(instances), batch_size):
-            chunk = instances[start : start + batch_size]
-            model.objects.bulk_create(chunk, batch_size=len(chunk))
-            total_inserted += len(chunk)
+    try:
+        with transaction.atomic():
+            for start in range(0, len(instances), batch_size):
+                chunk = instances[start : start + batch_size]
+                model.objects.bulk_create(chunk, batch_size=len(chunk))
+                total_inserted += len(chunk)
+    except IntegrityError:
+        return ImportResult(
+            model_name=model.__name__,
+            rows_read=rows_read,
+            rows_inserted=0,
+            skipped_due_to_duplicates=True,
+        )
 
-    return ImportResult(model_name=model.__name__, rows_read=rows_read, rows_inserted=total_inserted)
+    return ImportResult(
+        model_name=model.__name__,
+        rows_read=rows_read,
+        rows_inserted=total_inserted,
+    )
 
 
 class Command(BaseCommand):
@@ -189,6 +218,7 @@ class Command(BaseCommand):
             "model": result.model_name,
             "rows_read": result.rows_read,
             "rows_inserted": result.rows_inserted,
+            "skipped_due_to_duplicates": result.skipped_due_to_duplicates,
             "dry_run": dry_run,
         }
         self.stdout.write(json.dumps(payload, indent=2))

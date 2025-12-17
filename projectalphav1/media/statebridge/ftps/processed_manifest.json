@@ -1,0 +1,52 @@
+{
+  "files": {
+    "FirstLienCapital_ARMData_20251112.xlsx": {
+      "bytes": 6887,
+      "downloaded_at": 1765941000,
+      "model": "SBDailyArmData",
+      "remote_dir": "/FirstLienCapital/To_FirstLienCapital",
+      "rows_inserted": 8,
+      "rows_read": 8,
+      "sha256": "6bae6392ad5900657585ab7a261419a31044657959f5692141fd31fd995f5328"
+    },
+    "FirstLienCapital_ARMData_20251113.xlsx": {
+      "bytes": 6887,
+      "downloaded_at": 1765942785,
+      "model": "SBDailyArmData",
+      "remote_dir": "/FirstLienCapital/To_FirstLienCapital",
+      "rows_inserted": 8,
+      "rows_read": 8,
+      "sha256": "fa545f330588da0a251a9068465fd304d628b6b949d71c5c21d724e1f039fb06"
+    },
+    "FirstLienCapital_ARMData_20251114.xlsx": {
+      "bytes": 6887,
+      "downloaded_at": 1765997052,
+      "model": "SBDailyArmData",
+      "remote_dir": "/FirstLienCapital/To_FirstLienCapital",
+      "rows_inserted": 8,
+      "rows_read": 8,
+      "sha256": "1cfda5c37b67e9d037fe6ae9a6d878ab9fe1f349c14fb0fd382cf60dcf0e1690",
+      "skipped_due_to_duplicates": false
+    },
+    "FirstLienCapital_ARMData_20251117.xlsx": {
+      "bytes": 6887,
+      "downloaded_at": 1765997053,
+      "model": "SBDailyArmData",
+      "remote_dir": "/FirstLienCapital/To_FirstLienCapital",
+      "rows_inserted": 8,
+      "rows_read": 8,
+      "sha256": "44797618c120ab5dd20e92c314d3ec52668ccb33bdda3e21b0bcc9509f17989a",
+      "skipped_due_to_duplicates": false
+    },
+    "FirstLienCapital_LoanData_20251216.xlsx": {
+      "bytes": 839544,
+      "downloaded_at": 1765997574,
+      "model": "SBDailyLoanData",
+      "remote_dir": "/FirstLienCapital/To_FirstLienCapital",
+      "rows_inserted": 839,
+      "rows_read": 839,
+      "sha256": "2a450c4ead7b36036196e64a203be2237f91ace4cf5a6d2028259b67a63c235c",
+      "skipped_due_to_duplicates": false
+    }
+  }
+}
