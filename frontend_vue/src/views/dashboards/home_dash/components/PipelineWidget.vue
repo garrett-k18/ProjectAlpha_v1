@@ -437,7 +437,7 @@ export default defineComponent({
 }
 
 .nav-bordered .nav-link.active {
-  border-color: #dee2e6 #dee2e6 #fff;
-  background-color: #fff;
+  border-color: #dee2e6 #dee2e6 #FDFBF7;
+  background-color: #FDFBF7;
 }
 </style>

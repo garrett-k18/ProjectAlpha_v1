@@ -129,7 +129,7 @@
           v-model:content="editorHtml"
           :toolbar="toolbarBubble"
           placeholder="Type your note here..."
-          style="min-height: 150px; background: white; border: 1px solid #dee2e6; border-radius: 4px; padding: 0.75rem;"
+          style="min-height: 150px; background: #FDFBF7; border: 1px solid #dee2e6; border-radius: 4px; padding: 0.75rem;"
         />
       </div>
 

@@ -1345,7 +1345,7 @@ onBeforeUnmount(() => {
 
 /* Header Card */
 .header-card {
-  background: white;
+  background: #FDFBF7;
   border-radius: 0.375rem;
   padding: 1.25rem;
   box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
@@ -1359,7 +1359,8 @@ onBeforeUnmount(() => {
 .followup-trigger {
   position: absolute;
   right: 1rem;
-  top: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 .followup-item {
@@ -1431,10 +1432,12 @@ onBeforeUnmount(() => {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 1rem;
+  background-color: transparent;
+  align-items: stretch; /* Make all cards same height */
 }
 
 .kpi-card {
-  background: white;
+  background: #FDFBF7;
   border-radius: 0.375rem;
   padding: 1rem;
   display: flex;
@@ -1443,6 +1446,8 @@ onBeforeUnmount(() => {
   gap: 1rem;
   min-height: 110px;
   box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  height: 100%; /* Fill grid cell height */
+  min-width: 0; /* Allow grid items to shrink below content width */
 }
 
 .kpi-main {
@@ -1489,15 +1494,28 @@ onBeforeUnmount(() => {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 1rem;
+  background-color: transparent;
+  align-items: stretch; /* Make all cards same height */
 }
 
 .activity-widget {
   min-height: 280px;
+  height: 100%; /* Fill grid cell height */
+  display: flex;
+  flex-direction: column; /* Allow content to flow vertically */
+  min-width: 0; /* Allow grid items to shrink below content width */
+  overflow: hidden; /* Prevent content from breaking layout */
+}
+
+/* Ensure child components can also shrink */
+.activity-widget > * {
+  min-width: 0;
+  width: 100%;
 }
 
 /* Track Card */
 .track-card {
-  background: white;
+  background: #FDFBF7;
   border-radius: 0.375rem;
   overflow: hidden;
   box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
@@ -1553,7 +1571,7 @@ onBeforeUnmount(() => {
 }
 
 .track-button {
-  background: white;
+  background: #FDFBF7;
   border: 1px solid #0d6efd;
   color: #0d6efd;
   padding: 0.375rem 0.75rem; /* Symmetric padding */
@@ -1590,7 +1608,7 @@ onBeforeUnmount(() => {
   position: absolute;
   right: 0;
   top: calc(100% + 0.25rem);
-  background: white;
+  background: #FDFBF7;
   border: 1px solid #dee2e6;
   border-radius: 0.375rem;
   box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);

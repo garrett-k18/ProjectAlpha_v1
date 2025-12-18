@@ -703,7 +703,7 @@ defineExpose({
   right: 20px;
   bottom: 20px;
   z-index: 1050;
-  background: #fff;
+  background: #FDFBF7;
   padding: 1rem;
   border-radius: 0.5rem;
   box-shadow: 0 0 20px rgba(0, 0, 0, 0.15);

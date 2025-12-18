@@ -459,6 +459,42 @@ watch(() => props.assetHubId, (newId) => {
   overflow-x: auto;
   overflow-y: auto;
   position: relative;
+  
+  /* WHAT: AG Grid Quartz theme scrollbar styling - minimal and subtle */
+  /* WHY: Match the AG Grid appearance used throughout the app for consistency */
+  /* HOW: Ultra-thin scrollbars with very subtle colors, matching AG Grid Quartz defaults */
+  
+  /* Firefox scrollbar styling - match AG Grid thin appearance */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent; /* Gray thumb, transparent track */
+  
+  /* Webkit scrollbar styling (Chrome, Safari, Edge) - match AG Grid Quartz */
+  &::-webkit-scrollbar {
+    width: 6px; /* Very thin vertical scrollbar (AG Grid uses 6px) */
+    height: 6px; /* Very thin horizontal scrollbar */
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: transparent; /* No track background (AG Grid style) */
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2); /* Subtle gray thumb */
+    border-radius: 3px; /* Slight rounding */
+  }
+  
+  &::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.3); /* Slightly darker on hover */
+  }
+  
+  &::-webkit-scrollbar-thumb:active {
+    background: rgba(0, 0, 0, 0.4); /* Darker when dragging */
+  }
+  
+  /* WHAT: Hide scrollbar corner (where horizontal and vertical meet) */
+  &::-webkit-scrollbar-corner {
+    background: transparent;
+  }
 }
 
 .cash-flow-table {
@@ -507,7 +543,7 @@ watch(() => props.assetHubId, (newId) => {
   position: sticky;
   left: 0;
   z-index: 5;
-  background-color: white;
+  background-color: #FDFBF7;
   border-right: 2px solid #dee2e6 !important;
   box-shadow: 2px 0 5px rgba(0,0,0,0.1);
 }
@@ -517,7 +553,7 @@ watch(() => props.assetHubId, (newId) => {
 }
 
 .cash-flow-table tbody .sticky-col {
-  background-color: white !important;
+  background-color: #FDFBF7 !important;
 }
 
 .line-item-col {
@@ -553,7 +589,7 @@ tbody tr:last-child .current-period {
 }
 
 .section-header .sticky-col {
-  background-color: white !important;
+  background-color: #FDFBF7 !important;
 }
 
 .clickable {

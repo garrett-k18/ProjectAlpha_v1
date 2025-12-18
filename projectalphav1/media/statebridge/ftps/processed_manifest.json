@@ -38,6 +38,37 @@
       "sha256": "44797618c120ab5dd20e92c314d3ec52668ccb33bdda3e21b0bcc9509f17989a",
       "skipped_due_to_duplicates": false
     },
+    "FirstLienCapital_BankruptcyData_20251216.xlsx": {
+      "bytes": 6488,
+      "downloaded_at": 1765998139,
+      "model": "SBDailyBankruptcyData",
+      "remote_dir": "/FirstLienCapital/To_FirstLienCapital",
+      "rows_inserted": 1,
+      "rows_read": 1,
+      "sha256": "18d706c0a59d4dd09b93e5409a898ad69dc277a5b40bd19cd1ed8b12cb4d7039",
+      "skipped_due_to_duplicates": false
+    },
+    "FirstLienCapital_CommentData_20251216.xlsx": {
+      "bytes": 14264,
+      "downloaded_at": 1766006323,
+      "model": "SBDailyCommentData",
+      "remote_dir": "/FirstLienCapital/To_FirstLienCapital",
+      "rows_inserted": 127,
+      "rows_read": 127,
+      "sha256": "88c0a78dd0caace01d677f14760413f6ebf36cc557c83f13e0a7cd3170027b91",
+      "skip_report": null,
+      "skipped_due_to_duplicates": false
+    },
+    "FirstLienCapital_ForeclosureData_20251216.xlsx": {
+      "bytes": 45897,
+      "downloaded_at": 1765998104,
+      "model": "SBDailyForeclosureData",
+      "remote_dir": "/FirstLienCapital/To_FirstLienCapital",
+      "rows_inserted": 119,
+      "rows_read": 119,
+      "sha256": "9517c4ea36c5b670c561d74d51dbfbbd53337015f1155881d35fcdf3964f68ec",
+      "skipped_due_to_duplicates": false
+    },
     "FirstLienCapital_LoanData_20251216.xlsx": {
       "bytes": 839544,
       "downloaded_at": 1765997574,
@@ -46,6 +77,28 @@
       "rows_inserted": 839,
       "rows_read": 839,
       "sha256": "2a450c4ead7b36036196e64a203be2237f91ace4cf5a6d2028259b67a63c235c",
+      "skipped_due_to_duplicates": false
+    },
+    "FirstLienCapital_PayHistoryReport_20251216.xlsx": {
+      "bytes": 89674,
+      "downloaded_at": 1766007028,
+      "model": "SBDailyPayHistoryData",
+      "remote_dir": "/FirstLienCapital/To_FirstLienCapital",
+      "rows_inserted": 197,
+      "rows_read": 197,
+      "sha256": "3425d7a66cff44d2f27f055c29aef51fc9f3a9392a0a9321265865b45d8e4e19",
+      "skip_report": null,
+      "skipped_due_to_duplicates": false
+    },
+    "FirstLienCapital_TransactionData_20251216.xlsx": {
+      "bytes": 19089,
+      "downloaded_at": 1766007057,
+      "model": "SBDailyTransactionData",
+      "remote_dir": "/FirstLienCapital/To_FirstLienCapital",
+      "rows_inserted": 74,
+      "rows_read": 127,
+      "sha256": "bbd21ac6295cd06bf9780dc08af23c63726964defc13ea046a815a7ebd0ba8dd",
+      "skip_report": null,
       "skipped_due_to_duplicates": false
     }
   }

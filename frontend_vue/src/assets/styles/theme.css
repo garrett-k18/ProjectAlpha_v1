@@ -11,6 +11,17 @@
   /* Radii */
   --am-radius-sm: 0.25rem;
   --am-radius-md: 0.5rem;
+
+  /* AG Grid Theme Customization - Match ProjectAlpha Color Palette */
+  /* Override AG Grid Quartz theme defaults with warm, professional colors */
+  --ag-background-color: #FDFBF7; /* Warm White - matches card backgrounds */
+  --ag-header-background-color: #EDE7E1; /* Off-White Beige - matches page background */
+  --ag-odd-row-background-color: #FDFBF7; /* Warm White */
+  --ag-row-hover-color: #F5F3EE; /* Cream - subtle hover */
+  --ag-selected-row-background-color: #F5F3EE; /* Cream - selected rows */
+  --ag-border-color: #E9ECEF; /* Light Gray - subtle borders */
+  --ag-header-foreground-color: #2C3E50; /* Charcoal - header text */
+  --ag-foreground-color: #6c757d; /* Slate Gray - body text */
 }
 
 /* Compact form helpers (use sparingly; prefer Bootstrap utilities first) */
@@ -24,4 +35,200 @@
 /* KPI number style: black text by default (icons keep their color) */
 .am-kpi-number {
   color: #000 !important;
+}
+
+/* Global override for hardcoded white backgrounds to match warm theme */
+/* This ensures all cards, modals, and components use the warm card color */
+.bg-white,
+.modal-content,
+.product-details-content,
+.card:not([class*="bg-"]):not([style*="background"]) {
+  background-color: #FDFBF7 !important;
+}
+
+/* Ensure modal dialogs use warm backgrounds */
+.modal-content.bg-body {
+  background-color: #FDFBF7 !important;
+}
+
+/* Override inline white backgrounds in components */
+[style*="background: white"],
+[style*="background-color: white"],
+[style*="background-color: #fff"],
+[style*="background-color:#fff"] {
+  background-color: #FDFBF7 !important;
+}
+
+/* Override scoped component styles - KPI cards, activity widgets, etc. */
+.kpi-card,
+.activity-widget,
+.header-card,
+[class*="kpi-card"],
+[class*="activity-widget"] {
+  background-color: #FDFBF7 !important;
+}
+
+/* KPI and Activity container rows - transparent to show page background */
+.kpi-cards-row,
+.activity-widgets-row,
+[class*="kpi-cards-row"],
+[class*="activity-widgets-row"] {
+  background-color: transparent !important;
+}
+
+/* Override any div with data-v-* attributes that have white backgrounds */
+div[class*="card"][data-v-],
+div[class*="widget"][data-v-] {
+  background-color: #FDFBF7 !important;
+}
+
+/* Modal Headers - Primary Navy with White Text */
+.modal-header {
+  background-color: #1B3B5F !important;
+  color: #ffffff !important;
+  border-bottom: 1px solid #E9ECEF !important;
+}
+
+/* Ensure modal header text and buttons are white - override text-body class */
+.modal-content .modal-header,
+.modal-content.text-body .modal-header,
+.modal-header *,
+.modal-header .modal-title,
+.modal-header h1,
+.modal-header h2,
+.modal-header h3,
+.modal-header h4,
+.modal-header h5,
+.modal-header h6,
+.modal-header span,
+.modal-header div {
+  color: #ffffff !important;
+}
+
+/* Modal close button - white on navy */
+.modal-header .btn-close {
+  filter: brightness(0) invert(1) !important;
+  opacity: 0.8;
+}
+
+.modal-header .btn-close:hover {
+  opacity: 1;
+}
+
+/* Buttons in modal header - Gold outline for elegant contrast */
+.modal-header .btn,
+.modal-header .btn-primary,
+.modal-header .btn-sm {
+  background-color: transparent !important; /* Transparent background */
+  color: #D4AF37 !important; /* Gold text */
+  border: 1px solid #D4AF37 !important; /* Gold outline */
+  font-weight: 500;
+}
+
+.modal-header .btn:hover,
+.modal-header .btn-primary:hover {
+  background-color: rgba(212, 175, 55, 0.15) !important; /* Subtle gold tint on hover */
+  border-color: #D4AF37 !important;
+  color: #D4AF37 !important;
+  box-shadow: 0 2px 6px rgba(212, 175, 55, 0.3) !important; /* Gold glow on hover */
+}
+
+/* Primary Buttons - Gold background with White text */
+.btn-primary {
+  background-color: #D4AF37 !important; /* Gold background */
+  color: #ffffff !important; /* White text */
+  border: 1px solid #D4AF37 !important; /* Gold border */
+  font-weight: 500;
+}
+
+.btn-primary:hover,
+.btn-primary:focus,
+.btn-primary:active {
+  background-color: #C29D2F !important; /* Darker gold on hover */
+  color: #ffffff !important; /* White text */
+  border-color: #C29D2F !important;
+  box-shadow: 0 2px 6px rgba(212, 175, 55, 0.4) !important;
+}
+
+/* Outline Primary Buttons - Gold background with White text */
+.btn-outline-primary,
+.track-button {
+  background-color: #D4AF37 !important; /* Gold background */
+  color: #ffffff !important; /* White text */
+  border: 1px solid #D4AF37 !important; /* Gold border */
+  font-weight: 500;
+}
+
+.btn-outline-primary:hover,
+.track-button:hover {
+  background-color: #C29D2F !important; /* Darker gold on hover */
+  color: #ffffff !important; /* White text */
+  border-color: #C29D2F !important;
+  box-shadow: 0 2px 6px rgba(212, 175, 55, 0.4) !important;
+}
+
+/* Tab Styling - Subtle gold underline for active, lighter beige tab bar */
+/* Inactive tabs: Slightly lighter beige background */
+.nav-tabs .nav-link:not(.active),
+.nav-tabs.nav-bordered .nav-link:not(.active),
+.modal-content .nav-tabs .nav-link:not(.active),
+.modal-content .nav-bordered .nav-link:not(.active) {
+  background-color: #F5F3EE !important; /* Cream - slightly lighter than page */
+  color: #6c757d !important; /* Slate Gray text */
+  border: 0 !important;
+  border-bottom: 2px solid transparent !important;
+}
+
+/* Tab bar background - slightly lighter beige */
+.nav-tabs.nav-bordered,
+.modal-content .nav-tabs.nav-bordered,
+.nav-tabs,
+.modal-content .nav-tabs {
+  background-color: #F5F3EE !important; /* Cream - lighter than page background */
+  border-bottom: 2px solid #E9ECEF !important; /* Light gray underline */
+  padding: 0.5rem 0.5rem 0 0.5rem !important;
+  border-radius: 0.25rem 0.25rem 0 0 !important;
+}
+
+/* Hover state - slightly darker */
+.nav-tabs .nav-link:not(.active):hover,
+.nav-tabs.nav-bordered .nav-link:not(.active):hover,
+.modal-content .nav-tabs .nav-link:not(.active):hover,
+.modal-content .nav-bordered .nav-link:not(.active):hover {
+  background-color: #FDFBF7 !important; /* Warm White on hover */
+  color: #2C3E50 !important; /* Charcoal text */
+}
+
+/* Active tab - Subtle gold underline with gold text */
+.nav-tabs .nav-link.active,
+.nav-tabs.nav-bordered .nav-link.active,
+.modal-content .nav-tabs .nav-link.active,
+.modal-content .nav-bordered .nav-link.active {
+  background-color: #FDFBF7 !important; /* Warm White background */
+  color: #D4AF37 !important; /* Gold text for emphasis */
+  border: 0 !important;
+  border-bottom: 3px solid #D4AF37 !important; /* Gold underline - subtle accent */
+  font-weight: 700 !important; /* Bold text */
+}
+
+/* Additional specificity for nav-bordered */
+.nav-bordered .nav-link:not(.active) {
+  background-color: #F5F3EE !important;
+  color: #6c757d !important;
+  border: 0 !important;
+  font-weight: 400 !important; /* Normal weight for inactive */
+}
+
+.nav-bordered .nav-link:not(.active):hover {
+  background-color: #FDFBF7 !important;
+  color: #2C3E50 !important;
+  font-weight: 500 !important; /* Medium weight on hover */
+}
+
+.nav-bordered .nav-link.active {
+  background-color: #FDFBF7 !important;
+  color: #D4AF37 !important; /* Gold text */
+  border: 0 !important;
+  border-bottom: 3px solid #D4AF37 !important; /* Gold underline */
+  font-weight: 700 !important; /* Bold text */
 }

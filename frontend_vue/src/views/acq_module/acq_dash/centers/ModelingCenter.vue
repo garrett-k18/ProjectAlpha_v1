@@ -185,35 +185,41 @@
               <!-- Filters Row -->
               <div class="d-flex align-items-center justify-content-between mb-3">
                 <div class="d-flex align-items-center gap-3">
-                  <!-- Model Type Filter -->
+                  <!-- Model Type Filter - Tab Style -->
                   <div class="d-flex align-items-center gap-2">
                     <span class="fw-semibold text-muted small">Model Type:</span>
-                    <div class="btn-group btn-group-sm" role="group">
-                      <button
-                        type="button"
-                        class="btn"
-                        :class="modelFilter === 'all' ? 'btn-primary' : 'btn-outline-primary'"
-                        @click="modelFilter = 'all'"
-                      >
-                        All
-                      </button>
-                      <button
-                        type="button"
-                        class="btn"
-                        :class="modelFilter === 'fc_sale' ? 'btn-primary' : 'btn-outline-primary'"
-                        @click="modelFilter = 'fc_sale'"
-                      >
-                        FC Sale
-                      </button>
-                      <button
-                        type="button"
-                        class="btn"
-                        :class="modelFilter === 'reo_sale' ? 'btn-primary' : 'btn-outline-primary'"
-                        @click="modelFilter = 'reo_sale'"
-                      >
-                        REO Sale
-                      </button>
-                    </div>
+                    <ul class="nav nav-tabs nav-bordered mb-0" role="tablist" style="border-bottom-width: 2px;">
+                      <li class="nav-item" role="presentation">
+                        <button
+                          type="button"
+                          class="nav-link"
+                          :class="{ active: modelFilter === 'all' }"
+                          @click="modelFilter = 'all'"
+                        >
+                          All
+                        </button>
+                      </li>
+                      <li class="nav-item" role="presentation">
+                        <button
+                          type="button"
+                          class="nav-link"
+                          :class="{ active: modelFilter === 'fc_sale' }"
+                          @click="modelFilter = 'fc_sale'"
+                        >
+                          FC Sale
+                        </button>
+                      </li>
+                      <li class="nav-item" role="presentation">
+                        <button
+                          type="button"
+                          class="nav-link"
+                          :class="{ active: modelFilter === 'reo_sale' }"
+                          @click="modelFilter = 'reo_sale'"
+                        >
+                          REO Sale
+                        </button>
+                      </li>
+                    </ul>
                   </div>
 
                 </div>

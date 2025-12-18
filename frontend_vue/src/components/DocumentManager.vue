@@ -474,7 +474,7 @@ h3 {
 
 .search-results li {
   padding: 8px;
-  background: white;
+  background: #FDFBF7;
   margin-bottom: 5px;
   border-radius: 4px;
   border: 1px solid #ddd;
@@ -494,7 +494,7 @@ h3 {
 }
 
 .modal-content {
-  background: white;
+  background: #FDFBF7;
   padding: 30px;
   border-radius: 8px;
   max-width: 500px;

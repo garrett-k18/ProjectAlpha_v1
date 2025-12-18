@@ -180,7 +180,7 @@
               title="Open full page (Ctrl + Enter)"
               aria-label="Open full page"
             >
-              Full Page <span class="text-white-50">(Ctrl + Enter)</span>
+              ⤢ Full Page
             </button>
           </div>
         </div>

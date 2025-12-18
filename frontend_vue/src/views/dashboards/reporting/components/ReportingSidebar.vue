@@ -467,7 +467,7 @@ function changeView(viewName: string): void {
   left: 0;
   right: 0;
   z-index: 1000;
-  background-color: white;
+  background-color: #FDFBF7;
   border: 1px solid #dee2e6;
   border-radius: 0.25rem;
   box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);

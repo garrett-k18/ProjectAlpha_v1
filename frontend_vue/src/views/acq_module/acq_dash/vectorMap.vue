@@ -425,7 +425,7 @@ export default {
 /* WHAT: Style the tooltip container for a modern, polished look */
 /* WHY: Make tooltips more visually appealing and easier to read */
 #acq-vector-map :deep(.jvectormap-tip) {
-  background-color: #ffffff !important;
+  background-color: #FDFBF7 !important;
   border: 1px solid #e5e7eb !important;
   border-radius: 8px !important;
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 

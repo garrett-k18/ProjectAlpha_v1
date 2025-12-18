@@ -3,7 +3,15 @@ from django.contrib import admin
 # from am_module.models.boarded_data import SellerBoardedData, BlendedOutcomeModel
 # from am_module.models.asset_metrics import AssetMetrics
 from am_module.models.boarded_data import BlendedOutcomeModel  # Keep only BlendedOutcomeModel (not deprecated)
-from am_module.models.servicers import ServicerLoanData
+from am_module.models.servicers import (
+    ServicerArmData,
+    ServicerBankruptcyData,
+    ServicerCommentData,
+    ServicerForeclosureData,
+    ServicerLoanData,
+    ServicerPayHistoryData,
+    ServicerTransactionData,
+)
 from am_module.models.model_am_amData import (
     AMMetrics, AuditLog, AssetCRMContact,
     AMNote, REOData, FCSale, DIL, ShortSale, Modification, NoteSale,
@@ -160,6 +168,180 @@ class ServicerLoanDataAdmin(admin.ModelAdmin):
         return "N/A"
     
     reporting_period.short_description = "Period"
+
+
+@admin.register(ServicerForeclosureData)
+class ServicerForeclosureDataAdmin(admin.ModelAdmin):
+    list_display = (
+        'asset_hub',
+        'file_date',
+        'loan_id',
+        'prim_stat',
+        'legal_status',
+        'scheduled_fc_sale_date',
+        'actual_fc_sale_date',
+    )
+    list_filter = ('file_date', 'prim_stat', 'legal_status', 'property_state')
+    search_fields = (
+        'loan_id',
+        'borrower_name',
+        'asset_hub__sellertape_id',
+        'asset_hub__servicer_id',
+        'asset_hub__am_boarded__street_address',
+        'asset_hub__am_boarded__city',
+        'asset_hub__am_boarded__state',
+    )
+    readonly_fields = ('created_at', 'updated_at')
+    ordering = ('-id',)
+    list_select_related = ('asset_hub',)
+    list_per_page = 25
+
+
+@admin.register(ServicerBankruptcyData)
+class ServicerBankruptcyDataAdmin(admin.ModelAdmin):
+    list_display = (
+        'asset_hub',
+        'file_date',
+        'loan_id',
+        'chapter',
+        'case_number',
+        'bankruptcy_status',
+        'bk_filed_date',
+    )
+    list_filter = ('file_date', 'chapter', 'bankruptcy_status', 'state_filed')
+    search_fields = (
+        'loan_id',
+        'case_number',
+        'filing_borrower',
+        'asset_hub__sellertape_id',
+        'asset_hub__servicer_id',
+        'asset_hub__am_boarded__street_address',
+        'asset_hub__am_boarded__city',
+        'asset_hub__am_boarded__state',
+    )
+    readonly_fields = ('created_at', 'updated_at')
+    ordering = ('-id',)
+    list_select_related = ('asset_hub',)
+    list_per_page = 25
+
+
+@admin.register(ServicerCommentData)
+class ServicerCommentDataAdmin(admin.ModelAdmin):
+    list_display = (
+        'asset_hub',
+        'file_date',
+        'loan_number',
+        'comment_date',
+        'department',
+        'row_hash',
+    )
+    list_filter = ('file_date', 'department')
+    search_fields = (
+        'loan_number',
+        'investor_loan_number',
+        'department',
+        'comment',
+        'additional_notes',
+        'asset_hub__sellertape_id',
+        'asset_hub__servicer_id',
+        'asset_hub__am_boarded__street_address',
+        'asset_hub__am_boarded__city',
+        'asset_hub__am_boarded__state',
+    )
+    readonly_fields = ('created_at', 'updated_at')
+    ordering = ('-id',)
+    list_select_related = ('asset_hub',)
+    list_per_page = 25
+
+
+@admin.register(ServicerPayHistoryData)
+class ServicerPayHistoryDataAdmin(admin.ModelAdmin):
+    list_display = (
+        'asset_hub',
+        'file_date',
+        'loan_number',
+        'next_payment_due_dt',
+        'last_full_payment_dt',
+        'fc_status',
+        'bk_status',
+        'current_upb',
+    )
+    list_filter = ('file_date', 'state', 'fc_status', 'bk_status', 'rate_type', 'lien')
+    search_fields = (
+        'loan_number',
+        'previous_ln_num',
+        'borrower_name',
+        'property_address',
+        'city',
+        'state',
+        'zip',
+        'asset_hub__sellertape_id',
+        'asset_hub__servicer_id',
+        'asset_hub__am_boarded__street_address',
+        'asset_hub__am_boarded__city',
+        'asset_hub__am_boarded__state',
+    )
+    readonly_fields = ('created_at', 'updated_at')
+    ordering = ('-id',)
+    list_select_related = ('asset_hub',)
+    list_per_page = 25
+
+
+@admin.register(ServicerTransactionData)
+class ServicerTransactionDataAdmin(admin.ModelAdmin):
+    list_display = (
+        'asset_hub',
+        'file_date',
+        'loan_id',
+        'loan_transaction_id',
+        'transaction_date',
+        'transaction_code',
+        'transaction_amt',
+    )
+    list_filter = ('file_date', 'transaction_code')
+    search_fields = (
+        'loan_id',
+        'loan_transaction_id',
+        'transaction_code',
+        'transaction_description',
+        'asset_hub__sellertape_id',
+        'asset_hub__servicer_id',
+        'asset_hub__am_boarded__street_address',
+        'asset_hub__am_boarded__city',
+        'asset_hub__am_boarded__state',
+    )
+    readonly_fields = ('created_at', 'updated_at')
+    ordering = ('-id',)
+    list_select_related = ('asset_hub',)
+    list_per_page = 25
+
+
+@admin.register(ServicerArmData)
+class ServicerArmDataAdmin(admin.ModelAdmin):
+    list_display = (
+        'asset_hub',
+        'file_date',
+        'loan_id',
+        'loan_number',
+        'investor_id',
+        'next_rate_chg_date',
+        'next_pichg_date',
+    )
+    list_filter = ('file_date', 'investor_id')
+    search_fields = (
+        'loan_id',
+        'loan_number',
+        'investor_id',
+        'asset_hub__sellertape_id',
+        'asset_hub__servicer_id',
+        'asset_hub__am_boarded__street_address',
+        'asset_hub__am_boarded__city',
+        'asset_hub__am_boarded__state',
+    )
+    readonly_fields = ('created_at', 'updated_at')
+    ordering = ('-id',)
+    list_select_related = ('asset_hub',)
+    list_per_page = 25
 
 
 @admin.register(REOtask)

@@ -671,6 +671,7 @@ class SBDailyCommentData(models.Model):
     department = models.CharField(max_length=50, null=True, blank=True)
     comment = models.CharField(max_length=4000, null=True, blank=True)
     additional_notes = models.CharField(max_length=4000, null=True, blank=True)
+    row_hash = models.CharField(max_length=64, null=True, blank=True)
 
     # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
@@ -694,8 +695,8 @@ class SBDailyCommentData(models.Model):
 
         constraints = [
             models.UniqueConstraint(
-                fields=["file_date", "loan_number", "comment_date", "department"],
-                name="uniq_comment_fdate_ln_cdt_dept",
+                fields=["file_date", "loan_number", "comment_date", "department", "row_hash"],
+                name="uniq_comment_fdate_ln_cdt_dept_hash",
                 condition=models.Q(file_date__isnull=False)
                 & ~models.Q(file_date="")
                 & models.Q(loan_number__isnull=False)
@@ -703,7 +704,9 @@ class SBDailyCommentData(models.Model):
                 & models.Q(comment_date__isnull=False)
                 & ~models.Q(comment_date="")
                 & models.Q(department__isnull=False)
-                & ~models.Q(department=""),
+                & ~models.Q(department="")
+                & models.Q(row_hash__isnull=False)
+                & ~models.Q(row_hash=""),
             ),
         ]
 

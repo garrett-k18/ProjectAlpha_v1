@@ -223,7 +223,6 @@ class ServicerLoanData(models.Model):
             models.Index(fields=['as_of_date']),
         ]
         constraints = [
-            # Ensure we don't have duplicate entries for the same asset in the same month/year
             models.UniqueConstraint(
                 fields=['asset_hub', 'reporting_year', 'reporting_month'],
                 name='unique_asset_reporting_period'
@@ -238,3 +237,458 @@ class ServicerLoanData(models.Model):
 
     def save(self, *args, **kwargs) -> None:  
         super().save(*args, **kwargs)
+
+
+class _ServicerBase(models.Model):
+    asset_hub = models.ForeignKey(
+        'core.AssetIdHub',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_%(class)s_records',
+    )
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='updated_%(class)s_records',
+    )
+
+    class Meta:
+        abstract = True
+
+
+class ServicerForeclosureData(_ServicerBase):
+    raw_source_snapshot = models.ForeignKey(
+        'etl.SBDailyForeclosureData',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='cleaned_records',
+    )
+
+    file_date = models.CharField(max_length=20, null=True, blank=True, db_index=True)
+    loan_id = models.CharField(max_length=50, null=True, blank=True, db_index=True)
+    investor_id = models.CharField(max_length=50, null=True, blank=True)
+    investor_loan_number = models.CharField(max_length=50, null=True, blank=True)
+    prior_servicer_loan_number = models.CharField(max_length=50, null=True, blank=True)
+    prior_servicer_name = models.CharField(max_length=100, null=True, blank=True)
+    prior_servicer_contact = models.CharField(max_length=100, null=True, blank=True)
+    prior_servicer_contact_phone = models.CharField(max_length=20, null=True, blank=True)
+    legal_status = models.CharField(max_length=50, null=True, blank=True)
+    prim_stat = models.CharField(max_length=50, null=True, blank=True)
+    warning = models.CharField(max_length=255, null=True, blank=True)
+    due_date = models.CharField(max_length=20, null=True, blank=True)
+    loan_type = models.CharField(max_length=50, null=True, blank=True)
+    original_loan_amount = models.CharField(max_length=50, null=True, blank=True)
+    current_upb = models.CharField(max_length=50, null=True, blank=True)
+    lien_position = models.CharField(max_length=10, null=True, blank=True)
+    borrower_name = models.CharField(max_length=200, null=True, blank=True)
+    borrower_first_name = models.CharField(max_length=100, null=True, blank=True)
+    borrower_last_name = models.CharField(max_length=100, null=True, blank=True)
+    borrower_deceased = models.CharField(max_length=10, null=True, blank=True)
+    property_state = models.CharField(max_length=2, null=True, blank=True)
+    property_zip = models.CharField(max_length=10, null=True, blank=True)
+    mortgage_asgmnt_complete_date = models.CharField(max_length=20, null=True, blank=True)
+    current_assignee = models.CharField(max_length=100, null=True, blank=True)
+    mi_insurance = models.CharField(max_length=10, null=True, blank=True)
+    mi_company_name = models.CharField(max_length=100, null=True, blank=True)
+    mi_claim_filed = models.CharField(max_length=10, null=True, blank=True)
+    mi_paid_amount = models.CharField(max_length=50, null=True, blank=True)
+    mi_claim_paid_date = models.CharField(max_length=20, null=True, blank=True)
+    bpo_date = models.CharField(max_length=20, null=True, blank=True)
+    bpo_as_is_value = models.CharField(max_length=50, null=True, blank=True)
+    bpo_repaired_value = models.CharField(max_length=50, null=True, blank=True)
+    occupancy_status = models.CharField(max_length=50, null=True, blank=True)
+    property_condition_from_inspection = models.CharField(max_length=255, null=True, blank=True)
+    date_inspection_completed = models.CharField(max_length=20, null=True, blank=True)
+    fc_attorney = models.CharField(max_length=100, null=True, blank=True)
+    last_atty_note_date = models.CharField(max_length=20, null=True, blank=True)
+    last_atty_note_topic = models.CharField(max_length=255, null=True, blank=True)
+    last_atty_note = models.CharField(max_length=1000, null=True, blank=True)
+    delinquent_taxes = models.CharField(max_length=10, null=True, blank=True)
+    title_issue = models.CharField(max_length=255, null=True, blank=True)
+    title_received = models.CharField(max_length=10, null=True, blank=True)
+    fc_specialist = models.CharField(max_length=100, null=True, blank=True)
+    date_breach_letter_sent = models.CharField(max_length=20, null=True, blank=True)
+    noi_expiration_date = models.CharField(max_length=20, null=True, blank=True)
+    original_fc_referral_date = models.CharField(max_length=20, null=True, blank=True)
+    date_referred_to_fc_atty = models.CharField(max_length=20, null=True, blank=True)
+    reason_for_default = models.CharField(max_length=255, null=True, blank=True)
+    is_a_contested_fc = models.CharField(max_length=10, null=True, blank=True)
+    current_fc_step = models.CharField(max_length=255, null=True, blank=True)
+    fc_step_completed_date = models.CharField(max_length=20, null=True, blank=True)
+    next_fc_step = models.CharField(max_length=255, null=True, blank=True)
+    next_fc_step_due_date = models.CharField(max_length=20, null=True, blank=True)
+    hold_start_date = models.CharField(max_length=20, null=True, blank=True)
+    hold_reason = models.CharField(max_length=255, null=True, blank=True)
+    hold_end_date = models.CharField(max_length=20, null=True, blank=True)
+    projected_fc_sale_date = models.CharField(max_length=20, null=True, blank=True)
+    scheduled_fc_sale_date = models.CharField(max_length=20, null=True, blank=True)
+    actual_fc_sale_date = models.CharField(max_length=20, null=True, blank=True)
+    bid_amount = models.CharField(max_length=50, null=True, blank=True)
+    sale_amount = models.CharField(max_length=50, null=True, blank=True)
+    sale_results = models.CharField(max_length=255, null=True, blank=True)
+    rrc_expired = models.CharField(max_length=10, null=True, blank=True)
+    fc_completion_date = models.CharField(max_length=20, null=True, blank=True)
+    deed_recorded = models.CharField(max_length=10, null=True, blank=True)
+    first_legal_action_date = models.CharField(max_length=20, null=True, blank=True)
+
+    class Meta:
+        db_table = 'am_servicer_foreclosure_data'
+        verbose_name = 'Servicer Foreclosure Data'
+        verbose_name_plural = 'Servicer Foreclosure Data'
+        indexes = [
+            models.Index(fields=['asset_hub']),
+            models.Index(fields=['file_date']),
+            models.Index(fields=['loan_id']),
+        ]
+
+
+class ServicerBankruptcyData(_ServicerBase):
+    raw_source_snapshot = models.ForeignKey(
+        'etl.SBDailyBankruptcyData',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='cleaned_records',
+    )
+
+    asset_manager = models.CharField(max_length=100, null=True, blank=True)
+    file_date = models.CharField(max_length=20, null=True, blank=True)
+    loan_id = models.CharField(max_length=50, null=True, blank=True, db_index=True)
+    investor_loan_id = models.CharField(max_length=50, null=True, blank=True)
+    previous_ln_num = models.CharField(max_length=50, null=True, blank=True)
+    acquisition_date = models.CharField(max_length=20, null=True, blank=True)
+    loan_due_date = models.CharField(max_length=20, null=True, blank=True)
+    mba = models.CharField(max_length=50, null=True, blank=True)
+    legal = models.CharField(max_length=50, null=True, blank=True)
+    warning = models.CharField(max_length=255, null=True, blank=True)
+    investor_id = models.CharField(max_length=50, null=True, blank=True)
+    chapter = models.CharField(max_length=20, null=True, blank=True)
+    case_number = models.CharField(max_length=50, null=True, blank=True)
+    bk_filed_date = models.CharField(max_length=20, null=True, blank=True)
+    state_filed = models.CharField(max_length=2, null=True, blank=True)
+    filing_court = models.CharField(max_length=255, null=True, blank=True)
+    filing_borrower = models.CharField(max_length=200, null=True, blank=True)
+    joint_filer = models.CharField(max_length=200, null=True, blank=True)
+    trustee_name = models.CharField(max_length=200, null=True, blank=True)
+    statebridge_atty_name = models.CharField(max_length=200, null=True, blank=True)
+    borrower_atty_name = models.CharField(max_length=200, null=True, blank=True)
+    bankruptcy_status = models.CharField(max_length=50, null=True, blank=True)
+    prepetition_claim_amt = models.CharField(max_length=50, null=True, blank=True)
+    active_plan = models.CharField(max_length=10, null=True, blank=True)
+    plan_start_date = models.CharField(max_length=20, null=True, blank=True)
+    pre_petition_payment = models.CharField(max_length=50, null=True, blank=True)
+    plan_length = models.CharField(max_length=20, null=True, blank=True)
+    projected_plan_end_date = models.CharField(max_length=20, null=True, blank=True)
+    actual_plan_completion_date = models.CharField(max_length=20, null=True, blank=True)
+    last_pre_petition_payment_rcvd_date = models.CharField(max_length=20, null=True, blank=True)
+    last_payment_applied = models.CharField(max_length=20, null=True, blank=True)
+    pre_petition_balance = models.CharField(max_length=50, null=True, blank=True)
+    stipulation_claim_amt = models.CharField(max_length=50, null=True, blank=True)
+    stipulation_date = models.CharField(max_length=20, null=True, blank=True)
+    stipulation_first_pmt_date = models.CharField(max_length=20, null=True, blank=True)
+    stipulation_last_pmt_date = models.CharField(max_length=20, null=True, blank=True)
+    stipulation_monthly_pmt = models.CharField(max_length=50, null=True, blank=True)
+    stipulation_repay_months = models.CharField(max_length=20, null=True, blank=True)
+    last_stipulation_payment_rcvd_date = models.CharField(max_length=20, null=True, blank=True)
+    first_post_petition_due_date = models.CharField(max_length=20, null=True, blank=True)
+    next_post_petition_due_date = models.CharField(max_length=20, null=True, blank=True)
+    post_petition_pmt_amt = models.CharField(max_length=50, null=True, blank=True)
+    bk_case_closed_date = models.CharField(max_length=20, null=True, blank=True)
+    bk_discharge_date = models.CharField(max_length=20, null=True, blank=True)
+    bk_dismissed_date = models.CharField(max_length=20, null=True, blank=True)
+    date_motion_for_relief_filed = models.CharField(max_length=20, null=True, blank=True)
+    date_proof_of_claim_filed = models.CharField(max_length=20, null=True, blank=True)
+    date_of_meeting_of_creditors = models.CharField(max_length=20, null=True, blank=True)
+    date_object_to_confirmation_filed = models.CharField(max_length=20, null=True, blank=True)
+    relief_date = models.CharField(max_length=20, null=True, blank=True)
+    bankruptcy_business_area_status = models.CharField(max_length=50, null=True, blank=True)
+    bankruptcy_business_area_status_date = models.CharField(max_length=20, null=True, blank=True)
+    order_of_confirmation_date = models.CharField(max_length=20, null=True, blank=True)
+    active_bankruptcy = models.CharField(max_length=10, null=True, blank=True)
+
+    class Meta:
+        db_table = 'am_servicer_bankruptcy_data'
+        verbose_name = 'Servicer Bankruptcy Data'
+        verbose_name_plural = 'Servicer Bankruptcy Data'
+        indexes = [
+            models.Index(fields=['asset_hub']),
+            models.Index(fields=['file_date']),
+            models.Index(fields=['loan_id']),
+            models.Index(fields=['case_number']),
+        ]
+
+
+class ServicerCommentData(_ServicerBase):
+    raw_source_snapshot = models.ForeignKey(
+        'etl.SBDailyCommentData',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='cleaned_records',
+    )
+
+    investor_id = models.CharField(max_length=50, null=True, blank=True)
+    file_date = models.CharField(max_length=20, null=True, blank=True)
+    loan_number = models.CharField(max_length=50, null=True, blank=True, db_index=True)
+    investor_loan_number = models.CharField(max_length=50, null=True, blank=True)
+    prior_servicer_loan_number = models.CharField(max_length=50, null=True, blank=True)
+    comment_date = models.CharField(max_length=20, null=True, blank=True, db_index=True)
+    department = models.CharField(max_length=50, null=True, blank=True)
+    comment = models.CharField(max_length=4000, null=True, blank=True)
+    additional_notes = models.CharField(max_length=4000, null=True, blank=True)
+    row_hash = models.CharField(max_length=64, null=True, blank=True)
+
+    class Meta:
+        db_table = 'am_servicer_comment_data'
+        verbose_name = 'Servicer Comment Data'
+        verbose_name_plural = 'Servicer Comment Data'
+        indexes = [
+            models.Index(fields=['asset_hub']),
+            models.Index(fields=['file_date']),
+            models.Index(fields=['loan_number']),
+            models.Index(fields=['comment_date']),
+        ]
+
+
+class ServicerPayHistoryData(_ServicerBase):
+    raw_source_snapshot = models.ForeignKey(
+        'etl.SBDailyPayHistoryData',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='cleaned_records',
+    )
+
+    investor = models.CharField(max_length=50, null=True, blank=True)
+    file_date = models.CharField(max_length=20, null=True, blank=True)
+    loan_number = models.CharField(max_length=50, null=True, blank=True, db_index=True)
+    previous_ln_num = models.CharField(max_length=50, null=True, blank=True)
+    borrower_name = models.CharField(max_length=200, null=True, blank=True)
+    property_address = models.CharField(max_length=255, null=True, blank=True)
+    city = models.CharField(max_length=100, null=True, blank=True)
+    state = models.CharField(max_length=2, null=True, blank=True)
+    zip = models.CharField(max_length=10, null=True, blank=True)
+    property_type = models.CharField(max_length=50, null=True, blank=True)
+    number_of_units = models.CharField(max_length=10, null=True, blank=True)
+    occupancy_status = models.CharField(max_length=50, null=True, blank=True)
+    original_upb = models.CharField(max_length=50, null=True, blank=True)
+    second_upb = models.CharField(max_length=50, null=True, blank=True)
+    current_upb = models.CharField(max_length=50, null=True, blank=True)
+    account_type = models.CharField(max_length=50, null=True, blank=True)
+    lien = models.CharField(max_length=10, null=True, blank=True)
+    loan_term = models.CharField(max_length=20, null=True, blank=True)
+    remaining_term = models.CharField(max_length=20, null=True, blank=True)
+    maturity_date = models.CharField(max_length=20, null=True, blank=True)
+    rate_type = models.CharField(max_length=50, null=True, blank=True)
+    arm = models.CharField(max_length=10, null=True, blank=True)
+    balloon = models.CharField(max_length=10, null=True, blank=True)
+    piggyback = models.CharField(max_length=10, null=True, blank=True)
+    current_ir = models.CharField(max_length=50, null=True, blank=True)
+    current_pi = models.CharField(max_length=50, null=True, blank=True)
+    current_ti = models.CharField(max_length=50, null=True, blank=True)
+    current_piti = models.CharField(max_length=50, null=True, blank=True)
+    last_full_payment_dt = models.CharField(max_length=20, null=True, blank=True)
+    next_payment_due_dt = models.CharField(max_length=20, null=True, blank=True)
+    escrow_indicator = models.CharField(max_length=10, null=True, blank=True)
+    restricted_escrow = models.CharField(max_length=10, null=True, blank=True)
+    escrow_advance = models.CharField(max_length=50, null=True, blank=True)
+    rec_corp_advance_balance = models.CharField(max_length=50, null=True, blank=True)
+    third_party_rec_balance = models.CharField(max_length=50, null=True, blank=True)
+    accrued_interest = models.CharField(max_length=50, null=True, blank=True)
+    accrued_late_fees = models.CharField(max_length=50, null=True, blank=True)
+    fc_status = models.CharField(max_length=50, null=True, blank=True)
+    fc_type = models.CharField(max_length=50, null=True, blank=True)
+    fc_first_legal_filed_dt = models.CharField(max_length=20, null=True, blank=True)
+    fc_judgement_entered_dt = models.CharField(max_length=20, null=True, blank=True)
+    fc_sale_scheduled_dt = models.CharField(max_length=20, null=True, blank=True)
+    fc_suspended_dt = models.CharField(max_length=20, null=True, blank=True)
+    fc_removal_dt = models.CharField(max_length=20, null=True, blank=True)
+    fc_removal_description = models.CharField(max_length=255, null=True, blank=True)
+    bk_status = models.CharField(max_length=50, null=True, blank=True)
+    bk_code = models.CharField(max_length=20, null=True, blank=True)
+    bk_filing_date = models.CharField(max_length=20, null=True, blank=True)
+    bk_case_number = models.CharField(max_length=50, null=True, blank=True)
+    bk_removal_dt = models.CharField(max_length=20, null=True, blank=True)
+    original_appraised_value = models.CharField(max_length=50, null=True, blank=True)
+    as_is_bpo = models.CharField(max_length=50, null=True, blank=True)
+    bpo_date = models.CharField(max_length=20, null=True, blank=True)
+    fico_original = models.CharField(max_length=20, null=True, blank=True)
+    fico = models.CharField(max_length=20, null=True, blank=True)
+    fico_date = models.CharField(max_length=20, null=True, blank=True)
+    loan_mod_dt = models.CharField(max_length=20, null=True, blank=True)
+    mod_upb = models.CharField(max_length=50, null=True, blank=True)
+    mod_ir = models.CharField(max_length=50, null=True, blank=True)
+    mod_pi = models.CharField(max_length=50, null=True, blank=True)
+    mod_first_payment_dt = models.CharField(max_length=20, null=True, blank=True)
+    mod_maturity = models.CharField(max_length=20, null=True, blank=True)
+    origination_date = models.CharField(max_length=20, null=True, blank=True)
+    original_principal = models.CharField(max_length=50, null=True, blank=True)
+    orig_rate = models.CharField(max_length=50, null=True, blank=True)
+    fp_date = models.CharField(max_length=20, null=True, blank=True)
+    mt_date = models.CharField(max_length=20, null=True, blank=True)
+    interest_only_indicator = models.CharField(max_length=10, null=True, blank=True)
+    interest_only_expiration_dt = models.CharField(max_length=20, null=True, blank=True)
+    hoi_expiration_dt = models.CharField(max_length=20, null=True, blank=True)
+    m0 = models.CharField(max_length=20, null=True, blank=True)
+    m1 = models.CharField(max_length=20, null=True, blank=True)
+    m2 = models.CharField(max_length=20, null=True, blank=True)
+    m3 = models.CharField(max_length=20, null=True, blank=True)
+    m4 = models.CharField(max_length=20, null=True, blank=True)
+    m5 = models.CharField(max_length=20, null=True, blank=True)
+    m6 = models.CharField(max_length=20, null=True, blank=True)
+    m7 = models.CharField(max_length=20, null=True, blank=True)
+    m8 = models.CharField(max_length=20, null=True, blank=True)
+    m9 = models.CharField(max_length=20, null=True, blank=True)
+    m10 = models.CharField(max_length=20, null=True, blank=True)
+    m11 = models.CharField(max_length=20, null=True, blank=True)
+    m12 = models.CharField(max_length=20, null=True, blank=True)
+    id0_0 = models.CharField(max_length=50, null=True, blank=True, db_column="ID0 0 - $")
+    id0_1 = models.CharField(max_length=50, null=True, blank=True, db_column="ID0 1 - $")
+    id0_2 = models.CharField(max_length=50, null=True, blank=True, db_column="ID0 2 - $")
+    id0_3 = models.CharField(max_length=50, null=True, blank=True, db_column="ID0 3 - $")
+    id0_4 = models.CharField(max_length=50, null=True, blank=True, db_column="ID0 4 - $")
+    id0_5 = models.CharField(max_length=50, null=True, blank=True, db_column="ID0 5 - $")
+    id0_6 = models.CharField(max_length=50, null=True, blank=True, db_column="ID0 6 - $")
+    id0_7 = models.CharField(max_length=50, null=True, blank=True, db_column="ID0 7 - $")
+    id0_8 = models.CharField(max_length=50, null=True, blank=True, db_column="ID0 8 - $")
+    id0_9 = models.CharField(max_length=50, null=True, blank=True, db_column="ID0 9 - $")
+    id0_10 = models.CharField(max_length=50, null=True, blank=True, db_column="ID0 10 - $")
+    id0_11 = models.CharField(max_length=50, null=True, blank=True, db_column="ID0 11 - $")
+    id0_12 = models.CharField(max_length=50, null=True, blank=True, db_column="ID0 12 - $")
+
+    class Meta:
+        db_table = 'am_servicer_pay_history_data'
+        verbose_name = 'Servicer Pay History Data'
+        verbose_name_plural = 'Servicer Pay History Data'
+        indexes = [
+            models.Index(fields=['asset_hub']),
+            models.Index(fields=['file_date']),
+            models.Index(fields=['loan_number']),
+        ]
+
+
+class ServicerTransactionData(_ServicerBase):
+    raw_source_snapshot = models.ForeignKey(
+        'etl.SBDailyTransactionData',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='cleaned_records',
+    )
+
+    investor_id = models.CharField(max_length=50, null=True, blank=True)
+    file_date = models.CharField(max_length=20, null=True, blank=True)
+    loan_id = models.CharField(max_length=50, null=True, blank=True, db_index=True)
+    previous_ln_num = models.CharField(max_length=50, null=True, blank=True)
+    loan_transaction_id = models.CharField(max_length=50, null=True, blank=True, db_index=True)
+    transaction_date = models.CharField(max_length=20, null=True, blank=True, db_index=True)
+    transaction_code = models.CharField(max_length=50, null=True, blank=True)
+    transaction_description = models.CharField(max_length=255, null=True, blank=True)
+    effective_date = models.CharField(max_length=20, null=True, blank=True)
+    transaction_amt = models.CharField(max_length=50, null=True, blank=True)
+    due_date = models.CharField(max_length=20, null=True, blank=True)
+    principal_amount = models.CharField(max_length=50, null=True, blank=True)
+    interest_amount = models.CharField(max_length=50, null=True, blank=True)
+    suspense_paid = models.CharField(max_length=50, null=True, blank=True)
+    non_recoverable_advance = models.CharField(max_length=50, null=True, blank=True)
+    recoverable_advance = models.CharField(max_length=50, null=True, blank=True)
+    corporate_advance_reason_code = models.CharField(max_length=50, null=True, blank=True)
+    escrow_advance_balance = models.CharField(max_length=50, null=True, blank=True)
+    escrow_amount = models.CharField(max_length=50, null=True, blank=True)
+    restricted_escrow = models.CharField(max_length=10, null=True, blank=True)
+    fee_code = models.CharField(max_length=50, null=True, blank=True)
+    fee_description = models.CharField(max_length=255, null=True, blank=True)
+    unapplied_pmt = models.CharField(max_length=50, null=True, blank=True)
+    stipulation_unapplied_pmt = models.CharField(max_length=50, null=True, blank=True)
+    pre_petition_unapplied_pmt = models.CharField(max_length=50, null=True, blank=True)
+    asset_manager = models.CharField(max_length=100, null=True, blank=True)
+
+    class Meta:
+        db_table = 'am_servicer_transaction_data'
+        verbose_name = 'Servicer Transaction Data'
+        verbose_name_plural = 'Servicer Transaction Data'
+        indexes = [
+            models.Index(fields=['asset_hub']),
+            models.Index(fields=['file_date']),
+            models.Index(fields=['loan_id']),
+            models.Index(fields=['loan_transaction_id']),
+            models.Index(fields=['transaction_date']),
+        ]
+
+
+class ServicerArmData(_ServicerBase):
+    raw_source_snapshot = models.ForeignKey(
+        'etl.SBDailyArmData',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='cleaned_records',
+    )
+
+    file_date = models.CharField(max_length=20, null=True, blank=True, db_index=True)
+    loan_id = models.CharField(max_length=50, null=True, blank=True, db_index=True)
+    loan_number = models.CharField(max_length=50, null=True, blank=True, db_index=True)
+    investor_id = models.CharField(max_length=50, null=True, blank=True, db_index=True)
+    previous_ln_num = models.CharField(max_length=255, null=True, blank=True)
+    manual_adjustment = models.CharField(max_length=255, null=True, blank=True)
+    audit_flag = models.CharField(max_length=255, null=True, blank=True)
+    carry_over_flag = models.CharField(max_length=255, null=True, blank=True)
+    convertible_flag = models.CharField(max_length=255, null=True, blank=True)
+    current_index = models.CharField(max_length=255, null=True, blank=True)
+    floor_rate = models.CharField(max_length=255, null=True, blank=True)
+    frst_chg_period_dec = models.CharField(max_length=255, null=True, blank=True)
+    frst_chg_period_inc = models.CharField(max_length=255, null=True, blank=True)
+    frst_pichg_date = models.CharField(max_length=255, null=True, blank=True)
+    frst_rate_chg_date = models.CharField(max_length=255, null=True, blank=True)
+    index = models.CharField(max_length=255, null=True, blank=True)
+    letter_lead_days = models.CharField(max_length=255, null=True, blank=True)
+    lookback_period = models.CharField(max_length=255, null=True, blank=True)
+    margin = models.CharField(max_length=255, null=True, blank=True)
+    life_rate_decrease = models.CharField(max_length=255, null=True, blank=True)
+    life_rate_increase = models.CharField(max_length=255, null=True, blank=True)
+    min_rate_chg = models.CharField(max_length=255, null=True, blank=True)
+    period_rate_dec = models.CharField(max_length=255, null=True, blank=True)
+    period_rate_inc = models.CharField(max_length=255, null=True, blank=True)
+    neg_am_cap_flag = models.CharField(max_length=255, null=True, blank=True)
+    neg_am_cap = models.CharField(max_length=255, null=True, blank=True)
+    next_pichg_date = models.CharField(max_length=255, null=True, blank=True)
+    next_rate_chg_date = models.CharField(max_length=255, null=True, blank=True)
+    original_index = models.CharField(max_length=255, null=True, blank=True)
+    original_int_rate = models.CharField(max_length=255, null=True, blank=True)
+    original_pipmt = models.CharField(max_length=255, null=True, blank=True)
+    pichg_frequency = models.CharField(max_length=255, null=True, blank=True)
+    pipmt_cap_flag = models.CharField(max_length=255, null=True, blank=True)
+    pipmt_cap = models.CharField(max_length=255, null=True, blank=True)
+    rate_calc = models.CharField(max_length=255, null=True, blank=True)
+    rate_chg_frequency = models.CharField(max_length=255, null=True, blank=True)
+    rounding = models.CharField(max_length=255, null=True, blank=True)
+    rounding_factor = models.CharField(max_length=255, null=True, blank=True)
+    teaser_rate = models.CharField(max_length=255, null=True, blank=True)
+    tot_carry_over_percent = models.CharField(max_length=255, null=True, blank=True)
+    investor_margin = models.CharField(max_length=255, null=True, blank=True)
+    recast_year = models.CharField(max_length=255, null=True, blank=True)
+    pipmt_down_cap = models.CharField(max_length=255, null=True, blank=True)
+
+    class Meta:
+        db_table = 'am_servicer_arm_data'
+        verbose_name = 'Servicer ARM Data'
+        verbose_name_plural = 'Servicer ARM Data'
+        indexes = [
+            models.Index(fields=['asset_hub']),
+            models.Index(fields=['file_date']),
+            models.Index(fields=['loan_id']),
+            models.Index(fields=['loan_number']),
+        ]

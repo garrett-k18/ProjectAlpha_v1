@@ -166,6 +166,8 @@ class Command(BaseCommand):
         parser.add_argument("--keep-local", dest="keep_local", action="store_true")
         parser.add_argument("--kind", dest="kind", default="")
         parser.add_argument("--latest-only", dest="latest_only", action="store_true")
+        parser.add_argument("--report-skips", dest="report_skips", action="store_true")
+        parser.add_argument("--max-skip-samples", dest="max_skip_samples", type=int, default=25)
 
     def handle(self, *args, **options):
         batch_size = int(options["batch_size"])
@@ -175,6 +177,8 @@ class Command(BaseCommand):
         keep_local = bool(options.get("keep_local"))
         kind = str(options.get("kind") or "").strip()
         latest_only = bool(options.get("latest_only"))
+        report_skips = bool(options.get("report_skips"))
+        max_skip_samples = int(options.get("max_skip_samples") or 25)
 
         staging_dir_opt = str(options.get("staging_dir") or "").strip()
         staging_dir = Path(staging_dir_opt) if staging_dir_opt else (Path(settings.MEDIA_ROOT) / "statebridge" / "ftps")
@@ -266,6 +270,8 @@ class Command(BaseCommand):
                         downloaded.local_path,
                         dry_run=False,
                         batch_size=batch_size,
+                        report_skips=report_skips,
+                        max_skip_samples=max_skip_samples,
                     )
                     if import_result.skipped_due_to_duplicates:
                         _record_processed(
@@ -280,6 +286,7 @@ class Command(BaseCommand):
                                 "rows_read": import_result.rows_read,
                                 "rows_inserted": import_result.rows_inserted,
                                 "skipped_due_to_duplicates": True,
+                                "skip_report": import_result.skip_report if report_skips else None,
                             },
                         )
                         _save_manifest(staging_dir, manifest)
@@ -290,6 +297,7 @@ class Command(BaseCommand):
                                 "sha256": downloaded.sha256,
                                 "reason": "duplicate_in_db",
                                 "model": import_result.model_name,
+                                "skip_report": import_result.skip_report if report_skips else None,
                             }
                         )
                         if not keep_local:
@@ -311,6 +319,7 @@ class Command(BaseCommand):
                             "rows_read": import_result.rows_read,
                             "rows_inserted": import_result.rows_inserted,
                             "skipped_due_to_duplicates": False,
+                            "skip_report": import_result.skip_report if report_skips else None,
                         },
                     )
                     _save_manifest(staging_dir, manifest)
@@ -322,6 +331,7 @@ class Command(BaseCommand):
                             "model": import_result.model_name,
                             "rows_read": import_result.rows_read,
                             "rows_inserted": import_result.rows_inserted,
+                            "skip_report": import_result.skip_report if report_skips else None,
                         }
                     )
                     if not keep_local:

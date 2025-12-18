@@ -862,7 +862,7 @@ function resetModal() {
   right: 0;
   max-height: 200px;
   overflow-y: auto;
-  background: white;
+  background: #FDFBF7;
   border: 1px solid #dee2e6;
   border-radius: 4px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
