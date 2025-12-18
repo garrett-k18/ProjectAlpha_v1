@@ -18,6 +18,7 @@ from .model_co_valuations import ComparableProperty, SalesComparable, LeaseCompa
 from .propertycfs import HistoricalPropertyCashFlow
 from .calendar_events import CalendarEvent
 from .model_co_generalLedger import GeneralLedgerEntries, ChartOfAccounts
+from .model_co_borrowerPII import BorrowerPII
 
 from .model_core_notification import Notification, NotificationRead
 
@@ -67,6 +68,7 @@ __all__ = [
     'CalendarEvent',
     'GeneralLedgerEntries',
     'ChartOfAccounts',
+    'BorrowerPII',
     'Notification',
     'NotificationRead',
 ]

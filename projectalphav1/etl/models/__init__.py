@@ -22,6 +22,9 @@ from .model_etl_statebridge_raw import (
     SBDailyPayHistoryData,
     SBDailyTransactionData,
 )
+from .model_etl_import_mapping import (
+    ImportMapping,
+)
 
 __all__ = [
     "ValuationETL",
@@ -40,4 +43,5 @@ __all__ = [
     "SBDailyCommentData",
     "SBDailyPayHistoryData",
     "SBDailyTransactionData",
+    "ImportMapping",
 ]

@@ -131,7 +131,38 @@ SECRET_KEY = os.getenv(
 )
 
 # SECURITY WARNING: don't run with debug turned on in production!
+# WHAT: Define DEBUG early so it can be used in other settings
+# WHY: SALT_KEY logic needs to check DEBUG for development fallback
+# HOW: Use env_bool helper to parse boolean from environment
 DEBUG = env_bool('DJANGO_DEBUG', True)
+
+# WHAT: Salt key for field-level encryption using django-fernet-encrypted-fields
+# WHY: Protect sensitive PII (SSN, DOB, phone numbers) with Fernet symmetric encryption
+# HOW: SALT_KEY is combined with Django SECRET_KEY to derive encryption keys
+# SECURITY: NEVER commit encryption keys to version control!
+# DOCS: https://github.com/jazzband/django-fernet-encrypted-fields
+# GENERATE: Use any random string (e.g., secrets.token_urlsafe(32))
+SALT_KEY = os.getenv('DJANGO_SALT_KEY')
+
+if not SALT_KEY:
+    if DEBUG:
+        # WHAT: Development fallback - insecure salt for local testing only
+        # WHY: Allow development without setting env var, but warn loudly
+        # HOW: Use a fixed salt that should NEVER be used in production
+        import warnings
+        warnings.warn(
+            "DJANGO_SALT_KEY not set! Using insecure development salt. "
+            "Generate a real salt with: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+        )
+        # WHAT: Development-only fallback salt (insecure, for local use only)
+        SALT_KEY = 'development-only-salt-DO-NOT-USE-IN-PRODUCTION'
+    else:
+        # WHAT: Production - fail hard if salt key is missing
+        # WHY: Cannot encrypt/decrypt PII without salt, better to fail than lose data
+        raise ValueError(
+            "DJANGO_SALT_KEY environment variable is required in production! "
+            "Generate one with: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+        )
 
 ALLOWED_HOSTS = [
 h.strip() for h in os.getenv('DJANGO_ALLOWED_HOSTS', '').split(',') if h.strip()

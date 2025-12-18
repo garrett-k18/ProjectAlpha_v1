@@ -30,6 +30,7 @@ urlpatterns = [
     path('api/acq/', include('acq_module.urls')),
     path('api/', include('am_module.urls')),
     path('api/core/', include('core.urls')),  # Core module API endpoints (assumptions, etc.)
+    path('api/etl/', include('etl.urls')),  # ETL module API endpoints (import mappings, etc.)
     path('api/reporting/', include('reporting.urls')),  # Reporting dashboard endpoints
     path('api/sharepoint/', include('sharepoint.urls')),  # SharePoint document access
     # Include user_admin URLs directly (they already have the /api/auth/ prefix)

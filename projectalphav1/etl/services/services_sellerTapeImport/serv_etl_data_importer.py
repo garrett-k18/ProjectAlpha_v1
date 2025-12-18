@@ -89,7 +89,10 @@ class DataImporter:
         seller: Optional[Seller] = None,
         trade: Optional[Trade] = None,
         batch_size: int = 100,
-        file_path: Optional[Path] = None
+        file_path: Optional[Path] = None,
+        save_mapping: bool = True,
+        mapping_name: Optional[str] = None,
+        mapping_method: str = 'AI'
     ) -> int:
         """
         WHAT: Main entry point for data import
@@ -103,6 +106,9 @@ class DataImporter:
             trade: Pre-resolved trade (optional)
             batch_size: Records per batch (default: 100)
             file_path: Source file path for seller name generation (optional)
+            save_mapping: Whether to save mapping for future use (default: True)
+            mapping_name: Name for saved mapping (optional, auto-generated if not provided)
+            mapping_method: How mapping was created (AI, MANUAL, EXACT, HYBRID)
 
         Returns:
             Number of records imported (created + updated)
@@ -142,6 +148,28 @@ class DataImporter:
                     f"      [GEOCODE] Batch updated {geocode_stats.get('updated_rows', 0)} rows "
                     f"across {geocode_stats.get('api_calls', 0)} call(s)\n"
                 )
+
+        # WHAT: Save mapping for future reuse if requested
+        # WHY: Users can review and reuse successful mappings
+        # HOW: Create ImportMapping record with column mapping and stats
+        if save_mapping and seller:
+            self._save_import_mapping(
+                seller=seller,
+                trade=trade,
+                column_mapping=column_mapping,
+                source_columns=list(df.columns),
+                file_path=file_path,
+                mapping_name=mapping_name,
+                mapping_method=mapping_method,
+                import_stats={
+                    'records_imported': saved_count + updated_count,
+                    'records_created': saved_count,
+                    'records_updated': updated_count,
+                    'records_skipped': skipped_count,
+                    'total_rows': len(df),
+                    'errors': len(errors),
+                }
+            )
 
         return saved_count + updated_count
 
@@ -683,3 +711,116 @@ class DataImporter:
             return None
         finally:
             self._new_row_ids.clear()
+
+    def _save_import_mapping(
+        self,
+        seller: Seller,
+        trade: Optional[Trade],
+        column_mapping: Dict[str, str],
+        source_columns: List[str],
+        file_path: Optional[Path],
+        mapping_name: Optional[str],
+        mapping_method: str,
+        import_stats: Dict[str, Any]
+    ):
+        """
+        WHAT: Save column mapping for future reuse
+        WHY: Enable users to review and reuse successful mappings
+        HOW: Create ImportMapping record with mapping details and stats
+        
+        Args:
+            seller: Seller instance
+            trade: Trade instance (optional)
+            column_mapping: Dict of source -> target mappings
+            source_columns: List of source column names
+            file_path: Source file path (optional)
+            mapping_name: Name for mapping (optional, auto-generated if not provided)
+            mapping_method: How mapping was created (AI, MANUAL, EXACT, HYBRID)
+            import_stats: Dict with import statistics
+        """
+        try:
+            # WHAT: Import ImportMapping model
+            # WHY: Need to create mapping record
+            # HOW: Import from etl.models
+            from etl.models.model_etl_import_mapping import ImportMapping
+            from datetime import datetime
+            
+            # WHAT: Generate mapping name if not provided
+            # WHY: Need unique, descriptive name for mapping
+            # HOW: Use seller name, file name, and timestamp
+            if not mapping_name:
+                if file_path:
+                    filename = file_path.stem
+                else:
+                    filename = "Import"
+                date_str = datetime.now().strftime('%Y-%m-%d %H:%M')
+                mapping_name = f"{seller.name} - {filename} - {date_str}"
+            
+            # WHAT: Get original filename
+            # WHY: Track which file format this mapping is for
+            # HOW: Extract from file_path
+            original_filename = file_path.name if file_path else None
+            
+            # WHAT: Check if similar mapping already exists
+            # WHY: Avoid duplicate mappings for same seller/file
+            # HOW: Look for recent mapping with same seller and filename
+            existing_mapping = None
+            if original_filename:
+                existing_mapping = ImportMapping.objects.filter(
+                    seller=seller,
+                    original_filename=original_filename,
+                    is_active=True
+                ).order_by('-created_at').first()
+            
+            # WHAT: Update existing or create new mapping
+            # WHY: Avoid cluttering with duplicate mappings
+            # HOW: Check if existing mapping has same column_mapping
+            if existing_mapping and existing_mapping.column_mapping == column_mapping:
+                # WHAT: Update existing mapping stats
+                # WHY: Track usage and success rate
+                # HOW: Increment usage count and update stats
+                existing_mapping.usage_count += 1
+                existing_mapping.last_used_at = datetime.now()
+                existing_mapping.import_stats = import_stats
+                existing_mapping.save()
+                
+                if self.stdout:
+                    self.stdout.write(
+                        f'      [MAPPING] Updated existing mapping: {existing_mapping.mapping_name}\n'
+                    )
+                logger.info(f'Updated existing import mapping: {existing_mapping.id}')
+            else:
+                # WHAT: Create new mapping record
+                # WHY: Save mapping for future use
+                # HOW: Create ImportMapping instance
+                new_mapping = ImportMapping.objects.create(
+                    seller=seller,
+                    trade=trade,
+                    mapping_name=mapping_name,
+                    column_mapping=column_mapping,
+                    source_columns=source_columns,
+                    mapping_method=mapping_method,
+                    is_default=False,  # Don't auto-set as default
+                    is_active=True,
+                    original_filename=original_filename,
+                    import_stats=import_stats,
+                    notes=f"Auto-saved from import on {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+                    usage_count=1,
+                    last_used_at=datetime.now(),
+                )
+                
+                if self.stdout:
+                    self.stdout.write(
+                        f'      [MAPPING] Saved new mapping: {new_mapping.mapping_name} (ID: {new_mapping.id})\n'
+                    )
+                logger.info(f'Created new import mapping: {new_mapping.id}')
+                
+        except Exception as e:
+            # WHAT: Log error but don't fail import
+            # WHY: Mapping save is optional, shouldn't break import
+            # HOW: Log warning and continue
+            logger.warning(f'Failed to save import mapping: {e}')
+            if self.stdout:
+                self.stdout.write(
+                    f'      [WARNING] Failed to save mapping: {e}\n'
+                )

@@ -183,14 +183,18 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f'      [OK] Loaded {len(df)} rows, {len(df.columns)} columns'))
 
         # Map columns
+        mapping_method = 'MANUAL'  # Default
         if options.get('config'):
             mapper = AIColumnMapper.from_config(options['config'], stdout=self.stdout)
             column_mapping = mapper.map()
+            mapping_method = 'MANUAL'  # Config-based is manual
         else:
             mapper = AIColumnMapper(df.columns, stdout=self.stdout)
-            column_mapping = mapper.map(use_ai=not options.get('no_ai', False))
+            use_ai = not options.get('no_ai', False)
+            column_mapping = mapper.map(use_ai=use_ai)
+            mapping_method = 'AI' if use_ai else 'EXACT'
 
-            # Save mapping if requested
+            # Save mapping if requested (legacy JSON file save)
             if options.get('save_mapping'):
                 mapper.save_mapping(column_mapping, options['save_mapping'])
 
@@ -205,6 +209,8 @@ class Command(BaseCommand):
             seller=seller,
             trade=trade,
             batch_size=options.get('batch_size', 100),
-            file_path=file_path
+            file_path=file_path,
+            save_mapping=True,  # Always save mapping to database
+            mapping_method=mapping_method
         )
         return records_imported
