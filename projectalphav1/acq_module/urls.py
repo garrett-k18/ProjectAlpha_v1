@@ -80,6 +80,13 @@ from .views.view_acq_model import (
     update_acquisition_price,
 )
 from .views.view_acq_modelingCenter import modeling_center_data, pooled_cashflow_series
+from .views.view_acq_awarded_assets import (
+    UploadAwardedAssetsView,
+    PreviewDropView,
+    ConfirmDropView,
+    UndoDropView,
+    DropHistoryView,
+)
 
 # Test endpoint to verify Django is responding
 from rest_framework.decorators import api_view
@@ -196,6 +203,12 @@ urlpatterns = [
     # Import seller tape endpoints
     path('import-seller-tape/', import_seller_tape, name='api_import_seller_tape'),
     path('preview-seller-tape/', preview_seller_tape, name='api_preview_seller_tape'),
+    # Awarded assets endpoints
+    path('awarded-assets/upload/', UploadAwardedAssetsView.as_view(), name='api_upload_awarded_assets'),
+    path('awarded-assets/preview/', PreviewDropView.as_view(), name='api_preview_drop'),
+    path('awarded-assets/confirm/', ConfirmDropView.as_view(), name='api_confirm_drop'),
+    path('awarded-assets/undo/', UndoDropView.as_view(), name='api_undo_drop'),
+    path('awarded-assets/history/<int:trade_id>/', DropHistoryView.as_view(), name='api_drop_history'),
     # Test endpoint to verify logging
     path('test-logging/', test_logging, name='api_test_logging'),
 ]

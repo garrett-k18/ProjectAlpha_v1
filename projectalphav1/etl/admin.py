@@ -18,6 +18,7 @@ from etl.models import (
     SBDailyCommentData,
     SBDailyPayHistoryData,
     SBDailyTransactionData,
+    ImportMapping,
 )
 
 
@@ -838,3 +839,127 @@ class SBDailyTransactionDataAdmin(admin.ModelAdmin):
     list_display = tuple(field.name for field in SBDailyTransactionData._meta.fields)
     readonly_fields = ("created_at", "updated_at")
     list_per_page = 5
+
+
+@admin.register(ImportMapping)
+class ImportMappingAdmin(admin.ModelAdmin):
+    """
+    Admin interface for ImportMapping model
+    
+    WHAT: Manage import column mappings
+    WHY: Allow admins to review and edit saved mappings
+    HOW: Standard Django admin with list/detail views
+    """
+    
+    # List view configuration
+    list_display = (
+        'id',
+        'mapping_name',
+        'seller',
+        'trade',
+        'mapping_method',
+        'is_default',
+        'is_active',
+        'usage_count',
+        'last_used_at',
+        'created_at',
+    )
+    
+    list_filter = (
+        'mapping_method',
+        'is_default',
+        'is_active',
+        'seller',
+        'created_at',
+        'last_used_at',
+    )
+    
+    search_fields = (
+        'mapping_name',
+        'seller__name',
+        'trade__trade_name',
+        'original_filename',
+        'notes',
+    )
+    
+    # Detail view configuration
+    readonly_fields = (
+        'created_at',
+        'updated_at',
+        'last_used_at',
+        'usage_count',
+        'created_by',
+        'modified_by',
+        'validation_status',
+    )
+    
+    fieldsets = (
+        ('Basic Information', {
+            'fields': (
+                'mapping_name',
+                'seller',
+                'trade',
+                'mapping_method',
+                'original_filename',
+            )
+        }),
+        ('Mapping Configuration', {
+            'fields': (
+                'column_mapping',
+                'source_columns',
+            )
+        }),
+        ('Settings', {
+            'fields': (
+                'is_default',
+                'is_active',
+                'notes',
+            )
+        }),
+        ('Statistics', {
+            'fields': (
+                'import_stats',
+                'usage_count',
+                'last_used_at',
+            )
+        }),
+        ('Validation', {
+            'fields': (
+                'validation_status',
+            )
+        }),
+        ('Metadata', {
+            'fields': (
+                'created_by',
+                'modified_by',
+                'created_at',
+                'updated_at',
+            )
+        }),
+    )
+    
+    # Pagination
+    list_per_page = 50
+    
+    # Date hierarchy
+    date_hierarchy = 'created_at'
+    
+    def validation_status(self, obj):
+        """
+        WHAT: Display validation status in admin
+        WHY: Show if mapping is valid
+        HOW: Call model's validate_mapping method
+        """
+        validation = obj.validate_mapping()
+        if validation['valid']:
+            return format_html(
+                '<span style="color: green;">✓ Valid ({} fields mapped)</span>',
+                validation['mapped_count']
+            )
+        else:
+            return format_html(
+                '<span style="color: red;">✗ Invalid - {} errors</span>',
+                len(validation['errors'])
+            )
+    
+    validation_status.short_description = "Validation Status"

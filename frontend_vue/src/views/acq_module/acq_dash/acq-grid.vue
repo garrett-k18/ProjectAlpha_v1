@@ -37,7 +37,6 @@
         <select id="viewSelect" class="form-select form-select-sm" v-model="activeView" @change="applyView">
           <option value="snapshot">Snapshot</option>
           <option value="all">All</option>
-          <option value="valuations">Valuations</option>
           <option value="drops">Drops</option>
         </select>
         <!-- Fullscreen toggle -->
@@ -436,7 +435,7 @@ const ALWAYS_VISIBLE_FIELDS_ALL_VIEW = new Set<string>([
   'borrower2_full_name',
 ])
 
-const presets: Record<'snapshot' | 'all' | 'valuations' | 'drops', ColDef[]> = {
+const presets: Record<'snapshot' | 'all' | 'drops', ColDef[]> = {
   snapshot: [
     cols.asset_status,
     cols.property_type,
@@ -452,20 +451,6 @@ const presets: Record<'snapshot' | 'all' | 'valuations' | 'drops', ColDef[]> = {
     cols.fc_flag,
     cols.bk_flag,
     cols.mod_flag,
-  ],
-  valuations: [
-    // Seller valuations
-    cols.agent_name,
-    cols.seller_asis_value,
-    cols.seller_arv_value,
-    // Broker valuations
-    cols.broker_asis_value,
-    cols.broker_arv_value,
-    // Internal Initial UW valuations
-    cols.internal_initial_uw_asis_value,
-    cols.internal_initial_uw_arv_value,
-    // Context columns for this view
-    
   ],
   drops: [
     // Drops view: assets removed from active bidding
@@ -548,12 +533,11 @@ const presets: Record<'snapshot' | 'all' | 'valuations' | 'drops', ColDef[]> = {
 }
 
 /* -------------------------------------------------------------------------- */
-const activeView = ref<'snapshot' | 'all' | 'valuations' | 'drops'>('snapshot')
+const activeView = ref<'snapshot' | 'all' | 'drops'>('snapshot')
 const viewTitle = computed(() => {
   const titles: Record<typeof activeView.value, string> = {
     snapshot: 'Snapshot',
     all: 'All Assets',
-    valuations: 'Valuations',
     drops: 'Drops'
   }
   return titles[activeView.value]
@@ -583,7 +567,7 @@ function pruneOptionalColumns(columns: ColDef[]): ColDef[] {
   })
 }
 
-function buildColumnsForView(view: 'snapshot' | 'all' | 'valuations' | 'drops'): ColDef[] {
+function buildColumnsForView(view: 'snapshot' | 'all' | 'drops'): ColDef[] {
   const baseColumns = [...constantColumns, ...presets[view]]
   return pruneOptionalColumns(baseColumns)
 }

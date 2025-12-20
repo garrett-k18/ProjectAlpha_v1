@@ -160,6 +160,12 @@ const dashboardRoutes = [
                 component: () => import('@/views/acq_module/acq_dash/centers/ModelingCenter.vue'),
             },
             {
+                name: 'Import Mappings',
+                path: 'acquisitions/import-mappings',
+                meta: {authRequired: true},
+                component: () => import('@/views/etl/ImportMappingManager.vue'),
+            },
+            {
                 name: 'Asset Mgmt',
                 path: 'asset-mgmt',
                 alias: '/ecommerce',

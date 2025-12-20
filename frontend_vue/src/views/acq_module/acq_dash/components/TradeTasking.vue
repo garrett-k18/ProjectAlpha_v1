@@ -7,7 +7,7 @@
     </div>
 
     <!-- Body -->
-    <div class="card-body pt-0 flex-grow-1 d-flex flex-column">
+    <div class="card-body p-3 flex-grow-1 d-flex flex-column">
       <!-- Loading state -->
       <div v-if="isLoading" class="text-muted small py-3 d-flex align-items-center justify-content-center text-center">
         <i class="mdi mdi-loading mdi-spin me-1"></i> Loading...
@@ -20,18 +20,18 @@
 
       <!-- Values / BPOs -->
       <template v-else>
-        <router-link to="/acquisitions/valuation-center" class="status-item-link mb-3">
+        <router-link to="/acquisitions/valuation-center" class="status-item-link mb-2">
           <div class="status-item">
-            <div class="d-flex justify-content-between align-items-center mb-1">
+            <div class="d-flex justify-content-between align-items-center">
               <div class="d-flex align-items-center">
-                <i class="ri-line-chart-line me-2 text-primary fs-4"></i>
-                <span class="fw-semibold fs-5">Valuation Center</span>
+                <i class="ri-line-chart-line me-2 text-primary fs-5"></i>
+                <span class="fw-semibold">Valuation Center</span>
               </div>
               <span class="badge" :class="progressBadgeClass(valuesReconciled, totalAssets)">
                Reconciled Values {{ valuesReconciled }} / {{ totalAssets }}
               </span>
             </div>
-            <div class="progress" style="height: 8px;">
+            <div class="progress mt-1" style="height: 6px;">
               <div 
                 class="progress-bar" 
                 :class="progressBarClass(valuesReconciled, totalAssets)"
@@ -46,18 +46,18 @@
         </router-link>
 
         <!-- Collateral Checks -->
-        <router-link to="/acquisitions/collateral-center" class="status-item-link mb-3">
+        <router-link to="/acquisitions/collateral-center" class="status-item-link mb-2">
           <div class="status-item">
-            <div class="d-flex justify-content-between align-items-center mb-1">
+            <div class="d-flex justify-content-between align-items-center mb-0">
               <div class="d-flex align-items-center">
-                <i class="ri-home-4-line me-2 text-success fs-4"></i>
-                <span class="fw-semibold fs-5">Collateral Center</span>
+                <i class="ri-home-4-line me-2 text-success fs-5"></i>
+                <span class="fw-semibold">Collateral Center</span>
               </div>
               <span class="badge" :class="progressBadgeClass(collateralCompleted, totalAssets)">
                 Collateral Checks {{ collateralCompleted }} / {{ totalAssets }}
               </span>
             </div>
-            <div class="progress" style="height: 8px;">
+            <div class="progress mt-1" style="height: 6px;">
               <div 
                 class="progress-bar" 
                 :class="progressBarClass(collateralCompleted, totalAssets)"
@@ -72,18 +72,18 @@
         </router-link>
 
         <!-- Title Checks -->
-        <router-link to="/acquisitions/title-center" class="status-item-link mb-3">
+        <router-link to="/acquisitions/title-center" class="status-item-link mb-2">
           <div class="status-item">
-            <div class="d-flex justify-content-between align-items-center mb-1">
+            <div class="d-flex justify-content-between align-items-center mb-0">
               <div class="d-flex align-items-center">
-                <i class="ri-file-shield-line me-2 text-info fs-4"></i>
-                <span class="fw-semibold fs-5">Title Center</span>
+                <i class="ri-file-shield-line me-2 text-info fs-5"></i>
+                <span class="fw-semibold">Title Center</span>
               </div>
               <span class="badge" :class="progressBadgeClass(titleCompleted, totalAssets)">
                 Title Checks {{ titleCompleted }} / {{ totalAssets }}
               </span>
             </div>
-            <div class="progress" style="height: 8px;">
+            <div class="progress mt-1" style="height: 6px;">
               <div 
                 class="progress-bar" 
                 :class="progressBarClass(titleCompleted, totalAssets)"
@@ -98,20 +98,20 @@
         </router-link>
 
         <!-- Modeling Center -->
-        <router-link to="/acquisitions/modeling-center" class="status-item-link mb-2">
+        <router-link to="/acquisitions/modeling-center" class="status-item-link">
           <div class="status-item">
-            <div class="d-flex justify-content-between align-items-center mb-1">
+            <div class="d-flex justify-content-between align-items-center mb-0">
               <div class="d-flex align-items-center">
-                <i class="mdi mdi-calculator-variant me-2 text-warning fs-4"></i>
-                <span class="fw-semibold fs-5">Modeling Center</span>
+                <i class="mdi mdi-calculator-variant me-2 text-warning fs-5"></i>
+                <span class="fw-semibold">Modeling Center</span>
               </div>
               <span class="badge bg-secondary">
                 Pool Modeling & Pricing
               </span>
             </div>
-            <div class="progress" style="height: 8px;">
+            <div class="progress mt-1" style="height: 6px;">
               <div 
-                class="progress-bar bg-warning" 
+                class="progress-bar bg-success" 
                 role="progressbar" 
                 style="width: 100%;"
                 aria-valuenow="100" 
@@ -248,18 +248,20 @@ function progressPercent(completed: number, total: number): number {
 }
 
 // Return Bootstrap progress bar color class based on completion percentage
+// WHAT: Use Steel Blue instead of gold/warning for 50-99% completion
 function progressBarClass(completed: number, total: number): string {
   const pct = progressPercent(completed, total)
   if (pct === 100) return 'bg-success'
-  if (pct >= 50) return 'bg-warning'
+  if (pct >= 50) return 'bg-progress-in-progress' // Custom class - Steel Blue instead of gold
   return 'bg-danger'
 }
 
 // Return Bootstrap badge color class based on completion percentage
+// WHAT: Use Steel Blue instead of gold/warning for 50-99% completion
 function progressBadgeClass(completed: number, total: number): string {
   const pct = progressPercent(completed, total)
   if (pct === 100) return 'bg-success'
-  if (pct >= 50) return 'bg-warning'
+  if (pct >= 50) return 'bg-progress-in-progress' // Custom class - Steel Blue instead of gold
   return 'bg-secondary'
 }
 
@@ -276,25 +278,50 @@ watch([selectedSellerId, selectedTradeId], () => fetchMetrics())
 </script>
 
 <style scoped>
-/* Status item link styling */
+/* Status item link styling - Using ProjectAlpha Color Palette */
+/* WHAT: Custom styling for Due Diligence Tracker status items */
+/* WHY: Match action buttons styling with cream background and gold accents */
+/* HOW: Apply cream background, gold border, and gold hover state */
 .status-item-link {
   text-decoration: none;
   color: inherit;
   display: block;
   transition: all 0.2s ease;
   border-radius: 0.375rem;
-  padding: 0.75rem;
+  padding: 0.5rem 0.75rem;
   margin-left: -0.75rem;
   margin-right: -0.75rem;
+  background-color: #F5F3EE !important; /* Cream - lighter than card for contrast */
+  border: none !important; /* No border */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important; /* Subtle shadow for depth */
+  margin-bottom: 0.5rem;
 }
 
 .status-item-link:hover {
-  background-color: rgba(0, 0, 0, 0.02);
+  background-color: #D4AF37 !important; /* Accent Gold - prominent hover state */
+  color: #ffffff !important; /* White text on gold */
+  border: none !important; /* No border on hover */
+  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.4) !important; /* Enhanced gold shadow on hover */
   transform: translateX(4px);
 }
 
 .status-item-link:hover .status-item {
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: none; /* Remove inner shadow on hover */
+}
+
+.status-item-link:hover .status-item .fw-semibold,
+.status-item-link:hover .status-item span:not(.badge) {
+  color: #ffffff !important; /* White text on gold hover */
+}
+
+.status-item-link:hover .status-item i {
+  color: #ffffff !important; /* White icons on gold hover */
+}
+
+.status-item-link:hover .badge {
+  background-color: rgba(255, 255, 255, 0.25) !important; /* Semi-transparent white badge on gold */
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
 }
 
 /* Status item styling */
@@ -305,5 +332,13 @@ watch([selectedSellerId, selectedTradeId], () => fetchMetrics())
 /* Smooth progress bar transitions */
 .progress-bar {
   transition: width 0.6s ease;
+}
+
+/* Custom progress bar color - Steel Blue instead of gold/warning */
+/* WHAT: Replace gold/warning color with Steel Blue from palette for in-progress status */
+/* WHY: User requested removal of gold from progress bars */
+.bg-progress-in-progress {
+  background-color: #4A6FA5 !important; /* Steel Blue - professional alternative to gold */
+  color: #ffffff !important; /* White text for badges */
 }
 </style>

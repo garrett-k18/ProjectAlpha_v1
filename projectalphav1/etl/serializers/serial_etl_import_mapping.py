@@ -56,11 +56,6 @@ class ImportMappingListSerializer(serializers.ModelSerializer):
     # HOW: Calculate length of column_mapping dict
     mapped_field_count = serializers.SerializerMethodField()
     
-    # WHAT: Validation status
-    # WHY: Show if mapping is valid without full validation
-    # HOW: Call model's validate_mapping method
-    is_valid_mapping = serializers.SerializerMethodField()
-    
     class Meta:
         model = ImportMapping
         fields = [
@@ -83,18 +78,16 @@ class ImportMappingListSerializer(serializers.ModelSerializer):
             'last_used_at',
             'usage_count',
             'mapped_field_count',
-            'is_valid_mapping',
         ]
         read_only_fields = ['created_at', 'updated_at', 'usage_count', 'last_used_at']
     
     def get_mapped_field_count(self, obj):
-        """Return count of mapped fields"""
+        """
+        WHAT: Return count of mapped fields
+        WHY: Show how many fields are mapped
+        HOW: Calculate length of column_mapping dict
+        """
         return len(obj.column_mapping) if obj.column_mapping else 0
-    
-    def get_is_valid_mapping(self, obj):
-        """Return validation status"""
-        validation = obj.validate_mapping()
-        return validation['valid']
 
 
 class ImportMappingSerializer(serializers.ModelSerializer):

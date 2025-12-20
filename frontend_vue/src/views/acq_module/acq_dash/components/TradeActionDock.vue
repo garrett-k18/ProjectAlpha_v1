@@ -1,6 +1,6 @@
 <template>
   <!-- Root card wraps the entire Option 1 (Action Dock) concept so it can sit inside dashboard columns -->
-  <div class="card h-100">
+  <div class="card h-100 d-flex flex-column">
     <!-- Header keeps visual hierarchy light now that the status control lives in the body -->
     <div class="d-flex card-header justify-content-between align-items-center py-2">
       <h4 class="header-title m-1">Actions</h4>
@@ -35,63 +35,62 @@
       </template>
     </BModal>
 
-    <!-- Body lists each primary action in a vertical stack of wide buttons -->
-    <div class="card-body pt-3">
-      <!-- Stack keeps spacing consistent between action buttons -->
-      <div class="vstack gap-2">
-        <!-- Trade status sits in its own control card so it visually aligns with action buttons -->
-        <div
-          class="status-card btn text-start w-100 d-flex align-items-center justify-content-between btn-light border"
-          role="group"
-          aria-label="Trade status controls"
-        >
-          <div class="d-flex align-items-center gap-2">
-            <i class="mdi mdi-flag-outline fs-4"></i>
-            <div class="d-flex flex-column">
+    <!-- Body lists each primary action in a two-column grid layout -->
+    <div class="card-body p-3 flex-grow-1">
+      <!-- Two-column grid keeps spacing consistent between action buttons -->
+      <div class="row g-2">
+        <!-- Trade status also in two-column layout -->
+        <div class="col-12 col-md-6">
+          <div
+            class="status-card btn text-start w-100 d-flex align-items-center justify-content-between btn-light border"
+            role="group"
+            aria-label="Trade status controls"
+          >
+            <div class="d-flex align-items-center gap-2">
+              <i class="mdi mdi-flag-outline fs-4"></i>
               <span class="fw-semibold">Trade Status</span>
             </div>
+            <select
+              class="form-select form-select-sm status-select"
+              v-model="selectedStatus"
+              :disabled="savingStatus"
+              @change="handleStatusChange"
+            >
+              <option v-for="option in decoratedStatusOptions" :key="option.value" :value="option.value">
+                {{ option.label }}
+              </option>
+            </select>
           </div>
-          <select
-            class="form-select form-select-sm status-select"
-            v-model="selectedStatus"
-            :disabled="savingStatus"
-            @change="handleStatusChange"
-          >
-            <option v-for="option in decoratedStatusOptions" :key="option.value" :value="option.value">
-              {{ option.label }}
-            </option>
-          </select>
         </div>
-        <!-- Each button is full-width, text-aligned to the left, and triggers the emit when clicked -->
-        <button
+        <!-- Each button is half-width in two-column layout, text-aligned to the left, and triggers the emit when clicked -->
+        <div
           v-for="action in resolvedActionItems"
           :key="action.id"
-          type="button"
-          class="btn text-start w-100 d-flex align-items-center justify-content-between"
-          :class="action.buttonClasses"
-          @click="emit('trigger', action.id)"
+          class="col-12 col-md-6"
         >
-          <!-- Block showing icon and text information -->
-          <div class="d-flex align-items-center gap-2">
-            <!-- Icon uses Material Design Icons classes passed from the parent -->
-            <i :class="[action.icon, 'fs-4']"></i>
-            <!-- Text stack for label and description copy -->
-            <div class="d-flex flex-column">
+          <button
+            type="button"
+            class="btn text-start w-100 d-flex align-items-center justify-content-between"
+            :class="action.buttonClasses"
+            @click="emit('trigger', action.id)"
+          >
+            <!-- Block showing icon and text information -->
+            <div class="d-flex align-items-center gap-2">
+              <!-- Icon uses Material Design Icons classes passed from the parent -->
+              <i :class="[action.icon, 'fs-4']"></i>
               <!-- Label is bold so the action is easy to skim -->
               <span class="fw-semibold">{{ action.label }}</span>
-              <!-- Description explains exactly what happens when the button is used -->
-              <small v-if="action.description" class="text-muted">{{ action.description }}</small>
             </div>
-          </div>
-          <!-- Optional badge mirrors Hyper UI chips to show counts or state -->
-          <span
-            v-if="action.badge"
-            class="badge ms-2 align-self-center"
-            :class="action.badgeClasses"
-          >
-            {{ action.badge }}
-          </span>
-        </button>
+            <!-- Optional badge mirrors Hyper UI chips to show counts or state -->
+            <span
+              v-if="action.badge"
+              class="badge ms-2 align-self-center"
+              :class="action.badgeClasses"
+            >
+              {{ action.badge }}
+            </span>
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -340,5 +339,48 @@ const cancelStatusChange = () => {
   width: 100%;
   flex: 0 0 auto;
   border-radius: 0.5rem;
+}
+
+/* Action Button Styling - Using ProjectAlpha Color Palette */
+/* WHAT: Custom styling for action buttons in the Actions card */
+/* WHY: Provide better contrast using warm, professional colors from palette */
+/* HOW: Use contrasting background that differs from card, add shadows instead of borders */
+.btn.btn-light.border {
+  background-color: #F5F3EE !important; /* Cream - lighter than card for contrast */
+  color: #2C3E50 !important; /* Charcoal - dark text for readability */
+  border: none !important; /* No border */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important; /* Subtle shadow for depth */
+  transition: all 0.2s ease;
+}
+
+.btn.btn-light.border:hover {
+  background-color: #D4AF37 !important; /* Accent Gold - prominent hover state */
+  color: #ffffff !important; /* White text on gold */
+  border: none !important; /* No border on hover */
+  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.4) !important; /* Enhanced gold shadow on hover */
+}
+
+.btn.btn-light.border:focus,
+.btn.btn-light.border:active {
+  background-color: #C29D2F !important; /* Darker gold on active */
+  color: #ffffff !important;
+  border-color: #C29D2F !important;
+  box-shadow: 0 2px 6px rgba(212, 175, 55, 0.4) !important;
+}
+
+/* Status card (Trade Status dropdown) - no hover effect since it's not a button */
+.status-card.btn-light.border {
+  background-color: #F5F3EE !important; /* Cream - matches action buttons for consistency */
+  color: #2C3E50 !important; /* Charcoal text */
+  border: none !important; /* No border */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important; /* Subtle shadow for depth */
+}
+
+/* No hover effect - Trade Status is a dropdown control, not a button */
+.status-card.btn-light.border:hover {
+  background-color: #F5F3EE !important; /* Keep cream background on hover */
+  color: #2C3E50 !important; /* Keep charcoal text */
+  border: none !important; /* No border on hover */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important; /* Keep same shadow */
 }
 </style>

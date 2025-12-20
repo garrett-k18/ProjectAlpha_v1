@@ -12,7 +12,7 @@ Docs reviewed:
 
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from etl.views.view_etl_import_mapping import ImportMappingViewSet
+from etl.views.view_etl_import_mapping import ImportMappingViewSet, field_schema
 
 # WHAT: DRF router for automatic URL generation
 # WHY: Provides standard REST endpoints for ViewSets
@@ -26,7 +26,11 @@ router.register(r'import-mappings', ImportMappingViewSet, basename='import-mappi
 
 # WHAT: URL patterns for ETL module
 # WHY: Include router URLs in Django URL configuration
-# HOW: Include router.urls
+# HOW: Include router.urls plus custom endpoints
 urlpatterns = [
     path('', include(router.urls)),
+    # WHAT: Field schema endpoint for auditing trade imports
+    # WHY: Show users what fields were populated during import
+    # HOW: Returns SellerRawData fields with sample data
+    path('field-schema/<int:trade_id>/', field_schema, name='field-schema'),
 ]

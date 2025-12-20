@@ -1,50 +1,31 @@
 """
 Import Mapping Views
 
-WHAT: API endpoints for managing import column mappings
-WHY: Provide CRUD operations and mapping management features
+WHAT: API endpoints for managing import column mappings and field schema
+WHY: Provide CRUD operations and field audit features
 HOW: DRF ViewSet with custom actions for mapping workflows
 
 USAGE:
     # List all mappings
     GET /api/etl/import-mappings/
     
-    # Get mapping detail
-    GET /api/etl/import-mappings/{id}/
-    
-    # Create new mapping
-    POST /api/etl/import-mappings/
-    
-    # Update mapping
-    PUT /api/etl/import-mappings/{id}/
-    
-    # Delete mapping
-    DELETE /api/etl/import-mappings/{id}/
-    
-    # Get mappings for specific seller
-    GET /api/etl/import-mappings/by_seller/{seller_id}/
-    
-    # Set mapping as default
-    POST /api/etl/import-mappings/{id}/set_default/
-    
-    # Validate mapping
-    GET /api/etl/import-mappings/{id}/validate/
-    
-    # Apply mapping (mark as used)
-    POST /api/etl/import-mappings/{id}/apply/
+    # Get field schema with sample data for a trade
+    GET /api/etl/field-schema/{trade_id}/
 
 Docs reviewed:
 - DRF ViewSets: https://www.django-rest-framework.org/api-guide/viewsets/
-- DRF Actions: https://www.django-rest-framework.org/api-guide/viewsets/#marking-extra-actions-for-routing
+- DRF APIView: https://www.django-rest-framework.org/api-guide/views/
 - DRF Permissions: https://www.django-rest-framework.org/api-guide/permissions/
 """
 
 from rest_framework import viewsets, status
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
+from django.conf import settings
+import logging
 
 from etl.models.model_etl_import_mapping import ImportMapping
 from etl.serializers.serial_etl_import_mapping import (
@@ -53,7 +34,12 @@ from etl.serializers.serial_etl_import_mapping import (
     ImportMappingDetailSerializer,
     ImportMappingApplySerializer,
 )
-from acq_module.models.model_acq_seller import Seller
+from acq_module.models.model_acq_seller import Seller, Trade, SellerRawData
+
+# WHAT: Initialize logger for this module
+# WHY: Track mapping operations and debug issues
+# HOW: Use Python's built-in logging
+logger = logging.getLogger(__name__)
 
 
 class ImportMappingViewSet(viewsets.ModelViewSet):
@@ -65,6 +51,16 @@ class ImportMappingViewSet(viewsets.ModelViewSet):
     
     queryset = ImportMapping.objects.all()
     permission_classes = [IsAuthenticated]
+    
+    def get_permissions(self):
+        """
+        WHAT: Override permissions to bypass auth in DEBUG mode
+        WHY: Allow local development without authentication tokens
+        HOW: Check DEBUG setting and return empty permissions list
+        """
+        if settings.DEBUG:
+            return []
+        return super().get_permissions()
     
     def get_serializer_class(self):
         """
@@ -417,3 +413,226 @@ class ImportMappingViewSet(viewsets.ModelViewSet):
         # HOW: Serialize and return
         serializer = ImportMappingDetailSerializer(mapping)
         return Response(serializer.data)
+
+
+@api_view(['GET', 'POST'])
+def field_schema(request, trade_id):
+    """
+    WHAT: Return import mapping with Excel headers → database fields, allow editing
+    WHY: Users need to review and change column mappings post-import
+    HOW: Load ImportMapping for trade, show source columns with target fields
+    
+    URL: 
+    - GET /api/etl/field-schema/{trade_id}/ - View current mapping
+    - POST /api/etl/field-schema/{trade_id}/ - Update mapping and remap data
+    
+    Returns:
+    - mappings: List of {source_column, target_field, sample_data}
+    - available_fields: List of all SellerRawData fields for dropdown
+    - mapping_id: ID of the ImportMapping record
+    - trade_name: Name of the trade
+    - record_count: Number of records in the trade
+    """
+    # WHAT: Bypass auth in DEBUG mode
+    # WHY: Allow local development without authentication
+    if not settings.DEBUG:
+        if not request.user.is_authenticated:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+    
+    # WHAT: Get trade and validate it exists
+    # WHY: Need trade to query its records
+    # HOW: Use get_object_or_404
+    trade = get_object_or_404(Trade, pk=trade_id)
+    
+    # WHAT: Handle POST request to update mapping
+    # WHY: Allow users to change mappings for future imports
+    # HOW: Update ImportMapping record with new column_mapping
+    if request.method == 'POST':
+        # WHAT: Get the ImportMapping record for this trade
+        # WHY: Need to update it
+        # HOW: Query by trade
+        import_mapping = ImportMapping.objects.filter(trade=trade, is_active=True).first()
+        
+        if not import_mapping:
+            # WHAT: Can't edit legacy imports without stored mapping
+            # WHY: No original Excel headers to map from
+            # HOW: Return error message
+            return Response({
+                'error': 'Cannot edit legacy imports. This trade was imported before mapping storage was implemented. To edit mappings, please re-import the file.',
+                'is_legacy': True
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        new_mapping = request.data.get('column_mapping', {})
+        
+        try:
+            import_mapping.column_mapping = new_mapping
+            import_mapping.mapping_method = 'HYBRID'  # Changed from original
+            import_mapping.save()
+            
+            return Response({
+                'success': True,
+                'message': 'Mapping updated successfully. Note: Data will use new mapping on next import.',
+                'mapping_id': import_mapping.id
+            })
+        except Exception as e:
+            logger.error(f"Failed to update mapping for trade {trade_id}: {str(e)}")
+            return Response({
+                'error': f'Failed to update mapping: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    # WHAT: Try to get ImportMapping for this trade
+    # WHY: Need to show original Excel columns and their mappings
+    # HOW: Query ImportMapping by trade
+    import_mapping = ImportMapping.objects.filter(trade=trade, is_active=True).first()
+    
+    # WHAT: Handle legacy trades without stored mappings
+    # WHY: Trades imported before ImportMapping model was created
+    # HOW: Show database fields with current data instead
+    is_legacy = import_mapping is None
+    
+    # WHAT: Get records for sample data
+    # WHY: Show what data is in each field
+    # HOW: Query SellerRawData filtered by trade
+    records = SellerRawData.objects.filter(trade=trade)
+    record_count = records.count()
+    
+    # WHAT: Get all available target fields for dropdown
+    # WHY: User needs to see all options when changing mapping
+    # HOW: Get all SellerRawData fields
+    available_fields = []
+    excluded_fields = ['asset_hub', 'seller', 'trade', 'id']
+    
+    for field in SellerRawData._meta.get_fields():
+        # Skip auto-created and relation fields
+        if field.auto_created or field.name in excluded_fields:
+            continue
+        
+        # Skip reverse relations
+        if hasattr(field, 'one_to_many') and field.one_to_many:
+            continue
+        if hasattr(field, 'many_to_many') and field.many_to_many:
+            continue
+        if hasattr(field, 'related_model') and hasattr(field, 'remote_field') and field.remote_field and hasattr(field.remote_field, 'multiple') and field.remote_field.multiple:
+            continue
+        
+        field_type = getattr(field, 'get_internal_type', lambda: 'Unknown')()
+        help_text = getattr(field, 'help_text', '') or ''
+        
+        available_fields.append({
+            'name': field.name,
+            'label': field.name.replace('_', ' ').title(),
+            'type': field_type,
+            'description': help_text or f'{field.name} ({field_type})'
+        })
+    
+    # WHAT: Build mappings list
+    # WHY: Show Excel header → Database field with sample data
+    # HOW: Use stored mapping or generate from fields for legacy
+    mappings = []
+    
+    if is_legacy:
+        # WHAT: For legacy imports, show database fields with their data
+        # WHY: No stored mapping exists for old imports
+        # HOW: Generate mapping from populated fields
+        logger.info(f"Legacy import detected for trade {trade_id}, showing field audit view")
+        
+        for field in SellerRawData._meta.get_fields():
+            # Skip auto-created and relation fields
+            if field.auto_created or field.name in excluded_fields:
+                continue
+            
+            # Skip reverse relations
+            if hasattr(field, 'one_to_many') and field.one_to_many:
+                continue
+            if hasattr(field, 'many_to_many') and field.many_to_many:
+                continue
+            if hasattr(field, 'related_model') and hasattr(field, 'remote_field') and field.remote_field and hasattr(field.remote_field, 'multiple') and field.remote_field.multiple:
+                continue
+            
+            field_name = field.name
+            field_type = getattr(field, 'get_internal_type', lambda: 'Unknown')()
+            
+            # Get sample data
+            samples = []
+            if record_count > 0:
+                try:
+                    sample_queryset = records.exclude(**{f'{field_name}__isnull': True})
+                    
+                    if field_type in ['CharField', 'TextField']:
+                        sample_queryset = sample_queryset.exclude(**{field_name: ''})
+                    
+                    sample_values = sample_queryset.values_list(field_name, flat=True).distinct()[:3]
+                    
+                    for v in sample_values:
+                        if v is not None:
+                            samples.append(str(v)[:50])
+                except Exception:
+                    pass
+            
+            # Only show fields that have data
+            if samples:
+                mappings.append({
+                    'source_column': field_name.replace('_', ' ').title(),
+                    'target_field': field_name,
+                    'samples': samples,
+                    'is_legacy': True
+                })
+    else:
+        # WHAT: Use stored mapping from ImportMapping record
+        # WHY: This is a modern import with saved Excel headers
+        # HOW: Iterate through source_columns and column_mapping
+        column_mapping = import_mapping.column_mapping or {}
+        
+        for source_col in (import_mapping.source_columns or []):
+            target_field = column_mapping.get(source_col, '')
+            
+            # Get sample data for the target field
+            samples = []
+            
+            if target_field and record_count > 0:
+                try:
+                    # Get field type to handle filtering correctly
+                    try:
+                        field_obj = SellerRawData._meta.get_field(target_field)
+                        field_type = field_obj.get_internal_type()
+                    except:
+                        field_type = 'Unknown'
+                    
+                    sample_queryset = records.exclude(**{f'{target_field}__isnull': True})
+                    
+                    if field_type in ['CharField', 'TextField']:
+                        sample_queryset = sample_queryset.exclude(**{target_field: ''})
+                    
+                    sample_values = sample_queryset.values_list(target_field, flat=True).distinct()[:3]
+                    
+                    for v in sample_values:
+                        if v is not None:
+                            samples.append(str(v)[:50])
+                except Exception:
+                    pass
+            
+            mappings.append({
+                'source_column': source_col,
+                'target_field': target_field,
+                'samples': samples,
+                'is_legacy': False
+            })
+    
+    # WHAT: Sort available fields alphabetically
+    # WHY: Easier to find in dropdown
+    available_fields.sort(key=lambda x: x['name'])
+    
+    # WHAT: Sort mappings - populated fields first
+    # WHY: Show most relevant data first
+    # HOW: Sort by having samples
+    mappings.sort(key=lambda x: (len(x['samples']) == 0, x['target_field']))
+    
+    return Response({
+        'trade_id': trade_id,
+        'trade_name': trade.trade_name,
+        'record_count': record_count,
+        'mapping_id': import_mapping.id if import_mapping else None,
+        'mappings': mappings,
+        'available_fields': available_fields,
+        'is_legacy': is_legacy
+    })

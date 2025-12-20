@@ -1,6 +1,6 @@
 <template>
   <Layout>
-    <b-row>
+    <b-row class="g-2">
       <b-col class="col-12">
         <div class="page-title-box">
           <div class="page-title-right">
@@ -14,11 +14,11 @@
    
 
     <!-- Prominent, centered selectors: MUST choose before page functions -->
-    <b-row class="m-0">
+    <b-row class="g-2">
       <b-col class="col-12">
         <div class="card">
-          <!-- Balanced vertical padding for centered appearance -->
-          <div class="card-body p-2">
+          <!-- Standard card padding for consistency -->
+          <div class="card-body p-3">
             <!-- Centered selectors with Trade Settings button -->
             <div class="d-flex flex-wrap align-items-center justify-content-center gap-2 w-100 mb-0">
               
@@ -75,12 +75,14 @@
 
 
     <!-- Top metrics widgets rendered directly to minimize vertical padding -->
-    <div class="mb-0">
-      <Widgets />
-    </div>
+    <b-row class="g-2">
+      <b-col class="col-12">
+        <Widgets />
+      </b-col>
+    </b-row>
 
     <!-- Trade control action dock paired with tasking tracker so stakeholders evaluate workflow coverage together -->
-    <b-row class="g-2 mt-1 mb-2">
+    <b-row class="g-2 mt-1 mb-1">
       <b-col xl="6" lg="12">
         <TradeActionDock
           :seller-name="selectedSellerLabel"
@@ -90,6 +92,7 @@
           :status-options="tradeStatusOptions"
           :saving-status="tradeStatusLoading"
           :on-update-status="handleTradeStatusUpdate"
+          :action-items="actionItems"
           @trigger="handleOptionTrigger"
         />
       </b-col>
@@ -100,7 +103,7 @@
     
     
     <!-- Seller Data Tape card (AG Grid) moved directly under top metrics -->
-    <b-row class="mt-3">
+    <b-row class="g-2 mt-1">
       <b-col class="col-12">
         <!-- Temporary: Use simplified AcqGrid for testing -->
         <!-- Wire AcqGrid's View action to open the loan modal in this page -->
@@ -108,14 +111,14 @@
       </b-col>
     </b-row>
 
-    <b-row class="g-2 mt-2" v-if="gridRowsLoaded">
+    <b-row class="g-2 mt-1" v-if="gridRowsLoaded">
       <b-col class="col-12">
         <VectorMap @open-loan="onOpenLoan" />
       </b-col>
     </b-row>
 
     <!-- Value stratification cards: keep the three financial metrics together at the top -->
-    <b-row class="g-2 mt-2" v-if="gridRowsLoaded">
+    <b-row class="g-2 mt-1" v-if="gridRowsLoaded">
       <b-col xl="4" lg="6" md="12">
         <StratsCurrentBal />
       </b-col>
@@ -128,7 +131,7 @@
     </b-row>
 
     <!-- Property Type, Coupon, and Default Rate share a dedicated row for rate-focused insights -->
-    <b-row class="g-2 mt-2 strat-row-equal-height" v-if="gridRowsLoaded">
+    <b-row class="g-2 mt-1 strat-row-equal-height" v-if="gridRowsLoaded">
       <b-col xl="4" lg="6" md="12" class="d-flex">
         <StratsPropertyType />
       </b-col>
@@ -141,7 +144,7 @@
     </b-row>
 
     <!-- Remaining categorical cards grouped below with Occupancy leading the row per user request -->
-    <b-row class="g-2 mt-2 mb-3" v-if="gridRowsLoaded">
+    <b-row class="g-2 mt-1 mb-3" v-if="gridRowsLoaded">
       <b-col xl="4" lg="6" md="12">
         <StratsOccupancy />
       </b-col>
@@ -309,6 +312,16 @@
         </div>
       </template>
     </BModal>
+
+    <!-- WHAT: Awarded Assets Upload Modal -->
+    <!-- WHY: Allow users to upload awarded list and drop non-awarded assets -->
+    <AwardedAssetsUpload
+      v-if="selectedTradeId"
+      v-show="showAwardedAssetsModal"
+      :trade-id="selectedTradeId"
+      @assets-dropped="handleAssetsDropped"
+      @close="showAwardedAssetsModal = false"
+    />
   </Layout>
 </template>
 
@@ -334,6 +347,8 @@ export interface DocumentItem { id: string; name: string; type: string; sizeByte
 import AcqGrid from "@/views/acq_module/acq_dash/acq-grid.vue";
 // BootstrapVue Next modal component (Vue 3 compatible)
 import { BModal } from 'bootstrap-vue-next';
+// Import Bootstrap for manual modal control
+import * as bootstrap from 'bootstrap';
 // Centralized loan-level wrapper used for both full-page and modal
 import LoanLevelIndex from '@/views/acq_module/loanlvl/loanlvl_index.vue'
 // Trade modals
@@ -341,6 +356,7 @@ import TradeDetailsModal from '@/views/acq_module/acq_dash/modals/TradeDetailsMo
 import TradeDocumentsModal from '@/views/acq_module/acq_dash/modals/TradeDocumentsModal.vue'
 import ImportSellerTapeModal from '@/views/acq_module/acq_dash/modals/ImportSellerTapeModal.vue'
 import BrokerAssignmentModal from '@/views/acq_module/acq_dash/components/BrokerAssignmentModal.vue'
+import AwardedAssetsUpload from '@/views/acq_module/acq_dash/components/AwardedAssetsUpload.vue'
 // Trade control prototype Option 1 (Action Dock)
 import TradeActionDock from '@/views/acq_module/acq_dash/components/TradeActionDock.vue';
 // Trade control prototype Option 2 (Tabbed Control Center)
@@ -383,6 +399,7 @@ export default {
     TradeDocumentsModal,
     ImportSellerTapeModal,
     BrokerAssignmentModal,
+    AwardedAssetsUpload,
     TradeActionDock,
   },
   setup() {
@@ -467,6 +484,7 @@ export default {
     const showTradeDocumentsModal = ref<boolean>(false)
     const showImportModal = ref<boolean>(false) // Controls visibility of the import seller tape modal
     const showBrokerAssignmentsModal = ref<boolean>(false) // Controls visibility of the broker assignments modal
+    const showAwardedAssetsModal = ref<boolean>(false) // Controls visibility of the awarded assets modal
 
     // selectedSellerLabel resolves the human-readable seller name for the trade control prototypes
     const selectedSellerLabel = computed<string>(() => {
@@ -992,6 +1010,7 @@ export default {
       showTradeDocumentsModal,
       showImportModal,
       showBrokerAssignmentsModal,
+      showAwardedAssetsModal,
       selectedSellerLabel,
       selectedTradeLabel,
       tradeDocumentContext,
@@ -1008,6 +1027,63 @@ export default {
       selectedId: null as string | null,
       selectedRow: null as any,
       selectedAddr: null as string | null,
+      // Action items for TradeActionDock
+      actionItems: [
+        {
+          id: 'trade-assumptions',
+          label: 'Trade Assumptions',
+          description: null,
+          icon: 'mdi mdi-cog-outline',
+          buttonClasses: 'btn btn-light border',
+          badge: null,
+          badgeClasses: null
+        },
+        {
+          id: 'trade-documents',
+          label: 'Documents',
+          description: null,
+          icon: 'mdi mdi-file-table-box-multiple',
+          buttonClasses: 'btn btn-light border',
+          badge: '8 items',
+          badgeClasses: 'bg-primary text-white'
+        },
+        {
+          id: 'broker-assignments',
+          label: 'Broker Assignments',
+          description: null,
+          icon: 'mdi mdi-account-multiple-plus',
+          buttonClasses: 'btn btn-light border',
+          badge: null,
+          badgeClasses: null
+        },
+        {
+          id: 'import-mappings',
+          label: 'Import Mappings',
+          description: null,
+          icon: 'mdi mdi-map-marker-path',
+          buttonClasses: 'btn btn-light border',
+          badge: null,
+          badgeClasses: null
+        },
+        {
+          id: 'awarded-assets',
+          label: 'Process Awarded Assets',
+          description: null,
+          icon: 'mdi mdi-trophy',
+          buttonClasses: 'btn btn-light border',
+          badge: null,
+          badgeClasses: null
+        },
+        {
+          id: 'trade-approvals',
+          label: 'Approval Center',
+          description: null,
+          icon: 'mdi mdi-shield-check-outline',
+          buttonClasses: 'btn btn-light border',
+          badge: null,
+          badgeClasses: null
+        }
+      ]
     }
   },
   computed: {
@@ -1132,9 +1208,90 @@ export default {
         // WHY: Allow users to assign brokers to assets in the current trade
         this.showBrokerAssignmentsModal = true
       }
+      if (actionId === 'import-mappings') {
+        // WHAT: Navigate to Import Mappings page with trade and seller IDs
+        // WHY: Allow users to audit field mappings for current trade
+        // HOW: Use Vue Router to navigate with trade_id and seller_id query params
+        if (this.selectedTradeId) {
+          this.$router.push({
+            path: '/acquisitions/import-mappings',
+            query: {
+              trade_id: this.selectedTradeId,
+              seller_id: this.selectedSellerId
+            }
+          })
+        } else {
+          alert('Please select a trade first')
+        }
+      }
+      if (actionId === 'awarded-assets') {
+        // WHAT: Open awarded assets modal
+        // WHY: Allow users to upload awarded list and drop non-awarded assets
+        // HOW: Show modal if trade is selected
+        if (this.selectedTradeId) {
+          console.log('[Acquisitions] Opening Awarded Assets modal for trade:', this.selectedTradeId)
+          this.showAwardedAssetsModal = true
+          
+          // WHAT: Show modal using Bootstrap
+          // WHY: Component uses Bootstrap modal markup
+          // HOW: Use $nextTick to ensure component is rendered, then use Bootstrap Modal API
+          this.$nextTick(() => {
+            const modalEl = document.getElementById('awardedAssetsModal')
+            if (modalEl) {
+              try {
+                // @ts-ignore - Use bootstrap from import or window fallback
+                const bootstrapObj = bootstrap || (window as any).bootstrap
+                if (bootstrapObj && bootstrapObj.Modal) {
+                  const modal = new bootstrapObj.Modal(modalEl)
+                  modal.show()
+                } else {
+                  console.error('[Acquisitions] Bootstrap Modal API not found')
+                  // Fallback: Try to use jQuery if available (unlikely in Vue 3 but just in case)
+                  if ((window as any).$ && (window as any).$.fn && (window as any).$.fn.modal) {
+                    (window as any).$('#awardedAssetsModal').modal('show')
+                  }
+                }
+              } catch (err) {
+                console.error('[Acquisitions] Failed to initialize bootstrap modal:', err)
+              }
+            } else {
+              console.error('[Acquisitions] awardedAssetsModal element not found in DOM after nextTick')
+              // Retry once more after a small delay
+              setTimeout(() => {
+                const retryEl = document.getElementById('awardedAssetsModal')
+                if (retryEl) {
+                  // @ts-ignore
+                  const bObj = bootstrap || (window as any).bootstrap
+                  if (bObj && bObj.Modal) {
+                    new bObj.Modal(retryEl).show()
+                  }
+                }
+              }, 100)
+            }
+          })
+        } else {
+          alert('Please select a trade first')
+        }
+      }
       if (actionId === 'trade-approvals' || actionId === 'approvals-checklist') {
         console.log('[Acquisitions] Approvals prototype selected')
       }
+    },
+    handleAssetsDropped(result) {
+      // WHAT: Handle assets dropped event
+      // WHY: Refresh data after drop operation
+      // HOW: Reload grid data and let child component handle modal closing
+      console.log('[Acquisitions] Assets dropped:', result)
+      
+      // WHAT: Reload grid data immediately to reflect changes
+      // WHY: User needs to see updated data after drop
+      // HOW: Fetch fresh grid data
+      if (this.selectedTradeId && this.selectedSellerId) {
+        this.fetchGridData(this.selectedSellerId, this.selectedTradeId)
+      }
+      
+      // NOTE: Don't set showAwardedAssetsModal = false here
+      // The child component will handle closing the modal after showing success message
     },
   },
   mounted() {

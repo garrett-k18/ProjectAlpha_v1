@@ -90,6 +90,17 @@
             <small class="form-text text-muted">Auto-generated as "SellerName - MM.DD.YY" if blank</small>
           </div>
           <div class="col-12">
+            <div class="alert alert-info d-flex justify-content-between align-items-center">
+              <div>
+                <i class="mdi mdi-information me-2"></i>
+                <strong>Saved Mappings:</strong> Column mappings are automatically saved after each import.
+              </div>
+              <router-link to="/acquisitions/import-mappings" class="btn btn-sm btn-outline-primary">
+                <i class="mdi mdi-map-marker-path me-1"></i>Manage Mappings
+              </router-link>
+            </div>
+          </div>
+          <div class="col-12">
             <div class="form-check mb-2">
               <input
                 v-model="dryRun"

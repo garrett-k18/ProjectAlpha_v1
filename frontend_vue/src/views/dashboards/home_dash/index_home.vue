@@ -18,6 +18,13 @@
       </b-col>
     </b-row>
 
+    <!-- AI Chat Widget Row (Centered and limited width) -->
+    <b-row class="mt-2 mb-4 justify-content-center">
+      <b-col cols="12" lg="10" xl="8">
+        <AIChatWidget />
+      </b-col>
+    </b-row>
+
     <!-- Stats Row - Key metrics tiles -->
     <StatsWidget />
 
@@ -115,6 +122,8 @@ import HomeCalendarWidget from '@/components/widgets/HomeCalendarWidget.vue'
 import StatsWidget from './components/StatsWidget.vue'
 // Pipeline widget - asset pipeline stages by outcome track (FC, REO, etc.)
 import PipelineWidget from './components/PipelineWidget.vue'
+// AI Chat widget - conversational interface for company data queries
+import AIChatWidget from './components/AIChatWidget.vue'
 // Django auth store for user data
 import { useDjangoAuthStore } from '@/stores/djangoAuth'
 import http from '@/lib/http'
@@ -169,6 +178,7 @@ export default {
     HomeCalendarWidget,
     StatsWidget,
     PipelineWidget,
+    AIChatWidget,
   },
   // Options API state for simplicity and broad compatibility across the app
   data() {

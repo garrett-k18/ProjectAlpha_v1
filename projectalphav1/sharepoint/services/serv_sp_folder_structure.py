@@ -23,27 +23,49 @@ class FolderStructure:
     
     # Trade-level folders
     TRADE_FOLDERS = [
-        "Bid",
-        "Legal",
-        "Post Close",
+        "Trade Level",
         "Asset Level",  # Container for all assets
+    ]
+    
+    # Trade Level subfolders
+    TRADE_LEVEL_FOLDERS = [
+        "Seller Data Dump",
+        "Due Diligence",
+        "Bid",
+        "Settlement",
+        "Entity",
+        "Legal",
+        "Servicing",
+        "Asset Management",
     ]
     
     # Asset-level folders (within each asset)
     ASSET_FOLDERS = [
         "Valuation",
-        "Collateral",
-        "Legal",
-        "Tax",
+        "Loan File",
         "Title",
-        "Photos",
+        "Legal",
+        "Financials",
+        "Tax & Insurance",
+        "Servicing",
+        "Asset Management",
+        "Liquidations",
     ]
     
     # Tags for Valuation files only (replaces BPO/Appraisal/Inspection subfolders)
     VALUATION_TAGS = ["BPO", "Appraisal", "Inspection Report"]
     
     # No subfolders - flat structure with tags for Valuation
-    ASSET_SUBFOLDERS = {}
+    ASSET_SUBFOLDERS = {
+        "Loan File": [
+            "Loan Origination",
+            "Collateral",
+            "Borrower",
+            "Appraisal",
+            "Title",
+            "AOM",
+        ]
+    }
     
     @staticmethod
     def get_trade_base_path(trade_id: str) -> str:
@@ -70,7 +92,12 @@ class FolderStructure:
             List of folder paths to create
         """
         base_path = FolderStructure.get_trade_base_path(trade_id)
-        return [f"{base_path}/{folder}" for folder in FolderStructure.TRADE_FOLDERS]
+        folders = [f"{base_path}/{folder}" for folder in FolderStructure.TRADE_FOLDERS]
+
+        trade_level_base = f"{base_path}/Trade Level"
+        folders.extend([f"{trade_level_base}/{folder}" for folder in FolderStructure.TRADE_LEVEL_FOLDERS])
+
+        return folders
     
     @staticmethod
     def get_asset_base_path(trade_id: str, asset_id: str) -> str:
@@ -135,15 +162,23 @@ class FolderStructure:
         
         # Map category to folder name
         category_folder_map = {
+            'trade_seller_data_dump': 'Seller Data Dump',
+            'trade_due_diligence': 'Due Diligence',
             'trade_bid': 'Bid',
+            'trade_settlement': 'Settlement',
+            'trade_entity': 'Entity',
             'trade_legal': 'Legal',
-            'trade_post_close': 'Post Close',
+            'trade_servicing': 'Servicing',
+            'trade_asset_management': 'Asset Management',
             'asset_valuation': 'Valuation',
-            'asset_collateral': 'Collateral',
+            'asset_loan_file': 'Loan File',
             'asset_legal': 'Legal',
-            'asset_tax': 'Tax',
             'asset_title': 'Title',
-            'asset_photos': 'Photos',
+            'asset_financials': 'Financials',
+            'asset_tax_insurance': 'Tax & Insurance',
+            'asset_servicing': 'Servicing',
+            'asset_asset_management': 'Asset Management',
+            'asset_liquidations': 'Liquidations',
         }
         
         folder_name = category_folder_map.get(category)
@@ -153,10 +188,10 @@ class FolderStructure:
         # Build path based on whether it's trade-level or asset-level
         if asset_id:
             # Asset-level document
-            return f"/{FolderStructure.ROOT_TRADES}/{trade_id}/Assets/{asset_id}/{folder_name}/{file_name}"
-        else:
-            # Trade-level document
-            return f"/{FolderStructure.ROOT_TRADES}/{trade_id}/{folder_name}/{file_name}"
+            return f"/{FolderStructure.ROOT_TRADES}/{trade_id}/Asset Level/{asset_id}/{folder_name}/{file_name}"
+
+        # Trade-level document
+        return f"/{FolderStructure.ROOT_TRADES}/{trade_id}/Trade Level/{folder_name}/{file_name}"
     
     @staticmethod
     def validate_file_path(file_path: str) -> tuple[bool, str]:
@@ -177,16 +212,16 @@ class FolderStructure:
         if len(parts) < 4:
             return False, "File must be in a category folder (minimum depth not met)"
         
-        # Check that file is not directly in Trades or Assets folder
+        # Check that file is not directly in Trades or Asset Level folder
         if parts[0] == FolderStructure.ROOT_TRADES:
             # Should have at least: Trades/ID/Category/file
             if len(parts) == 3:  # Trades/ID/file - WRONG
                 return False, f"File cannot be directly in trade folder: /{'/'.join(parts[:2])}"
             
-            if 'Assets' in parts:
-                asset_idx = parts.index('Assets')
-                # Should have at least: Trades/ID/Assets/ASSET_ID/Category/file
-                if len(parts) - asset_idx < 3:  # Assets/ASSET_ID/file - WRONG
+            if 'Asset Level' in parts:
+                asset_level_idx = parts.index('Asset Level')
+                # Should have at least: Trades/ID/Asset Level/ASSET_ID/Category/file
+                if len(parts) - asset_level_idx < 3:  # Asset Level/ASSET_ID/file - WRONG
                     return False, f"File cannot be directly in asset folder"
         
         return True, ""
@@ -201,7 +236,7 @@ class FolderStructure:
             Dict with 'trade_level' and 'asset_level' keys
         """
         return {
-            'trade_level': FolderStructure.TRADE_FOLDERS[:3],  # Exclude Assets container
+            'trade_level': FolderStructure.TRADE_LEVEL_FOLDERS,
             'asset_level': FolderStructure.ASSET_FOLDERS,
         }
 

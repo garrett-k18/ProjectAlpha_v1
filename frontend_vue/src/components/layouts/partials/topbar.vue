@@ -1,64 +1,72 @@
 <template>
   <div class="navbar-custom">
     <div class="topbar container-fluid">
-      <div class="d-flex align-items-center gap-lg-2 gap-1">
+      <!-- Three-column layout: Left (logo/buttons), Center (search), Right (menu) -->
+      <div class="d-flex align-items-center justify-content-between w-100">
+        <!-- Left Section: Logo and Menu Buttons -->
+        <div class="d-flex align-items-center gap-lg-2 gap-1 flex-shrink-0">
+          <!-- Topbar Brand Logo -->
+          <div class="logo-topbar">
+            <!-- Logo light -->
+            <router-link to="/home" class="logo-light">
+                      <span class="logo-lg">
+                          <img src="@/assets/images/logo.svg" alt="projectalpha" height="62">
+                      </span>
+              <span class="logo-sm">
+                          <img src="@/assets/images/logo-sm.png" alt="small logo">
+                      </span>
+            </router-link>
 
-        <!-- Topbar Brand Logo -->
-        <div class="logo-topbar">
-          <!-- Logo light -->
-          <router-link to="/home" class="logo-light">
-                    <span class="logo-lg">
-                        <img src="@/assets/images/logo.svg" alt="projectalpha" height="62">
-                    </span>
-            <span class="logo-sm">
-                        <img src="@/assets/images/logo-sm.png" alt="small logo">
-                    </span>
-          </router-link>
+            <!-- Logo Dark -->
+            <router-link to="/home" class="logo-dark">
+                      <span class="logo-lg">
+                          <img src="@/assets/images/logo.svg" alt="projectalpha" height="62">
+                      </span>
+              <span class="logo-sm">
+                          <img src="@/assets/images/logo-dark-sm.png" alt="small logo">
+                      </span>
+            </router-link>
+          </div>
 
-          <!-- Logo Dark -->
-          <router-link to="/home" class="logo-dark">
-                    <span class="logo-lg">
-                        <img src="@/assets/images/logo.svg" alt="projectalpha" height="62">
-                    </span>
-            <span class="logo-sm">
-                        <img src="@/assets/images/logo-dark-sm.png" alt="small logo">
-                    </span>
-          </router-link>
+          <!-- Sidebar Menu Toggle Button -->
+          <button class="button-toggle-menu">
+            <i class="mdi mdi-menu"></i>
+          </button>
+
+          <!-- Horizontal Menu Toggle Button -->
+          <button class="navbar-toggle horizontal-button-toggle-menu" data-bs-toggle="collapse" data-bs-target="#topnav-menu-content">
+            <div class="lines">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+          </button>
         </div>
 
-        <!-- Sidebar Menu Toggle Button -->
-        <button class="button-toggle-menu">
-          <i class="mdi mdi-menu"></i>
-        </button>
-
-        <!-- Horizontal Menu Toggle Button -->
-        <button class="navbar-toggle horizontal-button-toggle-menu" data-bs-toggle="collapse" data-bs-target="#topnav-menu-content">
-          <div class="lines">
-            <span></span>
-            <span></span>
-            <span></span>
-          </div>
-        </button>
-
-        <!-- Topbar Search Form -->
-        <b-nav-item-dropdown
-            class="app-search d-none d-lg-block"
-            menu-class="dropdown-menu dropdown-menu-animated dropdown-lg"
-            toggle-class="arrow-none"
-        >
+        <!-- Center Section: Search Bar -->
+        <div class="flex-grow-1 d-flex justify-content-center px-3">
+          <b-nav-item-dropdown
+              v-if="$route.name !== 'home'"
+              class="app-search d-none d-lg-block app-search-wrap"
+              menu-class="dropdown-menu dropdown-menu-animated dropdown-lg"
+              toggle-class="arrow-none p-0"
+          >
           <template #button-content>
-            <b-form>
-              <b-form-group class="input-group">
-                <b-form-input
-                    type="search"
-                    class="form-control dropdown-toggle"
-                    placeholder="Search..."
-                    id="top-search"
-                />
-                <span class="ri-search-line search-icon"></span>
-              </b-form-group>
-              <b-button variant="primary" class="input-group-text" type="submit">Search</b-button>
-            </b-form>
+            <div class="chat-input-wrapper shadow-none w-100">
+              <input
+                type="text"
+                class="form-control border-0 bg-white py-1 px-3 small flex-grow-1"
+                placeholder="AI Search..."
+                style="flex: 1 1 auto;"
+              />
+              <button
+                type="button"
+                class="btn btn-primary btn-sm rounded-0 p-0 d-flex align-items-center justify-content-center flex-shrink-0"
+                style="width: 32px; height: 32px; margin-right: 0px;"
+              >
+                <i class="ri-arrow-up-line fs-5"></i>
+              </button>
+            </div>
           </template>
 
           <div style="width: 320px">
@@ -115,11 +123,12 @@
               </div>
             </b-dropdown-item>
           </div>
-        </b-nav-item-dropdown>
-      </div>
+          </b-nav-item-dropdown>
+        </div>
 
-      <ul class="topbar-menu d-flex align-items-center gap-3">
-        <li class="dropdown d-lg-none">
+        <!-- Right Section: Menu Items -->
+        <ul class="topbar-menu d-flex align-items-center gap-3 flex-shrink-0">
+        <li class="dropdown d-lg-none" v-if="$route.name !== 'home'">
           <a
               class="nav-link dropdown-toggle arrow-none"
               data-bs-toggle="dropdown"
@@ -355,6 +364,7 @@
           </b-dropdown-item>
         </b-nav-item-dropdown>
       </ul>
+      </div>
     </div>
   </div>
 </template>
@@ -516,3 +526,70 @@ export default {
 
 }
 </script>
+
+<style scoped>
+/* AI Search Bar styling for Topbar - matching AIChatWidget.vue */
+.chat-input-wrapper {
+  display: flex;
+  align-items: center;
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 0; /* Squared corners */
+  overflow: hidden;
+  transition: all 0.2s ease;
+  width: 100%; /* Fill full width of container */
+}
+
+.chat-input-wrapper:focus-within {
+  border-color: #D4AF37;
+  box-shadow: 0 0 0 0.2rem rgba(212, 175, 55, 0.15);
+}
+
+.chat-input-wrapper .form-control {
+  flex: 1 1 auto;
+  min-width: 0; /* Allow flexbox to shrink if needed */
+  box-shadow: none;
+  background-color: transparent;
+}
+
+.chat-input-wrapper .form-control:focus {
+  box-shadow: none;
+  background-color: transparent;
+}
+
+/* Custom width for header search - longer and centered */
+.app-search-wrap {
+  min-width: 600px;
+  max-width: 800px;
+  width: 100%;
+}
+
+/* Force the BootstrapVue dropdown button and all nested elements to fill width */
+.app-search-wrap :deep(.btn-group) {
+  width: 100% !important;
+  display: flex !important;
+}
+
+.app-search-wrap :deep(.dropdown-toggle) {
+  width: 100% !important;
+}
+
+.app-search-wrap :deep(.btn-content) {
+  width: 100% !important;
+  display: block !important;
+}
+
+@media (max-width: 1400px) {
+  .app-search-wrap {
+    min-width: 500px;
+    max-width: 650px;
+  }
+}
+
+@media (max-width: 1200px) {
+  .app-search-wrap {
+    min-width: 400px;
+    max-width: 500px;
+  }
+}
+</style>
