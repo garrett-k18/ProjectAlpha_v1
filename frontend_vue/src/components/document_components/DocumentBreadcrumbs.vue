@@ -6,12 +6,12 @@
     Where: Below the top bar on right side
     How: Accepts `currentPath`; emits `go:root` and `go:folder(index)`
   -->
-  <div v-if="currentPath.length > 0" class="mb-3">
+  <div class="mb-3">
     <nav aria-label="breadcrumb">
       <ol class="breadcrumb mb-0">
         <li class="breadcrumb-item">
           <a href="#" @click.prevent="$emit('go:root')">
-            <i class="mdi mdi-home"></i> Root
+            <i class="mdi mdi-home"></i> Trade Level
           </a>
         </li>
         <li

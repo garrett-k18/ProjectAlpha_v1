@@ -59,12 +59,11 @@
     <!-- External Storage Links -->
     <div class="email-menu-list mt-3">
       <h6 class="text-muted text-uppercase font-13 mb-2 mt-4">External Storage</h6>
-      <a href="https://egnyte.com" target="_blank" class="list-group-item border-0">
-        <i class="mdi mdi-cloud font-18 align-middle me-2"></i>
-        Egnyte Portal
-        <i class="mdi mdi-open-in-new font-12 ms-1"></i>
-      </a>
-      <a href="https://sharepoint.com" target="_blank" class="list-group-item border-0">
+      <a
+        href="https://firstliencapitaldom.sharepoint.com/sites/ProjectAlpha/Shared%20Documents/Forms/AllItems.aspx?id=%2Fsites%2FProjectAlpha%2FShared%20Documents%2FTrades%2FFLC%2D40%20%2D%20HUD&sortField=DefaultSortOrder&isAscending=true&viewid=52551d4e%2D0079%2D4db6%2Daf37%2Dd7bb02165568&newTargetListUrl=%2Fsites%2FProjectAlpha%2FShared%20Documents&viewpath=%2Fsites%2FProjectAlpha%2FShared%20Documents%2FForms%2FAllItems%2Easpx"
+        target="_blank"
+        class="list-group-item border-0"
+      >
         <i class="mdi mdi-microsoft-sharepoint font-18 align-middle me-2"></i>
         SharePoint
         <i class="mdi mdi-open-in-new font-12 ms-1"></i>

@@ -103,6 +103,9 @@ export default defineComponent({
       displayMode: 'grid' as 'grid' | 'list',
       dragOver: false,
       uploading: false,
+      tradeFoldersCache: [] as any[],
+      assetFoldersCache: [] as any[],
+      folderContentsCache: {} as Record<string, any>,
     }
   },
   computed: {
@@ -167,6 +170,20 @@ export default defineComponent({
     this.loadData()
   },
   methods: {
+    getFolderCountFromCacheOrTemplate(folder: any): number {
+      const cached = this.folderContentsCache[folder.path]
+      if (cached) {
+        return (cached.files?.length || 0) + (cached.folders?.length || 0)
+      }
+      // Fallback to any counts present on the template structure
+      if (Array.isArray(folder.files) || Array.isArray(folder.subfolders)) {
+        return (folder.files?.length || 0) + (folder.subfolders?.length || 0)
+      }
+      if (typeof folder.file_count === 'number') {
+        return folder.file_count
+      }
+      return 0
+    },
     switchView(viewId: string) {
       this.currentViewId = viewId
       this.currentPath = []
@@ -180,7 +197,7 @@ export default defineComponent({
           this.applySelectedFilter()  // Only filter for mock data views
         }
         else if (this.currentViewId === 'by-type') {
-          await this.loadByType()  // SharePoint data - no filtering needed
+          await this.loadByType()  // SharePoint data - lazy-load files per folder
         }
         else if (this.currentViewId === 'by-status') {
           this.loadByStatus()
@@ -205,6 +222,15 @@ export default defineComponent({
         const inPath = file.path.includes(key)
         const inTags = Array.isArray(file.tags) ? file.tags.some(t => String(t).includes(key)) : false
         return inName || inPath || inTags
+      })
+    },
+    updateVisibleFolderCountsFromCache() {
+      if (!this.folders || this.folders.length === 0) return
+      this.folders = this.folders.map(folder => {
+        const cached = this.folderContentsCache[folder.path]
+        if (!cached) return folder
+        const count = (cached.files?.length || 0) + (cached.folders?.length || 0)
+        return { ...folder, count }
       })
     },
     loadByTrade() {
@@ -260,41 +286,30 @@ export default defineComponent({
             return
           }
           
+          // Cache static Trade Level folder structure for instant first-level navigation
+          this.tradeFoldersCache = data.folders || []
+
           if (this.currentPath.length === 0) {
-            // WHAT: Show trade-level category folders (Bid, Legal, Post Close)
-            // WHY: Static folder structure - no API call needed for folders
-            // HOW: Map API response folders to display format
-            console.log('Mapping trade folders:', data.folders)
-            this.folders = (data.folders || []).map((folder: any) => {
-              return {
-                id: folder.name,
-                name: folder.name,
-                path: folder.path,
-                count: (folder.files?.length || 0) + (folder.subfolders?.length || 0)
-              }
-            })
-            console.log('Mapped trade folders:', this.folders)
-            this.files = data.files || []
-          } else {
-            // WHAT: In a trade-level folder - show files
-            // WHY: User clicked into Bid, Legal, or Post Close folder
-            // HOW: Find folder data and show its files
-            const currentFolder = this.currentPath[this.currentPath.length - 1]
-            const folderData = (data.folders || []).find((f: any) => f.name === currentFolder.name)
-            
-            if (folderData) {
-              // Show subfolders if any
-              this.folders = (folderData.subfolders || []).map((sub: any) => ({
-                id: sub.name,
-                name: sub.name,
-                path: sub.path,
-                count: sub.files?.length || 0
-              }))
-              this.files = folderData.files || []
-            } else {
-              this.folders = []
-              this.files = []
+          // WHAT: Show trade-level category folders (Seller Data Dump, Due Diligence, Bid, Award, Settlement, etc.)
+          // WHY: Static folder structure from backend; files are lazy-loaded per folder
+          console.log('Mapping trade folders:', data.folders)
+          this.folders = (data.folders || []).map((folder: any) => {
+            return {
+              id: folder.name,
+              name: folder.name,
+              path: folder.path,
+              count: this.getFolderCountFromCacheOrTemplate(folder),
             }
+          })
+          console.log('Mapped trade folders:', this.folders)
+          this.files = []
+
+          // Bulk prefetch contents for all Trade Level folders in the background
+          // so that counts and first drill-ins are fast after the trade is loaded.
+          this.prefetchChildFolders(data.folders || [])
+          } else {
+            // WHAT: In a trade-level folder - we lazy-load contents via openFolder()
+            // Just keep current folders/files as-is here.
           }
         } catch (error) {
           console.error('Error loading SharePoint trade documents:', error)
@@ -330,8 +345,11 @@ export default defineComponent({
           return
         }
         
+        // Cache static asset-level folder structure for instant first-level navigation
+        this.assetFoldersCache = data.folders || []
+
         if (this.currentPath.length === 0) {
-          // Show main category folders
+          // Show main asset-level category folders (Valuation, Loan File, etc.)
           console.log('Mapping folders:', data.folders)
           this.folders = (data.folders || []).map((folder: any) => {
             console.log('Mapping folder:', folder)
@@ -339,29 +357,14 @@ export default defineComponent({
               id: folder.name,
               name: folder.name,
               path: folder.path,
-              count: (folder.files?.length || 0) + (folder.subfolders?.length || 0)
+              count: this.getFolderCountFromCacheOrTemplate(folder),
             }
           })
           console.log('Mapped folders:', this.folders)
-          this.files = data.files || []
+          this.files = []
         } else {
-          // In subfolder - show files
-          const currentFolder = this.currentPath[this.currentPath.length - 1]
-          const folderData = (data.folders || []).find((f: any) => f.name === currentFolder.name)
-          
-          if (folderData) {
-            // Show subfolders if any
-            this.folders = (folderData.subfolders || []).map((sub: any) => ({
-              id: sub.name,
-              name: sub.name,
-              path: sub.path,
-              count: sub.files?.length || 0
-            }))
-            this.files = folderData.files || []
-          } else {
-            this.folders = []
-            this.files = []
-          }
+          // WHAT: In an asset-level folder; contents are lazy-loaded via openFolder()
+          // Keep existing state here.
         }
       } catch (error) {
         console.error('Error loading SharePoint documents:', error)
@@ -392,17 +395,159 @@ export default defineComponent({
         { id: 'r2', name: 'Recent Upload 2.xlsx', path: '/recent2.xlsx', type: 'Excel', size: 1234567, modified: '2024-01-16T14:22:00Z', tags: ['Trade-2024-001', 'Financial'] },
       ]
     },
-    openFolder(folder: EgnyteFolder) {
+    async openFolder(folder: EgnyteFolder) {
+      // Non-SharePoint (mock) views keep old behavior
+      if (this.currentViewId !== 'by-type') {
+        this.currentPath.push(folder)
+        this.loadData()
+        return
+      }
+
+      const previousDepth = this.currentPath.length
       this.currentPath.push(folder)
-      this.loadData()
+
+      const path = folder.path
+
+      // If we already have contents cached for this path, use them instantly
+      const cached = this.folderContentsCache[path]
+      if (cached) {
+        this.folders = (cached.folders || []).map((sub: any) => ({
+          id: sub.name,
+          name: sub.name,
+          path: sub.path,
+          count: (sub.files?.length || 0) + (sub.subfolders?.length || 0),
+        }))
+        this.files = cached.files || []
+        // Predictively prefetch next-level children in the background
+        this.prefetchChildFolders(cached.folders || [])
+        this.updateVisibleFolderCountsFromCache()
+        return
+      }
+
+      const tradeId = this.tradeId || (this.row && (this.row as any).tradeId) || (this.row && (this.row as any).trade?.id)
+      const assetHubId = this.assetId || (this.row && this.row.id)
+
+      // Trade-level: instant navigation from root into known Trade Level categories
+      if (tradeId && !assetHubId && previousDepth === 0) {
+        const folderData = (this.tradeFoldersCache || []).find((f: any) => f.name === folder.name)
+        if (folderData && Array.isArray(folderData.subfolders) && folderData.subfolders.length > 0) {
+          this.folders = (folderData.subfolders || []).map((sub: any) => ({
+            id: sub.name,
+            name: sub.name,
+            path: sub.path,
+            count: sub.file_count || 0,
+          }))
+          this.files = []
+
+          // Predictively prefetch each subfolder's files in the background
+          this.prefetchChildFolders(folderData.subfolders || [])
+          this.updateVisibleFolderCountsFromCache()
+          return
+        }
+        // If no predefined subfolders, fall through to lazy-load files via API
+      }
+
+      // Asset-level: instant navigation from root into known category subfolders (e.g., Loan File children)
+      if (assetHubId && previousDepth === 0) {
+        const folderData = (this.assetFoldersCache || []).find((f: any) => f.name === folder.name)
+        if (folderData && Array.isArray(folderData.subfolders) && folderData.subfolders.length > 0) {
+          this.folders = (folderData.subfolders || []).map((sub: any) => ({
+            id: sub.name,
+            name: sub.name,
+            path: sub.path,
+            count: sub.file_count || 0,
+          }))
+          this.files = []
+
+          // Predictively prefetch each subfolder's files in the background
+          this.prefetchChildFolders(folderData.subfolders || [])
+          this.updateVisibleFolderCountsFromCache()
+          return
+        }
+        // If no predefined subfolders, fall through to lazy-load via API
+      }
+
+      // Lazy-load contents of the selected folder from backend
+      try {
+        const response = await fetch(`/api/sharepoint/folder-contents/?path=${encodeURIComponent(path)}`)
+        const data = await response.json()
+        console.log('Folder contents response for', path, ':', data)
+
+        if (!data.success) {
+          console.error('Failed to load folder contents:', data.error)
+          this.folders = []
+          this.files = []
+          return
+        }
+
+        // Cache contents for this path so revisits are instant
+        this.folderContentsCache[path] = data
+
+        // Also update any matching template folder entry so root cards
+        // (e.g. Seller Data Dump) can show the correct item count when
+        // you navigate back.
+        const totalCount = (data.files?.length || 0) + (data.folders?.length || 0)
+        const tradeIdx = (this.tradeFoldersCache || []).findIndex((f: any) => f.path === path)
+        if (tradeIdx >= 0) {
+          const existing = this.tradeFoldersCache[tradeIdx]
+          this.tradeFoldersCache.splice(tradeIdx, 1, { ...existing, file_count: totalCount })
+        }
+        const assetIdx = (this.assetFoldersCache || []).findIndex((f: any) => f.path === path)
+        if (assetIdx >= 0) {
+          const existing = this.assetFoldersCache[assetIdx]
+          this.assetFoldersCache.splice(assetIdx, 1, { ...existing, file_count: totalCount })
+        }
+
+        this.folders = (data.folders || []).map((sub: any) => ({
+          id: sub.name,
+          name: sub.name,
+          path: sub.path,
+          count: (sub.files?.length || 0) + (sub.subfolders?.length || 0),
+        }))
+        this.files = data.files || []
+
+        // Predictively prefetch next-level children
+        this.prefetchChildFolders(data.folders || [])
+        this.updateVisibleFolderCountsFromCache()
+      } catch (error) {
+        console.error('Error lazy-loading folder contents:', error)
+        this.folders = []
+        this.files = []
+      }
+    },
+    prefetchChildFolders(childFolders: any[]) {
+      childFolders.forEach((sub: any) => {
+        const subPath = sub && sub.path
+        if (!subPath || this.folderContentsCache[subPath]) return
+
+        fetch(`/api/sharepoint/folder-contents/?path=${encodeURIComponent(subPath)}`)
+          .then(res => res.json())
+          .then(data => {
+            if (data && data.success) {
+              this.folderContentsCache[subPath] = data
+              this.updateVisibleFolderCountsFromCache()
+            }
+          })
+          .catch(err => {
+            console.error('Error prefetching folder contents for', subPath, err)
+          })
+      })
     },
     navigateToRoot() {
       this.currentPath = []
       this.loadData()
     },
     navigateToFolder(index: number) {
-      this.currentPath = this.currentPath.slice(0, index + 1)
-      this.loadData()
+      // Navigate to a specific folder in the breadcrumb trail.
+      // For SharePoint (by-type) view, treat this like clicking that folder
+      // in the grid/list so openFolder() applies caching and lazy-loading
+      // logic correctly.
+      const targetFolder = this.currentPath[index]
+      if (!targetFolder) return
+
+      // Trim path so openFolder pushes targetFolder as the new last segment
+      this.currentPath = this.currentPath.slice(0, index)
+      this.openFolder(targetFolder)
     },
     getFileIcon(type: string): string {
       const icons: Record<string, string> = {

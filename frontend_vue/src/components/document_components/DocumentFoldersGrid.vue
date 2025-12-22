@@ -12,16 +12,17 @@
       <b-col
         v-for="folder in folders"
         :key="folder.id"
-        cols="6"
+        cols="12"
+        sm="6"
         md="4"
-        lg="3"
-        xl="2"
+        lg="4"
+        xl="3"
         class="mb-3"
       >
         <div class="card folder-card h-100 cursor-pointer" @click="$emit('open:folder', folder)">
           <div class="card-body text-center py-3">
             <i class="mdi mdi-folder font-24 text-warning"></i>
-            <div class="mt-2 small fw-semibold text-truncate">{{ folder.name }}</div>
+            <div class="mt-2 small fw-semibold folder-title">{{ folder.name }}</div>
             <div class="text-muted" style="font-size: 0.7rem;">{{ folder.count }} items</div>
           </div>
         </div>
@@ -59,5 +60,9 @@ export default defineComponent({
 .folder-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+}
+.folder-title {
+  white-space: normal;
+  word-break: break-word;
 }
 </style>

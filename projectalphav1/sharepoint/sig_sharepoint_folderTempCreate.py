@@ -95,11 +95,29 @@ def create_asset_folders(sender, instance, created, **kwargs):
         
         # Get asset info
         asset_hub_id = instance.asset_hub.id if instance.asset_hub else instance.pk
-        
-        # WHAT: Use asset_hub_id directly as folder name
-        # WHY: SharePoint folders use asset_hub_id as metadata identifier for linkage
-        # HOW: Use asset_hub_id as the folder name - it's always present and stable
-        asset_folder = str(asset_hub_id)
+
+        servicer_id = None
+        sellertape_id = None
+        if instance.asset_hub:
+            servicer_id = getattr(instance.asset_hub, 'servicer_id', None)
+            sellertape_id = getattr(instance.asset_hub, 'sellertape_id', None)
+
+        # Build address (optional) for human-friendly folder naming
+        street = getattr(instance, 'street_address', None) or ''
+        city = getattr(instance, 'city', None) or ''
+        state = getattr(instance, 'state', None) or ''
+        zip_code = getattr(instance, 'zip', None) or ''
+        full_address = f"{street}, {city}, {state} {zip_code}".strip(', ').strip()
+
+        # Asset folder naming convention:
+        #   "{primary_id} - {address}"
+        # where primary_id is servicer_id, else sellertape_id, else asset_hub_id
+        primary_id = servicer_id or sellertape_id or asset_hub_id
+        asset_folder_raw = f"{primary_id} - {full_address}" if full_address else str(primary_id)
+        asset_folder = asset_folder_raw
+        for char in ['~', '#', '%', '&', '*', '{', '}', '\\', ':', '<', '>', '?', '/', '|', '"']:
+            asset_folder = asset_folder.replace(char, '_')
+        asset_folder = asset_folder.strip(' .')[:100]
         
         # Create folders
         client = SharePointClient()

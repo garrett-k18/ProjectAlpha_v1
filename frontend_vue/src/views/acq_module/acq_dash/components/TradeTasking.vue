@@ -71,32 +71,6 @@
           </div>
         </router-link>
 
-        <!-- Title Checks -->
-        <router-link to="/acquisitions/title-center" class="status-item-link mb-2">
-          <div class="status-item">
-            <div class="d-flex justify-content-between align-items-center mb-0">
-              <div class="d-flex align-items-center">
-                <i class="ri-file-shield-line me-2 text-info fs-5"></i>
-                <span class="fw-semibold">Title Center</span>
-              </div>
-              <span class="badge" :class="progressBadgeClass(titleCompleted, totalAssets)">
-                Title Checks {{ titleCompleted }} / {{ totalAssets }}
-              </span>
-            </div>
-            <div class="progress mt-1" style="height: 6px;">
-              <div 
-                class="progress-bar" 
-                :class="progressBarClass(titleCompleted, totalAssets)"
-                role="progressbar" 
-                :style="{width: progressPercent(titleCompleted, totalAssets) + '%'}"
-                :aria-valuenow="titleCompleted" 
-                :aria-valuemin="0" 
-                :aria-valuemax="totalAssets"
-              ></div>
-            </div>
-          </div>
-        </router-link>
-
         <!-- Modeling Center -->
         <router-link to="/acquisitions/modeling-center" class="status-item-link">
           <div class="status-item">
@@ -117,6 +91,32 @@
                 aria-valuenow="100" 
                 aria-valuemin="0" 
                 aria-valuemax="100"
+              ></div>
+            </div>
+          </div>
+        </router-link>
+
+        <!-- Settlement Center -->
+        <router-link to="/acquisitions/title-center" class="status-item-link mb-2">
+          <div class="status-item">
+            <div class="d-flex justify-content-between align-items-center mb-0">
+              <div class="d-flex align-items-center">
+                <i class="ri-hand-coin-line me-2 text-info fs-5"></i>
+                <span class="fw-semibold">Settlement Center</span>
+              </div>
+              <span class="badge" :class="progressBadgeClass(titleCompleted, totalAssets)">
+                Settlement & Closing Items {{ titleCompleted }} / {{ totalAssets }}
+              </span>
+            </div>
+            <div class="progress mt-1" style="height: 6px;">
+              <div 
+                class="progress-bar" 
+                :class="progressBarClass(titleCompleted, totalAssets)"
+                role="progressbar" 
+                :style="{width: progressPercent(titleCompleted, totalAssets) + '%'}"
+                :aria-valuenow="titleCompleted" 
+                :aria-valuemin="0" 
+                :aria-valuemax="totalAssets"
               ></div>
             </div>
           </div>

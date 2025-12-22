@@ -27,6 +27,20 @@ import time
 
 class Command(BaseCommand):
     help = 'Unified SharePoint folder management'
+
+    # SharePoint listItem field internal names (NOT display names)
+    # If your SharePoint library uses different internal names, update these.
+    SP_FIELD_MAP = {
+        'trade_id': 'TradeID',
+        'trade_name': 'Trade',
+        'seller_name': 'Seller',
+        'asset_hub_id': 'AssetHub',
+        'servicer_id': 'Servicer',
+        'sellertape_id': 'Tape',
+        'address': 'Address',
+    }
+
+    _sp_columns_cache = None
     
     def add_arguments(self, parser):
         """Add command arguments"""
@@ -43,6 +57,7 @@ class Command(BaseCommand):
         parser.add_argument('--trade-filter', type=int, help='Trades >= this ID (e.g., 1015 for all trades from 1015 onwards)')
         parser.add_argument('--all', action='store_true', help='All trades')
         parser.add_argument('--limit', type=int, help='Limit to N trades')
+        parser.add_argument('--keep-only', action='store_true', help='Only assets with acq_status=KEEP')
         
         # Rename options
         parser.add_argument('--old', type=str, help='Old folder name')
@@ -100,6 +115,7 @@ class Command(BaseCommand):
         """Sync trades and assets to SharePoint"""
         dry_run = options.get('dry_run', False)
         use_batch = options.get('batch', False)
+        keep_only = options.get('keep_only', False)
         
         # Get models
         Trade = apps.get_model('acq_module', 'Trade')
@@ -145,14 +161,58 @@ class Command(BaseCommand):
             # Create trade folders first
             if not dry_run:
                 try:
+                    # Create trade root folder and stamp metadata for stable linking
+                    trade_base_path = FolderStructure.get_trade_base_path(folder_name)
+                    trade_metadata = {
+                        'trade_id': trade.pk,
+                        'trade_name': trade.trade_name,
+                        'seller_name': seller_name,
+                    }
+
+                    trade_root_info = self._create_with_retry(client, trade_base_path, skip_parent_check=True)
+                    if trade_root_info and 'id' in trade_root_info:
+                        try:
+                            self._set_folder_metadata(client, trade_root_info['id'], trade_metadata)
+                        except Exception as e:
+                            self.stdout.write(f'  ⚠ Trade folder metadata failed: {str(e)}')
+
                     for folder_path in FolderStructure.get_trade_folders(folder_name):
                         self._create_with_retry(client, folder_path, skip_parent_check=True)
+
+                    try:
+                        self._apply_trade_default_sort_orders(client, trade_base_path)
+                    except Exception as e:
+                        self.stdout.write(f'  ⚠ DefaultSortOrder failed: {str(e)}')
+
+                    # Stamp metadata on Trade Level folder as well
+                    trade_level_path = f"{trade_base_path}/Trade Level"
+                    trade_level_info = self._create_with_retry(client, trade_level_path, skip_parent_check=True)
+                    if trade_level_info and 'id' in trade_level_info:
+                        try:
+                            self._set_folder_metadata(client, trade_level_info['id'], trade_metadata)
+                        except Exception as e:
+                            self.stdout.write(f'  ⚠ Trade Level metadata failed: {str(e)}')
+
+                    # Stamp metadata on all Trade Level subfolders (Seller Data Dump, Due Diligence, Bid, Award, etc.)
+                    for tl_folder_name in FolderStructure.TRADE_LEVEL_FOLDERS:
+                        tl_folder_path = f"{trade_level_path}/{tl_folder_name}"
+                        tl_info = self._create_with_retry(client, tl_folder_path, skip_parent_check=True)
+                        if tl_info and 'id' in tl_info:
+                            try:
+                                self._set_folder_metadata(client, tl_info['id'], trade_metadata)
+                            except Exception as e:
+                                self.stdout.write(
+                                    f"  ⚠ Trade Level subfolder metadata failed ({tl_folder_name}): {str(e)[:80]}"
+                                )
                 except Exception as e:
                     self.stdout.write(self.style.ERROR(f'  Failed trade folders: {str(e)}'))
                     continue
             
             # Get assets for this trade
             assets = Asset.objects.filter(trade=trade).order_by('pk')
+
+            if keep_only:
+                assets = assets.filter(acq_status=Asset.AcquisitionStatus.KEEP)
             asset_count = assets.count()
             
             if not asset_count:
@@ -174,23 +234,21 @@ class Command(BaseCommand):
                 state = asset.state or ''
                 zip_code = asset.zip or ''
                 full_address = f"{street}, {city}, {state} {zip_code}".strip(', ')
+
+                # Build asset folder name: "{primary_id} - {address}" (sanitized)
+                # primary_id: servicer_id -> sellertape_id -> asset_hub_id
+                primary_id = servicer_id or sellertape_id or asset_hub_id
+                asset_folder = self._sanitize(f"{primary_id} - {full_address}" if full_address else str(primary_id))
                 
-                # Build asset folder name (servicer_id primary, sellertape_id fallback)
-                if servicer_id:
-                    asset_folder = str(servicer_id)
-                elif sellertape_id:
-                    asset_folder = str(sellertape_id)
-                else:
-                    asset_folder = f"UNKNOWN_{asset_hub_id}"
-                
-                # Metadata to store on folder
+                # Metadata to store on asset folders (parent + all children)
                 metadata = {
                     'asset_hub_id': asset_hub_id,
                     'servicer_id': servicer_id,
                     'sellertape_id': sellertape_id,
                     'trade_id': trade.pk,
                     'trade_name': trade.trade_name,
-                    'address': full_address
+                    'seller_name': seller_name,
+                    'address': full_address,
                 }
                 
                 if dry_run:
@@ -202,23 +260,43 @@ class Command(BaseCommand):
                     base_path = FolderStructure.get_asset_base_path(folder_name, asset_folder)
                     folder_info = self._create_with_retry(client, base_path, skip_parent_check=True)
                     
-                    # Set metadata on base folder
+                    # Set metadata on base asset folder (parent)
                     if folder_info and 'id' in folder_info:
                         try:
                             self._set_folder_metadata(client, folder_info['id'], metadata)
                         except Exception as e:
-                            self.stdout.write(f'      ⚠ Metadata failed: {str(e)}')
-                    
-                    # Then create all category folders
+                            self.stdout.write(f'      ⚠ Metadata failed (asset base): {str(e)[:80]}')
+
+                    # Then create all category folders and stamp metadata
                     for folder in FolderStructure.ASSET_FOLDERS:
                         cat_path = f"{base_path}/{folder}"
-                        self._create_with_retry(client, cat_path, skip_parent_check=True)
+                        cat_info = self._create_with_retry(client, cat_path, skip_parent_check=True)
+                        if cat_info and 'id' in cat_info:
+                            try:
+                                self._set_folder_metadata(client, cat_info['id'], metadata)
+                            except Exception as e:
+                                self.stdout.write(
+                                    f'      ⚠ Metadata failed (asset folder {folder}): {str(e)[:80]}'
+                                )
                         
-                        # Create subfolders if defined
+                        # Create subfolders if defined and stamp metadata
                         if folder in FolderStructure.ASSET_SUBFOLDERS:
                             for subfolder in FolderStructure.ASSET_SUBFOLDERS[folder]:
                                 sub_path = f"{cat_path}/{subfolder}"
-                                self._create_with_retry(client, sub_path, skip_parent_check=True)
+                                sub_info = self._create_with_retry(client, sub_path, skip_parent_check=True)
+                                if sub_info and 'id' in sub_info:
+                                    try:
+                                        self._set_folder_metadata(client, sub_info['id'], metadata)
+                                    except Exception as e:
+                                        self.stdout.write(
+                                            f'      ⚠ Metadata failed (asset subfolder {folder}/{subfolder}): {str(e)[:80]}'
+                                        )
+
+                    # Apply DefaultSortOrder to asset-level folders (Valuation, Loan File, etc.)
+                    try:
+                        self._apply_asset_default_sort_orders(client, base_path)
+                    except Exception as e:
+                        self.stdout.write(f'      ⚠ DefaultSortOrder (asset folders) failed: {str(e)[:80]}')
                     
                     total_assets += 1
                     
@@ -381,8 +459,10 @@ class Command(BaseCommand):
                 state = asset.state or ''
                 zip_code = asset.zip or ''
                 full_address = f"{street}, {city}, {state} {zip_code}".strip(', ')
-                
-                asset_folder = str(servicer_id) if servicer_id else f"NO_SERVICER_{asset_hub_id}"
+
+                # Primary (current) naming convention
+                primary_id = servicer_id or sellertape_id or asset_hub_id
+                asset_folder = self._sanitize(f"{primary_id} - {full_address}" if full_address else str(primary_id))
                 base_path = FolderStructure.get_asset_base_path(folder_name, asset_folder)
                 
                 # Build metadata
@@ -407,6 +487,24 @@ class Command(BaseCommand):
                     headers = {'Authorization': f'Bearer {token}'}
                     
                     response = requests.get(get_url, headers=headers)
+                    if response.status_code != 200:
+                        # Fallback: legacy naming used in older versions
+                        legacy_candidates = []
+                        if servicer_id:
+                            legacy_candidates.append(str(servicer_id))
+                        if sellertape_id:
+                            legacy_candidates.append(str(sellertape_id))
+                        legacy_candidates.append(str(asset_hub_id))
+                        legacy_candidates.append(f"NO_SERVICER_{asset_hub_id}")
+
+                        for legacy_asset_folder in legacy_candidates:
+                            legacy_base_path = FolderStructure.get_asset_base_path(folder_name, legacy_asset_folder)
+                            legacy_folder_path = legacy_base_path.strip('/')
+                            legacy_get_url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/root:/{legacy_folder_path}"
+                            response = requests.get(legacy_get_url, headers=headers)
+                            if response.status_code == 200:
+                                break
+
                     if response.status_code == 200:
                         folder_id = response.json()['id']
                         self._set_folder_metadata(client, folder_id, metadata)
@@ -607,11 +705,161 @@ class Command(BaseCommand):
                 raise
     
     def _set_folder_metadata(self, client, folder_id, metadata):
-        """Set metadata on folder using description field"""
+        """Set SharePoint metadata columns on a folder (NOT description)."""
+        # Build list of (resolved_field_name, value_as_string)
+        resolved_fields = []
+        for key, value in (metadata or {}).items():
+            if value is None or value == '':
+                continue
+            sp_field = self.SP_FIELD_MAP.get(key)
+            if not sp_field:
+                continue
+            internal_name = self._resolve_sp_field_name(client, sp_field)
+            # Cast to string for safety; SharePoint text columns accept string
+            resolved_fields.append((internal_name, str(value)))
+
+        if not resolved_fields:
+            return True
+
+        any_success = False
+        errors = []
+
+        # Write each field individually so one bad column doesn't block others
+        for internal_name, value in resolved_fields:
+            try:
+                self._set_sharepoint_fields_by_item_id(client, folder_id, {internal_name: value})
+                any_success = True
+            except Exception as e:
+                errors.append((internal_name, str(e)))
+
+        if any_success:
+            # At least one field was written; log any failures but do not fall back
+            if errors:
+                failed_keys = [name for name, _ in errors]
+                self.stdout.write(
+                    f"  ⚠ Some metadata fields failed (partial success). "
+                    f"Failed={failed_keys}. FirstError={errors[0][1][:120]}"
+                )
+            return True
+
+        # If no fields could be written at all, fall back to description metadata
+        try:
+            self._debug_print_item_fields(client, folder_id)
+        except Exception:
+            pass
+
+        failed_field_names = [name for name, _ in resolved_fields]
+        first_error = errors[0][1] if errors else 'Unknown error'
+        self.stdout.write(
+            f"  ⚠ Metadata fields failed (no fields written). "
+            f"Fields={failed_field_names}. Error={first_error}"
+        )
+        # Do not attempt to use the folder description as a metadata store anymore.
+        # We only rely on real SharePoint columns; sync remains non-fatal.
+        return True
+
+    def _resolve_sp_field_name(self, client, desired_name: str) -> str:
+        """Resolve a SharePoint column internal name from a display-ish name.
+
+        SharePoint column display names often differ from internal field names.
+        Graph listItem/fields PATCH requires the internal field `name`.
+        """
+        if not desired_name:
+            return desired_name
+
+        columns = self._get_sp_columns(client)
+        if not columns:
+            return desired_name
+
+        desired_norm = str(desired_name).strip().lower()
+
+        # Best: match column.name (internal) directly
+        for col in columns:
+            internal = (col.get('name') or '').strip()
+            if internal.lower() == desired_norm:
+                return internal
+
+        # Next: match displayName
+        for col in columns:
+            internal = (col.get('name') or '').strip()
+            display = (col.get('displayName') or '').strip().lower()
+            if display == desired_norm and internal:
+                return internal
+
+        return desired_name
+
+    def _get_sp_columns(self, client):
+        """Fetch and cache the document library columns for the current drive."""
+        if self._sp_columns_cache is not None:
+            return self._sp_columns_cache
+
+        try:
+            drive_id = client._get_drive_id()
+            token = client._get_access_token()
+            headers = {'Authorization': f'Bearer {token}'}
+
+            # Get list metadata for the drive (document library)
+            list_url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/list?$select=id"
+            list_resp = requests.get(list_url, headers=headers)
+            if list_resp.status_code != 200:
+                self._sp_columns_cache = []
+                return self._sp_columns_cache
+
+            list_id = (list_resp.json() or {}).get('id')
+            if not list_id:
+                self._sp_columns_cache = []
+                return self._sp_columns_cache
+
+            # Get columns schema
+            cols_url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/list/columns?$select=name,displayName"
+            cols_resp = requests.get(cols_url, headers=headers)
+            if cols_resp.status_code != 200:
+                self._sp_columns_cache = []
+                return self._sp_columns_cache
+
+            self._sp_columns_cache = (cols_resp.json() or {}).get('value', [])
+            return self._sp_columns_cache
+        except Exception:
+            self._sp_columns_cache = []
+            return self._sp_columns_cache
+
+    def _debug_print_item_fields(self, client, item_id: str) -> None:
+        """Debug helper: prints available listItem/fields keys for a drive item."""
         drive_id = client._get_drive_id()
         token = client._get_access_token()
-        
-        # Build description from metadata
+        headers = {'Authorization': f'Bearer {token}'}
+
+        url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/items/{item_id}/listItem/fields"
+        response = requests.get(url, headers=headers)
+        if response.status_code != 200:
+            return
+
+        data = response.json() or {}
+        keys = sorted([k for k in data.keys() if not k.startswith('@')])
+        preview = keys[:40]
+        self.stdout.write(f"  ℹ Available listItem fields (first {len(preview)}): {preview}")
+
+        # Also print the document library column schema (this is what PATCH expects)
+        cols = self._get_sp_columns(client) or []
+        wanted = {'tradeid', 'trade', 'seller', 'assethub', 'servicer', 'tape', 'address', 'defaultsortorder'}
+        matches = []
+        for col in cols:
+            display = (col.get('displayName') or '').strip()
+            internal = (col.get('name') or '').strip()
+            disp_norm = display.lower().replace(' ', '')
+            int_norm = internal.lower().replace(' ', '')
+            if any(w in disp_norm for w in wanted) or any(w in int_norm for w in wanted):
+                matches.append({'displayName': display, 'name': internal})
+        if matches:
+            self.stdout.write(f"  ℹ Library columns matching expected names: {matches}")
+        else:
+            self.stdout.write("  ⚠ No matching custom columns found in drive list/columns. Columns may not be added to this library/content type.")
+
+    def _set_folder_description_metadata(self, client, folder_id, metadata):
+        """Fallback: store metadata in folder description."""
+        drive_id = client._get_drive_id()
+        token = client._get_access_token()
+
         desc_parts = []
         if metadata.get('asset_hub_id'):
             desc_parts.append(f"AssetHub:{metadata['asset_hub_id']}")
@@ -625,20 +873,158 @@ class Command(BaseCommand):
             desc_parts.append(f"TradeID:{metadata['trade_id']}")
         if metadata.get('trade_name'):
             desc_parts.append(f"Trade:{metadata['trade_name']}")
-        
+        if metadata.get('seller_name'):
+            desc_parts.append(f"Seller:{metadata['seller_name']}")
+
         description = " | ".join(desc_parts)
-        
-        # Update folder
+
         update_url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/items/{folder_id}"
         headers = {
             'Authorization': f'Bearer {token}',
             'Content-Type': 'application/json'
         }
-        
-        response = requests.patch(update_url, headers=headers, json={'description': description})
-        
-        if response.status_code != 200:
-            raise Exception(f"Failed to set metadata: {response.text}")
-        
-        return True
 
+        payload = {'description': description}
+        response = requests.patch(update_url, headers=headers, json=payload)
+        if response.status_code != 200:
+            raise Exception(response.text)
+
+    def _apply_trade_default_sort_orders(self, client, trade_base_path: str) -> None:
+        """Apply DefaultSortOrder column values to trade folders for correct SharePoint UI ordering."""
+        trade_level_path = f"{trade_base_path}/Trade Level"
+        asset_level_path = f"{trade_base_path}/Asset Level"
+
+        # Top-level order under Trade Folder
+        for path, order in (
+            (trade_level_path, 1),
+            (asset_level_path, 2),
+        ):
+            try:
+                self._set_sharepoint_fields_by_path(client, path, {'DefaultSortOrder': order})
+            except Exception as e:
+                self.stdout.write(
+                    f"  ⚠ DefaultSortOrder (top-level '{path.split('/')[-1]}') failed: {str(e)[:80]}"
+                )
+
+        # Order inside Trade Level
+        trade_level_orders = {
+            'Seller Data Dump': 1,
+            'Due Diligence': 2,
+            'Bid': 3,
+            'Award': 4,
+            'Settlement': 5,
+            'Entity': 6,
+            'Legal': 7,
+            'Servicing': 8,
+            'Asset Management': 9,
+        }
+
+        for folder_name, order in trade_level_orders.items():
+            folder_path = f"{trade_level_path}/{folder_name}"
+            try:
+                self._set_sharepoint_fields_by_path(client, folder_path, {'DefaultSortOrder': order})
+            except Exception as e:
+                self.stdout.write(
+                    f"  ⚠ DefaultSortOrder (Trade Level '{folder_name}') failed: {str(e)[:80]}"
+                )
+
+        # Order inside Trade Level/Settlement (only remaining child: Transfer Instructions)
+        settlement_children_orders = {
+            'Transfer Instructions': 7,
+        }
+
+        settlement_base = f"{trade_level_path}/Settlement"
+        for child_name, order in settlement_children_orders.items():
+            child_path = f"{settlement_base}/{child_name}"
+            try:
+                self._set_sharepoint_fields_by_path(client, child_path, {'DefaultSortOrder': order})
+            except Exception as e:
+                self.stdout.write(
+                    f"  ⚠ DefaultSortOrder (Trade Level 'Settlement/{child_name}') failed: {str(e)[:80]}"
+                )
+
+    def _apply_asset_default_sort_orders(self, client, asset_base_path: str) -> None:
+        """Apply DefaultSortOrder to all Asset-level folders under a single asset base path."""
+        asset_orders = {
+            'Valuation': 1,
+            'Loan File': 2,
+            'Title': 3,
+            'Legal': 4,
+            'Financials': 5,
+            'Tax & Insurance': 6,
+            'Servicing': 7,
+            'Asset Management': 8,
+            'Liquidations': 9,
+        }
+
+        for folder_name, order in asset_orders.items():
+            folder_path = f"{asset_base_path}/{folder_name}"
+            try:
+                self._set_sharepoint_fields_by_path(client, folder_path, {'DefaultSortOrder': order})
+            except Exception as e:
+                self.stdout.write(
+                    f"      ⚠ DefaultSortOrder (Asset '{folder_name}') failed: {str(e)[:80]}"
+                )
+
+    def _set_sharepoint_fields_by_path(self, client, folder_path: str, fields: dict) -> None:
+        """Set SharePoint library column fields (e.g., DefaultSortOrder) on a folder by path."""
+        drive_id = client._get_drive_id()
+        token = client._get_access_token()
+        headers = {
+            'Authorization': f'Bearer {token}',
+            'Content-Type': 'application/json'
+        }
+
+        normalized_path = folder_path.strip('/')
+        get_url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/root:/{normalized_path}"
+
+        # Eventual consistency: new folders may not be immediately readable
+        response = None
+        for attempt in range(5):
+            response = requests.get(get_url, headers=headers)
+            if response.status_code == 200:
+                break
+            time.sleep(0.5 + (attempt * 0.5))
+
+        if response is None or response.status_code != 200:
+            raise Exception(response.text if response is not None else 'Folder lookup failed')
+
+        item_id = response.json().get('id')
+        if not item_id:
+            raise Exception('Folder item id not found')
+
+        self._set_sharepoint_fields_by_item_id(client, item_id, fields)
+
+    def _set_sharepoint_fields_by_item_id(self, client, item_id: str, fields: dict) -> None:
+        """Set SharePoint library column fields on an item when you already know the drive item_id."""
+        drive_id = client._get_drive_id()
+        token = client._get_access_token()
+        headers = {
+            'Authorization': f'Bearer {token}',
+            'Content-Type': 'application/json'
+        }
+
+        patch_url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/items/{item_id}/listItem/fields"
+        patch_response = None
+        for attempt in range(6):
+            patch_response = requests.patch(patch_url, headers=headers, json=fields)
+            if patch_response.status_code in [200, 201]:
+                return
+
+            # Eventual consistency: listItem/fields can 404 briefly right after folder creation
+            if patch_response.status_code == 404 and 'itemNotFound' in (patch_response.text or ''):
+                time.sleep(0.5 + (attempt * 0.75))
+                continue
+
+            # Throttling
+            if patch_response.status_code == 429:
+                time.sleep(1 + attempt)
+                continue
+
+            break
+
+        # If still failing due to itemNotFound, treat as non-fatal (will be correct on a later run)
+        if patch_response is not None and patch_response.status_code == 404 and 'itemNotFound' in (patch_response.text or ''):
+            return
+
+        raise Exception(patch_response.text if patch_response is not None else 'PATCH failed')

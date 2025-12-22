@@ -77,6 +77,19 @@ def get_asset_documents(request, asset_hub_id):
         trade = asset.trade
         trade_name = trade.trade_name
         seller_name = trade.seller.name if trade.seller else None
+
+        # Build address string for SharePoint folder naming
+        street = asset.street_address or ''
+        city = asset.city or ''
+        state = asset.state or ''
+        zip_code = asset.zip or ''
+        full_address = f"{street}, {city}, {state} {zip_code}".strip(', ').strip()
+
+        servicer_id = None
+        sellertape_id = None
+        if asset.asset_hub:
+            servicer_id = asset.asset_hub.servicer_id
+            sellertape_id = asset.asset_hub.sellertape_id
         
         # Fetch SharePoint data - service uses asset_hub_id directly for folder naming
         service = SharePointFilesService()
@@ -86,7 +99,10 @@ def get_asset_documents(request, asset_hub_id):
         result = service.get_asset_folders(
             trade_name=trade_name,
             seller_name=seller_name,
-            asset_hub_id=asset_hub_id
+            asset_hub_id=asset_hub_id,
+            servicer_id=servicer_id,
+            sellertape_id=sellertape_id,
+            full_address=full_address
         )
         
         # Add trade context to response
@@ -102,6 +118,26 @@ def get_asset_documents(request, asset_hub_id):
             'success': False,
             'error': str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+def get_folder_contents(request):
+    """Get folders and files for a specific SharePoint folder path.
+
+    Query params:
+        path: SharePoint path (e.g., /Trades/FLC-40 - HUD/Trade Level/Settlement)
+    """
+    folder_path = request.query_params.get('path')
+    if not folder_path:
+        return Response({
+            'success': False,
+            'error': 'path query parameter is required',
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    service = SharePointFilesService()
+    result = service.get_folder_contents_by_path(folder_path)
+    status_code = status.HTTP_200_OK if result.get('success') else status.HTTP_400_BAD_REQUEST
+    return Response(result, status=status_code)
 
 
 @api_view(['GET'])

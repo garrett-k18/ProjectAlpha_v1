@@ -23,6 +23,13 @@ urlpatterns = [
         view_sp_documents.get_trade_documents,
         name='trade_documents'
     ),
+
+    # Get contents of a specific SharePoint folder path (lazy-load files)
+    path(
+        'folder-contents/',
+        view_sp_documents.get_folder_contents,
+        name='folder_contents'
+    ),
     
     # Upload file
     path(

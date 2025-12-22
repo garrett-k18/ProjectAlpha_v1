@@ -32,7 +32,10 @@ class SharePointFilesService:
         self,
         trade_name: str,
         seller_name: str,
-        asset_hub_id: int
+        asset_hub_id: int,
+        servicer_id: Optional[str] = None,
+        sellertape_id: Optional[str] = None,
+        full_address: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Get folder structure and files for a specific asset.
@@ -49,28 +52,28 @@ class SharePointFilesService:
         combined_trade = f"{trade_name} - {seller_name}" if seller_name else trade_name
         trade_folder = self._sanitize(combined_trade)
         
-        # WHAT: Use asset_hub_id directly as folder name
-        # WHY: SharePoint folders use asset_hub_id as metadata identifier for linkage
-        # HOW: Use asset_hub_id as the folder name - it's always present and stable
-        asset_folder = str(asset_hub_id)
+        # Asset folder naming convention: "{primary_id} - {address}" (sanitized)
+        # primary_id: servicer_id -> sellertape_id -> asset_hub_id
+        primary_id = servicer_id or sellertape_id or asset_hub_id
+        asset_folder_raw = f"{primary_id} - {full_address}" if full_address else str(primary_id)
+        asset_folder = self._sanitize(asset_folder_raw)
         
         base_path = FolderStructure.get_asset_base_path(trade_folder, asset_folder)
-        
-        # Return static folder structure (no API call - instant!)
+
+        # Return static folder structure from FolderStructure definition (no Graph calls)
         folders = []
-        base_url = f"https://firstliencapitaldom.sharepoint.com/sites/ProjectAlpha/Shared%20Documents"
-        
-        # Build folder structure from FolderStructure definition
+        base_url = "https://firstliencapitaldom.sharepoint.com/sites/ProjectAlpha/Shared%20Documents"
+
         for folder_name in FolderStructure.ASSET_FOLDERS:
             folder_path = f"{base_path}/{folder_name}"
-            folder_info = {
+            folder_info: Dict[str, Any] = {
                 'name': folder_name,
                 'path': folder_path,
                 'web_url': f"{base_url}/{folder_path.replace('/', '%20')}",
                 'files': [],
-                'subfolders': []
+                'subfolders': [],
             }
-            
+
             # Add predefined subfolders if any
             if folder_name in FolderStructure.ASSET_SUBFOLDERS:
                 for subfolder_name in FolderStructure.ASSET_SUBFOLDERS[folder_name]:
@@ -78,17 +81,17 @@ class SharePointFilesService:
                         'name': subfolder_name,
                         'path': f"{folder_path}/{subfolder_name}",
                         'web_url': f"{base_url}/{folder_path.replace('/', '%20')}%20{subfolder_name.replace(' ', '%20')}",
-                        'file_count': 0
+                        'file_count': 0,
                     })
-            
+
             folders.append(folder_info)
-        
+
         return {
             'success': True,
             'asset_hub_id': asset_hub_id,
             'base_path': base_path,
             'folders': folders,
-            'files': []
+            'files': [],
         }
     
     def get_trade_folders(
@@ -112,37 +115,64 @@ class SharePointFilesService:
         combined_trade = f"{trade_name} - {seller_name}" if seller_name else trade_name
         trade_folder = self._sanitize(combined_trade)
         
-        # Get trade base path
+        # Get trade base path and Trade Level base path
         base_path = FolderStructure.get_trade_base_path(trade_folder)
-        
-        # Return static folder structure (no API call - instant!)
+        trade_level_base = f"{base_path}/Trade Level"
+
+        # Return static Trade Level folder structure (no Graph calls)
         folders = []
-        base_url = f"https://firstliencapitaldom.sharepoint.com/sites/ProjectAlpha/Shared%20Documents"
-        
-        # WHAT: Build trade-level folders (Bid, Legal, Post Close)
-        # WHY: Trade-level documents are stored in these folders
-        # HOW: Use TRADE_FOLDERS but exclude "Asset Level" (that's for asset documents)
-        trade_level_folders = [f for f in FolderStructure.TRADE_FOLDERS if f != "Asset Level"]
-        
-        for folder_name in trade_level_folders:
-            folder_path = f"{base_path}/{folder_name}"
-            folder_info = {
+        base_url = "https://firstliencapitaldom.sharepoint.com/sites/ProjectAlpha/Shared%20Documents"
+
+        for folder_name in FolderStructure.TRADE_LEVEL_FOLDERS:
+            folder_path = f"{trade_level_base}/{folder_name}"
+            folder_info: Dict[str, Any] = {
                 'name': folder_name,
                 'path': folder_path,
                 'web_url': f"{base_url}/{folder_path.replace('/', '%20')}",
                 'files': [],
-                'subfolders': []
+                'subfolders': [],
             }
+
+            # Add nested Trade Level subfolders if defined (e.g., Settlement children)
+            if folder_name in FolderStructure.TRADE_LEVEL_SUBFOLDERS:
+                for subfolder_name in FolderStructure.TRADE_LEVEL_SUBFOLDERS[folder_name]:
+                    folder_info['subfolders'].append({
+                        'name': subfolder_name,
+                        'path': f"{folder_path}/{subfolder_name}",
+                        'web_url': f"{base_url}/{folder_path.replace('/', '%20')}%20{subfolder_name.replace(' ', '%20')}",
+                        'file_count': 0,
+                    })
+
             folders.append(folder_info)
-        
+
         return {
             'success': True,
             'trade_id': trade_id,
             'trade_name': combined_trade,
             'base_path': base_path,
             'folders': folders,
-            'files': []
+            'files': [],
         }
+
+    def get_folder_contents_by_path(self, folder_path: str) -> Dict[str, Any]:
+        """Get folders and files for a specific SharePoint folder path."""
+        try:
+            contents = self._get_folder_contents(folder_path)
+            return {
+                'success': True,
+                'path': folder_path,
+                'folders': contents.get('folders', []),
+                'files': contents.get('files', []),
+            }
+        except Exception as e:
+            logger.error(f"Error getting folder contents for {folder_path}: {str(e)}")
+            return {
+                'success': False,
+                'path': folder_path,
+                'error': str(e),
+                'folders': [],
+                'files': [],
+            }
     
     def _get_folder_contents(self, folder_path: str, recursive: bool = False) -> Dict[str, List]:
         """
@@ -184,42 +214,45 @@ class SharePointFilesService:
                     'web_url': item.get('webUrl'),
                     'file_count': item.get('folder', {}).get('childCount', 0),
                 }
-                
-                # Always fetch immediate children (one level), but don't recurse deeper
-                try:
-                    # Get immediate children of this folder
-                    subfolder_path = f"{folder_path}/{folder_name}"
-                    subfolder_url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/root:/{subfolder_path}:/children"
-                    subfolder_response = requests.get(subfolder_url, headers=headers)
-                    
-                    if subfolder_response.status_code == 200:
-                        sub_items = subfolder_response.json().get('value', [])
-                        folder_info['subfolders'] = [
-                            {
-                                'name': sub['name'],
-                                'path': f"{subfolder_path}/{sub['name']}",
-                                'web_url': sub.get('webUrl'),
-                                'file_count': sub.get('folder', {}).get('childCount', 0)
-                            }
-                            for sub in sub_items if 'folder' in sub
-                        ]
-                        folder_info['files'] = [
-                            {
-                                'name': sub['name'],
-                                'size': sub.get('size', 0),
-                                'web_url': sub.get('webUrl'),
-                                'download_url': sub.get('@microsoft.graph.downloadUrl'),
-                                'modified': sub.get('lastModifiedDateTime'),
-                            }
-                            for sub in sub_items if 'file' in sub
-                        ]
-                    else:
+
+                # Only fetch each child folder's children when explicitly requested.
+                # Default (recursive=False) keeps this to a single Graph call per folder
+                # to improve performance when browsing.
+                if recursive:
+                    try:
+                        # Get immediate children of this folder
+                        subfolder_path = f"{folder_path}/{folder_name}"
+                        subfolder_url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/root:/{subfolder_path}:/children"
+                        subfolder_response = requests.get(subfolder_url, headers=headers)
+                        
+                        if subfolder_response.status_code == 200:
+                            sub_items = subfolder_response.json().get('value', [])
+                            folder_info['subfolders'] = [
+                                {
+                                    'name': sub['name'],
+                                    'path': f"{subfolder_path}/{sub['name']}",
+                                    'web_url': sub.get('webUrl'),
+                                    'file_count': sub.get('folder', {}).get('childCount', 0)
+                                }
+                                for sub in sub_items if 'folder' in sub
+                            ]
+                            folder_info['files'] = [
+                                {
+                                    'name': sub['name'],
+                                    'size': sub.get('size', 0),
+                                    'web_url': sub.get('webUrl'),
+                                    'download_url': sub.get('@microsoft.graph.downloadUrl'),
+                                    'modified': sub.get('lastModifiedDateTime'),
+                                }
+                                for sub in sub_items if 'file' in sub
+                            ]
+                        else:
+                            folder_info['subfolders'] = []
+                            folder_info['files'] = []
+                    except Exception as e:
+                        logger.warning(f"Could not get contents of {folder_name}: {str(e)}")
                         folder_info['subfolders'] = []
                         folder_info['files'] = []
-                except Exception as e:
-                    logger.warning(f"Could not get contents of {folder_name}: {str(e)}")
-                    folder_info['subfolders'] = []
-                    folder_info['files'] = []
                 
                 folders.append(folder_info)
             

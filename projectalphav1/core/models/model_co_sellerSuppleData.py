@@ -338,3 +338,30 @@ class BorrowerPII(models.Model):
             age -= 1
         
         return age
+
+
+class ServicerContactsExtract(models.Model):
+    asset = models.ForeignKey(
+        'core.AssetIdHub',
+        on_delete=models.CASCADE,
+        related_name='servicer_contacts_extracts',
+    )
+
+    borrower_pii = models.ForeignKey(
+        'acq_module.BorrowerPII',
+        on_delete=models.CASCADE,
+        related_name='servicer_contacts_extracts',
+    )
+
+    contact_type = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        help_text="Contact type from servicer extract",
+    )
+
+    hecm_date_of_death = models.DateField(
+        blank=True,
+        null=True,
+        help_text="HECM date of death",
+    )

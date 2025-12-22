@@ -8,5 +8,5 @@ class SharepointConfig(AppConfig):
     
     def ready(self):
         """Import signals when app is ready"""
-        import sharepoint.signals
+        import sharepoint.sig_sharepoint_folderTempCreate
 

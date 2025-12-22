@@ -32,12 +32,26 @@ class FolderStructure:
         "Seller Data Dump",
         "Due Diligence",
         "Bid",
+        "Award",
         "Settlement",
         "Entity",
         "Legal",
         "Servicing",
         "Asset Management",
     ]
+    
+    # Nested Trade Level subfolders (e.g., within Settlement)
+    TRADE_LEVEL_SUBFOLDERS = {
+        "Settlement": [
+            "Award Package",
+            "Bid Confirmation Letter",
+            "Consent to Assignment & Assignment and Assumption",
+            "Goodbye Letters",
+            "POA",
+            "Settlement Statement and MLS",
+            "Transfer Instructions",
+        ],
+    }
     
     # Asset-level folders (within each asset)
     ASSET_FOLDERS = [
@@ -95,7 +109,14 @@ class FolderStructure:
         folders = [f"{base_path}/{folder}" for folder in FolderStructure.TRADE_FOLDERS]
 
         trade_level_base = f"{base_path}/Trade Level"
+        # First-level Trade Level folders (Seller Data Dump, Due Diligence, Bid, Award, Settlement, etc.)
         folders.extend([f"{trade_level_base}/{folder}" for folder in FolderStructure.TRADE_LEVEL_FOLDERS])
+
+        # Nested Trade Level subfolders (e.g., Settlement children)
+        for parent_name, children in FolderStructure.TRADE_LEVEL_SUBFOLDERS.items():
+            parent_path = f"{trade_level_base}/{parent_name}"
+            for child_name in children:
+                folders.append(f"{parent_path}/{child_name}")
 
         return folders
     

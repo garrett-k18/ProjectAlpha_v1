@@ -106,16 +106,29 @@ class SharePointClient:
         site_id = self._get_site_id()
         token = self._get_access_token()
         headers = {'Authorization': f'Bearer {token}'}
-        
+
+        # Prefer an explicit library named "Documents" (where custom columns typically live)
+        drives_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/drives"
+        drives_resp = requests.get(drives_url, headers=headers)
+        if drives_resp.status_code == 200:
+            drives = (drives_resp.json() or {}).get('value', [])
+            for d in drives:
+                if (d.get('name') or '').strip().lower() == 'documents':
+                    self._drive_id = d.get('id')
+                    if self._drive_id:
+                        logger.info(f"Retrieved drive ID (Documents): {self._drive_id}")
+                        return self._drive_id
+
+        # Fallback: Graph default drive for the site
         drive_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/drive"
         response = requests.get(drive_url, headers=headers)
-        
+
         if response.status_code != 200:
             logger.error(f"Failed to get drive ID: {response.status_code} - {response.text}")
             raise Exception(f"Failed to get drive ID: {response.text}")
-        
+
         self._drive_id = response.json()['id']
-        logger.info(f"Retrieved drive ID: {self._drive_id}")
+        logger.info(f"Retrieved drive ID (default): {self._drive_id}")
         return self._drive_id
     
     def create_folder(self, folder_path: str, skip_parent_check: bool = False) -> Dict[str, Any]:
