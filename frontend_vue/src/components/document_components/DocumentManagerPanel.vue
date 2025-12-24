@@ -41,7 +41,22 @@
             :getFileIcon="getFileIcon"
             :formatFileSize="formatFileSize"
             :formatDate="formatDate"
+            @preview:file="handlePreviewFile"
+            @download:file="handleDownloadFile"
+            @open:sharepoint="handleOpenInSharePoint"
           />
+        </div>
+
+        <div v-if="previewFile" class="mt-3">
+          <h6 class="text-muted mb-2">Preview</h6>
+          <div style="height: 70vh;">
+            <iframe
+              :src="(previewFile as any).download_url || (previewFile as any).web_url || previewFile.path"
+              width="100%"
+              height="100%"
+              frameborder="0"
+            ></iframe>
+          </div>
         </div>
 
         <DocumentEmptyState v-if="!loading && folders.length === 0 && files.length === 0" />
@@ -106,6 +121,7 @@ export default defineComponent({
       tradeFoldersCache: [] as any[],
       assetFoldersCache: [] as any[],
       folderContentsCache: {} as Record<string, any>,
+      previewFile: null as EgnyteFile | null,
     }
   },
   computed: {
@@ -186,7 +202,8 @@ export default defineComponent({
     },
     switchView(viewId: string) {
       this.currentViewId = viewId
-      this.currentPath = []
+      this.currentPath = [] as EgnyteFolder[]
+      this.previewFile = null
       this.loadData()
     },
     async loadData() {
@@ -404,6 +421,7 @@ export default defineComponent({
       }
 
       const previousDepth = this.currentPath.length
+      this.previewFile = null
       this.currentPath.push(folder)
 
       const path = folder.path
@@ -535,6 +553,7 @@ export default defineComponent({
     },
     navigateToRoot() {
       this.currentPath = []
+      this.previewFile = null
       this.loadData()
     },
     navigateToFolder(index: number) {
@@ -622,6 +641,33 @@ export default defineComponent({
       
       this.uploading = false
       this.loadData()  // Refresh to show new files
+    },
+    handlePreviewFile(file: EgnyteFile) {
+      const name = (file && file.name) || ''
+      const ext = name.split('.').pop()?.toLowerCase() || ''
+      const isPdf = ext === 'pdf'
+
+      // Only attempt in-panel iframe preview for PDFs.
+      // For other types (Excel, Word, etc.), open in SharePoint instead
+      // to avoid triggering OS save dialogs for binary downloads.
+      if (!isPdf) {
+        this.previewFile = null
+        this.handleOpenInSharePoint(file)
+        return
+      }
+
+      this.previewFile = file
+    },
+    handleDownloadFile(file: EgnyteFile) {
+      // Prefer direct download URL when available, fallback to web_url
+      const url = (file as any).download_url || (file as any).web_url || (file as any).path
+      if (!url) return
+      window.open(url, '_blank')
+    },
+    handleOpenInSharePoint(file: EgnyteFile) {
+      const url = (file as any).web_url || (file as any).path
+      if (!url) return
+      window.open(url, '_blank')
     },
   },
 })

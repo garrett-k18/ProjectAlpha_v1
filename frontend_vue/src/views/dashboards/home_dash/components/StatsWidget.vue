@@ -13,7 +13,7 @@
       xl="3" 
       class="mb-2"
     >
-      <div class="card border h-100 cursor-pointer hover-card" :title="stat.description">
+      <div class="card border h-100 cursor-pointer hover-card" :title="stat.description" @click="handleClick(idx)">
         <div class="card-body d-flex align-items-center py-2">
           <!-- Icon circle -->
           <div class="me-2 flex-shrink-0">
@@ -43,7 +43,7 @@ import { defineComponent } from 'vue';
 
 export default defineComponent({
   name: 'StatsWidget',
-  
+  emits: ['open-pipeline'],
   data() {
     return {
       // stats: array of user-specific metric tiles for personalized dashboard
@@ -51,10 +51,10 @@ export default defineComponent({
       // Note: These are placeholder values. Wire to backend API via Pinia store for real data.
       stats: [
         { 
-          label: "My Tasks Due", 
+          label: "My Pipeline", 
           value: "12", 
           icon: "mdi mdi-clipboard-check-outline",
-          description: "Tasks requiring your attention"
+          description: "View your asset pipeline breakdown"
         },
         { 
           label: "My Active Loans", 
@@ -76,6 +76,13 @@ export default defineComponent({
         },
       ],
     };
+  },
+  methods: {
+    handleClick(idx: number) {
+      if (idx === 0) {
+        this.$emit('open-pipeline');
+      }
+    },
   },
 });
 </script>

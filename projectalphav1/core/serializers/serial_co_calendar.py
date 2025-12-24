@@ -443,3 +443,12 @@ class UnifiedCalendarEventSerializer(serializers.Serializer):
     
     # Navigation URL - click-through to related record
     url = serializers.CharField(allow_blank=True)
+    
+    # Servicer ID - for ServicerLoanData events
+    servicer_id = serializers.CharField(allow_blank=True, required=False)
+    
+    # Address - separate field for flexible display
+    address = serializers.CharField(allow_blank=True, required=False)
+
+    # Asset Hub ID - used to open asset management modal
+    asset_hub_id = serializers.IntegerField(required=False, allow_null=True)

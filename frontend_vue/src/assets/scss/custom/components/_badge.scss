@@ -52,3 +52,30 @@
         font-size: $badge-font-size + 0.1em;
     }
 }
+
+// Calendar Event Type Badges
+// Used for calendar events to indicate event types with semantic colors
+.badge-event-liquidation {
+    --#{$prefix}badge-color: #fff;
+    background-color: var(--#{$prefix}success);
+}
+
+.badge-event-projected {
+    --#{$prefix}badge-color: #000;
+    background-color: var(--#{$prefix}warning);
+}
+
+.badge-event-bid {
+    --#{$prefix}badge-color: #fff;
+    background-color: var(--#{$prefix}info);
+}
+
+.badge-event-settlement {
+    --#{$prefix}badge-color: #fff;
+    background-color: var(--#{$prefix}danger);
+}
+
+.badge-event-milestone {
+    --#{$prefix}badge-color: #fff;
+    background-color: var(--#{$prefix}primary);
+}

@@ -15,6 +15,8 @@ export interface EgnyteFile {
   size: number
   modified: string
   tags: string[]
+  web_url?: string
+  download_url?: string
   metadata?: Record<string, any>
 }
 

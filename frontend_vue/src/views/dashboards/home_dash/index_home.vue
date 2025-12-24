@@ -26,14 +26,7 @@
     </b-row>
 
     <!-- Stats Row - Key metrics tiles -->
-    <StatsWidget />
-
-    <!-- Pipeline Widget - Asset pipeline stages by outcome track -->
-    <b-row class="mt-3">
-      <b-col cols="12">
-        <PipelineWidget />
-      </b-col>
-    </b-row>
+    <StatsWidget @open-pipeline="showPipelineModal = true" />
 
     <!-- 
       Note: Macro Rates Widget removed - Financial Ticker Banner shown at bottom of home page only
@@ -109,6 +102,15 @@
   
   <!-- Financial Ticker - Only shown on home page -->
   <FinancialTicker />
+
+  <b-modal
+    v-model="showPipelineModal"
+    title="My Pipeline"
+    size="xl"
+    hide-footer
+  >
+    <PipelineWidget />
+  </b-modal>
 </template>
 
 <script lang="ts">
@@ -185,6 +187,7 @@ export default {
     return {
       recentActivity: [] as RecentActivityItem[],
       isLoadingRecentActivity: false,
+      showPipelineModal: false,
     };
   },
   async mounted() {

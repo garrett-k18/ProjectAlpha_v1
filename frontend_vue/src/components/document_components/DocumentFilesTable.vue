@@ -45,11 +45,14 @@
                 <template #button-content>
                   <i class="mdi mdi-dots-horizontal font-18"></i>
                 </template>
-                <b-dropdown-item>
+                <b-dropdown-item @click="$emit('download:file', file)">
                   <i class="mdi mdi-download me-2"></i>Download
                 </b-dropdown-item>
-                <b-dropdown-item>
-                  <i class="mdi mdi-eye me-2"></i>Preview
+                <b-dropdown-item @click="$emit('preview:file', file)">
+                  <i class="mdi mdi-eye me-2"></i>Preview in panel
+                </b-dropdown-item>
+                <b-dropdown-item @click="$emit('open:sharepoint', file)">
+                  <i class="mdi mdi-open-in-new me-2"></i>Open in SharePoint
                 </b-dropdown-item>
                 <b-dropdown-item>
                   <i class="mdi mdi-tag me-2"></i>Edit Tags

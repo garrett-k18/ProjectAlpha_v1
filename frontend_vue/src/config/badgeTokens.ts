@@ -81,6 +81,12 @@ export type BadgeToneKey =
   | 'danger'
   // Track-specific colors
   | 'modification-green'
+  // Calendar event type colors
+  | 'calendar-liquidation'
+  | 'calendar-projected'
+  | 'calendar-bid'
+  | 'calendar-settlement'
+  | 'calendar-milestone'
   // Delinquency-specific colors
   | 'delinquency-current'
   | 'delinquency-30'
@@ -171,6 +177,28 @@ export const badgeToneMap: Record<BadgeToneKey, BadgeVisualConfig> = {
   'modification-green': {
     classes: 'bg-success text-white border-0',
     ariaLabel: undefined,
+  },
+  
+  // Calendar Event Type Colors
+  'calendar-liquidation': {
+    classes: 'bg-success text-white border-0',
+    ariaLabel: 'Actual liquidation event',
+  },
+  'calendar-projected': {
+    classes: 'bg-warning text-dark border-0',
+    ariaLabel: 'Projected liquidation event',
+  },
+  'calendar-bid': {
+    classes: 'bg-info text-white border-0',
+    ariaLabel: 'Bid date event',
+  },
+  'calendar-settlement': {
+    classes: 'bg-danger text-white border-0',
+    ariaLabel: 'Settlement date event',
+  },
+  'calendar-milestone': {
+    classes: 'bg-primary text-white border-0',
+    ariaLabel: 'Milestone event',
   },
   
   // Delinquency Status Colors
@@ -548,3 +576,45 @@ export const activeTasksColorMap: Record<string, string> = {
   'FC': 'bg-danger',
   'Short Sale': 'bg-warning text-dark',
 };
+
+/**
+ * Helper that maps calendar event types to badge tone keys
+ * EDIT: Add new calendar event types here
+ */
+export function getCalendarEventBadgeTone(eventType?: string | null): BadgeToneKey {
+  switch ((eventType ?? '').toLowerCase()) {
+    case 'actual_liquidation':
+      return 'calendar-liquidation';
+    case 'projected_liquidation':
+      return 'calendar-projected';
+    case 'bid_date':
+      return 'calendar-bid';
+    case 'settlement_date':
+      return 'calendar-settlement';
+    case 'milestone':
+      return 'calendar-milestone';
+    default:
+      return 'calendar-milestone';
+  }
+}
+
+/**
+ * Helper that maps calendar event types to CSS colors for FullCalendar
+ * Returns hex color values matching the saas theme from _variables.scss
+ * Theme colors: primary=#1B3B5F, success=#2E7D32, info=#5A8A95, warning=#D4AF37, danger=#C62828
+ */
+export function getCalendarEventColors(eventType?: string | null): { bg: string; border: string; text: string } {
+  switch ((eventType ?? '').toLowerCase()) {
+    case 'actual_liquidation':
+      return { bg: '#2E7D32', border: '#2E7D32', text: '#ffffff' }; // success (green)
+    case 'projected_liquidation':
+      return { bg: '#D4AF37', border: '#D4AF37', text: '#000000' }; // warning (gold)
+    case 'bid_date':
+      return { bg: '#5A8A95', border: '#5A8A95', text: '#ffffff' }; // info (slate teal)
+    case 'settlement_date':
+      return { bg: '#C62828', border: '#C62828', text: '#ffffff' }; // danger (red)
+    case 'milestone':
+    default:
+      return { bg: '#1B3B5F', border: '#1B3B5F', text: '#ffffff' }; // primary (navy)
+  }
+}

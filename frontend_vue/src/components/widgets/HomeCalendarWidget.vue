@@ -1,97 +1,61 @@
 <template>
-  <!-- Calendar Widget for Home Dashboard -->
-  <!-- Uses Hyper UI calendar component pattern -->
-  <!-- Based on: frontend_vue/src/views/dashboards/projects/calendar.vue -->
-  <!-- Enhanced with event management: add, edit, delete events on specific dates -->
-  <div class="card">
-    <div class="card-header d-flex justify-content-between align-items-center">
-      <h4 class="header-title">Calendar</h4>
-      <div class="float-end">
-        <!-- Add New Event Button -->
-        <button 
-          class="btn btn-sm btn-primary me-2" 
-          type="button"
-          @click="openAddEventModal"
-        >
-          <i class="mdi mdi-plus"></i>
-          Add Event
-        </button>
-        <b-dropdown toggle-class="arrow-none card-drop p-0" variant="link" right>
-          <template v-slot:button-content>
-            <i class="mdi mdi-dots-vertical"></i>
-          </template>
-          <b-dropdown-item @click="clearAllEvents">Clear All Events</b-dropdown-item>
-          <b-dropdown-item @click="exportEvents">Export Events</b-dropdown-item>
-        </b-dropdown>
-      </div>
-    </div>
-
-    <div class="card-body pt-0">
-      <b-row class="calendar-widget calendar-widget-inline">
-        <b-col md="7">
-          <!--Calendar-->
-          <!-- Bootstrap datepicker inline calendar widget -->
-          <!-- Ref allows us to access the DOM element and bind events -->
-          <div 
-            ref="datepickerEl"
-            data-provide="datepicker-inline" 
-            data-date-today-highlight="true" 
-            class="calendar-widget"
-          >
-          </div>
-        </b-col>
-
-        <b-col md="5">
-          <!-- Events List for Selected Date -->
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <h6 class="mb-0">
-              {{ selectedDateFormatted }}
-            </h6>
-            <small class="text-muted">{{ filteredEvents.length }} event(s)</small>
+  <!-- Calendar with left-side event list -->
+  <b-row class="calendar-row">
+    <!-- Event List Card (Left Side) -->
+    <b-col md="3" class="d-flex">
+      <div class="card flex-fill">
+        <div class="card-body d-flex flex-column">
+          <!-- Loading State -->
+          <div v-if="eventsLoading" class="text-center py-4">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </div>
           </div>
           
-          <!-- Display events for the selected date -->
-          <ul class="list-unstyled mt-1" v-if="filteredEvents.length > 0">
-            <li 
-              v-for="event in filteredEvents" 
-              :key="event.id" 
-              class="mb-3 p-2 border rounded hover-shadow cursor-pointer"
+          <!-- Event List -->
+          <div v-else-if="visibleEvents.length > 0" class="event-list flex-grow-1">
+            <div
+              v-for="event in visibleEvents"
+              :key="event.id"
+              class="event-item mb-2 p-2 rounded hover-shadow cursor-pointer"
               @click="editEvent(event)"
             >
-              <div class="d-flex justify-content-between align-items-start">
-                <div class="flex-grow-1">
-                  <p class="text-muted mb-1 font-13">
-                    <i class="mdi mdi-calendar"></i> {{ event.time }}
-                  </p>
-                  <h6 class="mb-0">{{ event.title }}</h6>
-                  <small class="text-muted" v-if="event.description">{{ event.description }}</small>
+              <div>
+                <div class="mb-1">
+                  <span 
+                    class="badge"
+                    :class="getEventBadgeClass(event.event_type || event.category || 'milestone')"
+                  >
+                    {{ getEventTypeLabel(event.event_type || event.category || 'milestone') }}
+                  </span>
                 </div>
-                <!-- Color indicator based on event category -->
-                <span 
-                  class="badge ms-2" 
-                  :class="event.category"
-                >
-                  {{ getCategoryName(event.category) }}
-                </span>
+                <h6 class="mb-1 fw-semibold">{{ getEventTitle(event) }}</h6>
+                <p class="mb-0 text-muted small">
+                  <i class="mdi mdi-clock-outline me-1"></i>{{ event.time }}
+                </p>
               </div>
-            </li>
-          </ul>
-          
-          <!-- Empty state when no events for selected date -->
-          <div v-else class="text-center text-muted py-4">
-            <i class="mdi mdi-calendar-blank-outline" style="font-size: 2rem;"></i>
-            <p class="mb-0 mt-2">No events for this date</p>
-            <button 
-              class="btn btn-sm btn-outline-primary mt-2"
-              @click="openAddEventModal"
-            >
-              Add Event
-            </button>
+            </div>
           </div>
-        </b-col>
-      </b-row>
-    </div>
-  </div>
+          
+          <!-- No Events State -->
+          <div v-else class="text-center py-4 text-muted flex-grow-1 d-flex flex-column justify-content-center">
+            <i class="mdi mdi-calendar-blank mdi-48px mb-2"></i>
+            <p class="mb-0">No events for this period</p>
+          </div>
+        </div>
+      </div>
+    </b-col>
+    
+    <!-- FullCalendar (Right Side) -->
+    <b-col md="9">
+      <div class="calendar-widget calendar-widget-inline">
+        <FullCalendar
+          ref="fullCalendar"
+          :options="calendarOptions"
+        />
+      </div>
+    </b-col>
+  </b-row>
 
   <!-- Add/Edit Event Modal -->
   <!-- Uses BootstrapVue3 modal component (project standard) -->
@@ -181,12 +145,11 @@
 </template>
 
 <script lang="ts">
-// Import bootstrap-datepicker for inline calendar functionality
-import "bootstrap-datepicker";
-// Import jQuery (required by bootstrap-datepicker)
-import $ from "jquery";
-// Import centralized axios instance for API calls
-import axios from '@/lib/http';
+import FullCalendar from '@fullcalendar/vue3';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import interactionPlugin from '@fullcalendar/interaction';
+import { getCalendarEventBadgeTone, getCalendarEventColors } from '@/config/badgeTokens';
+import type { BadgeToneKey } from '@/config/badgeTokens';
 
 /**
  * Interface for calendar event data structure
@@ -200,6 +163,11 @@ export interface CalendarEvent {
   time: string; // Display string like "9:00 AM - 10:00 AM"
   description?: string;
   category: string; // Bootstrap class like 'bg-primary', 'bg-success', etc.
+  servicer_id?: string; // Servicer ID for ServicerLoanData events
+  address?: string; // Property address for display
+  event_type?: string; // Event type for tag display (actual_liquidation, bid_date, etc.)
+  url?: string; // URL to navigate to asset detail page
+  source_id?: number; // Source record ID
 }
 
 /**
@@ -214,14 +182,50 @@ declare global {
 
 export default {
   name: 'HomeCalendarWidget',
+
+  components: {
+    FullCalendar,
+  },
   
   data() {
     return {
+      // FullCalendar configuration
+      calendarOptions: {
+        plugins: [dayGridPlugin, interactionPlugin],
+        initialView: 'dayGridMonth',
+        // keep selectedDate in sync when user clicks a day
+        dateClick: (arg: any) => this.handleDateClick(arg),
+        // events will be synced from this.events in lifecycle hooks
+        events: [] as any[],
+        // Hide dates from adjacent months (only show current month dates)
+        showNonCurrentDates: false,
+        fixedWeekCount: false,
+        // Custom event content to show tag above title
+        eventContent: (arg: any) => {
+          const event = arg.event;
+          const eventType = event.extendedProps.event_type || 'milestone';
+          const eventTypeLabel = this.getEventTypeLabel(eventType);
+          const eventTitle = event.title.replace(`${eventTypeLabel}: `, '');
+          
+          return {
+            html: `
+              <div style="padding: 2px 4px; line-height: 1.2;">
+                <div style="font-size: 0.65em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px;">${eventTypeLabel}</div>
+                <div style="font-size: 0.75em; margin-top: 2px; white-space: normal; overflow: hidden;">${eventTitle}</div>
+              </div>
+            `
+          };
+        },
+      },
       // selectedDate: Currently selected date from the datepicker (Date object)
       selectedDate: new Date(),
       
+      viewMode: 'week',
+      
       // showEventModal: Controls visibility of the add/edit event modal
       showEventModal: false,
+      // For now, we are using local data only (no backend fetch)
+      eventsLoading: false,
       
       // isEditMode: Flag to determine if we're editing an existing event or creating new
       isEditMode: false,
@@ -238,7 +242,7 @@ export default {
       // editingEventId: ID of the event being edited (null when creating new event)
       editingEventId: null as number | null,
       
-      // events: Array of all calendar events (fetched from backend API)
+      // events: Array of all calendar events (currently in-memory / localStorage)
       events: [] as CalendarEvent[],
       
       // nextId: Counter for generating unique event IDs
@@ -254,18 +258,19 @@ export default {
         { name: 'Secondary', value: 'bg-secondary' },
       ],
       
-      // Event color mapping from backend to frontend
-      // Matches the main calendar app's color scheme
-      eventColorMap: {
-        'actual_liquidation': 'bg-success',     // Green - actual FC sales
-        'projected_liquidation': 'bg-warning',  // Yellow - projected FC sales
-        'bid_date': 'bg-info',                  // Cyan - bid deadlines
-        'settlement_date': 'bg-secondary',      // Dark - settlements
-        'milestone': 'bg-danger',               // Red - other milestones
-      } as Record<string, string>
+      // Event type to badge tone mapping (uses centralized badgeTokens.ts)
+      // Removed local mapping - now using getCalendarEventBadgeTone() helper
+      
+      // API base URL (without /api prefix - added in fetch call)
+      apiBaseUrl: import.meta.env.VITE_API_BASE_URL || '',
     };
   },
   
+  created() {
+    // Fetch events from backend API on component creation
+    this.fetchCalendarEvents();
+  },
+
   computed: {
     /**
      * filteredEvents: Returns events matching the currently selected date
@@ -287,6 +292,43 @@ export default {
         month: 'long', 
         day: 'numeric' 
       });
+    },
+
+    visibleEvents(): CalendarEvent[] {
+      const selected = this.selectedDate;
+      if (!selected) return [];
+
+      if (this.viewMode === 'week') {
+        const { start, end } = this.getWeekRange(selected);
+        const startTime = start.getTime();
+        const endTime = end.getTime();
+        return this.events.filter(event => {
+          const d = this.parseDateStr(event.date);
+          const t = d.getTime();
+          return t >= startTime && t <= endTime;
+        });
+      } else if (this.viewMode === 'month') {
+        return this.events.filter(event => {
+          const d = this.parseDateStr(event.date);
+          return this.isSameMonth(d, selected);
+        });
+      }
+
+      const selectedDateStr = this.formatDateToString(selected);
+      return this.events.filter(event => event.date === selectedDateStr);
+    },
+
+    viewTitle(): string {
+      if (this.viewMode === 'week') {
+        const { start, end } = this.getWeekRange(this.selectedDate);
+        const startStr = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const endStr = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const year = this.selectedDate.getFullYear();
+        return `${startStr} - ${endStr}, ${year}`;
+      } else if (this.viewMode === 'month') {
+        return this.selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      }
+      return this.selectedDateFormatted;
     }
   },
   
@@ -399,25 +441,6 @@ export default {
     },
     
     /**
-     * closeEventModal: Closes the event modal and resets state
-     */
-    closeEventModal() {
-      this.showEventModal = false;
-      this.isEditMode = false;
-      this.editingEventId = null;
-    },
-    
-    /**
-     * getCategoryName: Gets the display name for a category value
-     * @param categoryValue - The category class name (e.g., 'bg-primary')
-     * @returns Human-readable category name (e.g., 'Primary')
-     */
-    getCategoryName(categoryValue: string): string {
-      const category = this.categories.find(c => c.value === categoryValue);
-      return category ? category.name : 'Default';
-    },
-    
-    /**
      * clearAllEvents: Removes all events after confirmation
      */
     clearAllEvents() {
@@ -443,52 +466,174 @@ export default {
     },
     
     /**
-     * getEventColor: Maps backend event category to Bootstrap color class
-     * @param category - Backend event category (e.g., 'actual_liquidation')
-     * @returns Bootstrap color class (e.g., 'bg-success')
+     * getEventBadgeClass: Maps event type to badge CSS classes using centralized badgeTokens
+     * @param eventType - Event type (e.g., 'actual_liquidation')
+     * @returns Badge CSS classes from centralized badge system
      */
-    getEventColor(category: string): string {
-      return this.eventColorMap[category] || 'bg-primary';
+    getEventBadgeClass(eventType: string): string {
+      const tone = getCalendarEventBadgeTone(eventType);
+      // Map tone to Bootstrap classes (matches badgeTokens.ts definitions)
+      const toneClassMap: Record<BadgeToneKey, string> = {
+        'calendar-liquidation': 'bg-success text-white',
+        'calendar-projected': 'bg-warning text-dark',
+        'calendar-bid': 'bg-info text-white',
+        'calendar-settlement': 'bg-danger text-white',
+        'calendar-milestone': 'bg-primary text-white',
+      } as any;
+      return toneClassMap[tone] || 'bg-primary text-white';
     },
     
     /**
-     * fetchCalendarEvents: Loads events from Django backend API
-     * Fetches from /api/core/calendar/events/ and maps to component format
+     * closeEventModal: Closes the event modal and resets state
      */
-    async fetchCalendarEvents() {
-      try {
-        const response = await axios.get('/core/calendar/events/');
-        
-        // Map backend events to our component format
-        this.events = response.data.map((event: any) => ({
-          id: event.id,
-          title: event.title,
-          date: event.date,  // Backend sends YYYY-MM-DD
-          time: 'All Day',   // Backend events are all-day events
-          description: event.description || '',
-          category: this.getEventColor(event.category)
-        }));
-        
-        console.log(`HomeCalendarWidget: Loaded ${this.events.length} events from backend`);
-      } catch (error) {
-        console.error('HomeCalendarWidget: Failed to fetch events:', error);
-        // Fall back to empty array if API fails
-        this.events = [];
+    closeEventModal() {
+      this.showEventModal = false;
+      this.isEditMode = false;
+      this.editingEventId = null;
+    },
+    
+    /**
+     * getCategoryName: Gets the display name for a category value
+     * @param categoryValue - The category class name (e.g., 'bg-primary')
+     * @returns Human-readable category name (e.g., 'Primary')
+     */
+    getCategoryName(categoryValue: string): string {
+      const category = this.categories.find(c => c.value === categoryValue);
+      return category ? category.name : 'Default';
+    },
+
+    getEventTitle(event: any): string {
+      if (event.servicer_id && event.address) {
+        return `${event.servicer_id} - ${event.address}`;
+      }
+      return event.title;
+    },
+
+    getEventTypeLabel(eventType: string): string {
+      const typeMap: Record<string, string> = {
+        'actual_liquidation': 'Liquidation',
+        'projected_liquidation': 'Projected',
+        'bid_date': 'Bid Date',
+        'settlement_date': 'Settlement',
+        'milestone': 'Milestone'
+      };
+      return typeMap[eventType] || eventType;
+    },
+    navigateToAsset(event: any) {
+      // Extract asset_hub_id from the event URL or source_id
+      const response = this.events.find(e => e.id === event.id);
+      if (response) {
+        // Backend provides URL in format '/am/loan/{asset_hub_id}/'
+        const urlMatch = event.id.match(/servicer_data:(\d+):/);
+        if (urlMatch) {
+          const servicerDataId = urlMatch[1];
+          // Navigate to the asset detail page
+          // The backend should provide the correct URL in the event.url field
+          window.location.href = `/am/loan/${servicerDataId}/`;
+        }
       }
     },
     
-    /**
-     * saveToLocalStorage: Persists events to browser localStorage
-     * Allows events to survive page reloads
-     */
+    // Map our CalendarEvent objects into FullCalendar's event format
+    syncCalendarEvents() {
+      if (!this.calendarOptions) return;
+      this.calendarOptions.events = this.events.map((event: CalendarEvent) => {
+        const eventTypeLabel = this.getEventTypeLabel(event.event_type || event.category || 'milestone');
+        const eventTitle = this.getEventTitle(event);
+        const colors = getCalendarEventColors(event.event_type || event.category || 'milestone');
+        return {
+          id: String(event.id),
+          title: `${eventTypeLabel}: ${eventTitle}`,
+          start: event.date,
+          backgroundColor: colors.bg,
+          borderColor: colors.border,
+          textColor: colors.text,
+          extendedProps: {
+            originalEvent: event,
+            category: event.category,
+            event_type: event.event_type,
+          },
+        };
+      });
+    },
+
+    // Handle clicks on a date in the FullCalendar grid
+    handleDateClick(arg: any) {
+      if (arg && arg.dateStr) {
+        this.selectedDate = new Date(arg.dateStr);
+      }
+    },
+
+    parseDateStr(dateStr: string): Date {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      return new Date(y, m - 1, d);
+    },
+
+    getWeekRange(date: Date) {
+      const day = date.getDay();
+      const start = new Date(date);
+      start.setHours(0, 0, 0, 0);
+      start.setDate(date.getDate() - day);
+      const end = new Date(start);
+      end.setDate(start.getDate() + 6);
+      end.setHours(23, 59, 59, 999);
+      return { start, end };
+    },
+
+    isSameMonth(a: Date, b: Date): boolean {
+      return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
+    },
+
     saveToLocalStorage() {
       localStorage.setItem('calendarEvents', JSON.stringify(this.events));
       localStorage.setItem('calendarNextId', String(this.nextId));
     },
     
     /**
-     * loadFromLocalStorage: Loads events from localStorage on component mount
-     * NOTE: This is now only used as a fallback. Primary source is backend API.
+     * fetchCalendarEvents: Fetches calendar events from backend API
+     * Endpoint: GET /api/core/calendar/events/
+     * Maps backend event structure to frontend CalendarEvent format
+     */
+    async fetchCalendarEvents() {
+      this.eventsLoading = true;
+      try {
+        const response = await fetch(`${this.apiBaseUrl}/api/core/calendar/events/`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const backendEvents = await response.json();
+        
+        // Map backend events to frontend CalendarEvent format
+        this.events = backendEvents.map((event: any) => ({
+          id: event.id,
+          title: event.title,
+          date: event.date,
+          time: event.time || 'All Day',
+          description: event.description || '',
+          category: event.category || 'bg-primary',
+          servicer_id: event.servicer_id,
+          address: event.address,
+          event_type: event.event_type || event.category || 'milestone',
+          url: event.url,
+          source_id: event.source_id,
+          editable: event.editable || false,
+        }));
+        
+        // Sync events to FullCalendar
+        this.syncCalendarEvents();
+      } catch (error) {
+        console.error('Failed to fetch calendar events:', error);
+        // Fallback to localStorage if API fails
+        this.loadFromLocalStorage();
+        this.syncCalendarEvents();
+      } finally {
+        this.eventsLoading = false;
+      }
+    },
+    
+    /**
+     * loadFromLocalStorage: Loads events from localStorage as fallback
+     * NOTE: Only used when backend API is unavailable
      */
     loadFromLocalStorage() {
       const stored = localStorage.getItem('calendarEvents');
@@ -509,74 +654,14 @@ export default {
   },
   
   /**
-   * mounted: Lifecycle hook called when component is mounted to DOM
-   * Sets up the datepicker and loads events from backend
-   */
-  async mounted() {
-    // Fetch events from backend API (same as main calendar app)
-    await this.fetchCalendarEvents();
-    
-    // Initialize bootstrap-datepicker and bind changeDate event
-    // The changeDate event fires when user clicks a date in the calendar
-    const $datepicker = $(this.$refs.datepickerEl as HTMLElement);
-    $datepicker.datepicker({
-      todayHighlight: true,
-      // beforeShowDay callback: Customizes each day cell in the calendar
-      // Adds visual indicators (colored bands with event titles) to dates that have events
-      beforeShowDay: (date: Date) => {
-        const dateStr = this.formatDateToString(date);
-        const eventsOnDate = this.events.filter(e => e.date === dateStr);
-        
-        if (eventsOnDate.length > 0) {
-          // Build event bands HTML - show up to 3 events as colored bars with titles
-          const eventBandsHtml = eventsOnDate.slice(0, 3).map(event => {
-            // Get background color class from category
-            const colorClass = event.category.replace('bg-', '');
-            // Truncate title if too long (slightly longer now with bigger text)
-            const truncatedTitle = event.title.length > 18 ? event.title.substring(0, 15) + '...' : event.title;
-            return `<div class="event-band event-band-${colorClass}" title="${event.title}">${truncatedTitle}</div>`;
-          }).join('');
-          
-          // Add "more" indicator if there are more than 3 events
-          const moreIndicator = eventsOnDate.length > 3 
-            ? `<div class="event-more">+${eventsOnDate.length - 3} more</div>` 
-            : '';
-          
-          // Return custom content with day number and event bands
-          return {
-            enabled: true,
-            classes: 'has-events',
-            tooltip: eventsOnDate.map(e => e.title).join(', '),
-            content: `<div class="day-content"><span class="day-number">${date.getDate()}</span><div class="event-bands">${eventBandsHtml}${moreIndicator}</div></div>`
-          };
-        }
-        
-        // No events on this date, show default
-        return {
-          enabled: true
-        };
-      }
-    }).on('changeDate', (e: any) => {
-      // Update selectedDate when user clicks a different date
-      this.selectedDate = e.date;
-    });
-  },
-  
-  /**
    * watch: Watchers for reactive data changes
    * Re-render calendar when events array changes to update visual indicators
    */
   watch: {
     events: {
       handler() {
-        // Refresh the datepicker to update visual indicators when events change
-        this.$nextTick(() => {
-          const $datepicker = $(this.$refs.datepickerEl as HTMLElement);
-          // Get current date to maintain the view
-          const currentDate = $datepicker.datepicker('getDate');
-          // Update the datepicker to re-render with new event badges
-          $datepicker.datepicker('update');
-        });
+        // Keep FullCalendar's events in sync with our underlying events array
+        this.syncCalendarEvents();
       },
       deep: true
     }
@@ -585,6 +670,53 @@ export default {
 </script>
 
 <style>
+/* 
+  FullCalendar container should use the same background as normal .card tiles
+  
+  HOW TO FIND THE CORRECT CARD BACKGROUND COLOR:
+  1. Check which theme is active in your project (saas, creative, or modern)
+  2. Open: frontend_vue/src/assets/scss/config/{theme}/_variables.scss
+  3. Search for: $body-secondary-bg
+  4. This variable defines the card background color
+  5. For saas theme: $body-secondary-bg: #FDFBF7 (Warm White)
+  6. For creative/modern themes: $body-secondary-bg: $white (#fff)
+  
+  SCSS CHAIN:
+  - Cards use: $card-bg (defined in same _variables.scss file)
+  - $card-bg references: var(--#{$prefix}secondary-bg)
+  - Which maps to: $body-secondary-bg
+  - Final value for saas theme: #FDFBF7
+*/
+.calendar-widget-inline {
+  /* Cards use $body-secondary-bg = #FDFBF7 (Warm White from saas theme) */
+  background-color: #FDFBF7;
+  border-radius: 0.5rem;
+  padding: 16px;
+}
+
+/* Let the card background show through FullCalendar itself */
+.calendar-widget-inline .fc {
+  background-color: transparent;
+}
+
+/* Event List Styles */
+.event-list {
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.event-item {
+  background-color: var(--bs-tertiary-bg);
+  border: 1px solid var(--bs-border-color);
+  transition: all 0.2s ease-in-out;
+}
+
+.event-item:hover {
+  background-color: var(--bs-secondary-bg);
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  border-color: var(--bs-primary);
+}
+
 /* Cursor pointer for clickable event items */
 .cursor-pointer {
   cursor: pointer;
@@ -599,15 +731,7 @@ export default {
   box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
 }
 
-/* Make ALL calendar day cells the same height and alignment */
-.calendar-widget .datepicker-days td {
-  vertical-align: top !important;
-  padding: 3px 2px !important;
-  height: 60px !important;
-}
-
-
-/* Day content wrapper - simple flex column */
+/* Make ALL calendar day cells the same height and alignment (legacy styles for old datepicker) */
 .calendar-widget .day-content {
   display: flex !important;
   flex-direction: column !important;
@@ -629,68 +753,98 @@ export default {
 .calendar-widget .event-bands {
   display: flex !important;
   flex-direction: column !important;
-  gap: 1px !important;
+  gap: 2px !important;
   width: 100% !important;
   flex-grow: 0 !important;
+  align-items: center !important;
 }
 
-/* Individual event band - colored bar with title */
-:deep(.datepicker .event-band) {
-  padding: 2px 4px;
-  border-radius: 3px;
-  color: #fff;
-  font-size: 10px;
-  font-weight: 600;
-  text-align: center;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  line-height: 1.3;
-}
-
-/* Event band color variations matching Bootstrap theme */
-:deep(.datepicker .event-band-primary) {
-  background-color: #727cf5;
-}
-
-:deep(.datepicker .event-band-success) {
-  background-color: #0acf97;
-}
-
-:deep(.datepicker .event-band-info) {
-  background-color: #39afd1;
-}
-
-:deep(.datepicker .event-band-warning) {
-  background-color: #ffbc00;
-}
-
-:deep(.datepicker .event-band-danger) {
-  background-color: #fa5c7c;
-}
-
-:deep(.datepicker .event-band-secondary) {
-  background-color: #6c757d;
-}
+/* No custom styling for inline calendar badges - use vanilla Bootstrap */
 
 /* "More" indicator for days with 4+ events */
-:deep(.datepicker .event-more) {
+.calendar-widget .event-more {
   font-size: 9px;
   color: #6c757d;
   margin-top: 2px;
   font-weight: 500;
 }
 
-/* Make day cells taller to accommodate event bands */
-:deep(.datepicker .datepicker-days td) {
+/* Enable horizontal scrolling for the calendar table */
+.calendar-widget .datepicker {
+  width: 100% !important;
+}
+
+.calendar-widget .datepicker .table-condensed {
+  min-width: 850px !important; /* Force table to be wide enough for badges */
+  width: 100% !important;
+  table-layout: fixed !important;
+}
+
+div.calendar-widget {
+  overflow-x: auto !important;
+  width: 100% !important;
+  display: block !important;
+}
+
+/* Make day cells taller and wider to accommodate full event badges */
+.calendar-widget .datepicker-days td {
   position: relative;
-  height: 60px;
-  width: 42px;
-  padding: 2px;
+  height: 100px !important;
+  min-width: 120px !important;
+  padding: 4px !important;
+  vertical-align: top !important;
+  overflow: visible !important; /* Allow badges to be fully visible */
+  white-space: normal !important;
 }
 
 /* Ensure today highlight still works with custom content */
-:deep(.datepicker .datepicker-days td.today) {
+.calendar-widget .datepicker-days td.today {
   background-color: #f1f3fa !important;
 }
+
+/* Modern event card styling */
+.event-card {
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: #ffffff;
+  border: 1px solid #e3e6ef;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.event-card:hover {
+  background: #f8f9fa;
+  border-color: #727cf5;
+  box-shadow: 0 2px 8px rgba(114, 124, 245, 0.15);
+  transform: translateX(2px);
+}
+
+.event-card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.event-title-centered {
+  font-size: 13px;
+  font-weight: 500;
+  color: #313a46;
+  line-height: 1.4;
+  text-align: center;
+  width: 100%;
+}
+
+.event-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  align-self: flex-start;
+}
+
+/* REMOVED: Scale down badges inside calendar day cells to fit */
+/* Badges will now inherit the standard .event-badge styling */
 </style>

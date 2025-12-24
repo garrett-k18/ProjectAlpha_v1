@@ -284,14 +284,15 @@ def _get_servicer_data_events(start_date=None, end_date=None, seller_id=None, tr
     # Where: CALENDAR_DATE_FIELDS in core/serializers/serial_co_calendar.py
     # How: Just add/remove lines in that list - no need to edit this view
     date_fields = [
-        (field, f'{title}: {{address}}', event_type, title)
+        (field, '{address}', event_type, title)
         for model, field, title, event_type in CALENDAR_DATE_FIELDS
         if model == 'ServicerLoanData'
     ]
     
     for record in queryset:
         address = record.address or f"{record.city or 'Unknown'}, {record.state or ''}"
-        address = address[:30]
+        address_display = address[:30]
+        servicer_id = record.servicer_id or ''
         
         for field_name, title_template, category, desc_template in date_fields:
             date_value = getattr(record, field_name, None)
@@ -304,7 +305,7 @@ def _get_servicer_data_events(start_date=None, end_date=None, seller_id=None, tr
                 
                 events.append({
                     'id': f'servicer_data:{record.id}:{field_name}',
-                    'title': title_template.format(address=address),
+                    'title': title_template.format(address=address_display),
                     'date': date_value,
                     'time': 'All Day',
                     'description': desc_template,
@@ -312,7 +313,10 @@ def _get_servicer_data_events(start_date=None, end_date=None, seller_id=None, tr
                     'source_model': 'ServicerData',
                     'source_id': record.id,
                     'url': f'/am/loan/{record.asset_hub_id}/' if record.asset_hub_id else '',
-                    'editable': False  # Model-based events are read-only
+                    'editable': False,
+                    'servicer_id': servicer_id,
+                    'address': address,
+                    'asset_hub_id': record.asset_hub_id
                 })
     
     return events
@@ -412,13 +416,15 @@ def _get_trade_assumption_events(start_date=None, end_date=None, seller_id=None,
     # Where: CALENDAR_DATE_FIELDS in core/serializers/serial_co_calendar.py
     # How: Just add/remove lines in that list - no need to edit this view
     date_fields = [
-        (field, f'{title}: {{trade_name}}', event_type, title)
+        (field, '{trade_name}', event_type, title)
         for model, field, title, event_type in CALENDAR_DATE_FIELDS
         if model == 'TradeLevelAssumption'
     ]
     
     for record in queryset:
         trade_name = record.trade.trade_name if record.trade else 'Unknown Trade'
+        seller_name = record.trade.seller.name if record.trade and record.trade.seller else 'Unknown Seller'
+        display_name = f'{seller_name} - {trade_name}'
         
         for field_name, title_template, category, desc_template in date_fields:
             date_value = getattr(record, field_name, None)
@@ -431,7 +437,7 @@ def _get_trade_assumption_events(start_date=None, end_date=None, seller_id=None,
                 
                 events.append({
                     'id': f'trade_assumption:{record.id}:{field_name}',
-                    'title': title_template.format(trade_name=trade_name),
+                    'title': display_name,
                     'date': date_value,
                     'time': 'All Day',
                     'description': desc_template.format(trade_name=trade_name),
@@ -506,7 +512,8 @@ def _get_custom_calendar_events(request, start_date=None, end_date=None, seller_
             'category': event.category,
             'source_model': 'CalendarEvent',
             'editable': bool(user is not None and event.created_by_id and event.created_by_id == user.id),
-            'url': url
+            'url': url,
+            'asset_hub_id': event.asset_hub_id
         })
     
     return events
