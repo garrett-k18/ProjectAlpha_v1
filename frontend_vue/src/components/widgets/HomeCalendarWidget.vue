@@ -18,21 +18,24 @@
               v-for="event in visibleEvents"
               :key="event.id"
               class="event-item mb-2 p-2 rounded hover-shadow cursor-pointer"
-              @click="editEvent(event)"
+              @click="navigateToAsset(event)"
             >
               <div>
-                <div class="mb-1">
+                <div class="mb-1 d-flex justify-content-between align-items-center">
                   <span 
                     class="badge"
                     :class="getEventBadgeClass(event.event_type || event.category || 'milestone')"
                   >
                     {{ getEventTypeLabel(event.event_type || event.category || 'milestone') }}
                   </span>
+                  <!-- WHAT: Display formatted date for each event -->
+                  <!-- WHY: Users need to see which day of the month each event occurs -->
+                  <!-- HOW: Parse event.date string and format as "Day, Month D" (e.g., "Mon, Dec 1") -->
+                  <span class="text-muted small fw-semibold">
+                    {{ formatEventDate(event.date) }}
+                  </span>
                 </div>
-                <h6 class="mb-1 fw-semibold">{{ getEventTitle(event) }}</h6>
-                <p class="mb-0 text-muted small">
-                  <i class="mdi mdi-clock-outline me-1"></i>{{ event.time }}
-                </p>
+                <h6 class="mb-0 fw-semibold">{{ getEventTitle(event) }}</h6>
               </div>
             </div>
           </div>
@@ -195,6 +198,15 @@ export default {
         initialView: 'dayGridMonth',
         // keep selectedDate in sync when user clicks a day
         dateClick: (arg: any) => this.handleDateClick(arg),
+        // WHAT: Callback fired when calendar view changes (e.g., month navigation)
+        // WHY: Updates currentViewDate to reflect the month currently being displayed
+        // HOW: FullCalendar passes date information when user navigates months
+        datesSet: (arg: any) => {
+          // Update currentViewDate to the start of the displayed month
+          if (arg.start) {
+            this.currentViewDate = new Date(arg.start);
+          }
+        },
         // events will be synced from this.events in lifecycle hooks
         events: [] as any[],
         // Hide dates from adjacent months (only show current month dates)
@@ -220,7 +232,13 @@ export default {
       // selectedDate: Currently selected date from the datepicker (Date object)
       selectedDate: new Date(),
       
-      viewMode: 'week',
+      // currentViewDate: The currently displayed month/year in the calendar view
+      // WHAT: Tracks which month is being displayed in FullCalendar
+      // WHY: Used to filter events in the list view to show only events for the displayed month
+      // HOW: Updated via FullCalendar's datesSet callback when user navigates months
+      currentViewDate: new Date(),
+      
+      viewMode: 'month', // Changed default to 'month' to match calendar display
       
       // showEventModal: Controls visibility of the add/edit event modal
       showEventModal: false,
@@ -294,28 +312,29 @@ export default {
       });
     },
 
+    /**
+     * visibleEvents: Returns events for the currently displayed month in the calendar
+     * WHAT: Filters events to show only those in the month currently being displayed, sorted by date
+     * WHY: Event list should match what's visible in the calendar widget and be easy to scan
+     * HOW: Uses currentViewDate (updated via FullCalendar's datesSet callback) to filter events, then sorts by date
+     */
     visibleEvents(): CalendarEvent[] {
-      const selected = this.selectedDate;
-      if (!selected) return [];
-
-      if (this.viewMode === 'week') {
-        const { start, end } = this.getWeekRange(selected);
-        const startTime = start.getTime();
-        const endTime = end.getTime();
-        return this.events.filter(event => {
-          const d = this.parseDateStr(event.date);
-          const t = d.getTime();
-          return t >= startTime && t <= endTime;
-        });
-      } else if (this.viewMode === 'month') {
-        return this.events.filter(event => {
-          const d = this.parseDateStr(event.date);
-          return this.isSameMonth(d, selected);
-        });
-      }
-
-      const selectedDateStr = this.formatDateToString(selected);
-      return this.events.filter(event => event.date === selectedDateStr);
+      // WHAT: Filter events to show only those in the month currently displayed in FullCalendar
+      // WHY: Keep event list synchronized with calendar widget view
+      // HOW: Compare each event's date with currentViewDate to check if same month/year
+      const filtered = this.events.filter(event => {
+        const eventDate = this.parseDateStr(event.date);
+        return this.isSameMonth(eventDate, this.currentViewDate);
+      });
+      
+      // WHAT: Sort events by date (earliest first) for easier reading
+      // WHY: Users expect chronological order in event lists
+      // HOW: Parse date strings and compare timestamps
+      return filtered.sort((a, b) => {
+        const dateA = this.parseDateStr(a.date).getTime();
+        const dateB = this.parseDateStr(b.date).getTime();
+        return dateA - dateB;
+      });
     },
 
     viewTitle(): string {
@@ -519,16 +538,32 @@ export default {
       };
       return typeMap[eventType] || eventType;
     },
+    /**
+     * navigateToAsset: Navigates to asset detail page when event is clicked
+     * WHAT: Handles clicks on event items in the list to navigate to related asset/loan details
+     * WHY: Users need quick access to asset details from calendar events
+     * HOW: Check if event has a URL, otherwise try to extract servicer_data ID from event ID
+     * @param event - CalendarEvent object that was clicked
+     */
     navigateToAsset(event: any) {
-      // Extract asset_hub_id from the event URL or source_id
+      // WHAT: Use event.url if provided by backend (preferred method)
+      // WHY: Backend should provide direct URL to asset detail page
+      if (event.url) {
+        window.location.href = event.url;
+        return;
+      }
+      
+      // WHAT: Fallback - try to extract servicer_data ID from event ID format
+      // WHY: Legacy events may not have url field
+      // HOW: Parse event.id string for servicer_data pattern
       const response = this.events.find(e => e.id === event.id);
       if (response) {
-        // Backend provides URL in format '/am/loan/{asset_hub_id}/'
-        const urlMatch = event.id.match(/servicer_data:(\d+):/);
+        // WHAT: Backend provides URL in format '/am/loan/{asset_hub_id}/'
+        // WHY: Extract ID from event ID string format if available
+        const urlMatch = String(event.id).match(/servicer_data:(\d+):/);
         if (urlMatch) {
           const servicerDataId = urlMatch[1];
-          // Navigate to the asset detail page
-          // The backend should provide the correct URL in the event.url field
+          // WHAT: Navigate to the asset detail page using extracted ID
           window.location.href = `/am/loan/${servicerDataId}/`;
         }
       }
@@ -564,9 +599,34 @@ export default {
       }
     },
 
+    /**
+     * parseDateStr: Converts YYYY-MM-DD string to Date object
+     * WHAT: Parses a date string in YYYY-MM-DD format into a JavaScript Date object
+     * WHY: Backend returns dates as strings, but we need Date objects for comparisons/formatting
+     * HOW: Split string by dashes, convert to numbers, create Date (month is 0-indexed in JS)
+     * @param dateStr - Date string in YYYY-MM-DD format
+     * @returns JavaScript Date object
+     */
     parseDateStr(dateStr: string): Date {
       const [y, m, d] = dateStr.split('-').map(Number);
       return new Date(y, m - 1, d);
+    },
+    
+    /**
+     * formatEventDate: Formats event date for display in event list
+     * WHAT: Converts YYYY-MM-DD date string to readable format like "Mon, Dec 1"
+     * WHY: Users need a clear indication of which day each event occurs
+     * HOW: Parse date string and use toLocaleDateString with abbreviated day/month names
+     * @param dateStr - Date string in YYYY-MM-DD format
+     * @returns Formatted date string (e.g., "Mon, Dec 1")
+     */
+    formatEventDate(dateStr: string): string {
+      const date = this.parseDateStr(dateStr);
+      return date.toLocaleDateString('en-US', { 
+        weekday: 'short', 
+        month: 'short', 
+        day: 'numeric' 
+      });
     },
 
     getWeekRange(date: Date) {
@@ -580,6 +640,15 @@ export default {
       return { start, end };
     },
 
+    /**
+     * isSameMonth: Checks if two dates are in the same month and year
+     * WHAT: Compares two Date objects to determine if they fall in the same calendar month
+     * WHY: Used to filter events for the displayed month in the event list
+     * HOW: Compares year and month properties of both dates
+     * @param a - First date to compare
+     * @param b - Second date to compare
+     * @returns True if both dates are in the same month and year
+     */
     isSameMonth(a: Date, b: Date): boolean {
       return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
     },
@@ -591,24 +660,32 @@ export default {
     
     /**
      * fetchCalendarEvents: Fetches calendar events from backend API
+     * WHAT: Retrieves all calendar events from Django backend and maps them to frontend format
+     * WHY: Events are stored in the database and must be fetched via API
+     * HOW: Makes GET request to /api/core/calendar/events/ and transforms response
      * Endpoint: GET /api/core/calendar/events/
      * Maps backend event structure to frontend CalendarEvent format
      */
     async fetchCalendarEvents() {
+      // WHAT: Set loading state to show spinner in event list
       this.eventsLoading = true;
       try {
+        // WHAT: Fetch events from backend API endpoint
         const response = await fetch(`${this.apiBaseUrl}/api/core/calendar/events/`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
+        // WHAT: Parse JSON response from backend
         const backendEvents = await response.json();
         
-        // Map backend events to frontend CalendarEvent format
+        // WHAT: Transform backend event structure to match frontend CalendarEvent interface
+        // WHY: Backend and frontend may use different field names/structures
+        // HOW: Map each backend event to frontend format with all required fields
         this.events = backendEvents.map((event: any) => ({
           id: event.id,
           title: event.title,
           date: event.date,
-          time: event.time || 'All Day',
+          time: event.time || '', // WHAT: Time field kept for compatibility but not displayed
           description: event.description || '',
           category: event.category || 'bg-primary',
           servicer_id: event.servicer_id,
@@ -619,14 +696,18 @@ export default {
           editable: event.editable || false,
         }));
         
-        // Sync events to FullCalendar
+        // WHAT: Sync events to FullCalendar widget so they appear on the calendar grid
+        // WHY: FullCalendar needs events in its own format
         this.syncCalendarEvents();
       } catch (error) {
+        // WHAT: Log error and fallback to localStorage if API fails
         console.error('Failed to fetch calendar events:', error);
-        // Fallback to localStorage if API fails
+        // WHAT: Load events from browser localStorage as fallback
         this.loadFromLocalStorage();
+        // WHAT: Sync loaded events to FullCalendar
         this.syncCalendarEvents();
       } finally {
+        // WHAT: Clear loading state regardless of success/failure
         this.eventsLoading = false;
       }
     },
@@ -700,9 +781,13 @@ export default {
 }
 
 /* Event List Styles */
+/* WHAT: Event list container that takes up full available height with scrolling */
+/* WHY: Events should fill the entire card body and scroll when content overflows */
+/* HOW: Use flex-grow-1 to take available space, min-height 0 allows proper flexbox scrolling */
 .event-list {
-  max-height: 600px;
-  overflow-y: auto;
+  min-height: 0; /* WHAT: Required for flexbox scrolling to work properly */
+  overflow-y: auto; /* WHAT: Enable vertical scrolling when content exceeds container */
+  flex: 1 1 auto; /* WHAT: Grow to fill available space in flex container */
 }
 
 .event-item {
