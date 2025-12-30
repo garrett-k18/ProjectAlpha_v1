@@ -164,9 +164,19 @@ if not SALT_KEY:
             "Generate one with: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
         )
 
+# WHAT: Configure allowed hosts for Django
+# WHY: Django requires ALLOWED_HOSTS for security; Railway healthchecks need special host
+# HOW: Parse from env var + always include Railway healthcheck host
+# Docs: https://docs.djangoproject.com/en/5.2/ref/settings/#allowed-hosts
 ALLOWED_HOSTS = [
-h.strip() for h in os.getenv('DJANGO_ALLOWED_HOSTS', '').split(',') if h.strip()
+    h.strip() for h in os.getenv('DJANGO_ALLOWED_HOSTS', '').split(',') if h.strip()
 ]
+
+# WHAT: Always allow Railway healthcheck requests
+# WHY: Railway uses healthcheck.railway.app as the Host header for health checks
+# HOW: Add to ALLOWED_HOSTS if not already present
+if 'healthcheck.railway.app' not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append('healthcheck.railway.app')
 
 
 # Application definition

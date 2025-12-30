@@ -1,0 +1,37 @@
+# ============================================================================
+# Railway Configuration for statebridge_CRON Service
+# ============================================================================
+# WHAT: Dedicated config for the StateBridge FTPS import cron job
+# WHY: CRON services don't run web servers, so they need different settings
+# HOW: Point this service to use this config file in Railway Dashboard:
+#      Settings → Build → Config File Path → railway-cron.toml
+# ============================================================================
+
+[build]
+builder = "nixpacks"
+
+[build.nixpacksPhase]
+cmds = [
+    "python -m pip install --upgrade pip",
+    "pip install -r requirements.txt --no-cache-dir"
+]
+
+[deploy]
+# WHAT: Run the StateBridge FTPS import command
+# WHY: This is a scheduled job, not a web server
+# HOW: Django management command that downloads and imports data from StateBridge FTPS
+startCommand = "python manage.py import_statebridge_from_ftps"
+
+# WHAT: No healthcheck for CRON services
+# WHY: CRON jobs don't run a web server, so HTTP healthchecks would always fail
+# NOTE: Leaving healthcheckPath undefined disables healthchecks
+
+# WHAT: Restart policy for failed jobs
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+[deploy.envVars]
+DJANGO_SETTINGS_MODULE = "projectalphav1.settings"
+PYTHONUNBUFFERED = "1"
+DJANGO_DEBUG = "0"
+
