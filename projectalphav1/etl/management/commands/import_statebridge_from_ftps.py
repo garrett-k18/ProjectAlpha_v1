@@ -5,6 +5,7 @@ import json
 import os
 import ssl
 import time
+import datetime
 from dataclasses import dataclass
 from ftplib import FTP_TLS
 from pathlib import Path
@@ -122,6 +123,45 @@ def _download_one(ftp: FTP_TLS, remote_name: str, dest: Path) -> DownloadedFile:
     return DownloadedFile(local_path=dest, remote_name=remote_name, sha256=sha256, bytes_written=bytes_written)
 
 
+def _ftps_mtime_epoch_seconds(ftp: FTP_TLS, remote_name: str) -> Optional[int]:
+    """Return remote modified time in epoch seconds using MDTM.
+
+    Many FTPS servers expose the "upload date" shown in FTP clients via MDTM.
+    If the server doesn't support MDTM, return None.
+    """
+    try:
+        resp = ftp.sendcmd(f"MDTM {remote_name}")
+    except Exception:
+        return None
+
+    # Expected: "213 YYYYMMDDHHMMSS" (UTC)
+    try:
+        parts = (resp or "").strip().split()
+        if len(parts) < 2:
+            return None
+        ts = parts[1]
+        dt = datetime.datetime.strptime(ts, "%Y%m%d%H%M%S")
+        dt = dt.replace(tzinfo=datetime.timezone.utc)
+        return int(dt.timestamp())
+    except Exception:
+        return None
+
+
+def _pick_latest_by_mtime(ftp: FTP_TLS, candidates: list[str]) -> Optional[str]:
+    """Pick the newest remote file by server modified time."""
+    best_name: Optional[str] = None
+    best_ts: Optional[int] = None
+
+    for name in candidates:
+        ts = _ftps_mtime_epoch_seconds(ftp, name)
+        if ts is None:
+            continue
+        if best_ts is None or ts > best_ts:
+            best_ts = ts
+            best_name = name
+    return best_name
+
+
 def _matches_kind(remote_name: str, kind: str) -> bool:
     name = (remote_name or "").lower()
     kind_norm = (kind or "").strip().lower()
@@ -228,7 +268,12 @@ class Command(BaseCommand):
                 candidates = [n for n in candidates if _matches_kind(n, kind)]
 
             if latest_only and candidates:
-                candidates = [candidates[-1]]
+                latest_by_mtime = _pick_latest_by_mtime(ftp, candidates)
+                if latest_by_mtime:
+                    candidates = [latest_by_mtime]
+                else:
+                    # Fallback: filename sort (works well when suffix includes YYYYMMDD)
+                    candidates = [candidates[-1]]
 
             processed = []
             skipped = []
