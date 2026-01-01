@@ -10,6 +10,9 @@ File: Main Css File
 @import "./node_modules/bootstrap/scss/functions";
 @import "./node_modules/bootstrap/scss/variables";
 
+// ProjectAlpha color palette - must be imported before variables that use it
+@import "config/modern/color-palette";
+
 @import "config/modern/variables";
 @import "config/modern/variables-dark";
 @import "config/modern/variables-custom";

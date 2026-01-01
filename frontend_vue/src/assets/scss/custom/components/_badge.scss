@@ -56,26 +56,26 @@
 // Calendar Event Type Badges
 // Used for calendar events to indicate event types with semantic colors
 .badge-event-liquidation {
-    --#{$prefix}badge-color: #fff;
+    --#{$prefix}badge-color: #{$color-pure-white};
     background-color: var(--#{$prefix}success);
 }
 
 .badge-event-projected {
-    --#{$prefix}badge-color: #000;
+    --#{$prefix}badge-color: #{$color-charcoal};
     background-color: var(--#{$prefix}warning);
 }
 
 .badge-event-bid {
-    --#{$prefix}badge-color: #fff;
+    --#{$prefix}badge-color: #{$color-pure-white};
     background-color: var(--#{$prefix}info);
 }
 
 .badge-event-settlement {
-    --#{$prefix}badge-color: #fff;
+    --#{$prefix}badge-color: #{$color-pure-white};
     background-color: var(--#{$prefix}danger);
 }
 
 .badge-event-milestone {
-    --#{$prefix}badge-color: #fff;
+    --#{$prefix}badge-color: #{$color-pure-white};
     background-color: var(--#{$prefix}primary);
 }

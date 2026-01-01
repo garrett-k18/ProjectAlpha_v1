@@ -57,7 +57,7 @@ export default defineComponent({
           description: "View your asset pipeline breakdown"
         },
         { 
-          label: "My Active Loans", 
+          label: "My Follow Ups", 
           value: "34", 
           icon: "mdi mdi-home-city-outline",
           description: "Loans you're currently managing"

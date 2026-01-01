@@ -193,7 +193,8 @@
 .fc-event {
     border-radius: 2px;
     border: none;
-    cursor: move;
+    cursor: pointer !important;  // WHAT: Use pointer cursor instead of move cursor
+    // WHY: Events are read-only and should show normal clickable cursor
     font-size: 0.8125rem;
     margin: 5px 7px;
     padding: 5px 5px;

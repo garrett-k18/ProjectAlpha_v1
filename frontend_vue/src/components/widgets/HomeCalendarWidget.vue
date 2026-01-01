@@ -1,64 +1,111 @@
 <template>
-  <!-- Calendar with left-side event list -->
-  <b-row class="calendar-row">
-    <!-- Event List Card (Left Side) -->
-    <b-col md="3" class="d-flex">
-      <div class="card flex-fill">
-        <div class="card-body d-flex flex-column">
-          <!-- Loading State -->
-          <div v-if="eventsLoading" class="text-center py-4">
-            <div class="spinner-border text-primary" role="status">
-              <span class="visually-hidden">Loading...</span>
-            </div>
-          </div>
-          
-          <!-- Event List -->
-          <div v-else-if="visibleEvents.length > 0" class="event-list flex-grow-1">
-            <div
-              v-for="event in visibleEvents"
-              :key="event.id"
-              class="event-item mb-2 p-2 rounded hover-shadow cursor-pointer"
-              @click="navigateToAsset(event)"
-            >
-              <div>
-                <div class="mb-1 d-flex justify-content-between align-items-center">
-                  <span 
-                    class="badge"
-                    :class="getEventBadgeClass(event.event_type || event.category || 'milestone')"
-                  >
-                    {{ getEventTypeLabel(event.event_type || event.category || 'milestone') }}
-                  </span>
-                  <!-- WHAT: Display formatted date for each event -->
-                  <!-- WHY: Users need to see which day of the month each event occurs -->
-                  <!-- HOW: Parse event.date string and format as "Day, Month D" (e.g., "Mon, Dec 1") -->
-                  <span class="text-muted small fw-semibold">
-                    {{ formatEventDate(event.date) }}
-                  </span>
-                </div>
-                <h6 class="mb-0 fw-semibold">{{ getEventTitle(event) }}</h6>
-              </div>
-            </div>
-          </div>
-          
-          <!-- No Events State -->
-          <div v-else class="text-center py-4 text-muted flex-grow-1 d-flex flex-column justify-content-center">
-            <i class="mdi mdi-calendar-blank mdi-48px mb-2"></i>
-            <p class="mb-0">No events for this period</p>
-          </div>
+  <!-- WHAT: Container for calendar widget with shared filter bar and two-column layout -->
+  <!-- WHY: Filters should control both the event list and calendar simultaneously -->
+  <!-- HOW: Single unified card containing filter bar and calendar/event grid -->
+  <div class="calendar-section">
+    <!-- Unified Card for entire Calendar Section -->
+    <div class="card">
+      <!-- Filter Bar (Header-like toolbar) -->
+      <!-- WHAT: Filter buttons to show/hide events by tag type -->
+      <!-- WHY: Users need to filter events by type across both calendar and event list -->
+      <!-- HOW: Display all available event types as clickable badges, highlight selected -->
+      <div v-if="!eventsLoading && events.length > 0" class="card-header py-2 border-bottom">
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+          <span class="small text-muted fw-semibold me-2">Filter:</span>
+          <!-- All Events Button -->
+          <button
+            type="button"
+            class="btn btn-sm"
+            :class="selectedEventTypeFilter === null ? 'btn-primary' : 'btn-outline-secondary'"
+            @click="selectedEventTypeFilter = null"
+          >
+            All
+          </button>
+          <!-- Event Type Filter Buttons -->
+          <button
+            v-for="eventType in availableEventTypes"
+            :key="eventType"
+            type="button"
+            class="btn btn-sm"
+            :class="selectedEventTypeFilter === eventType ? getEventBadgeClass(eventType) : 'btn-outline-secondary'"
+            @click="selectedEventTypeFilter = eventType"
+          >
+            {{ getEventTypeLabel(eventType) }}
+          </button>
         </div>
       </div>
-    </b-col>
-    
-    <!-- FullCalendar (Right Side) -->
-    <b-col md="9">
-      <div class="calendar-widget calendar-widget-inline">
-        <FullCalendar
-          ref="fullCalendar"
-          :options="calendarOptions"
-        />
-      </div>
-    </b-col>
-  </b-row>
+      
+      <!-- Card Body - Event List + Calendar Grid -->
+      <div class="card-body p-0 d-flex">
+        <!-- Calendar with left-side event list -->
+        <!-- WHAT: Row container for calendar widget with equal-height columns -->
+        <!-- WHY: Event list and calendar should have same height for visual consistency -->
+        <!-- HOW: Use align-items-stretch to make both columns same height -->
+        <b-row class="calendar-row align-items-stretch g-0 flex-grow-1 w-100">
+      <!-- Event List Panel (Left Side) -->
+      <!-- WHAT: Event list that displays all events for the currently visible month -->
+      <!-- WHY: Users need to see a scrollable list of events matching the calendar -->
+      <!-- HOW: Left border separates from calendar, fills full height with scroll -->
+      <b-col md="3" class="event-list-panel border-end d-flex flex-column">
+        <!-- Loading State -->
+        <div v-if="eventsLoading" class="text-center py-4 px-3 flex-grow-1 d-flex align-items-center justify-content-center">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+        </div>
+        
+        <!-- Event List -->
+        <!-- WHAT: Container for event items -->
+        <!-- WHY: Events should fill the entire panel height with scroll if needed -->
+        <!-- HOW: flex-grow-1 fills available space, overflow-y for scrolling -->
+        <div v-if="!eventsLoading && visibleEvents.length > 0" class="event-list p-3 flex-grow-1 overflow-auto">
+          <div
+            v-for="event in visibleEvents"
+            :key="event.id"
+            class="event-item mb-2 p-2 rounded hover-shadow"
+            :class="{ 'cursor-pointer': isLiquidationEvent(event) }"
+            @click="handleEventClick(event)"
+          >
+            <div>
+              <div class="mb-1 d-flex justify-content-between align-items-center">
+                <span 
+                  class="badge"
+                  :class="getEventBadgeClass(event.event_type || event.category || 'milestone')"
+                >
+                  {{ getEventTypeLabel(event.event_type || event.category || 'milestone') }}
+                </span>
+                <!-- WHAT: Display formatted date for each event -->
+                <!-- WHY: Users need to see which day of the month each event occurs -->
+                <!-- HOW: Parse event.date string and format as "Day, Month D" (e.g., "Mon, Dec 1") -->
+                <span class="text-muted small fw-semibold">
+                  {{ formatEventDate(event.date) }}
+                </span>
+              </div>
+              <h6 class="mb-0 fw-semibold small">{{ getEventTitle(event) }}</h6>
+            </div>
+          </div>
+        </div>
+        
+        <!-- No Events State -->
+        <div v-else-if="!eventsLoading && visibleEvents.length === 0" class="text-center py-4 px-3 text-muted d-flex flex-column justify-content-center align-items-center flex-grow-1">
+          <i class="mdi mdi-calendar-blank mdi-36px mb-2 opacity-50"></i>
+          <p class="mb-0 small">No events for this period</p>
+        </div>
+      </b-col>
+      
+      <!-- FullCalendar (Right Side) -->
+      <b-col md="9" class="p-3">
+        <div class="calendar-widget calendar-widget-inline">
+          <FullCalendar
+            ref="fullCalendar"
+            :options="calendarOptions"
+          />
+        </div>
+      </b-col>
+    </b-row>
+      </div><!-- End card-body -->
+    </div><!-- End unified card -->
+  </div><!-- End calendar-section -->
 
   <!-- Add/Edit Event Modal -->
   <!-- Uses BootstrapVue3 modal component (project standard) -->
@@ -170,7 +217,9 @@ export interface CalendarEvent {
   address?: string; // Property address for display
   event_type?: string; // Event type for tag display (actual_liquidation, bid_date, etc.)
   url?: string; // URL to navigate to asset detail page
-  source_id?: number; // Source record ID
+  source_id?: number; // Source record ID (e.g., ServicerLoanData.id)
+  asset_hub_id?: number; // AssetIdHub ID for opening modal
+  editable?: boolean; // Whether the event can be edited
 }
 
 /**
@@ -190,21 +239,55 @@ export default {
     FullCalendar,
   },
   
+  // Declare emits so parent can listen to open-asset-modal event
+  emits: ['open-asset-modal'],
+  
   data() {
     return {
       // FullCalendar configuration
       calendarOptions: {
         plugins: [dayGridPlugin, interactionPlugin],
         initialView: 'dayGridMonth',
+        // WHAT: Disable event dragging - events are read-only from backend
+        // WHY: Calendar events come from database models and shouldn't be moved by dragging
+        // HOW: Set editable and eventStartEditable to false
+        editable: false,
+        eventStartEditable: false,
+        eventDurationEditable: false,
         // keep selectedDate in sync when user clicks a day
         dateClick: (arg: any) => this.handleDateClick(arg),
+        // Handle clicks on calendar events - only liquidation events open modal
+        eventClick: (arg: any) => {
+          const originalEvent = arg.event.extendedProps.originalEvent;
+          if (originalEvent) {
+            this.handleEventClick(originalEvent);
+          }
+        },
         // WHAT: Callback fired when calendar view changes (e.g., month navigation)
-        // WHY: Updates currentViewDate to reflect the month currently being displayed
+        // WHY: Updates currentViewDate and fetches events for the visible date range
         // HOW: FullCalendar passes date information when user navigates months
         datesSet: (arg: any) => {
-          // Update currentViewDate to the start of the displayed month
+          // WHAT: Update currentViewDate to the start of the displayed month
+          // WHY: Event list needs to know which month to filter for
+          // HOW: Use FullCalendar's start date (first day of visible month)
           if (arg.start) {
-            this.currentViewDate = new Date(arg.start);
+            const newViewDate = new Date(arg.start);
+            // WHAT: Set to first day of the month to ensure consistent month comparison
+            newViewDate.setDate(1);
+            this.currentViewDate = newViewDate;
+            console.log('[HomeCalendarWidget] datesSet - Updated currentViewDate to:', this.currentViewDate.toISOString());
+          }
+          // WHAT: Fetch events for the visible date range to avoid loading all events
+          // WHY: Only fetch events for months being displayed, not all events ever
+          // HOW: Use FullCalendar's start/end dates with small buffer to ensure edge events are included
+          if (arg.start && arg.end) {
+            // WHAT: Add 7-day buffer before start and after end to catch events near edges
+            // WHY: FullCalendar might cut off events on month boundaries
+            const bufferedStart = new Date(arg.start);
+            bufferedStart.setDate(bufferedStart.getDate() - 7);
+            const bufferedEnd = new Date(arg.end);
+            bufferedEnd.setDate(bufferedEnd.getDate() + 7);
+            this.fetchCalendarEventsForRange(bufferedStart, bufferedEnd);
           }
         },
         // events will be synced from this.events in lifecycle hooks
@@ -266,6 +349,12 @@ export default {
       // nextId: Counter for generating unique event IDs
       nextId: 1,
       
+      // selectedEventTypeFilter: Currently selected event type filter (null = show all)
+      // WHAT: Tracks which event type is selected for filtering
+      // WHY: Users need to filter events by tag type (Liquidation, Bid Date, etc.)
+      // HOW: Set to event_type string when filter button clicked, null to show all
+      selectedEventTypeFilter: null as string | null,
+      
       // categories: Available event categories (colors) matching Hyper UI theme
       categories: [
         { name: 'Primary', value: 'bg-primary' },
@@ -285,8 +374,26 @@ export default {
   },
   
   created() {
-    // Fetch events from backend API on component creation
-    this.fetchCalendarEvents();
+    // WHAT: Initial setup - events will be fetched when FullCalendar fires datesSet
+    // WHY: FullCalendar determines the initial month to display, we need to wait for it
+    // HOW: datesSet callback will fetch events for the correct month
+    // NOTE: Don't fetch here - let datesSet handle it to ensure we fetch for the correct month
+  },
+  
+  mounted() {
+    // WHAT: After component is mounted, ensure we have events for the displayed month
+    // WHY: FullCalendar might not fire datesSet immediately, so we need a fallback
+    // HOW: Use nextTick to wait for FullCalendar to initialize, then check if we need to fetch
+    this.$nextTick(() => {
+      // If FullCalendar hasn't fired datesSet yet, fetch for current month as fallback
+      if (this.events.length === 0) {
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        this.currentViewDate = startOfMonth; // Set to match what we're fetching
+        this.fetchCalendarEventsForRange(startOfMonth, endOfMonth);
+      }
+    });
   },
 
   computed: {
@@ -313,19 +420,74 @@ export default {
     },
 
     /**
+     * availableEventTypes: Returns all possible event types defined in the system
+     * WHAT: Returns all event types that can appear in the calendar, not just those in current month
+     * WHY: Filter buttons should always show all available types, even if none exist in current month
+     * HOW: Return all event types defined in getEventTypeLabel typeMap
+     */
+    availableEventTypes(): string[] {
+      // WHAT: Return all event types that are defined in the system
+      // WHY: Users should be able to filter by any event type, even if none exist in current month
+      // HOW: Use the same types defined in getEventTypeLabel function
+      return [
+        'actual_liquidation',
+        'projected_liquidation',
+        'bid_date',
+        'settlement_date',
+        'milestone'
+      ];
+    },
+    
+    /**
      * visibleEvents: Returns events for the currently displayed month in the calendar
-     * WHAT: Filters events to show only those in the month currently being displayed, sorted by date
+     * WHAT: Filters events to show only those in the month currently being displayed, optionally filtered by event type, sorted by date
      * WHY: Event list should match what's visible in the calendar widget and be easy to scan
-     * HOW: Uses currentViewDate (updated via FullCalendar's datesSet callback) to filter events, then sorts by date
+     * HOW: Uses currentViewDate (updated via FullCalendar's datesSet callback) to filter events, then applies event type filter if selected, then sorts by date
      */
     visibleEvents(): CalendarEvent[] {
+      console.log('[HomeCalendarWidget] visibleEvents - Total events:', this.events.length, 
+        'Current view date:', this.currentViewDate?.toISOString());
+      
+      // WHAT: Start with all events - we'll filter by month and type
+      // WHY: Need to see all events first, then apply filters
+      let filtered = [...this.events];
+      
       // WHAT: Filter events to show only those in the month currently displayed in FullCalendar
       // WHY: Keep event list synchronized with calendar widget view
       // HOW: Compare each event's date with currentViewDate to check if same month/year
-      const filtered = this.events.filter(event => {
-        const eventDate = this.parseDateStr(event.date);
-        return this.isSameMonth(eventDate, this.currentViewDate);
-      });
+      if (this.currentViewDate) {
+        const beforeMonthFilter = filtered.length;
+        filtered = filtered.filter(event => {
+          const eventDate = this.parseDateStr(event.date);
+          const isSame = this.isSameMonth(eventDate, this.currentViewDate);
+          if (!isSame && beforeMonthFilter < 20) { // Only log if we have few events
+            console.log('[HomeCalendarWidget] Event filtered out by month:', event.date, 
+              'Event:', eventDate.toISOString(), 'View:', this.currentViewDate.toISOString(),
+              'Event month:', eventDate.getMonth() + 1, 'View month:', this.currentViewDate.getMonth() + 1);
+          }
+          return isSame;
+        });
+        console.log('[HomeCalendarWidget] After month filter:', filtered.length, 
+          'events (was', beforeMonthFilter, ')');
+      } else {
+        console.warn('[HomeCalendarWidget] currentViewDate is not set, showing all events');
+      }
+      
+      console.log('[HomeCalendarWidget] Before type filter:', filtered.length, 
+        'events. Selected filter:', this.selectedEventTypeFilter);
+      
+      // WHAT: Apply event type filter if one is selected
+      // WHY: Users can filter to see only specific event types (e.g., only Liquidations)
+      // HOW: Compare event's event_type with selectedEventTypeFilter
+      if (this.selectedEventTypeFilter !== null) {
+        const beforeFilter = filtered.length;
+        filtered = filtered.filter(event => {
+          const eventType = event.event_type || event.category || 'milestone';
+          const matches = eventType === this.selectedEventTypeFilter;
+          return matches;
+        });
+        console.log('[HomeCalendarWidget] After type filter:', filtered.length, 'events (was', beforeFilter, ')');
+      }
       
       // WHAT: Sort events by date (earliest first) for easier reading
       // WHY: Users expect chronological order in event lists
@@ -530,42 +692,46 @@ export default {
 
     getEventTypeLabel(eventType: string): string {
       const typeMap: Record<string, string> = {
-        'actual_liquidation': 'Liquidation',
-        'projected_liquidation': 'Projected',
+        'actual_liquidation': 'Realized Liquidation',
+        'projected_liquidation': 'Projected Liquidation',
         'bid_date': 'Bid Date',
         'settlement_date': 'Settlement',
         'milestone': 'Milestone'
       };
       return typeMap[eventType] || eventType;
     },
-    /**
-     * navigateToAsset: Navigates to asset detail page when event is clicked
-     * WHAT: Handles clicks on event items in the list to navigate to related asset/loan details
-     * WHY: Users need quick access to asset details from calendar events
-     * HOW: Check if event has a URL, otherwise try to extract servicer_data ID from event ID
-     * @param event - CalendarEvent object that was clicked
-     */
-    navigateToAsset(event: any) {
-      // WHAT: Use event.url if provided by backend (preferred method)
-      // WHY: Backend should provide direct URL to asset detail page
-      if (event.url) {
-        window.location.href = event.url;
-        return;
+    
+    // Check if event is a liquidation event
+    isLiquidationEvent(event: any): boolean {
+      const eventType = event.event_type || event.category || '';
+      return eventType.includes('liquidation');
+    },
+    
+    // Handle event click - only liquidation events open modal
+    handleEventClick(event: any): void {
+      console.log('[HomeCalendarWidget] handleEventClick called', event);
+      
+      if (!this.isLiquidationEvent(event)) {
+        return; // Do nothing for non-liquidation events
       }
       
-      // WHAT: Fallback - try to extract servicer_data ID from event ID format
-      // WHY: Legacy events may not have url field
-      // HOW: Parse event.id string for servicer_data pattern
-      const response = this.events.find(e => e.id === event.id);
-      if (response) {
-        // WHAT: Backend provides URL in format '/am/loan/{asset_hub_id}/'
-        // WHY: Extract ID from event ID string format if available
-        const urlMatch = String(event.id).match(/servicer_data:(\d+):/);
-        if (urlMatch) {
-          const servicerDataId = urlMatch[1];
-          // WHAT: Navigate to the asset detail page using extracted ID
-          window.location.href = `/am/loan/${servicerDataId}/`;
-        }
+      // WHAT: The backend returns asset_hub_id directly in the event object (see view_co_calendar.py line 319)
+      // WHY: ServicerLoanData has asset_hub_id FK that's included in calendar API response
+      // HOW: Use event.asset_hub_id (the correct AssetIdHub ID), NOT the servicer_data ID
+      const assetHubId = event?.asset_hub_id || event?.extendedProps?.asset_hub_id;
+      
+      console.log('[HomeCalendarWidget] Using asset_hub_id:', assetHubId, 'from event:', event);
+      
+      if (assetHubId) {
+        console.log('[HomeCalendarWidget] Emitting open-asset-modal with assetHubId:', assetHubId);
+        // Emit to parent to open modal
+        this.$emit('open-asset-modal', {
+          id: assetHubId,
+          row: event,
+          addr: event.address || event.extendedProps?.address || this.getEventTitle(event)
+        });
+      } else {
+        console.warn('[HomeCalendarWidget] No asset_hub_id found for event:', event);
       }
     },
     
@@ -583,10 +749,13 @@ export default {
           backgroundColor: colors.bg,
           borderColor: colors.border,
           textColor: colors.text,
+          editable: false,  // WHAT: Disable dragging for all events (read-only from backend)
           extendedProps: {
             originalEvent: event,
             category: event.category,
             event_type: event.event_type,
+            asset_hub_id: event.asset_hub_id,  // Pass through the AssetIdHub ID
+            address: event.address,  // Pass through the address
           },
         };
       });
@@ -659,42 +828,81 @@ export default {
     },
     
     /**
-     * fetchCalendarEvents: Fetches calendar events from backend API
-     * WHAT: Retrieves all calendar events from Django backend and maps them to frontend format
-     * WHY: Events are stored in the database and must be fetched via API
-     * HOW: Makes GET request to /api/core/calendar/events/ and transforms response
-     * Endpoint: GET /api/core/calendar/events/
-     * Maps backend event structure to frontend CalendarEvent format
+     * fetchCalendarEventsForRange: Fetches calendar events for a specific date range
+     * WHAT: Retrieves calendar events from Django backend for the visible date range
+     * WHY: Only fetch events for months being displayed to improve performance
+     * HOW: Makes GET request with start_date and end_date query parameters
+     * @param startDate - Start of date range (Date object)
+     * @param endDate - End of date range (Date object)
      */
-    async fetchCalendarEvents() {
+    async fetchCalendarEventsForRange(startDate: Date, endDate: Date) {
       // WHAT: Set loading state to show spinner in event list
       this.eventsLoading = true;
       try {
-        // WHAT: Fetch events from backend API endpoint
-        const response = await fetch(`${this.apiBaseUrl}/api/core/calendar/events/`);
+        // WHAT: Format dates as YYYY-MM-DD for API
+        // WHY: Backend expects date strings in ISO format
+        const formatDate = (date: Date) => {
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        };
+        
+        const startDateStr = formatDate(startDate);
+        const endDateStr = formatDate(endDate);
+        
+        // WHAT: Fetch events from backend API endpoint with date range filter
+        // WHY: Only fetch events for visible months, not all events ever
+        const url = `${this.apiBaseUrl}/api/core/calendar/events/?start_date=${startDateStr}&end_date=${endDateStr}`;
+        console.log('[HomeCalendarWidget] Fetching events for range:', startDateStr, 'to', endDateStr);
+        
+        const response = await fetch(url);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         // WHAT: Parse JSON response from backend
         const backendEvents = await response.json();
+        console.log('[HomeCalendarWidget] Received', backendEvents.length, 'events');
         
         // WHAT: Transform backend event structure to match frontend CalendarEvent interface
         // WHY: Backend and frontend may use different field names/structures
         // HOW: Map each backend event to frontend format with all required fields
-        this.events = backendEvents.map((event: any) => ({
-          id: event.id,
-          title: event.title,
-          date: event.date,
-          time: event.time || '', // WHAT: Time field kept for compatibility but not displayed
-          description: event.description || '',
-          category: event.category || 'bg-primary',
-          servicer_id: event.servicer_id,
-          address: event.address,
-          event_type: event.event_type || event.category || 'milestone',
-          url: event.url,
-          source_id: event.source_id,
-          editable: event.editable || false,
-        }));
+        // NOTE: Backend sends 'category' field containing the event_type value (e.g., 'actual_liquidation')
+        //       This is the semantic event type, NOT a Bootstrap class
+        this.events = backendEvents.map((event: any) => {
+          // WHAT: Backend 'category' field IS the event_type (e.g., 'actual_liquidation', 'bid_date')
+          // WHY: Backend uses 'category' to store the semantic event type from CALENDAR_DATE_FIELDS
+          // HOW: Use category directly as event_type
+          const eventType = event.event_type || event.category || 'milestone';
+          
+          return {
+            id: event.id,
+            title: event.title,
+            date: event.date,
+            time: event.time || '', // WHAT: Time field kept for compatibility but not displayed
+            description: event.description || '',
+            category: 'bg-primary', // WHAT: Bootstrap class for badge (derived from event_type by getEventBadgeClass)
+            servicer_id: event.servicer_id,
+            address: event.address,
+            event_type: eventType, // WHAT: Semantic event type from backend 'category' field
+            url: event.url,
+            source_id: event.source_id,
+            editable: event.editable || false,
+            asset_hub_id: event.asset_hub_id,  // CRITICAL: Include AssetIdHub ID for modal
+          };
+        });
+        
+        console.log('[HomeCalendarWidget] Mapped', this.events.length, 'events. Event types:', 
+          [...new Set(this.events.map(e => e.event_type))]);
+        
+        // WHAT: Ensure currentViewDate is set to match the first event's month if not already set
+        // WHY: If datesSet hasn't fired yet, we need currentViewDate to match the loaded events
+        // HOW: Use the first event's date to set currentViewDate if it's not already set
+        if (this.events.length > 0 && (!this.currentViewDate || this.currentViewDate.getTime() === new Date().getTime())) {
+          const firstEventDate = this.parseDateStr(this.events[0].date);
+          this.currentViewDate = new Date(firstEventDate.getFullYear(), firstEventDate.getMonth(), 1);
+          console.log('[HomeCalendarWidget] Set currentViewDate to first event month:', this.currentViewDate.toISOString());
+        }
         
         // WHAT: Sync events to FullCalendar widget so they appear on the calendar grid
         // WHY: FullCalendar needs events in its own format
@@ -784,20 +992,27 @@ export default {
 /* WHAT: Event list container that takes up full available height with scrolling */
 /* WHY: Events should fill the entire card body and scroll when content overflows */
 /* HOW: Use flex-grow-1 to take available space, min-height 0 allows proper flexbox scrolling */
+/* NOTE: Background color inherited from parent card - no explicit color needed */
 .event-list {
   min-height: 0; /* WHAT: Required for flexbox scrolling to work properly */
   overflow-y: auto; /* WHAT: Enable vertical scrolling when content exceeds container */
   flex: 1 1 auto; /* WHAT: Grow to fill available space in flex container */
 }
 
+/* WHAT: Individual event item styling */
+/* WHY: Events need to match the background color of the event list */
+/* HOW: Use same color as event-list-column and calendar-widget-inline */
 .event-item {
-  background-color: var(--bs-tertiary-bg);
+  background-color: #FDFBF7; /* WHAT: Same warm white as the container */
   border: 1px solid var(--bs-border-color);
   transition: all 0.2s ease-in-out;
 }
 
+/* WHAT: Hover state for event items - subtle highlight effect */
+/* WHY: Provides visual feedback that items are clickable */
+/* HOW: Lighten background, add shadow, and accent border color */
 .event-item:hover {
-  background-color: var(--bs-secondary-bg);
+  background-color: #f0ebe3; /* WHAT: Slightly darker warm tone on hover */
   box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
   border-color: var(--bs-primary);
 }
@@ -932,4 +1147,25 @@ div.calendar-widget {
 
 /* REMOVED: Scale down badges inside calendar day cells to fit */
 /* Badges will now inherit the standard .event-badge styling */
+
+/* Calendar row - ensure columns stretch to full height */
+.calendar-row {
+  display: flex !important;
+  align-items: stretch !important;
+}
+
+/* Event list panel - full height with flex column layout */
+.event-list-panel {
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 100% !important;
+  height: 100% !important;
+}
+
+/* Event list scrollable area - fills all available space */
+.event-list {
+  flex: 1 1 auto !important;
+  min-height: 0 !important; /* Required for flex overflow scrolling */
+  overflow-y: auto !important;
+}
 </style>

@@ -6,22 +6,23 @@
 // Theme Light Mode
 :root,
 [data-bs-theme="light"] {
-    --#{$prefix}input-bg:                       #{$white};
+    --#{$prefix}input-bg:                       #{$color-pure-white};  // Input fields use pure white
+    --#{$prefix}secondary-bg:                   #{$color-cream};       // Cards use cream/off-white beige
 }
 
 // Theme Dark Mode
 @if $enable-dark-mode {
     @include color-mode(dark, true) {
-        --#{$prefix}light:                          #464f5b;
-        --#{$prefix}light-rgb:                      #{to-rgb(#464f5b)};
+        --#{$prefix}light:                          #{shade-color($color-light-gray, 60%)};
+        --#{$prefix}light-rgb:                      #{to-rgb(shade-color($color-light-gray, 60%))};
         
-        --#{$prefix}dark:                           #f1f1f1;
-        --#{$prefix}dark-rgb:                       #{to-rgb(#f1f1f1)};
+        --#{$prefix}dark:                           #{tint-color($color-charcoal, 80%)};
+        --#{$prefix}dark-rgb:                       #{to-rgb(tint-color($color-charcoal, 80%))};
 
-        --#{$prefix}secondary:                      #{#6c757d};
-        --#{$prefix}secondary-rgb:                  #{to-rgb(#6c757d)};
+        --#{$prefix}secondary:                      #{$color-slate-gray};
+        --#{$prefix}secondary-rgb:                  #{to-rgb($color-slate-gray)};
 
-        --#{$prefix}input-bg:                       #{#404954};
+        --#{$prefix}input-bg:                       #{shade-color($color-charcoal, 20%)};
 
         --#{$prefix}box-shadow:                     #{0px 0px 35px 0px rgba(49, 57, 66, 0.5)};
     }

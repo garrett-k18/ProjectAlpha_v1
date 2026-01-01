@@ -6,16 +6,17 @@
 // Color system
 
 // scss-docs-start gray-color-variables
-$white:    #fff;
-$gray-100: #f6f7fb;
-$gray-200: #eef2f7;
+// ProjectAlpha colors - using palette colors where applicable
+$white:    $color-pure-white;
+$gray-100: $color-cream;        // Cream - warm light background
+$gray-200: $color-light-gray;   // Light Gray - subtle backgrounds
 $gray-300: #dee2e6;
 $gray-400: #ced4da;
-$gray-500: #a1a9b1;
-$gray-600: #8a969c;
-$gray-700: #6c757d;
-$gray-800: #343a40;
-$gray-900: #313a46;
+$gray-500: $color-medium-gray;  // Medium Gray - inactive states
+$gray-600: $color-cool-gray;    // Cool Gray - archived/historical
+$gray-700: $color-slate-gray;   // Slate Gray - secondary text
+$gray-800: $color-charcoal;     // Charcoal - body text
+$gray-900: $color-primary-navy; // Primary Navy - main brand color
 $black:    #000;
 // scss-docs-end gray-color-variables
 
@@ -36,16 +37,17 @@ $grays: (
 // fusv-enable
 
 // scss-docs-start color-variables
-$blue:       #3d73dd;
-$indigo:     #727cf5;
-$purple:     #536de6;
-$pink:       #ff679b;
-$red:        #ff5b5b;
-$orange:     #fd7e14;
-$yellow:     #f9c851;
-$green:      #10c469;
-$teal:       #02a8b5;
-$cyan:       #35b8e0;
+// ProjectAlpha colors - using palette colors
+$blue:       $color-steel-blue;      // Steel Blue - for secondary buttons/links
+$indigo:     $color-primary-navy;     // Primary Navy - main brand color
+$purple:     $color-muted-plum;       // Muted Plum - for review/special status
+$pink:       #ff679b;                  // Keep original (minimal usage)
+$red:        $color-error-red;        // Error Red - muted professional red
+$orange:     $color-bronze;            // Bronze - warm metallic accent
+$yellow:     $color-accent-gold;      // Accent Gold - primary accent/warning
+$green:      $color-success-green;    // Success Green - muted professional green
+$teal:       $color-info-teal;        // Info Teal - informational states
+$cyan:       $color-slate-teal;       // Slate Teal - processing/secondary info
 // scss-docs-end color-variables
 
 // scss-docs-start colors-map
@@ -298,14 +300,15 @@ $cyans: (
 // fusv-enable
 
 // scss-docs-start theme-color-variables
-$primary:       $purple;
-$secondary:     $gray-700;
-$success:       $green;
-$info:          $cyan;
-$warning:       $yellow;
-$danger:        $red;
-$light:         $gray-200;
-$dark:          $gray-900;
+// ProjectAlpha theme colors - using palette colors
+$primary:       $color-primary-navy;   // Primary Navy
+$secondary:     $color-slate-gray;    // Slate Gray
+$success:       $color-success-green; // Success Green
+$info:          $color-info-teal;     // Info Teal
+$warning:       $color-accent-gold;   // Accent Gold
+$danger:        $color-error-red;     // Error Red
+$light:         $color-light-gray;    // Light Gray
+$dark:          $color-primary-navy;   // Primary Navy
 // scss-docs-end theme-color-variables
 
 // scss-docs-start theme-colors-map
@@ -434,8 +437,8 @@ $position-values: (
 //
 // Settings for the `<body>` element.
 
-$body-color:                #6c757d;
-$body-bg:                   #fafbfe;
+$body-color:                $color-charcoal;      // Charcoal for body text
+$body-bg:                   $color-off-white-beige;  // Off-white beige for page background
 $body-text-align:           null;
 
 $body-secondary-color:      $gray-600;

@@ -310,6 +310,7 @@
     .datepicker-inline,
     table {
         width: 100%;
+        border-radius: 0 !important; // Square corners to match project style
 
         tr {
 
@@ -345,6 +346,38 @@
             border-radius: 0;
             color: var(--#{$prefix}primary);
         }
+    }
+    
+    // Remove any rounded corners from the calendar container and inline widget
+    &.calendar-widget-inline {
+        border-radius: 0 !important;
+        
+        .datepicker-inline {
+            border-radius: 0 !important;
+        }
+        
+        table {
+            border-radius: 0 !important;
+        }
+    }
+    
+    // WHAT: Force normal cursor on FullCalendar events (disable drag cursor)
+    // WHY: Events are read-only and shouldn't show move/resize cursor
+    // HOW: Override FullCalendar's default cursor styles
+    .fc-event {
+        cursor: pointer !important;  // Normal pointer cursor for clickable events
+        
+        &:hover {
+            cursor: pointer !important;  // Keep pointer on hover
+        }
+    }
+    
+    // WHAT: Disable move cursor on event segments
+    // WHY: FullCalendar applies move cursor even when editable is false
+    .fc-event-main,
+    .fc-event-title,
+    .fc-event-title-container {
+        cursor: pointer !important;
     }
 }
 

@@ -38,38 +38,38 @@
 
 // Background Light left-sidebar
 html[data-menu-color="light"] {
-    --#{$prefix}menu-bg:                             #ffffff;
-    --#{$prefix}menu-item-color:                       #{$gray-700};
-    --#{$prefix}menu-item-hover-color:                 #{$primary};
-    --#{$prefix}menu-item-active-color:                #{$primary};
-    --#{$prefix}help-box-bg:                           #{$primary};
+    --#{$prefix}menu-bg:                             #{$color-pure-white};
+    --#{$prefix}menu-item-color:                       #{$color-slate-gray};
+    --#{$prefix}menu-item-hover-color:                 #{$color-primary-navy};
+    --#{$prefix}menu-item-active-color:                #{$color-primary-navy};
+    --#{$prefix}help-box-bg:                           #{$color-primary-navy};
 }
 
-// Dark Left Sidebar
+// Dark Left Sidebar - using ProjectAlpha navy
 html[data-menu-color="dark"] {
-    --#{$prefix}menu-bg:                                 #{$gray-900};
-    --#{$prefix}menu-item-color:                       #8391a2;
-    --#{$prefix}menu-item-hover-color:                 #bccee4;
-    --#{$prefix}menu-item-active-color:                #ffffff;
+    --#{$prefix}menu-bg:                                 #{$color-primary-navy};
+    --#{$prefix}menu-item-color:                       #{$color-soft-blue};
+    --#{$prefix}menu-item-hover-color:                 #{tint-color($color-soft-blue, 40%)};
+    --#{$prefix}menu-item-active-color:                #{$color-pure-white};
     --#{$prefix}help-box-bg:                             #{rgba($white, 0.07)};
 }
 
-// Brand Menu
+// Brand Menu - using ProjectAlpha primary colors
 html[data-menu-color="brand"] {
-    --#{$prefix}menu-bg:                                     #{linear-gradient(135deg, #6379c3 0%, #546ee5 60%)};
-    --#{$prefix}menu-item-color:                           #cedce4;
-    --#{$prefix}menu-item-hover-color:                     #ffffff;
-    --#{$prefix}menu-item-active-color:                    #ffffff;
+    --#{$prefix}menu-bg:                                     #{linear-gradient(135deg, $color-steel-blue 0%, $color-primary-navy 60%)};
+    --#{$prefix}menu-item-color:                           #{tint-color($color-soft-blue, 60%)};
+    --#{$prefix}menu-item-hover-color:                     #{$color-pure-white};
+    --#{$prefix}menu-item-active-color:                    #{$color-pure-white};
     --#{$prefix}help-box-bg:                                 #{rgba($white, 0.07)};
 }
 
 // Dark Mode Left Sidebar
 html[data-bs-theme="dark"][data-menu-color="light"],
 html[data-bs-theme="dark"][data-menu-color="dark"] {
-    --#{$prefix}menu-bg:                               #3a444e;
-    --#{$prefix}menu-item-color:                       #8391a2;
-    --#{$prefix}menu-item-hover-color:                 #bccee4;
-    --#{$prefix}menu-item-active-color:                #ffffff;
+    --#{$prefix}menu-bg:                               #{shade-color($color-charcoal, 20%)};
+    --#{$prefix}menu-item-color:                       #{$color-soft-blue};
+    --#{$prefix}menu-item-hover-color:                 #{tint-color($color-soft-blue, 40%)};
+    --#{$prefix}menu-item-active-color:                #{$color-pure-white};
     --#{$prefix}help-box-bg:                             #{rgba($white, 0.07)};
 }
 
@@ -81,30 +81,30 @@ html[data-bs-theme="dark"][data-menu-color="dark"] {
 
 // Light Topbar
 html[data-topbar-color="light"] {
-    --#{$prefix}topbar-bg:                         #ffffff;
-    --#{$prefix}topbar-item-color:                 #{$gray-700};
-    --#{$prefix}topbar-item-hover-color:           #{$primary};
-    --#{$prefix}topbar-search-bg:                  #{tint-color($gray-200,10%)};
-    --#{$prefix}topbar-user-bg:                    #{lighten($gray-100, 1%)};
-    --#{$prefix}topbar-user-border:                #eef2f7;
+    --#{$prefix}topbar-bg:                         #{$color-pure-white};
+    --#{$prefix}topbar-item-color:                 #{$color-slate-gray};
+    --#{$prefix}topbar-item-hover-color:           #{$color-primary-navy};
+    --#{$prefix}topbar-search-bg:                  #{tint-color($color-light-gray,10%)};
+    --#{$prefix}topbar-user-bg:                    #{lighten($color-cream, 1%)};
+    --#{$prefix}topbar-user-border:                #{$color-light-gray};
 }
 
 
-// Dark Topbar
+// Dark Topbar - using ProjectAlpha colors
 html[data-topbar-color="dark"] {
-    --#{$prefix}topbar-bg:                  #313a46;
-    --#{$prefix}topbar-item-color:          #8391a2;
-    --#{$prefix}topbar-item-hover-color:    #bccee4;
-    --#{$prefix}topbar-search-bg:           #464f5b;
-    --#{$prefix}topbar-user-bg:             #3c4655;
-    --#{$prefix}topbar-user-border:         #414d5d;
+    --#{$prefix}topbar-bg:                  #{$color-midnight-blue};
+    --#{$prefix}topbar-item-color:          #{$color-soft-blue};
+    --#{$prefix}topbar-item-hover-color:    #{tint-color($color-soft-blue, 40%)};
+    --#{$prefix}topbar-search-bg:           #{shade-color($color-charcoal, 10%)};
+    --#{$prefix}topbar-user-bg:             #{shade-color($color-charcoal, 5%)};
+    --#{$prefix}topbar-user-border:         #{shade-color($color-charcoal, 15%)};
 }
 
-// Brand Topbar
+// Brand Topbar - using ProjectAlpha accent colors
 html[data-topbar-color="brand"] {
-    --#{$prefix}topbar-bg:                         #8f75da;
+    --#{$prefix}topbar-bg:                         #{$color-muted-plum};
     --#{$prefix}topbar-item-color:                 rgba(255, 255, 255, 0.7);
-    --#{$prefix}topbar-item-hover-color:           #ffffff;
+    --#{$prefix}topbar-item-hover-color:           #{$color-pure-white};
     --#{$prefix}topbar-search-bg:                  rgba(255, 255, 255, 0.1);
     --#{$prefix}topbar-user-bg:                    rgba(255, 255, 255, 0.1);
     --#{$prefix}topbar-user-border:                rgba(255, 255, 255, 0.15);
@@ -113,10 +113,10 @@ html[data-topbar-color="brand"] {
 // Dark Mode Topbar
 html[data-bs-theme="dark"][data-topbar-color="light"],
 html[data-bs-theme="dark"][data-topbar-color="dark"] {
-    --#{$prefix}topbar-bg:                  #3a444e;
-    --#{$prefix}topbar-item-color:          #8391a2;
-    --#{$prefix}topbar-item-hover-color:    #bccee4;
-    --#{$prefix}topbar-search-bg:           #464f5b;
-    --#{$prefix}topbar-user-bg:             #3c4655;
-    --#{$prefix}topbar-user-border:         #414d5d;
+    --#{$prefix}topbar-bg:                  #{shade-color($color-charcoal, 20%)};
+    --#{$prefix}topbar-item-color:          #{$color-soft-blue};
+    --#{$prefix}topbar-item-hover-color:    #{tint-color($color-soft-blue, 40%)};
+    --#{$prefix}topbar-search-bg:           #{shade-color($color-charcoal, 10%)};
+    --#{$prefix}topbar-user-bg:             #{shade-color($color-charcoal, 5%)};
+    --#{$prefix}topbar-user-border:         #{shade-color($color-charcoal, 15%)};
 }

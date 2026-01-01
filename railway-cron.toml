@@ -8,13 +8,7 @@
 # ============================================================================
 
 [build]
-builder = "nixpacks"
-
-[build.nixpacksPhase]
-cmds = [
-    "python -m pip install --upgrade pip",
-    "pip install -r requirements.txt --no-cache-dir"
-]
+builder = "RAILPACK"
 
 [deploy]
 # WHAT: Run the StateBridge FTPS import command

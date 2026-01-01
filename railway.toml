@@ -1,14 +1,8 @@
 [build]
-builder = "nixpacks"
+builder = "RAILPACK"
 
 [build.env]
-NIXPACKS_APT_PACKAGES = "tesseract-ocr libtesseract-dev"
-
-[build.nixpacksPhase]
-cmds = [
-    "python -m pip install --upgrade pip",
-    "pip install -r requirements.txt --no-cache-dir"
-]
+RAILPACK_BUILD_APT_PACKAGES = "tesseract-ocr libtesseract-dev"
 
 # NOTE: If you encounter stale cache issues, temporarily add --no-cache-dir to pip install
 # or clear Railway cache: Railway Dashboard → Service → Settings → Clear Build Cache

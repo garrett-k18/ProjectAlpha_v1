@@ -39,15 +39,15 @@ $light-border-subtle-dark:          $gray-700;
 $dark-border-subtle-dark:           $gray-800;
 // scss-docs-end theme-border-subtle-dark-variables
 
-$body-color-dark:                   #aab8c5;
+$body-color-dark:                   #{tint-color($color-soft-blue, 30%)};
 $body-bg-dark:                      $gray-800;
-$body-secondary-color-dark:         #8391a2;
-$body-secondary-bg-dark:            #37404a;
-$body-tertiary-color-dark:          #f1f1f1;
-$body-tertiary-bg-dark:             #404954;
-$body-emphasis-color-dark:          #dee2e6;
-$border-color-dark:                 #464f5b;
-$border-color-translucent-dark:     #8391a2;
+$body-secondary-color-dark:         $color-soft-blue;
+$body-secondary-bg-dark:            #{shade-color($color-charcoal, 15%)};
+$body-tertiary-color-dark:          #{tint-color($color-charcoal, 80%)};
+$body-tertiary-bg-dark:             #{shade-color($color-charcoal, 20%)};
+$body-emphasis-color-dark:          $color-light-gray;
+$border-color-dark:                 #{shade-color($color-charcoal, 10%)};
+$border-color-translucent-dark:     $color-soft-blue;
 $headings-color-dark:               $body-color-dark;
 $link-color-dark:                   tint-color($primary, 40%);
 $link-hover-color-dark:             shift-color($link-color-dark, -$link-shade-percentage);

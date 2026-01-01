@@ -5,94 +5,88 @@
     dashboard page content specific to the homepage.
   -->
   <Layout>
-    <!--
-      Page Title Row
-      - Uses BootstrapVue3 grid components (<b-row>/<b-col>) already used project-wide
-      - Class "page-title-box" matches Hyper UI template styling
-    -->
-    <b-row>
-      <b-col class="col-12">
-        <div class="page-title-box text-center">
-          <h1 class="page-title m-5" style="font-size: 3rem;">{{ greeting }}!</h1>
-        </div>
-      </b-col>
-    </b-row>
-
-    <!-- AI Chat Widget Row (Centered and limited width) -->
-    <b-row class="mt-2 mb-4 justify-content-center">
-      <b-col cols="12" lg="10" xl="8">
-        <AIChatWidget />
-      </b-col>
-    </b-row>
-
-    <!-- Stats Row - Key metrics tiles -->
-    <StatsWidget @open-pipeline="showPipelineModal = true" />
-
     <!-- 
-      Note: Macro Rates Widget removed - Financial Ticker Banner shown at bottom of home page only
-      The ticker provides auto-scrolling market indicators (SOFR, Fed Funds, 30-Year Mortgage, etc.)
+      Compact Header Section 
+      - Greeting + AI Assistant in unified hero area
+      - Tight vertical rhythm for professional feel
     -->
-    
-    <!-- Calendar Widget (full width now that Macro Rates is removed) -->
-    <b-row class="mt-1">
-      <b-col cols="12">
-        <HomeCalendarWidget />
-      </b-col>
-    </b-row>
+    <div class="dashboard-hero mb-3 pt-2">
+      <!-- Greeting - compact and elegant -->
+      <h2 class="greeting-title mb-2 text-center">{{ greeting }}!</h2>
+      
+      <!-- AI Chat Widget - centered for better visual balance -->
+      <div class="ai-widget-wrapper mx-auto">
+        <AIChatWidget />
+      </div>
+    </div>
 
-    <!--
-      Secondary Row (placeholders)
-      - Left: Recent Activity list
-      - Right: Getting Started / Documentation pointers
-      - Replace with real components or data once APIs/stores are ready
-    -->
-    <b-row class="mt-1">
-      <!-- Recent Activity -->
-      <b-col cols="12" xl="6" class="mb-3">
+    <!-- Stats Row - Key metrics tiles (minimal top margin as hero provides context) -->
+    <StatsWidget @open-pipeline="showPipelineModal = true" class="mb-3" />
+
+    <!-- Calendar Section - Full width calendar with event list -->
+    <HomeCalendarWidget @open-asset-modal="onOpenAssetModal" class="mb-3" />
+
+    <!-- Secondary Content Row - Recent Activity and Quick Links -->
+    <b-row class="g-3">
+      <!-- Recent Activity - Full width on smaller screens -->
+      <b-col cols="12" lg="8">
         <div class="card h-100">
-          <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">Recent Activity</h5>
+          <div class="card-header d-flex justify-content-between align-items-center py-2">
+            <h6 class="mb-0 fw-semibold text-uppercase letter-spacing-1">Recent Activity</h6>
             <button type="button" class="btn btn-sm btn-outline-primary" @click="goToActivity">View All</button>
           </div>
-          <div class="card-body" style="max-height: 360px; overflow-y: auto;">
-            <div v-if="isLoadingRecentActivity" class="text-center py-4">
-              <div class="spinner-border text-primary" role="status">
+          <div class="card-body py-2" style="max-height: 280px; overflow-y: auto;">
+            <div v-if="isLoadingRecentActivity" class="text-center py-3">
+              <div class="spinner-border spinner-border-sm text-primary" role="status">
                 <span class="visually-hidden">Loading...</span>
               </div>
             </div>
             <div v-else>
               <ul v-if="recentActivity.length" class="list-unstyled mb-0">
-                <li v-for="(evt, idx) in recentActivity" :key="`evt-${idx}`" class="d-flex align-items-start mb-3">
-                  <i class="mdi mdi-checkbox-blank-circle-outline text-primary me-2 mt-1"></i>
-                  <div>
-                    <div class="fw-semibold">{{ evt.title }}</div>
+                <li v-for="(evt, idx) in recentActivity" :key="`evt-${idx}`" class="d-flex align-items-start py-2 border-bottom">
+                  <i class="mdi mdi-checkbox-blank-circle-outline text-primary me-2 mt-1 small"></i>
+                  <div class="flex-grow-1">
+                    <div class="fw-semibold small">{{ evt.title }}</div>
                     <div v-if="evt.message" class="text-muted small">{{ evt.message }}</div>
-                    <small class="text-muted">{{ evt.when }}</small>
                   </div>
+                  <small class="text-muted ms-2 flex-shrink-0">{{ evt.when }}</small>
                 </li>
               </ul>
-              <div v-else class="text-muted small">No recent activity</div>
+              <div v-else class="text-muted small py-3 text-center">No recent activity</div>
             </div>
           </div>
         </div>
       </b-col>
 
-      <!-- Getting Started / Docs -->
-      <b-col cols="12" xl="6" class="mb-3">
+      <!-- Quick Links / Getting Started - Condensed sidebar -->
+      <b-col cols="12" lg="4">
         <div class="card h-100">
-          <div class="card-header">
-            <h5 class="mb-0">Getting Started</h5>
+          <div class="card-header py-2">
+            <h6 class="mb-0 fw-semibold text-uppercase letter-spacing-1">Quick Links</h6>
           </div>
-          <div class="card-body">
-            <p class="text-muted">
-              This homepage follows Vue Router best practices and Hyper UI patterns used across the app.
-              Hook up real data from Pinia stores or backend APIs when ready.
-            </p>
-            <ol class="mb-0 ps-3">
-              <li class="mb-2">Wire stats to Pinia stores (e.g., acquisitions counts, assets under mgmt).</li>
-              <li class="mb-2">Replace Recent Activity with real events (audits, assignments, uploads).</li>
-              <li class="mb-2">Add role-aware tiles if needed using your `displayRole` helpers.</li>
-            </ol>
+          <div class="card-body py-2">
+            <div class="d-grid gap-2">
+              <button type="button" class="btn btn-light btn-sm text-start d-flex align-items-center" @click="$router.push('/am/asset-grid')">
+                <i class="mdi mdi-home-city-outline me-2 text-primary"></i>
+                <span>Asset Inventory</span>
+                <i class="mdi mdi-chevron-right ms-auto text-muted"></i>
+              </button>
+              <button type="button" class="btn btn-light btn-sm text-start d-flex align-items-center" @click="$router.push('/acq/trades')">
+                <i class="mdi mdi-swap-horizontal-bold me-2 text-primary"></i>
+                <span>Active Trades</span>
+                <i class="mdi mdi-chevron-right ms-auto text-muted"></i>
+              </button>
+              <button type="button" class="btn btn-light btn-sm text-start d-flex align-items-center" @click="$router.push('/reports')">
+                <i class="mdi mdi-chart-bar me-2 text-primary"></i>
+                <span>Reports</span>
+                <i class="mdi mdi-chevron-right ms-auto text-muted"></i>
+              </button>
+              <button type="button" class="btn btn-light btn-sm text-start d-flex align-items-center" @click="$router.push('/crm/partners')">
+                <i class="mdi mdi-account-group-outline me-2 text-primary"></i>
+                <span>Trading Partners</span>
+                <i class="mdi mdi-chevron-right ms-auto text-muted"></i>
+              </button>
+            </div>
           </div>
         </div>
       </b-col>
@@ -111,6 +105,47 @@
   >
     <PipelineWidget />
   </b-modal>
+
+  <!-- EXACT copy from asset-grid.vue: Loan-Level Modal -->
+  <b-modal
+    v-model="showAssetModal"
+    size="xl"
+    body-class="p-0 bg-body text-body"
+    dialog-class="product-details-dialog"
+    content-class="product-details-content bg-body text-body"
+    hide-footer
+    @shown="onModalShown"
+    @hidden="onModalHidden"
+  >
+    <template #header>
+      <div class="d-flex align-items-center w-100">
+        <h5 class="modal-title mb-0">
+          <div class="lh-sm">
+            <span class="fw-bold text-dark">{{ modalIdText }}</span>
+            <span v-if="modalTradeText" class="fw-bold text-dark ms-1">/ {{ modalTradeText }}</span>
+          </div>
+          <div class="text-muted lh-sm"><span class="fw-bold text-dark">{{ modalAddrText }}</span></div>
+        </h5>
+        <div class="ms-auto">
+          <button
+            type="button"
+            class="btn btn-sm btn-primary"
+            @click="openFullPage"
+            title="Open full page (Ctrl + Enter)"
+            aria-label="Open full page"
+          >
+            ⤢ Full Page
+          </button>
+        </div>
+      </div>
+    </template>
+    <LoanLevelIndex
+      :assetHubId="selectedId"
+      :row="selectedRow"
+      :address="selectedAddr"
+      :standalone="false"
+    />
+  </b-modal>
 </template>
 
 <script lang="ts">
@@ -126,6 +161,8 @@ import StatsWidget from './components/StatsWidget.vue'
 import PipelineWidget from './components/PipelineWidget.vue'
 // AI Chat widget - conversational interface for company data queries
 import AIChatWidget from './components/AIChatWidget.vue'
+// Asset Management loan-level modal (copied from asset-grid.vue)
+import LoanLevelIndex from '@/views/am_module/loanlvl_index.vue'
 // Django auth store for user data
 import { useDjangoAuthStore } from '@/stores/djangoAuth'
 import http from '@/lib/http'
@@ -181,6 +218,7 @@ export default {
     StatsWidget,
     PipelineWidget,
     AIChatWidget,
+    LoanLevelIndex,
   },
   // Options API state for simplicity and broad compatibility across the app
   data() {
@@ -188,6 +226,11 @@ export default {
       recentActivity: [] as RecentActivityItem[],
       isLoadingRecentActivity: false,
       showPipelineModal: false,
+      // EXACT copy from asset-grid.vue modal state
+      showAssetModal: false,
+      selectedId: null as string | number | null,
+      selectedRow: null as any,
+      selectedAddr: null as string | null,
     };
   },
   async mounted() {
@@ -215,6 +258,30 @@ export default {
       }
       
       return `Good ${timeOfDay}, ${firstName}`;
+    },
+    
+    // EXACT copy from asset-grid.vue modal computed properties
+    modalIdText(): string {
+      const servicerId = this.selectedRow?.servicer_id ?? this.selectedRow?.asset_hub?.servicer_id
+      if (servicerId != null && servicerId !== '') return String(servicerId)
+      const hubId = this.selectedRow?.asset_hub_id ?? this.selectedRow?.asset_hub?.id
+      if (hubId != null && hubId !== '') return String(hubId)
+      return this.selectedId != null ? String(this.selectedId) : 'Asset'
+    },
+    modalTradeText(): string {
+      const rawTrade = this.selectedRow?.trade_name ?? this.selectedRow?.tradeName ?? ''
+      return rawTrade ? String(rawTrade).trim() : ''
+    },
+    modalAddrText(): string {
+      const r: any = this.selectedRow || {}
+      const street = String(r.street_address ?? '').trim()
+      const city = String(r.city ?? '').trim()
+      const state = String(r.state ?? '').trim()
+      const locality = [city, state].filter(Boolean).join(', ')
+      const built = [street, locality].filter(Boolean).join(', ')
+      if (built) return built
+      const rawAddr = this.selectedAddr ? String(this.selectedAddr) : ''
+      return rawAddr.replace(/,?\s*\d{5}(?:-\d{4})?$/, '')
     }
   },
   methods: {
@@ -242,7 +309,109 @@ export default {
     goToActivity() {
       this.$router.push('/pages/activity')
     },
+    
+    // EXACT copy from asset-grid.vue modal methods
+    onModalShown(): void {
+      document.addEventListener('keydown', this.onKeydown as any)
+    },
+    onModalHidden(): void {
+      document.removeEventListener('keydown', this.onKeydown as any)
+      this.selectedId = null
+      this.selectedRow = null
+      this.selectedAddr = null
+    },
+    onKeydown(e: KeyboardEvent): void {
+      if (e.ctrlKey && (e.key === 'Enter' || e.code === 'Enter')) {
+        e.preventDefault()
+        this.openFullPage()
+      }
+    },
+    openFullPage(): void {
+      if (!this.selectedId) return
+      const query: any = { id: this.selectedId }
+      if (this.selectedAddr) query.addr = this.selectedAddr
+      query.module = 'am'
+      this.showAssetModal = false
+      this.$router.push({ path: '/loanlvl/products-details', query })
+    },
+    
+    // Handle calendar event click to open asset modal
+    onOpenAssetModal(payload: { id: string | number; row: any; addr?: string }): void {
+      console.log('[Home Dashboard] onOpenAssetModal called', payload);
+      this.selectedId = payload.id
+      // CRITICAL: Set selectedRow to null so LoanLevelIndex fetches the asset data by ID
+      // The calendar event object (payload.row) has calendar fields (title, date, category),
+      // NOT asset fields (street_address, current_balance, etc.) that LoanLevelIndex needs.
+      // When row is null, LoanLevelIndex uses assetHubId to fetch the full asset data.
+      this.selectedRow = null
+      this.selectedAddr = payload.addr || null
+      console.log('[Home Dashboard] Opening modal with:', {
+        selectedId: this.selectedId,
+        selectedRow: this.selectedRow,
+        selectedAddr: this.selectedAddr
+      });
+      this.showAssetModal = true
+    },
   },
 };
 </script>
+
+<style scoped>
+/**
+ * WHAT: Dashboard Hero Section Styles
+ * WHY: Create a compact, elegant header area with greeting + AI assistant
+ * HOW: Minimal padding, unified background treatment
+ */
+
+/* Hero wrapper - unified visual section with minimal top padding */
+.dashboard-hero {
+  padding-top: 0.5rem;
+}
+
+/* Greeting - compact and elegant, centered */
+.greeting-title {
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: var(--bs-body-color);
+  margin: 0;
+  line-height: 1.2;
+  text-align: center;
+}
+
+/* AI Widget wrapper - constrained width, centered */
+.ai-widget-wrapper {
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Center the input text inside AI widget */
+.ai-widget-wrapper :deep(.form-control) {
+  text-align: center;
+}
+
+/* Reset text alignment when user starts typing */
+.ai-widget-wrapper :deep(.form-control:focus) {
+  text-align: left;
+}
+
+/* Letter spacing utility */
+.letter-spacing-1 {
+  letter-spacing: 0.5px;
+  font-size: 0.7rem;
+}
+
+/* Tighter card headers */
+:deep(.card-header) {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+/* Quick links hover effect */
+.btn-light:hover {
+  background-color: var(--bs-light);
+  transform: translateX(2px);
+  transition: transform 0.15s ease;
+}
+</style>
 

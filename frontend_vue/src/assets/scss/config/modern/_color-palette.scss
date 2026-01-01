@@ -1,0 +1,213 @@
+//
+// ProjectAlpha Color Palette
+// ===========================
+// Centralized color definitions - modify colors here to update throughout the app
+// Based on color-palette.txt
+//
+// USAGE EXAMPLES:
+// ===============
+// 
+// Direct variable usage:
+//   color: $color-primary-navy;
+//   background-color: $color-success-green;
+//
+// Status color function:
+//   color: status-color("success");
+//   background-color: status-color("error");
+//
+// Status map iteration:
+//   @each $status, $color in $status-loan-performance {
+//     .status-#{$status} { background-color: $color; }
+//   }
+//
+
+// ============================================
+// PRIMARY PALETTE
+// ============================================
+$color-primary-navy: #1B3B5F;      // Main brand color, sidebar, headers, primary text
+$color-accent-gold: #D4AF37;       // Premium accent, CTAs, highlights, key metrics
+
+// ============================================
+// NEUTRAL TONES
+// ============================================
+$color-charcoal: #2C3E50;          // Darker text color for body content
+$color-slate-gray: #6C757D;         // Secondary text and labels
+$color-light-gray: #E9ECEF;         // Subtle backgrounds and borders
+$color-off-white-beige: #EDE7E1;    // Warm beige-tinted background for main page
+$color-pure-white: #FFFFFF;         // Pure white for maximum contrast
+
+// ============================================
+// SUPPORTING BLUES
+// ============================================
+$color-steel-blue: #4A6FA5;        // Lighter blue for interactive elements
+$color-midnight-blue: #0F2744;      // Darker navy for contrast
+$color-soft-blue: #8BA8C9;          // Light blue for disabled/inactive states
+
+// ============================================
+// WARM ACCENTS
+// ============================================
+$color-warm-taupe: #B8A88E;         // Softer alternative to gold
+$color-bronze: #CD7F32;             // Warm metallic accent
+$color-cream: #F5F3EE;              // Warm background for highlighted sections
+
+// ============================================
+// STATUS - SUCCESS/POSITIVE
+// ============================================
+$color-success-green: #2E7D32;     // Primary success indicator
+$color-emerald: #16A085;            // Active/performing indicator
+$color-sage-green: #6B8E6B;         // Muted green for new/fresh indicator
+
+// ============================================
+// STATUS - WARNING/CAUTION
+// ============================================
+$color-warning-amber: #C97A3A;      // Muted amber for professional warning
+$color-honey: #C99A4F;              // Muted honey for attention needed
+
+// ============================================
+// STATUS - ERROR/URGENT
+// ============================================
+$color-error-red: #C62828;          // Primary error indicator
+$color-burgundy: #8B1538;           // Severe/urgent indicator
+$color-dusty-red: #B85A4F;          // Muted red for at-risk indicator
+
+// ============================================
+// STATUS - INFORMATIONAL
+// ============================================
+$color-info-teal: #00796B;         // General informational indicator
+$color-steel-teal: #4A7A8A;         // Muted blue-teal for documentation
+$color-slate-teal: #5A8A95;         // Muted teal for processing indicator
+
+// ============================================
+// STATUS - NEUTRAL/INACTIVE
+// ============================================
+$color-medium-gray: #95A5A6;       // Inactive/paused indicator
+$color-cool-gray: #78909C;          // Archived/historical indicator
+$color-silver: #B0BEC5;              // Disabled indicator
+
+// ============================================
+// STATUS - SPECIAL PROCESS
+// ============================================
+$color-muted-plum: #6B5A7A;         // Professional plum for under review
+$color-indigo: #3F51B5;             // Compliance/verification indicator
+$color-dusty-lavender: #8A7A9A;     // Muted lavender for pending decision
+
+// ============================================
+// STATUS - FINANCIAL
+// ============================================
+$color-forest-green: #1B5E20;       // Profitable/positive ROI indicator
+$color-olive: #827717;              // Break-even indicator
+$color-burnt-sienna: #B85A3A;       // Muted sienna for loss/negative performance
+
+// ============================================
+// STATUS COLOR MAPS - For easy reference and iteration
+// ============================================
+
+// Asset Pipeline Stage Colors
+$status-asset-pipeline: (
+  "modification": $color-info-teal,        // Modification
+  "short-sale": $color-steel-teal,        // Short Sale
+  "foreclosure": $color-burgundy,          // Foreclosure
+  "dil": $color-warning-amber,             // DIL (Deed in Lieu)
+  "reo-sale": $color-accent-gold,          // REO Sale
+  "note-sale": $color-emerald,             // Note Sale
+  "liquidated": $color-success-green,      // Liquidated
+);
+
+// Loan Performance Status Colors
+$status-loan-performance: (
+  "performing": $color-success-green,      // Performing
+  "30-days-late": $color-honey,           // 30 Days Late
+  "60-days-late": $color-warning-amber,    // 60 Days Late
+  "90-days-late": $color-error-red,       // 90+ Days Late
+  "default": $color-burgundy,             // Default
+  "reo": $color-medium-gray,               // REO
+);
+
+// Document Status Colors
+$status-document: (
+  "received": $color-sage-green,          // Received
+  "under-review": $color-muted-plum,      // Under Review
+  "approved": $color-success-green,       // Approved
+  "rejected": $color-error-red,           // Rejected
+  "needs-information": $color-warning-amber, // Needs Information
+  "archived": $color-cool-gray,           // Archived
+);
+
+// Deal Status Colors
+$status-deal: (
+  "active": $color-emerald,               // Active
+  "pending": $color-accent-gold,          // Pending
+  "on-hold": $color-medium-gray,          // On Hold
+  "closed": $color-success-green,         // Closed
+  "cancelled": $color-error-red,          // Cancelled
+);
+
+// Task Priority Colors
+$status-task-priority: (
+  "critical": $color-burgundy,            // Critical
+  "high": $color-error-red,               // High
+  "medium": $color-warning-amber,         // Medium
+  "low": $color-info-teal,                // Low
+  "completed": $color-success-green,      // Completed
+);
+
+// All Status Colors Map (comprehensive)
+$status-colors: (
+  // Success/Positive
+  "success": $color-success-green,
+  "success-green": $color-success-green,
+  "emerald": $color-emerald,
+  "sage-green": $color-sage-green,
+  "forest-green": $color-forest-green,
+  
+  // Warning/Caution
+  "warning": $color-warning-amber,
+  "warning-amber": $color-warning-amber,
+  "honey": $color-honey,
+  "gold": $color-accent-gold,
+  
+  // Error/Urgent
+  "error": $color-error-red,
+  "error-red": $color-error-red,
+  "burgundy": $color-burgundy,
+  "dusty-red": $color-dusty-red,
+  
+  // Informational
+  "info": $color-info-teal,
+  "info-teal": $color-info-teal,
+  "steel-teal": $color-steel-teal,
+  "slate-teal": $color-slate-teal,
+  
+  // Neutral/Inactive
+  "inactive": $color-medium-gray,
+  "medium-gray": $color-medium-gray,
+  "cool-gray": $color-cool-gray,
+  "archived": $color-cool-gray,
+  "silver": $color-silver,
+  "disabled": $color-silver,
+  
+  // Special Process
+  "under-review": $color-muted-plum,
+  "muted-plum": $color-muted-plum,
+  "compliance": $color-indigo,
+  "indigo": $color-indigo,
+  "pending-decision": $color-dusty-lavender,
+  "dusty-lavender": $color-dusty-lavender,
+  
+  // Financial
+  "profitable": $color-forest-green,
+  "break-even": $color-olive,
+  "olive": $color-olive,
+  "loss": $color-burnt-sienna,
+  "burnt-sienna": $color-burnt-sienna,
+);
+
+// Helper function to get status color
+@function status-color($status-name) {
+  @if map-has-key($status-colors, $status-name) {
+    @return map-get($status-colors, $status-name);
+  }
+  @warn "Status color '#{$status-name}' not found in status-colors map.";
+  @return $color-slate-gray; // Default fallback
+}
+

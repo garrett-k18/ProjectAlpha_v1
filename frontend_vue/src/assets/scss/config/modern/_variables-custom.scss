@@ -56,4 +56,4 @@ $chat-primary-user-bg:            var(--#{$prefix}chat-primary-user-bg);
 $chat-secondary-user-bg:          var(--#{$prefix}chat-secondary-user-bg);
 
 // Hero
-$hero-bg:                         linear-gradient(to bottom,#6379c3,#546ee5);
+$hero-bg:                         linear-gradient(to bottom, $color-steel-blue, $color-primary-navy);

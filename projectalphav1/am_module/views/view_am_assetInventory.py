@@ -97,8 +97,10 @@ class AssetInventoryViewSet(ViewSet):
         whether navigating from grid or accessing detail view directly
         HOW: Fetch asset, enrich with computed fields, serialize
         """
+        # NOTE: 'ammetrics' is a ForeignKey reverse relation (one-to-many), not usable with select_related
+        # Only select_related for OneToOne and forward FK relations
         asset = get_object_or_404(
-            SellerRawData.objects.select_related("asset_hub__ammetrics", "asset_hub__blended_outcome_model", "seller", "trade"),
+            SellerRawData.objects.select_related("asset_hub__blended_outcome_model", "seller", "trade"),
             pk=pk,
             trade__status=Trade.Status.BOARD,
         )
