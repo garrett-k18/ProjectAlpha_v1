@@ -14,7 +14,7 @@ builder = "RAILPACK"
 # WHAT: Run the StateBridge FTPS import command
 # WHY: This is a scheduled job, not a web server
 # HOW: Django management command that downloads and imports data from StateBridge FTPS
-startCommand = "bash -lc \"for k in loan foreclosure bankruptcy comment pay_history transaction arm; do /app/.venv/bin/python manage.py import_statebridge_from_ftps --kind \\\"$k\\\" --latest-only --report-skips --max-skip-samples 25; done\""
+startCommand = "bash -lc \"for k in loan foreclosure bankruptcy comment pay_history transaction arm; do /app/.venv/bin/python manage.py import_statebridge_from_ftps --kind \\\"$k\\\" --latest-only --quiet; done\""
 
 # WHAT: No healthcheck for CRON services
 # WHY: CRON jobs don't run a web server, so HTTP healthchecks would always fail

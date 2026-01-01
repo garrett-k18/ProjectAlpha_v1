@@ -196,6 +196,14 @@ def _matches_kind(remote_name: str, kind: str) -> bool:
     }[kind_key]
 
 
+def _is_railway_runtime() -> bool:
+    return bool(
+        os.getenv("RAILWAY_ENVIRONMENT")
+        or os.getenv("RAILWAY_SERVICE_ID")
+        or os.getenv("RAILWAY_PROJECT_ID")
+    )
+
+
 class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("--batch-size", dest="batch_size", type=int, default=2000)
@@ -208,6 +216,7 @@ class Command(BaseCommand):
         parser.add_argument("--latest-only", dest="latest_only", action="store_true")
         parser.add_argument("--report-skips", dest="report_skips", action="store_true")
         parser.add_argument("--max-skip-samples", dest="max_skip_samples", type=int, default=25)
+        parser.add_argument("--quiet", dest="quiet", action="store_true")
 
     def handle(self, *args, **options):
         batch_size = int(options["batch_size"])
@@ -219,6 +228,9 @@ class Command(BaseCommand):
         latest_only = bool(options.get("latest_only"))
         report_skips = bool(options.get("report_skips"))
         max_skip_samples = int(options.get("max_skip_samples") or 25)
+        quiet = bool(options.get("quiet"))
+        if not quiet and _is_railway_runtime():
+            quiet = True
 
         staging_dir_opt = str(options.get("staging_dir") or "").strip()
         staging_dir = Path(staging_dir_opt) if staging_dir_opt else (Path(settings.MEDIA_ROOT) / "statebridge" / "ftps")
@@ -388,14 +400,31 @@ class Command(BaseCommand):
                 except Exception as exc:
                     errors.append({"remote": remote_name, "error": str(exc)})
 
-        payload = {
-            "remote_dir": remote_dir,
-            "staging_dir": str(staging_dir),
-            "dry_run": dry_run,
-            "force": force,
-            "max_files": max_files,
-            "processed": processed,
-            "skipped": skipped,
-            "errors": errors,
-        }
-        self.stdout.write(json.dumps(payload, indent=2))
+        if quiet:
+            payload = {
+                "remote_dir": remote_dir,
+                "dry_run": dry_run,
+                "force": force,
+                "max_files": max_files,
+                "kind": kind or None,
+                "latest_only": latest_only,
+                "counts": {
+                    "processed": len(processed),
+                    "skipped": len(skipped),
+                    "errors": len(errors),
+                },
+                "error_samples": errors[:5],
+            }
+            self.stdout.write(json.dumps(payload, separators=(",", ":")))
+        else:
+            payload = {
+                "remote_dir": remote_dir,
+                "staging_dir": str(staging_dir),
+                "dry_run": dry_run,
+                "force": force,
+                "max_files": max_files,
+                "processed": processed,
+                "skipped": skipped,
+                "errors": errors,
+            }
+            self.stdout.write(json.dumps(payload, indent=2))
