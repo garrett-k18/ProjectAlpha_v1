@@ -21,6 +21,9 @@ from .model_am_amData import (
     AuditLog,
 )
 
+# Import DIL-specific models
+from .model_am_dil import HeirContact
+
 __all__ = [
     # Servicer data
     'ServicerLoanData',
@@ -37,4 +40,5 @@ __all__ = [
     'AMNote',
     'AMMetrics',
     'AuditLog',
+    'HeirContact',
 ]

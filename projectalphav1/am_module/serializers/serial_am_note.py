@@ -20,11 +20,6 @@ class AMNoteSerializer(serializers.ModelSerializer):
             "asset_hub",
             "body",
             "tag",
-            # context fields
-            "scope",
-            "context_outcome",
-            "context_task_type",
-            "context_task_id",
             "pinned",
             "created_at",
             "updated_at",
@@ -34,8 +29,6 @@ class AMNoteSerializer(serializers.ModelSerializer):
             "updated_by_username",
         ]
         read_only_fields = [
-            "asset_hub",
-            "pinned",
             "created_at",
             "updated_at",
             "created_by",

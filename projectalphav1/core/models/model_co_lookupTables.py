@@ -816,6 +816,24 @@ class PhotoType(models.TextChoices):
     OTHER = 'other', 'Other'
 
 
+class NoteTag(models.TextChoices):
+    """
+    Tag categories for AM notes.
+    
+    What this does:
+    - Provides standardized tags for categorizing asset management notes
+    - Used for filtering and organizing notes in the UI
+    
+    Used by:
+    - am_module.models.AMNote
+    """
+    URGENT = 'urgent', 'Urgent'
+    LEGAL = 'legal', 'Legal'
+    QC = 'qc', 'Quality Control'
+    OPS = 'ops', 'Operations'
+    INFO = 'info', 'Info'
+
+
 class YesNo(models.TextChoices):
     """
     Yes/No choices for boolean fields that need string values.

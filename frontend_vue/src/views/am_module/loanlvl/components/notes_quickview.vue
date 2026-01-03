@@ -64,8 +64,10 @@
                 </h6>
                 <ul class="summary-list mb-0">
                   <li class="mb-2">
-                    <span class="fw-semibold">Recent Activity:</span> Most recent note added {{ formatRelativeTime(notes[0]?.created_at) }} 
-                    by {{ notes[0]?.created_by_username || 'Unknown' }}
+                    <span class="fw-semibold">Recent Activity:</span> Most recent note added {{ formatRelativeTime(notes[0]?.created_at) }}
+                    <template v-if="notes[0]?.created_by_username">
+                      by {{ notes[0].created_by_username }}
+                    </template>
                   </li>
                   <li class="mb-2">
                     <span class="fw-semibold">Note Distribution:</span> 
@@ -95,10 +97,12 @@
                     class="highlight-item mb-2 p-2 border-start border-3 border-primary bg-light rounded"
                   >
                     <div class="d-flex justify-content-between align-items-start mb-1">
-                      <small class="text-muted">
+                      <small v-if="highlight.author" class="text-muted">
                         <i class="ri-user-line me-1"></i>{{ highlight.author }}
                       </small>
-                      <small class="text-muted">{{ highlight.time }}</small>
+                      <small class="text-muted">
+                        {{ highlight.time }}
+                      </small>
                     </div>
                     <div class="small text-truncate" style="max-width: 100%;">
                       {{ highlight.preview }}
@@ -350,23 +354,11 @@ function getGeneralCount(): number {
 /**
  * WHAT: Helper to extract unique active contexts (outcomes) from notes.
  * WHY: Shows which AM tracks are referenced in notes for the summary.
- * HOW: Maps and filters unique context_outcome values.
- * @returns Array of unique context names.
+ * HOW: Returns empty array since context fields were removed from simplified note model.
+ * @returns Empty array (context tracking removed from notes).
  */
 function getActiveContexts(): string[] {
-  const outcomeMap: Record<OutcomeKey, string> = {
-    dil: 'DIL',
-    fc: 'Foreclosure',
-    reo: 'REO',
-    short_sale: 'Short Sale',
-    modification: 'Modification',
-  }
-  
-  const contexts = notes.value
-    .filter(n => n.context_outcome)
-    .map(n => outcomeMap[n.context_outcome!] || n.context_outcome!)
-  
-  return [...new Set(contexts)]
+  return []
 }
 
 /**
@@ -375,16 +367,24 @@ function getActiveContexts(): string[] {
  * HOW: Takes top 3 most recent notes and formats them for display.
  * @returns Array of highlight objects with preview data.
  */
-function getRecentHighlights(): Array<{ id: number; author: string; time: string; preview: string }> {
+function getRecentHighlights(): Array<{ id: number; author: string; time: string; timestamp: string; preview: string }> {
   return notes.value.slice(0, 3).map(note => {
     // Strip HTML tags and truncate for preview
     const text = (note.body || '').replace(/<[^>]*>/g, '').trim()
     const preview = text.length > 100 ? text.substring(0, 100) + '...' : text
     
+    // Format actual timestamp (date only)
+    const timestamp = note.created_at ? new Date(note.created_at).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    }) : ''
+    
     return {
       id: note.id,
-      author: note.created_by_username || 'Unknown',
+      author: note.created_by_username || '',
       time: formatRelativeTime(note.created_at),
+      timestamp,
       preview: preview || 'No content',
     }
   })
@@ -437,7 +437,6 @@ async function submitNote(): Promise<void> {
     // Create note via store action
     await notesStore.createNote(hubId, {
       body: editorHtml.value,
-      scope: 'asset', // Default scope for quickview notes
     })
     
     // Clear editor and close modal on success

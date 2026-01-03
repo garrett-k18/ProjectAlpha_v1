@@ -686,142 +686,84 @@ class AuditLog(models.Model):
         )
 
 class AMNote(models.Model):
-    """User-authored note attached to an AssetIdHub (many-to-one).
-
-    Many notes can be attached to a single hub. We key to the hub directly to
-    follow the hub-first architecture and avoid coupling to any particular spoke.
+    """User-authored note attached to an AssetIdHub.
+    
+    Simple note model for tracking comments and observations about assets.
+    Each note is linked to an asset via asset_hub and includes timestamp tracking.
     """
 
-    # Many-to-one to the hub (canonical asset key)
     asset_hub = models.ForeignKey(
         "core.AssetIdHub",
         on_delete=models.PROTECT,
-        null=True,
-        blank=True,
-        related_name="am_notes",  # Access via: hub.am_notes.all()
-        help_text="Many notes per AssetIdHub (hub is the canonical asset key).",
+        related_name="am_notes",
+        help_text="Asset this note is attached to",
     )
 
-    # Predefined single-select tag choices (simple dropdown)
-    TAG_URGENT = "urgent"
-    TAG_LEGAL = "legal"
-    TAG_QC = "qc"
-    TAG_OPS = "ops"
-    TAG_INFO = "info"
-
-    TAG_CHOICES = (
-        (TAG_URGENT, "Urgent"),
-        (TAG_LEGAL, "Legal"),
-        (TAG_QC, "Quality Control"),
-        (TAG_OPS, "Operations"),
-        (TAG_INFO, "Info"),
-    )
-
-    # Note content
     body = models.TextField(
-        help_text="Free-form note text for this asset.",
+        help_text="Note content",
     )
+    
     tag = models.CharField(
         max_length=32,
-        choices=TAG_CHOICES,
+        choices=[
+            ("urgent", "Urgent"),
+            ("legal", "Legal"),
+            ("qc", "Quality Control"),
+            ("ops", "Operations"),
+            ("info", "Info"),
+        ],
         null=True,
         blank=True,
-        help_text="Optional single tag for categorizing the note.",
-    )
-
-    # --- Context fields for scoping notes to outcome/task while storing centrally ---
-    # Scope clarifies what the note is primarily attached to (asset, outcome, or specific task)
-    SCOPE_ASSET = "asset"
-    SCOPE_OUTCOME = "outcome"
-    SCOPE_TASK = "task"
-    SCOPE_CHOICES = (
-        (SCOPE_ASSET, "Asset"),
-        (SCOPE_OUTCOME, "Outcome"),
-        (SCOPE_TASK, "Task"),
-    )
-    scope = models.CharField(
-        max_length=16,
-        choices=SCOPE_CHOICES,
-        default=SCOPE_ASSET,
-        help_text="Primary attachment context for this note (asset, outcome, or task).",
-    )
-
-    # Outcome context (nullable for pure asset-level notes)
-    OUTCOME_DIL = "dil"
-    OUTCOME_FC = "fc"
-    OUTCOME_REO = "reo"
-    OUTCOME_SHORT_SALE = "short_sale"
-    OUTCOME_MODIFICATION = "modification"
-    OUTCOME_NOTE_SALE = "note_sale"
-    OUTCOME_CHOICES = (
-        (OUTCOME_DIL, "Deed-in-Lieu"),
-        (OUTCOME_FC, "Foreclosure"),
-        (OUTCOME_REO, "REO"),
-        (OUTCOME_SHORT_SALE, "Short Sale"),
-        (OUTCOME_MODIFICATION, "Modification"),
-        (OUTCOME_NOTE_SALE, "Note Sale"),
-    )
-    context_outcome = models.CharField(
-        max_length=32,
-        choices=OUTCOME_CHOICES,
-        null=True,
-        blank=True,
-        help_text="Outcome context this note relates to (nullable for asset-level notes).",
-    )
-    # Task context: generic type string and optional task row id for fine-grained linking
-    context_task_type = models.CharField(
-        max_length=64,
-        null=True,
-        blank=True,
-        help_text="Task type key this note relates to (e.g., 'eviction', 'owner_contacted').",
-    )
-    context_task_id = models.IntegerField(
-        null=True,
-        blank=True,
-        help_text="Optional specific task row id if tying directly to a task instance.",
+        help_text="Optional category tag (references core.models.NoteTag)",
     )
     
     pinned = models.BooleanField(
         default=False,
-        help_text="Pin this note for prominence in UI.",
+        help_text="Pin note to top of list",
     )
 
-    # Who/when
-    created_at = models.DateTimeField(auto_now_add=True, help_text="When this note was created.")
-    updated_at = models.DateTimeField(auto_now=True, help_text="When this note was last updated.")
+    created_at = models.DateTimeField(
+        default=timezone.now,
+        help_text="When note was created",
+    )
+    
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        help_text="When note was last updated",
+    )
+    
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
         blank=True,
         related_name="created_am_notes",
         on_delete=models.SET_NULL,
-        help_text="User who created this note (if known).",
+        help_text="User who created this note",
     )
+    
     updated_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
         blank=True,
         related_name="updated_am_notes",
         on_delete=models.SET_NULL,
-        help_text="User who last updated this note (if known).",
+        help_text="User who last updated this note",
     )
 
     class Meta:
+        db_table = "am_note"
         verbose_name = "AM Note"
         verbose_name_plural = "AM Notes"
         indexes = [
-            models.Index(fields=["asset_hub", "pinned", "updated_at"]),
-            # Additional indexes to accelerate common filters in unified/filtered views
-            models.Index(fields=["asset_hub", "context_outcome", "updated_at"]),
-            models.Index(fields=["asset_hub", "context_task_type", "updated_at"]),
-            models.Index(fields=["asset_hub", "context_task_id", "updated_at"]),
+            models.Index(fields=["asset_hub", "-created_at"]),
+            models.Index(fields=["asset_hub", "pinned", "-created_at"]),
+            models.Index(fields=["tag", "-created_at"]),
         ]
-        ordering = ["-pinned", "-updated_at", "-id"]
+        ordering = ["-pinned", "-created_at"]
 
-    def __str__(self) -> str:  # pragma: no cover - trivial
-        who = getattr(self.created_by, "username", None) or "anon"
-        return f"AMNote({who}: {self.body[:32]}...)"
-
+    def __str__(self) -> str:
+        preview = self.body[:50] + "..." if len(self.body) > 50 else self.body
+        return f"Note for {self.asset_hub}: {preview}"
 
 class REOData(models.Model):
     """Data about a REO property."""

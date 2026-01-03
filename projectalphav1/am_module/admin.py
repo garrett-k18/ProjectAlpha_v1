@@ -18,6 +18,7 @@ from am_module.models.model_am_amData import (
     REOtask, FCTask, DILTask, ShortSaleTask, ModificationTask, NoteSaleTask,
     REOScope, Offers,
 )
+from am_module.models.model_am_dil import HeirContact
 
 # ============================================================
 # DEPRECATED ADMIN CLASSES - DO NOT USE
@@ -376,11 +377,23 @@ class DILTaskAdmin(admin.ModelAdmin):
     list_filter = ('task_type',)
     search_fields = (
         'asset_hub__am_boarded__sellertape_id',
-        'asset_hub__am_boarded__street_address',
+        'asset_hub__am_boarded__loan_number',
     )
-    ordering = ('-updated_at',)
-    list_select_related = ('asset_hub', 'dil')
-    list_per_page = 5
+    readonly_fields = ('created_at', 'updated_at')
+
+
+@admin.register(HeirContact)
+class HeirContactAdmin(admin.ModelAdmin):
+    list_display = ('id', 'dil_task', 'contact_name', 'contact_phone', 'contact_email', 'created_at')
+    list_filter = ('created_at',)
+    search_fields = (
+        'contact_name',
+        'contact_email',
+        'contact_phone',
+        'dil_task__asset_hub__am_boarded__sellertape_id',
+        'dil_task__asset_hub__am_boarded__loan_number',
+    )
+    readonly_fields = ('created_at', 'updated_at')
 
 
 @admin.register(ShortSaleTask)

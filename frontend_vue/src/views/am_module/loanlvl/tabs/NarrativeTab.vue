@@ -5,10 +5,10 @@
     WHY: Provides a holistic, easy-to-follow story of the loan's lifecycle and activities.
     HOW: Fetches data from multiple sources, combines into timeline, presents as visual story feed.
   -->
-  <div class="narrative-tab px-3 px-lg-4 py-3">
+  <div class="narrative-tab px-2 py-2">
     <!-- Filter Controls at Top -->
-    <div class="filter-section card mb-3">
-      <div class="card-body p-3">
+    <div class="filter-section card mb-2">
+      <div class="card-body p-2">
         <div class="d-flex flex-wrap align-items-center gap-2">
           <span class="text-muted small me-2">
             <i class="ri-filter-line me-1"></i>Filter by:
@@ -50,7 +50,7 @@
         </div>
       </div>
       
-      <div class="card-body p-3 timeline-card-body">
+      <div class="card-body p-2 timeline-card-body">
         <!-- Visual Timeline (scrollable) -->
         <div class="visual-timeline position-relative">
           <!-- Timeline line -->
@@ -121,13 +121,13 @@
             v-for="event in eventsGroup"
             :key="event.id"
             :id="`event-${event.id}`"
-            class="event-card card mb-3 border-start border-4"
+            class="event-card card mb-2 border-start border-2"
             :class="`border-${getEventColor(event.type)}`"
           >
-            <div class="card-body p-3">
+            <div class="card-body p-1">
               <!-- Event header -->
-              <div class="d-flex align-items-start justify-content-between mb-2">
-                <div class="d-flex align-items-start gap-3 flex-grow-1">
+              <div class="d-flex align-items-start justify-content-between">
+                <div class="d-flex align-items-start gap-2 flex-grow-1">
                   <!-- Event icon -->
                   <div
                     class="event-icon rounded-circle d-flex align-items-center justify-content-center"
@@ -138,50 +138,27 @@
 
                   <!-- Event content -->
                   <div class="flex-grow-1">
-                    <!-- Event type badge and timestamp -->
-                    <div class="d-flex align-items-center gap-2 mb-2">
+                    <!-- Event title with tag badge -->
+                    <div class="d-flex align-items-center gap-2 mb-1">
                       <span
                         class="badge"
                         :class="`bg-${getEventColor(event.type)}-subtle text-${getEventColor(event.type)}`"
                       >
                         {{ getEventTypeLabel(event.type) }}
                       </span>
-                      <small class="text-muted">
-                        <i class="ri-time-line me-1"></i>{{ formatRelativeTime(event.timestamp) }}
-                      </small>
-                      <small v-if="event.author" class="text-muted">
-                        <i class="ri-user-line me-1"></i>{{ event.author }}
-                      </small>
+                      <h6 class="mb-0 fw-semibold">{{ event.title }}</h6>
                     </div>
 
-                    <!-- Event title/summary -->
-                    <h6 class="mb-2 fw-semibold">{{ event.title }}</h6>
+                    <!-- Author info -->
+                    <small v-if="event.author" class="text-muted d-block mb-1">
+                      <i class="ri-user-line me-1"></i>{{ event.author }}
+                    </small>
 
-                    <!-- Event body/description with expand/collapse -->
-                    <div class="event-body-container">
-                      <div
-                        class="event-body text-muted"
-                        :class="{ 'expanded': expandedEvents[event.id] }"
-                        v-html="event.body"
-                      ></div>
-                      
-                      <!-- Show "Read more" if content is long -->
-                      <button
-                        v-if="isContentLong(event.body)"
-                        class="btn btn-link btn-sm p-0 mt-1 text-decoration-none"
-                        @click="toggleEventExpand(event.id)"
-                      >
-                        <span v-if="!expandedEvents[event.id]">
-                          <i class="ri-arrow-down-s-line"></i>Read more
-                        </span>
-                        <span v-else>
-                          <i class="ri-arrow-up-s-line"></i>Show less
-                        </span>
-                      </button>
-                    </div>
+                    <!-- Event body/description -->
+                    <div class="event-body text-muted" v-html="event.body"></div>
 
                     <!-- Event metadata/tags -->
-                    <div v-if="event.tags && event.tags.length > 0" class="mt-2 d-flex flex-wrap gap-1">
+                    <div v-if="event.tags && event.tags.length > 0" class="mt-1 d-flex flex-wrap gap-1">
                       <span
                         v-for="tag in event.tags"
                         :key="tag"
@@ -220,19 +197,6 @@
         </template>
       </div>
     </div>
-
-    <!-- Load More Button -->
-    <div v-if="hasMoreEvents" class="text-center mt-4">
-      <button class="btn btn-outline-primary" @click="loadMoreEvents" :disabled="loadingMore">
-        <span v-if="!loadingMore">
-          <i class="ri-arrow-down-line me-1"></i>Load Earlier Events
-        </span>
-        <span v-else>
-          <span class="spinner-border spinner-border-sm me-2" role="status"></span>
-          Loading...
-        </span>
-      </button>
-    </div>
   </div>
 </template>
 
@@ -255,7 +219,7 @@
  *   - Bootstrap Vue Next: https://bootstrap-vue-next.github.io/bootstrap-vue-next/
  */
 
-import { computed, defineProps, onMounted, ref, withDefaults } from 'vue'
+import { computed, defineProps, onMounted, ref, watch, withDefaults } from 'vue'
 import { useNotesStore } from '@/stores/notes'
 import { useAmOutcomesStore } from '@/stores/outcomes'
 
@@ -307,8 +271,6 @@ const allEvents = ref<NarrativeEvent[]>([])
  * HOW: Toggled in data loading functions.
  */
 const loading = ref<boolean>(false)
-const loadingMore = ref<boolean>(false)
-const hasMoreEvents = ref<boolean>(false)
 
 /**
  * WHAT: Active filter types for event display.
@@ -317,12 +279,6 @@ const hasMoreEvents = ref<boolean>(false)
  */
 const activeFilters = ref<string[]>([])
 
-/**
- * WHAT: Tracking expanded state for individual events.
- * WHY: Allows users to expand long content to read full text.
- * HOW: Object keyed by event.id, toggled by toggleEventExpand().
- */
-const expandedEvents = ref<Record<string, boolean>>({})
 
 /**
  * WHAT: Available event type filters with counts.
@@ -478,7 +434,8 @@ function formatRelativeTime(timestamp: string): string {
   if (diffHours < 24) return `${diffHours}h ago`
   if (diffDays < 7) return `${diffDays}d ago`
   
-  return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  // Show date only (no time)
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 /**
@@ -556,28 +513,6 @@ function clearFilters(): void {
 }
 
 /**
- * WHAT: Helper to check if event content is long enough to need truncation.
- * WHY: Shows "Read more" button only when content exceeds preview length.
- * HOW: Strips HTML tags and checks character count against threshold.
- * @param html - HTML content string from event body.
- * @returns True if content is longer than 300 characters.
- */
-function isContentLong(html: string): boolean {
-  const text = html.replace(/<[^>]*>/g, '').trim()
-  return text.length > 300
-}
-
-/**
- * WHAT: Function to toggle expanded state for an event.
- * WHY: Allows users to read full content of long events.
- * HOW: Flips boolean value in expandedEvents object.
- * @param eventId - Unique identifier for the event.
- */
-function toggleEventExpand(eventId: string): void {
-  expandedEvents.value[eventId] = !expandedEvents.value[eventId]
-}
-
-/**
  * WHAT: Function to scroll to a specific event in the feed.
  * WHY: Allows timeline milestones to jump to related events.
  * HOW: Uses element.scrollIntoView with smooth behavior.
@@ -612,22 +547,6 @@ function copyEventLink(event: NarrativeEvent): void {
   navigator.clipboard.writeText(url)
   // TODO: Show toast notification
   console.log('Link copied:', url)
-}
-
-/**
- * WHAT: Function to load more events (pagination).
- * WHY: Improves performance by lazy-loading older events.
- * HOW: Fetches next page of events and appends to allEvents.
- */
-async function loadMoreEvents(): Promise<void> {
-  loadingMore.value = true
-  try {
-    // TODO: Implement pagination API call
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    hasMoreEvents.value = false
-  } finally {
-    loadingMore.value = false
-  }
 }
 
 /**
@@ -714,15 +633,13 @@ async function loadNarrativeData(): Promise<void> {
     const noteEvents: NarrativeEvent[] = notes.map(note => ({
       id: `note-${note.id}`,
       type: 'note',
-      title: note.tag ? `${note.tag.toUpperCase()} Note` : 'General Note',
+      title: note.tag ? note.tag.charAt(0).toUpperCase() + note.tag.slice(1) : 'General',
       body: note.body, // Full HTML content from Quill editor
       timestamp: note.created_at,
       author: note.created_by_username || undefined,
       tags: note.tag ? [note.tag] : [],
       metadata: { 
         noteId: note.id,
-        context: note.context_outcome || undefined,
-        taskType: note.context_task_type || undefined,
       },
     }))
 
@@ -781,125 +698,14 @@ async function loadNarrativeData(): Promise<void> {
       }
     }
     
-    // TODO: Fetch emails if available
-    // const emailEvents = await fetchEmailEvents(hubId)
-    
-    // Add some placeholder demo events to show variety (always add to demonstrate functionality)
-    const demoEvents: NarrativeEvent[] = []
-    
-    // Add demo email
-    demoEvents.push({
-      id: 'email-demo-1',
-      type: 'email',
-      title: 'Borrower Communication - Payment Arrangement',
-      body: `<p>Received email from borrower regarding payment arrangements:</p>
-             <p><em>"Thank you for reaching out. I understand the situation with the property and would like to discuss potential payment arrangements. I'm available this week for a phone call to go over the details. Please let me know what times work best for you."</em></p>
-             <p>Follow-up scheduled for next business day.</p>`,
-      timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-      author: 'Email System',
-      tags: ['borrower', 'correspondence'],
-    })
-    
-    // Add demo communication
-    demoEvents.push({
-      id: 'comm-demo-1',
-      type: 'communication',
-      title: 'Internal Team Discussion - Property Status',
-      body: `<p><strong>Teams Discussion Summary:</strong></p>
-             <p>Team discussed current property status and next steps for resolution. Key points:</p>
-             <ul>
-               <li>Property inspection completed - minor repairs needed</li>
-               <li>Borrower responsive to communications</li>
-               <li>Timeline updated to reflect current negotiations</li>
-               <li>Legal team consulted on documentation requirements</li>
-             </ul>
-             <p>Next meeting scheduled for early next week.</p>`,
-      timestamp: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-      author: 'Project Team',
-      tags: ['internal', 'strategy'],
-    })
-    
-    // Add demo system event
-    demoEvents.push({
-      id: 'system-demo-1',
-      type: 'system',
-      title: 'Property Status Update',
-      body: `<p>System automatically updated property status based on recent activity:</p>
-             <ul>
-               <li>Servicing status: Active</li>
-               <li>Asset management track: DIL initiated</li>
-               <li>Last contact: 2 days ago</li>
-             </ul>`,
-      timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-      author: 'System',
-      tags: ['automated', 'status-update'],
-    })
-    
-    // Combine all events
-    allEvents.value = [...noteEvents, ...amEvents, ...demoEvents].sort((a, b) => {
-      return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-    })
-
-    // Add milestone events to demonstrate timeline (always add)
-    allEvents.value.push({
-      id: 'milestone-acquisition',
-      type: 'milestone',
-      title: 'Property Acquired',
-      body: '<p>Asset officially acquired and added to portfolio management system. Initial assessment completed and property assigned to servicing team for ongoing management.</p>',
-      timestamp: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(),
-      author: 'System',
-      tags: ['acquisition', 'onboarding'],
-    })
-    
-    allEvents.value.push({
-      id: 'milestone-contact',
-      type: 'milestone',
-      title: 'First Borrower Contact Established',
-      body: '<p>Initial contact made with borrower to discuss property status and available options. Borrower confirmed contact information and expressed willingness to work toward resolution.</p>',
-      timestamp: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(),
-      author: 'Servicing Team',
-      tags: ['contact', 'borrower-relations'],
-    })
-    
-    allEvents.value.push({
-      id: 'milestone-inspection',
-      type: 'milestone',
-      title: 'Property Inspection Completed',
-      body: '<p>Comprehensive property inspection conducted by certified inspector. Report shows property in fair condition with minor maintenance needs identified. Photos and full report uploaded to document management system.</p>',
-      timestamp: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-      author: 'Inspection Team',
-      tags: ['inspection', 'property-assessment'],
-    })
-
-    // Re-sort after adding milestones
-    allEvents.value.sort((a, b) => {
+    // Combine all events and sort by timestamp
+    allEvents.value = [...noteEvents, ...amEvents].sort((a, b) => {
       return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     })
 
   } catch (error) {
     console.error('Failed to load narrative data:', error)
-    // Still show demo events even if there's an error
-    const demoEvents: NarrativeEvent[] = [
-      {
-        id: 'email-demo-fallback',
-        type: 'email',
-        title: 'Borrower Communication - Payment Arrangement',
-        body: `<p>Received email from borrower regarding payment arrangements.</p>`,
-        timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-        author: 'Email System',
-        tags: ['borrower'],
-      },
-      {
-        id: 'milestone-acquisition-fallback',
-        type: 'milestone',
-        title: 'Property Acquired',
-        body: '<p>Asset officially acquired and added to portfolio.</p>',
-        timestamp: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(),
-        author: 'System',
-        tags: ['acquisition'],
-      },
-    ]
-    allEvents.value = demoEvents
+    allEvents.value = []
   } finally {
     loading.value = false
   }
@@ -914,6 +720,17 @@ async function loadNarrativeData(): Promise<void> {
  */
 onMounted(() => {
   loadNarrativeData()
+})
+
+/**
+ * WHAT: Watch for changes to assetHubId prop.
+ * WHY: Reload narrative data when user switches to a different asset.
+ * HOW: Watches assetHubId and calls loadNarrativeData() on change.
+ */
+watch(() => props.assetHubId, (newId, oldId) => {
+  if (newId !== oldId) {
+    loadNarrativeData()
+  }
 })
 </script>
 
@@ -1047,9 +864,9 @@ onMounted(() => {
 .date-divider {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  margin: 2rem 0 1rem 0;
-  padding: 0.5rem 0;
+  gap: 0.75rem;
+  margin: 1rem 0 0.5rem 0;
+  padding: 0.25rem 0;
   z-index: 999;
 }
 
@@ -1068,18 +885,19 @@ onMounted(() => {
 /* Event Cards */
 .event-card {
   transition: all 0.2s ease;
-  border-left-width: 4px !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .event-card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  transform: translateX(4px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  transform: translateX(2px);
 }
 
 .event-icon {
-  width: 48px;
-  height: 48px;
+  width: 32px;
+  height: 32px;
   flex-shrink: 0;
+  font-size: 0.9rem;
 }
 
 /* Event body container */
@@ -1087,36 +905,15 @@ onMounted(() => {
   position: relative;
 }
 
-/* Event body with truncation */
+/* Event body - show all content without truncation */
 .event-body {
-  font-size: 0.9rem;
-  line-height: 1.6;
-  max-height: 150px;
-  overflow: hidden;
-  position: relative;
-  transition: max-height 0.3s ease;
-}
-
-/* Expanded state shows full content */
-.event-body.expanded {
-  max-height: none;
-  overflow: visible;
-}
-
-/* Add fade effect at bottom of truncated content */
-.event-body:not(.expanded)::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 40px;
-  background: linear-gradient(to bottom, transparent, rgba(255, 255, 255, 0.95));
-  pointer-events: none;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  margin-top: 0.25rem;
 }
 
 .event-body :deep(p) {
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.125rem;
 }
 
 .event-body :deep(p:last-child) {
@@ -1125,8 +922,8 @@ onMounted(() => {
 
 .event-body :deep(ul),
 .event-body :deep(ol) {
-  margin-bottom: 0.5rem;
-  padding-left: 1.5rem;
+  margin-bottom: 0.125rem;
+  padding-left: 1rem;
 }
 
 .event-body :deep(strong),

@@ -16,6 +16,7 @@ from am_module.views.view_am_taskOutcomes import (
     OffersViewSet,
     TaskMetricsView,
     TrackMilestonesView,
+    HeirContactViewSet,
 )
 
 router = DefaultRouter()
@@ -37,6 +38,7 @@ router.register(r'outcomes/note-sale', NoteSaleViewSet, basename='am-note-sale')
 router.register(r'outcomes/note-sale-tasks', NoteSaleTaskViewSet, basename='am-note-sale-tasks')
 router.register(r'outcomes/reo-scopes', REOScopeViewSet, basename='am-reo-scopes')
 router.register(r'outcomes/offers', OffersViewSet, basename='am-offers')
+router.register(r'outcomes/heir-contacts', HeirContactViewSet, basename='am-heir-contacts')
 
 urlpatterns = [
     path('am/', include(router.urls)),

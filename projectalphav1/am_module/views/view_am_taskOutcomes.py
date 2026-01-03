@@ -27,6 +27,7 @@ from am_module.models.model_am_amData import (
     REOScope,
     Offers,
 )
+from am_module.models.model_am_dil import HeirContact
 from core.models.model_core_notification import Notification
 from am_module.serializers.serial_am_outcomes import (
     REODataSerializer, REOTaskSerializer,
@@ -37,6 +38,7 @@ from am_module.serializers.serial_am_outcomes import (
     NoteSaleSerializer, NoteSaleTaskSerializer,
     REOScopeSerializer,
     OffersSerializer,
+    HeirContactSerializer,
 )
 
 
@@ -486,3 +488,35 @@ class TrackMilestonesView(APIView):
                 {'error': f'Failed to fetch milestones: {str(e)}'}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class HeirContactViewSet(mixins.ListModelMixin,
+                         mixins.RetrieveModelMixin,
+                         mixins.CreateModelMixin,
+                         mixins.UpdateModelMixin,
+                         mixins.DestroyModelMixin,
+                         GenericViewSet):
+    """ViewSet for HeirContact - many contacts per DIL task."""
+    
+    queryset = HeirContact.objects.all().select_related('dil_task')
+    serializer_class = HeirContactSerializer
+    permission_classes = [AllowAny]
+    authentication_classes: list[type[SessionAuthentication]] = []
+    pagination_class = None
+    
+    def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        qs = self.get_queryset()
+        
+        # Filter by dil_task if provided
+        dil_task_id = request.query_params.get('dil_task')
+        if dil_task_id:
+            try:
+                qs = qs.filter(dil_task_id=int(dil_task_id))
+            except ValueError:
+                return Response(
+                    {"detail": "dil_task must be an integer"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        serializer = self.get_serializer(qs, many=True)
+        return Response(serializer.data)

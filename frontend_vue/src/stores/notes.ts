@@ -39,14 +39,6 @@ export interface NoteItem {
   body: string
   // Optional single-select tag used for categorization (e.g., urgent/legal)
   tag: NoteTag
-  // Context scope indicates what the note primarily attaches to
-  scope: NoteScope
-  // Outcome context (nullable). Example: 'fc' or 'reo'
-  context_outcome: OutcomeKey | null
-  // Task type within an outcome context. Example: 'eviction', 'owner_contacted'
-  context_task_type: string | null
-  // Optional concrete task row id this note references directly (nullable)
-  context_task_id: number | null
   // Pinned state for surfacing important notes in UI feeds
   pinned: boolean
   // Audit fields stamped by backend
@@ -74,11 +66,7 @@ export interface ListNotesParams {
 export interface CreateNoteInput {
   body: string
   tag?: NoteTag
-  // Context fields (optional). Provide what is known at creation time.
-  scope?: NoteScope
-  context_outcome?: OutcomeKey | null
-  context_task_type?: string | null
-  context_task_id?: number | null
+  pinned?: boolean
 }
 
 // -----------------------------
@@ -185,7 +173,7 @@ export const useNotesStore = defineStore('amNotes', {
     },
 
     // Patch a note (e.g., pin/unpin or edit body/tag). Returns updated item and updates cache.
-    async patchNote(assetHubId: number, noteId: number, patch: Partial<Pick<NoteItem, 'body' | 'tag' | 'pinned' | 'scope' | 'context_outcome' | 'context_task_type' | 'context_task_id'>>): Promise<NoteItem> {
+    async patchNote(assetHubId: number, noteId: number, patch: Partial<Pick<NoteItem, 'body' | 'tag' | 'pinned'>>): Promise<NoteItem> {
       try {
         this.loadingByHub[assetHubId] = true
         this.errorByHub[assetHubId] = null

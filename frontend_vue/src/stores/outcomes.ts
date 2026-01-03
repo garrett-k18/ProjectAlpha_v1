@@ -92,6 +92,17 @@ export interface Dil {
   cfk_cost: string | null
 }
 
+export interface HeirContact {
+  id: number
+  dil_task: number
+  contact_name: string
+  contact_phone: string | null
+  contact_email: string | null
+  contact_address: string | null
+  created_at: string
+  updated_at: string
+}
+
 // CRM contact details
 export interface CrmContact {
   id: number

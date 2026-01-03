@@ -98,6 +98,96 @@
             </div>
           </div>
           <div v-if="expandedId === t.id || expandedId === 'all'" class="mt-2 p-2 border-top">
+            <!-- Borrower/Heir Contacts for pursuing_dil task -->
+            <div v-if="t.task_type === 'pursuing_dil'" class="mb-3">
+              <div class="d-flex align-items-center justify-content-between mb-2">
+                <h6 class="mb-0 text-muted" style="font-size: 0.9rem;">Borrower/Heir Contacts</h6>
+                <button 
+                  type="button" 
+                  class="btn btn-sm btn-outline-success"
+                  @click="addNewContact"
+                >
+                  Add Contact
+                </button>
+              </div>
+              
+              <!-- Empty state -->
+              <div v-if="heirContactsForTask(t.id).length === 0" class="text-center text-muted py-2" style="font-size: 0.85rem;">
+                No contacts yet. Click "Add Contact" to create one.
+              </div>
+              
+              <!-- Contact cards -->
+              <div v-for="contact in heirContactsForTask(t.id)" :key="contact.id" class="contact-item mb-2 p-2 border rounded bg-white">
+                <div class="d-flex justify-content-between align-items-start">
+                  <div class="flex-grow-1">
+                    <!-- Name field -->
+                    <div class="mb-2">
+                      <input
+                        type="text"
+                        class="form-control form-control-sm"
+                        v-model="contact.contact_name"
+                        @blur="saveHeirContact(contact)"
+                        placeholder="Contact Name"
+                        style="font-weight: 600;"
+                      />
+                    </div>
+                    
+                    <!-- Contact details in compact layout -->
+                    <div class="d-flex flex-wrap gap-2 small">
+                      <div class="d-flex align-items-center gap-1" style="min-width: 150px;">
+                        <i class="fas fa-phone text-muted" style="font-size: 0.7rem; width: 12px;"></i>
+                        <input
+                          type="tel"
+                          class="form-control form-control-sm border-0 bg-transparent p-0"
+                          v-model="contact.contact_phone"
+                          @blur="saveHeirContact(contact)"
+                          placeholder="Phone"
+                          style="font-size: 0.85rem;"
+                        />
+                      </div>
+                      
+                      <div class="d-flex align-items-center gap-1" style="min-width: 180px;">
+                        <i class="fas fa-envelope text-muted" style="font-size: 0.7rem; width: 12px;"></i>
+                        <input
+                          type="email"
+                          class="form-control form-control-sm border-0 bg-transparent p-0"
+                          v-model="contact.contact_email"
+                          @blur="saveHeirContact(contact)"
+                          placeholder="Email"
+                          style="font-size: 0.85rem;"
+                        />
+                      </div>
+                      
+                      <div class="d-flex align-items-start gap-1 flex-grow-1">
+                        <i class="fas fa-map-marker-alt text-muted" style="font-size: 0.7rem; width: 12px; margin-top: 2px;"></i>
+                        <input
+                          type="text"
+                          class="form-control form-control-sm border-0 bg-transparent p-0"
+                          v-model="contact.contact_address"
+                          @blur="saveHeirContact(contact)"
+                          placeholder="Address"
+                          style="font-size: 0.85rem;"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <!-- Delete button -->
+                  <div class="dropdown position-relative ms-2">
+                    <button
+                      type="button"
+                      class="btn btn-xs btn-outline-dark"
+                      @click="deleteHeirContact(contact.id)"
+                      title="Delete contact"
+                      style="font-size: 1.2rem; line-height: 1; padding: 0.1rem 0.4rem;"
+                    >
+                      ⋮
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
             <!-- When the subtask is 'Deed-in-Lieu Drafted', render extra fields -->
             <div v-if="t.task_type === 'dil_drafted'" class="mb-2 p-1 bg-transparent">
               <div class="row g-1 align-items-center">
@@ -178,7 +268,7 @@
 // Docs: Pinia https://pinia.vuejs.org/ ; DRF ViewSets https://www.django-rest-framework.org/api-guide/viewsets/
 
 import { onMounted, computed, ref, withDefaults, defineProps, defineEmits, onBeforeUnmount, watch } from 'vue'
-import { useAmOutcomesStore, type DilTask, type DilTaskType, type Dil } from '@/stores/outcomes'
+import { useAmOutcomesStore, type DilTask, type DilTaskType, type Dil, type HeirContact } from '@/stores/outcomes'
 import http from '@/lib/http'
 import UiBadge from '@/components/ui/UiBadge.vue'
 import { useDataRefresh } from '@/composables/useDataRefresh'
@@ -362,11 +452,93 @@ function toggleExpand(id: number) {
   }
 }
 
+// Heir contacts management
+const heirContacts = ref<HeirContact[]>([])
+
+// Filter contacts by task ID
+function heirContactsForTask(taskId: number): HeirContact[] {
+  return heirContacts.value.filter(contact => contact.dil_task === taskId)
+}
+
+// Load heir contacts for all DIL tasks
+async function loadHeirContacts() {
+  try {
+    const allContacts: HeirContact[] = []
+    // Make parallel requests for all tasks to improve performance
+    const promises = tasks.value.map(task => 
+      http.get(`/am/outcomes/heir-contacts/?dil_task=${task.id}`)
+    )
+    const responses = await Promise.all(promises)
+    
+    for (const response of responses) {
+      if (response.data && Array.isArray(response.data)) {
+        allContacts.push(...response.data)
+      }
+    }
+    heirContacts.value = allContacts
+  } catch (err) {
+    console.error('Failed to load heir contacts:', err)
+  }
+}
+
+// Add new heir contact
+async function addNewContact() {
+  // Find the first "pursuing_dil" task, or use the first task
+  const pursuingTask = tasks.value.find(t => t.task_type === 'pursuing_dil') || tasks.value[0]
+  if (!pursuingTask) {
+    alert('Please create a DIL task first before adding contacts.')
+    return
+  }
+  
+  try {
+    const response = await http.post('/am/outcomes/heir-contacts/', {
+      dil_task: pursuingTask.id,
+      contact_name: '',
+      contact_phone: null,
+      contact_email: null,
+      contact_address: null,
+    })
+    await loadHeirContacts()
+  } catch (err) {
+    console.error('Failed to add heir contact:', err)
+    alert('Failed to add contact. Please try again.')
+  }
+}
+
+// Save heir contact
+async function saveHeirContact(contact: any) {
+  try {
+    await http.patch(`/am/outcomes/heir-contacts/${contact.id}/`, {
+      contact_name: contact.contact_name || '',
+      contact_phone: contact.contact_phone || null,
+      contact_email: contact.contact_email || null,
+      contact_address: contact.contact_address || null,
+    })
+  } catch (err) {
+    console.error('Failed to save heir contact:', err)
+  }
+}
+
+// Delete heir contact
+async function deleteHeirContact(contactId: number) {
+  if (!confirm('Are you sure you want to delete this contact?')) return
+  
+  try {
+    await http.delete(`/am/outcomes/heir-contacts/${contactId}/`)
+    await loadHeirContacts()
+  } catch (err) {
+    console.error('Failed to delete heir contact:', err)
+    alert('Failed to delete contact. Please try again.')
+  }
+}
+
 onMounted(async () => {
   // Load tasks when card mounts
   await store.listDilTasks(props.hubId)
   // Fetch DIL so we can show dil_cost and current cfk_cost
   await store.fetchDil(props.hubId, true)
+  // Load heir contacts
+  await loadHeirContacts()
 })
 
 // --- Extra UI state for 'dil_drafted' subtask fields ---

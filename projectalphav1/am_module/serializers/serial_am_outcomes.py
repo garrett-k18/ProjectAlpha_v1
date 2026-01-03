@@ -21,6 +21,7 @@ from am_module.models.model_am_amData import (
     REOScope,
     Offers,
 )
+from am_module.models.model_am_dil import HeirContact
 from core.models import AssetIdHub
 from core.models.model_co_crm import MasterCRM  # string refs used in models but serializer type hints are fine
 from core.serializers.serial_co_crm import MasterCRMSerializer
@@ -457,3 +458,25 @@ class NoteSaleTaskSerializer(serializers.ModelSerializer):
             if qs.exists():
                 raise serializers.ValidationError('A task with this type already exists for this asset.')
         return attrs
+
+
+# -----------------------------
+# Heir Contact Serializer
+# -----------------------------
+
+class HeirContactSerializer(serializers.ModelSerializer):
+    """Serializer for HeirContact model - many contacts per DIL task."""
+    
+    class Meta:
+        model = HeirContact
+        fields = [
+            'id',
+            'dil_task',
+            'contact_name',
+            'contact_phone',
+            'contact_email',
+            'contact_address',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
