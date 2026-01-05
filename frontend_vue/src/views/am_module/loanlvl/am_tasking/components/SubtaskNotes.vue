@@ -121,7 +121,7 @@
 <script setup lang="ts">
 // SubtaskNotes is now read-only: it displays saved notes in a compact format.
 // Each variable and function includes clear comments per user preference.
-import { onMounted, watch, computed, withDefaults, defineProps, ref } from 'vue'
+import { onMounted, watch, computed, ref } from 'vue'
 import { useNotesStore, type NoteItem, type OutcomeKey } from '@/stores/notes'
 
 // Props: identify the asset (hubId), the parent outcome, and the specific task context
@@ -160,7 +160,7 @@ const notes = computed<NoteItem[]>(() => {
 function localTime(iso: string): string {
   try {
     const d = new Date(iso)
-    return d.toLocaleDateString(undefined, {
+    return d.toLocaleDateString('en-US', {
       year: '2-digit',
       month: 'numeric',
       day: 'numeric',

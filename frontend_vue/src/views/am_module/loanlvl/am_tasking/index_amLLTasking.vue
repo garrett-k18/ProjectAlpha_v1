@@ -239,10 +239,10 @@
         <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
           <div class="modal-content">
             <div class="modal-header">
-              <h5 class="modal-title d-flex align-items-center">
+              <h5 class="modal-title d-flex align-items-center me-3">
                 Follow-ups
               </h5>
-              <div class="d-flex align-items-center gap-3">
+              <div class="d-flex align-items-center gap-3 ms-auto">
                 <div class="form-check form-switch m-0">
                   <input
                     id="followup-public"

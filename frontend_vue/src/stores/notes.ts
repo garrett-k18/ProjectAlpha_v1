@@ -27,7 +27,7 @@ export type NoteTag = 'urgent' | 'legal' | 'qc' | 'ops' | 'info' | null
 export type NoteScope = 'asset' | 'outcome' | 'task'
 
 // Outcome type keys must match backend AMNote.OUTCOME_CHOICES values
-export type OutcomeKey = 'dil' | 'fc' | 'reo' | 'short_sale' | 'modification'
+export type OutcomeKey = 'dil' | 'fc' | 'reo' | 'short_sale' | 'modification' | 'note_sale'
 
 // API shape returned by DRF serializer for AM Note entries
 export interface NoteItem {
@@ -35,6 +35,12 @@ export interface NoteItem {
   id: number
   // Foreign key to the asset hub (centralized asset identifier)
   asset_hub: number | null
+  // Scope of the note (asset/outcome/task) as determined by backend
+  scope?: NoteScope | null
+  // Optional context fields used for scoping notes to a track/outcome and/or specific task
+  context_outcome?: OutcomeKey | null
+  context_task_type?: string | null
+  context_task_id?: number | null
   // Free-form note content authored by users
   body: string
   // Optional single-select tag used for categorization (e.g., urgent/legal)
@@ -67,6 +73,10 @@ export interface CreateNoteInput {
   body: string
   tag?: NoteTag
   pinned?: boolean
+  scope?: NoteScope
+  context_outcome?: OutcomeKey | null
+  context_task_type?: string | null
+  context_task_id?: number | null
 }
 
 // -----------------------------

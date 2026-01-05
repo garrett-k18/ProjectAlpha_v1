@@ -43,7 +43,17 @@ import { defineComponent } from 'vue';
 
 export default defineComponent({
   name: 'StatsWidget',
-  emits: ['open-pipeline'],
+  emits: ['open-pipeline', 'open-followups', 'open-trades'],
+  props: {
+    followupCount: {
+      type: [String, Number],
+      default: null,
+    },
+    tradesCount: {
+      type: [String, Number],
+      default: null,
+    },
+  },
   data() {
     return {
       // stats: array of user-specific metric tiles for personalized dashboard
@@ -63,10 +73,10 @@ export default defineComponent({
           description: "Loans you're currently managing"
         },
         { 
-          label: "Pending Reviews", 
-          value: "8", 
-          icon: "mdi mdi-file-document-edit-outline",
-          description: "Items awaiting your approval"
+          label: "Trades", 
+          value: "0", 
+          icon: "mdi mdi-swap-horizontal-bold",
+          description: "Active trades with assets"
         },
         { 
           label: "Notifications", 
@@ -77,10 +87,32 @@ export default defineComponent({
       ],
     };
   },
+  watch: {
+    followupCount: {
+      immediate: true,
+      handler(val: string | number | null) {
+        if (val == null) return
+        if (!Array.isArray((this as any).stats) || (this as any).stats.length < 2) return
+        ;(this as any).stats[1].value = String(val)
+      },
+    },
+    tradesCount: {
+      immediate: true,
+      handler(val: string | number | null) {
+        if (val == null) return
+        if (!Array.isArray((this as any).stats) || (this as any).stats.length < 3) return
+        ;(this as any).stats[2].value = String(val)
+      },
+    },
+  },
   methods: {
     handleClick(idx: number) {
       if (idx === 0) {
         this.$emit('open-pipeline');
+      } else if (idx === 1) {
+        this.$emit('open-followups');
+      } else if (idx === 2) {
+        this.$emit('open-trades');
       }
     },
   },
@@ -90,12 +122,26 @@ export default defineComponent({
 <style scoped>
 /* Hover effect for stat cards */
 .hover-card {
-  transition: all 0.2s ease-in-out;
+  transition: all 0.2s ease;
+  background-color: #F5F3EE !important;
+  border: none !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
 }
 
 .hover-card:hover {
-  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
-  transform: translateY(-2px);
+  background-color: #D4AF37 !important;
+  color: #ffffff !important;
+  border: none !important;
+  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.4) !important;
+  transform: translateX(4px);
+}
+
+.hover-card:hover .text-muted,
+.hover-card:hover .text-uppercase,
+.hover-card:hover span,
+.hover-card:hover h5,
+.hover-card:hover i {
+  color: #ffffff !important;
 }
 
 /* Cursor pointer for clickable cards */

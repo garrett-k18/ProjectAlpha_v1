@@ -309,12 +309,10 @@ async function loadNotes() {
 function localTime(iso: string): string {
   try {
     const d = new Date(iso)
-    return d.toLocaleDateString(undefined, {
+    return d.toLocaleDateString('en-US', {
       year: '2-digit',
       month: 'numeric',
       day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
     })
   } catch { 
     return iso 

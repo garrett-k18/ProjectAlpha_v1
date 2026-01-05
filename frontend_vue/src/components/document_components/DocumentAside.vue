@@ -18,7 +18,7 @@
     <b-button
       variant="success"
       class="w-100"
-      @click="$refs.fileInput.click()"
+      @click="triggerFilePicker"
     >
       <i class="mdi mdi-upload"></i> Upload Files
     </b-button>
@@ -85,6 +85,10 @@ export default defineComponent({
   },
   emits: ['switch:view', 'upload:files'],
   methods: {
+    triggerFilePicker() {
+      const el = this.$refs.fileInput as HTMLInputElement | undefined
+      el?.click()
+    },
     handleFileSelect(event: Event) {
       console.log('File select triggered', event)
       const target = event.target as HTMLInputElement

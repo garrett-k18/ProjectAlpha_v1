@@ -3,6 +3,7 @@ from .views.view_acq_sellerTrade import (
     list_sellers,
     list_trades_by_seller,
     list_active_deals,
+    list_trades_with_active_assets,
     get_pool_summary,
     get_valuation_completion_summary,
     get_collateral_completion_summary,
@@ -123,6 +124,7 @@ urlpatterns = [
     # Dropdown data sources
     path('sellers/', list_sellers, name='api_list_sellers'),
     path('trades/active-deals/', list_active_deals, name='api_list_active_deals'),
+    path('trades/with-active-assets/', list_trades_with_active_assets, name='api_list_trades_with_active_assets'),
     path('trades/<int:seller_id>/', list_trades_by_seller, name='api_list_trades_by_seller'),
     # Photos endpoint (all photo types) by SellerRawData id
     path('photos/<int:id>/', list_photos_by_raw_id, name='api_list_photos_by_raw_id'),

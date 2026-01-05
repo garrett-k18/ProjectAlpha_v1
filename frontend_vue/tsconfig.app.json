@@ -26,6 +26,7 @@
     // Allow JS so vue-tsc can include generated .vue.js proxies without TS6504
     // Docs: https://github.com/vuejs/language-tools/tree/master/packages/vue-tsc
     "allowJs": true,
+    "noEmit": true,
     // Do not type-check JS files; we only want TS and Vue SFCs validated
     "checkJs": false
   },

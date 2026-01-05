@@ -44,6 +44,13 @@
       <!--- Sidemenu -->
       <ul class="side-nav">
 
+        <li class="side-nav-item">
+          <router-link to="/home" class="side-nav-link side-nav-link-ref">
+            <i class="uil-home-alt"></i>
+            <span> My Dashboard </span>
+          </router-link>
+        </li>
+
         <li class="side-nav-title">Dashboards</li>
 
         <li class="side-nav-item">

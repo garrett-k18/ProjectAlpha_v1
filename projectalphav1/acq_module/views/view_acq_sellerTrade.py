@@ -88,6 +88,54 @@ def list_active_deals(request):
     return Response(payload)
 
 
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def list_trades_with_active_assets(request):
+    """Return BOARDED trades that have at least one asset with ACTIVE status.
+    
+    Filters:
+    - Trade status must be BOARD (boarded/closed deals)
+    - AssetDetails.asset_status == 'ACTIVE' (not LIQUIDATED)
+    
+    This shows only boarded trades with active assets in the portfolio.
+    """
+    from core.models.model_co_assetIdHub import AssetDetails
+    
+    # Get BOARDED trades that have assets with ACTIVE status
+    trades_with_active = (
+        Trade.objects
+        .filter(
+            status=Trade.Status.BOARD,
+            asset_details__asset_status=AssetDetails.AssetStatus.ACTIVE
+        )
+        .select_related('seller')
+        .distinct()
+        .order_by('seller__name', 'trade_name')
+    )
+    
+    payload = []
+    for t in trades_with_active:
+        if not t.seller:
+            continue
+        
+        # Count active assets for this trade
+        active_count = AssetDetails.objects.filter(
+            trade=t,
+            asset_status=AssetDetails.AssetStatus.ACTIVE
+        ).count()
+        
+        payload.append({
+            'seller_id': t.seller_id,
+            'seller_name': t.seller.name,
+            'trade_id': t.id,
+            'trade_name': t.trade_name,
+            'status': t.status,
+            'active_asset_count': active_count,
+        })
+    
+    return Response(payload)
+
+
 # -----------------------------------------------------------------------------
 # Pool Summary
 # -----------------------------------------------------------------------------

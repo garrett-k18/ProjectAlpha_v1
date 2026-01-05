@@ -21,7 +21,14 @@
     </div>
 
     <!-- Stats Row - Key metrics tiles (minimal top margin as hero provides context) -->
-    <StatsWidget @open-pipeline="showPipelineModal = true" class="mb-3" />
+    <StatsWidget
+      :followupCount="followupAssetCount"
+      :tradesCount="tradesCount"
+      @open-pipeline="showPipelineModal = true"
+      @open-followups="openFollowupsModal"
+      @open-trades="openTradesModal"
+      class="mb-3"
+    />
 
     <!-- Calendar Section - Full width calendar with event list -->
     <HomeCalendarWidget @open-asset-modal="onOpenAssetModal" class="mb-3" />
@@ -101,9 +108,134 @@
     v-model="showPipelineModal"
     title="My Pipeline"
     size="xl"
+    dialog-class="modal-dialog-centered"
     hide-footer
   >
     <PipelineWidget />
+  </b-modal>
+
+  <b-modal
+    v-model="showFollowupsModal"
+    title="My Follow-ups"
+    size="xl"
+    dialog-class="modal-dialog-centered"
+    hide-footer
+  >
+    <div v-if="followupsLoading" class="text-center py-3">
+      <div class="spinner-border spinner-border-sm text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+    </div>
+    <div v-else>
+      <div v-if="followupsError" class="text-danger small mb-2">{{ followupsError }}</div>
+      <ul v-if="followupAssets.length" class="list-group">
+        <li
+          v-for="asset in followupAssets"
+          :key="`followup-asset-${asset.asset_hub_id}`"
+          class="list-group-item d-flex align-items-start"
+        >
+          <div class="flex-grow-1">
+            <div class="fw-semibold">
+              <span class="me-2">{{ asset.asset_hub_id }}</span>
+              <span>{{ asset.address }}</span>
+            </div>
+            <div v-if="asset.next_date" class="text-muted small">
+              Next: {{ asset.next_date }}<span v-if="asset.next_title"> — {{ asset.next_title }}</span>
+            </div>
+          </div>
+          <span class="badge bg-primary ms-2 align-self-center">{{ asset.count }}</span>
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-primary ms-2 align-self-center"
+            @click="openAssetFromFollowups(asset.asset_hub_id, asset.address)"
+          >
+            Open
+          </button>
+        </li>
+      </ul>
+      <div v-else class="text-muted small">No active follow-ups.</div>
+    </div>
+  </b-modal>
+
+  <b-modal
+    v-model="showTradesModal"
+    title="Active Trades"
+    size="lg"
+    dialog-class="modal-dialog-centered"
+    hide-footer
+  >
+    <div v-if="tradesLoading" class="text-center py-4">
+      <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+      <p class="text-muted mt-2 mb-0">Loading trades...</p>
+    </div>
+    <div v-else>
+      <div v-if="tradesError" class="alert alert-danger mb-3">
+        <i class="mdi mdi-alert-circle-outline me-2"></i>{{ tradesError }}
+      </div>
+      <div v-if="trades.length" class="trades-list">
+        <div
+          v-for="trade in trades"
+          :key="`trade-${trade.trade_id}`"
+          class="trade-card"
+          @click="openTradeAssets(trade)"
+        >
+          <div class="trade-card-header">
+            <div class="trade-info">
+              <h6 class="trade-name mb-1">
+                <i class="mdi mdi-swap-horizontal me-2 text-primary"></i>
+                {{ trade.trade_name }}
+              </h6>
+              <div class="seller-name text-muted">
+                <i class="mdi mdi-domain me-1"></i>
+                {{ trade.seller_name }}
+              </div>
+            </div>
+            <div class="trade-meta">
+              <div class="asset-count-badge">
+                <span class="count">{{ trade.active_asset_count || 0 }}</span>
+                <span class="label">Active Assets</span>
+              </div>
+            </div>
+          </div>
+          <div class="trade-card-footer">
+            <span class="view-assets-link">
+              View Assets
+              <i class="mdi mdi-arrow-right ms-1"></i>
+            </span>
+          </div>
+        </div>
+      </div>
+      <div v-else class="text-center py-5">
+        <i class="mdi mdi-folder-open-outline text-muted" style="font-size: 3rem;"></i>
+        <p class="text-muted mt-2 mb-0">No active trades found</p>
+      </div>
+    </div>
+  </b-modal>
+
+  <!-- Trade Assets Grid Modal - Reuses full AssetGrid component -->
+  <b-modal
+    v-model="showTradeGridModal"
+    :title="selectedTrade ? `${selectedTrade.trade_name} - Assets` : 'Trade Assets'"
+    size="xl"
+    dialog-class="modal-dialog-centered"
+    hide-footer
+    body-class="p-0"
+  >
+    <div v-if="selectedTrade" class="p-3">
+      <div class="mb-2 text-muted small">
+        <i class="mdi mdi-domain me-1"></i>{{ selectedTrade.seller_name }}
+        <span class="mx-2">•</span>
+        <i class="mdi mdi-package-variant me-1"></i>{{ selectedTrade.active_asset_count || 0 }} Active Assets
+      </div>
+      <AssetGrid 
+        :key="`trade-grid-${selectedTrade.trade_id}`"
+        :filterTradeName="selectedTrade.trade_name"
+        :filterSellerName="selectedTrade.seller_name"
+        :filterActiveOnly="true"
+      />
+    </div>
   </b-modal>
 
   <!-- EXACT copy from asset-grid.vue: Loan-Level Modal -->
@@ -111,7 +243,7 @@
     v-model="showAssetModal"
     size="xl"
     body-class="p-0 bg-body text-body"
-    dialog-class="product-details-dialog"
+    dialog-class="modal-dialog-centered"
     content-class="product-details-content bg-body text-body"
     hide-footer
     @shown="onModalShown"
@@ -161,9 +293,8 @@ import StatsWidget from './components/StatsWidget.vue'
 import PipelineWidget from './components/PipelineWidget.vue'
 // AI Chat widget - conversational interface for company data queries
 import AIChatWidget from './components/AIChatWidget.vue'
-// Asset Management loan-level modal (copied from asset-grid.vue)
 import LoanLevelIndex from '@/views/am_module/loanlvl_index.vue'
-// Django auth store for user data
+import AssetGrid from '@/views/dashboards/asset_mgmt/asset-grid.vue'
 import { useDjangoAuthStore } from '@/stores/djangoAuth'
 import http from '@/lib/http'
 
@@ -173,6 +304,43 @@ type ActivityRow = {
   created_at: string
   title: string
   message: string
+}
+
+function todayIso(): string {
+  const d = new Date()
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
+
+type FollowupRow = {
+  id: number
+  title: string
+  date: string
+  time: string
+  description: string
+  category: string
+  asset_hub: number | null
+  asset_hub_id?: number | null
+  reason?: string | null
+}
+
+type FollowupAssetRow = {
+  asset_hub_id: number
+  address: string
+  count: number
+  next_date: string
+  next_title: string
+}
+
+type TradeRow = {
+  seller_id: number
+  seller_name: string
+  trade_id: number
+  trade_name: string
+  status: string
+  active_asset_count?: number
 }
 
 type RecentActivityItem = {
@@ -219,6 +387,7 @@ export default {
     PipelineWidget,
     AIChatWidget,
     LoanLevelIndex,
+    AssetGrid,
   },
   // Options API state for simplicity and broad compatibility across the app
   data() {
@@ -226,6 +395,18 @@ export default {
       recentActivity: [] as RecentActivityItem[],
       isLoadingRecentActivity: false,
       showPipelineModal: false,
+      showFollowupsModal: false,
+      followupAssetCount: 0,
+      followupsLoading: false,
+      followupsError: '',
+      followupAssets: [] as FollowupAssetRow[],
+      showTradesModal: false,
+      tradesCount: 0,
+      tradesLoading: false,
+      tradesError: '',
+      trades: [] as TradeRow[],
+      showTradeGridModal: false,
+      selectedTrade: null as TradeRow | null,
       // EXACT copy from asset-grid.vue modal state
       showAssetModal: false,
       selectedId: null as string | number | null,
@@ -235,6 +416,8 @@ export default {
   },
   async mounted() {
     await this.loadRecentActivity()
+    this.loadActiveFollowups()
+    this.loadActiveTrades()
   },
   computed: {
     /**
@@ -308,6 +491,138 @@ export default {
     },
     goToActivity() {
       this.$router.push('/pages/activity')
+    },
+
+    async loadActiveFollowups() {
+      this.followupsLoading = true
+      this.followupsError = ''
+      try {
+        const resp = await http.get('/core/calendar/events/custom/', {
+          params: {
+            is_reminder: true,
+            start_date: todayIso(),
+          },
+        })
+
+        const rows: FollowupRow[] = Array.isArray((resp as any)?.data) ? (resp as any).data : []
+        const grouped = new Map<number, FollowupRow[]>()
+
+        for (const r of rows) {
+          const rawId = (r as any).asset_hub_id ?? (r as any).asset_hub
+          const idNum = rawId != null ? Number(rawId) : NaN
+          if (!Number.isFinite(idNum)) continue
+          const bucket = grouped.get(idNum) ?? []
+          bucket.push(r)
+          grouped.set(idNum, bucket)
+        }
+
+        const assetIds = Array.from(grouped.keys()).sort((a, b) => a - b)
+
+        const assets = await Promise.all(
+          assetIds.map(async (id) => {
+            try {
+              const res = await http.get(`/am/assets/${id}/`)
+              const row = (res as any)?.data ?? {}
+              const street = String(row.street_address ?? '').trim()
+              const city = String(row.city ?? '').trim()
+              const state = String(row.state ?? '').trim()
+              const zip = String(row.zip ?? '').trim()
+              const locality = [city, state].filter(Boolean).join(', ')
+              const address = [street, locality, zip].filter(Boolean).join(' ')
+
+              const fups = (grouped.get(id) ?? []).slice().sort((a, b) => String(a.date).localeCompare(String(b.date)))
+              const next = fups[0]
+
+              return {
+                asset_hub_id: id,
+                address: address || 'No address',
+                count: fups.length,
+                next_date: String((next as any)?.date ?? ''),
+                next_title: String((next as any)?.title ?? ''),
+              } as FollowupAssetRow
+            } catch {
+              const fups = (grouped.get(id) ?? []).slice().sort((a, b) => String(a.date).localeCompare(String(b.date)))
+              const next = fups[0]
+              return {
+                asset_hub_id: id,
+                address: 'No address',
+                count: fups.length,
+                next_date: String((next as any)?.date ?? ''),
+                next_title: String((next as any)?.title ?? ''),
+              } as FollowupAssetRow
+            }
+          })
+        )
+
+        const sorted = assets
+          .slice()
+          .sort((a, b) => String(a.next_date).localeCompare(String(b.next_date)) || a.asset_hub_id - b.asset_hub_id)
+
+        this.followupAssets = sorted
+        this.followupAssetCount = sorted.length
+      } catch (e) {
+        console.error('[Home Dashboard] loadActiveFollowups failed', e)
+        this.followupAssets = []
+        this.followupAssetCount = 0
+        this.followupsError = 'Failed to load follow-ups.'
+      } finally {
+        this.followupsLoading = false
+      }
+    },
+
+    openFollowupsModal() {
+      this.showFollowupsModal = true
+      if (!this.followupsLoading && this.followupAssets.length === 0) {
+        this.loadActiveFollowups()
+      }
+    },
+
+    openAssetFromFollowups(assetHubId: number, address: string) {
+      this.selectedId = assetHubId
+      this.selectedRow = null
+      this.selectedAddr = address || null
+      this.showFollowupsModal = false
+      this.showAssetModal = true
+    },
+
+    async loadActiveTrades() {
+      this.tradesLoading = true
+      this.tradesError = ''
+      try {
+        const resp = await http.get('/acq/trades/with-active-assets/')
+        const rows: TradeRow[] = Array.isArray((resp as any)?.data) ? (resp as any).data : []
+        
+        // Endpoint returns trades with ACTIVE assets (based on AssetDetails.asset_status)
+        this.trades = rows.sort((a, b) => 
+          a.seller_name.localeCompare(b.seller_name) || a.trade_name.localeCompare(b.trade_name)
+        )
+        this.tradesCount = rows.length
+      } catch (e) {
+        console.error('[Home Dashboard] loadActiveTrades failed', e)
+        this.trades = []
+        this.tradesCount = 0
+        this.tradesError = 'Failed to load trades.'
+      } finally {
+        this.tradesLoading = false
+      }
+    },
+
+    openTradesModal() {
+      this.showTradesModal = true
+      if (!this.tradesLoading && this.trades.length === 0) {
+        this.loadActiveTrades()
+      }
+    },
+
+    openTradeAssets(trade: TradeRow) {
+      this.showTradesModal = false
+      this.selectedTrade = trade
+      this.showTradeGridModal = true
+    },
+
+    closeTradeGridModal() {
+      this.showTradeGridModal = false
+      this.selectedTrade = null
     },
     
     // EXACT copy from asset-grid.vue modal methods
@@ -412,6 +727,104 @@ export default {
   background-color: var(--bs-light);
   transform: translateX(2px);
   transition: transform 0.15s ease;
+}
+
+/* Trade cards styling */
+.trades-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.trade-card {
+  background: #FDFBF7;
+  border: 1px solid #e3e6e8;
+  border-radius: 8px;
+  padding: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.trade-card:hover {
+  border-color: #D4AF37;
+  box-shadow: 0 2px 8px rgba(212, 175, 55, 0.15);
+  transform: translateY(-1px);
+}
+
+.trade-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+}
+
+.trade-info {
+  flex: 1;
+}
+
+.trade-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #2c3e50;
+  margin: 0;
+}
+
+.seller-name {
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+}
+
+.trade-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.asset-count-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  min-width: 70px;
+}
+
+.asset-count-badge .count {
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.asset-count-badge .label {
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  opacity: 0.9;
+  margin-top: 2px;
+}
+
+.trade-card-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e3e6e8;
+}
+
+.view-assets-link {
+  color: #D4AF37;
+  font-size: 0.875rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  transition: all 0.2s ease;
+}
+
+.trade-card:hover .view-assets-link {
+  color: #b8941f;
+  transform: translateX(3px);
 }
 </style>
 

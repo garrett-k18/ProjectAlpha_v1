@@ -101,7 +101,7 @@
             <!-- Borrower/Heir Contacts for pursuing_dil task -->
             <div v-if="t.task_type === 'pursuing_dil'" class="mb-3">
               <div class="d-flex align-items-center justify-content-between mb-2">
-                <h6 class="mb-0 text-muted" style="font-size: 0.9rem;">Borrower/Heir Contacts</h6>
+                <h6 class="mb-0 text-muted" style="font-size: 0.9rem;">Heir Tracker</h6>
                 <button 
                   type="button" 
                   class="btn btn-sm btn-outline-success"
@@ -267,7 +267,7 @@
 // Component for managing DIL subtasks only (details/quick-edit removed by request).
 // Docs: Pinia https://pinia.vuejs.org/ ; DRF ViewSets https://www.django-rest-framework.org/api-guide/viewsets/
 
-import { onMounted, computed, ref, withDefaults, defineProps, defineEmits, onBeforeUnmount, watch } from 'vue'
+import { onMounted, computed, ref, onBeforeUnmount, watch } from 'vue'
 import { useAmOutcomesStore, type DilTask, type DilTaskType, type Dil, type HeirContact } from '@/stores/outcomes'
 import http from '@/lib/http'
 import UiBadge from '@/components/ui/UiBadge.vue'
@@ -493,7 +493,7 @@ async function addNewContact() {
   try {
     const response = await http.post('/am/outcomes/heir-contacts/', {
       dil_task: pursuingTask.id,
-      contact_name: '',
+      contact_name: 'New Contact',
       contact_phone: null,
       contact_email: null,
       contact_address: null,

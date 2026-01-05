@@ -74,7 +74,8 @@ class NotificationReadAdmin(admin.ModelAdmin):
 @admin.register(AssetDetails)
 class AssetDetailsAdmin(admin.ModelAdmin):
     """Admin configuration for AssetDetails model linking assets to fund legal entities."""
-    list_display = ("asset", "get_servicer_id", "fund_legal_entity", "trade", "legacy_flag", "created_at", "updated_at")
+    list_display = ("asset", "get_servicer_id", "fund_legal_entity", "trade", "asset_status", "legacy_flag", "created_at", "updated_at")
+    list_filter = ("trade", "asset_status", "legacy_flag")
     search_fields = ("asset__id", "asset__servicer_id", "fund_legal_entity__nickname_name", "trade__trade_name")
     autocomplete_fields = ["asset", "fund_legal_entity"]
     readonly_fields = ("get_servicer_id", "created_at", "updated_at")

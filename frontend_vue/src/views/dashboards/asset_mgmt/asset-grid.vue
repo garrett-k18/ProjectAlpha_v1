@@ -161,6 +161,13 @@ import http from '@/lib/http'
 // activeTasksColorMap: Color mapping for active_tasks field based on outcome type prefix
 import { propertyTypeEnumMap, occupancyEnumMap, assetStatusEnumMap, activeTracksEnumMap, activeTasksColorMap } from '@/config/badgeTokens'
 
+// Props for optional filtering (overrides URL query params)
+const props = defineProps<{
+  filterTradeName?: string
+  filterSellerName?: string
+  filterActiveOnly?: boolean  // If true, only show assets with ACTIVE master status
+}>()
+
 // Constant columns (always shown, pinned left first)
 const constantColumns: ColDef[] = [
   {
@@ -556,6 +563,7 @@ function openFullPage(): void {
 
 // Router instance for navigation
 const router = useRouter()
+const route = router.currentRoute
 
 // Default column behavior
 const defaultColDef: ColDef = {
@@ -725,6 +733,14 @@ async function fetchRows(): Promise<void> {
     }
     if (quickFilter.value) params.q = quickFilter.value
     if (sortExpr.value) params.sort = sortExpr.value
+    
+    // Apply filters: props take precedence over URL query params
+    const tradeName = props.filterTradeName || route.value.query.trade_name
+    const sellerName = props.filterSellerName || route.value.query.seller_name
+    if (tradeName) params.trade_name = tradeName
+    if (sellerName) params.seller_name = sellerName
+    if (props.filterActiveOnly) params.lifecycle_status = 'ACTIVE'
+    
     const { data } = await http.get('/am/assets/', { params })
     // DRF pagination: { count, next, previous, results }
     totalCount.value = typeof data?.count === 'number' ? data.count : null
@@ -753,6 +769,13 @@ async function fetchAllRows(): Promise<void> {
     const baseParams: Record<string, any> = { page: 1, page_size: 500 }
     if (quickFilter.value) baseParams.q = quickFilter.value
     if (sortExpr.value) baseParams.sort = sortExpr.value
+    
+    // Apply filters: props take precedence over URL query params
+    const tradeName = props.filterTradeName || route.value.query.trade_name
+    const sellerName = props.filterSellerName || route.value.query.seller_name
+    if (tradeName) baseParams.trade_name = tradeName
+    if (sellerName) baseParams.seller_name = sellerName
+    if (props.filterActiveOnly) baseParams.lifecycle_status = 'ACTIVE'
 
     const all: any[] = []
     let currentPage = 1
