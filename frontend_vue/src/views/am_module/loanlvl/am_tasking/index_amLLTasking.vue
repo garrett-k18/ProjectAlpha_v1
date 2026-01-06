@@ -351,7 +351,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
-import axios from 'axios'
+import http from '@/lib/http'
 defineOptions({
   name: 'AmLlTasking',
 })
@@ -796,7 +796,7 @@ async function fetchFollowups() {
   followupsLoading.value = true
   followupsError.value = ''
   try {
-    const resp = await axios.get('/api/core/calendar/events/custom/', {
+    const resp = await http.get('/core/calendar/events/custom/', {
       params: {
         asset_hub_id: id,
         is_reminder: true,
@@ -842,7 +842,7 @@ async function createFollowup() {
       ? newFollowup.value.title.trim()
       : (reason ? `Follow-up: ${reasonLabel(reason)}` : 'Follow-up')
 
-    await axios.post('/api/core/calendar/events/custom/', {
+    await http.post('/core/calendar/events/custom/', {
       title,
       date: newFollowup.value.date,
       time: 'All Day',
@@ -867,7 +867,7 @@ async function createFollowup() {
 async function deleteFollowup(eventId: number) {
   followupDeleteBusyId.value = eventId
   try {
-    await axios.delete(`/api/core/calendar/events/custom/${eventId}/`)
+    await http.delete(`/core/calendar/events/custom/${eventId}/`)
     await fetchFollowups()
   } catch (e: any) {
     console.error('[Followups] delete failed', e)
@@ -1112,7 +1112,7 @@ async function fetchTaskMetrics() {
   if (!id) return
   
   try {
-    const response = await axios.get('/api/am/outcomes/task-metrics/', {
+    const response = await http.get('/am/outcomes/task-metrics/', {
       params: { asset_hub_id: id }
     })
     taskMetrics.value = response.data

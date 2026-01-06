@@ -765,6 +765,91 @@ class AMNote(models.Model):
         preview = self.body[:50] + "..." if len(self.body) > 50 else self.body
         return f"Note for {self.asset_hub}: {preview}"
 
+
+class AMNoteSummary(models.Model):
+    """AI-generated summary of notes for an asset hub.
+    
+    WHAT: Stores a persisted AI summary of all notes for a specific asset hub.
+    WHY: Avoids regenerating summaries on every view load, saving API costs and improving performance.
+    HOW: Automatically regenerated when notes are created or updated via Django signals.
+    
+    The summary is stored as JSON with structured fields:
+    - summary_text: 2-3 sentence executive summary
+    - bullets: Array of 4-6 key bullet points
+    - generated_at: Timestamp when summary was last generated
+    - notes_hash: Hash of note IDs and updated_at timestamps to detect changes
+    """
+    
+    # WHAT: One-to-one relationship with AssetIdHub (one summary per asset)
+    # WHY: Ensures we only have one summary per asset, making lookups simple
+    # HOW: Uses OneToOneField with CASCADE delete (if asset is deleted, summary is too)
+    asset_hub = models.OneToOneField(
+        "core.AssetIdHub",
+        on_delete=models.CASCADE,
+        related_name="note_summary",
+        help_text="Asset hub this summary belongs to",
+    )
+    
+    # WHAT: JSON field storing the structured summary data
+    # WHY: Flexible structure allows us to store summary text, bullets, and metadata together
+    # HOW: Uses Django's JSONField to store structured data
+    summary_data = models.JSONField(
+        default=dict,
+        help_text="Structured summary data containing summary_text, bullets, and metadata",
+    )
+    
+    # WHAT: Hash of note IDs and updated_at timestamps
+    # WHY: Used to detect when notes have changed and summary needs regeneration
+    # HOW: Computed from all notes' IDs and updated_at values, stored as string
+    notes_hash = models.CharField(
+        max_length=64,
+        db_index=True,
+        help_text="Hash of note IDs and timestamps to detect changes",
+    )
+    
+    # WHAT: Timestamp when summary was last generated
+    # WHY: Tracks when the summary was created/updated for debugging and cache invalidation
+    # HOW: Auto-updated on save via signal or manual update
+    generated_at = models.DateTimeField(
+        auto_now=True,
+        help_text="When this summary was last generated",
+    )
+    
+    # WHAT: Audit field tracking who generated the summary
+    # WHY: Optional tracking for debugging (usually system-generated)
+    # HOW: Can be set manually or via signal
+    generated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        related_name="generated_note_summaries",
+        on_delete=models.SET_NULL,
+        help_text="User/system that generated this summary (usually null for auto-generated)",
+    )
+    
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text="When this summary record was created",
+    )
+    
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        help_text="When this summary record was last updated",
+    )
+
+    class Meta:
+        db_table = "am_note_summary"
+        verbose_name = "AM Note Summary"
+        verbose_name_plural = "AM Note Summaries"
+        indexes = [
+            models.Index(fields=["asset_hub"]),
+            models.Index(fields=["notes_hash"]),
+            models.Index(fields=["-generated_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"Note Summary for Asset Hub {self.asset_hub_id}"
+
 class REOData(models.Model):
     """Data about a REO property."""
 

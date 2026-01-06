@@ -86,6 +86,15 @@
                 </span>
               </div>
               <h6 class="mb-0 fw-semibold small">{{ getEventTitle(event) }}</h6>
+              <!-- WHAT: Display city and state for follow-up, realized liquidation, and projected liquidation events -->
+              <!-- WHY: Users need location context for these event types -->
+              <!-- HOW: Show city and state if available and event type matches -->
+              <div 
+                v-if="shouldShowLocation(event)" 
+                class="text-muted small mt-1"
+              >
+                {{ getLocationDisplay(event) }}
+              </div>
             </div>
           </div>
         </div>
@@ -779,6 +788,33 @@ export default {
     },
     
     /**
+     * shouldShowLocation: Determines if city/state should be displayed for an event
+     * @param event - Calendar event object
+     * @returns True if location should be shown (follow-up, realized liquidation, projected liquidation)
+     */
+    shouldShowLocation(event: any): boolean {
+      const eventType = event.event_type || event.category || '';
+      const locationEvents = ['follow_up', 'actual_liquidation', 'projected_liquidation'];
+      return locationEvents.includes(eventType) && (event.city || event.state);
+    },
+    
+    /**
+     * getLocationDisplay: Formats city and state for display
+     * @param event - Calendar event object
+     * @returns Formatted city, state string
+     */
+    getLocationDisplay(event: any): string {
+      const parts: string[] = [];
+      if (event.city) {
+        parts.push(event.city);
+      }
+      if (event.state) {
+        parts.push(event.state);
+      }
+      return parts.join(', ') || '';
+    },
+    
+    /**
      * closeEventModal: Closes the event modal and resets state
      */
     closeEventModal() {
@@ -799,7 +835,17 @@ export default {
 
     getEventTitle(event: any): string {
       const eventType = event.event_type || event.category || '';
+      // WHAT: Format follow_up events as "servicer_id - address"
+      // WHY: Consistent format for follow-up events
       if (eventType === 'follow_up' && event.servicer_id) {
+        if (event.address) {
+          return `${event.servicer_id} - ${event.address}`;
+        }
+        return String(event.servicer_id);
+      }
+      // WHAT: Format projected_liquidation events same as follow_up: "servicer_id - address"
+      // WHY: Consistent format across event types
+      if (eventType === 'projected_liquidation' && event.servicer_id) {
         if (event.address) {
           return `${event.servicer_id} - ${event.address}`;
         }
@@ -811,6 +857,8 @@ export default {
           return trimmed.slice('follow-up:'.length).trim();
         }
       }
+      // WHAT: Fallback for other event types with servicer_id and address
+      // WHY: Maintain consistent format when possible
       if (event.servicer_id && event.address) {
         return `${event.servicer_id} - ${event.address}`;
       }
@@ -1034,7 +1082,7 @@ export default {
         
         // WHAT: Fetch events from backend API endpoint with date range filter
         // WHY: Only fetch events for visible months, not all events ever
-        const url = `${this.apiBaseUrl}/api/core/calendar/events/?start_date=${startDateStr}&end_date=${endDateStr}`;
+        const url = `${this.apiBaseUrl}/core/calendar/events/?start_date=${startDateStr}&end_date=${endDateStr}`;
         console.log('[HomeCalendarWidget] Fetching events for range:', startDateStr, 'to', endDateStr);
         
         const response = await fetch(url);

@@ -4,14 +4,10 @@
     Displays key metrics tiles (Assets, Tasks, Brokers, Docs)
     Component path: frontend_vue/src/views/dashboards/home_dash/components/StatsWidget.vue
   -->
-  <b-row>
+  <b-row class="g-2">
     <b-col 
       v-for="(stat, idx) in stats" 
-      :key="`stat-${idx}`" 
-      cols="12" 
-      md="6" 
-      xl="3" 
-      class="mb-2"
+      :key="`stat-${idx}`"
     >
       <div class="card border h-100 cursor-pointer hover-card" :title="stat.description" @click="handleClick(idx)">
         <div class="card-body d-flex align-items-center py-1">
@@ -73,16 +69,22 @@ export default defineComponent({
           description: "Loans you're currently managing"
         },
         { 
+          label: "My Tasks", 
+          value: "5", 
+          icon: "mdi mdi-bell-outline",
+          description: "Unread updates and alerts"
+        },
+        { 
+          label: "My Lists", 
+          value: "0", 
+          icon: "mdi mdi-plus-circle-outline",
+          description: "New metric item"
+        },
+        { 
           label: "Active Trades", 
           value: "0", 
           icon: "mdi mdi-swap-horizontal-bold",
           description: "Active trades with assets"
-        },
-        { 
-          label: "Notifications", 
-          value: "5", 
-          icon: "mdi mdi-bell-outline",
-          description: "Unread updates and alerts"
         },
       ],
     };
@@ -100,8 +102,8 @@ export default defineComponent({
       immediate: true,
       handler(val: string | number | null) {
         if (val == null) return
-        if (!Array.isArray((this as any).stats) || (this as any).stats.length < 3) return
-        ;(this as any).stats[2].value = String(val)
+        if (!Array.isArray((this as any).stats) || (this as any).stats.length < 5) return
+        ;(this as any).stats[4].value = String(val)
       },
     },
   },
@@ -111,9 +113,10 @@ export default defineComponent({
         this.$emit('open-pipeline');
       } else if (idx === 1) {
         this.$emit('open-followups');
-      } else if (idx === 2) {
+      } else if (idx === 4) {
         this.$emit('open-trades');
       }
+      // idx 2 = My Tasks, idx 3 = New Item - add handlers as needed
     },
   },
 });

@@ -452,6 +452,12 @@ class UnifiedCalendarEventSerializer(serializers.Serializer):
     
     # Address - separate field for flexible display
     address = serializers.CharField(allow_blank=True, required=False)
+    
+    # City - for displaying location details
+    city = serializers.CharField(allow_blank=True, required=False)
+    
+    # State - for displaying location details
+    state = serializers.CharField(allow_blank=True, required=False)
 
     # Asset Hub ID - used to open asset management modal
     asset_hub_id = serializers.IntegerField(required=False, allow_null=True)

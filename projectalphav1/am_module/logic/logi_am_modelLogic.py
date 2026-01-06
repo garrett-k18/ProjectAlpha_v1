@@ -109,33 +109,58 @@ def get_projected_liquidation_events(start_date=None, end_date=None, seller_id=N
         if end_date and projected_date > end_date:
             continue
         
-        # Get address for display
-        # WHAT: Extract property address from related models for event display
-        # WHY: Calendar events need readable titles showing which property
-        # HOW: Try SellerRawData first, then ServicerLoanData as fallback
+        # Get servicer_id, address, city, and state for display
+        # WHAT: Extract servicer_id and property location from related models for event display
+        # WHY: Calendar events need readable titles showing servicer_id and property (same format as follow-up)
+        # HOW: Get servicer_id from AssetIdHub, address/city/state from SellerRawData or ServicerLoanData
+        servicer_id = ''
         address = 'Unknown Address'
+        city = ''
+        state = ''
         if blended_model.asset_hub:
+            # WHAT: Get servicer_id directly from AssetIdHub
+            # WHY: AssetIdHub has servicer_id field for cross-referencing
+            # HOW: Access servicer_id field directly
+            servicer_id = blended_model.asset_hub.servicer_id or ''
+            
+            # WHAT: Get address, city, and state from SellerRawData first, then ServicerLoanData as fallback
+            # WHY: Address and location needed for event display
+            # HOW: Try SellerRawData first, then ServicerLoanData
             srd = getattr(blended_model.asset_hub, 'acq_raw', None)
             if srd:
                 address = srd.street_address or f"{srd.city or 'Unknown'}, {srd.state or ''}"
+                city = srd.city or ''
+                state = srd.state or ''
             else:
                 servicer_data = getattr(blended_model.asset_hub, 'servicer_loan_data', None)
                 if servicer_data:
                     latest_servicer = servicer_data.order_by('-as_of_date').first()
                     if latest_servicer:
                         address = latest_servicer.address or f"{latest_servicer.city or 'Unknown'}, {latest_servicer.state or ''}"
+                        city = latest_servicer.city or ''
+                        state = latest_servicer.state or ''
         
         # WHAT: Truncate address to reasonable length for calendar display
         # WHY: Long addresses break calendar layout
         # HOW: Take first 30 characters
         address_display = address[:30] if address else 'Unknown Address'
         
+        # WHAT: Format title same as follow-up events: "servicer_id - address"
+        # WHY: Consistent format across event types
+        # HOW: Use servicer_id and address if both available, otherwise just address
+        if servicer_id and address_display:
+            title = f'{servicer_id} - {address_display}'
+        elif servicer_id:
+            title = servicer_id
+        else:
+            title = address_display
+        
         # WHAT: Create calendar event dict with all required fields
         # WHY: Calendar views expect standardized event format
-        # HOW: Build dict with id, title, date, category, event_type, etc.
+        # HOW: Build dict with id, title, date, category, event_type, servicer_id, address, city, state, etc.
         events.append({
             'id': f'projected_liquidation:{blended_model.asset_hub_id}',
-            'title': address_display,
+            'title': title,
             'date': projected_date,
             'time': 'All Day',
             'description': f'Projected liquidation date for {address_display}',
@@ -145,7 +170,11 @@ def get_projected_liquidation_events(start_date=None, end_date=None, seller_id=N
             'source_id': blended_model.asset_hub_id,
             'url': f'/am/loan/{blended_model.asset_hub_id}/' if blended_model.asset_hub_id else '',
             'editable': False,  # Model-based events are read-only
-            'asset_hub_id': blended_model.asset_hub_id
+            'asset_hub_id': blended_model.asset_hub_id,
+            'servicer_id': servicer_id,  # WHAT: Include servicer_id for frontend display
+            'address': address_display,  # WHAT: Include address for frontend display
+            'city': city,  # WHAT: Include city for event card display
+            'state': state,  # WHAT: Include state for event card display
         })
     
     return events

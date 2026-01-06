@@ -183,27 +183,29 @@
         >
           <div class="trade-card-header">
             <div class="trade-info">
-              <h6 class="trade-name mb-1">
-                <i class="mdi mdi-swap-horizontal me-2 text-primary"></i>
-                {{ trade.trade_name }}
-              </h6>
-              <div class="seller-name text-muted">
-                <i class="mdi mdi-domain me-1"></i>
-                {{ trade.seller_name }}
+              <div class="d-flex align-items-center justify-content-between w-100">
+                <div>
+                  <h6 class="trade-name mb-1">
+                    <i class="mdi mdi-swap-horizontal me-2 text-primary"></i>
+                    {{ trade.trade_name }}
+                  </h6>
+                  <div class="seller-name text-muted">
+                    <i class="mdi mdi-domain me-1"></i>
+                    {{ trade.seller_name }}
+                  </div>
+                </div>
+                <div class="d-flex align-items-center gap-3">
+                  <div class="asset-count-badge">
+                    <span class="count">{{ trade.active_asset_count || 0 }}</span>
+                    <span class="label">Active Assets</span>
+                  </div>
+                  <span class="view-assets-link">
+                    View Assets
+                    <i class="mdi mdi-arrow-right ms-1"></i>
+                  </span>
+                </div>
               </div>
             </div>
-            <div class="trade-meta">
-              <div class="asset-count-badge">
-                <span class="count">{{ trade.active_asset_count || 0 }}</span>
-                <span class="label">Active Assets</span>
-              </div>
-            </div>
-          </div>
-          <div class="trade-card-footer">
-            <span class="view-assets-link">
-              View Assets
-              <i class="mdi mdi-arrow-right ms-1"></i>
-            </span>
           </div>
         </div>
       </div>
@@ -740,7 +742,7 @@ export default {
   background: #FDFBF7;
   border: 1px solid #e3e6e8;
   border-radius: 8px;
-  padding: 1rem;
+  padding: 0.625rem 0.75rem;
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -755,7 +757,7 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0;
 }
 
 .trade-info {
@@ -785,16 +787,16 @@ export default {
   display: flex;
   flex-direction: column;
   align-items: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #5A8A95;
   color: white;
-  padding: 0.5rem 0.75rem;
-  border-radius: 6px;
+  padding: 0.35rem 0.6rem;
+  border-radius: 4px;
   min-width: 70px;
 }
 
 .asset-count-badge .count {
-  font-size: 1.25rem;
-  font-weight: 700;
+  font-size: 1rem;
+  font-weight: 600;
   line-height: 1;
 }
 
@@ -806,13 +808,6 @@ export default {
   margin-top: 2px;
 }
 
-.trade-card-footer {
-  display: flex;
-  justify-content: flex-end;
-  padding-top: 0.75rem;
-  border-top: 1px solid #e3e6e8;
-}
-
 .view-assets-link {
   color: #D4AF37;
   font-size: 0.875rem;
@@ -820,6 +815,7 @@ export default {
   display: flex;
   align-items: center;
   transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
 .trade-card:hover .view-assets-link {

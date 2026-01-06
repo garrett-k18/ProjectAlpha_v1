@@ -49,15 +49,61 @@
 
           <!-- AI Summary Display when notes exist -->
           <div v-else class="ai-summary-section">
-            <!-- Loading state for AI processing -->
-            <div v-if="isLoading" class="d-flex align-items-center gap-2 text-muted small">
+            <!-- Loading state for AI summary -->
+            <div v-if="isLoadingSummary" class="d-flex align-items-center gap-2 text-muted small">
               <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-              Analyzing notes...
+              {{ summaryError ? 'Loading summary...' : 'Generating AI summary...' }}
+            </div>
+
+            <!-- Error state for summary -->
+            <div v-else-if="summaryError" class="alert alert-warning py-2 mb-0 small">
+              <small>{{ summaryError }}</small>
             </div>
 
             <!-- AI Summary Content - Clean and concise -->
-            <div v-else class="summary-content">
+            <div v-else-if="aiSummary" class="summary-content">
+              <!-- Executive Summary -->
+              <div v-if="aiSummary.summary_text" class="mb-3">
+                <h6 class="text-muted small fw-semibold mb-2">
+                  <i class="ri-file-text-line me-1"></i>Summary
+                </h6>
+                <p class="mb-0">{{ aiSummary.summary_text }}</p>
+              </div>
+
               <!-- Key Insights Section -->
+              <div v-if="aiSummary.bullets && aiSummary.bullets.length > 0" class="mb-3">
+                <h6 class="text-muted small fw-semibold mb-2">
+                  <i class="ri-lightbulb-line me-1"></i>Key Insights
+                </h6>
+                <ul class="summary-list mb-0">
+                  <li v-for="(bullet, idx) in aiSummary.bullets" :key="idx" class="mb-2">
+                    <span v-html="formatBullet(bullet)"></span>
+                  </li>
+                </ul>
+              </div>
+
+              <!-- Fallback: Show metadata if AI summary is empty -->
+              <div v-else class="mb-3">
+                <h6 class="text-muted small fw-semibold mb-2">
+                  <i class="ri-lightbulb-line me-1"></i>Key Insights
+                </h6>
+                <ul class="summary-list mb-0">
+                  <li class="mb-2">
+                    <span class="fw-semibold">Recent Activity:</span> Most recent note added {{ formatRelativeTime(notes[0]?.created_at) }}
+                    <template v-if="notes[0]?.created_by_username">
+                      by {{ notes[0].created_by_username }}
+                    </template>
+                  </li>
+                  <li class="mb-2">
+                    <span class="fw-semibold">Note Distribution:</span> 
+                    {{ getUrgentCount() }} urgent, {{ getLegalCount() }} legal-related, {{ getGeneralCount() }} general notes
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <!-- Fallback: Show basic metadata if no AI summary available -->
+            <div v-else class="summary-content">
               <div class="mb-3">
                 <h6 class="text-muted small fw-semibold mb-2">
                   <i class="ri-lightbulb-line me-1"></i>Key Insights
@@ -73,42 +119,7 @@
                     <span class="fw-semibold">Note Distribution:</span> 
                     {{ getUrgentCount() }} urgent, {{ getLegalCount() }} legal-related, {{ getGeneralCount() }} general notes
                   </li>
-                  <li class="mb-2">
-                    <span class="fw-semibold">Active Topics:</span> 
-                    <template v-if="getActiveContexts().length > 0">
-                      Notes span {{ getActiveContexts().join(', ') }}
-                    </template>
-                    <template v-else>
-                      General asset management activities
-                    </template>
-                  </li>
                 </ul>
-              </div>
-
-              <!-- Most Recent Highlights -->
-              <div v-if="getRecentHighlights().length > 0">
-                <h6 class="text-muted small fw-semibold mb-2">
-                  <i class="ri-star-line me-1"></i>Recent Highlights
-                </h6>
-                <div class="recent-highlights">
-                  <div
-                    v-for="highlight in getRecentHighlights()"
-                    :key="highlight.id"
-                    class="highlight-item mb-2 p-2 border-start border-3 border-primary bg-light rounded"
-                  >
-                    <div class="d-flex justify-content-between align-items-start mb-1">
-                      <small v-if="highlight.author" class="text-muted">
-                        <i class="ri-user-line me-1"></i>{{ highlight.author }}
-                      </small>
-                      <small class="text-muted">
-                        {{ highlight.time }}
-                      </small>
-                    </div>
-                    <div class="small text-truncate" style="max-width: 100%;">
-                      {{ highlight.preview }}
-                    </div>
-                  </div>
-                </div>
               </div>
             </div>
           </div>
@@ -189,6 +200,7 @@ import { QuillEditor } from '@vueup/vue-quill'
 import '@vueup/vue-quill/dist/vue-quill.bubble.css'
 import { BModal } from 'bootstrap-vue-next'
 import { useNotesStore, type NoteItem, type NoteTag, type OutcomeKey } from '@/stores/notes'
+import http from '@/lib/http'
 
 /**
  * WHAT: Component props passed by the Snapshot tab parent.
@@ -227,6 +239,31 @@ const isLoading = ref<boolean>(false)
  * HOW: Updated within `loadNotes()` catch blocks.
  */
 const loadError = ref<string | null>(null)
+
+/**
+ * WHAT: AI-generated summary data from backend.
+ * WHY: Stores persisted summary to avoid regenerating on every load.
+ * HOW: Fetched from /am/notes/summary/ endpoint.
+ */
+const aiSummary = ref<{
+  summary_text: string
+  bullets: string[]
+  note_count: number
+} | null>(null)
+
+/**
+ * WHAT: Loading flag for AI summary fetch.
+ * WHY: Shows loading state while fetching summary.
+ * HOW: Toggled in loadSummary() function.
+ */
+const isLoadingSummary = ref<boolean>(false)
+
+/**
+ * WHAT: Error message for summary fetch failures.
+ * WHY: Allows graceful error handling in UI.
+ * HOW: Set in loadSummary() catch block.
+ */
+const summaryError = ref<string | null>(null)
 
 /**
  * WHAT: Reactive state for the Quill editor content.
@@ -391,6 +428,58 @@ function getRecentHighlights(): Array<{ id: number; author: string; time: string
 }
 
 /**
+ * WHAT: Formats bullet point text by making the label bold.
+ * WHY: Removes markdown formatting and makes labels stand out visually.
+ * HOW: Strips ** markers, finds text before colon, and wraps label in <strong> tags.
+ * @param bullet - The bullet point text to format
+ * @returns HTML string with bold label
+ */
+function formatBullet(bullet: string): string {
+  if (!bullet) return ''
+  
+  // WHAT: Strip markdown bold markers (**text**)
+  // WHY: Remove unwanted markdown formatting
+  // HOW: Replace ** with empty string
+  let cleaned = bullet.replace(/\*\*/g, '')
+  
+  // WHAT: Find label (text before colon) and description (text after colon)
+  // WHY: Want to make label bold, keep description normal
+  // HOW: Split on colon if present
+  const colonIndex = cleaned.indexOf(':')
+  
+  if (colonIndex > 0 && colonIndex < cleaned.length - 1) {
+    // WHAT: Split into label and description
+    // WHY: Need to format them separately
+    // HOW: Split at colon position
+    const label = cleaned.substring(0, colonIndex).trim()
+    const description = cleaned.substring(colonIndex + 1).trim()
+    
+    // WHAT: Return formatted HTML with bold label
+    // WHY: Make label stand out visually
+    // HOW: Wrap label in <strong> tags
+    return `<strong>${escapeHtml(label)}:</strong> ${escapeHtml(description)}`
+  }
+  
+  // WHAT: No colon found, return text as-is (but escape HTML)
+  // WHY: Some bullets might not have label format
+  // HOW: Just escape and return
+  return escapeHtml(cleaned)
+}
+
+/**
+ * WHAT: Escapes HTML special characters to prevent XSS.
+ * WHY: User-generated content needs to be sanitized.
+ * HOW: Replace HTML special characters with entities.
+ * @param text - Text to escape
+ * @returns Escaped HTML string
+ */
+function escapeHtml(text: string): string {
+  const div = document.createElement('div')
+  div.textContent = text
+  return div.innerHTML
+}
+
+/**
  * WHAT: Core loader that fetches notes for the selected asset hub.
  * WHY: Powers the notes list display in the quickview card.
  * HOW: Calls Pinia store action with hub id, handles errors gracefully.
@@ -411,12 +500,99 @@ async function loadNotes(): Promise<void> {
     // Fetch notes from store (will use cache if available)
     const fetchedNotes = await notesStore.listNotes({ assetHubId: hubId })
     notes.value = fetchedNotes
+    
+    // WHAT: Load AI summary after notes are loaded
+    // WHY: Summary depends on notes existing
+    // HOW: Call loadSummary function
+    await loadSummary()
   } catch (error: any) {
     // Capture error message for display in UI
     loadError.value = error?.response?.data?.detail || error?.message || 'Failed to load notes'
     notes.value = []
   } finally {
     isLoading.value = false
+  }
+}
+
+/**
+ * WHAT: Fetches AI-generated summary for the current asset hub.
+ * WHY: Provides intelligent summary without regenerating on every load.
+ * HOW: Calls /am/notes/summary/ endpoint which returns persisted summary.
+ */
+async function loadSummary(): Promise<void> {
+  const hubId = normalizedHubId.value
+  
+  // WHAT: Guard against missing hub id
+  // WHY: Can't fetch summary without asset hub
+  // HOW: Exit early if no hub id
+  if (!hubId) {
+    aiSummary.value = null
+    return
+  }
+
+  // WHAT: Don't fetch summary if no notes exist
+  // WHY: Summary requires notes to be meaningful
+  // HOW: Check notes array length
+  if (notes.value.length === 0) {
+    aiSummary.value = null
+    return
+  }
+
+  isLoadingSummary.value = true
+  summaryError.value = null
+
+  try {
+    // WHAT: Fetch summary from backend API
+    // WHY: Backend handles generation/caching logic
+    // HOW: GET request to summary endpoint with asset_hub_id param
+    const response = await http.get<{
+      summary_text: string
+      bullets: string[]
+      note_count: number
+      error?: boolean
+      detail?: string
+    }>('/am/notes/summary/', {
+      params: { asset_hub_id: hubId }
+    })
+    
+    // WHAT: Check if response indicates an error
+    // WHY: Backend may return 200 with error flag
+    // HOW: Check for error flag or empty summary
+    if (response.data.error || (response.data.detail && !response.data.summary_text && !response.data.bullets?.length)) {
+      // WHAT: Handle backend error response
+      // WHY: Backend returned error but with 200 status
+      // HOW: Set error message
+      summaryError.value = response.data.detail || 'Failed to generate summary'
+      console.error('Summary generation error:', response.data.detail)
+    } else if (response.data.summary_text || (response.data.bullets && response.data.bullets.length > 0)) {
+      // WHAT: Store summary data if valid
+      // WHY: Display in template
+      // HOW: Assign response data to aiSummary ref
+      aiSummary.value = {
+        summary_text: response.data.summary_text || '',
+        bullets: response.data.bullets || [],
+        note_count: response.data.note_count || 0,
+      }
+      console.log('Summary loaded successfully:', aiSummary.value)
+    } else {
+      // WHAT: Handle empty summary response
+      // WHY: Summary might be empty but valid
+      // HOW: Set summary to null to show fallback
+      console.warn('Empty summary response received')
+      aiSummary.value = null
+    }
+  } catch (error: any) {
+    // WHAT: Handle errors gracefully
+    // WHY: Don't break UI if summary fails
+    // HOW: Store error message, keep existing summary if available
+    const errorMsg = error?.response?.data?.detail || error?.message || 'Failed to load summary'
+    summaryError.value = errorMsg
+    console.error('Error loading summary:', error)
+    // WHAT: Don't clear existing summary on error
+    // WHY: Better UX to show stale summary than nothing
+    // HOW: Only set error, don't clear aiSummary
+  } finally {
+    isLoadingSummary.value = false
   }
 }
 
@@ -443,8 +619,15 @@ async function submitNote(): Promise<void> {
     editorHtml.value = ''
     showNoteModal.value = false
     
-    // Reload notes to show the new entry
+    // WHAT: Reload notes to show the new entry
+    // WHY: Update UI with latest notes
+    // HOW: Call loadNotes which also triggers summary regeneration via backend signal
     await loadNotes()
+    
+    // WHAT: Reload summary after note creation
+    // WHY: Summary should update when notes change (backend signal handles regeneration, but we refresh display)
+    // HOW: Call loadSummary to fetch updated summary
+    await loadSummary()
   } catch (error: any) {
     // Show error in console for debugging
     console.error('Failed to create note:', error)

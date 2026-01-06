@@ -2,6 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from am_module.views.view_am_assetInventory import AssetInventoryViewSet, asset_dashboard_stats, asset_geo_markers, am_pipeline_dashboard
 from am_module.views.notes import AMNoteViewSet
+from am_module.views.view_am_noteSummary import AMNoteSummaryView
 from am_module.views.view_performance_summary import PerformanceSummaryViewSet
 from am_module.views.views import cash_flow_series_view, sb_daily_loan_data_raw
 from am_module.views.view_am_assetcrmcontact import AssetCRMContactViewSet
@@ -41,6 +42,14 @@ router.register(r'outcomes/offers', OffersViewSet, basename='am-offers')
 router.register(r'outcomes/heir-contacts', HeirContactViewSet, basename='am-heir-contacts')
 
 urlpatterns = [
+    # WHAT: Note summary endpoint for AI-generated summaries
+    # WHY: Provides persisted summaries that only regenerate when notes change
+    # WHERE: Called by notes_quickview.vue to display AI summary
+    # NOTE: Must be before router include to avoid router matching /am/notes/ first
+    path('am/notes/summary/', AMNoteSummaryView.as_view(), name='am-note-summary'),
+    # WHAT: Router includes for ViewSet-based endpoints
+    # WHY: Provides RESTful CRUD endpoints for various models
+    # WHERE: Used by frontend for standard CRUD operations
     path('am/', include(router.urls)),
     path('am/dashboard/stats/', asset_dashboard_stats, name='am-dashboard-stats'),
     path('am/dashboard/markers/', asset_geo_markers, name='am-dashboard-markers'),

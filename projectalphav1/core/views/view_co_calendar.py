@@ -321,7 +321,9 @@ def _get_servicer_data_events(start_date=None, end_date=None, seller_id=None, tr
                     'editable': False,
                     'servicer_id': servicer_id,
                     'address': address,
-                    'asset_hub_id': record.asset_hub_id
+                    'asset_hub_id': record.asset_hub_id,
+                    'city': record.city or '',  # WHAT: Include city for event card display
+                    'state': record.state or '',  # WHAT: Include state for event card display
                 })
     
     return events
@@ -505,16 +507,18 @@ def _get_custom_calendar_events(request, start_date=None, end_date=None, seller_
     for event in queryset:
         servicer_id = ''
         address = ''
+        city = ''
+        state = ''
 
         if event.asset_hub_id and event.asset_hub is not None:
             servicer_id = event.asset_hub.servicer_id or ''
             srd = getattr(event.asset_hub, 'acq_raw', None)
             if srd is not None:
                 base_addr = srd.street_address or ''
+                city = srd.city or ''
+                state = srd.state or ''
                 if not base_addr:
-                    city = srd.city or 'Unknown'
-                    state = srd.state or ''
-                    base_addr = f"{city}, {state}".rstrip(', ')
+                    base_addr = f"{city or 'Unknown'}, {state or ''}".rstrip(', ')
                 address = (base_addr or '')[:30]
 
         # Generate URL based on linked entity
@@ -540,6 +544,8 @@ def _get_custom_calendar_events(request, start_date=None, end_date=None, seller_
             'asset_hub_id': event.asset_hub_id,
             'servicer_id': servicer_id,
             'address': address,
+            'city': city,  # WHAT: Include city for event card display
+            'state': state,  # WHAT: Include state for event card display
         })
     
     return events
