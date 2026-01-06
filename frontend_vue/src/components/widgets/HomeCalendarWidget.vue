@@ -213,6 +213,7 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import { getCalendarEventBadgeTone, getCalendarEventColors, resolveBadgeTokens } from '@/config/badgeTokens';
 import type { BadgeToneKey } from '@/config/badgeTokens';
+import http from '@/lib/http';
 
 /**
  * Interface for calendar event data structure
@@ -1082,15 +1083,18 @@ export default {
         
         // WHAT: Fetch events from backend API endpoint with date range filter
         // WHY: Only fetch events for visible months, not all events ever
-        const url = `${this.apiBaseUrl}/core/calendar/events/?start_date=${startDateStr}&end_date=${endDateStr}`;
         console.log('[HomeCalendarWidget] Fetching events for range:', startDateStr, 'to', endDateStr);
         
-        const response = await fetch(url);
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        // WHAT: Parse JSON response from backend
-        const backendEvents = await response.json();
+        // WHAT: Use http instance for proper error handling and baseURL configuration
+        const response = await http.get('/core/calendar/events/', {
+          params: {
+            start_date: startDateStr,
+            end_date: endDateStr
+          }
+        });
+        
+        // WHAT: Extract data from axios response
+        const backendEvents = response.data;
         console.log('[HomeCalendarWidget] Received', backendEvents.length, 'events');
         
         // WHAT: Transform backend event structure to match frontend CalendarEvent interface

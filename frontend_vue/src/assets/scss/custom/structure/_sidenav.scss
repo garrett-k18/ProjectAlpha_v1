@@ -97,8 +97,8 @@ html[data-bs-theme="dark"] {
     min-width: $leftbar-width;
     padding-bottom: calc($footer-height + $spacer * 0.5);
     background: $menu-bg;
-    box-shadow: var(--#{$prefix}box-shadow);
-    border-right: $card-border-width solid $card-border-color;
+    box-shadow: none;
+    border-right: none;
     transition: $transition-base;
 }
 

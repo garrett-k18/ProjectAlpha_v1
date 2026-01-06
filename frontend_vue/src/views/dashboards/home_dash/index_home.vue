@@ -10,7 +10,7 @@
       - Greeting + AI Assistant in unified hero area
       - Tight vertical rhythm for professional feel
     -->
-    <div class="dashboard-hero mb-3 pt-2">
+    <div class="dashboard-hero mb-3 pt-4">
       <!-- Greeting - compact and elegant -->
       <h2 class="greeting-title mb-2 text-center">{{ greeting }}!</h2>
       
@@ -31,7 +31,9 @@
     />
 
     <!-- Calendar Section - Full width calendar with event list -->
-    <HomeCalendarWidget @open-asset-modal="onOpenAssetModal" class="mb-3" />
+    <div class="mb-3">
+      <HomeCalendarWidget @open-asset-modal="onOpenAssetModal" />
+    </div>
 
     <!-- Secondary Content Row - Recent Activity and Quick Links -->
     <b-row class="g-3">
@@ -688,7 +690,8 @@ export default {
 
 /* Hero wrapper - unified visual section with minimal top padding */
 .dashboard-hero {
-  padding-top: 0.5rem;
+  /* Increased padding for more space between header and greeting */
+  padding-top: 2rem;
 }
 
 /* Greeting - compact and elegant, centered */

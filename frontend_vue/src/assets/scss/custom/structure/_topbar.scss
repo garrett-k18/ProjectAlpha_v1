@@ -4,7 +4,7 @@
 
 .navbar-custom {
     background: $topbar-bg;
-    box-shadow: var(--#{$prefix}box-shadow);
+    box-shadow: none;
     min-height: $topbar-height;
     margin-left: $leftbar-width;
     position: sticky;
@@ -65,9 +65,10 @@
             align-items: center;
             height: $topbar-height;
             cursor: pointer;
+            transition: color 0.2s ease;
 
             &:hover {
-                color: $topbar-item-hover-color;
+                color: #D4AF37; // Gold accent color for hover
             }
         }
     }
@@ -128,6 +129,11 @@ html[data-bs-theme="dark"] {
     cursor: pointer;
     z-index: 1;
     position: relative;
+    transition: color 0.2s ease;
+
+    &:hover {
+        color: #D4AF37; // Gold accent color for hover
+    }
 }
 
 // Topbar Search from
@@ -188,7 +194,7 @@ html[data-bs-theme="dark"] {
         border-radius: 50%;
         height: 7px;
         width: 7px;
-        background-color: $danger;
+        background-color: #D4AF37; // Gold accent color for notification dot
     }
 
     .notify-item {

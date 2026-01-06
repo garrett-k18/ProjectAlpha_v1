@@ -78,14 +78,14 @@ html[data-bs-theme="dark"][data-menu-color="dark"] {
 // ========== Topbar ============== //
 // ================================ //
 
-// Light Topbar
+// Light Topbar - Updated to match sidebar blue (Primary Navy #1B3B5F)
 html[data-topbar-color="light"] {
-    --#{$prefix}topbar-bg:                         #ffffff;
-    --#{$prefix}topbar-item-color:                 #{$gray-700};
-    --#{$prefix}topbar-item-hover-color:           #{$primary};
-    --#{$prefix}topbar-search-bg:                  #{tint-color($gray-200,10%)};
-    --#{$prefix}topbar-user-bg:                    #{lighten($gray-100, 1%)};
-    --#{$prefix}topbar-user-border:                #eef2f7;
+    --#{$prefix}topbar-bg:                         #{$primary};
+    --#{$prefix}topbar-item-color:                 #8BA8C9;
+    --#{$prefix}topbar-item-hover-color:           #D4AF37; // Gold accent color for hover
+    --#{$prefix}topbar-search-bg:                   rgba(255, 255, 255, 0.1);
+    --#{$prefix}topbar-user-bg:                     rgba(255, 255, 255, 0.05);
+    --#{$prefix}topbar-user-border:                 rgba(255, 255, 255, 0.15);
 }
 
 
