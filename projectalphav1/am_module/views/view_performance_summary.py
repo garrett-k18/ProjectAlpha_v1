@@ -16,7 +16,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.shortcuts import get_object_or_404
 
-from am_module.models.boarded_data import BlendedOutcomeModel
+from am_module.models.model_am_modeling import BlendedOutcomeModel
 from am_module.serializers.serial_am_performanceSummary import PerformanceSummarySerializer
 
 

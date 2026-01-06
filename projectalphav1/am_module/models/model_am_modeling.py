@@ -1,6 +1,7 @@
 from decimal import Decimal
 from django.db import models
 from django.utils import timezone
+from django.conf import settings
 
 # Blended Outcome Model (One-to-one with AssetIdHub)
 # -----------------------------------------------------------------------------------
@@ -287,6 +288,138 @@ class BlendedOutcomeModel(models.Model):
     def __str__(self) -> str:
         """Readable string for admin/debugging."""
         return f"AcqModel(hub_id={self.pk})"
+
+
+# AM Projections Model (One-to-one with AssetIdHub)
+# -----------------------------------------------------------------------------------
+class ReUWAMProjections(models.Model):
+    """
+    ReUWAMProjections stores re-underwritten projected proceeds and liquidation date for assets in AM module.
+
+    WHAT: Stores current/updated re-underwritten projections that change over time as factors evolve
+    WHY: Separate from initial UW projections (BlendedOutcomeModel) and actual realized (AMMetrics)
+    WHERE: Used across AM module for forecasting and planning
+    HOW: OneToOne with AssetIdHub - one current re-underwritten projection per asset
+
+    Relationship:
+    - Strict 1:1 with AssetIdHub so each asset has at most one re-underwritten projection row.
+      We use a OneToOneField with primary_key=True so this model shares the same PK
+      as the linked asset record.
+
+    Field conventions:
+    - Currency-like fields use Decimal(15,2) to match other financial fields across the app.
+    - All fields are nullable by default to support gradual population as factors change.
+    - Re-underwritten projections can differ from initial UW projections based on market conditions,
+      valuation updates, FC progress, or other evolving factors.
+
+    Docs reviewed:
+    - Django model fields: https://docs.djangoproject.com/en/stable/ref/models/fields/
+    - OneToOneField: https://docs.djangoproject.com/en/stable/topics/db/models/#one-to-one-relationships
+    """
+
+    # WHAT: Hub-owned primary key: strict 1:1 with core.AssetIdHub
+    # WHY: Each asset has one current re-underwritten projection at any time
+    # HOW: Uses primary_key=True so this model's PK equals the hub ID
+    asset_hub = models.OneToOneField(
+        'core.AssetIdHub',
+        on_delete=models.PROTECT,
+        primary_key=True,
+        related_name='reuw_am_projections',
+        help_text='1:1 with hub; this model\'s PK equals the hub ID.'
+    )
+
+    # ------------------------------
+    # Re-Underwritten Projected Proceeds
+    # ------------------------------
+    # WHAT: Re-underwritten projected gross proceeds (can differ from initial UW)
+    # WHY: Market conditions, valuations, or other factors may change projections
+    # HOW: Decimal field matching BlendedOutcomeModel pattern
+    reuw_projected_gross_proceeds = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Re-underwritten projected gross liquidation proceeds (currency).'
+    )
+
+    # WHAT: Re-underwritten projected net proceeds (gross minus closing costs)
+    # WHY: Net proceeds are what actually matters for ROI calculations
+    # HOW: Decimal field matching BlendedOutcomeModel pattern
+    reuw_projected_net_proceeds = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Re-underwritten projected net liquidation proceeds (gross - closing costs).'
+    )
+
+    # ------------------------------
+    # Re-Underwritten Projected Liquidation Date
+    # ------------------------------
+    # WHAT: Re-underwritten projected liquidation date
+    # WHY: Timeline may shift based on FC progress, market conditions, etc.
+    # HOW: Date field for projected exit
+    reuw_projected_liq_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text='Re-underwritten projected liquidation date (if known).'
+    )
+
+    # ------------------------------
+    # Re-Underwriting Metadata
+    # ------------------------------
+    # WHAT: Optional notes about what factors influenced this re-underwriting
+    # WHY: Track why projections changed (valuation update, market shift, etc.)
+    # HOW: Text field for free-form notes
+    reuw_projection_notes = models.TextField(
+        blank=True,
+        null=True,
+        help_text='Optional notes about factors influencing this re-underwriting projection.'
+    )
+
+    # ------------------------------
+    # Audit timestamps
+    # ------------------------------
+    # WHAT: Track when projection record was created
+    # WHY: Know when first projection was set
+    # HOW: Django auto_now_add
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text='When this projection record was created.'
+    )
+
+    # WHAT: Track when projection was last updated
+    # WHY: Know when projections were last modified
+    # HOW: Django auto_now
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        help_text='When this projection record was last updated.'
+    )
+
+    # WHAT: Track who last updated the re-underwriting
+    # WHY: Audit trail for re-underwriting changes
+    # HOW: ForeignKey to User model
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        related_name='updated_reuw_am_projections',
+        on_delete=models.SET_NULL,
+        help_text='User who last updated this re-underwriting projection (if known).'
+    )
+
+    class Meta:
+        verbose_name = "Re-UW AM Projections"
+        verbose_name_plural = "Re-UW AM Projections"
+        ordering = ["-updated_at"]
+        indexes = [
+            models.Index(fields=['reuw_projected_liq_date']),
+            models.Index(fields=['updated_at']),
+        ]
+
+    def __str__(self) -> str:
+        """Readable string for admin/debugging."""
+        return f"ReUWAMProjections(hub_id={self.pk})"
 
 
 class UWCashFlows(models.Model):

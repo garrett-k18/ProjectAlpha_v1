@@ -86,6 +86,7 @@ export type BadgeToneKey =
   | 'calendar-projected'
   | 'calendar-bid'
   | 'calendar-settlement'
+  | 'calendar-follow-up'
   | 'calendar-milestone'
   // Delinquency-specific colors
   | 'delinquency-current'
@@ -180,25 +181,38 @@ export const badgeToneMap: Record<BadgeToneKey, BadgeVisualConfig> = {
   },
   
   // Calendar Event Type Colors
+  // WHAT: Distinct colors for each calendar event type using ProjectAlpha palette (no gold)
+  // WHY: Users need to quickly identify different event types at a glance
+  // REFERENCE: color-palette.txt - Selected colors from palette
   'calendar-liquidation': {
-    classes: 'bg-success text-white border-0',
+    classes: 'text-white border-0',
     ariaLabel: 'Actual liquidation event',
+    inlineStyles: 'background-color: #00796B;', // Info Teal
   },
   'calendar-projected': {
-    classes: 'bg-warning text-dark border-0',
+    classes: 'text-white border-0',
     ariaLabel: 'Projected liquidation event',
+    inlineStyles: 'background-color: #6B5A7A;', // Muted Plum
   },
   'calendar-bid': {
-    classes: 'bg-info text-white border-0',
+    classes: 'text-white border-0',
     ariaLabel: 'Bid date event',
+    inlineStyles: 'background-color: #4A7A8A;', // Steel Teal
   },
   'calendar-settlement': {
-    classes: 'bg-danger text-white border-0',
+    classes: 'text-white border-0',
     ariaLabel: 'Settlement date event',
+    inlineStyles: 'background-color: #5A8A95;', // Slate Teal
+  },
+  'calendar-follow-up': {
+    classes: 'text-white border-0',
+    ariaLabel: 'Follow-up reminder event',
+    inlineStyles: 'background-color: #3F51B5;', // Indigo
   },
   'calendar-milestone': {
-    classes: 'bg-primary text-white border-0',
+    classes: 'text-white border-0',
     ariaLabel: 'Milestone event',
+    inlineStyles: 'background-color: #8A7A9A;', // Dusty Lavender
   },
   
   // Delinquency Status Colors
@@ -591,6 +605,8 @@ export function getCalendarEventBadgeTone(eventType?: string | null): BadgeToneK
       return 'calendar-bid';
     case 'settlement_date':
       return 'calendar-settlement';
+    case 'follow_up':
+      return 'calendar-follow-up';
     case 'milestone':
       return 'calendar-milestone';
     default:
@@ -604,17 +620,21 @@ export function getCalendarEventBadgeTone(eventType?: string | null): BadgeToneK
  * Theme colors: primary=#1B3B5F, success=#2E7D32, info=#5A8A95, warning=#D4AF37, danger=#C62828
  */
 export function getCalendarEventColors(eventType?: string | null): { bg: string; border: string; text: string } {
+  // WHAT: Returns colors from selected ProjectAlpha palette colors (no gold)
+  // WHY: Maintain brand consistency using only approved palette colors
   switch ((eventType ?? '').toLowerCase()) {
     case 'actual_liquidation':
-      return { bg: '#2E7D32', border: '#2E7D32', text: '#ffffff' }; // success (green)
+      return { bg: '#00796B', border: '#00796B', text: '#ffffff' }; // Info Teal
     case 'projected_liquidation':
-      return { bg: '#D4AF37', border: '#D4AF37', text: '#000000' }; // warning (gold)
+      return { bg: '#6B5A7A', border: '#6B5A7A', text: '#ffffff' }; // Muted Plum
     case 'bid_date':
-      return { bg: '#5A8A95', border: '#5A8A95', text: '#ffffff' }; // info (slate teal)
+      return { bg: '#4A7A8A', border: '#4A7A8A', text: '#ffffff' }; // Steel Teal
     case 'settlement_date':
-      return { bg: '#C62828', border: '#C62828', text: '#ffffff' }; // danger (red)
+      return { bg: '#5A8A95', border: '#5A8A95', text: '#ffffff' }; // Slate Teal
+    case 'follow_up':
+      return { bg: '#3F51B5', border: '#3F51B5', text: '#ffffff' }; // Indigo
     case 'milestone':
     default:
-      return { bg: '#1B3B5F', border: '#1B3B5F', text: '#ffffff' }; // primary (navy)
+      return { bg: '#8A7A9A', border: '#8A7A9A', text: '#ffffff' }; // Dusty Lavender
   }
 }

@@ -1,9 +1,10 @@
 <template>
   <!-- AM LoanTabs: mirrors acquisitions tab structure, but can diverge safely -->
-  <b-tabs nav-class="nav-bordered mb-3" content-class="pt-0">
-    <b-tab title="Snapshot" active>
-      <SnapshotTab :row="row" :assetHubId="assetHubId" />
-    </b-tab>
+  <div class="p-3">
+    <b-tabs nav-class="nav-bordered mb-3">
+      <b-tab title="Snapshot" active>
+        <SnapshotTab :row="row" :assetHubId="assetHubId" />
+      </b-tab>
 
     <b-tab title="Asset Management">
       <AssetManagementTab :row="row" :assetHubId="assetHubId" />
@@ -29,10 +30,11 @@
       <NarrativeTab :row="row" :assetHubId="assetHubId" />
     </b-tab>
   </b-tabs>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { defineAsyncComponent, withDefaults, defineProps } from 'vue'
+import { defineAsyncComponent } from 'vue'
 
 withDefaults(defineProps<{ row?: Record<string, any> | null; assetHubId?: string | number | null }>(), {
   row: null,

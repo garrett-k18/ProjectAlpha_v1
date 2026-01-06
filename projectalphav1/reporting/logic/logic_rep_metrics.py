@@ -131,7 +131,7 @@ def calculate_pre_reo_duration(blended_outcome):
     **WHY**: Roll up underwriting timeline phases before REO into a single metric.
     **HOW**: Sum of servicing_transfer_duration, pre_fc_duration, fc_duration_state_avg, dil_duration.
     **BASIS**: Uses BlendedOutcomeModel timeline fields in
-    am_module.models.boarded_data.BlendedOutcomeModel.
+    am_module.models.model_am_modeling.BlendedOutcomeModel.
     """
     if blended_outcome is None:
         return 0
@@ -151,7 +151,7 @@ def calculate_reo_duration(blended_outcome):
     **HOW**: Sum of eviction_duration, renovation_duration, reo_marketing_duration,
     local_market_ext_duration, rural_ext_duration.
     **BASIS**: Uses BlendedOutcomeModel REO timeline fields in
-    am_module.models.boarded_data.BlendedOutcomeModel.
+    am_module.models.model_am_modeling.BlendedOutcomeModel.
     """
     if blended_outcome is None:
         return 0
@@ -172,7 +172,7 @@ def calculate_legal_cost(blended_outcome):
     **HOW**: Sum of fc_expenses, fc_legal_fees, outher_fc_fees, dil_fees,
     cfk_fees, bk_legal_fees, eviction_fees.
     **BASIS**: Uses BlendedOutcomeModel legal fee fields in
-    am_module.models.boarded_data.BlendedOutcomeModel.
+    am_module.models.model_am_modeling.BlendedOutcomeModel.
     """
     if blended_outcome is None:
         return 0.0
@@ -202,7 +202,7 @@ def calculate_monthly_servicing_cost(blended_outcome):
     servicing_60d, servicing_90d, servicing_120d, servicing_fc, servicing_bk,
     servicing_liq_fee.
     **BASIS**: Uses BlendedOutcomeModel servicing fee fields in
-    am_module.models.boarded_data.BlendedOutcomeModel.
+    am_module.models.model_am_modeling.BlendedOutcomeModel.
     """
     if blended_outcome is None:
         return 0.0
@@ -238,7 +238,7 @@ def calculate_carry_cost(blended_outcome):
     property-level costs.
     **HOW**: calculate_servicing_cost(blended_outcome) + total_insurance + total_property_tax.
     **BASIS**: Uses BlendedOutcomeModel fields servicing_* plus total_insurance and
-    total_property_tax in am_module.models.boarded_data.BlendedOutcomeModel.
+    total_property_tax in am_module.models.model_am_modeling.BlendedOutcomeModel.
     """
     if blended_outcome is None:
         return 0.0
@@ -263,7 +263,7 @@ def calculate_reo_cost(blended_outcome):
     **HOW**: Sum of total_hoa, total_utility, total_other.
     **BASIS**: Uses BlendedOutcomeModel property expense fields (total_hoa,
     total_utility, total_other) in
-    am_module.models.boarded_data.BlendedOutcomeModel.
+    am_module.models.model_am_modeling.BlendedOutcomeModel.
     """
     if blended_outcome is None:
         return 0.0

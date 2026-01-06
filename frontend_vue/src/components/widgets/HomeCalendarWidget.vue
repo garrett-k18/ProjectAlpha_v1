@@ -8,27 +8,30 @@
       <!-- Filter Bar (Header-like toolbar) -->
       <!-- WHAT: Filter buttons to show/hide events by tag type -->
       <!-- WHY: Users need to filter events by type across both calendar and event list -->
-      <!-- HOW: Display all available event types as clickable badges, highlight selected -->
-      <div v-if="!eventsLoading && events.length > 0" class="card-header py-2 border-bottom">
+      <!-- HOW: Always display filter bar to prevent layout shifts during month navigation -->
+      <!-- NOTE: Always rendered (no v-if) to prevent flicker and layout rearrangement -->
+      <div class="card-header py-2 border-bottom" style="min-height: 48px; display: block;">
         <div class="d-flex flex-wrap gap-2 align-items-center">
           <span class="small text-muted fw-semibold me-2">Filter:</span>
           <!-- All Events Button -->
           <button
             type="button"
             class="btn btn-sm"
-            :class="selectedEventTypeFilter === null ? 'btn-primary' : 'btn-outline-secondary'"
-            @click="selectedEventTypeFilter = null"
+            :class="selectedEventTypeFilters.length === 0 ? 'btn-light border border-2 border-secondary' : 'btn-outline-secondary'"
+            :disabled="eventsLoading"
+            @click="selectedEventTypeFilters = []"
           >
             All
           </button>
-          <!-- Event Type Filter Buttons -->
+          <!-- Event Type Filter Buttons (Multi-select) -->
           <button
             v-for="eventType in availableEventTypes"
             :key="eventType"
             type="button"
             class="btn btn-sm"
-            :class="selectedEventTypeFilter === eventType ? getEventBadgeClass(eventType) : 'btn-outline-secondary'"
-            @click="selectedEventTypeFilter = eventType"
+            :class="selectedEventTypeFilters.includes(eventType) ? 'btn-light border border-2 border-secondary' : 'btn-outline-secondary'"
+            :disabled="eventsLoading"
+            @click="toggleEventTypeFilter(eventType)"
           >
             {{ getEventTypeLabel(eventType) }}
           </button>
@@ -41,12 +44,12 @@
         <!-- WHAT: Row container for calendar widget with equal-height columns -->
         <!-- WHY: Event list and calendar should have same height for visual consistency -->
         <!-- HOW: Use align-items-stretch to make both columns same height -->
-        <b-row class="calendar-row align-items-stretch g-0 flex-grow-1 w-100">
+        <b-row class="calendar-row align-items-start g-0 flex-grow-1 w-100">
       <!-- Event List Panel (Left Side) -->
       <!-- WHAT: Event list that displays all events for the currently visible month -->
       <!-- WHY: Users need to see a scrollable list of events matching the calendar -->
       <!-- HOW: Left border separates from calendar, fills full height with scroll -->
-      <b-col md="3" class="event-list-panel border-end d-flex flex-column">
+      <b-col md="3" class="event-list-panel border-end d-flex flex-column" :style="eventListPanelStyle">
         <!-- Loading State -->
         <div v-if="eventsLoading" class="text-center py-4 px-3 flex-grow-1 d-flex align-items-center justify-content-center">
           <div class="spinner-border text-primary" role="status">
@@ -57,8 +60,8 @@
         <!-- Event List -->
         <!-- WHAT: Container for event items -->
         <!-- WHY: Events should fill the entire panel height with scroll if needed -->
-        <!-- HOW: flex-grow-1 fills available space, overflow-y for scrolling -->
-        <div v-if="!eventsLoading && visibleEvents.length > 0" class="event-list p-3 flex-grow-1 overflow-auto">
+        <!-- HOW: overflow-auto for scrolling within fixed height -->
+        <div v-if="!eventsLoading && visibleEvents.length > 0" class="event-list p-3 overflow-auto">
           <div
             v-for="event in visibleEvents"
             :key="event.id"
@@ -71,6 +74,7 @@
                 <span 
                   class="badge"
                   :class="getEventBadgeClass(event.event_type || event.category || 'milestone')"
+                  :style="getEventBadgeStyle(event.event_type || event.category || 'milestone')"
                 >
                   {{ getEventTypeLabel(event.event_type || event.category || 'milestone') }}
                 </span>
@@ -95,7 +99,7 @@
       
       <!-- FullCalendar (Right Side) -->
       <b-col md="9" class="p-3">
-        <div class="calendar-widget calendar-widget-inline">
+        <div ref="calendarWrapper" class="calendar-widget calendar-widget-inline">
           <FullCalendar
             ref="fullCalendar"
             :options="calendarOptions"
@@ -198,7 +202,7 @@
 import FullCalendar from '@fullcalendar/vue3';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
-import { getCalendarEventBadgeTone, getCalendarEventColors } from '@/config/badgeTokens';
+import { getCalendarEventBadgeTone, getCalendarEventColors, resolveBadgeTokens } from '@/config/badgeTokens';
 import type { BadgeToneKey } from '@/config/badgeTokens';
 
 /**
@@ -248,6 +252,9 @@ export default {
       calendarOptions: {
         plugins: [dayGridPlugin, interactionPlugin],
         initialView: 'dayGridMonth',
+        height: 'auto',
+        contentHeight: 'auto',
+        expandRows: false,
         // WHAT: Disable event dragging - events are read-only from backend
         // WHY: Calendar events come from database models and shouldn't be moved by dragging
         // HOW: Set editable and eventStartEditable to false
@@ -274,8 +281,8 @@ export default {
             const newViewDate = new Date(arg.start);
             // WHAT: Set to first day of the month to ensure consistent month comparison
             newViewDate.setDate(1);
-            this.currentViewDate = newViewDate;
-            console.log('[HomeCalendarWidget] datesSet - Updated currentViewDate to:', this.currentViewDate.toISOString());
+            (this as any).currentViewDate = newViewDate;
+            console.log('[HomeCalendarWidget] datesSet - Updated currentViewDate to:', (this as any).currentViewDate.toISOString());
           }
           // WHAT: Fetch events for the visible date range to avoid loading all events
           // WHY: Only fetch events for months being displayed, not all events ever
@@ -295,6 +302,8 @@ export default {
         // Hide dates from adjacent months (only show current month dates)
         showNonCurrentDates: false,
         fixedWeekCount: false,
+        // Limit events shown per day cell; render built-in "+n more" expander
+        dayMaxEvents: 3,
         // Custom event content to show tag above title
         eventContent: (arg: any) => {
           const event = arg.event;
@@ -304,12 +313,26 @@ export default {
           
           return {
             html: `
-              <div style="padding: 2px 4px; line-height: 1.2;">
-                <div style="font-size: 0.65em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px;">${eventTypeLabel}</div>
-                <div style="font-size: 0.75em; margin-top: 2px; white-space: normal; overflow: hidden;">${eventTitle}</div>
+              <div style="padding: 4px 6px; line-height: 1.25; max-width: 100%;">
+                <div style="font-size: 0.75em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${eventTypeLabel}</div>
+                <div style="font-size: 0.85em; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${eventTitle}</div>
               </div>
             `
           };
+        },
+        // WHAT: Add tooltip on hover for all events
+        // WHY: Tiles are clamped to 2 lines, so users need hover to see full text
+        // HOW: Set native title attribute on the rendered event element
+        // NOTE: Removed updateEventListMaxHeight call from here to prevent layout shifts during month navigation
+        eventDidMount: (arg: any) => {
+          const originalEvent = arg?.event?.extendedProps?.originalEvent;
+          const eventType = arg?.event?.extendedProps?.event_type || 'milestone';
+          const eventTypeLabel = this.getEventTypeLabel(eventType);
+          const fullTitle = originalEvent ? this.getEventTitle(originalEvent) : (arg?.event?.title || '');
+          if (arg?.el) {
+            arg.el.setAttribute('title', `${eventTypeLabel}: ${fullTitle}`);
+          }
+          // NOTE: Height updates are now handled only in syncCalendarEvents with debouncing to prevent flicker
         },
       },
       // selectedDate: Currently selected date from the datepicker (Date object)
@@ -317,7 +340,7 @@ export default {
       
       // currentViewDate: The currently displayed month/year in the calendar view
       // WHAT: Tracks which month is being displayed in FullCalendar
-      // WHY: Used to filter events in the list view to show only events for the displayed month
+      // WHY: Event list needs to know which month to filter for
       // HOW: Updated via FullCalendar's datesSet callback when user navigates months
       currentViewDate: new Date(),
       
@@ -349,11 +372,11 @@ export default {
       // nextId: Counter for generating unique event IDs
       nextId: 1,
       
-      // selectedEventTypeFilter: Currently selected event type filter (null = show all)
-      // WHAT: Tracks which event type is selected for filtering
-      // WHY: Users need to filter events by tag type (Liquidation, Bid Date, etc.)
-      // HOW: Set to event_type string when filter button clicked, null to show all
-      selectedEventTypeFilter: null as string | null,
+      // selectedEventTypeFilters: Array of selected event type filters (empty = show all)
+      // WHAT: Tracks which event types are selected for filtering (supports multiple selections)
+      // WHY: Users need to filter events by multiple tag types simultaneously (e.g., Liquidation AND Bid Date)
+      // HOW: Array of event_type strings, empty array means show all events
+      selectedEventTypeFilters: [] as string[],
       
       // categories: Available event categories (colors) matching Hyper UI theme
       categories: [
@@ -370,6 +393,14 @@ export default {
       
       // API base URL (without /api prefix - added in fetch call)
       apiBaseUrl: import.meta.env.VITE_API_BASE_URL || '',
+      
+      // Event list panel should not exceed the calendar's rendered height
+      eventListMaxHeightPx: null as number | null,
+      
+      // WHAT: Debounce timer for height updates to prevent layout shifts
+      // WHY: Multiple rapid height updates cause flicker and layout rearrangement
+      // HOW: Store timeout ID to cancel previous updates if new one is triggered
+      heightUpdateTimeout: null as ReturnType<typeof setTimeout> | null,
     };
   },
   
@@ -381,6 +412,11 @@ export default {
   },
   
   mounted() {
+    // WHAT: Restore filter state from localStorage on component mount
+    // WHY: Users expect filter selection to persist across page reloads and month navigation
+    // HOW: Load filter from localStorage before doing anything else
+    this.loadFromLocalStorage();
+    
     // WHAT: After component is mounted, ensure we have events for the displayed month
     // WHY: FullCalendar might not fire datesSet immediately, so we need a fallback
     // HOW: Use nextTick to wait for FullCalendar to initialize, then check if we need to fetch
@@ -390,13 +426,37 @@ export default {
         const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-        this.currentViewDate = startOfMonth; // Set to match what we're fetching
+        (this as any).currentViewDate = startOfMonth; // Set to match what we're fetching
         this.fetchCalendarEventsForRange(startOfMonth, endOfMonth);
       }
     });
+
+    window.addEventListener('resize', this.updateEventListMaxHeight);
+  },
+
+  beforeUnmount() {
+    window.removeEventListener('resize', this.updateEventListMaxHeight);
+    // WHAT: Clear any pending height update timers to prevent memory leaks
+    // WHY: Component cleanup should clear all timers
+    if (this.heightUpdateTimeout) {
+      clearTimeout(this.heightUpdateTimeout);
+    }
   },
 
   computed: {
+    eventListPanelStyle(): Record<string, string> {
+      if (!this.eventListMaxHeightPx) {
+        console.log('[Height Debug] eventListPanelStyle: No height set, returning empty object');
+        return {};
+      }
+      const style = {
+        maxHeight: `${this.eventListMaxHeightPx}px`,
+        height: `${this.eventListMaxHeightPx}px`,
+      };
+      console.log('[Height Debug] eventListPanelStyle returning:', style);
+      return style;
+    },
+
     /**
      * filteredEvents: Returns events matching the currently selected date
      * Filters the events array by comparing date strings
@@ -434,6 +494,7 @@ export default {
         'projected_liquidation',
         'bid_date',
         'settlement_date',
+        'follow_up',
         'milestone'
       ];
     },
@@ -446,7 +507,7 @@ export default {
      */
     visibleEvents(): CalendarEvent[] {
       console.log('[HomeCalendarWidget] visibleEvents - Total events:', this.events.length, 
-        'Current view date:', this.currentViewDate?.toISOString());
+        'Current view date:', (this as any).currentViewDate?.toISOString());
       
       // WHAT: Start with all events - we'll filter by month and type
       // WHY: Need to see all events first, then apply filters
@@ -455,15 +516,15 @@ export default {
       // WHAT: Filter events to show only those in the month currently displayed in FullCalendar
       // WHY: Keep event list synchronized with calendar widget view
       // HOW: Compare each event's date with currentViewDate to check if same month/year
-      if (this.currentViewDate) {
+      if ((this as any).currentViewDate) {
         const beforeMonthFilter = filtered.length;
         filtered = filtered.filter(event => {
           const eventDate = this.parseDateStr(event.date);
-          const isSame = this.isSameMonth(eventDate, this.currentViewDate);
+          const isSame = this.isSameMonth(eventDate, (this as any).currentViewDate);
           if (!isSame && beforeMonthFilter < 20) { // Only log if we have few events
             console.log('[HomeCalendarWidget] Event filtered out by month:', event.date, 
-              'Event:', eventDate.toISOString(), 'View:', this.currentViewDate.toISOString(),
-              'Event month:', eventDate.getMonth() + 1, 'View month:', this.currentViewDate.getMonth() + 1);
+              'Event:', eventDate.toISOString(), 'View:', (this as any).currentViewDate.toISOString(),
+              'Event month:', eventDate.getMonth() + 1, 'View month:', (this as any).currentViewDate.getMonth() + 1);
           }
           return isSame;
         });
@@ -474,16 +535,16 @@ export default {
       }
       
       console.log('[HomeCalendarWidget] Before type filter:', filtered.length, 
-        'events. Selected filter:', this.selectedEventTypeFilter);
+        'events. Selected filters:', this.selectedEventTypeFilters);
       
-      // WHAT: Apply event type filter if one is selected
-      // WHY: Users can filter to see only specific event types (e.g., only Liquidations)
-      // HOW: Compare event's event_type with selectedEventTypeFilter
-      if (this.selectedEventTypeFilter !== null) {
+      // WHAT: Apply event type filters if any are selected
+      // WHY: Users can filter to see multiple specific event types simultaneously (e.g., Liquidations AND Bid Dates)
+      // HOW: Check if event's event_type is included in selectedEventTypeFilters array
+      if (this.selectedEventTypeFilters.length > 0) {
         const beforeFilter = filtered.length;
         filtered = filtered.filter(event => {
           const eventType = event.event_type || event.category || 'milestone';
-          const matches = eventType === this.selectedEventTypeFilter;
+          const matches = this.selectedEventTypeFilters.includes(eventType);
           return matches;
         });
         console.log('[HomeCalendarWidget] After type filter:', filtered.length, 'events (was', beforeFilter, ')');
@@ -514,6 +575,43 @@ export default {
   },
   
   methods: {
+    updateEventListMaxHeight(): void {
+      // WHAT: Debounce height updates to prevent layout shifts during month navigation
+      // WHY: Multiple rapid updates cause flicker and window rearrangement
+      // HOW: Clear previous timeout and set new one with delay
+      if (this.heightUpdateTimeout) {
+        clearTimeout(this.heightUpdateTimeout);
+      }
+      
+      this.heightUpdateTimeout = setTimeout(() => {
+        this.$nextTick(() => {
+          const wrapperEl = (this.$refs.calendarWrapper as HTMLElement | undefined);
+          if (!wrapperEl) {
+            console.log('[Height Debug] No calendarWrapper ref found');
+            return;
+          }
+
+          const gridEl =
+            (wrapperEl.querySelector?.('.fc-scrollgrid') as HTMLElement | null) ||
+            (wrapperEl.querySelector?.('.fc-daygrid-body') as HTMLElement | null) ||
+            (wrapperEl.querySelector?.('.fc-view-harness') as HTMLElement | null) ||
+            (wrapperEl.querySelector?.('.fc') as HTMLElement | null);
+
+          const wrapperRect = wrapperEl.getBoundingClientRect();
+          const gridRect = (gridEl || wrapperEl).getBoundingClientRect();
+
+          // Height from top of calendar widget to bottom of the month grid
+          const nextHeight = Math.round(gridRect.bottom - wrapperRect.top);
+          
+          // WHAT: Only update if height actually changed to prevent unnecessary re-renders
+          // WHY: Avoid triggering Vue reactivity if value is the same
+          if (nextHeight > 0 && nextHeight !== this.eventListMaxHeightPx) {
+            this.eventListMaxHeightPx = nextHeight;
+          }
+        });
+      }, 300); // WHAT: 300ms debounce delay to allow layout to settle
+    },
+
     /**
      * formatDateToString: Converts Date object to YYYY-MM-DD string format
      * @param date - JavaScript Date object
@@ -654,14 +752,30 @@ export default {
     getEventBadgeClass(eventType: string): string {
       const tone = getCalendarEventBadgeTone(eventType);
       // Map tone to Bootstrap classes (matches badgeTokens.ts definitions)
+      // NOTE: All calendar event types now use inline styles for custom palette colors
       const toneClassMap: Record<BadgeToneKey, string> = {
-        'calendar-liquidation': 'bg-success text-white',
-        'calendar-projected': 'bg-warning text-dark',
-        'calendar-bid': 'bg-info text-white',
-        'calendar-settlement': 'bg-danger text-white',
-        'calendar-milestone': 'bg-primary text-white',
+        'calendar-liquidation': 'text-white',
+        'calendar-projected': 'text-white',
+        'calendar-bid': 'text-white',
+        'calendar-settlement': 'text-white',
+        'calendar-follow-up': 'text-white',
+        'calendar-milestone': 'text-white',
       } as any;
-      return toneClassMap[tone] || 'bg-primary text-white';
+      return toneClassMap[tone] || 'text-white';
+    },
+    
+    /**
+     * getEventBadgeStyle: Returns inline styles for badges that need custom colors
+     * @param eventType - Event type (e.g., 'actual_liquidation')
+     * @returns Inline style string for custom badge colors
+     */
+    getEventBadgeStyle(eventType: string): string | undefined {
+      const tone = getCalendarEventBadgeTone(eventType);
+      // WHAT: Return inline styles for custom colors (purple for projected, orange for follow-up)
+      // WHY: These colors aren't available as Bootstrap classes
+      // HOW: Use inline styles from badgeTokens configuration
+      const badgeTokens = resolveBadgeTokens(tone, 'md');
+      return badgeTokens.inlineStyles || undefined;
     },
     
     /**
@@ -684,6 +798,19 @@ export default {
     },
 
     getEventTitle(event: any): string {
+      const eventType = event.event_type || event.category || '';
+      if (eventType === 'follow_up' && event.servicer_id) {
+        if (event.address) {
+          return `${event.servicer_id} - ${event.address}`;
+        }
+        return String(event.servicer_id);
+      }
+      if (eventType === 'follow_up' && typeof event.title === 'string') {
+        const trimmed = event.title.trim();
+        if (trimmed.toLowerCase().startsWith('follow-up:')) {
+          return trimmed.slice('follow-up:'.length).trim();
+        }
+      }
       if (event.servicer_id && event.address) {
         return `${event.servicer_id} - ${event.address}`;
       }
@@ -696,28 +823,50 @@ export default {
         'projected_liquidation': 'Projected Liquidation',
         'bid_date': 'Bid Date',
         'settlement_date': 'Settlement',
+        'follow_up': 'Follow-up',
         'milestone': 'Milestone'
       };
       return typeMap[eventType] || eventType;
     },
     
-    // Check if event is a liquidation event
+    // Check if event is a liquidation or follow-up event (both should be clickable)
     isLiquidationEvent(event: any): boolean {
       const eventType = event.event_type || event.category || '';
-      return eventType.includes('liquidation');
+      return eventType.includes('liquidation') || eventType.includes('follow');
     },
     
-    // Handle event click - only liquidation events open modal
+    /**
+     * toggleEventTypeFilter: Toggle an event type filter on/off
+     * WHAT: Adds or removes an event type from the selected filters array
+     * WHY: Users can select multiple filters simultaneously
+     * HOW: If filter is already selected, remove it; otherwise add it
+     * @param eventType - The event type to toggle (e.g., 'actual_liquidation')
+     */
+    toggleEventTypeFilter(eventType: string): void {
+      const index = this.selectedEventTypeFilters.indexOf(eventType);
+      if (index > -1) {
+        // WHAT: Filter is already selected, remove it
+        // WHY: Allow users to deselect filters by clicking again
+        this.selectedEventTypeFilters.splice(index, 1);
+      } else {
+        // WHAT: Filter is not selected, add it
+        // WHY: Allow users to select multiple filters
+        this.selectedEventTypeFilters.push(eventType);
+      }
+      // NOTE: Watcher will automatically save to localStorage
+    },
+    
+    // Handle event click - liquidation and follow-up events open asset modal
     handleEventClick(event: any): void {
       console.log('[HomeCalendarWidget] handleEventClick called', event);
       
       if (!this.isLiquidationEvent(event)) {
-        return; // Do nothing for non-liquidation events
+        return; // Do nothing for non-clickable events
       }
       
-      // WHAT: The backend returns asset_hub_id directly in the event object (see view_co_calendar.py line 319)
-      // WHY: ServicerLoanData has asset_hub_id FK that's included in calendar API response
-      // HOW: Use event.asset_hub_id (the correct AssetIdHub ID), NOT the servicer_data ID
+      // WHAT: The backend returns asset_hub_id directly in the event object (see view_co_calendar.py)
+      // WHY: Both liquidation and follow-up events have asset_hub_id FK
+      // HOW: Use event.asset_hub_id (the correct AssetIdHub ID)
       const assetHubId = event?.asset_hub_id || event?.extendedProps?.asset_hub_id;
       
       console.log('[HomeCalendarWidget] Using asset_hub_id:', assetHubId, 'from event:', event);
@@ -738,7 +887,26 @@ export default {
     // Map our CalendarEvent objects into FullCalendar's event format
     syncCalendarEvents() {
       if (!this.calendarOptions) return;
-      this.calendarOptions.events = this.events.map((event: CalendarEvent) => {
+      
+      // WHAT: Filter events based on selectedEventTypeFilters before mapping to FullCalendar format
+      // WHY: Calendar view should respect the same filters as the event list
+      // HOW: Filter events array, then map filtered results to FullCalendar format
+      let filteredEvents = [...this.events];
+      
+      // WHAT: Apply event type filters if any are selected
+      // WHY: Users expect calendar to show only events matching selected filters
+      // HOW: Check if event's event_type is included in selectedEventTypeFilters array
+      if (this.selectedEventTypeFilters.length > 0) {
+        filteredEvents = filteredEvents.filter(event => {
+          const eventType = event.event_type || event.category || 'milestone';
+          return this.selectedEventTypeFilters.includes(eventType);
+        });
+      }
+      
+      // WHAT: Map filtered events to FullCalendar's event format
+      // WHY: FullCalendar expects events in a specific format with styling and metadata
+      // HOW: Transform each filtered event to include title, colors, and extended properties
+      this.calendarOptions.events = filteredEvents.map((event: CalendarEvent) => {
         const eventTypeLabel = this.getEventTypeLabel(event.event_type || event.category || 'milestone');
         const eventTitle = this.getEventTitle(event);
         const colors = getCalendarEventColors(event.event_type || event.category || 'milestone');
@@ -759,6 +927,11 @@ export default {
           },
         };
       });
+
+      // WHAT: Update height only once after all events are synced, with debouncing
+      // WHY: Prevent layout shifts during month navigation
+      // HOW: Debounced update will wait for layout to settle before calculating
+      this.updateEventListMaxHeight();
     },
 
     // Handle clicks on a date in the FullCalendar grid
@@ -825,6 +998,14 @@ export default {
     saveToLocalStorage() {
       localStorage.setItem('calendarEvents', JSON.stringify(this.events));
       localStorage.setItem('calendarNextId', String(this.nextId));
+      // WHAT: Save selected filters array to localStorage for persistence across month navigation
+      // WHY: Users expect filter selection to persist when changing months
+      // HOW: Store filters array as JSON string, empty array means "All" selected
+      if (this.selectedEventTypeFilters.length > 0) {
+        localStorage.setItem('calendarEventTypeFilters', JSON.stringify(this.selectedEventTypeFilters));
+      } else {
+        localStorage.removeItem('calendarEventTypeFilters'); // Clear if "All" is selected
+      }
     },
     
     /**
@@ -898,10 +1079,10 @@ export default {
         // WHAT: Ensure currentViewDate is set to match the first event's month if not already set
         // WHY: If datesSet hasn't fired yet, we need currentViewDate to match the loaded events
         // HOW: Use the first event's date to set currentViewDate if it's not already set
-        if (this.events.length > 0 && (!this.currentViewDate || this.currentViewDate.getTime() === new Date().getTime())) {
+        if (this.events.length > 0 && (!(this as any).currentViewDate || (this as any).currentViewDate.getTime() === new Date().getTime())) {
           const firstEventDate = this.parseDateStr(this.events[0].date);
-          this.currentViewDate = new Date(firstEventDate.getFullYear(), firstEventDate.getMonth(), 1);
-          console.log('[HomeCalendarWidget] Set currentViewDate to first event month:', this.currentViewDate.toISOString());
+          (this as any).currentViewDate = new Date(firstEventDate.getFullYear(), firstEventDate.getMonth(), 1);
+          console.log('[HomeCalendarWidget] Set currentViewDate to first event month:', (this as any).currentViewDate.toISOString());
         }
         
         // WHAT: Sync events to FullCalendar widget so they appear on the calendar grid
@@ -939,6 +1120,69 @@ export default {
       if (storedNextId) {
         this.nextId = parseInt(storedNextId, 10);
       }
+      
+      // WHAT: Load selected filters array from localStorage to restore user's filter preference
+      // WHY: Users expect filter selection to persist when changing months or reloading page
+      // HOW: Read filters array from localStorage, validate all items are valid event types, then apply
+      const storedFiltersStr = localStorage.getItem('calendarEventTypeFilters');
+      // WHAT: Also check for old single-filter format for backward compatibility
+      const oldStoredFilter = localStorage.getItem('calendarEventTypeFilter');
+      
+      if (storedFiltersStr) {
+        try {
+          // WHAT: Parse stored filters array from JSON
+          const storedFilters = JSON.parse(storedFiltersStr);
+          // WHAT: Validate all stored filters are valid event types
+          // WHY: Prevent errors if localStorage contains invalid data
+          // HOW: Check against hardcoded list of valid event types
+          const validEventTypes = [
+            'actual_liquidation',
+            'projected_liquidation',
+            'bid_date',
+            'settlement_date',
+            'follow_up',
+            'milestone'
+          ];
+          // WHAT: Filter out any invalid event types and keep only valid ones
+          const validFilters = storedFilters.filter((filter: string) => validEventTypes.includes(filter));
+          if (validFilters.length > 0) {
+            this.selectedEventTypeFilters = validFilters;
+            console.log('[HomeCalendarWidget] Restored filters from localStorage:', validFilters);
+          } else {
+            // All filters were invalid, clear and default to "All"
+            localStorage.removeItem('calendarEventTypeFilters');
+            this.selectedEventTypeFilters = [];
+          }
+        } catch (e) {
+          console.error('[HomeCalendarWidget] Failed to parse stored filters from localStorage', e);
+          localStorage.removeItem('calendarEventTypeFilters');
+          this.selectedEventTypeFilters = [];
+        }
+      } else if (oldStoredFilter) {
+        // WHAT: Backward compatibility - migrate old single filter to new array format
+        // WHY: Support users who had the old single-filter format saved
+        // HOW: Convert single filter string to array, then remove old key
+        const validEventTypes = [
+          'actual_liquidation',
+          'projected_liquidation',
+          'bid_date',
+          'settlement_date',
+          'follow_up',
+          'milestone'
+        ];
+        if (validEventTypes.includes(oldStoredFilter)) {
+          this.selectedEventTypeFilters = [oldStoredFilter];
+          localStorage.setItem('calendarEventTypeFilters', JSON.stringify([oldStoredFilter]));
+          localStorage.removeItem('calendarEventTypeFilter'); // Remove old key
+          console.log('[HomeCalendarWidget] Migrated old single filter to array format:', oldStoredFilter);
+        } else {
+          localStorage.removeItem('calendarEventTypeFilter');
+          this.selectedEventTypeFilters = [];
+        }
+      } else {
+        // No stored filters, default to "All" (empty array)
+        this.selectedEventTypeFilters = [];
+      }
     }
   },
   
@@ -953,6 +1197,42 @@ export default {
         this.syncCalendarEvents();
       },
       deep: true
+    },
+    // WHAT: Watch for changes to selectedEventTypeFilters and update calendar view
+    // WHY: Calendar should update immediately when filters change
+    // HOW: Call syncCalendarEvents to re-filter and re-render calendar events
+    selectedEventTypeFilters: {
+      handler() {
+        // WHAT: Re-sync calendar events when filters change
+        // WHY: Calendar view needs to reflect current filter selection
+        // HOW: syncCalendarEvents will apply filters before mapping to FullCalendar format
+        this.syncCalendarEvents();
+      },
+      deep: true // Watch for changes inside the array (when items are added/removed)
+    },
+    // WHAT: Watch for changes to selectedEventTypeFilters array and persist to localStorage + update calendar
+    // WHY: Users expect filter selection to persist when changing months or reloading page, and calendar should update
+    // HOW: Save filters array to localStorage AND re-sync calendar events when filters change
+    selectedEventTypeFilters: {
+      handler(newValue: string[]) {
+        // WHAT: Save filters array to localStorage whenever it changes
+        // WHY: Persist user's filter preference across month navigation
+        // HOW: Store filters array as JSON or remove from localStorage if "All" is selected (empty array)
+        if (newValue.length > 0) {
+          localStorage.setItem('calendarEventTypeFilters', JSON.stringify(newValue));
+          console.log('[HomeCalendarWidget] Saved filters to localStorage:', newValue);
+        } else {
+          localStorage.removeItem('calendarEventTypeFilters');
+          console.log('[HomeCalendarWidget] Cleared filters from localStorage (All selected)');
+        }
+        
+        // WHAT: Re-sync calendar events when filters change
+        // WHY: Calendar view needs to reflect current filter selection immediately
+        // HOW: syncCalendarEvents will apply filters before mapping to FullCalendar format
+        this.syncCalendarEvents();
+      },
+      deep: true, // Watch for changes inside the array (when items are added/removed)
+      immediate: false // Don't run on initial mount (we load from localStorage in mounted)
     }
   }
 };
@@ -986,6 +1266,23 @@ export default {
 /* Let the card background show through FullCalendar itself */
 .calendar-widget-inline .fc {
   background-color: transparent;
+}
+
+.calendar-widget-inline .fc-view-harness {
+  height: auto !important;
+}
+
+.calendar-widget-inline .fc-scroller-harness {
+  height: auto !important;
+}
+
+.calendar-widget-inline .fc-scroller {
+  height: auto !important;
+  overflow: hidden !important;
+}
+
+.calendar-widget-inline .fc .fc-daygrid-day-frame {
+  min-height: 190px;
 }
 
 /* Event List Styles */
@@ -1147,25 +1444,4 @@ div.calendar-widget {
 
 /* REMOVED: Scale down badges inside calendar day cells to fit */
 /* Badges will now inherit the standard .event-badge styling */
-
-/* Calendar row - ensure columns stretch to full height */
-.calendar-row {
-  display: flex !important;
-  align-items: stretch !important;
-}
-
-/* Event list panel - full height with flex column layout */
-.event-list-panel {
-  display: flex !important;
-  flex-direction: column !important;
-  min-height: 100% !important;
-  height: 100% !important;
-}
-
-/* Event list scrollable area - fills all available space */
-.event-list {
-  flex: 1 1 auto !important;
-  min-height: 0 !important; /* Required for flex overflow scrolling */
-  overflow-y: auto !important;
-}
 </style>

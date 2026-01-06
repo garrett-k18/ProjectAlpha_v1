@@ -22,7 +22,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from core.models.model_co_assetIdHub import AssetIdHub
-from am_module.models.boarded_data import BlendedOutcomeModel
+from am_module.models.model_am_modeling import BlendedOutcomeModel
 
 
 class Command(BaseCommand):

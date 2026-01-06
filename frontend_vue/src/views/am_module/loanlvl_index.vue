@@ -2,13 +2,7 @@
   <!-- AM-specific Loan-Level wrapper -->
   <component :is="standalone ? Layout : 'div'">
     <Breadcrumb v-if="standalone" :title="displayTitle" :items="items" />
-
-    <div v-if="!standalone" class="content">
-      <b-container fluid>
-        <LoanTabs :row="effectiveRow" :assetHubId="assetHubId" />
-      </b-container>
-    </div>
-    <LoanTabs v-else :row="effectiveRow" :assetHubId="assetHubId" />
+    <LoanTabs :row="effectiveRow" :assetHubId="assetHubId" />
   </component>
 </template>
 
@@ -20,7 +14,7 @@ import Breadcrumb from '@/components/breadcrumb.vue'
 // AM-specific tab structure component
 import LoanTabs from '@/views/am_module/loanlvl/tabs/LoanTabs.vue'
 
-import { ref, computed, toRef, withDefaults, defineProps, watch } from 'vue'
+import { ref, computed, toRef, watch } from 'vue'
 import http from '@/lib/http'
 
 const props = withDefaults(defineProps<{
@@ -69,12 +63,20 @@ const displayTitle = computed<string>(() => {
 const fetchedRow = ref<Record<string, any> | null>(null)
 const effectiveRow = computed(() => row.value ?? fetchedRow.value)
 
+const emit = defineEmits<{
+  'row-loaded': [row: Record<string, any>]
+}>()
+
 // AM fetch by SellerBoardedData id
 async function loadRowById(id: number) {
   try {
     const res = await http.get(`/am/assets/${id}/`)
     fetchedRow.value = res.data && Object.keys(res.data).length ? res.data : null
     console.debug('[AM LoanLevelIndex] loaded row for', id)
+    // Emit the fetched row to parent so modal header can use it
+    if (fetchedRow.value) {
+      emit('row-loaded', fetchedRow.value)
+    }
   } catch (err) {
     console.warn('[AM LoanLevelIndex] failed to load row for', id, err)
     fetchedRow.value = null

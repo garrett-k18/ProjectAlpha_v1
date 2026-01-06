@@ -38,6 +38,7 @@ from acq_module.models.model_acq_seller import SellerRawData, Seller, Trade
 from acq_module.models.model_acq_assumptions import TradeLevelAssumption
 from am_module.models.servicers import ServicerLoanData as ServicerData
 from core.models import CalendarEvent
+from am_module.logic.logi_am_modelLogic import get_projected_liquidation_events
 from core.serializers.serial_co_calendar import (
     CalendarEventReadSerializer,
     CustomCalendarEventSerializer,
@@ -150,7 +151,11 @@ def get_calendar_events(request):
     # Currently includes: bid_date, settlement_date
     events.extend(_get_trade_assumption_events(start_date, end_date, seller_id, trade_id))
     
-    # 4. Custom CalendarEvent records (user-created events)
+    # 4. Projected Liquidation dates (ReUWAMProjections.reuw_projected_liq_date with fallback to BlendedOutcomeModel.expected_exit_date)
+    # Uses re-underwritten AM projections if available, otherwise falls back to initial UW projections
+    events.extend(get_projected_liquidation_events(start_date, end_date, seller_id, trade_id))
+    
+    # 5. Custom CalendarEvent records (user-created events)
     # All fields from CalendarEvent model
     events.extend(_get_custom_calendar_events(request, start_date, end_date, seller_id, trade_id))
     
@@ -478,7 +483,11 @@ def _get_custom_calendar_events(request, start_date=None, end_date=None, seller_
 
     user = _resolve_request_user(request)
 
-    queryset = CalendarEvent.objects.all()
+    queryset = (
+        CalendarEvent.objects.all()
+        .select_related('asset_hub', 'seller', 'trade', 'created_by')
+        .prefetch_related('asset_hub__acq_raw')
+    )
     if user is None:
         queryset = queryset.filter(is_public=True)
     else:
@@ -494,6 +503,20 @@ def _get_custom_calendar_events(request, start_date=None, end_date=None, seller_
         queryset = queryset.filter(date__lte=end_date)
     
     for event in queryset:
+        servicer_id = ''
+        address = ''
+
+        if event.asset_hub_id and event.asset_hub is not None:
+            servicer_id = event.asset_hub.servicer_id or ''
+            srd = getattr(event.asset_hub, 'acq_raw', None)
+            if srd is not None:
+                base_addr = srd.street_address or ''
+                if not base_addr:
+                    city = srd.city or 'Unknown'
+                    state = srd.state or ''
+                    base_addr = f"{city}, {state}".rstrip(', ')
+                address = (base_addr or '')[:30]
+
         # Generate URL based on linked entity
         url = ''
         if event.asset_hub_id:
@@ -510,10 +533,13 @@ def _get_custom_calendar_events(request, start_date=None, end_date=None, seller_
             'time': event.time,
             'description': event.description,
             'category': event.category,
+            'event_type': 'follow_up' if event.is_reminder else 'milestone',
             'source_model': 'CalendarEvent',
             'editable': bool(user is not None and event.created_by_id and event.created_by_id == user.id),
             'url': url,
-            'asset_hub_id': event.asset_hub_id
+            'asset_hub_id': event.asset_hub_id,
+            'servicer_id': servicer_id,
+            'address': address,
         })
     
     return events

@@ -1,6 +1,6 @@
 <template>
   <!-- Root padding container keeps spacing consistent with modal body -->
-  <div class="px-3 px-lg-4">
+  <div>
     <!-- Three-card layout for snapshot summary content -->
     <b-row class="g-3 align-items-stretch" style="min-height: 400px;">
       <b-col lg="4" class="d-flex">

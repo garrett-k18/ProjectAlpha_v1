@@ -12,7 +12,7 @@ Docs reviewed:
 """
 
 from rest_framework import serializers
-from am_module.models.boarded_data import BlendedOutcomeModel
+from am_module.models.model_am_modeling import BlendedOutcomeModel
 
 
 class PerformanceSummarySerializer(serializers.Serializer):

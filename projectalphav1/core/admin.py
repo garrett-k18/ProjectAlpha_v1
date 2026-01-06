@@ -100,7 +100,7 @@ class AssetDetailsAdmin(admin.ModelAdmin):
     get_servicer_id.admin_order_field = "asset__servicer_id"  # Enable sorting by this field
 # DEPRECATED: SellerBoardedData - use SellerRawData instead
 # from am_module.models.boarded_data import SellerBoardedData, BlendedOutcomeModel
-from am_module.models.boarded_data import BlendedOutcomeModel
+from am_module.models.model_am_modeling import BlendedOutcomeModel
 from am_module.models.servicers import ServicerLoanData
 
 # Use standard Django admin site

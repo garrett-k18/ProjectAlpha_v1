@@ -14,7 +14,7 @@
       class="mb-2"
     >
       <div class="card border h-100 cursor-pointer hover-card" :title="stat.description" @click="handleClick(idx)">
-        <div class="card-body d-flex align-items-center py-2">
+        <div class="card-body d-flex align-items-center py-1">
           <!-- Icon circle -->
           <div class="me-2 flex-shrink-0">
             <div class="avatar-xs">
@@ -73,7 +73,7 @@ export default defineComponent({
           description: "Loans you're currently managing"
         },
         { 
-          label: "Trades", 
+          label: "Active Trades", 
           value: "0", 
           icon: "mdi mdi-swap-horizontal-bold",
           description: "Active trades with assets"

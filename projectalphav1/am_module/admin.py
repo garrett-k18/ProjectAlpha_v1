@@ -2,7 +2,7 @@ from django.contrib import admin
 # DEPRECATED IMPORTS - Models kept for migration compatibility only
 # from am_module.models.boarded_data import SellerBoardedData, BlendedOutcomeModel
 # from am_module.models.asset_metrics import AssetMetrics
-from am_module.models.boarded_data import BlendedOutcomeModel  # Keep only BlendedOutcomeModel (not deprecated)
+from am_module.models.model_am_modeling import BlendedOutcomeModel  # Keep only BlendedOutcomeModel (not deprecated)
 from am_module.models.servicers import (
     ServicerArmData,
     ServicerBankruptcyData,

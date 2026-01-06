@@ -243,7 +243,7 @@
     v-model="showAssetModal"
     size="xl"
     body-class="p-0 bg-body text-body"
-    dialog-class="modal-dialog-centered"
+    dialog-class="product-details-dialog"
     content-class="product-details-content bg-body text-body"
     hide-footer
     @shown="onModalShown"
@@ -276,6 +276,7 @@
       :row="selectedRow"
       :address="selectedAddr"
       :standalone="false"
+      @row-loaded="onRowLoaded"
     />
   </b-modal>
 </template>
@@ -654,10 +655,8 @@ export default {
     onOpenAssetModal(payload: { id: string | number; row: any; addr?: string }): void {
       console.log('[Home Dashboard] onOpenAssetModal called', payload);
       this.selectedId = payload.id
-      // CRITICAL: Set selectedRow to null so LoanLevelIndex fetches the asset data by ID
-      // The calendar event object (payload.row) has calendar fields (title, date, category),
-      // NOT asset fields (street_address, current_balance, etc.) that LoanLevelIndex needs.
-      // When row is null, LoanLevelIndex uses assetHubId to fetch the full asset data.
+      // Set row to null so LoanLevelIndex fetches the complete asset data by ID
+      // Calendar event object doesn't have trade_name, street_address, city, state, etc.
       this.selectedRow = null
       this.selectedAddr = payload.addr || null
       console.log('[Home Dashboard] Opening modal with:', {
@@ -666,6 +665,13 @@ export default {
         selectedAddr: this.selectedAddr
       });
       this.showAssetModal = true
+    },
+
+    // Handle row-loaded event from LoanLevelIndex
+    onRowLoaded(row: any): void {
+      console.log('[Home Dashboard] onRowLoaded called', row);
+      // Update selectedRow with the fetched asset data so modal header displays correctly
+      this.selectedRow = row
     },
   },
 };
@@ -714,12 +720,6 @@ export default {
 .letter-spacing-1 {
   letter-spacing: 0.5px;
   font-size: 0.7rem;
-}
-
-/* Tighter card headers */
-:deep(.card-header) {
-  padding-top: 0.5rem;
-  padding-bottom: 0.5rem;
 }
 
 /* Quick links hover effect */

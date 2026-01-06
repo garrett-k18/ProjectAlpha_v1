@@ -431,6 +431,9 @@ class UnifiedCalendarEventSerializer(serializers.Serializer):
     
     # Event description - shown in tooltip/modal
     description = serializers.CharField()
+
+    # Semantic event type (e.g., follow_up, actual_liquidation). Optional.
+    event_type = serializers.CharField(required=False, allow_blank=True)
     
     # Bootstrap color class - determines event color on calendar
     category = serializers.CharField()

@@ -3,8 +3,8 @@
 # from .boarded_data import SellerBoardedData
 from .servicers import ServicerLoanData
 
-# Import BlendedOutcomeModel from boarded_data.py
-from .boarded_data import BlendedOutcomeModel
+# Import BlendedOutcomeModel, ReUWAMProjections, and UWCashFlows from model_am_modeling.py
+from .model_am_modeling import BlendedOutcomeModel, ReUWAMProjections, UWCashFlows
 
 # Import outcome models and tasks from model_am_amData.py (CRITICAL: Required for Django model registry)
 from .model_am_amData import (
@@ -29,6 +29,8 @@ __all__ = [
     'ServicerLoanData',
     # Outcome models
     'BlendedOutcomeModel',
+    'ReUWAMProjections',
+    'UWCashFlows',
     'AssetCRMContact',
     'REOData', 'REOtask',
     'FCSale', 'FCTask',
