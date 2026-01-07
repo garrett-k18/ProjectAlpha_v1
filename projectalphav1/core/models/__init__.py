@@ -16,7 +16,7 @@ from .model_co_realizedTransactions import LLTransactionSummary, LLCashFlowSerie
 from .commercial import UnitMix, RentRoll
 from .model_co_valuations import ComparableProperty, SalesComparable, LeaseComparable, LeaseComparableUnitMix, LeaseComparableRentRoll
 from .propertycfs import HistoricalPropertyCashFlow
-from .calendar_events import CalendarEvent
+from .model_co_calendar import CalendarEvent
 from .model_co_generalLedger import GeneralLedgerEntries, ChartOfAccounts
 
 from .model_core_notification import Notification, NotificationRead

@@ -21,7 +21,7 @@ from datetime import datetime
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from core.models import AssetIdHub, AssetDetails
-from core.models.calendar_events import CalendarEvent
+from core.models.model_co_calendar import CalendarEvent
 from core.management.utils.prod_db_helper import add_prod_db_args, setup_prod_db, check_db_connection
 
 

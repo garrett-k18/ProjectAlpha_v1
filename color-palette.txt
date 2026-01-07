@@ -176,6 +176,12 @@ Olive: #827717
 Description: Break-even indicator
 Usage: Break-even, neutral performance, stable
 
+Goldenrod: #DAA520
+Description: Yellow accent for early caution
+Usage: Short-term attention, softened warning, this-week focus
+
+
+
 Burnt Sienna: #B85A3A
 Description: Muted sienna for loss/negative performance indicator
 Usage: Losses, negative performance, underwater assets

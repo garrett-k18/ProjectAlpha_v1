@@ -36,16 +36,25 @@
         </div>
       </div>
 
-      <button
-        v-if="hubId"
-        type="button"
-        class="btn btn-sm btn-outline-primary followup-trigger"
-        @click="openFollowupModal"
-        :title="followups.length ? `Follow-ups: ${followups.length}` : 'Add follow-up'"
-      >
-        Follow-up
-        <span v-if="followups.length" class="badge bg-primary ms-2">{{ followups.length }}</span>
-      </button>
+      <div v-if="hubId" class="d-flex gap-2">
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-primary followup-trigger"
+          @click="openFollowupModal"
+          :title="followups.length ? `Follow-ups: ${followups.length}` : 'Create follow-up'"
+        >
+          Create Follow-up
+          <span v-if="followups.length" class="badge bg-primary ms-2">{{ followups.length }}</span>
+        </button>
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-primary"
+          @click="openTaskModal"
+          title="Create task"
+        >
+          Create Task
+        </button>
+      </div>
     </div>
 
     <!-- KPI Cards Row -->
@@ -788,6 +797,8 @@ function reasonLabel(reason: FollowupReason): string {
 }
 
 async function fetchFollowups() {
+  // WHAT: Fetch follow-ups for the current asset only
+  // WHY: Create Follow-up button should show follow-ups for the asset being viewed
   const id = hubId.value
   if (!id) {
     followups.value = []
@@ -821,13 +832,20 @@ async function fetchFollowups() {
   }
 }
 
-function openFollowupModal() {
+async function openFollowupModal() {
+  // WHAT: Pre-fetch data before opening modal to prevent size flash
+  // WHY: Bootstrap modal calculates size on open, so content should be ready
+  await fetchFollowups()
   followupModalOpen.value = true
-  fetchFollowups()
 }
 
 function closeFollowupModal() {
   followupModalOpen.value = false
+}
+
+function openTaskModal() {
+  // TODO: Implement task creation modal
+  alert('Task creation functionality coming soon!')
 }
 
 async function createFollowup() {
@@ -1356,11 +1374,16 @@ onBeforeUnmount(() => {
   position: relative;
 }
 
-.followup-trigger {
+/* Follow-up and Task buttons container - positioned on the right */
+.header-card > .d-flex.gap-2 {
   position: absolute;
   right: 1rem;
   top: 50%;
   transform: translateY(-50%);
+}
+
+.followup-trigger {
+  position: static;
 }
 
 .followup-item {

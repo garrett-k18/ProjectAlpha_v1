@@ -461,3 +461,9 @@ class UnifiedCalendarEventSerializer(serializers.Serializer):
 
     # Asset Hub ID - used to open asset management modal
     asset_hub_id = serializers.IntegerField(required=False, allow_null=True)
+
+    # Trade name - for displaying trade information in follow-ups modal
+    trade_name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+    # Follow-up reason
+    reason = serializers.CharField(required=False, allow_blank=True, allow_null=True)

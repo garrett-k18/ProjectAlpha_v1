@@ -26,7 +26,7 @@ from core.views.commercial_api import (
     RentRollListView,
     HistoricalPropertyCashFlowListView
 )
-from core.views.view_co_calendar import get_calendar_events, CustomCalendarEventViewSet
+from core.views.view_co_calendar import get_calendar_events, CustomCalendarEventViewSet, get_followups
 from core.views.macro_metrics_api_new import (
     get_mortgage_30_year_api,
     get_10_year_treasury_api,
@@ -107,6 +107,7 @@ urlpatterns = [
     
     # Calendar events endpoint - aggregates dates from various models
     path('calendar/events/', get_calendar_events, name='calendar-events'),
+    path('calendar/followups/', get_followups, name='calendar-followups'),
     
     # Macro Metrics endpoints - FRED API economic indicators
     path('macro/mortgage-rates/30-year/', get_mortgage_30_year_api, name='macro-mortgage-30'),

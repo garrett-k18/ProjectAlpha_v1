@@ -509,6 +509,11 @@ def _get_custom_calendar_events(request, start_date=None, end_date=None, seller_
         address = ''
         city = ''
         state = ''
+        trade_name = None
+
+        # Get trade name from linked trade
+        if event.trade:
+            trade_name = event.trade.trade_name
 
         if event.asset_hub_id and event.asset_hub is not None:
             servicer_id = event.asset_hub.servicer_id or ''
@@ -520,6 +525,10 @@ def _get_custom_calendar_events(request, start_date=None, end_date=None, seller_
                 if not base_addr:
                     base_addr = f"{city or 'Unknown'}, {state or ''}".rstrip(', ')
                 address = (base_addr or '')[:30]
+                
+                # If no trade name from event, try to get from seller raw data
+                if not trade_name and srd.trade:
+                    trade_name = srd.trade.trade_name
 
         # Generate URL based on linked entity
         url = ''
@@ -546,6 +555,8 @@ def _get_custom_calendar_events(request, start_date=None, end_date=None, seller_
             'address': address,
             'city': city,  # WHAT: Include city for event card display
             'state': state,  # WHAT: Include state for event card display
+            'trade_name': trade_name,  # WHAT: Include trade name for follow-up modal
+            'reason': event.reason,  # WHAT: Include reason for follow-up modal
         })
     
     return events
@@ -679,3 +690,45 @@ class CustomCalendarEventViewSet(viewsets.ModelViewSet):
         if instance.created_by_id != user.id:
             raise PermissionDenied('Only the creator can delete this event')
         instance.delete()
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_followups(request):
+    """
+    Dedicated endpoint for follow-up events only.
+    
+    What: Optimized endpoint for retrieving reminder/follow-up events
+    Why: Faster than unified calendar endpoint, handles date-based loading for dashboard
+    How: Only queries custom events with is_reminder=True
+    
+    Query Parameters:
+    - start_date (optional): Filter events on or after this date (YYYY-MM-DD)
+    - end_date (optional): Filter events on or before this date (YYYY-MM-DD)
+    """
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    
+    if start_date:
+        try:
+            start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+        except ValueError:
+            return Response({'error': 'Invalid start_date'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    if end_date:
+        try:
+            end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+        except ValueError:
+            return Response({'error': 'Invalid end_date'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Use existing helper to get custom events that are reminders
+    events = _get_custom_calendar_events(request, start_date, end_date)
+    
+    # Filter for follow-ups only (reminders)
+    followups = []
+    for e in events:
+        if e.get('event_type') == 'follow_up' or e.get('category') == 'follow_up':
+            followups.append(e)
+    
+    serializer = UnifiedCalendarEventSerializer(followups, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
