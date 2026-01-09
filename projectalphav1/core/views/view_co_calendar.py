@@ -30,6 +30,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status, viewsets
 from django.db.models import Q
+from django.conf import settings
 
 from rest_framework.exceptions import PermissionDenied
 
@@ -66,7 +67,7 @@ def get_calendar_events(request):
     - seller_id (optional): Filter events for a specific seller
     - trade_id (optional): Filter events for a specific trade
     - categories (optional): Comma-separated list of event categories to include
-                            Valid: bg-primary, bg-success, bg-info, bg-warning, bg-danger, bg-secondary
+                            Examples: realized_liquidation, projected_liquidation, bid_date, settlement_date, trade, follow_up, milestone
     
     Returns:
         JSON array of calendar events with standardized format:
@@ -75,7 +76,7 @@ def get_calendar_events(request):
         - date: Event date (YYYY-MM-DD)
         - time: Event time or 'All Day'
         - description: Additional details
-        - category: Bootstrap color class
+        - category: Semantic event type
         - source_model: Origin model name
         - editable: Boolean indicating if event can be edited
         - url: Frontend navigation URL
@@ -88,7 +89,7 @@ def get_calendar_events(request):
                 "date": "2025-10-15",
                 "time": "All Day",
                 "description": "Bid submitted for Portfolio 2025-Q1",
-                "category": "bg-primary",
+                "category": "milestone",
                 "source_model": "TradeLevelAssumption",
                 "editable": false,
                 "url": "/acq/trade/5/"
@@ -128,7 +129,7 @@ def get_calendar_events(request):
     
     # Parse categories filter
     # What: Convert comma-separated category string into list
-    # Why: Allow filtering by multiple Bootstrap color classes (e.g., 'bg-danger,bg-warning')
+    # Why: Allow filtering by multiple semantic event types (e.g., 'bid_date,follow_up')
     categories_filter = None
     if categories_param:
         categories_filter = [cat.strip() for cat in categories_param.split(',')]
@@ -210,11 +211,15 @@ def _get_seller_raw_data_events(start_date=None, end_date=None, seller_id=None, 
     # Why: Single list in serial_co_calendar.py controls all calendar fields
     # Where: CALENDAR_DATE_FIELDS in core/serializers/serial_co_calendar.py
     # How: Just add/remove lines in that list - no need to edit this view
-    date_fields = [
-        (field, f'{title}: {{address}}', event_type, title)
-        for model, field, title, event_type in CALENDAR_DATE_FIELDS
-        if model == 'SellerRawData'
-    ]
+    date_fields = []
+    for item in CALENDAR_DATE_FIELDS:
+        if item[0] == 'SellerRawData':
+            if len(item) == 5:
+                model, field, title, event_type, sub_type = item
+            else:
+                model, field, title, event_type = item
+                sub_type = None
+            date_fields.append((field, f'{title}: {{address}}', event_type, title, sub_type))
     
     for record in queryset:
         # Get display address (use street_address or fallback to city/state)
@@ -222,7 +227,7 @@ def _get_seller_raw_data_events(start_date=None, end_date=None, seller_id=None, 
         address = address[:30]  # Truncate for display
         
         # Extract each date field
-        for field_name, title_template, category, desc_template in date_fields:
+        for field_name, title_template, category, desc_template, sub_type in date_fields:
             date_value = getattr(record, field_name, None)
             
             if date_value:
@@ -288,18 +293,22 @@ def _get_servicer_data_events(start_date=None, end_date=None, seller_id=None, tr
     # Why: Single list in serial_co_calendar.py controls all calendar fields
     # Where: CALENDAR_DATE_FIELDS in core/serializers/serial_co_calendar.py
     # How: Just add/remove lines in that list - no need to edit this view
-    date_fields = [
-        (field, '{address}', event_type, title)
-        for model, field, title, event_type in CALENDAR_DATE_FIELDS
-        if model == 'ServicerLoanData'
-    ]
+    date_fields = []
+    for item in CALENDAR_DATE_FIELDS:
+        if item[0] == 'ServicerLoanData':
+            if len(item) == 5:
+                model, field, title, event_type, sub_type = item
+            else:
+                model, field, title, event_type = item
+                sub_type = None
+            date_fields.append((field, '{address}', event_type, title, sub_type))
     
     for record in queryset:
         address = record.address or f"{record.city or 'Unknown'}, {record.state or ''}"
         address_display = address[:30]
         servicer_id = record.servicer_id or ''
         
-        for field_name, title_template, category, desc_template in date_fields:
+        for field_name, title_template, category, desc_template, sub_type in date_fields:
             date_value = getattr(record, field_name, None)
             
             if date_value:
@@ -376,7 +385,7 @@ def _get_trade_events(start_date=None, end_date=None, seller_id=None, trade_id=N
                 'date': trade_date,
                 'time': 'All Day',
                 'description': f'Trade {trade.trade_name} created for {trade.seller.name if trade.seller else "Unknown Seller"}',
-                'category': 'bg-primary',
+                'category': 'trade',
                 'source_model': 'Trade',
                 'source_id': trade.id,
                 'url': f'/acq/trade/{trade.id}/',
@@ -422,18 +431,22 @@ def _get_trade_assumption_events(start_date=None, end_date=None, seller_id=None,
     # Why: Single list in serial_co_calendar.py controls all calendar fields
     # Where: CALENDAR_DATE_FIELDS in core/serializers/serial_co_calendar.py
     # How: Just add/remove lines in that list - no need to edit this view
-    date_fields = [
-        (field, '{trade_name}', event_type, title)
-        for model, field, title, event_type in CALENDAR_DATE_FIELDS
-        if model == 'TradeLevelAssumption'
-    ]
+    date_fields = []
+    for item in CALENDAR_DATE_FIELDS:
+        if item[0] == 'TradeLevelAssumption':
+            if len(item) == 5:
+                model, field, title, event_type, sub_type = item
+            else:
+                model, field, title, event_type = item
+                sub_type = None
+            date_fields.append((field, '{trade_name}', event_type, title, sub_type))
     
     for record in queryset:
         trade_name = record.trade.trade_name if record.trade else 'Unknown Trade'
         seller_name = record.trade.seller.name if record.trade and record.trade.seller else 'Unknown Seller'
         display_name = f'{seller_name} - {trade_name}'
         
-        for field_name, title_template, category, desc_template in date_fields:
+        for field_name, title_template, category, desc_template, sub_type in date_fields:
             date_value = getattr(record, field_name, None)
             
             if date_value:
@@ -442,7 +455,7 @@ def _get_trade_assumption_events(start_date=None, end_date=None, seller_id=None,
                 if end_date and date_value > end_date:
                     continue
                 
-                events.append({
+                event_data = {
                     'id': f'trade_assumption:{record.id}:{field_name}',
                     'title': display_name,
                     'date': date_value,
@@ -453,7 +466,13 @@ def _get_trade_assumption_events(start_date=None, end_date=None, seller_id=None,
                     'source_id': record.id,
                     'editable': False,
                     'url': f'/acq/trade/{record.trade_id}/' if record.trade_id else ''
-                })
+                }
+                
+                # Add sub_type if available for distinguishing trade event types
+                if sub_type:
+                    event_data['sub_type'] = sub_type
+                
+                events.append(event_data)
     
     return events
 
@@ -539,14 +558,22 @@ def _get_custom_calendar_events(request, start_date=None, end_date=None, seller_
         elif event.seller_id:
             url = f'/acq/seller/{event.seller_id}/'
         
+        # WHAT: Determine task category - default to 'follow_up' if not specified
+        # WHY: Existing tasks may not have reason field populated
+        # HOW: Use event.reason if set, otherwise default to 'follow_up' for tasks
+        task_category = None
+        if event.is_reminder:
+            task_category = event.reason if event.reason else 'follow_up'
+        
         events.append({
             'id': f'custom:{event.id}',
             'title': event.title,
             'date': event.date,
             'time': event.time,
             'description': event.description,
-            'category': event.category,
+            'category': 'follow_up' if event.is_reminder else 'milestone',
             'event_type': 'follow_up' if event.is_reminder else 'milestone',
+            'task_category': task_category,  # WHAT: Include task category for calendar display
             'source_model': 'CalendarEvent',
             'editable': bool(user is not None and event.created_by_id and event.created_by_id == user.id),
             'url': url,
@@ -556,7 +583,7 @@ def _get_custom_calendar_events(request, start_date=None, end_date=None, seller_
             'city': city,  # WHAT: Include city for event card display
             'state': state,  # WHAT: Include state for event card display
             'trade_name': trade_name,  # WHAT: Include trade name for follow-up modal
-            'reason': event.reason,  # WHAT: Include reason for follow-up modal
+            'reason': event.reason,  # WHAT: Include reason for follow-up modal (legacy field)
         })
     
     return events
@@ -607,7 +634,9 @@ class CustomCalendarEventViewSet(viewsets.ModelViewSet):
 
         user = _resolve_request_user(self.request)
         if user is None:
-            queryset = queryset.filter(is_public=True)
+            # In dev, frontend may bypass auth entirely; allow returning all events so tasks are visible.
+            if not settings.DEBUG:
+                queryset = queryset.filter(is_public=True)
         else:
             queryset = queryset.filter(Q(is_public=True) | Q(created_by=user))
         

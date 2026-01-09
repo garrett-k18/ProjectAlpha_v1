@@ -287,11 +287,13 @@ export default {
       // Where: Used in fetchCalendarEvents() to apply colors
       // How: Backend sends event type, frontend applies matching color
       eventColorMap: {
-        'actual_liquidation': 'bg-success',     // Green - actual FC sales
+        'realized_liquidation': 'bg-success',   // Green - realized FC sales
         'projected_liquidation': 'bg-warning',  // Yellow - projected FC sales
         'bid_date': 'bg-info',                  // Cyan - bid deadlines
         'settlement_date': 'bg-dark',           // Dark - settlements
+        'follow_up': 'bg-warning',              // Yellow - follow-up tasks
         'milestone': 'bg-danger',               // Red - other milestones
+        'trade': 'bg-primary',                  // Blue - trades
       } as Record<string, string>,
       calendarOptions: {
         plugins: [

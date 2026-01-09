@@ -70,14 +70,26 @@
             @click="handleEventClick(event)"
           >
             <div>
-              <div class="mb-1 d-flex justify-content-between align-items-center">
-                <span 
-                  class="badge"
-                  :class="getEventBadgeClass(event.event_type || event.category || 'milestone')"
-                  :style="getEventBadgeStyle(event.event_type || event.category || 'milestone')"
-                >
-                  {{ getEventTypeLabel(event.event_type || event.category || 'milestone') }}
-                </span>
+              <div class="mb-1 d-flex justify-content-between align-items-start">
+                <div class="d-flex align-items-start gap-1">
+                  <span 
+                    class="badge text-white"
+                    style="line-height: 1; padding: 0.25rem 0.75rem; font-size: 0.75rem; border-radius: 0.25rem;"
+                    :style="getEventBadgeStyle(event.event_type || event.category || 'milestone')"
+                  >
+                    {{ getEventTypeLabel(event.event_type || event.category || 'milestone') }}
+                  </span>
+                  <!-- WHAT: Show task category for follow_up events -->
+                  <!-- WHY: Users need to see the task category (Follow-up, Document Review, etc.) -->
+                  <!-- HOW: Display task_category if event is a task -->
+                  <span 
+                    v-if="(event.event_type === 'follow_up' || event.category === 'follow_up') && event.task_category"
+                    class="badge bg-light text-dark border"
+                    style="font-size: 0.7rem; margin-top: 1px;"
+                  >
+                    {{ capitalizeFirst(getTaskCategoryLabel(event.task_category)) }}
+                  </span>
+                </div>
                 <!-- WHAT: Display formatted date for each event -->
                 <!-- WHY: Users need to see which day of the month each event occurs -->
                 <!-- HOW: Parse event.date string and format as "Day, Month D" (e.g., "Mon, Dec 1") -->
@@ -229,7 +241,8 @@ export interface CalendarEvent {
   category: string; // Bootstrap class like 'bg-primary', 'bg-success', etc.
   servicer_id?: string; // Servicer ID for ServicerLoanData events
   address?: string; // Property address for display
-  event_type?: string; // Event type for tag display (actual_liquidation, bid_date, etc.)
+  event_type?: string; // Event type for tag display (realized_liquidation, bid_date, etc.)
+  task_category?: string; // Task category for follow_up events (follow_up, document_review, etc.)
   url?: string; // URL to navigate to asset detail page
   source_id?: number; // Source record ID (e.g., ServicerLoanData.id)
   asset_hub_id?: number; // AssetIdHub ID for opening modal
@@ -318,14 +331,31 @@ export default {
         eventContent: (arg: any) => {
           const event = arg.event;
           const eventType = event.extendedProps.event_type || 'milestone';
+          const taskCategory = event.extendedProps.task_category;
           const eventTypeLabel = this.getEventTypeLabel(eventType);
           const eventTitle = event.title.replace(`${eventTypeLabel}: `, '');
+          
+          // WHAT: Build uniform 2-line structure for all calendar tiles
+          // WHY: Consistent dimensions across all event types
+          // HOW: Line 1: Type + Category (if task), Line 2: Address/Title
+          
+          // Line 1: Event type with optional category on same line
+          let line1 = '';
+          if (eventType === 'follow_up' && taskCategory) {
+            const categoryLabel = this.getTaskCategoryLabel(taskCategory);
+            line1 = `<div style="font-size: 0.75em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${eventTypeLabel}: ${categoryLabel}</div>`;
+          } else {
+            line1 = `<div style="font-size: 0.75em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${eventTypeLabel}</div>`;
+          }
+          
+          // Line 2: Address/Title (always shown)
+          const line2 = `<div style="font-size: 0.85em; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${eventTitle}</div>`;
           
           return {
             html: `
               <div style="padding: 4px 6px; line-height: 1.25; max-width: 100%;">
-                <div style="font-size: 0.75em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${eventTypeLabel}</div>
-                <div style="font-size: 0.85em; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${eventTitle}</div>
+                ${line1}
+                ${line2}
               </div>
             `
           };
@@ -500,10 +530,9 @@ export default {
       // WHY: Users should be able to filter by any event type, even if none exist in current month
       // HOW: Use the same types defined in getEventTypeLabel function
       return [
-        'actual_liquidation',
+        'realized_liquidation',
         'projected_liquidation',
-        'bid_date',
-        'settlement_date',
+        'trade',
         'follow_up',
         'milestone'
       ];
@@ -795,7 +824,7 @@ export default {
      */
     shouldShowLocation(event: any): boolean {
       const eventType = event.event_type || event.category || '';
-      const locationEvents = ['follow_up', 'actual_liquidation', 'projected_liquidation'];
+      const locationEvents = ['follow_up', 'realized_liquidation', 'projected_liquidation'];
       return locationEvents.includes(eventType) && (event.city || event.state);
     },
     
@@ -868,14 +897,29 @@ export default {
 
     getEventTypeLabel(eventType: string): string {
       const typeMap: Record<string, string> = {
-        'actual_liquidation': 'Realized Liquidation',
+        'realized_liquidation': 'Realized Liquidation',
         'projected_liquidation': 'Projected Liquidation',
-        'bid_date': 'Bid Date',
-        'settlement_date': 'Settlement',
-        'follow_up': 'Follow-up',
+        'trade': 'Trade',
+        'follow_up': 'Task',
         'milestone': 'Milestone'
       };
       return typeMap[eventType] || eventType;
+    },
+
+    getTaskCategoryLabel(category: string): string {
+      const categoryMap: Record<string, string> = {
+        'follow_up': 'Follow-up',
+        'nod_noi': 'NOD/NOI',
+        'fc_counsel': 'FC Counsel',
+        'escrow': 'Escrow',
+        'reo': 'REO'
+      };
+      return categoryMap[category] || category;
+    },
+
+    capitalizeFirst(str: string): string {
+      if (!str) return str;
+      return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
     },
     
     // Check if event is a liquidation or follow-up event (both should be clickable)
@@ -889,7 +933,7 @@ export default {
      * WHAT: Adds or removes an event type from the selected filters array
      * WHY: Users can select multiple filters simultaneously
      * HOW: If filter is already selected, remove it; otherwise add it
-     * @param eventType - The event type to toggle (e.g., 'actual_liquidation')
+     * @param eventType - The event type to toggle (e.g., 'realized_liquidation')
      */
     toggleEventTypeFilter(eventType: string): void {
       const index = this.selectedEventTypeFilters.indexOf(eventType);
@@ -971,6 +1015,7 @@ export default {
             originalEvent: event,
             category: event.category,
             event_type: event.event_type,
+            task_category: event.task_category,  // WHAT: Pass task category for calendar tile display
             asset_hub_id: event.asset_hub_id,  // Pass through the AssetIdHub ID
             address: event.address,  // Pass through the address
           },
@@ -1097,13 +1142,19 @@ export default {
         const backendEvents = response.data;
         console.log('[HomeCalendarWidget] Received', backendEvents.length, 'events');
         
+        // WHAT: Debug - check if task_category is in the API response
+        const sampleTask = backendEvents.find((e: any) => e.event_type === 'follow_up');
+        if (sampleTask) {
+          console.log('[HomeCalendarWidget] Sample task from API:', sampleTask);
+        }
+        
         // WHAT: Transform backend event structure to match frontend CalendarEvent interface
         // WHY: Backend and frontend may use different field names/structures
         // HOW: Map each backend event to frontend format with all required fields
-        // NOTE: Backend sends 'category' field containing the event_type value (e.g., 'actual_liquidation')
+        // NOTE: Backend sends 'category' field containing the event_type value (e.g., 'realized_liquidation')
         //       This is the semantic event type, NOT a Bootstrap class
         this.events = backendEvents.map((event: any) => {
-          // WHAT: Backend 'category' field IS the event_type (e.g., 'actual_liquidation', 'bid_date')
+          // WHAT: Backend 'category' field IS the event_type (e.g., 'realized_liquidation', 'bid_date')
           // WHY: Backend uses 'category' to store the semantic event type from CALENDAR_DATE_FIELDS
           // HOW: Use category directly as event_type
           const eventType = event.event_type || event.category || 'milestone';
@@ -1118,6 +1169,7 @@ export default {
             servicer_id: event.servicer_id,
             address: event.address,
             event_type: eventType, // WHAT: Semantic event type from backend 'category' field
+            task_category: event.task_category, // WHAT: Task category for follow_up events (follow_up, nod_noi, escrow, reo)
             url: event.url,
             source_id: event.source_id,
             editable: event.editable || false,
@@ -1127,6 +1179,8 @@ export default {
         
         console.log('[HomeCalendarWidget] Mapped', this.events.length, 'events. Event types:', 
           [...new Set(this.events.map(e => e.event_type))]);
+        console.log('[HomeCalendarWidget] Task categories:', 
+          this.events.filter(e => e.event_type === 'follow_up').map(e => ({ id: e.id, category: e.task_category })));
         
         // WHAT: Ensure currentViewDate is set to match the first event's month if not already set
         // WHY: If datesSet hasn't fired yet, we need currentViewDate to match the loaded events
@@ -1188,10 +1242,9 @@ export default {
           // WHY: Prevent errors if localStorage contains invalid data
           // HOW: Check against hardcoded list of valid event types
           const validEventTypes = [
-            'actual_liquidation',
+            'realized_liquidation',
             'projected_liquidation',
-            'bid_date',
-            'settlement_date',
+            'trade',
             'follow_up',
             'milestone'
           ];
@@ -1215,10 +1268,9 @@ export default {
         // WHY: Support users who had the old single-filter format saved
         // HOW: Convert single filter string to array, then remove old key
         const validEventTypes = [
-          'actual_liquidation',
+          'realized_liquidation',
           'projected_liquidation',
-          'bid_date',
-          'settlement_date',
+          'trade',
           'follow_up',
           'milestone'
         ];
@@ -1249,18 +1301,6 @@ export default {
         this.syncCalendarEvents();
       },
       deep: true
-    },
-    // WHAT: Watch for changes to selectedEventTypeFilters and update calendar view
-    // WHY: Calendar should update immediately when filters change
-    // HOW: Call syncCalendarEvents to re-filter and re-render calendar events
-    selectedEventTypeFilters: {
-      handler() {
-        // WHAT: Re-sync calendar events when filters change
-        // WHY: Calendar view needs to reflect current filter selection
-        // HOW: syncCalendarEvents will apply filters before mapping to FullCalendar format
-        this.syncCalendarEvents();
-      },
-      deep: true // Watch for changes inside the array (when items are added/removed)
     },
     // WHAT: Watch for changes to selectedEventTypeFilters array and persist to localStorage + update calendar
     // WHY: Users expect filter selection to persist when changing months or reloading page, and calendar should update

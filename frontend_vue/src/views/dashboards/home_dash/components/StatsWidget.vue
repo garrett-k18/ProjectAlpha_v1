@@ -39,9 +39,9 @@ import { defineComponent } from 'vue';
 
 export default defineComponent({
   name: 'StatsWidget',
-  emits: ['open-pipeline', 'open-followups', 'open-trades'],
+  emits: ['open-pipeline', 'open-tasks', 'open-trades'],
   props: {
-    followupCount: {
+    tasksCount: {
       type: [String, Number],
       default: null,
     },
@@ -63,16 +63,10 @@ export default defineComponent({
           description: "View your asset pipeline breakdown"
         },
         { 
-          label: "My Follow Ups", 
-          value: "34", 
-          icon: "mdi mdi-home-city-outline",
-          description: "Loans you're currently managing"
-        },
-        { 
           label: "My Tasks", 
-          value: "5", 
-          icon: "mdi mdi-bell-outline",
-          description: "Unread updates and alerts"
+          value: "0", 
+          icon: "mdi mdi-checkbox-marked-circle-outline",
+          description: "Your pending tasks and action items"
         },
         { 
           label: "My Lists", 
@@ -90,7 +84,7 @@ export default defineComponent({
     };
   },
   watch: {
-    followupCount: {
+    tasksCount: {
       immediate: true,
       handler(val: string | number | null) {
         if (val == null) return
@@ -103,7 +97,7 @@ export default defineComponent({
       handler(val: string | number | null) {
         if (val == null) return
         if (!Array.isArray((this as any).stats) || (this as any).stats.length < 5) return
-        ;(this as any).stats[4].value = String(val)
+        ;(this as any).stats[3].value = String(val)
       },
     },
   },
@@ -112,11 +106,11 @@ export default defineComponent({
       if (idx === 0) {
         this.$emit('open-pipeline');
       } else if (idx === 1) {
-        this.$emit('open-followups');
-      } else if (idx === 4) {
+        this.$emit('open-tasks');
+      } else if (idx === 3) {
         this.$emit('open-trades');
       }
-      // idx 2 = My Tasks, idx 3 = New Item - add handlers as needed
+      // idx 2 = My Lists - add handler as needed
     },
   },
 });

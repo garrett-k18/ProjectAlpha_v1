@@ -39,20 +39,11 @@
       <div v-if="hubId" class="d-flex gap-2">
         <button
           type="button"
-          class="btn btn-sm btn-outline-primary followup-trigger"
-          @click="openFollowupModal"
-          :title="followups.length ? `Follow-ups: ${followups.length}` : 'Create follow-up'"
-        >
-          Create Follow-up
-          <span v-if="followups.length" class="badge bg-primary ms-2">{{ followups.length }}</span>
-        </button>
-        <button
-          type="button"
           class="btn btn-sm btn-outline-primary"
           @click="openTaskModal"
-          title="Create task"
+          title="Create/View Tasks"
         >
-          Create Task
+          Create/View Tasks
         </button>
       </div>
     </div>
@@ -213,10 +204,10 @@
     <!-- Confirm Delete Modal (Hyper UI style) -->
     <template v-if="confirm.open">
       <!-- Backdrop behind modal -->
-      <div class="modal-backdrop fade show" style="z-index: 1050;"></div>
+      <div class="modal-backdrop fade show" style="z-index: 1060;"></div>
       <!-- Modal above backdrop -->
       <div class="modal fade show" tabindex="-1" role="dialog" aria-modal="true"
-           style="display: block; position: fixed; inset: 0; z-index: 1055;">
+           style="display: block; position: fixed; inset: 0; z-index: 1065;">
         <div class="modal-dialog modal-dialog-centered" role="document">
           <div class="modal-content">
             <div class="modal-header bg-danger-subtle">
@@ -227,7 +218,7 @@
               <button type="button" class="btn-close" aria-label="Close" @click="closeConfirm"></button>
             </div>
             <div class="modal-body">
-              <p class="mb-0">Are you sure you want to delete this outcome record? This action cannot be undone.</p>
+              <p class="mb-0">{{ confirm.message }}</p>
             </div>
             <div class="modal-footer">
               <button type="button" class="btn btn-light" @click="closeConfirm">Cancel</button>
@@ -241,118 +232,166 @@
       </div>
     </template>
 
-    <template v-if="followupModalOpen">
+    <!-- Task Creation Modal -->
+    <template v-if="taskModalOpen">
       <div class="modal-backdrop fade show" style="z-index: 1050;"></div>
       <div class="modal fade show" tabindex="-1" role="dialog" aria-modal="true"
            style="display: block; position: fixed; inset: 0; z-index: 1055;">
-        <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+         <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
           <div class="modal-content">
             <div class="modal-header">
               <h5 class="modal-title d-flex align-items-center me-3">
-                Follow-ups
+                <i class="fas fa-tasks me-2"></i>
+                Tasks
               </h5>
-              <div class="d-flex align-items-center gap-3 ms-auto">
-                <div class="form-check form-switch m-0">
-                  <input
-                    id="followup-public"
-                    v-model="newFollowup.is_public"
-                    class="form-check-input"
-                    type="checkbox"
-                    role="switch"
-                  />
-                  <label class="form-check-label small" for="followup-public">Public Follow-up</label>
-                </div>
-                <button type="button" class="btn-close" aria-label="Close" @click="closeFollowupModal"></button>
-              </div>
+              <button type="button" class="btn-close" aria-label="Close" @click="closeTaskModal"></button>
             </div>
             <div class="modal-body">
-              <div class="row g-2 align-items-end">
-                <div class="col-12 col-md-4">
-                  <label class="form-label small mb-1">Reason</label>
-                  <select v-model="newFollowup.reason" class="form-select form-select-sm">
-                    <option value="">Select…</option>
-                    <option v-for="opt in followupReasonOptions" :key="opt.value" :value="opt.value">
-                      {{ opt.label }}
+              <!-- Task Creation Form -->
+              <div class="row g-2 align-items-end mb-3">
+                <div class="col-12 col-md-6">
+                  <label class="form-label small mb-1">Due Date *</label>
+                  <div class="input-group input-group-sm">
+                    <input v-model="newTask.due_date" type="date" class="form-control form-control-sm" />
+                    <button type="button" class="btn btn-outline-primary" @click="setTaskDateOffset(7)">+7</button>
+                    <button type="button" class="btn btn-outline-primary" @click="setTaskDateOffset(14)">+14</button>
+                  </div>
+                </div>
+
+                <div class="col-12 col-md-6">
+                  <label class="form-label small mb-1">Priority</label>
+                  <select v-model="newTask.priority" class="form-select form-select-sm">
+                    <option value="low">Low</option>
+                    <option value="routine">Routine</option>
+                    <option value="urgent">Urgent</option>
+                  </select>
+                </div>
+
+                <div class="col-12 col-md-6">
+                  <label class="form-label small mb-1">Notify Team Member</label>
+                  <select v-model="newTask.notify_user" class="form-select form-select-sm">
+                    <option value="">No notification</option>
+                    <option v-for="user in availableUsers" :key="user.id" :value="user.id">
+                      {{ user.username }}
                     </option>
                   </select>
                 </div>
 
-                <div class="col-12 col-md-4">
-                  <label class="form-label small mb-1">Date</label>
-                  <div class="input-group input-group-sm">
-                    <input v-model="newFollowup.date" type="date" class="form-control form-control-sm" />
-                    <button type="button" class="btn btn-outline-primary" @click="setFollowupDateOffset(15)">+15</button>
-                    <button type="button" class="btn btn-outline-primary" @click="setFollowupDateOffset(30)">+30</button>
-                  </div>
+                <div class="col-12 col-md-6">
+                  <label class="form-label small mb-1">Category *</label>
+                  <select v-model="newTask.category" class="form-select form-select-sm">
+                    <option value="">Select category...</option>
+                    <option value="follow_up">Follow-up</option>
+                    <option value="document_review">Document Review</option>
+                    <option value="contact_borrower">Contact Borrower</option>
+                    <option value="legal">Legal</option>
+                    <option value="inspection">Inspection</option>
+                    <option value="other">Other</option>
+                  </select>
                 </div>
 
-                <div class="col-12 col-md-4">
-                  <label class="form-label small mb-1">Title (optional)</label>
-                  <div class="input-group input-group-sm">
-                    <input
-                      v-model="newFollowup.title"
-                      type="text"
-                      class="form-control form-control-sm"
-                      placeholder="Task title..."
-                      @keyup.enter="createFollowup"
-                    />
-                    <button
-                      type="button"
-                      class="btn btn-primary"
-                      :disabled="followupCreateBusy || !newFollowup.date"
-                      @click="createFollowup"
-                    >
-                      <span v-if="followupCreateBusy" class="spinner-border spinner-border-sm me-1"></span>
-                      Add
-                    </button>
-                  </div>
+                <div class="col-12">
+                  <label class="form-label small mb-1">Description (optional)</label>
+                  <textarea
+                    v-model="newTask.description"
+                    class="form-control form-control-sm"
+                    rows="2"
+                    placeholder="Add task details..."
+                  ></textarea>
+                </div>
+
+                <div class="col-12">
+                  <button
+                    type="button"
+                    class="btn btn-primary btn-sm"
+                    :disabled="taskCreateBusy || !newTask.category || !newTask.due_date"
+                    @click="createTask"
+                  >
+                    <span v-if="taskCreateBusy" class="spinner-border spinner-border-sm me-1"></span>
+                    {{ editingTaskId ? 'Save Task' : 'Create Task' }}
+                  </button>
                 </div>
               </div>
 
-              <div v-if="followupsLoading" class="text-muted small d-flex align-items-center gap-2 mt-3">
+              <!-- Loading State -->
+              <div v-if="tasksLoading" class="text-muted small d-flex align-items-center gap-2 mt-3">
                 <span class="spinner-border spinner-border-sm"></span>
-                Loading…
+                Loading tasks...
               </div>
-              <div v-else-if="followupsError" class="text-danger small mt-3">{{ followupsError }}</div>
+              
+              <!-- Error State -->
+              <div v-else-if="tasksError" class="text-danger small mt-3">{{ tasksError }}</div>
 
-              <template v-else-if="followups.length">
+              <!-- Tasks List -->
+              <template v-else-if="tasks.length">
                 <hr class="my-3" />
+                <h6 class="small fw-semibold mb-2">Active Tasks</h6>
 
-                <div class="followups-list">
-                  <div class="followups-items">
-                    <div v-for="f in followups" :key="f.id" class="followup-item">
-                      <div class="followup-main">
-                        <div class="followup-line">
-                          <span class="followup-date">{{ f.date }}</span>
-                          <UiBadge :tone="f.is_public ? 'primary' : 'secondary'" size="sm">{{ f.is_public ? 'Public' : 'Private' }}</UiBadge>
-                          <span v-if="f.reason" class="text-muted small">{{ reasonLabel(f.reason) }}</span>
+                <div class="tasks-list">
+                  <div class="tasks-items">
+                    <div v-for="task in tasks" :key="task.id" class="task-item" role="button" tabindex="0" @click="beginEditTask(task)" @keydown.enter.prevent="beginEditTask(task)">
+                      <div class="task-main">
+                        <div class="task-header">
+                          <span class="task-title fw-semibold">{{ task.title }}</span>
+                          <UiBadge 
+                            :tone="task.priority === 'urgent' ? 'danger' : task.priority === 'routine' ? 'warning' : 'secondary'" 
+                            size="sm"
+                          >
+                            {{ capitalizeFirstLetter(task.priority) }}
+                          </UiBadge>
                         </div>
-                        <div class="followup-title">{{ f.title }}</div>
+                        <div class="task-details small text-muted">
+                          <span><i class="mdi mdi-calendar me-1"></i>Due: {{ formatMmDdYyyy(task.due_date) }}</span>
+                          <span v-if="task.assigned_to_username" class="ms-3">
+                            <i class="mdi mdi-account me-1"></i>{{ task.assigned_to_username }}
+                          </span>
+                          <span v-if="task.notified_users && task.notified_users.length > 0" class="ms-3">
+                            <i class="mdi mdi-bell-outline me-1"></i>Notified: {{ task.notified_users.join(', ') }}
+                          </span>
+                        </div>
+                        <div v-if="task.description" class="task-description small mt-1">
+                          {{ task.description }}
+                        </div>
                       </div>
 
-                      <button
-                        v-if="f.editable"
-                        type="button"
-                        class="btn btn-sm btn-outline-success"
-                        :disabled="followupDeleteBusyId === f.id"
-                        @click="deleteFollowup(f.id)"
-                      >
-                        <span v-if="followupDeleteBusyId === f.id" class="spinner-border spinner-border-sm me-2"></span>
-                        Done
-                      </button>
+                      <div class="task-actions">
+                        <button
+                          type="button"
+                          class="btn btn-sm btn-outline-success"
+                          :disabled="taskDeleteBusyId === task.id"
+                          @click.stop="completeTask(task.id)"
+                          title="Mark as complete"
+                        >
+                          <span v-if="taskDeleteBusyId === task.id" class="spinner-border spinner-border-sm me-1"></span>
+                          <i class="mdi mdi-check"></i>
+                        </button>
+                        <button
+                          type="button"
+                          class="btn btn-sm btn-outline-danger ms-1"
+                          :disabled="taskDeleteBusyId === task.id"
+                          @click.stop="deleteTask(task.id)"
+                          title="Delete task"
+                        >
+                          <i class="mdi mdi-trash-can-outline"></i>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
               </template>
+
+              <!-- Empty State -->
+              <div v-else class="text-muted small text-center py-3">
+                No active tasks. Create one above to get started.
+              </div>
             </div>
             <div class="modal-footer">
-              <button type="button" class="btn btn-light" @click="closeFollowupModal">Close</button>
+              <button type="button" class="btn btn-light" @click="closeTaskModal">Close</button>
             </div>
           </div>
         </div>
       </div>
     </template>
-
     
     <!-- Filters and legacy outcome list removed -->
   </div>
@@ -424,7 +463,7 @@ interface Outcome {
   outcomeType: 'foreclosure' | 'modification' | 'deed_in_lieu' | 'short_sale'
   title: string
   overallStatus: 'pending' | 'in_progress' | 'completed'
-  priority: 'low' | 'medium' | 'high'
+  priority: 'low' | 'routine' | 'urgent'
   startDate: string
   targetDate: string
   assignedTo: string
@@ -501,7 +540,7 @@ const outcomes = ref<Outcome[]>([
     outcomeType: 'foreclosure',
     title: 'Foreclosure Proceedings',
     overallStatus: 'in_progress',
-    priority: 'high',
+    priority: 'urgent',
     startDate: '2024-09-15',
     targetDate: '2024-11-15',
     assignedTo: 'Mike Johnson',
@@ -739,36 +778,9 @@ const hubId = computed<number | null>(() => {
   return raw != null ? Number(raw) : null
 })
 
-type FollowupReason = 'nod_noi' | 'fc_counsel' | 'escrow' | 'reo'
-type FollowupEvent = {
-  id: number
-  title: string
-  date: string
-  is_public: boolean
-  reason: FollowupReason | null
-  editable: boolean
-}
-
-const followupReasonOptions = [
-  { value: 'nod_noi', label: 'NOD/NOI' },
-  { value: 'fc_counsel', label: 'FC Counsel' },
-  { value: 'escrow', label: 'Escrow' },
-  { value: 'reo', label: 'REO' },
-] as const
-
-const followups = ref<FollowupEvent[]>([])
-const followupsLoading = ref(false)
-const followupsError = ref('')
-const followupCreateBusy = ref(false)
-const followupDeleteBusyId = ref<number | null>(null)
-const followupModalOpen = ref(false)
-
-const newFollowup = ref<{ reason: FollowupReason | ''; date: string; title: string; is_public: boolean }>({
-  reason: '',
-  date: '',
-  title: '',
-  is_public: false,
-})
+// ============================================================================
+// UTILITY FUNCTIONS FOR DATE HANDLING
+// ============================================================================
 
 function todayIso(): string {
   const d = new Date()
@@ -787,112 +799,208 @@ function addDaysIso(baseIso: string, days: number): string {
   return `${yyyy}-${mm}-${dd}`
 }
 
-function setFollowupDateOffset(days: number) {
-  newFollowup.value.date = addDaysIso(todayIso(), days)
+function formatMmDdYyyy(isoDate: string): string {
+  if (!isoDate) return ''
+  const [yyyy, mm, dd] = String(isoDate).split('-')
+  if (!yyyy || !mm || !dd) return String(isoDate)
+  return `${mm}/${dd}/${yyyy}`
 }
 
-function reasonLabel(reason: FollowupReason): string {
-  const found = followupReasonOptions.find((o) => o.value === reason)
-  return found ? found.label : reason
+// ============================================================================
+// TASK MODAL STATE AND FUNCTIONS
+// ============================================================================
+
+interface TaskEvent {
+  id: number
+  title: string
+  description: string
+  due_date: string
+  priority: 'low' | 'routine' | 'urgent'
+  category: string
+  assigned_to: number | null
+  assigned_to_username: string | null
+  notified_users: string[] | null
+  completed: boolean
+  asset_hub: number
 }
 
-async function fetchFollowups() {
-  // WHAT: Fetch follow-ups for the current asset only
-  // WHY: Create Follow-up button should show follow-ups for the asset being viewed
+interface User {
+  id: number
+  username: string
+}
+
+const tasks = ref<TaskEvent[]>([])
+const tasksLoading = ref(false)
+const tasksError = ref('')
+const taskCreateBusy = ref(false)
+const taskDeleteBusyId = ref<number | null>(null)
+const taskModalOpen = ref(false)
+const availableUsers = ref<User[]>([])
+const editingTaskId = ref<number | null>(null)
+
+const newTask = ref<{
+  description: string
+  due_date: string
+  priority: 'low' | 'routine' | 'urgent'
+  category: string
+  notify_user: number | null
+}>({
+  description: '',
+  due_date: '',
+  priority: 'routine',
+  category: '',
+  notify_user: null,
+})
+
+function setTaskDateOffset(days: number) {
+  newTask.value.due_date = addDaysIso(todayIso(), days)
+}
+
+function categoryLabel(category: string): string {
+  const labels: Record<string, string> = {
+    follow_up: 'Follow-up',
+    document_review: 'Document Review',
+    contact_borrower: 'Contact Borrower',
+    legal: 'Legal',
+    inspection: 'Inspection',
+    other: 'Other',
+  }
+  return labels[category] || category
+}
+
+function capitalizeFirstLetter(value: string): string {
+  if (!value) return ''
+  return value.charAt(0).toUpperCase() + value.slice(1)
+}
+
+async function fetchUsers() {
+  availableUsers.value = []
+}
+
+async function fetchTasks() {
   const id = hubId.value
   if (!id) {
-    followups.value = []
+    tasks.value = []
     return
   }
-  followupsLoading.value = true
-  followupsError.value = ''
+  tasksLoading.value = true
+  tasksError.value = ''
   try {
     const resp = await http.get('/core/calendar/events/custom/', {
       params: {
         asset_hub_id: id,
         is_reminder: true,
-        start_date: todayIso(),
       },
     })
 
-    const rows = Array.isArray(resp.data) ? resp.data : []
-    followups.value = rows.map((r: any) => ({
+    const data: any = resp.data
+    const rows = Array.isArray(data) ? data : (Array.isArray(data?.results) ? data.results : [])
+    tasks.value = rows.map((r: any) => ({
       id: Number(r.id),
       title: String(r.title ?? ''),
-      date: String(r.date ?? ''),
-      is_public: Boolean(r.is_public),
-      reason: (r.reason as FollowupReason | null) ?? null,
-      editable: Boolean(r.editable),
+      description: String(r.description ?? ''),
+      due_date: String(r.date ?? ''),
+      priority: 'routine',
+      category: String(r.reason ?? ''),
+      assigned_to: null,
+      assigned_to_username: null,
+      notified_users: null,
+      completed: false,
+      asset_hub: Number(r.asset_hub),
     }))
   } catch (e: any) {
-    followupsError.value = 'Failed to load follow-ups.'
-    console.error('[Followups] fetch failed', e)
+    tasksError.value = 'Failed to load tasks.'
+    console.error('[Tasks] fetch failed', e)
   } finally {
-    followupsLoading.value = false
+    tasksLoading.value = false
   }
 }
 
-async function openFollowupModal() {
-  // WHAT: Pre-fetch data before opening modal to prevent size flash
-  // WHY: Bootstrap modal calculates size on open, so content should be ready
-  await fetchFollowups()
-  followupModalOpen.value = true
+async function openTaskModal() {
+  await Promise.all([fetchUsers(), fetchTasks()])
+  taskModalOpen.value = true
 }
 
-function closeFollowupModal() {
-  followupModalOpen.value = false
+function closeTaskModal() {
+  taskModalOpen.value = false
 }
 
-function openTaskModal() {
-  // TODO: Implement task creation modal
-  alert('Task creation functionality coming soon!')
-}
-
-async function createFollowup() {
+async function createTask() {
   const id = hubId.value
   if (!id) return
-  if (!newFollowup.value.date) return
+  if (!newTask.value.category || !newTask.value.due_date) return
 
-  followupCreateBusy.value = true
+  taskCreateBusy.value = true
   try {
-    const reason = newFollowup.value.reason ? newFollowup.value.reason : null
-    const title = newFollowup.value.title?.trim()
-      ? newFollowup.value.title.trim()
-      : (reason ? `Follow-up: ${reasonLabel(reason)}` : 'Follow-up')
+    const derivedTitle = categoryLabel(newTask.value.category)
+    if (editingTaskId.value != null) {
+      await http.patch(`/core/calendar/events/custom/${editingTaskId.value}/`, {
+        title: derivedTitle,
+        description: newTask.value.description.trim(),
+        date: newTask.value.due_date,
+        reason: newTask.value.category || null,
+      })
+    } else {
+      await http.post('/core/calendar/events/custom/', {
+        title: derivedTitle,
+        description: newTask.value.description.trim(),
+        date: newTask.value.due_date,
+        time: 'All Day',
+        category: 'follow_up',
+        priority: newTask.value.priority,
+        assigned_to: newTask.value.notify_user,
+        asset_hub: id,
+        is_reminder: true,
+        is_public: false,
+        reason: newTask.value.category || null,
+      })
+    }
 
-    await http.post('/core/calendar/events/custom/', {
-      title,
-      date: newFollowup.value.date,
-      time: 'All Day',
-      description: '',
-      category: 'bg-warning',
-      asset_hub: id,
-      is_reminder: true,
-      is_public: newFollowup.value.is_public,
-      reason,
-    })
+    // Reset form
+    newTask.value.description = ''
+    newTask.value.due_date = ''
+    newTask.value.priority = 'routine'
+    newTask.value.category = ''
+    newTask.value.notify_user = null
+    editingTaskId.value = null
 
-    newFollowup.value.title = ''
-    await fetchFollowups()
+    await fetchTasks()
   } catch (e: any) {
-    console.error('[Followups] create failed', e)
-    alert('Failed to create follow-up. Please try again.')
+    console.error('[Tasks] create failed', {
+      message: e?.message,
+      status: e?.response?.status,
+      data: e?.response?.data,
+    })
+    alert(editingTaskId.value != null ? 'Failed to save task. Please try again.' : 'Failed to create task. Please try again.')
   } finally {
-    followupCreateBusy.value = false
+    taskCreateBusy.value = false
   }
 }
 
-async function deleteFollowup(eventId: number) {
-  followupDeleteBusyId.value = eventId
+function beginEditTask(task: TaskEvent) {
+  editingTaskId.value = task.id
+  newTask.value.due_date = task.due_date
+  newTask.value.category = task.category
+  newTask.value.description = task.description || ''
+}
+
+async function completeTask(taskId: number) {
+  taskDeleteBusyId.value = taskId
   try {
-    await http.delete(`/core/calendar/events/custom/${eventId}/`)
-    await fetchFollowups()
+    await http.patch(`/core/calendar/events/custom/${taskId}/`, {
+      is_reminder: false,
+    })
+    await fetchTasks()
   } catch (e: any) {
-    console.error('[Followups] delete failed', e)
-    alert('Failed to delete follow-up. Please try again.')
+    console.error('[Tasks] complete failed', e)
+    alert('Failed to complete task. Please try again.')
   } finally {
-    followupDeleteBusyId.value = null
+    taskDeleteBusyId.value = null
   }
+}
+
+async function deleteTask(taskId: number) {
+  requestTaskDelete(taskId)
 }
 
 // Active outcome types for KPI header badges
@@ -1186,39 +1294,78 @@ function handleTrackOutside(e: MouseEvent) {
 // NOTE: Lifecycle hooks consolidated at end of script section for clarity
 
 // Confirm deletion modal
-const confirm = ref<{ open: boolean; type: OutcomeType | null; busy: boolean }>({ open: false, type: null, busy: false })
+const confirm = ref<{
+  open: boolean
+  kind: 'outcome' | 'task' | null
+  type: OutcomeType | null
+  taskId: number | null
+  message: string
+  busy: boolean
+}>({
+  open: false,
+  kind: null,
+  type: null,
+  taskId: null,
+  message: 'Are you sure you want to delete this item? This action cannot be undone.',
+  busy: false,
+})
 function requestDelete(type: OutcomeType) {
-  confirm.value = { open: true, type, busy: false }
+  confirm.value = {
+    open: true,
+    kind: 'outcome',
+    type,
+    taskId: null,
+    message: 'Are you sure you want to delete this outcome record? This action cannot be undone.',
+    busy: false,
+  }
+}
+function requestTaskDelete(taskId: number) {
+  confirm.value = {
+    open: true,
+    kind: 'task',
+    type: null,
+    taskId,
+    message: 'Are you sure you want to delete this task? This action cannot be undone.',
+    busy: false,
+  }
 }
 function closeConfirm() { confirm.value.open = false }
 async function confirmDelete() {
-  if (!hubId.value || !confirm.value.type) return
+  if (!hubId.value || !confirm.value.kind) return
   try {
     confirm.value.busy = true
-    const deletedType = confirm.value.type
-    
-    // WHAT: Delete outcome from backend
-    await outcomesStore.deleteOutcome(hubId.value, deletedType)
-    
-    // WHAT: Hide the outcome card immediately
-    // WHY: Prevent component update errors during deletion
-    visibleOutcomes.value[deletedType] = false
-    
-    // WHAT: Wait for DOM update before emitting events
-    // WHY: Ensure component is properly removed before notifying others
-    await nextTick()
-    
-    // WHAT: Emit track deleted event for auto-refresh
-    // WHY: Notify other components that track was removed
-    eventBus.emit('track:deleted', { trackType: deletedType, hubId: hubId.value })
-    refreshHubData(hubId.value)
-    
-    closeConfirm()
+    if (confirm.value.kind === 'outcome' && confirm.value.type) {
+      const deletedType = confirm.value.type
+
+      await outcomesStore.deleteOutcome(hubId.value, deletedType)
+
+      visibleOutcomes.value[deletedType] = false
+      await nextTick()
+      eventBus.emit('track:deleted', { trackType: deletedType, hubId: hubId.value })
+      refreshHubData(hubId.value)
+
+      closeConfirm()
+      return
+    }
+
+    if (confirm.value.kind === 'task' && confirm.value.taskId != null) {
+      taskDeleteBusyId.value = confirm.value.taskId
+      await http.delete(`/core/calendar/events/custom/${confirm.value.taskId}/`)
+      await fetchTasks()
+      closeConfirm()
+      return
+    }
   } catch (err: any) {
-    console.error('Failed to delete outcome:', err)
-    alert(`Failed to delete ${confirm.value.type}. Please try again.`)
+    if (confirm.value.kind === 'task') {
+      console.error('[Tasks] delete failed', err)
+      alert('Failed to delete task. Please try again.')
+    } else {
+      console.error('Failed to delete outcome:', err)
+      alert(`Failed to delete ${confirm.value.type}. Please try again.`)
+    }
   } finally {
     confirm.value.busy = false
+    taskDeleteBusyId.value = null
   }
 }
 
@@ -1268,10 +1415,6 @@ async function refreshVisible() {
   }
 }
 watch(hubId, refreshVisible)
-
-watch(hubId, () => {
-  fetchFollowups()
-}, { immediate: true })
 
 // Utility functions
 const formatCurrency = (amount?: number | null) => {
@@ -1714,6 +1857,65 @@ onBeforeUnmount(() => {
   .kpi-number {
     font-size: 1.5rem;
   }
+}
+
+/* Task Modal Styles */
+.tasks-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.tasks-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.task-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 0.75rem;
+  border: 1px solid #dee2e6;
+  border-radius: 0.375rem;
+  background-color: #f8f9fa;
+  gap: 1rem;
+}
+
+.task-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.task-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.task-title {
+  font-size: 0.9rem;
+  color: #212529;
+}
+
+.task-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.task-description {
+  color: #6c757d;
+  margin-top: 0.5rem;
+  line-height: 1.4;
+}
+
+.task-actions {
+  display: flex;
+  gap: 0.25rem;
+  flex-shrink: 0;
 }
 </style>
 

@@ -181,7 +181,7 @@ class Command(BaseCommand):
                                         date=follow_up_date,
                                         time='All Day',
                                         description='Imported follow-up',
-                                        category='bg-warning',
+                                        category='follow_up',
                                         asset_hub=asset_hub,
                                         is_reminder=True,
                                         is_public=True,

@@ -22,10 +22,10 @@
 
     <!-- Stats Row - Key metrics tiles (minimal top margin as hero provides context) -->
     <StatsWidget
-      :followupCount="followupAssetCount"
+      :tasksCount="tasksCount"
       :tradesCount="tradesCount"
       @open-pipeline="showPipelineModal = true"
-      @open-followups="openFollowupsModal"
+      @open-tasks="openTasksModal"
       @open-trades="openTradesModal"
       class="mb-3"
     />
@@ -117,47 +117,47 @@
   </b-modal>
 
   <b-modal
-    v-model="showFollowupsModal"
-    title="My Follow-ups"
+    v-model="showTasksModal"
+    title="My Tasks"
     size="xl"
-    dialog-class="modal-dialog-centered followups-modal"
+    dialog-class="modal-dialog-centered tasks-modal"
     hide-footer
-    body-class="p-0 followups-modal-body"
+    body-class="p-0 tasks-modal-body"
   >
-    <div v-if="followupsLoading" class="text-center py-3">
+    <div v-if="tasksLoading" class="text-center py-3">
       <div class="spinner-border spinner-border-sm text-primary" role="status">
         <span class="visually-hidden">Loading...</span>
       </div>
     </div>
-    <div v-else class="followups-container">
-      <div v-if="followupsError" class="alert alert-danger mb-3">
-        <i class="mdi mdi-alert-circle-outline me-2"></i>{{ followupsError }}
+    <div v-else class="tasks-container">
+      <div v-if="tasksError" class="alert alert-danger mb-3">
+        <i class="mdi mdi-alert-circle-outline me-2"></i>{{ tasksError }}
       </div>
       
       <!-- Summary Stats Bar -->
-      <div v-if="followupAssets.length" class="followups-summary mb-4">
+      <div v-if="taskAssets.length" class="tasks-summary mb-4">
         <div class="row g-3">
           <div class="col-3 text-center">
             <div class="summary-stat overdue">
-              <div class="stat-number">{{ filteredFollowups.filter(f => f.days_until < 0).length }}</div>
+              <div class="stat-number">{{ filteredTasks.filter(f => f.days_until < 0).length }}</div>
               <div class="stat-label">Overdue</div>
             </div>
           </div>
           <div class="col-3 text-center">
             <div class="summary-stat week">
-              <div class="stat-number">{{ filteredFollowups.filter(f => f.days_until >= 0 && f.days_until <= 7).length }}</div>
+              <div class="stat-number">{{ filteredTasks.filter(f => f.days_until >= 0 && f.days_until <= 7).length }}</div>
               <div class="stat-label">This Week</div>
             </div>
           </div>
           <div class="col-3 text-center">
             <div class="summary-stat month">
-              <div class="stat-number">{{ filteredFollowups.filter(f => f.days_until > 7 && f.days_until <= 30).length }}</div>
+              <div class="stat-number">{{ filteredTasks.filter(f => f.days_until > 7 && f.days_until <= 30).length }}</div>
               <div class="stat-label">This Month</div>
             </div>
           </div>
           <div class="col-3 text-center">
             <div class="summary-stat future">
-              <div class="stat-number">{{ filteredFollowups.filter(f => f.days_until > 30).length }}</div>
+              <div class="stat-number">{{ filteredTasks.filter(f => f.days_until > 30).length }}</div>
               <div class="stat-label">Future</div>
             </div>
           </div>
@@ -165,12 +165,12 @@
       </div>
 
       <!-- Filters & Controls -->
-      <div v-if="followupAssets.length" class="followups-controls mb-4">
+      <div v-if="taskAssets.length" class="tasks-controls mb-4">
         <div class="row g-3 align-items-end">
           <div class="col-md-3">
             <label class="form-label small fw-semibold text-muted">FILTER BY STATUS</label>
             <select v-model="selectedStatusFilter" class="form-select form-select-sm">
-              <option value="all">All Follow-ups</option>
+              <option value="all">All Tasks</option>
               <option value="overdue">Overdue</option>
               <option value="urgent">Urgent (≤7 days)</option>
               <option value="active">Active (≤30 days)</option>
@@ -178,17 +178,28 @@
               <option value="future">Future (61+ days)</option>
             </select>
           </div>
-          <div class="col-md-3">
-            <label class="form-label small fw-semibold text-muted">FILTER BY REASON</label>
-            <select v-model="selectedReasonFilter" class="form-select form-select-sm">
-              <option value="all">All Reasons</option>
-              <option value="escrow">Escrow</option>
-              <option value="reo">REO</option>
-              <option value="legal">Legal</option>
-              <option value="inspection">Inspection</option>
+          <div class="col-md-2">
+            <label class="form-label small fw-semibold text-muted">PRIORITY</label>
+            <select v-model="selectedPriorityFilter" class="form-select form-select-sm">
+              <option value="all">All</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
             </select>
           </div>
-          <div class="col-md-4">
+          <div class="col-md-2">
+            <label class="form-label small fw-semibold text-muted">CATEGORY</label>
+            <select v-model="selectedCategoryFilter" class="form-select form-select-sm">
+              <option value="all">All</option>
+              <option value="follow_up">Follow-up</option>
+              <option value="document_review">Document Review</option>
+              <option value="contact_borrower">Contact Borrower</option>
+              <option value="legal">Legal</option>
+              <option value="inspection">Inspection</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="col-md-3">
             <label class="form-label small fw-semibold text-muted">SEARCH</label>
             <input 
               v-model="searchQuery" 
@@ -209,34 +220,34 @@
         </div>
       </div>
 
-      <!-- Follow-ups List -->
-      <div v-if="filteredFollowups.length" class="followups-list">
+      <!-- Tasks List -->
+      <div v-if="filteredTasks.length" class="tasks-list">
         <div 
-          v-for="asset in filteredFollowups" 
-          :key="`followup-${asset.asset_hub_id}`"
-          class="followup-card"
+          v-for="asset in filteredTasks" 
+          :key="`task-${asset.asset_hub_id}`"
+          class="task-card"
           :class="getUrgencyClass(asset.days_until)"
         >
-          <div class="followup-header">
-            <div class="followup-priority">
-              <div class="priority-indicator" :class="getPriorityClass(asset.days_until)">
-                <i class="mdi" :class="getPriorityIcon(asset.days_until)"></i>
+          <div class="task-header">
+            <div class="task-priority">
+              <div class="priority-indicator" :class="getTaskPriorityClass(asset.next_priority)">
+                <i class="mdi" :class="getTaskPriorityIcon(asset.next_priority)"></i>
               </div>
-              <div class="followup-meta">
-                <div class="followup-header-line d-flex align-items-center justify-content-between mb-1">
-                  <div class="followup-id">{{ asset.servicer_id }}</div>
-                  <div class="followup-address-header">
+              <div class="task-meta">
+                <div class="task-header-line d-flex align-items-center justify-content-between mb-1">
+                  <div class="task-id">{{ asset.servicer_id }}</div>
+                  <div class="task-address-header">
                     <i class="mdi mdi-map-marker-outline me-1"></i>
                     {{ getFullAddress(asset) }}
                   </div>
                 </div>
-                <div class="followup-trade-header">
+                <div class="task-trade-header">
                   <i class="mdi mdi-briefcase-outline me-1"></i>
                   <span class="trade-name">{{ asset.trade_name || 'No Trade Assigned' }}</span>
                 </div>
               </div>
             </div>
-            <div class="followup-actions">
+            <div class="task-actions">
               <span v-if="asset.count > 1" class="badge bg-warning text-dark me-1">
                 {{ asset.count }} tasks
               </span>
@@ -244,7 +255,7 @@
                 <button 
                   class="btn btn-sm btn-outline-success d-flex align-items-center justify-content-center"
                   @click="markComplete(asset.asset_hub_id)"
-                  :disabled="!asset.followup_event_source_id || markingAssetId === asset.asset_hub_id"
+                  :disabled="!asset.task_id || markingAssetId === asset.asset_hub_id"
                   title="Mark Complete"
                 >
                   <span v-if="markingAssetId === asset.asset_hub_id" class="spinner-border spinner-border-sm text-success"></span>
@@ -252,7 +263,7 @@
                 </button>
                 <button 
                   class="btn btn-sm btn-outline-primary"
-                  @click="openAssetFromFollowups(asset.asset_hub_id, asset.address)"
+                  @click="openAssetFromTasks(asset.asset_hub_id, asset.address)"
                   title="View Details"
                 >
                   <i class="mdi mdi-eye"></i>
@@ -261,11 +272,11 @@
             </div>
           </div>
           
-          <div class="followup-content">
-            <div v-if="asset.next_reason" class="followup-reason mb-1">
+          <div class="task-content">
+            <div v-if="asset.next_category" class="task-category mb-1">
               <i class="mdi mdi-tag-outline me-1"></i>
-              <span class="reason-badge" :class="getReasonClass(asset.next_reason)">
-                {{ asset.next_reason }}
+              <span class="category-badge" :class="getCategoryClass(asset.next_category)">
+                {{ getCategoryLabel(asset.next_category) }}
               </span>
             </div>
             
@@ -292,7 +303,7 @@
           <i class="mdi mdi-calendar-check-outline"></i>
         </div>
         <h5 class="empty-title">All caught up!</h5>
-        <p class="empty-message">You have no pending follow-ups at this time.</p>
+        <p class="empty-message">You have no pending tasks at this time.</p>
       </div>
     </div>
   </b-modal>
@@ -457,30 +468,33 @@ function todayIso(): string {
   return `${yyyy}-${mm}-${dd}`
 }
 
-type FollowupRow = {
+type TaskRow = {
   id: number
   title: string
-  date: string
-  time: string
   description: string
+  due_date: string
+  priority: 'low' | 'medium' | 'high'
   category: string
-  asset_hub: number | null
-  asset_hub_id?: number | null
-  reason?: string | null
+  assigned_to: number | null
+  assigned_to_username: string | null
+  notified_users: string[] | null
+  completed: boolean
+  asset_hub: number
 }
 
-type FollowupAssetRow = {
+type TaskAssetRow = {
   asset_hub_id: number
   address: string
   servicer_id: string
   trade_name: string | null
-  followup_event_source_id: number | null
+  task_id: number | null
   city: string | null
   state: string | null
   count: number
   next_date: string
   next_title: string
-  next_reason: string | null
+  next_priority: 'low' | 'medium' | 'high'
+  next_category: string | null
   days_until: number
 }
 
@@ -545,13 +559,14 @@ export default {
       recentActivity: [] as RecentActivityItem[],
       isLoadingRecentActivity: false,
       showPipelineModal: false,
-      showFollowupsModal: false,
-      followupAssetCount: 0,
-      followupsLoading: false,
-      followupsError: '',
-      followupAssets: [] as FollowupAssetRow[],
+      showTasksModal: false,
+      tasksCount: 0,
+      tasksLoading: false,
+      tasksError: '',
+      taskAssets: [] as TaskAssetRow[],
       selectedStatusFilter: 'all',
-      selectedReasonFilter: 'all',
+      selectedPriorityFilter: 'all',
+      selectedCategoryFilter: 'all',
       searchQuery: '',
       selectedSort: 'date',
       markingAssetId: null as number | null,
@@ -571,7 +586,7 @@ export default {
   },
   async mounted() {
     await this.loadRecentActivity()
-    this.loadActiveFollowups()
+    this.loadActiveTasks()
     this.loadActiveTrades()
   },
   computed: {
@@ -622,9 +637,9 @@ export default {
       return rawAddr.replace(/,?\s*\d{5}(?:-\d{4})?$/, '')
     },
 
-    // Filtered and sorted follow-ups
-    filteredFollowups(): FollowupAssetRow[] {
-      let filtered = [...this.followupAssets]
+    // Filtered and sorted tasks
+    filteredTasks(): TaskAssetRow[] {
+      let filtered = [...this.taskAssets]
       
       // Status filter
       if (this.selectedStatusFilter !== 'all') {
@@ -640,10 +655,17 @@ export default {
         })
       }
       
-      // Reason filter
-      if (this.selectedReasonFilter !== 'all') {
+      // Priority filter
+      if (this.selectedPriorityFilter !== 'all') {
         filtered = filtered.filter(asset => 
-          asset.next_reason?.toLowerCase() === this.selectedReasonFilter
+          asset.next_priority === this.selectedPriorityFilter
+        )
+      }
+      
+      // Category filter
+      if (this.selectedCategoryFilter !== 'all') {
+        filtered = filtered.filter(asset => 
+          asset.next_category === this.selectedCategoryFilter
         )
       }
       
@@ -678,14 +700,14 @@ export default {
     },
 
     // Legacy buckets for backward compatibility
-    followups30Days(): FollowupAssetRow[] {
-      return this.followupAssets.filter(a => a.days_until <= 30)
+    tasks30Days(): TaskAssetRow[] {
+      return this.taskAssets.filter((a: TaskAssetRow) => a.days_until <= 30)
     },
-    followups60Days(): FollowupAssetRow[] {
-      return this.followupAssets.filter(a => a.days_until > 30 && a.days_until <= 60)
+    tasks60Days(): TaskAssetRow[] {
+      return this.taskAssets.filter((a: TaskAssetRow) => a.days_until > 30 && a.days_until <= 60)
     },
-    followups90Days(): FollowupAssetRow[] {
-      return this.followupAssets.filter(a => a.days_until > 60)
+    tasks90Days(): TaskAssetRow[] {
+      return this.taskAssets.filter((a: TaskAssetRow) => a.days_until > 60)
     }
   },
   methods: {
@@ -725,7 +747,7 @@ export default {
       return `${parts[1]}/${parts[2]}/${parts[0]}` // MM/DD/YYYY
     },
 
-    getFullAddress(asset: FollowupAssetRow): string {
+    getFullAddress(asset: TaskAssetRow): string {
       // WHAT: Combines address with city and state for full display
       // WHY: User requested city and state to be included in address
       // HOW: Concatenates address, city, and state with proper formatting
@@ -762,15 +784,46 @@ export default {
       return 'mdi-calendar-outline'
     },
 
-    getReasonClass(reason: string): string {
-      const reasonMap: Record<string, string> = {
-        'escrow': 'reason-escrow',
-        'reo': 'reason-reo',
-        'legal': 'reason-legal',
-        'inspection': 'reason-inspection',
-        'default': 'reason-default'
+    getTaskPriorityClass(priority: 'low' | 'medium' | 'high'): string {
+      const priorityMap: Record<string, string> = {
+        'high': 'priority-high',
+        'medium': 'priority-medium',
+        'low': 'priority-low'
       }
-      return reasonMap[reason?.toLowerCase()] || 'reason-default'
+      return priorityMap[priority] || 'priority-medium'
+    },
+
+    getTaskPriorityIcon(priority: 'low' | 'medium' | 'high'): string {
+      const iconMap: Record<string, string> = {
+        'high': 'mdi-alert-circle',
+        'medium': 'mdi-clock-alert-outline',
+        'low': 'mdi-calendar-outline'
+      }
+      return iconMap[priority] || 'mdi-clock-alert-outline'
+    },
+
+    getCategoryClass(category: string): string {
+      const categoryMap: Record<string, string> = {
+        'follow_up': 'category-followup',
+        'document_review': 'category-document',
+        'contact_borrower': 'category-contact',
+        'legal': 'category-legal',
+        'inspection': 'category-inspection',
+        'other': 'category-other'
+      }
+      return categoryMap[category?.toLowerCase()] || 'category-other'
+    },
+
+    getCategoryLabel(category: string): string {
+      const labelMap: Record<string, string> = {
+        'follow_up': 'Follow-up',
+        'document_review': 'Document Review',
+        'contact_borrower': 'Contact Borrower',
+        'legal': 'Legal',
+        'inspection': 'Inspection',
+        'other': 'Other'
+      }
+      return labelMap[category] || category
     },
 
     getStatusClass(daysUntil: number): string {
@@ -795,9 +848,9 @@ export default {
     },
 
     async markComplete(assetHubId: number): Promise<void> {
-      const asset = this.followupAssets.find(a => a.asset_hub_id === assetHubId)
-      if (!asset?.followup_event_source_id) {
-        console.warn('[Home Dashboard] No follow-up event found for asset', assetHubId)
+      const asset = this.taskAssets.find((a: TaskAssetRow) => a.asset_hub_id === assetHubId)
+      if (!asset?.task_id) {
+        console.warn('[Home Dashboard] No task found for asset', assetHubId)
         return
       }
 
@@ -806,14 +859,14 @@ export default {
       }
 
       this.markingAssetId = assetHubId
-      this.followupsError = ''
+      this.tasksError = ''
 
       try {
-        await http.delete(`/core/calendar/events/custom/${asset.followup_event_source_id}/`)
-        await this.loadActiveFollowups()
+        await http.delete(`/core/calendar/events/custom/${asset.task_id}/`)
+        await this.loadActiveTasks()
       } catch (err: any) {
         console.error('[Home Dashboard] markComplete failed', err)
-        this.followupsError = 'Failed to mark follow-up complete.'
+        this.tasksError = 'Failed to mark task complete.'
       } finally {
         this.markingAssetId = null
       }
@@ -822,35 +875,28 @@ export default {
       this.$router.push('/pages/activity')
     },
 
-    async loadActiveFollowups() {
-      // WHAT: Use dedicated follow-ups endpoint with a 120-day window
-      // WHY: Optimized specifically for follow-ups and prevents timeout
-      this.followupsLoading = true
-      this.followupsError = ''
+    async loadActiveTasks() {
+      // WHAT: Fetch active tasks for the logged-in user
+      // WHY: Consolidated workflow - tasks replace follow-ups
+      this.tasksLoading = true
+      this.tasksError = ''
       try {
-        const now = new Date()
-        const start = new Date(now)
-        start.setDate(start.getDate() - 30) // Look back 1 month
-        const end = new Date(now)
-        end.setDate(end.getDate() + 90)    // Look ahead 3 months
-
-        const startStr = start.toISOString().split('T')[0]
-        const endStr = end.toISOString().split('T')[0]
-
-        // WHAT: Use the NEW dedicated follow-ups endpoint
-        const resp = await http.get('/core/calendar/followups/', {
+        // WHAT: Fetch all incomplete tasks (no user filter in dev mode)
+        // WHY: In dev mode with bypassed auth, we want to see all tasks
+        // HOW: Backend will filter by user if authenticated, otherwise show all public tasks
+        const resp = await http.get('/core/calendar/events/custom/', {
           params: {
-            start_date: startStr,
-            end_date: endStr
+            is_reminder: true,
+            // Note: Backend handles user filtering based on authentication
           }
         })
-        const followupEvents = Array.isArray((resp as any)?.data) ? (resp as any).data : []
+        const taskEvents = Array.isArray((resp as any)?.data) ? (resp as any).data : []
         
         const grouped = new Map<number, any[]>()
-        const assetInfo = new Map<number, { address: string; servicer_id: string; city: string; state: string }>()
+        const assetInfo = new Map<number, { address: string; servicer_id: string; city: string; state: string; trade_name: string }>()
 
-        for (const r of followupEvents) {
-          const rawId = (r as any).asset_hub_id ?? (r as any).asset_hub
+        for (const r of taskEvents) {
+          const rawId = (r as any).asset_hub ?? (r as any).asset_hub_id
           const idNum = rawId != null ? Number(rawId) : NaN
           if (!Number.isFinite(idNum)) continue
           
@@ -863,7 +909,8 @@ export default {
               address: r.address || 'No address',
               servicer_id: r.servicer_id || 'No ID',
               city: r.city || '',
-              state: r.state || ''
+              state: r.state || '',
+              trade_name: r.trade_name || ''
             })
           }
         }
@@ -874,9 +921,9 @@ export default {
         const assetIds = Array.from(grouped.keys())
         const assets = assetIds.map(id => {
           const info = assetInfo.get(id)
-          const fups = (grouped.get(id) ?? []).slice().sort((a, b) => String(a.date).localeCompare(String(b.date)))
-          const next = fups[0]
-          const nextSourceId = next?.source_model === 'CalendarEvent' && next?.source_id ? Number(next.source_id) : null
+          const tasks = (grouped.get(id) ?? []).slice().sort((a, b) => String(a.date).localeCompare(String(b.date)))
+          const next = tasks[0]
+          const nextTaskId = next?.id ? Number(next.id) : null
           
           const nextDate = new Date(next.date)
           nextDate.setHours(0, 0, 0, 0)
@@ -887,46 +934,47 @@ export default {
             asset_hub_id: id,
             address: info?.address || 'No address',
             servicer_id: info?.servicer_id || 'No ID',
-            trade_name: next?.trade_name || null,
+            trade_name: info?.trade_name || null,
             city: info?.city || null,
             state: info?.state || null,
-            count: fups.length,
+            count: tasks.length,
             next_date: String(next?.date ?? ''),
             next_title: String(next?.title ?? ''),
-            next_reason: next?.reason || null,
+            next_priority: (next?.priority as 'low' | 'medium' | 'high') || 'medium',
+            next_category: next?.category || null,
             days_until: diffDays,
-            followup_event_source_id: nextSourceId,
-          } as FollowupAssetRow
+            task_id: nextTaskId,
+          } as TaskAssetRow
         })
 
         const sorted = assets.sort((a, b) => 
           String(a.next_date).localeCompare(String(b.next_date)) || a.asset_hub_id - b.asset_hub_id
         )
 
-        this.followupAssets = sorted
-        this.followupAssetCount = sorted.length
+        this.taskAssets = sorted
+        this.tasksCount = sorted.length
       } catch (e: any) {
-        console.error('[Home Dashboard] loadActiveFollowups failed', e)
-        this.followupsError = 'Failed to load follow-ups.'
-        this.followupAssets = []
-        this.followupAssetCount = 0
+        console.error('[Home Dashboard] loadActiveTasks failed', e)
+        this.tasksError = 'Failed to load tasks.'
+        this.taskAssets = []
+        this.tasksCount = 0
       } finally {
-        this.followupsLoading = false
+        this.tasksLoading = false
       }
     },
 
-    openFollowupsModal() {
-      this.showFollowupsModal = true
-      if (!this.followupsLoading && this.followupAssets.length === 0) {
-        this.loadActiveFollowups()
+    openTasksModal() {
+      this.showTasksModal = true
+      if (!this.tasksLoading && this.taskAssets.length === 0) {
+        this.loadActiveTasks()
       }
     },
 
-    openAssetFromFollowups(assetHubId: number, address: string) {
+    openAssetFromTasks(assetHubId: number, address: string) {
       this.selectedId = assetHubId
       this.selectedRow = null
       this.selectedAddr = address || null
-      this.showFollowupsModal = false
+      this.showTasksModal = false
       this.showAssetModal = true
     },
 
@@ -1054,59 +1102,59 @@ export default {
   background-color: rgba(0, 0, 0, 0.01);
 }
 
-/* Follow-ups modal - Professional Navy & Gold Design */
-.followups-modal {
+/* Tasks modal - Professional Navy & Gold Design */
+.tasks-modal {
   max-height: 80vh;
 }
 
-.followups-modal .modal-content {
+.tasks-modal .modal-content {
   max-height: 80vh;
   display: flex;
   flex-direction: column;
   background: #FDFBF7; /* Warm White from color palette */
 }
 
-.followups-modal-body {
+.tasks-modal-body {
   overflow-y: auto;
   flex: 1;
   max-height: calc(80vh - 120px);
   padding: 0;
 }
 
-/* Follow-ups container */
-.followups-container {
+/* Tasks container */
+.tasks-container {
   padding: 1.5rem;
   background: #FDFBF7; /* Warm White */
 }
 
 /* Controls section */
-.followups-controls {
+.tasks-controls {
   background: linear-gradient(135deg, #F5F3EE 0%, #E9ECEF 100%); /* Cream to Light Gray */
   border-radius: 12px;
   padding: 1.5rem;
   border: 1px solid #dee2e6;
 }
 
-.followups-controls .form-label {
+.tasks-controls .form-label {
   color: #1B3B5F; /* Primary Navy */
   font-size: 0.75rem;
   letter-spacing: 0.5px;
 }
 
-.followups-controls .form-select,
-.followups-controls .form-control {
+.tasks-controls .form-select,
+.tasks-controls .form-control {
   border: 1px solid #4A6FA5; /* Steel Blue */
   background: #FDFBF7; /* Warm White */
 }
 
-.followups-controls .form-select:focus,
-.followups-controls .form-control:focus {
+.tasks-controls .form-select:focus,
+.tasks-controls .form-control:focus {
   border-color: #D4AF37; /* Accent Gold */
   box-shadow: 0 0 0 0.2rem rgba(212, 175, 55, 0.25);
 }
 
 /* Summary stats */
-.followups-summary {
+.tasks-summary {
   background: linear-gradient(135deg, #F5F3EE 0%, #E9ECEF 100%);
   border-radius: 10px;
   padding: 1rem 1.25rem;
@@ -1155,14 +1203,14 @@ export default {
   font-weight: 500;
 }
 
-/* Follow-up cards */
-.followups-list {
+/* Task cards */
+.tasks-list {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
 }
 
-.followup-card {
+.task-card {
   background: #FDFBF7; /* Warm White */
   border-radius: 12px;
   border: 1px solid #E9ECEF; /* Light Gray */
@@ -1172,41 +1220,41 @@ export default {
   margin-bottom: 0.2rem;
 }
 
-.followup-card:hover {
+.task-card:hover {
   box-shadow: 0 4px 12px rgba(27, 59, 95, 0.15); /* Navy shadow */
   transform: translateY(-1px);
   border-color: #D4AF37; /* Accent Gold */
 }
 
-.followup-card.urgent-high {
+.task-card.urgent-high {
   border-left: 4px solid #B85A3A; /* Burnt Sienna */
   background: linear-gradient(135deg, rgba(184, 90, 58, 0.08) 0%, #FDFBF7 100%);
 }
 
-.followup-card.urgent-medium {
+.task-card.urgent-medium {
   border-left: 4px solid #DAA520; /* Goldenrod */
   background: linear-gradient(135deg, rgba(218, 165, 32, 0.08) 0%, #FDFBF7 100%);
 }
 
-.followup-card.upcoming {
+.task-card.upcoming {
   border-left: 4px solid #6B5A7A; /* Muted Plum */
   background: linear-gradient(135deg, rgba(107, 90, 122, 0.08) 0%, #FDFBF7 100%);
 }
 
-.followup-card.future {
+.task-card.future {
   border-left: 4px solid #1B5E20; /* Forest Green */
   background: linear-gradient(135deg, rgba(27, 94, 32, 0.08) 0%, #FDFBF7 100%);
 }
 
-/* Follow-up header */
-.followup-header {
+/* Task header */
+.task-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   margin-bottom: 0.5rem;
 }
 
-.followup-priority {
+.task-priority {
   display: flex;
   align-items: center;
   gap: 0.35rem;
@@ -1237,23 +1285,23 @@ export default {
   color: white;
 }
 
-.followup-meta {
+.task-meta {
   display: flex;
   flex-direction: column;
 }
 
-.followup-header-line {
+.task-header-line {
   margin-bottom: 0.25rem;
 }
 
-.followup-id {
+.task-id {
   font-size: 0.95rem;
   font-weight: 600;
   color: #1B3B5F; /* Primary Navy */
   letter-spacing: 0.5px;
 }
 
-.followup-trade-header {
+.task-trade-header {
   font-size: 0.9rem;
   color: #4A6FA5; /* Steel Blue */
   display: flex;
@@ -1261,11 +1309,11 @@ export default {
   margin-bottom: 0.25rem;
 }
 
-.followup-trade-header .trade-name {
+.task-trade-header .trade-name {
   font-weight: 600;
 }
 
-.followup-address-header {
+.task-address-header {
   font-size: 0.9rem;
   color: #2C3E50; /* Charcoal */
   display: flex;
@@ -1273,20 +1321,20 @@ export default {
 }
 
 
-.followup-actions {
+.task-actions {
   display: flex;
   align-items: center;
   gap: 0.5rem;
 }
 
-/* Follow-up content */
-.followup-content {
+/* Task content */
+.task-content {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
 }
 
-.followup-trade {
+.task-trade {
   font-size: 0.9rem;
   color: #1B3B5F; /* Primary Navy */
   display: flex;
@@ -1298,19 +1346,19 @@ export default {
   color: #4A6FA5; /* Steel Blue */
 }
 
-.followup-address {
+.task-address {
   font-size: 0.9rem;
   color: #2C3E50; /* Charcoal */
   display: flex;
   align-items: center;
 }
 
-.followup-reason {
+.task-category {
   display: flex;
   align-items: center;
 }
 
-.reason-badge {
+.category-badge {
   padding: 0.25rem 0.75rem;
   border-radius: 20px;
   font-size: 0.75rem;
@@ -1319,32 +1367,37 @@ export default {
   letter-spacing: 0.5px;
 }
 
-.reason-badge.reason-escrow {
+.category-badge.category-followup {
   background: rgba(74, 111, 165, 0.1); /* Steel Blue tint */
   color: #4A6FA5; /* Steel Blue */
 }
 
-.reason-badge.reason-reo {
+.category-badge.category-document {
   background: rgba(205, 122, 50, 0.1); /* Bronze tint */
   color: #CD7F32; /* Bronze */
 }
 
-.reason-badge.reason-legal {
+.category-badge.category-legal {
   background: rgba(107, 90, 122, 0.1); /* Muted Plum tint */
   color: #6B5A7A; /* Muted Plum */
 }
 
-.reason-badge.reason-inspection {
+.category-badge.category-inspection {
   background: rgba(46, 125, 50, 0.1); /* Success Green tint */
   color: #2E7D32; /* Success Green */
 }
 
-.reason-badge.reason-default {
+.category-badge.category-contact {
+  background: rgba(218, 165, 32, 0.1); /* Goldenrod tint */
+  color: #DAA520; /* Goldenrod */
+}
+
+.category-badge.category-other {
   background: rgba(149, 165, 166, 0.1); /* Medium Gray tint */
   color: #95A5A6; /* Medium Gray */
 }
 
-.followup-title {
+.task-title {
   font-size: 0.95rem;
   color: #1B3B5F; /* Primary Navy */
   font-weight: 500;

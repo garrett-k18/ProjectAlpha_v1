@@ -48,27 +48,30 @@ from core.views.view_co_notifications import _resolve_request_user
 # Format: (ModelName, field_name, display_title, event_type)
 #
 # Event Types (semantic - frontend maps to colors):
-#   'actual_liquidation'     - Actual foreclosure sales
+#   'realized_liquidation'   - Realized foreclosure sales
 #   'projected_liquidation'  - Projected/scheduled FC sales
 #   'bid_date'              - Bid submission deadlines
 #   'settlement_date'       - Settlement dates
+#   'trade'                 - Trade-related events
+#   'follow_up'             - Follow-up tasks
 #   'milestone'             - Other important milestones
 #
 # Note: Frontend controls actual colors/styling - backend only sends semantic types
 # ============================================================================
 
 CALENDAR_DATE_FIELDS = [
-    # Format: (ModelName, field_name, display_title, event_type)
+    # Format: (ModelName, field_name, display_title, event_type, sub_type)
+    # sub_type is optional - used for distinguishing within same event_type
     
     # SellerRawData fields
-    # ('SellerRawData', 'fc_sale_date', 'Projected FC Sale', 'projected_liquidation'),
+    # ('SellerRawData', 'fc_sale_date', 'Projected FC Sale', 'projected_liquidation', None),
     
     # ServicerLoanData fields - from am_module/models/servicers.py
-    ('ServicerLoanData', 'actual_fc_sale_date', 'Liquidation', 'actual_liquidation'),
+    ('ServicerLoanData', 'actual_fc_sale_date', 'Liquidation', 'realized_liquidation', None),
     
     # TradeLevelAssumption fields - from acq_module/models/assumptions.py
-    ('TradeLevelAssumption', 'bid_date', 'Bid Date', 'bid_date'),
-    ('TradeLevelAssumption', 'settlement_date', 'Settlement', 'settlement_date'),
+    ('TradeLevelAssumption', 'bid_date', 'Bid Date', 'trade', 'bid_date'),
+    ('TradeLevelAssumption', 'settlement_date', 'Settlement', 'trade', 'settlement_date'),
     
     # Add more fields here - one line per field
 ]
@@ -138,7 +141,7 @@ class CalendarEventReadSerializer(serializers.Serializer):
     # Visual category (Bootstrap color class)
     # Options: bg-primary (blue), bg-success (green), bg-info (cyan), 
     #          bg-warning (yellow), bg-danger (red), bg-secondary (gray)
-    category = serializers.CharField(max_length=50, default="bg-primary")
+    category = serializers.CharField(max_length=50, default="milestone")
     
     # Metadata for tracking source
     # source_model: Name of the Django model this event came from
@@ -169,20 +172,22 @@ class CalendarEventReadSerializer(serializers.Serializer):
     
     def validate_category(self, value):
         """
-        Validate that the category is a valid Bootstrap color class.
+        Validate that the category is a valid semantic event type.
         
-        What: Ensures category is a recognized Bootstrap class
-        Why: Invalid classes break frontend styling
+        What: Ensures category is a recognized semantic type
+        Why: Invalid types break frontend styling
         Where: Called automatically during serialization
-        How: Checks against allowed Bootstrap color classes
+        How: Checks against allowed semantic types
         """
-        valid_categories = [
-            'bg-primary', 'bg-success', 'bg-info', 
-            'bg-warning', 'bg-danger', 'bg-secondary'
-        ]
+        valid_categories = {
+            'realized_liquidation',
+            'projected_liquidation',
+            'trade',
+            'follow_up',
+            'milestone',
+        }
         if value not in valid_categories:
-            # Default to bg-primary if invalid category provided
-            return 'bg-primary'
+            return 'milestone'
         return value
 
 
@@ -237,6 +242,8 @@ class CustomCalendarEventSerializer(serializers.ModelSerializer):
             'time',
             'description',
             'category',
+            'priority',
+            'assigned_to',
             'seller',
             'trade',
             'asset_hub',
@@ -432,8 +439,11 @@ class UnifiedCalendarEventSerializer(serializers.Serializer):
     # Event description - shown in tooltip/modal
     description = serializers.CharField()
 
-    # Semantic event type (e.g., follow_up, actual_liquidation). Optional.
+    # Semantic event type (e.g., follow_up, realized_liquidation). Optional.
     event_type = serializers.CharField(required=False, allow_blank=True)
+    
+    # Task category for follow_up events (e.g., follow_up, nod_noi, escrow, reo)
+    task_category = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     
     # Bootstrap color class - determines event color on calendar
     category = serializers.CharField()

@@ -5,24 +5,32 @@
 // How: Maps event types to Bootstrap color classes
 const categories = [
     {
-        name: 'Liquidation',
-        value: 'bg-success'  // Green - actual foreclosure sales
+        name: 'Realized Liquidation',
+        value: 'realized_liquidation'  // Semantic event type - frontend maps to colors
     },
     {
         name: 'Projected Liquidation',
-        value: 'bg-warning'  // Yellow - projected/scheduled FC sales
+        value: 'projected_liquidation'  // Semantic event type - frontend maps to colors
+    },
+    {
+        name: 'Trade',
+        value: 'trade'  // Semantic event type - frontend maps to colors
+    },
+    {
+        name: 'Follow-up Task',
+        value: 'follow_up'  // Semantic event type - frontend maps to colors
     },
     {
         name: 'Bid Date',
-        value: 'bg-info'  // Cyan - bid submission deadlines
+        value: 'bid_date'  // Semantic event type - frontend maps to colors
     },
     {
         name: 'Settlement Date',
-        value: 'bg-dark'  // Dark/Purple - successful settlements
+        value: 'settlement_date'  // Semantic event type - frontend maps to colors
     },
     {
-        name: 'Asset Milestone',
-        value: 'bg-danger'  // Red - other important milestones
+        name: 'Milestone',
+        value: 'milestone'  // Semantic event type - frontend maps to colors
     },
 ];
 

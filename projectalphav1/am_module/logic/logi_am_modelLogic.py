@@ -164,7 +164,7 @@ def get_projected_liquidation_events(start_date=None, end_date=None, seller_id=N
             'date': projected_date,
             'time': 'All Day',
             'description': f'Projected liquidation date for {address_display}',
-            'category': 'bg-warning',  # Yellow for projected events
+            'category': 'projected_liquidation',
             'event_type': 'projected_liquidation',  # WHAT: Set event_type for frontend filtering
             'source_model': source_model,
             'source_id': blended_model.asset_hub_id,
