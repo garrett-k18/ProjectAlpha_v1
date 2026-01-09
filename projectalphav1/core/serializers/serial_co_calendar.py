@@ -250,6 +250,7 @@ class CustomCalendarEventSerializer(serializers.ModelSerializer):
             'is_reminder',
             'is_public',
             'reason',
+            'completed',
             'created_by',
             'created_at',
             'updated_at',
@@ -477,3 +478,6 @@ class UnifiedCalendarEventSerializer(serializers.Serializer):
 
     # Follow-up reason
     reason = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+    # Completion flag for tasks
+    completed = serializers.BooleanField(default=False)

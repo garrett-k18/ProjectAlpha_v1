@@ -558,12 +558,21 @@ def _get_custom_calendar_events(request, start_date=None, end_date=None, seller_
         elif event.seller_id:
             url = f'/acq/seller/{event.seller_id}/'
         
-        # WHAT: Determine task category - default to 'follow_up' if not specified
-        # WHY: Existing tasks may not have reason field populated
-        # HOW: Use event.reason if set, otherwise default to 'follow_up' for tasks
+        # WHAT: Determine task category and semantic category for the calendar
+        # WHY: Existing tasks may not have reason populated, but we still need category info
+        # HOW: Prefer explicit reason, fall back to follow_up for reminders
         task_category = None
-        if event.is_reminder:
-            task_category = event.reason if event.reason else 'follow_up'
+        if event.reason:
+            task_category = event.reason
+        elif event.is_reminder:
+            task_category = 'follow_up'
+        
+        category_value = event.category or (
+            CalendarEvent.EventCategory.FOLLOW_UP if event.is_reminder else CalendarEvent.EventCategory.MILESTONE
+        )
+        event_type_value = event.category or (
+            'follow_up' if event.is_reminder else 'milestone'
+        )
         
         events.append({
             'id': f'custom:{event.id}',
@@ -571,9 +580,9 @@ def _get_custom_calendar_events(request, start_date=None, end_date=None, seller_
             'date': event.date,
             'time': event.time,
             'description': event.description,
-            'category': 'follow_up' if event.is_reminder else 'milestone',
-            'event_type': 'follow_up' if event.is_reminder else 'milestone',
-            'task_category': task_category,  # WHAT: Include task category for calendar display
+            'category': category_value,
+            'event_type': event_type_value,
+            'task_category': task_category,
             'source_model': 'CalendarEvent',
             'editable': bool(user is not None and event.created_by_id and event.created_by_id == user.id),
             'url': url,
@@ -584,6 +593,8 @@ def _get_custom_calendar_events(request, start_date=None, end_date=None, seller_
             'state': state,  # WHAT: Include state for event card display
             'trade_name': trade_name,  # WHAT: Include trade name for follow-up modal
             'reason': event.reason,  # WHAT: Include reason for follow-up modal (legacy field)
+            'is_reminder': event.is_reminder,
+            'completed': event.completed,
         })
     
     return events
@@ -630,15 +641,26 @@ class CustomCalendarEventViewSet(viewsets.ModelViewSet):
         
         Allows filtering by date range, seller, trade, or asset.
         """
+        import logging
+        logger = logging.getLogger(__name__)
+        
         queryset = super().get_queryset()
+        logger.info(f"[CalendarEvent] Initial queryset count: {queryset.count()}")
+        logger.info(f"[CalendarEvent] Query params: {dict(self.request.query_params)}")
 
         user = _resolve_request_user(self.request)
+        logger.info(f"[CalendarEvent] Resolved user: {user}")
+        
         if user is None:
             # In dev, frontend may bypass auth entirely; allow returning all events so tasks are visible.
             if not settings.DEBUG:
                 queryset = queryset.filter(is_public=True)
+                logger.info(f"[CalendarEvent] Filtered to public only (non-DEBUG): {queryset.count()}")
+            else:
+                logger.info(f"[CalendarEvent] DEBUG mode - showing all events: {queryset.count()}")
         else:
             queryset = queryset.filter(Q(is_public=True) | Q(created_by=user))
+            logger.info(f"[CalendarEvent] Filtered by user/public: {queryset.count()}")
         
         # Date range filters
         start_date = self.request.query_params.get('start_date')
@@ -680,14 +702,24 @@ class CustomCalendarEventViewSet(viewsets.ModelViewSet):
         if reason:
             queryset = queryset.filter(reason=reason)
 
+        completed = self.request.query_params.get('completed')
+        if completed is not None:
+            completed_bool = str(completed).strip().lower() in {'1', 'true', 't', 'yes', 'y'}
+            queryset = queryset.filter(completed=completed_bool)
+            logger.info(f"[CalendarEvent] Filtered by completed={completed_bool}: {queryset.count()}")
+
         mine = self.request.query_params.get('mine')
         if mine is not None and str(mine).strip().lower() in {'1', 'true', 't', 'yes', 'y'}:
             if user is None:
                 queryset = queryset.none()
             else:
                 queryset = queryset.filter(created_by=user)
+            logger.info(f"[CalendarEvent] Filtered by mine: {queryset.count()}")
         
-        return queryset.order_by('date', 'time')
+        final_qs = queryset.order_by('date', 'time')
+        logger.info(f"[CalendarEvent] FINAL queryset count: {final_qs.count()}")
+        logger.info(f"[CalendarEvent] FINAL queryset IDs: {list(final_qs.values_list('id', 'title', 'completed', 'asset_hub_id'))}")
+        return final_qs
     
     def perform_create(self, serializer):
         """
@@ -756,6 +788,8 @@ def get_followups(request):
     # Filter for follow-ups only (reminders)
     followups = []
     for e in events:
+        if e.get('completed'):
+            continue
         if e.get('event_type') == 'follow_up' or e.get('category') == 'follow_up':
             followups.append(e)
     

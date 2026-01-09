@@ -176,6 +176,8 @@ class Command(BaseCommand):
                                 
                                 if follow_up_date:
                                     # Create calendar event (is_public=True for firm-wide visibility)
+                                    # WHAT: Set completed=False so task appears in task modals
+                                    # WHY: All imported follow-ups start as active (not completed)
                                     CalendarEvent.objects.using(db_alias).create(
                                         title=f'Follow-up: {servicer_id}',
                                         date=follow_up_date,
@@ -183,7 +185,7 @@ class Command(BaseCommand):
                                         description='Imported follow-up',
                                         category='follow_up',
                                         asset_hub=asset_hub,
-                                        is_reminder=True,
+                                        completed=False,
                                         is_public=True,
                                     )
                                     created_followup_count += 1

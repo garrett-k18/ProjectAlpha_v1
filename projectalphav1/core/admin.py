@@ -1460,14 +1460,14 @@ class CalendarEventAdmin(admin.ModelAdmin):
         'seller',
         'trade',
         'asset_hub',
-        'is_reminder',
+        'completed',
         'created_by',
         'created_at',
     )
     
     list_filter = (
         'category',
-        'is_reminder',
+        'completed',
         'date',
         'created_at',
     )
@@ -1487,7 +1487,11 @@ class CalendarEventAdmin(admin.ModelAdmin):
     
     fieldsets = (
         ('Event Details', {
-            'fields': ('title', 'date', 'time', 'description', 'category', 'is_reminder')
+            'fields': ('title', 'date', 'time', 'description', 'category', 'priority', 'reason', 'completed', 'is_public')
+        }),
+        ('Assignment & Reminders', {
+            'fields': ('assigned_to', 'is_reminder'),
+            'description': 'Optional assignment and reminder settings'
         }),
         ('Relationships', {
             'fields': ('seller', 'trade', 'asset_hub'),

@@ -5,38 +5,6 @@
   <div class="calendar-section">
     <!-- Unified Card for entire Calendar Section -->
     <div class="card">
-      <!-- Filter Bar (Header-like toolbar) -->
-      <!-- WHAT: Filter buttons to show/hide events by tag type -->
-      <!-- WHY: Users need to filter events by type across both calendar and event list -->
-      <!-- HOW: Always display filter bar to prevent layout shifts during month navigation -->
-      <!-- NOTE: Always rendered (no v-if) to prevent flicker and layout rearrangement -->
-      <div class="card-header py-2 border-bottom" style="min-height: 48px; display: block;">
-        <div class="d-flex flex-wrap gap-2 align-items-center">
-          <span class="small text-muted fw-semibold me-2">Filter:</span>
-          <!-- All Events Button -->
-          <button
-            type="button"
-            class="btn btn-sm"
-            :class="selectedEventTypeFilters.length === 0 ? 'btn-light border border-2 border-secondary' : 'btn-outline-secondary'"
-            :disabled="eventsLoading"
-            @click="selectedEventTypeFilters = []"
-          >
-            All
-          </button>
-          <!-- Event Type Filter Buttons (Multi-select) -->
-          <button
-            v-for="eventType in availableEventTypes"
-            :key="eventType"
-            type="button"
-            class="btn btn-sm"
-            :class="selectedEventTypeFilters.includes(eventType) ? 'btn-light border border-2 border-secondary' : 'btn-outline-secondary'"
-            :disabled="eventsLoading"
-            @click="toggleEventTypeFilter(eventType)"
-          >
-            {{ getEventTypeLabel(eventType) }}
-          </button>
-        </div>
-      </div>
       
       <!-- Card Body - Event List + Calendar Grid -->
       <div class="card-body p-0 d-flex">
@@ -50,6 +18,43 @@
       <!-- WHY: Users need to see a scrollable list of events matching the calendar -->
       <!-- HOW: Left border separates from calendar, fills full height with scroll -->
       <b-col md="3" class="event-list-panel border-end d-flex flex-column" :style="eventListPanelStyle">
+        <!-- Event Type Filters at top of event list -->
+        <div class="p-3 border-bottom">
+          <div class="d-flex flex-wrap gap-2 align-items-center">
+            <div class="d-flex align-items-center me-2 mb-2">
+              <i class="fas fa-filter text-muted me-2" style="font-size: 0.8rem;"></i>
+              <span class="small text-muted fw-medium">FILTERS</span>
+            </div>
+            
+            <!-- All Events Button -->
+            <button
+              type="button"
+              class="filter-btn mb-1"
+              :class="{ 'active': selectedEventTypeFilters.length === 0 }"
+              :disabled="eventsLoading"
+              @click="selectedEventTypeFilters = []"
+            >
+              All Events
+            </button>
+            
+            <!-- Event Type Filter Buttons -->
+            <button
+              v-for="eventType in availableEventTypes"
+              :key="eventType"
+              type="button"
+              class="filter-btn mb-1"
+              :class="{ 
+                'active': selectedEventTypeFilters.includes(eventType),
+                [`filter-${eventType}`]: true
+              }"
+              :disabled="eventsLoading"
+              @click="toggleEventTypeFilter(eventType)"
+            >
+              {{ getEventTypeLabel(eventType) }}
+            </button>
+          </div>
+        </div>
+
         <!-- Loading State -->
         <div v-if="eventsLoading" class="text-center py-4 px-3 flex-grow-1 d-flex align-items-center justify-content-center">
           <div class="spinner-border text-primary" role="status">
@@ -143,13 +148,27 @@
   >
     <b-form @submit.prevent="saveEvent">
       <b-row>
-        <!-- Event Title Input -->
+        <!-- Event Category (Required) -->
         <b-col cols="12">
-          <b-form-group label="Event Title" class="mb-3">
+          <b-form-group label="Category *" class="mb-3">
+            <b-form-select v-model="eventForm.category" required>
+              <b-form-select-option 
+                v-for="cat in categories" 
+                :key="cat.value" 
+                :value="cat.value"
+              >
+                {{ cat.name }}
+              </b-form-select-option>
+            </b-form-select>
+          </b-form-group>
+        </b-col>
+
+        <!-- Event Title (Optional) -->
+        <b-col cols="12">
+          <b-form-group label="Title (Optional)" class="mb-3">
             <b-form-input
               v-model="eventForm.title"
-              placeholder="Enter event title"
-              required
+              placeholder="Optional title/description"
               type="text"
             />
           </b-form-group>
@@ -175,21 +194,6 @@
               placeholder="Add event details..."
               rows="3"
             />
-          </b-form-group>
-        </b-col>
-
-        <!-- Event Category (Color) -->
-        <b-col cols="12">
-          <b-form-group label="Category" class="mb-3">
-            <b-form-select v-model="eventForm.category" required>
-              <b-form-select-option 
-                v-for="cat in categories" 
-                :key="cat.value" 
-                :value="cat.value"
-              >
-                {{ cat.name }}
-              </b-form-select-option>
-            </b-form-select>
           </b-form-group>
         </b-col>
       </b-row>
@@ -241,8 +245,11 @@ export interface CalendarEvent {
   category: string; // Bootstrap class like 'bg-primary', 'bg-success', etc.
   servicer_id?: string; // Servicer ID for ServicerLoanData events
   address?: string; // Property address for display
+  city?: string; // City for location display
+  state?: string; // State for location display
   event_type?: string; // Event type for tag display (realized_liquidation, bid_date, etc.)
   task_category?: string; // Task category for follow_up events (follow_up, document_review, etc.)
+  reason?: string; // Legacy reason field (fallback for task_category)
   url?: string; // URL to navigate to asset detail page
   source_id?: number; // Source record ID (e.g., ServicerLoanData.id)
   asset_hub_id?: number; // AssetIdHub ID for opening modal
@@ -330,10 +337,16 @@ export default {
         // Custom event content to show tag above title
         eventContent: (arg: any) => {
           const event = arg.event;
-          const eventType = event.extendedProps.event_type || 'milestone';
-          const taskCategory = event.extendedProps.task_category;
+          const originalEvent = event.extendedProps.originalEvent || event;
+          const rawType = originalEvent.event_type || originalEvent.category || 'milestone';
+          const eventType = this.normalizeEventType(rawType);
+          const taskCategory = originalEvent.task_category || originalEvent.reason;
           const eventTypeLabel = this.getEventTypeLabel(eventType);
-          const eventTitle = event.title.replace(`${eventTypeLabel}: `, '');
+          
+          // WHAT: Use getEventTitle to generate proper title format
+          // WHY: Title field is optional - events are tagged by category
+          // HOW: For tasks, format is "Task - [Sub Category]", for others use appropriate format
+          const eventTitle = this.getEventTitle(originalEvent);
           
           // WHAT: Build uniform 2-line structure for all calendar tiles
           // WHY: Consistent dimensions across all event types
@@ -704,8 +717,9 @@ export default {
      */
     saveEvent() {
       // Validation: Ensure required fields are filled
-      if (!this.eventForm.title || !this.eventForm.time) {
-        alert('Please fill in all required fields');
+      // WHAT: Category and time are required; title is optional (events are tagged by category)
+      if (!this.eventForm.category || !this.eventForm.time) {
+        alert('Please fill in all required fields (Category and Time)');
         return;
       }
       
@@ -864,38 +878,85 @@ export default {
     },
 
     getEventTitle(event: any): string {
-      const eventType = event.event_type || event.category || '';
-      // WHAT: Format follow_up events as "servicer_id - address"
-      // WHY: Consistent format for follow-up events
-      if (eventType === 'follow_up' && event.servicer_id) {
-        if (event.address) {
-          return `${event.servicer_id} - ${event.address}`;
+      const rawType = event.event_type || event.category || '';
+      const eventType = this.normalizeEventType(rawType);
+      const eventTypeLabel = this.getEventTypeLabel(eventType);
+      const locationParts: string[] = [];
+      if (event.city) locationParts.push(event.city);
+      if (event.state) locationParts.push(event.state);
+      const locationSuffix = locationParts.length ? ` - ${locationParts.join(', ')}` : '';
+      
+      // WHAT: Tasks (follow_up) should show Servicer ID - Address on second line
+      // WHY: Users identify tasks by loan ID + address, not by category text
+      if (eventType === 'follow_up') {
+        if (event.servicer_id && event.address) {
+          return `${event.servicer_id} - ${event.address}${locationSuffix}`;
         }
-        return String(event.servicer_id);
+        if (event.servicer_id) {
+          return `${event.servicer_id}${locationSuffix}`;
+        }
+        if (event.address) {
+          return `${event.address}${locationSuffix}`;
+        }
+        // Fallback to sub-category label if no servicer/address info
+        const subCategory = event.task_category || event.reason;
+        if (subCategory) {
+          return `${eventTypeLabel} - ${this.getTaskCategoryLabel(subCategory)}${locationSuffix}`;
+        }
+        return `${eventTypeLabel}${locationSuffix}`;
       }
-      // WHAT: Format projected_liquidation events same as follow_up: "servicer_id - address"
-      // WHY: Consistent format across event types
+      
+      // WHAT: For projected_liquidation events, show servicer_id - address if available
+      // WHY: These events need asset context
       if (eventType === 'projected_liquidation' && event.servicer_id) {
         if (event.address) {
-          return `${event.servicer_id} - ${event.address}`;
+          return `${event.servicer_id} - ${event.address}${locationSuffix}`;
         }
-        return String(event.servicer_id);
+        return `${String(event.servicer_id)}${locationSuffix}`;
       }
-      if (eventType === 'follow_up' && typeof event.title === 'string') {
-        const trimmed = event.title.trim();
-        if (trimmed.toLowerCase().startsWith('follow-up:')) {
-          return trimmed.slice('follow-up:'.length).trim();
+      
+      // WHAT: For realized_liquidation events, show servicer_id - address if available
+      // WHY: These events need asset context
+      if (eventType === 'realized_liquidation' && event.servicer_id) {
+        if (event.address) {
+          return `${event.servicer_id} - ${event.address}${locationSuffix}`;
         }
+        return `${String(event.servicer_id)}${locationSuffix}`;
       }
-      // WHAT: Fallback for other event types with servicer_id and address
+      
+      // WHAT: For other events with servicer_id and address, show that format
       // WHY: Maintain consistent format when possible
       if (event.servicer_id && event.address) {
-        return `${event.servicer_id} - ${event.address}`;
+        return `${event.servicer_id} - ${event.address}${locationSuffix}`;
       }
-      return event.title;
+      
+      if (event.address) {
+        return `${event.address}${locationSuffix}`;
+      }
+      
+      // WHAT: For all other events, prefer existing title if available
+      if (event.title && String(event.title).trim()) {
+          return `${String(event.title).trim()}${locationSuffix}`;
+      }
+
+      // WHY: Title field is optional - events are tagged by category
+      return `${eventTypeLabel}${locationSuffix}`;
+    },
+
+    normalizeEventType(eventType: string): string {
+      if (!eventType) return 'milestone';
+      const lower = String(eventType).toLowerCase();
+      if (lower.startsWith('bg-')) {
+        return 'follow_up';
+      }
+      if (lower === 'task') {
+        return 'follow_up';
+      }
+      return lower;
     },
 
     getEventTypeLabel(eventType: string): string {
+      const normalized = this.normalizeEventType(eventType);
       const typeMap: Record<string, string> = {
         'realized_liquidation': 'Realized Liquidation',
         'projected_liquidation': 'Projected Liquidation',
@@ -903,7 +964,7 @@ export default {
         'follow_up': 'Task',
         'milestone': 'Milestone'
       };
-      return typeMap[eventType] || eventType;
+      return typeMap[normalized] || this.capitalizeFirst(normalized);
     },
 
     getTaskCategoryLabel(category: string): string {
@@ -912,14 +973,30 @@ export default {
         'nod_noi': 'NOD/NOI',
         'fc_counsel': 'FC Counsel',
         'escrow': 'Escrow',
-        'reo': 'REO'
+        'reo': 'REO',
+        'document_review': 'Document Review',
+        'contact_borrower': 'Contact Borrower',
+        'legal': 'Legal',
+        'inspection': 'Inspection',
+        'other': 'Other'
       };
-      return categoryMap[category] || category;
+      return categoryMap[category] || this.capitalizeFirst(category);
     },
 
     capitalizeFirst(str: string): string {
       if (!str) return str;
       return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+    },
+
+    getEventTypeIcon(eventType: string): string {
+      const iconMap: Record<string, string> = {
+        'realized_liquidation': 'fas fa-dollar-sign',
+        'projected_liquidation': 'fas fa-chart-line',
+        'trade': 'fas fa-handshake',
+        'follow_up': 'fas fa-tasks',
+        'milestone': 'fas fa-flag'
+      };
+      return iconMap[eventType] || 'fas fa-calendar';
     },
     
     // Check if event is a liquidation or follow-up event (both should be clickable)
@@ -1000,9 +1077,10 @@ export default {
       // WHY: FullCalendar expects events in a specific format with styling and metadata
       // HOW: Transform each filtered event to include title, colors, and extended properties
       this.calendarOptions.events = filteredEvents.map((event: CalendarEvent) => {
-        const eventTypeLabel = this.getEventTypeLabel(event.event_type || event.category || 'milestone');
+        const normalizedType = this.normalizeEventType(event.event_type || event.category || 'milestone');
+        const eventTypeLabel = this.getEventTypeLabel(normalizedType);
         const eventTitle = this.getEventTitle(event);
-        const colors = getCalendarEventColors(event.event_type || event.category || 'milestone');
+        const colors = getCalendarEventColors(normalizedType);
         return {
           id: String(event.id),
           title: `${eventTypeLabel}: ${eventTitle}`,
@@ -1014,10 +1092,14 @@ export default {
           extendedProps: {
             originalEvent: event,
             category: event.category,
-            event_type: event.event_type,
-            task_category: event.task_category,  // WHAT: Pass task category for calendar tile display
+            event_type: normalizedType,
+            task_category: event.task_category || event.reason,  // WHAT: Pass task category for calendar tile display
+            reason: event.reason,  // WHAT: Legacy reason field (fallback for task_category)
             asset_hub_id: event.asset_hub_id,  // Pass through the AssetIdHub ID
             address: event.address,  // Pass through the address
+            servicer_id: event.servicer_id,  // Pass through servicer_id for title generation
+            city: event.city,
+            state: event.state,
           },
         };
       });
@@ -1154,26 +1236,30 @@ export default {
         // NOTE: Backend sends 'category' field containing the event_type value (e.g., 'realized_liquidation')
         //       This is the semantic event type, NOT a Bootstrap class
         this.events = backendEvents.map((event: any) => {
-          // WHAT: Backend 'category' field IS the event_type (e.g., 'realized_liquidation', 'bid_date')
-          // WHY: Backend uses 'category' to store the semantic event type from CALENDAR_DATE_FIELDS
-          // HOW: Use category directly as event_type
-          const eventType = event.event_type || event.category || 'milestone';
+          // WHAT: Backend may return Bootstrap classes (bg-warning) instead of semantic event types
+          // WHY: Legacy endpoints encoded urgency using Bootstrap classes
+          // HOW: Normalize to semantic types (follow_up, milestone, etc.)
+          const rawType = event.event_type || event.category || 'milestone';
+          const eventType = this.normalizeEventType(rawType);
           
           return {
             id: event.id,
-            title: event.title,
+            title: event.title || '', // WHAT: Title is optional - events are tagged by category
             date: event.date,
             time: event.time || '', // WHAT: Time field kept for compatibility but not displayed
             description: event.description || '',
             category: 'bg-primary', // WHAT: Bootstrap class for badge (derived from event_type by getEventBadgeClass)
             servicer_id: event.servicer_id,
             address: event.address,
-            event_type: eventType, // WHAT: Semantic event type from backend 'category' field
-            task_category: event.task_category, // WHAT: Task category for follow_up events (follow_up, nod_noi, escrow, reo)
+            event_type: eventType, // WHAT: Normalized semantic event type
+            task_category: event.task_category || event.reason, // WHAT: Task category for follow_up events (follow_up, nod_noi, escrow, reo)
+            reason: event.reason, // WHAT: Legacy reason field (fallback for task_category)
             url: event.url,
             source_id: event.source_id,
             editable: event.editable || false,
             asset_hub_id: event.asset_hub_id,  // CRITICAL: Include AssetIdHub ID for modal
+            city: event.city || '',
+            state: event.state || '',
           };
         });
         
@@ -1518,9 +1604,62 @@ div.calendar-widget {
   font-size: 13px;
   font-weight: 500;
   color: #313a46;
-  line-height: 1.4;
-  text-align: center;
-  width: 100%;
+}
+
+/* Clean Filter Button Styling - Demo Style */
+.filter-btn {
+  padding: 6px 16px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  background: #ffffff;
+  border: 1px solid #dee2e6;
+  color: #6c757d;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.filter-btn:hover:not(:disabled) {
+  border-color: #adb5bd;
+  color: #495057;
+  background: #f8f9fa;
+}
+
+.filter-btn.active {
+  background: #4A6FA5;
+  border-color: #4A6FA5;
+  color: #ffffff;
+}
+
+/* Event Type Specific Filter Colors - Using actual badgeTokens.ts colors */
+.filter-btn.filter-realized_liquidation.active {
+  background: #00796B;
+  border-color: #00796B;
+}
+
+.filter-btn.filter-projected_liquidation.active {
+  background: #6B5A7A;
+  border-color: #6B5A7A;
+}
+
+.filter-btn.filter-trade.active {
+  background: #4A7A8A;
+  border-color: #4A7A8A;
+}
+
+.filter-btn.filter-follow_up.active {
+  background: #3F51B5;
+  border-color: #3F51B5;
+}
+
+.filter-btn.filter-milestone.active {
+  background: #8A7A9A;
+  border-color: #8A7A9A;
+}
+
+.filter-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .event-badge {

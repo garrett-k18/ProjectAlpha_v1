@@ -33,6 +33,7 @@ class CalendarEvent(models.Model):
     - trade: Optional link to a trade (for trade-specific events)
     - asset_hub: Optional link to a specific asset
     - is_reminder: Flag to indicate if this is a reminder/alert
+    - completed: Flag to indicate if this task/event is finished
     """
 
     class EventCategory(models.TextChoices):
@@ -66,7 +67,9 @@ class CalendarEvent(models.Model):
     title = models.CharField(
         max_length=255,
         db_index=True,
-        help_text="Event title/description"
+        blank=True,
+        default="",
+        help_text="Event title/description (optional - events tagged by category)"
     )
     
     date = models.DateField(
@@ -160,6 +163,11 @@ class CalendarEvent(models.Model):
         help_text="Is this a reminder/alert?"
     )
 
+    completed = models.BooleanField(
+        default=False,
+        help_text="Has the task/event been completed?"
+    )
+
     is_public = models.BooleanField(
         default=False,
         help_text="Visible to all users when true; otherwise private to creator",
@@ -197,6 +205,7 @@ class CalendarEvent(models.Model):
             models.Index(fields=['category', 'date']),
             models.Index(fields=['priority', 'date']),
             models.Index(fields=['is_reminder', 'date']),
+            models.Index(fields=['completed', 'date']),
         ]
     
     def __str__(self):

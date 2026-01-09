@@ -889,7 +889,7 @@ async function fetchTasks() {
     const resp = await http.get('/core/calendar/events/custom/', {
       params: {
         asset_hub_id: id,
-        is_reminder: true,
+        completed: false,
       },
     })
 
@@ -901,7 +901,7 @@ async function fetchTasks() {
       description: String(r.description ?? ''),
       due_date: String(r.date ?? ''),
       priority: 'routine',
-      category: String(r.reason ?? ''),
+      category: String(r.reason ?? r.category ?? ''),
       assigned_to: null,
       assigned_to_username: null,
       notified_users: null,
@@ -988,6 +988,7 @@ async function completeTask(taskId: number) {
   taskDeleteBusyId.value = taskId
   try {
     await http.patch(`/core/calendar/events/custom/${taskId}/`, {
+      completed: true,
       is_reminder: false,
     })
     await fetchTasks()

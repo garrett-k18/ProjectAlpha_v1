@@ -264,7 +264,8 @@
                 <button 
                   class="btn btn-sm btn-outline-primary"
                   @click="openAssetFromTasks(asset.asset_hub_id, asset.address)"
-                  title="View Details"
+                  :disabled="asset.asset_hub_id < 0"
+                  :title="asset.asset_hub_id > 0 ? 'View Asset Details' : 'Standalone task (no asset)'"
                 >
                   <i class="mdi mdi-eye"></i>
                 </button>
@@ -862,7 +863,10 @@ export default {
       this.tasksError = ''
 
       try {
-        await http.delete(`/core/calendar/events/custom/${asset.task_id}/`)
+        await http.patch(`/core/calendar/events/custom/${asset.task_id}/`, {
+          completed: true,
+          is_reminder: false,
+        })
         await this.loadActiveTasks()
       } catch (err: any) {
         console.error('[Home Dashboard] markComplete failed', err)
@@ -884,30 +888,67 @@ export default {
         // WHAT: Fetch all incomplete tasks (no user filter in dev mode)
         // WHY: In dev mode with bypassed auth, we want to see all tasks
         // HOW: Backend will filter by user if authenticated, otherwise show all public tasks
+        console.log('[Home Dashboard] Fetching tasks with params:', { completed: false })
         const resp = await http.get('/core/calendar/events/custom/', {
           params: {
-            is_reminder: true,
+            completed: false,
             // Note: Backend handles user filtering based on authentication
           }
         })
-        const taskEvents = Array.isArray((resp as any)?.data) ? (resp as any).data : []
+        console.log('[Home Dashboard] Raw API response:', resp)
+        console.log('[Home Dashboard] Response data type:', typeof (resp as any)?.data)
+        console.log('[Home Dashboard] Response data:', (resp as any)?.data)
+        console.log('[Home Dashboard] Is data an array?', Array.isArray((resp as any)?.data))
         
+        // WHAT: DRF ModelViewSet returns paginated results by default
+        // WHY: Need to check if data is in results array or directly in data
+        let taskEvents = []
+        if (Array.isArray((resp as any)?.data)) {
+          taskEvents = (resp as any).data
+        } else if ((resp as any)?.data?.results && Array.isArray((resp as any).data.results)) {
+          taskEvents = (resp as any).data.results
+        } else if ((resp as any)?.data) {
+          // If data exists but isn't an array, wrap it
+          taskEvents = [(resp as any).data]
+        }
+        
+        console.log('[Home Dashboard] Parsed task events:', taskEvents)
+        console.log('[Home Dashboard] Task events count:', taskEvents.length)
+        
+        // WHAT: Group tasks by asset_hub_id (or use negative IDs for standalone tasks)
+        // WHY: Support both asset-linked tasks and standalone tasks without asset_hub
+        // HOW: Use actual asset_hub_id if present, otherwise use negative index for standalone
         const grouped = new Map<number, any[]>()
         const assetInfo = new Map<number, { address: string; servicer_id: string; city: string; state: string; trade_name: string }>()
+        let standaloneIndex = -1
 
         for (const r of taskEvents) {
           const rawId = (r as any).asset_hub ?? (r as any).asset_hub_id
           const idNum = rawId != null ? Number(rawId) : NaN
-          if (!Number.isFinite(idNum)) continue
           
-          const bucket = grouped.get(idNum) ?? []
+          // WHAT: Assign unique negative ID for standalone tasks (no asset_hub)
+          // WHY: Allow tasks without asset_hub to display in the modal
+          const groupId = Number.isFinite(idNum) ? idNum : standaloneIndex--
+          
+          console.log('[Home Dashboard] Processing task:', {
+            id: r.id,
+            title: r.title,
+            rawId,
+            idNum,
+            groupId,
+            completed: r.completed,
+            asset_hub: r.asset_hub,
+            asset_hub_id: r.asset_hub_id
+          })
+          
+          const bucket = grouped.get(groupId) ?? []
           bucket.push(r)
-          grouped.set(idNum, bucket)
+          grouped.set(groupId, bucket)
           
-          if (!assetInfo.has(idNum)) {
-            assetInfo.set(idNum, { 
-              address: r.address || 'No address',
-              servicer_id: r.servicer_id || 'No ID',
+          if (!assetInfo.has(groupId)) {
+            assetInfo.set(groupId, { 
+              address: r.address || r.title || 'Standalone Task',
+              servicer_id: r.servicer_id || 'N/A',
               city: r.city || '',
               state: r.state || '',
               trade_name: r.trade_name || ''
@@ -941,7 +982,7 @@ export default {
             next_date: String(next?.date ?? ''),
             next_title: String(next?.title ?? ''),
             next_priority: (next?.priority as 'low' | 'medium' | 'high') || 'medium',
-            next_category: next?.category || null,
+            next_category: next?.reason || next?.category || null,
             days_until: diffDays,
             task_id: nextTaskId,
           } as TaskAssetRow
@@ -950,6 +991,9 @@ export default {
         const sorted = assets.sort((a, b) => 
           String(a.next_date).localeCompare(String(b.next_date)) || a.asset_hub_id - b.asset_hub_id
         )
+
+        console.log('[Home Dashboard] Final sorted assets:', sorted)
+        console.log('[Home Dashboard] Final task count:', sorted.length)
 
         this.taskAssets = sorted
         this.tasksCount = sorted.length
@@ -971,11 +1015,19 @@ export default {
     },
 
     openAssetFromTasks(assetHubId: number, address: string) {
-      this.selectedId = assetHubId
-      this.selectedRow = null
-      this.selectedAddr = address || null
-      this.showTasksModal = false
-      this.showAssetModal = true
+      // WHAT: Open asset modal only for tasks with valid asset_hub
+      // WHY: Standalone tasks (negative IDs) don't have an asset to display
+      // HOW: Check if ID is positive before opening modal
+      if (assetHubId > 0) {
+        this.selectedId = assetHubId
+        this.selectedRow = null
+        this.selectedAddr = address || null
+        this.showTasksModal = false
+        this.showAssetModal = true
+      } else {
+        // Standalone task - just close the modal (no asset to view)
+        this.showTasksModal = false
+      }
     },
 
     async loadActiveTrades() {
