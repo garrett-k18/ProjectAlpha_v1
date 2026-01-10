@@ -101,7 +101,12 @@ export type BadgeToneKey =
   | 'property-multifamily'
   | 'property-land'
   | 'property-mixed-use'
-  | 'property-other';
+  | 'property-other'
+  // Lifecycle colors
+  | 'lifecycle-active'
+  | 'lifecycle-liquidated'
+  | 'lifecycle-hold'
+  | 'lifecycle-default';
 
 // ============================================================================
 // 📏 SIZE CONFIGURATIONS - Uses master variables above
@@ -265,6 +270,24 @@ export const badgeToneMap: Record<BadgeToneKey, BadgeVisualConfig> = {
   'property-other': {
     classes: 'bg-dark text-white border-0',
     ariaLabel: 'Other property type classification',
+  },
+
+  // Lifecycle status colors
+  'lifecycle-active': {
+    classes: 'bg-success text-white border-0',
+    ariaLabel: 'Active lifecycle status',
+  },
+  'lifecycle-liquidated': {
+    classes: 'bg-secondary text-white border-0',
+    ariaLabel: 'Liquidated lifecycle status',
+  },
+  'lifecycle-hold': {
+    classes: 'bg-warning text-dark border-0',
+    ariaLabel: 'Hold or watch lifecycle status',
+  },
+  'lifecycle-default': {
+    classes: 'bg-dark text-white border-0',
+    ariaLabel: 'Lifecycle status',
   },
 };
 
@@ -637,4 +660,25 @@ export function getCalendarEventColors(eventType?: string | null): { bg: string;
     default:
       return { bg: '#8A7A9A', border: '#8A7A9A', text: '#ffffff' }; // Dusty Lavender
   }
+}
+
+/**
+ * Helper that maps lifecycle statuses (Active, Liquidated, etc.) to badge tones.
+ * EDIT: Extend logic as new lifecycle statuses are introduced.
+ */
+export function getLifecycleBadgeTone(status?: string | null): BadgeToneKey {
+  const normalized = (status ?? '').toString().trim().toLowerCase();
+  if (!normalized) {
+    return 'lifecycle-default';
+  }
+  if (normalized.startsWith('active')) {
+    return 'lifecycle-active';
+  }
+  if (normalized.includes('liq')) {
+    return 'lifecycle-liquidated';
+  }
+  if (normalized.includes('hold') || normalized.includes('watch')) {
+    return 'lifecycle-hold';
+  }
+  return 'lifecycle-default';
 }

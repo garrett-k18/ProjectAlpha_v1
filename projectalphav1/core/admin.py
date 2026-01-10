@@ -1449,14 +1449,16 @@ class CalendarEventAdmin(admin.ModelAdmin):
     """
     Admin configuration for CalendarEvent model.
     
-    Displays user-created calendar events with filtering and search capabilities.
+    Displays user-created tasks with filtering and search capabilities.
+    All CalendarEvent records are tasks.
     """
     list_display = (
         'id',
         'title',
         'date',
         'time',
-        'category',
+        'task_type',
+        'priority',
         'seller',
         'trade',
         'asset_hub',
@@ -1466,7 +1468,8 @@ class CalendarEventAdmin(admin.ModelAdmin):
     )
     
     list_filter = (
-        'category',
+        'task_type',
+        'priority',
         'completed',
         'date',
         'created_at',
@@ -1486,8 +1489,8 @@ class CalendarEventAdmin(admin.ModelAdmin):
     list_per_page = 5
     
     fieldsets = (
-        ('Event Details', {
-            'fields': ('title', 'date', 'time', 'description', 'category', 'priority', 'reason', 'completed', 'is_public')
+        ('Task Details', {
+            'fields': ('title', 'date', 'time', 'description', 'task_type', 'priority', 'completed', 'is_public')
         }),
         ('Assignment & Reminders', {
             'fields': ('assigned_to', 'is_reminder'),

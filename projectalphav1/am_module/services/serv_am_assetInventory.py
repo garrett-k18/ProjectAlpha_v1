@@ -124,6 +124,14 @@ def build_queryset(
                 allowed["seller__name"] = value
             elif key == "trade_name":
                 allowed["trade__trade_name"] = value
+            elif key == "trade":
+                # WHAT: Filter by trade ID (primary key)
+                # WHY: Support filtering loans by trade for task creation
+                try:
+                    allowed["trade"] = int(value)
+                except (ValueError, TypeError):
+                    # Invalid trade ID, skip this filter
+                    continue
             elif key == "lifecycle_status":
                 allowed["asset_hub__details__asset_status"] = value
             else:

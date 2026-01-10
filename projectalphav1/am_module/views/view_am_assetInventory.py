@@ -52,7 +52,7 @@ class AssetInventoryViewSet(ViewSet):
         ordering = request.query_params.get('sort')
         # Collect simple filters (extend allow-list as needed)
         filters = {}
-        for k in ['state', 'asset_status', 'seller_name', 'trade_name', 'lifecycle_status']:
+        for k in ['state', 'asset_status', 'seller_name', 'trade_name', 'trade', 'lifecycle_status']:
             v = request.query_params.get(k)
             if v:
                 filters[k] = v

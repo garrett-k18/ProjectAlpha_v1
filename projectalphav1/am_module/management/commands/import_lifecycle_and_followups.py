@@ -183,7 +183,7 @@ class Command(BaseCommand):
                                         date=follow_up_date,
                                         time='All Day',
                                         description='Imported follow-up',
-                                        category='follow_up',
+                                        task_type='follow_up',
                                         asset_hub=asset_hub,
                                         completed=False,
                                         is_public=True,

@@ -241,7 +241,7 @@ class CustomCalendarEventSerializer(serializers.ModelSerializer):
             'date',
             'time',
             'description',
-            'category',
+            'task_type',
             'priority',
             'assigned_to',
             'seller',
@@ -249,7 +249,6 @@ class CustomCalendarEventSerializer(serializers.ModelSerializer):
             'asset_hub',
             'is_reminder',
             'is_public',
-            'reason',
             'completed',
             'created_by',
             'created_at',
@@ -476,8 +475,8 @@ class UnifiedCalendarEventSerializer(serializers.Serializer):
     # Trade name - for displaying trade information in follow-ups modal
     trade_name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
-    # Follow-up reason
-    reason = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    # Task type for CalendarEvent records
+    task_type = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
     # Completion flag for tasks
     completed = serializers.BooleanField(default=False)

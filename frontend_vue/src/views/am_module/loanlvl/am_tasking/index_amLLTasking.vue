@@ -249,7 +249,8 @@
             <div class="modal-body">
               <!-- Task Creation Form -->
               <div class="row g-2 align-items-end mb-3">
-                <div class="col-12 col-md-6">
+                <!-- Top Row: Required Fields -->
+                <div class="col-12 col-md-4">
                   <label class="form-label small mb-1">Due Date *</label>
                   <div class="input-group input-group-sm">
                     <input v-model="newTask.due_date" type="date" class="form-control form-control-sm" />
@@ -258,13 +259,47 @@
                   </div>
                 </div>
 
-                <div class="col-12 col-md-6">
+                <div class="col-12 col-md-4">
+                  <label class="form-label small mb-1">Task Type *</label>
+                  <select v-model="newTask.task_type" class="form-select form-select-sm">
+                    <option value="">Select task type...</option>
+                    <option value="follow_up">Follow-up</option>
+                    <option value="nod_noi">NOD/NOI</option>
+                    <option value="fc_counsel">FC Counsel</option>
+                    <option value="escrow">Escrow</option>
+                    <option value="reo">REO</option>
+                    <option value="document_review">Document Review</option>
+                    <option value="contact_borrower">Contact Borrower</option>
+                    <option value="legal">Legal</option>
+                    <option value="inspection">Inspection</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+
+                <div class="col-12 col-md-4">
                   <label class="form-label small mb-1">Priority</label>
                   <select v-model="newTask.priority" class="form-select form-select-sm">
                     <option value="low">Low</option>
                     <option value="routine">Routine</option>
                     <option value="urgent">Urgent</option>
                   </select>
+                </div>
+
+                <!-- Description -->
+                <div class="col-12">
+                  <label class="form-label small mb-1">Description (optional)</label>
+                  <textarea
+                    v-model="newTask.description"
+                    class="form-control form-control-sm"
+                    rows="2"
+                    placeholder="Add task details..."
+                  ></textarea>
+                </div>
+
+                <!-- Optional Fields -->
+                <div class="col-12">
+                  <hr class="my-2" />
+                  <small class="text-muted d-block mb-2">Optional: Assign team member</small>
                 </div>
 
                 <div class="col-12 col-md-6">
@@ -277,34 +312,11 @@
                   </select>
                 </div>
 
-                <div class="col-12 col-md-6">
-                  <label class="form-label small mb-1">Category *</label>
-                  <select v-model="newTask.category" class="form-select form-select-sm">
-                    <option value="">Select category...</option>
-                    <option value="follow_up">Follow-up</option>
-                    <option value="document_review">Document Review</option>
-                    <option value="contact_borrower">Contact Borrower</option>
-                    <option value="legal">Legal</option>
-                    <option value="inspection">Inspection</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
-
-                <div class="col-12">
-                  <label class="form-label small mb-1">Description (optional)</label>
-                  <textarea
-                    v-model="newTask.description"
-                    class="form-control form-control-sm"
-                    rows="2"
-                    placeholder="Add task details..."
-                  ></textarea>
-                </div>
-
                 <div class="col-12">
                   <button
                     type="button"
                     class="btn btn-primary btn-sm"
-                    :disabled="taskCreateBusy || !newTask.category || !newTask.due_date"
+                    :disabled="taskCreateBusy || !newTask.task_type || !newTask.due_date"
                     @click="createTask"
                   >
                     <span v-if="taskCreateBusy" class="spinner-border spinner-border-sm me-1"></span>
@@ -816,7 +828,7 @@ interface TaskEvent {
   description: string
   due_date: string
   priority: 'low' | 'routine' | 'urgent'
-  category: string
+  task_type: string
   assigned_to: number | null
   assigned_to_username: string | null
   notified_users: string[] | null
@@ -842,13 +854,14 @@ const newTask = ref<{
   description: string
   due_date: string
   priority: 'low' | 'routine' | 'urgent'
-  category: string
+  task_type: string
   notify_user: number | null
 }>({
   description: '',
   due_date: '',
   priority: 'routine',
-  category: '',
+  task_type: '',
+  followup_type: '',
   notify_user: null,
 })
 
@@ -857,8 +870,14 @@ function setTaskDateOffset(days: number) {
 }
 
 function categoryLabel(category: string): string {
+  // WHAT: Maps sub-category (reason/TaskReason) to display label for task title
+  // WHY: Tasks use category=follow_up and reason=subcategory; includes all TaskReason options
   const labels: Record<string, string> = {
     follow_up: 'Follow-up',
+    nod_noi: 'NOD/NOI',
+    fc_counsel: 'FC Counsel',
+    escrow: 'Escrow',
+    reo: 'REO',
     document_review: 'Document Review',
     contact_borrower: 'Contact Borrower',
     legal: 'Legal',
@@ -901,7 +920,7 @@ async function fetchTasks() {
       description: String(r.description ?? ''),
       due_date: String(r.date ?? ''),
       priority: 'routine',
-      category: String(r.reason ?? r.category ?? ''),
+      task_type: String(r.task_type ?? 'follow_up'),
       assigned_to: null,
       assigned_to_username: null,
       notified_users: null,
@@ -928,11 +947,12 @@ function closeTaskModal() {
 async function createTask() {
   const id = hubId.value
   if (!id) return
-  if (!newTask.value.category || !newTask.value.due_date) return
+  if (!newTask.value.task_type || !newTask.value.due_date) return
 
   taskCreateBusy.value = true
   try {
-    const derivedTitle = categoryLabel(newTask.value.category)
+    // WHAT: Generate title based on task type
+    const derivedTitle = categoryLabel(newTask.value.task_type)
     if (editingTaskId.value != null) {
       await http.patch(`/core/calendar/events/custom/${editingTaskId.value}/`, {
         title: derivedTitle,
@@ -946,7 +966,7 @@ async function createTask() {
         description: newTask.value.description.trim(),
         date: newTask.value.due_date,
         time: 'All Day',
-        category: 'follow_up',
+        task_type: newTask.value.task_type,
         priority: newTask.value.priority,
         assigned_to: newTask.value.notify_user,
         asset_hub: id,
@@ -960,7 +980,7 @@ async function createTask() {
     newTask.value.description = ''
     newTask.value.due_date = ''
     newTask.value.priority = 'routine'
-    newTask.value.category = ''
+    newTask.value.task_type = ''
     newTask.value.notify_user = null
     editingTaskId.value = null
 
@@ -980,7 +1000,8 @@ async function createTask() {
 function beginEditTask(task: TaskEvent) {
   editingTaskId.value = task.id
   newTask.value.due_date = task.due_date
-  newTask.value.category = task.category
+  // WHAT: Map backend task_type to frontend
+  newTask.value.task_type = task.task_type || 'follow_up'
   newTask.value.description = task.description || ''
 }
 

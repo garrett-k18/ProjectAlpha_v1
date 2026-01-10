@@ -558,21 +558,13 @@ def _get_custom_calendar_events(request, start_date=None, end_date=None, seller_
         elif event.seller_id:
             url = f'/acq/seller/{event.seller_id}/'
         
-        # WHAT: Determine task category and semantic category for the calendar
-        # WHY: Existing tasks may not have reason populated, but we still need category info
-        # HOW: Prefer explicit reason, fall back to follow_up for reminders
-        task_category = None
-        if event.reason:
-            task_category = event.reason
-        elif event.is_reminder:
-            task_category = 'follow_up'
+        # WHAT: All CalendarEvents are tasks, use task_type directly
+        # WHY: Simplified model structure - no more category/reason split
+        # HOW: task_type contains the specific task type (follow_up, escrow, etc.)
+        task_category = event.task_type
         
-        category_value = event.category or (
-            CalendarEvent.EventCategory.FOLLOW_UP if event.is_reminder else CalendarEvent.EventCategory.MILESTONE
-        )
-        event_type_value = event.category or (
-            'follow_up' if event.is_reminder else 'milestone'
-        )
+        category_value = 'bg-warning'  # All tasks use warning color
+        event_type_value = 'follow_up'  # All CalendarEvents are follow-up tasks
         
         events.append({
             'id': f'custom:{event.id}',
@@ -592,7 +584,7 @@ def _get_custom_calendar_events(request, start_date=None, end_date=None, seller_
             'city': city,  # WHAT: Include city for event card display
             'state': state,  # WHAT: Include state for event card display
             'trade_name': trade_name,  # WHAT: Include trade name for follow-up modal
-            'reason': event.reason,  # WHAT: Include reason for follow-up modal (legacy field)
+            'task_type': event.task_type,  # WHAT: Include task type for display
             'is_reminder': event.is_reminder,
             'completed': event.completed,
         })
@@ -698,9 +690,9 @@ class CustomCalendarEventViewSet(viewsets.ModelViewSet):
             is_reminder_bool = str(is_reminder).strip().lower() in {'1', 'true', 't', 'yes', 'y'}
             queryset = queryset.filter(is_reminder=is_reminder_bool)
 
-        reason = self.request.query_params.get('reason')
-        if reason:
-            queryset = queryset.filter(reason=reason)
+        task_type = self.request.query_params.get('task_type')
+        if task_type:
+            queryset = queryset.filter(task_type=task_type)
 
         completed = self.request.query_params.get('completed')
         if completed is not None:

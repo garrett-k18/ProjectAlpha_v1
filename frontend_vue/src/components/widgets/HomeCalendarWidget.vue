@@ -221,15 +221,273 @@
       </b-row>
     </b-form>
   </b-modal>
+
+  <!-- Task Creation/View Modal -->
+  <template v-if="taskModalOpen">
+    <div class="modal-backdrop fade show" style="z-index: 1050;"></div>
+    <div class="modal fade show" tabindex="-1" role="dialog" aria-modal="true"
+         style="display: block; position: fixed; inset: 0; z-index: 1055;">
+       <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title d-flex align-items-center me-3">
+              <i class="fas fa-tasks me-2"></i>
+              Tasks
+            </h5>
+            <button type="button" class="btn-close" aria-label="Close" @click="closeTaskModal"></button>
+          </div>
+          <div class="modal-body">
+            <!-- Task Creation Form -->
+            <div class="row g-2 align-items-end mb-3">
+              <!-- Top Row: Required Fields -->
+              <div class="col-12 col-md-4">
+                <label class="form-label small mb-1">Due Date *</label>
+                <div class="input-group input-group-sm">
+                  <input v-model="newTask.due_date" type="date" class="form-control form-control-sm" />
+                  <button type="button" class="btn btn-outline-primary" @click="setTaskDateOffset(7)">+7</button>
+                  <button type="button" class="btn btn-outline-primary" @click="setTaskDateOffset(14)">+14</button>
+                </div>
+              </div>
+
+              <div class="col-12 col-md-4">
+                <label class="form-label small mb-1">Task Type *</label>
+                <select v-model="newTask.task_type" class="form-select form-select-sm">
+                  <option value="">Select task type...</option>
+                  <option value="follow_up">Follow-up</option>
+                  <option value="nod_noi">NOD/NOI</option>
+                  <option value="fc_counsel">FC Counsel</option>
+                  <option value="escrow">Escrow</option>
+                  <option value="reo">REO</option>
+                  <option value="document_review">Document Review</option>
+                  <option value="contact_borrower">Contact Borrower</option>
+                  <option value="legal">Legal</option>
+                  <option value="inspection">Inspection</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+
+              <div class="col-12 col-md-4">
+                <label class="form-label small mb-1">Priority</label>
+                <select v-model="newTask.priority" class="form-select form-select-sm">
+                  <option value="low">Low</option>
+                  <option value="routine">Routine</option>
+                  <option value="urgent">Urgent</option>
+                </select>
+              </div>
+
+              <!-- Description -->
+              <div class="col-12">
+                <label class="form-label small mb-1">Description (optional)</label>
+                <textarea
+                  v-model="newTask.description"
+                  class="form-control form-control-sm"
+                  rows="2"
+                  placeholder="Add task details..."
+                ></textarea>
+              </div>
+
+              <!-- Optional Fields -->
+              <div class="col-12">
+                <hr class="my-3" />
+              </div>
+
+              <div class="col-12">
+                <label class="form-label small mb-1">Trade (optional)</label>
+                <select
+                  v-model="newTask.trade_id"
+                  class="form-select form-select-sm"
+                  :disabled="tradeOptionsLoading"
+                  @change="handleTradeSelection"
+                >
+                  <option :value="null">No trade selected</option>
+                  <option v-for="trade in tradeOptions" :key="trade.value" :value="trade.value">
+                    {{ trade.label }}
+                  </option>
+                </select>
+                <div v-if="tradeOptionsLoading" class="text-muted small mt-1">
+                  <span class="spinner-border spinner-border-sm me-1"></span>
+                  Loading trades...
+                </div>
+                <div v-else-if="tradeOptionsError" class="text-danger small mt-1">{{ tradeOptionsError }}</div>
+              </div>
+
+              <div class="col-12">
+                <label class="form-label small mb-1">Loan (optional)</label>
+                <VueMultiselect
+                  v-model="loanSelectModel"
+                  :options="loanOptions"
+                  :track-by="'value'"
+                  :label="'label'"
+                  :searchable="loanOptions.length > 15"
+                  :close-on-select="true"
+                  :allow-empty="true"
+                  :loading="loanOptionsLoading"
+                  placeholder="Select a loan from this trade..."
+                  :disabled="loanOptionsLoading || !newTask.trade_id"
+                  class="loan-multiselect"
+                >
+                  <template #option="{ option }">
+                    <div class="loan-option-row">
+                      <div class="loan-option-header">
+                        <span class="fw-semibold">{{ option.label }}</span>
+                        <UiBadge :tone="option.lifecycleTone" size="xs">
+                          {{ option.lifecycleStatus || 'Status Unknown' }}
+                        </UiBadge>
+                      </div>
+                      <div v-if="option.activeTracks" class="loan-option-subtext">
+                        <UiBadge tone="secondary" size="xs">
+                          Tracks: {{ option.activeTracks }}
+                        </UiBadge>
+                      </div>
+                    </div>
+                  </template>
+                  <template #singleLabel="{ option }">
+                    <div class="d-flex align-items-center gap-2">
+                      <span>{{ option?.label ?? 'Select a loan from this trade...' }}</span>
+                      <UiBadge v-if="option" :tone="option.lifecycleTone" size="xs">
+                        {{ option.lifecycleStatus || 'Status Unknown' }}
+                      </UiBadge>
+                    </div>
+                  </template>
+                  <template #noOptions>
+                    <span class="text-muted small">No loans found for this trade.</span>
+                  </template>
+                </VueMultiselect>
+                <div v-if="loanOptionsError" class="text-danger small mt-1">{{ loanOptionsError }}</div>
+                <div v-else-if="loanOptionsLoading" class="text-muted small mt-1">
+                  <span class="spinner-border spinner-border-sm me-1"></span>
+                  Loading loans...
+                </div>
+                <div v-else-if="newTask.trade_id && loanOptions.length > 0" class="text-muted small mt-1">
+                  {{ loanOptions.length }} loan{{ loanOptions.length === 1 ? '' : 's' }} in this trade
+                </div>
+                <div v-else-if="newTask.trade_id && loanOptions.length === 0" class="text-muted small mt-1">
+                  No loans found for this trade
+                </div>
+              </div>
+
+              <div class="col-12">
+                <label class="form-label small mb-1">Notify Team Member</label>
+                <select v-model="newTask.notify_user" class="form-select form-select-sm">
+                  <option value="">No notification</option>
+                  <option v-for="user in availableUsers" :key="user.id" :value="user.id">
+                    {{ user.username }}
+                  </option>
+                </select>
+              </div>
+
+              <div class="col-12">
+                <button
+                  type="button"
+                  class="btn btn-primary btn-sm"
+                  :disabled="taskCreateBusy || !newTask.task_type || !newTask.due_date"
+                  @click="createTask"
+                >
+                  <span v-if="taskCreateBusy" class="spinner-border spinner-border-sm me-1"></span>
+                  {{ editingTaskId ? 'Save Task' : 'Create Task' }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Loading State -->
+            <div v-if="tasksLoading" class="text-muted small d-flex align-items-center gap-2 mt-3">
+              <span class="spinner-border spinner-border-sm"></span>
+              Loading tasks...
+            </div>
+            
+            <!-- Error State -->
+            <div v-else-if="tasksError" class="text-danger small mt-3">{{ tasksError }}</div>
+
+            <!-- Tasks List -->
+            <template v-else-if="tasks.length">
+              <hr class="my-3" />
+              <h6 class="small fw-semibold mb-2">Active Tasks</h6>
+
+              <div class="tasks-list">
+                <div class="tasks-items">
+                  <div v-for="task in tasks" :key="task.id" class="task-item" role="button" tabindex="0" @click="beginEditTask(task)" @keydown.enter.prevent="beginEditTask(task)">
+                    <div class="task-main">
+                      <div class="task-header">
+                        <span class="task-title fw-semibold">{{ task.title }}</span>
+                        <span 
+                          class="badge"
+                          :class="task.priority === 'urgent' ? 'bg-danger' : task.priority === 'routine' ? 'bg-warning' : 'bg-secondary'"
+                          style="font-size: 0.7rem;"
+                        >
+                          {{ capitalizeFirstLetter(task.priority) }}
+                        </span>
+                      </div>
+                      <div class="task-details small text-muted">
+                        <span><i class="mdi mdi-calendar me-1"></i>Due: {{ formatMmDdYyyy(task.due_date) }}</span>
+                        <span v-if="task.assigned_to_username" class="ms-3">
+                          <i class="mdi mdi-account me-1"></i>{{ task.assigned_to_username }}
+                        </span>
+                        <span v-if="task.link_summary" class="ms-3">
+                          <i class="mdi mdi-link-variant me-1"></i>{{ task.link_summary }}
+                        </span>
+                      </div>
+                      <div v-if="task.description" class="task-description small mt-1">
+                        {{ task.description }}
+                      </div>
+                    </div>
+
+                    <div class="task-actions">
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-outline-success"
+                        :disabled="taskDeleteBusyId === task.id"
+                        @click.stop="completeTask(task.id)"
+                        title="Mark as complete"
+                      >
+                        <span v-if="taskDeleteBusyId === task.id" class="spinner-border spinner-border-sm me-1"></span>
+                        <i class="mdi mdi-check"></i>
+                      </button>
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-outline-danger ms-1"
+                        :disabled="taskDeleteBusyId === task.id"
+                        @click.stop="deleteTask(task.id)"
+                        title="Delete task"
+                      >
+                        <i class="mdi mdi-trash-can-outline"></i>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </template>
+
+            <!-- Empty State -->
+            <div v-else class="text-muted small text-center py-3">
+              No active tasks. Create one above to get started.
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-light" @click="closeTaskModal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
 </template>
 
 <script lang="ts">
 import FullCalendar from '@fullcalendar/vue3';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
-import { getCalendarEventBadgeTone, getCalendarEventColors, resolveBadgeTokens } from '@/config/badgeTokens';
+import { getCalendarEventBadgeTone, getCalendarEventColors, resolveBadgeTokens, getLifecycleBadgeTone } from '@/config/badgeTokens';
 import type { BadgeToneKey } from '@/config/badgeTokens';
 import http from '@/lib/http';
+import VueMultiselect from 'vue-multiselect';
+import UiBadge from '@/components/ui/UiBadge.vue';
+
+type LoanOption = {
+  value: number;
+  label: string;
+  lifecycleStatus?: string | null;
+  lifecycleTone: BadgeToneKey;
+  activeTracks?: string | null;
+};
 
 /**
  * Interface for calendar event data structure
@@ -271,6 +529,8 @@ export default {
 
   components: {
     FullCalendar,
+    VueMultiselect,
+    UiBadge,
   },
   
   // Declare emits so parent can listen to open-asset-modal event
@@ -326,6 +586,13 @@ export default {
             bufferedEnd.setDate(bufferedEnd.getDate() + 7);
             this.fetchCalendarEventsForRange(bufferedStart, bufferedEnd);
           }
+          
+          // WHAT: Ensure task button is present in header toolbar after view change
+          // WHY: FullCalendar may re-render toolbar on navigation
+          // HOW: Inject button if missing
+          setTimeout(() => {
+            this.injectTaskButton();
+          }, 50);
         },
         // events will be synced from this.events in lifecycle hooks
         events: [] as any[],
@@ -454,6 +721,33 @@ export default {
       // WHY: Multiple rapid height updates cause flicker and layout rearrangement
       // HOW: Store timeout ID to cancel previous updates if new one is triggered
       heightUpdateTimeout: null as ReturnType<typeof setTimeout> | null,
+      
+      // Task modal state
+      taskModalOpen: false,
+      tasks: [] as any[],
+      tasksLoading: false,
+      tasksError: '',
+      taskCreateBusy: false,
+      taskDeleteBusyId: null as number | null,
+      editingTaskId: null as number | null,
+      availableUsers: [] as any[],
+      tradeOptions: [] as Array<{ value: number; label: string }>,
+      tradeOptionsLoading: false,
+      tradeOptionsError: '',
+      loanOptions: [] as LoanOption[],
+      loanSelectModel: null as LoanOption | null,
+      loanOptionsLoading: false,
+      loanOptionsError: '',
+      newTask: {
+        description: '',
+        due_date: '',
+        priority: 'routine' as 'low' | 'routine' | 'urgent',
+        task_type: '',
+        notify_user: null as number | null,
+        trade_id: null as number | null,
+        asset_hub_id: null as number | null,
+      },
+      selectedDateForTask: null as Date | null,
     };
   },
   
@@ -482,6 +776,13 @@ export default {
         (this as any).currentViewDate = startOfMonth; // Set to match what we're fetching
         this.fetchCalendarEventsForRange(startOfMonth, endOfMonth);
       }
+      
+      // WHAT: Inject "Create/View Tasks" button into FullCalendar header toolbar
+      // WHY: User wants button on same line as "Today" button
+      // HOW: Call injectTaskButton method after FullCalendar renders
+      setTimeout(() => {
+        this.injectTaskButton();
+      }, 100);
     });
 
     window.addEventListener('resize', this.updateEventListMaxHeight);
@@ -1114,7 +1415,37 @@ export default {
     handleDateClick(arg: any) {
       if (arg && arg.dateStr) {
         this.selectedDate = new Date(arg.dateStr);
+        // WHAT: Store selected date for task creation
+        // WHY: When user clicks a date and opens task modal, pre-populate the date field
+        // HOW: Parse dateStr and store in selectedDateForTask
+        this.selectedDateForTask = new Date(arg.dateStr);
       }
+    },
+
+    /**
+     * injectTaskButton: Injects "Create/View Tasks" button into FullCalendar header toolbar
+     * WHAT: Adds button on same toolbar line immediately after the "Today" button
+     * WHY: User wants button positioned next to "Today"
+     * HOW: Locate the chunk that contains the today button and insert our button right after it
+     */
+    injectTaskButton() {
+      const calendarEl = (this.$refs.calendarWrapper as any);
+      if (!calendarEl) return;
+
+      const todayButton = calendarEl.querySelector('.fc-header-toolbar .fc-today-button');
+      if (!todayButton) return;
+
+      const toolbarChunk = todayButton.parentElement;
+      if (!toolbarChunk || toolbarChunk.querySelector('.calendar-task-button')) {
+        return;
+      }
+
+      const button = document.createElement('button');
+      button.className = 'btn btn-sm btn-outline-primary calendar-task-button ms-2';
+      button.innerHTML = '<i class="fas fa-tasks me-1"></i>Create/View Tasks';
+      button.title = 'Create/View Tasks';
+      button.onclick = () => this.openTaskModal();
+      toolbarChunk.appendChild(button); // Far right
     },
 
     /**
@@ -1373,7 +1704,463 @@ export default {
         // No stored filters, default to "All" (empty array)
         this.selectedEventTypeFilters = [];
       }
-    }
+    },
+
+    // Task modal methods
+    async openTaskModal() {
+      await Promise.all([
+        this.fetchUsers(),
+        this.fetchTasks(),
+        this.fetchTradeOptionsList().catch(() => null),
+      ]);
+      this.taskModalOpen = true;
+    },
+
+    closeTaskModal() {
+      this.taskModalOpen = false;
+      this.editingTaskId = null;
+      this.newTask = {
+        description: '',
+        due_date: this.selectedDateForTask ? this.formatDateForInput(this.selectedDateForTask) : '',
+        priority: 'routine',
+        task_type: '',
+        notify_user: null,
+        trade_id: null,
+        asset_hub_id: null,
+      };
+      this.loanOptions = [];
+      this.loanSelectModel = null;
+      this.selectedDateForTask = null;
+    },
+
+    formatDateForInput(date: Date): string {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    },
+
+    setTaskDateOffset(days: number) {
+      const today = new Date();
+      today.setDate(today.getDate() + days);
+      this.newTask.due_date = this.formatDateForInput(today);
+    },
+
+    async fetchUsers() {
+      this.availableUsers = [];
+      // TODO: Implement user fetching if needed
+    },
+
+    async fetchTasks() {
+      this.tasksLoading = true;
+      this.tasksError = '';
+      try {
+        const resp = await http.get('/core/calendar/events/custom/', {
+          params: {
+            completed: false,
+          }
+        });
+        
+        let taskEvents = [];
+        if (Array.isArray(resp?.data)) {
+          taskEvents = resp.data;
+        } else if (resp?.data?.results && Array.isArray(resp.data.results)) {
+          taskEvents = resp.data.results;
+        }
+
+        this.tasks = taskEvents.map((r: any) => {
+          const assetHubId = this.toNumberOrNull((r as any).asset_hub ?? (r as any).asset_hub_id);
+          const tradeId = this.toNumberOrNull((r as any).trade ?? (r as any).trade_id);
+          const loanLabel = assetHubId ? this.buildLoanOptionLabel(r) : '';
+          const tradeLabel = tradeId ? this.buildTradeOptionLabel(r) : '';
+          const linkSummary = assetHubId
+            ? `Loan - ${loanLabel}`
+            : (tradeLabel ? `Trade - ${tradeLabel}` : '');
+
+          return {
+            id: Number(r.id),
+            title: String(r.title || ''),
+            description: String(r.description || ''),
+            due_date: String(r.date || ''),
+            priority: (r.priority || 'routine') as 'low' | 'routine' | 'urgent',
+            category: String(r.reason || r.task_category || ''),
+            assigned_to: r.assigned_to,
+            assigned_to_username: r.assigned_to_username || null,
+            notified_users: r.notified_users || null,
+            completed: false,
+            asset_hub_id: assetHubId,
+            trade_id: tradeId,
+            loan_label: loanLabel,
+            trade_label: tradeLabel,
+            link_summary: linkSummary,
+          };
+        });
+      } catch (e: any) {
+        this.tasksError = 'Failed to load tasks.';
+        console.error('[Calendar Tasks] fetch failed', e);
+      } finally {
+        this.tasksLoading = false;
+      }
+    },
+
+    toNumberOrNull(value: any): number | null {
+      if (value === null || value === undefined || value === '') {
+        return null;
+      }
+      const num = Number(value);
+      return Number.isFinite(num) ? num : null;
+    },
+
+    buildLoanOptionLabel(raw: any): string {
+      const loanId = raw?.servicer_id || raw?.servicer_loan_id || raw?.loan_id || raw?.seller_loan_id || '';
+      const address = raw?.address || raw?.property_address || raw?.street_address || '';
+      const city = raw?.city || '';
+      const state = raw?.state || '';
+      const cityState = [city, state].filter(Boolean).join(', ');
+      const addressBlock = address
+        ? cityState
+          ? `${address} - ${cityState}`
+          : address
+        : cityState;
+      const parts: string[] = [];
+      if (loanId) {
+        parts.push(String(loanId));
+      }
+      if (addressBlock) {
+        parts.push(addressBlock);
+      }
+      if (!parts.length) {
+        const fallback = raw?.asset_hub_id || raw?.asset_hub?.id || raw?.id;
+        if (fallback) {
+          parts.push(`Loan #${fallback}`);
+        }
+      }
+      return parts.join(' - ').trim();
+    },
+
+    getLifecycleMeta(raw: any, fallback?: string | null): { lifecycleStatus: string | null; lifecycleTone: BadgeToneKey } {
+      const source = raw?.lifecycle_status ?? raw?.asset_master_status ?? raw?.asset_status ?? fallback ?? '';
+      const cleaned = source ? source.toString().replace(/[_\s]+/g, ' ').trim() : '';
+      const formatted = cleaned
+        ? cleaned
+            .split(' ')
+            .map((segment: string) => this.capitalizeFirst(segment))
+            .join(' ')
+            .trim()
+        : null;
+      return {
+        lifecycleStatus: formatted,
+        lifecycleTone: getLifecycleBadgeTone(formatted || source || ''),
+      };
+    },
+
+    normalizeActiveTracks(raw: any): string | null {
+      const tracks = raw?.active_tracks ?? raw?.activeTracks ?? '';
+      if (!tracks) return null;
+      const processed = tracks
+        .toString()
+        .split(',')
+        .map((segment: string) => segment.trim())
+        .filter(Boolean)
+        .join(', ');
+      return processed || null;
+    },
+
+    buildTradeOptionLabel(raw: any): string {
+      const tradeName = raw?.trade_name || raw?.trade?.trade_name || '';
+      const sellerName = raw?.seller_name || raw?.trade?.seller_name || '';
+      const base = tradeName || (raw?.trade_id ? `Trade #${raw.trade_id}` : '');
+      return sellerName ? `${base} (${sellerName})` : base;
+    },
+
+    handleTradeSelection() {
+      if (this.newTask.trade_id) {
+        this.newTask.asset_hub_id = null;
+        this.loanSelectModel = null;
+        // Fetch loans for the selected trade
+        this.fetchLoanOptions('', this.newTask.trade_id);
+      } else {
+        // Clear loan options when trade is deselected
+        this.loanOptions = [];
+        this.loanSelectModel = null;
+      }
+    },
+
+    async fetchTradeOptionsList(force = false) {
+      if (!force && this.tradeOptions.length > 0) {
+        return;
+      }
+      this.tradeOptionsLoading = true;
+      this.tradeOptionsError = '';
+      try {
+        const resp = await http.get('/reporting/trades/', { timeout: 15000 });
+        const rows = Array.isArray(resp?.data) ? resp.data : [];
+        this.tradeOptions = rows
+          .map((row: any) => ({
+            value: Number(row.id),
+            label: this.buildTradeOptionLabel(row),
+          }))
+          .filter((opt: any) => Number.isFinite(opt.value) && opt.label);
+      } catch (e: any) {
+        console.error('[Calendar Tasks] trade options fetch failed', e);
+        this.tradeOptionsError = 'Failed to load trades.';
+        this.tradeOptions = [];
+      } finally {
+        this.tradeOptionsLoading = false;
+      }
+    },
+
+    async fetchLoanOptions(searchTerm: string = '', tradeId: number | null = null) {
+      this.loanOptionsLoading = true;
+      this.loanOptionsError = '';
+      try {
+        const params: Record<string, any> = {};
+        if (tradeId) {
+          // WHAT: When filtering by trade, get ALL loans for that trade
+          // WHY: User needs to see all loans in the selected trade, not just first 100
+          params.trade = tradeId;
+          params.page_size = 'ALL';
+        } else {
+          // WHAT: When no trade filter, limit to 100 for performance
+          params.page_size = 100;
+        }
+        if (searchTerm) {
+          params.q = searchTerm;
+        }
+        const resp = await http.get('/am/assets/', { params, timeout: 20000 });
+        let rows: any[] = [];
+        if (Array.isArray(resp?.data)) {
+          rows = resp.data;
+        } else if (Array.isArray(resp?.data?.results)) {
+          rows = resp.data.results;
+        }
+        const options: LoanOption[] = [];
+        rows.forEach((row: any) => {
+          const value = this.toNumberOrNull(
+            row?.asset_hub_id || row?.asset_hub?.id || row?.id || row?.asset_id
+          );
+          if (value === null) {
+            return;
+          }
+          const label = this.buildLoanOptionLabel(row) || `Loan #${value}`;
+          const { lifecycleStatus, lifecycleTone } = this.getLifecycleMeta(row);
+          const activeTracks = this.normalizeActiveTracks(row);
+          options.push({
+            value,
+            label,
+            lifecycleStatus,
+            lifecycleTone,
+            activeTracks,
+          });
+        });
+        this.loanOptions = options;
+        if (this.newTask.asset_hub_id) {
+          const matched = options.find(opt => opt.value === this.newTask.asset_hub_id);
+          if (matched) {
+            this.loanSelectModel = matched;
+          }
+        }
+      } catch (e: any) {
+        console.error('[Calendar Tasks] loan options fetch failed', e);
+        this.loanOptionsError = 'Failed to load loans.';
+        this.loanOptions = [];
+      } finally {
+        this.loanOptionsLoading = false;
+      }
+    },
+ 
+    ensureLoanOptionPresence(assetHubId: number | null, label?: string | null, lifecycleStatus?: string | null, activeTracks?: string | null) {
+      if (!assetHubId) return;
+      let option = this.loanOptions.find(opt => opt.value === assetHubId);
+      const { lifecycleStatus: statusLabel, lifecycleTone } = this.getLifecycleMeta(
+        { lifecycle_status: lifecycleStatus },
+        lifecycleStatus
+      );
+      if (!option) {
+        option = {
+          value: assetHubId,
+          label: label || `Loan #${assetHubId}`,
+          lifecycleStatus: statusLabel,
+          lifecycleTone,
+          activeTracks: activeTracks || null,
+        };
+        this.loanOptions.unshift(option);
+      } else {
+        option.lifecycleStatus = statusLabel;
+        option.lifecycleTone = lifecycleTone;
+        option.activeTracks = activeTracks || option.activeTracks || null;
+      }
+      this.loanSelectModel = option;
+    },
+
+    ensureTradeOptionPresence(tradeId: number | null, label?: string) {
+      if (!tradeId) return;
+      const exists = this.tradeOptions.some(opt => opt.value === tradeId);
+      if (!exists) {
+        this.tradeOptions.unshift({
+          value: tradeId,
+          label: label || `Trade #${tradeId}`,
+        });
+      }
+    },
+
+    categoryLabel(category: string): string {
+      // WHAT: Maps task reason to display label for task title
+      // WHY: Task titles are derived from the reason field (TaskReason choices)
+      // HOW: Use getTaskCategoryLabel which has all TaskReason options
+      return this.getTaskCategoryLabel(category) || category;
+    },
+
+    capitalizeFirstLetter(value: string): string {
+      if (!value) return '';
+      return value.charAt(0).toUpperCase() + value.slice(1);
+    },
+
+    formatMmDdYyyy(dateStr: string): string {
+      if (!dateStr) return '';
+      const parts = dateStr.split('-');
+      if (parts.length !== 3) return dateStr;
+      return `${parts[1]}/${parts[2]}/${parts[0]}`;
+    },
+
+    async createTask() {
+      if (!this.newTask.task_type || !this.newTask.due_date) return;
+      if (this.newTask.trade_id && this.newTask.asset_hub_id) {
+        alert('Please select either a trade or a loan, not both.');
+        return;
+      }
+
+      this.taskCreateBusy = true;
+      try {
+        // WHAT: Generate title based on task type
+        const derivedTitle = this.getTaskCategoryLabel(this.newTask.task_type);
+
+        const payload: Record<string, any> = {
+          title: derivedTitle,
+          description: this.newTask.description.trim(),
+          date: this.newTask.due_date,
+          task_type: this.newTask.task_type,
+          priority: this.newTask.priority,
+          assigned_to: this.newTask.notify_user,
+        };
+
+        if (this.newTask.asset_hub_id) {
+          payload.asset_hub = this.newTask.asset_hub_id;
+          payload.trade = null;
+        } else if (this.newTask.trade_id) {
+          payload.trade = this.newTask.trade_id;
+          payload.asset_hub = null;
+        } else {
+          payload.asset_hub = null;
+          payload.trade = null;
+        }
+
+        if (this.editingTaskId != null) {
+          await http.patch(`/core/calendar/events/custom/${this.editingTaskId}/`, payload);
+        } else {
+          await http.post('/core/calendar/events/custom/', {
+            ...payload,
+            time: 'All Day',
+            completed: false,
+            is_public: false,
+          });
+        }
+
+        // Reset form
+        this.newTask.description = '';
+        this.newTask.due_date = this.selectedDateForTask ? this.formatDateForInput(this.selectedDateForTask) : '';
+        this.newTask.priority = 'routine';
+        this.newTask.task_type = '';
+        this.newTask.notify_user = null;
+        this.newTask.trade_id = null;
+        this.newTask.asset_hub_id = null;
+        this.editingTaskId = null;
+
+        await this.fetchTasks();
+        // Refresh calendar events
+        await this.fetchCalendarEventsForRange(
+          new Date(this.currentViewDate.getFullYear(), this.currentViewDate.getMonth(), 1),
+          new Date(this.currentViewDate.getFullYear(), this.currentViewDate.getMonth() + 1, 0)
+        );
+      } catch (e: any) {
+        console.error('[Calendar Tasks] create failed', {
+          message: e?.message,
+          status: e?.response?.status,
+          data: e?.response?.data,
+        });
+        alert(this.editingTaskId != null ? 'Failed to save task. Please try again.' : 'Failed to create task. Please try again.');
+      } finally {
+        this.taskCreateBusy = false;
+      }
+    },
+
+    beginEditTask(task: any) {
+      this.editingTaskId = task.id;
+      this.newTask.due_date = task.due_date;
+      // WHAT: Map backend task_type to frontend
+      this.newTask.task_type = task.task_type || 'follow_up';
+      this.newTask.description = task.description || '';
+      this.newTask.priority = task.priority || 'routine';
+      this.newTask.notify_user = task.assigned_to ?? null;
+
+      if (task.asset_hub_id) {
+        this.newTask.asset_hub_id = task.asset_hub_id;
+        this.newTask.trade_id = null;
+        this.ensureLoanOptionPresence(
+          task.asset_hub_id,
+          task.loan_label || task.link_summary,
+          task.lifecycle_status,
+          task.active_tracks
+        );
+      } else if (task.trade_id) {
+        this.newTask.trade_id = task.trade_id;
+        this.newTask.asset_hub_id = null;
+        this.ensureTradeOptionPresence(task.trade_id, task.trade_label || task.link_summary);
+      } else {
+        this.newTask.asset_hub_id = null;
+        this.newTask.trade_id = null;
+      }
+    },
+
+    async completeTask(taskId: number) {
+      this.taskDeleteBusyId = taskId;
+      try {
+        await http.patch(`/core/calendar/events/custom/${taskId}/`, {
+          completed: true,
+        });
+        await this.fetchTasks();
+        // Refresh calendar events
+        await this.fetchCalendarEventsForRange(
+          new Date(this.currentViewDate.getFullYear(), this.currentViewDate.getMonth(), 1),
+          new Date(this.currentViewDate.getFullYear(), this.currentViewDate.getMonth() + 1, 0)
+        );
+      } catch (e: any) {
+        console.error('[Calendar Tasks] complete failed', e);
+        alert('Failed to complete task. Please try again.');
+      } finally {
+        this.taskDeleteBusyId = null;
+      }
+    },
+
+    async deleteTask(taskId: number) {
+      if (!confirm('Are you sure you want to delete this task?')) return;
+      
+      this.taskDeleteBusyId = taskId;
+      try {
+        await http.delete(`/core/calendar/events/custom/${taskId}/`);
+        await this.fetchTasks();
+        // Refresh calendar events
+        await this.fetchCalendarEventsForRange(
+          new Date(this.currentViewDate.getFullYear(), this.currentViewDate.getMonth(), 1),
+          new Date(this.currentViewDate.getFullYear(), this.currentViewDate.getMonth() + 1, 0)
+        );
+      } catch (e: any) {
+        console.error('[Calendar Tasks] delete failed', e);
+        alert('Failed to delete task. Please try again.');
+      } finally {
+        this.taskDeleteBusyId = null;
+      }
+    },
   },
   
   /**
@@ -1411,6 +2198,13 @@ export default {
       },
       deep: true, // Watch for changes inside the array (when items are added/removed)
       immediate: false // Don't run on initial mount (we load from localStorage in mounted)
+    },
+    loanSelectModel(newOption: LoanOption | null) {
+      if (newOption && typeof newOption.value === 'number') {
+        this.newTask.asset_hub_id = newOption.value;
+      } else {
+        this.newTask.asset_hub_id = null;
+      }
     }
   }
 };
@@ -1504,6 +2298,32 @@ export default {
 
 .hover-shadow:hover {
   box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.loan-multiselect .multiselect__option {
+  padding: 0.35rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.loan-option-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.loan-option-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.loan-option-subtext {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
 }
 
 /* Make ALL calendar day cells the same height and alignment (legacy styles for old datepicker) */
@@ -1675,4 +2495,66 @@ div.calendar-widget {
 
 /* REMOVED: Scale down badges inside calendar day cells to fit */
 /* Badges will now inherit the standard .event-badge styling */
+
+/* Task Modal Styles */
+.tasks-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.tasks-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.task-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 0.75rem;
+  border: 1px solid var(--bs-border-color);
+  border-radius: 0.375rem;
+  background-color: var(--bs-body-bg);
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.task-item:hover {
+  background-color: var(--bs-secondary-bg);
+  border-color: var(--bs-primary);
+}
+
+.task-main {
+  flex: 1;
+}
+
+.task-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.25rem;
+}
+
+.task-title {
+  font-size: 0.875rem;
+}
+
+.task-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.task-description {
+  color: var(--bs-secondary);
+  margin-top: 0.5rem;
+}
+
+.task-actions {
+  display: flex;
+  gap: 0.25rem;
+  margin-left: 0.5rem;
+}
 </style>

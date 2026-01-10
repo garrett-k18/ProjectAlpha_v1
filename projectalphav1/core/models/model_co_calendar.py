@@ -14,38 +14,30 @@ User = get_user_model()
 
 class CalendarEvent(models.Model):
     """
-    Custom calendar events created by users.
+    Custom tasks created by users.
     
-    These are separate from model-based dates (which are read-only in the calendar).
-    Users can create, edit, and delete these events directly from the calendar widget.
+    All CalendarEvent records are tasks. Other event types (liquidations, trades, etc.)
+    come from their respective models and are displayed in calendar views but not stored here.
+    Users can create, edit, and delete these tasks directly from the calendar widget.
     
     Fields:
-    - title: Event name/description
-    - date: Event date
+    - title: Task name/description (optional, auto-generated from task_type)
+    - date: Task due date
     - time: Display time (e.g., "9:00 AM - 10:00 AM" or "All Day")
-    - description: Additional details
-    - category: Semantic event type (EventCategory enum)
-    - reason: Sub-category for follow-up tasks (TaskReason enum)
+    - description: Additional task details
+    - task_type: Type of task (TaskType enum)
     - priority: Task priority level (Priority enum)
-    - created_by: User who created the event
+    - created_by: User who created the task
     - assigned_to: User assigned to this task (for notifications)
-    - seller: Optional link to a seller (for seller-specific events)
-    - trade: Optional link to a trade (for trade-specific events)
+    - seller: Optional link to a seller (for seller-specific tasks)
+    - trade: Optional link to a trade (for trade-specific tasks)
     - asset_hub: Optional link to a specific asset
     - is_reminder: Flag to indicate if this is a reminder/alert
-    - completed: Flag to indicate if this task/event is finished
+    - completed: Flag to indicate if this task is finished
     """
 
-    class EventCategory(models.TextChoices):
-        """Semantic event categories - frontend maps these to colors"""
-        REALIZED_LIQUIDATION = "realized_liquidation", "Realized Liquidation"
-        PROJECTED_LIQUIDATION = "projected_liquidation", "Projected Liquidation"
-        TRADE = "trade", "Trade"
-        FOLLOW_UP = "follow_up", "Task"
-        MILESTONE = "milestone", "Milestone"
-    
-    class TaskReason(models.TextChoices):
-        """Sub-categories for follow-up tasks"""
+    class TaskType(models.TextChoices):
+        """Task types - all CalendarEvent records are tasks"""
         FOLLOW_UP = "follow_up", "Follow-up"
         NOD_NOI = "nod_noi", "NOD/NOI"
         FC_COUNSEL = "fc_counsel", "FC Counsel"
@@ -89,16 +81,16 @@ class CalendarEvent(models.Model):
         help_text="Additional event details"
     )
     
-    # Semantic event category
-    category = models.CharField(
+    # Task type - all CalendarEvents are tasks
+    task_type = models.CharField(
         max_length=50,
-        choices=EventCategory.choices,
-        default=EventCategory.MILESTONE,
+        choices=TaskType.choices,
+        default=TaskType.FOLLOW_UP,
         db_index=True,
-        help_text="Event category (frontend determines visual styling)"
+        help_text="Type of task"
     )
     
-    # Task priority (for follow-up events)
+    # Task priority
     priority = models.CharField(
         max_length=20,
         choices=Priority.choices,
@@ -173,13 +165,6 @@ class CalendarEvent(models.Model):
         help_text="Visible to all users when true; otherwise private to creator",
     )
 
-    reason = models.CharField(
-        max_length=32,
-        choices=TaskReason.choices,
-        null=True,
-        blank=True,
-        help_text="Standardized task reason",
-    )
     
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
@@ -202,7 +187,7 @@ class CalendarEvent(models.Model):
             models.Index(fields=['seller', 'date']),
             models.Index(fields=['trade', 'date']),
             models.Index(fields=['asset_hub', 'date']),
-            models.Index(fields=['category', 'date']),
+            models.Index(fields=['task_type', 'date']),
             models.Index(fields=['priority', 'date']),
             models.Index(fields=['is_reminder', 'date']),
             models.Index(fields=['completed', 'date']),
@@ -220,16 +205,9 @@ class CalendarEvent(models.Model):
         if self.date and self.date < date(2020, 1, 1):
             raise ValidationError({'date': 'Event date cannot be before 2020.'})
         
-        # Validate priority is only set for follow-up tasks
-        if self.priority and self.category != self.EventCategory.FOLLOW_UP:
-            # Allow priority for any category - users might want to prioritize any event type
-            pass
+        # All CalendarEvents are tasks, so priority is always valid
+        pass
         
-        # Validate reason is only set for follow-up tasks
-        if self.reason and self.category != self.EventCategory.FOLLOW_UP:
-            raise ValidationError({
-                'reason': 'Task reason can only be set for follow-up tasks.'
-            })
     
     def save(self, *args, **kwargs):
         """Override save to run clean validation"""
@@ -240,7 +218,7 @@ class CalendarEvent(models.Model):
     def is_overdue(self):
         """Check if this event is overdue (past date and not completed)"""
         from datetime import date
-        return self.date < date.today() and self.category == self.EventCategory.FOLLOW_UP
+        return self.date < date.today() and not self.completed
     
     @property
     def display_priority(self):
