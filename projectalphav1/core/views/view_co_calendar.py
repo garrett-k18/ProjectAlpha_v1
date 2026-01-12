@@ -636,10 +636,15 @@ class CustomCalendarEventViewSet(viewsets.ModelViewSet):
         import logging
         logger = logging.getLogger(__name__)
         
-        queryset = super().get_queryset()
+        queryset = (
+            super()
+            .get_queryset()
+            .select_related('asset_hub', 'trade', 'seller', 'created_by', 'asset_hub__details')
+            .select_related('asset_hub__acq_raw')
+        )
         logger.info(f"[CalendarEvent] Initial queryset count: {queryset.count()}")
         logger.info(f"[CalendarEvent] Query params: {dict(self.request.query_params)}")
-
+        
         user = _resolve_request_user(self.request)
         logger.info(f"[CalendarEvent] Resolved user: {user}")
         

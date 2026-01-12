@@ -861,7 +861,6 @@ const newTask = ref<{
   due_date: '',
   priority: 'routine',
   task_type: '',
-  followup_type: '',
   notify_user: null,
 })
 
@@ -958,7 +957,7 @@ async function createTask() {
         title: derivedTitle,
         description: newTask.value.description.trim(),
         date: newTask.value.due_date,
-        reason: newTask.value.category || null,
+        reason: null,
       })
     } else {
       await http.post('/core/calendar/events/custom/', {
@@ -972,7 +971,7 @@ async function createTask() {
         asset_hub: id,
         is_reminder: true,
         is_public: false,
-        reason: newTask.value.category || null,
+        reason: null,
       })
     }
 

@@ -233,6 +233,13 @@ class CustomCalendarEventSerializer(serializers.ModelSerializer):
     # Why: Clicking event should navigate to related seller/trade/asset
     url = serializers.SerializerMethodField()
     
+    servicer_id = serializers.SerializerMethodField()
+    address = serializers.SerializerMethodField()
+    city = serializers.SerializerMethodField()
+    state = serializers.SerializerMethodField()
+    trade_name = serializers.SerializerMethodField()
+    asset_hub_id = serializers.SerializerMethodField()
+    
     class Meta:
         model = CalendarEvent
         fields = [
@@ -256,6 +263,12 @@ class CustomCalendarEventSerializer(serializers.ModelSerializer):
             'editable',
             'source_model',
             'url',
+            'servicer_id',
+            'address',
+            'city',
+            'state',
+            'trade_name',
+            'asset_hub_id',
         ]
         read_only_fields = ['created_by', 'created_at', 'updated_at']
     
@@ -313,6 +326,59 @@ class CustomCalendarEventSerializer(serializers.ModelSerializer):
             return f'/acq/seller/{obj.seller_id}/'
         # No entity linked - standalone event
         return ''
+    
+    def get_asset_hub_id(self, obj):
+        return obj.asset_hub_id
+
+    def get_servicer_id(self, obj):
+        asset = getattr(obj, 'asset_hub', None)
+        if asset is None:
+            return ''
+        return asset.servicer_id or ''
+
+    def get_city(self, obj):
+        asset = getattr(obj, 'asset_hub', None)
+        if asset is None:
+            return ''
+        acq_raw = getattr(asset, 'acq_raw', None)
+        if acq_raw is None:
+            return ''
+        return acq_raw.city or ''
+
+    def get_state(self, obj):
+        asset = getattr(obj, 'asset_hub', None)
+        if asset is None:
+            return ''
+        acq_raw = getattr(asset, 'acq_raw', None)
+        if acq_raw is None:
+            return ''
+        return acq_raw.state or ''
+
+    def get_address(self, obj):
+        asset = getattr(obj, 'asset_hub', None)
+        if asset is None:
+            return ''
+        acq_raw = getattr(asset, 'acq_raw', None)
+        if acq_raw is None:
+            return ''
+        return acq_raw.street_address or ''
+
+    def get_trade_name(self, obj):
+        if getattr(obj, 'trade', None) is not None:
+            return obj.trade.trade_name
+        asset = getattr(obj, 'asset_hub', None)
+        if asset is None:
+            return None
+
+        acq_raw = getattr(asset, 'acq_raw', None)
+        if acq_raw is not None and getattr(acq_raw, 'trade', None) is not None:
+            return acq_raw.trade.trade_name
+
+        details = getattr(asset, 'details', None)
+        if details is not None and getattr(details, 'trade', None) is not None:
+            return details.trade.trade_name
+
+        return None
     
     def validate_date(self, value):
         """

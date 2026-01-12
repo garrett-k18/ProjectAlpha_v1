@@ -92,7 +92,7 @@
                     class="badge bg-light text-dark border"
                     style="font-size: 0.7rem; margin-top: 1px;"
                   >
-                    {{ capitalizeFirst(getTaskCategoryLabel(event.task_category)) }}
+                    {{ getTaskCategoryLabel(event.task_category) }}
                   </span>
                 </div>
                 <!-- WHAT: Display formatted date for each event -->
@@ -103,15 +103,6 @@
                 </span>
               </div>
               <h6 class="mb-0 fw-semibold small">{{ getEventTitle(event) }}</h6>
-              <!-- WHAT: Display city and state for follow-up, realized liquidation, and projected liquidation events -->
-              <!-- WHY: Users need location context for these event types -->
-              <!-- HOW: Show city and state if available and event type matches -->
-              <div 
-                v-if="shouldShowLocation(event)" 
-                class="text-muted small mt-1"
-              >
-                {{ getLocationDisplay(event) }}
-              </div>
             </div>
           </div>
         </div>
@@ -251,7 +242,7 @@
 
               <div class="col-12 col-md-4">
                 <label class="form-label small mb-1">Task Type *</label>
-                <select v-model="newTask.task_type" class="form-select form-select-sm">
+                <select v-model="newTask.task_type" class="form-select form-select-sm uniform-select">
                   <option value="">Select task type...</option>
                   <option value="follow_up">Follow-up</option>
                   <option value="nod_noi">NOD/NOI</option>
@@ -268,7 +259,7 @@
 
               <div class="col-12 col-md-4">
                 <label class="form-label small mb-1">Priority</label>
-                <select v-model="newTask.priority" class="form-select form-select-sm">
+                <select v-model="newTask.priority" class="form-select form-select-sm uniform-select">
                   <option value="low">Low</option>
                   <option value="routine">Routine</option>
                   <option value="urgent">Urgent</option>
@@ -295,7 +286,7 @@
                 <label class="form-label small mb-1">Trade (optional)</label>
                 <select
                   v-model="newTask.trade_id"
-                  class="form-select form-select-sm"
+                  class="form-select form-select-sm uniform-select"
                   :disabled="tradeOptionsLoading"
                   @change="handleTradeSelection"
                 >
@@ -322,6 +313,9 @@
                   :close-on-select="true"
                   :allow-empty="true"
                   :loading="loanOptionsLoading"
+                  select-label=""
+                  selected-label=""
+                  deselect-label=""
                   placeholder="Select a loan from this trade..."
                   :disabled="loanOptionsLoading || !newTask.trade_id"
                   class="loan-multiselect"
@@ -329,25 +323,18 @@
                   <template #option="{ option }">
                     <div class="loan-option-row">
                       <div class="loan-option-header">
-                        <span class="fw-semibold">{{ option.label }}</span>
-                        <UiBadge :tone="option.lifecycleTone" size="xs">
-                          {{ option.lifecycleStatus || 'Status Unknown' }}
-                        </UiBadge>
+                        <span>{{ option.label }}</span>
+                        <span class="badge bg-secondary" style="font-size: 0.65rem; padding: 0.15rem 0.35rem;">
+                          {{ option.lifecycleStatus || 'Unknown' }}
+                        </span>
                       </div>
-                      <div v-if="option.activeTracks" class="loan-option-subtext">
-                        <UiBadge tone="secondary" size="xs">
-                          Tracks: {{ option.activeTracks }}
-                        </UiBadge>
+                      <div v-if="option.activeTracks" class="loan-option-subtext" style="font-size: 0.7rem; color: #6c757d;">
+                        Tracks: {{ option.activeTracks }}
                       </div>
                     </div>
                   </template>
                   <template #singleLabel="{ option }">
-                    <div class="d-flex align-items-center gap-2">
-                      <span>{{ option?.label ?? 'Select a loan from this trade...' }}</span>
-                      <UiBadge v-if="option" :tone="option.lifecycleTone" size="xs">
-                        {{ option.lifecycleStatus || 'Status Unknown' }}
-                      </UiBadge>
-                    </div>
+                    <span>{{ option?.label ?? 'Select a loan from this trade...' }}</span>
                   </template>
                   <template #noOptions>
                     <span class="text-muted small">No loans found for this trade.</span>
@@ -368,7 +355,7 @@
 
               <div class="col-12">
                 <label class="form-label small mb-1">Notify Team Member</label>
-                <select v-model="newTask.notify_user" class="form-select form-select-sm">
+                <select v-model="newTask.notify_user" class="form-select form-select-sm uniform-select">
                   <option value="">No notification</option>
                   <option v-for="user in availableUsers" :key="user.id" :value="user.id">
                     {{ user.username }}
@@ -387,79 +374,6 @@
                   {{ editingTaskId ? 'Save Task' : 'Create Task' }}
                 </button>
               </div>
-            </div>
-
-            <!-- Loading State -->
-            <div v-if="tasksLoading" class="text-muted small d-flex align-items-center gap-2 mt-3">
-              <span class="spinner-border spinner-border-sm"></span>
-              Loading tasks...
-            </div>
-            
-            <!-- Error State -->
-            <div v-else-if="tasksError" class="text-danger small mt-3">{{ tasksError }}</div>
-
-            <!-- Tasks List -->
-            <template v-else-if="tasks.length">
-              <hr class="my-3" />
-              <h6 class="small fw-semibold mb-2">Active Tasks</h6>
-
-              <div class="tasks-list">
-                <div class="tasks-items">
-                  <div v-for="task in tasks" :key="task.id" class="task-item" role="button" tabindex="0" @click="beginEditTask(task)" @keydown.enter.prevent="beginEditTask(task)">
-                    <div class="task-main">
-                      <div class="task-header">
-                        <span class="task-title fw-semibold">{{ task.title }}</span>
-                        <span 
-                          class="badge"
-                          :class="task.priority === 'urgent' ? 'bg-danger' : task.priority === 'routine' ? 'bg-warning' : 'bg-secondary'"
-                          style="font-size: 0.7rem;"
-                        >
-                          {{ capitalizeFirstLetter(task.priority) }}
-                        </span>
-                      </div>
-                      <div class="task-details small text-muted">
-                        <span><i class="mdi mdi-calendar me-1"></i>Due: {{ formatMmDdYyyy(task.due_date) }}</span>
-                        <span v-if="task.assigned_to_username" class="ms-3">
-                          <i class="mdi mdi-account me-1"></i>{{ task.assigned_to_username }}
-                        </span>
-                        <span v-if="task.link_summary" class="ms-3">
-                          <i class="mdi mdi-link-variant me-1"></i>{{ task.link_summary }}
-                        </span>
-                      </div>
-                      <div v-if="task.description" class="task-description small mt-1">
-                        {{ task.description }}
-                      </div>
-                    </div>
-
-                    <div class="task-actions">
-                      <button
-                        type="button"
-                        class="btn btn-sm btn-outline-success"
-                        :disabled="taskDeleteBusyId === task.id"
-                        @click.stop="completeTask(task.id)"
-                        title="Mark as complete"
-                      >
-                        <span v-if="taskDeleteBusyId === task.id" class="spinner-border spinner-border-sm me-1"></span>
-                        <i class="mdi mdi-check"></i>
-                      </button>
-                      <button
-                        type="button"
-                        class="btn btn-sm btn-outline-danger ms-1"
-                        :disabled="taskDeleteBusyId === task.id"
-                        @click.stop="deleteTask(task.id)"
-                        title="Delete task"
-                      >
-                        <i class="mdi mdi-trash-can-outline"></i>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </template>
-
-            <!-- Empty State -->
-            <div v-else class="text-muted small text-center py-3">
-              No active tasks. Create one above to get started.
             </div>
           </div>
           <div class="modal-footer">
@@ -1265,7 +1179,7 @@ export default {
         'follow_up': 'Task',
         'milestone': 'Milestone'
       };
-      return typeMap[normalized] || this.capitalizeFirst(normalized);
+      return typeMap[normalized] || this.formatTitleCaseLabel(normalized);
     },
 
     getTaskCategoryLabel(category: string): string {
@@ -1281,7 +1195,44 @@ export default {
         'inspection': 'Inspection',
         'other': 'Other'
       };
-      return categoryMap[category] || this.capitalizeFirst(category);
+      return categoryMap[category] || this.formatTitleCaseLabel(category);
+    },
+
+    formatTitleCaseLabel(value: string): string {
+      if (!value) return value;
+
+      const cleaned = String(value)
+        .replace(/_/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      if (!cleaned) return cleaned;
+
+      const acronyms = new Set(['FC', 'REO', 'DIL', 'NOD', 'NOI']);
+
+      const formatToken = (token: string): string => {
+        if (!token) return token;
+
+        const upper = token.toUpperCase();
+        if (upper === 'NOD/NOI') return 'NOD/NOI';
+        if (token.includes('/')) {
+          return token
+            .split('/')
+            .map((part) => {
+              const partUpper = part.toUpperCase();
+              if (acronyms.has(partUpper)) return partUpper;
+              return part ? part.charAt(0).toUpperCase() + part.slice(1).toLowerCase() : part;
+            })
+            .join('/');
+        }
+        if (acronyms.has(upper)) return upper;
+        return token.charAt(0).toUpperCase() + token.slice(1).toLowerCase();
+      };
+
+      return cleaned
+        .split(' ')
+        .map((token) => formatToken(token))
+        .join(' ');
     },
 
     capitalizeFirst(str: string): string {
@@ -2025,11 +1976,6 @@ export default {
 
     async createTask() {
       if (!this.newTask.task_type || !this.newTask.due_date) return;
-      if (this.newTask.trade_id && this.newTask.asset_hub_id) {
-        alert('Please select either a trade or a loan, not both.');
-        return;
-      }
-
       this.taskCreateBusy = true;
       try {
         // WHAT: Generate title based on task type
@@ -2326,6 +2272,14 @@ export default {
   gap: 0.25rem;
 }
 
+.loan-multiselect .multiselect__option-helper {
+  display: none !important;
+}
+
+.multiselect__option-helper {
+  display: none !important;
+}
+
 /* Make ALL calendar day cells the same height and alignment (legacy styles for old datepicker) */
 .calendar-widget .day-content {
   display: flex !important;
@@ -2556,5 +2510,76 @@ div.calendar-widget {
   display: flex;
   gap: 0.25rem;
   margin-left: 0.5rem;
+}
+
+.loan-multiselect .multiselect__option {
+  padding: 0.25rem 0.5rem !important;
+  font-size: 0.85rem !important;
+  line-height: 1.3 !important;
+  min-height: auto !important;
+}
+
+/* Remove green highlight - match trade dropdown's simple gray style */
+.loan-multiselect .multiselect__option--highlight {
+  background: #e9ecef !important;
+  color: #212529 !important;
+}
+
+.loan-multiselect .multiselect__option--highlight:after {
+  display: none !important;
+}
+
+.loan-multiselect .multiselect__option--selected {
+  background: #e9ecef !important;
+  color: #212529 !important;
+  font-weight: normal !important;
+}
+
+.loan-multiselect .multiselect__option--selected.multiselect__option--highlight {
+  background: #dee2e6 !important;
+  color: #212529 !important;
+}
+
+.loan-option-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.85rem;
+}
+
+.loan-option-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.loan-option-header .fw-semibold {
+  font-weight: normal !important;
+}
+
+.loan-option-subtext {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+}
+
+.multiselect__option-helper {
+  display: none !important;
+}
+
+.uniform-select,
+.uniform-select:focus,
+.loan-multiselect .multiselect__single,
+.loan-multiselect .multiselect__tags {
+  font-size: 0.85rem;
+  line-height: 1.3;
+  min-height: 36px;
+}
+
+.loan-multiselect .multiselect__content-wrapper {
+  font-size: 0.9rem;
 }
 </style>

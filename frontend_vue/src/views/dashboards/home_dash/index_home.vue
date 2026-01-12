@@ -234,8 +234,9 @@
                 <i class="mdi" :class="getTaskPriorityIcon(asset.next_priority)"></i>
               </div>
               <div class="task-meta">
-                <div class="task-header-line d-flex align-items-center justify-content-between mb-1">
+                <div class="task-header-line d-flex align-items-center mb-1">
                   <div class="task-id">{{ asset.servicer_id }}</div>
+                  <span v-if="asset.servicer_id && getFullAddress(asset)" class="mx-1">-</span>
                   <div class="task-address-header">
                     <i class="mdi mdi-map-marker-outline me-1"></i>
                     {{ getFullAddress(asset) }}
