@@ -9,7 +9,7 @@
     - UPDATED: Changed from rounded-pill to rounded for more professional/serious tone
   -->
   <!-- Multi-badge mode: render multiple small badges with gap -->
-  <span v-if="badges.length > 1" class="d-inline-flex gap-1 flex-wrap">
+  <span v-if="badges.length > 1" class="d-inline-flex gap-1 flex-wrap justify-content-center">
     <span 
       v-for="(b, idx) in badges" 
       :key="idx" 
@@ -65,7 +65,7 @@ const sizeStyle = computed(() => {
   // Size presets matching badgeTokens.ts PILL_DIMENSIONS (square badges with slight rounding)
   const sizeMap: Record<string, string> = {
     xs: 'padding: 0.125rem 0.5rem; font-size: 0.5rem; border-radius: 0.25rem;',
-    sm: 'padding: 0.2rem 0.5rem; font-size: 0.7rem; border-radius: 0.25rem;',  // Small preset
+    sm: 'padding: 0.1rem 0.4rem; font-size: 0.7rem; border-radius: 0.25rem;',  // Small preset - reduced padding for compact multi-badge cells
     md: 'padding: 0.25rem 0.75rem; font-size: 0.75rem; border-radius: 0.25rem;',
     lg: 'padding: 0.375rem 1rem; font-size: 0.875rem; border-radius: 0.375rem;',
   }
@@ -121,7 +121,7 @@ const badges = computed(() => {
   // Multi-prefix mode: split comma-separated values, color by prefix before colon
   // WHAT: Supports fields like "DIL: Owner/Heirs contacted, Modification: Drafted"
   // WHY: Active Tasks field contains outcome prefix + task description
-  // HOW: Split by comma, extract prefix before ":", look up color from colorMap, use full text as label
+  // HOW: Split by comma, extract prefix before ":", look up color from colorMap, display only task description after colon
   if (mode === 'multi-prefix') {
     if (value === null || value === undefined || value === '') return []
     const colorMap = p?.colDef?.cellRendererParams?.colorMap || p?.cellRendererParams?.colorMap || {}
@@ -131,11 +131,12 @@ const badges = computed(() => {
       // Extract prefix before colon (e.g., "DIL" from "DIL: Owner contacted")
       const colonIndex = val.indexOf(':')
       const prefix = colonIndex > 0 ? val.substring(0, colonIndex).trim() : val
+      const taskDescription = colonIndex > 0 ? val.substring(colonIndex + 1).trim() : val
       const color = colorMap[prefix] || 'bg-secondary'
       result.push({
-        label: val,  // Full text including prefix and description
+        label: taskDescription,  // Only the task description after the colon (e.g., "Pursuing DIL" instead of "DIL: Pursuing DIL")
         color: color,
-        title: val
+        title: val  // Keep full text in tooltip for context
       })
     }
     return result

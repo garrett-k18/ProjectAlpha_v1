@@ -70,6 +70,7 @@
         :rowSelection="{ mode: 'multiRow', checkboxes: false, headerCheckbox: false, enableClickSelection: true }"
         :animateRows="true"
         :loading="loading"
+        :rowHeight="50"
         overlayNoRowsTemplate="No assets found"
         overlayLoadingTemplate="Loading assets…"
         @grid-ready="onGridReady"
@@ -112,12 +113,16 @@
         <!-- Custom header with action button (far right) -->
         <template #header>
           <div class="d-flex align-items-center w-100">
-            <h5 class="modal-title mb-0">
+            <h5 class="modal-title mb-0" v-if="headerReady">
               <div class="lh-sm">
                 <span class="fw-bold text-dark">{{ modalIdText }}</span>
                 <span v-if="modalTradeText" class="fw-bold text-dark ms-1">/ {{ modalTradeText }}</span>
               </div>
               <div class="text-muted lh-sm"><span class="fw-bold text-dark">{{ modalAddrText }}</span></div>
+            </h5>
+            <h5 class="modal-title mb-0" v-else>
+              <div class="lh-sm">&nbsp;</div>
+              <div class="text-muted lh-sm">&nbsp;</div>
             </h5>
             <div class="ms-auto">
               <button
@@ -138,6 +143,7 @@
           :row="selectedRow"
           :address="selectedAddr"
           :standalone="false"
+          @row-loaded="onLoanRowLoaded"
         />
       </BModal>
     </div>
@@ -262,6 +268,14 @@ const cols: Record<string, ColDef> = {
     cellEditorParams: {
       values: ['ACTIVE', 'LIQUIDATED'],  // WHAT: AssetIdHub.AssetStatus choices from backend model
     },
+    cellRenderer: BadgeCell as any,  // WHAT: Render as badge with color coding
+    cellRendererParams: {
+      mode: 'enum',
+      enumMap: {
+        'ACTIVE': { label: 'Active', color: 'bg-success', title: 'Active' },
+        'LIQUIDATED': { label: 'Liquidated', color: 'bg-warning text-dark', title: 'Liquidated' },
+      },
+    },
   },
   // FIELD: active_tracks → Comma-separated list of active outcome workflows (DIL, Modification, REO, FC, Short Sale)
   activeTracks: {
@@ -273,7 +287,6 @@ const cols: Record<string, ColDef> = {
     width: 160,
     suppressSizeToFit: false,  // Not needed since we exclude from autoSizeColumns explicitly
     wrapText: true,  // WHAT: Enable wrapping so badges can flow to multiple rows
-    autoHeight: true,  // WHAT: Auto-adjust row height to accommodate wrapped badges (critical for multi-row badge display)
     cellRenderer: BadgeCell as any,  // WHAT: Render multiple small badges for each track
     cellRendererParams: {
       mode: 'multi',  // WHAT: Multi-badge mode splits comma-separated values ("DIL, Modification") into individual badges
@@ -290,7 +303,6 @@ const cols: Record<string, ColDef> = {
     // HOW: This column is explicitly excluded from autoSizeColumns() in updateGridSize() function
     width: 200,
     wrapText: true,  // WHAT: Enable wrapping for long task descriptions
-    autoHeight: true,  // WHAT: Auto-adjust row height to fit wrapped badges
     cellRenderer: BadgeCell as any,  // WHAT: Render multiple small badges for each task
     cellRendererParams: {
       mode: 'multi-prefix',  // WHAT: Multi-prefix mode handles "DIL: Owner contacted" format - colors by prefix
@@ -419,8 +431,14 @@ const selectedId = ref<string | number | null>(null)
 const selectedRow = ref<any>(null)
 const selectedAddr = ref<string | null>(null)
 
+// Header should only render once we have a meaningful row payload; this avoids brief flashes of
+// partial data (e.g., hub id + state only) when opening from map markers.
+const headerReady = computed<boolean>(() => !!selectedRow.value)
+
 // Build friendly header text for modal
 const modalIdText = computed<string>(() => {
+  if (!headerReady.value) return ''
+
   // Prefer the external servicer identifier surfaced from AssetIdHub so asset managers can reconcile against servicer systems quickly
   const servicerId = selectedRow.value?.servicer_id ?? selectedRow.value?.asset_hub?.servicer_id
   if (servicerId != null && servicerId !== '') return String(servicerId)
@@ -436,6 +454,8 @@ const modalTradeText = computed<string>(() => {
   return rawTrade ? String(rawTrade).trim() : ''
 })
 const modalAddrText = computed<string>(() => {
+  if (!headerReady.value) return ''
+
   const r: any = selectedRow.value || {}
   const street = String(r.street_address ?? '').trim()
   const city = String(r.city ?? '').trim()
@@ -443,6 +463,7 @@ const modalAddrText = computed<string>(() => {
   const locality = [city, state].filter(Boolean).join(', ')
   const built = [street, locality].filter(Boolean).join(', ')
   if (built) return built
+
   const rawAddr = selectedAddr.value ? String(selectedAddr.value) : ''
   // Strip trailing ZIP if present
   return rawAddr.replace(/,?\s*\d{5}(?:-\d{4})?$/, '')
@@ -473,6 +494,13 @@ function buildAddress(row: any): string {
   return parts.join(', ')
 }
 
+// WHAT: When LoanLevelIndex fetches the full AM row (e.g., when modal opened from map marker with only id),
+//       update our local modal state so the header shows the full, formatted address instead of a fallback label.
+function onLoanRowLoaded(row: any): void {
+  selectedRow.value = row
+  selectedAddr.value = buildAddress(row)
+}
+
 function onRowAction(action: string, row: any): void {
   // Normalize action; only 'view' opens modal currently
   if (action === 'view') {
@@ -484,6 +512,21 @@ function onRowAction(action: string, row: any): void {
     // Placeholders for future actions
     console.log(`[AssetGrid] action="${action}"`, row)
   }
+}
+
+// WHAT: Allow external widgets (e.g., Asset Dispersion map) to reuse this modal by exposing an imperative opener.
+function openAssetModalFromMarker(payload: { assetHubId: string | number; address?: string | null }): void {
+  const id = payload?.assetHubId
+  if (!id) return
+
+  selectedId.value = id
+  // For map-based opens, intentionally leave selectedRow null so the header remains blank
+  // until LoanLevelIndex finishes loading the full AM row and emits row-loaded.
+  // This avoids a brief flash of partial data like "hub id + state" in the header.
+  selectedRow.value = null
+  selectedAddr.value = payload.address ?? null
+
+  showAssetModal.value = true
 }
 
 // WHAT: Handle inline editing of Asset Master Status dropdown in the grid
@@ -560,6 +603,11 @@ function openFullPage(): void {
   showAssetModal.value = false
   router.push({ path: '/loanlvl/products-details', query })
 }
+
+// Expose modal opener for parent components (e.g., AssetMgmt dashboard) to call from map marker clicks.
+defineExpose({
+  openAssetModalFromMarker,
+})
 
 // Router instance for navigation
 const router = useRouter()

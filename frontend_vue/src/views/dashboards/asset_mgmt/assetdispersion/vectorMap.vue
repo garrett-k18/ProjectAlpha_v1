@@ -80,7 +80,7 @@ export default defineComponent({
         // Custom marker styling (different from acquisitions)
         markerStyle: {
           initial: {
-            r: 2.5, // WHAT: Further shrink single-asset pins to size 3 per latest requirement.
+            r: 3.5, // WHAT: Slightly enlarge single-asset pins so individual locations are easier to see.
             fill: this.markerColor,
             stroke: '#ffffff',
             'stroke-width': 1.5,
@@ -112,12 +112,60 @@ export default defineComponent({
             },
           },
         },
-        onMarkerTooltipShow: (event: any, tooltip: any, index: number) => { // WHAT: Customize tooltip text to show location label + density count.
+        onMarkerTooltipShow: (event: any, tooltip: any, index: number) => { // WHAT: Customize tooltip text to show Loan ID and address details.
           void event // WHAT: Prevent unused variable lint for emitted event parameter.
           const markerConfig = (tooltip?.mapObject?.markersConfig ?? [])[index] // WHAT: Access normalized markers array maintained by jsVectorMap instance.
-          const name = markerConfig?.name ?? 'Active Assets' // WHAT: Fallback label when no explicit name is provided by backend.
-          const count = markerConfig?.data?.count ?? 0 // WHAT: Density metadata provided via Pinia store for this marker.
-          tooltip.text = `${name}\n${count} assets` // WHAT: Use documented jsVectorMap tooltip API (https://jsvectormap.com/documentation) to set two-line content.
+          const data = markerConfig?.data || {}
+
+          const loanId = data.asset_hub_id ?? ''
+          const street = (data.street_address ?? '').toString().trim()
+          const city = (data.city ?? '').toString().trim()
+          const state = (data.state ?? '').toString().trim()
+
+          const cityState = [city, state].filter(Boolean).join(', ')
+          const addressParts = [street, cityState].filter(Boolean)
+          let address = addressParts.join(' - ')
+
+          // Fallback to marker name/label when structured fields are missing so tooltip still looks useful.
+          if (!address) {
+            const fallbackLabel = (markerConfig?.name ?? '').toString().trim()
+            address = fallbackLabel
+          }
+
+          // Build tooltip as: "Loan ID - Address - City, State" with graceful fallbacks when pieces are missing.
+          const pieces: string[] = []
+          if (loanId) pieces.push(String(loanId))
+          if (address) pieces.push(address)
+
+          tooltip.text = pieces.join(' - ') || 'Asset'
+        },
+
+        // WHAT: Emit marker-click events upward so parent components can open the asset snapshot modal.
+        onMarkerClick: (event: any, index: number) => {
+          void event
+          const raw = Array.isArray((this as any).locationData) ? (this as any).locationData : []
+          const entry: any = raw[index] || {}
+          const assetHubId = entry?.asset_hub_id ?? entry?.asset_hubId ?? null
+
+          const city = (entry?.city ?? '').toString().trim()
+          const state = (entry?.state ?? '').toString().trim()
+          const street = (entry?.street_address ?? '').toString().trim()
+          const cityState = [city, state].filter(Boolean).join(', ')
+          let address = [street, cityState].filter(Boolean).join(', ')
+
+          // Fallback to label/name when address parts are not populated from the markers endpoint.
+          if (!address) {
+            const label = (entry?.label ?? entry?.name ?? '').toString().trim()
+            address = label
+          }
+
+          if (!assetHubId) return
+
+          // Emit Vue event so AssetDispersion can open AM loan-level modal.
+          ;(this as any).$emit('marker-click', {
+            assetHubId,
+            address,
+          })
         },
       };
     },
@@ -145,6 +193,10 @@ export default defineComponent({
           const style = typeof entry?.style === 'object' && entry.style !== null ? entry.style : undefined; // WHAT: Respect custom marker style (e.g., radius) supplied by store.
           const dataPayload = typeof entry?.data === 'object' && entry.data !== null ? { ...entry.data } : {}; // WHAT: Clone ancillary data for safe downstream consumption.
           if (typeof entry?.count !== 'undefined') { dataPayload.count = entry.count; } // WHAT: Inline density count metric for tooltips when count provided separately.
+          if (typeof entry?.asset_hub_id !== 'undefined') { (dataPayload as any).asset_hub_id = entry.asset_hub_id; } // WHAT: Surface asset hub id for tooltip + click drill-down.
+          if (typeof entry?.state === 'string') { (dataPayload as any).state = entry.state; }
+          if (typeof entry?.city === 'string') { (dataPayload as any).city = entry.city; }
+          if (typeof entry?.street_address === 'string') { (dataPayload as any).street_address = entry.street_address; }
           const marker = {
             latLng: [lat, lng] as [number, number], // WHAT: Provide coordinates in jsVectorMap format.
             name: markerName, // WHAT: Attach resolved label to marker for tooltip display.

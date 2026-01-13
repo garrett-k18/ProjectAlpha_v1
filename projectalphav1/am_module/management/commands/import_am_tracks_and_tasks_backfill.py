@@ -13,17 +13,23 @@ from core.models import AssetIdHub
 
 from am_module.models.model_am_amData import (
     FCSale,
-    FCTask,
     REOData,
-    REOtask,
     DIL,
-    DILTask,
     ShortSale,
-    ShortSaleTask,
     Modification,
-    ModificationTask,
     NoteSale,
+    PerformingTrack,
+    DelinquentTrack,
+)
+from am_module.models.model_am_tracksTasks import (
+    FCTask,
+    REOtask,
+    DILTask,
+    ShortSaleTask,
+    ModificationTask,
     NoteSaleTask,
+    PerformingTask,
+    DelinquentTask,
 )
 
 
@@ -56,10 +62,17 @@ class Command(BaseCommand):
         batch_size = options['batch_size']
 
         # Setup database connection
-        if not options.get('prod') and not options.get('dev'):
-            # Default behavior for this project: use NEWDEV connection from .env when not specified
-            os.environ['DATABASE_URL'] = os.getenv('DB_NEWDEV')
-            db_alias = 'default'
+        # Override IMPORT_DB to force NEWDEV for this command
+        if not options.get('prod') and not options.get('dev') and not options.get('database_url'):
+            # Force NEWDEV by temporarily overriding IMPORT_DB
+            original_import_db = os.getenv('IMPORT_DB')
+            os.environ['IMPORT_DB'] = 'newdev'
+            db_alias = setup_prod_db(options)
+            # Restore original IMPORT_DB after setup
+            if original_import_db:
+                os.environ['IMPORT_DB'] = original_import_db
+            else:
+                os.environ.pop('IMPORT_DB', None)
         else:
             db_alias = setup_prod_db(options)
 
@@ -184,6 +197,16 @@ class Command(BaseCommand):
                 'outcome_model': NoteSale,
                 'task_model': NoteSaleTask,
                 'task_fk_name': 'note_sale',
+            },
+            'performing': {
+                'outcome_model': PerformingTrack,
+                'task_model': PerformingTask,
+                'task_fk_name': 'performing_track',
+            },
+            'delinquent': {
+                'outcome_model': DelinquentTrack,
+                'task_model': DelinquentTask,
+                'task_fk_name': 'delinquent_track',
             },
         }
 

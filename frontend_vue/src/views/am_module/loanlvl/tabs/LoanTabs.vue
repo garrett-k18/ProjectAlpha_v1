@@ -6,30 +6,30 @@
         <SnapshotTab :row="row" :assetHubId="assetHubId" />
       </b-tab>
 
-    <b-tab title="Asset Management">
-      <AssetManagementTab :row="row" :assetHubId="assetHubId" />
-    </b-tab>
+      <b-tab title="Asset Management" lazy>
+        <AssetManagementTab :row="row" :assetHubId="assetHubId" />
+      </b-tab>
 
-    <b-tab title="Servicing">
-      <ServicingTab :row="row" :assetHubId="assetHubId" />
-    </b-tab>
+      <b-tab title="Servicing" lazy>
+        <ServicingTab :row="row" :assetHubId="assetHubId" />
+      </b-tab>
 
-    <b-tab title="Property Details">
-      <PropertyDetailsTab :row="row" :assetHubId="assetHubId" />
-    </b-tab>
+      <b-tab title="Property Details" lazy>
+        <PropertyDetailsTab :row="row" :assetHubId="assetHubId" />
+      </b-tab>
 
-    <b-tab title="Documents">
-      <DocumentsTab :row="row" :assetHubId="assetHubId" />
-    </b-tab>
-    
-    <b-tab title="Performance">
-      <PerformanceTab :row="row" :assetHubId="assetHubId" />
-    </b-tab>
+      <b-tab title="Documents" lazy>
+        <DocumentsTab :row="row" :assetHubId="assetHubId" />
+      </b-tab>
+      
+      <b-tab title="Performance" lazy>
+        <PerformanceTab :row="row" :assetHubId="assetHubId" />
+      </b-tab>
 
-    <b-tab title="Narrative">
-      <NarrativeTab :row="row" :assetHubId="assetHubId" />
-    </b-tab>
-  </b-tabs>
+      <b-tab title="Narrative" lazy>
+        <NarrativeTab :row="row" :assetHubId="assetHubId" />
+      </b-tab>
+    </b-tabs>
   </div>
 </template>
 

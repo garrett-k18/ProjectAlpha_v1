@@ -18,6 +18,8 @@ from etl.models import (
     SBDailyCommentData,
     SBDailyPayHistoryData,
     SBDailyTransactionData,
+    EOMTrialBalanceData,
+    EOMTrustTrackingData,
     ImportMapping,
 )
 
@@ -839,6 +841,166 @@ class SBDailyTransactionDataAdmin(admin.ModelAdmin):
     list_display = tuple(field.name for field in SBDailyTransactionData._meta.fields)
     readonly_fields = ("created_at", "updated_at")
     list_per_page = 5
+
+
+@admin.register(EOMTrialBalanceData)
+class EOMTrialBalanceDataAdmin(admin.ModelAdmin):
+    """Admin interface for EOM Trial Balance Data."""
+    
+    list_display = (
+        'id',
+        'file_date',
+        'loan_id',
+        'investor_id',
+        'borrower_name',
+        'principal_bal',
+        'primary_status',
+        'created_at',
+    )
+    
+    list_filter = (
+        'file_date',
+        'primary_status',
+        'legal_status',
+        'investor_id',
+        'created_at',
+    )
+    
+    search_fields = (
+        'loan_id',
+        'investor_id',
+        'investor_loan_id',
+        'borrower_name',
+    )
+    
+    readonly_fields = ("created_at", "updated_at")
+    
+    fieldsets = (
+        ('File Information', {
+            'fields': ('file_date',)
+        }),
+        ('Loan Identification', {
+            'fields': (
+                'loan_id',
+                'investor_id',
+                'investor_loan_id',
+            )
+        }),
+        ('Borrower Information', {
+            'fields': ('borrower_name',)
+        }),
+        ('Balances', {
+            'fields': (
+                'principal_bal',
+                'escrow_bal',
+                'other_funds_bal',
+                'late_charge_bal',
+                'legal_fee_bal',
+                'deferred_prin',
+                'unapplied_bal',
+                'loss_draft_bal',
+                'asst_bal',
+                'nsf_fee_bal',
+                'oth_fee_bal',
+                'deferred_int',
+            )
+        }),
+        ('Status Information', {
+            'fields': (
+                'primary_status',
+                'loan_type',
+                'legal_status',
+                'warning_status',
+            )
+        }),
+        ('Dates', {
+            'fields': (
+                'due_date',
+                'date_inactive',
+            )
+        }),
+        ('Metadata', {
+            'fields': (
+                'created_at',
+                'updated_at',
+            )
+        }),
+    )
+    
+    list_per_page = 50
+
+
+@admin.register(EOMTrustTrackingData)
+class EOMTrustTrackingDataAdmin(admin.ModelAdmin):
+    """Admin interface for EOM Trust Tracking Data."""
+    
+    list_display = (
+        'id',
+        'file_date',
+        'loan_id',
+        'investor_loan_id',
+        'received_date',
+        'due_date',
+        'principal_paid_off',
+        'interest_collected',
+        'created_at',
+    )
+    
+    list_filter = (
+        'file_date',
+        'received_date',
+        'due_date',
+        'created_at',
+    )
+    
+    search_fields = (
+        'loan_id',
+        'investor_loan_id',
+        'description',
+        'payoff_reason',
+    )
+    
+    readonly_fields = ("created_at", "updated_at")
+    
+    fieldsets = (
+        ('File Information', {
+            'fields': ('file_date',)
+        }),
+        ('Loan Identification', {
+            'fields': (
+                'loan_id',
+                'investor_loan_id',
+            )
+        }),
+        ('Dates', {
+            'fields': (
+                'received_date',
+                'due_date',
+            )
+        }),
+        ('Payment Information', {
+            'fields': (
+                'principal_paid_off',
+                'interest_collected',
+                'sf_collected',
+                'net_interest',
+            )
+        }),
+        ('Description', {
+            'fields': (
+                'description',
+                'payoff_reason',
+            )
+        }),
+        ('Metadata', {
+            'fields': (
+                'created_at',
+                'updated_at',
+            )
+        }),
+    )
+    
+    list_per_page = 50
 
 
 @admin.register(ImportMapping)

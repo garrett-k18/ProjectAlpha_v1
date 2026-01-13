@@ -24,6 +24,8 @@ from am_module.models.model_am_amData import (
     ShortSale, ShortSaleTask,
     Modification, ModificationTask,
     NoteSale, NoteSaleTask,
+    PerformingTrack, PerformingTask,
+    DelinquentTrack, DelinquentTask,
     REOScope,
     Offers,
 )
@@ -36,6 +38,8 @@ from am_module.serializers.serial_am_outcomes import (
     ShortSaleSerializer, ShortSaleTaskSerializer,
     ModificationSerializer, ModificationTaskSerializer,
     NoteSaleSerializer, NoteSaleTaskSerializer,
+    PerformingTrackSerializer, PerformingTaskSerializer,
+    DelinquentTrackSerializer, DelinquentTaskSerializer,
     REOScopeSerializer,
     OffersSerializer,
     HeirContactSerializer,
@@ -118,6 +122,16 @@ class ShortSaleViewSet(_OutcomeBaseViewSet):
 class ModificationViewSet(_OutcomeBaseViewSet):
     queryset = Modification.objects.all().select_related('asset_hub')
     serializer_class = ModificationSerializer
+
+
+class PerformingTrackViewSet(_OutcomeBaseViewSet):
+    queryset = PerformingTrack.objects.all().select_related('asset_hub')
+    serializer_class = PerformingTrackSerializer
+
+
+class DelinquentTrackViewSet(_OutcomeBaseViewSet):
+    queryset = DelinquentTrack.objects.all().select_related('asset_hub')
+    serializer_class = DelinquentTrackSerializer
 
 
 class _TaskBaseViewSet(mixins.ListModelMixin,
@@ -247,6 +261,18 @@ class ModificationTaskViewSet(_TaskBaseViewSet):
     queryset = ModificationTask.objects.all().select_related('asset_hub', 'modification')
     serializer_class = ModificationTaskSerializer
     parent_field_name = 'modification'
+
+
+class PerformingTaskViewSet(_TaskBaseViewSet):
+    queryset = PerformingTask.objects.all().select_related('asset_hub', 'performing_track')
+    serializer_class = PerformingTaskSerializer
+    parent_field_name = 'performing_track'
+
+
+class DelinquentTaskViewSet(_TaskBaseViewSet):
+    queryset = DelinquentTask.objects.all().select_related('asset_hub', 'delinquent_track')
+    serializer_class = DelinquentTaskSerializer
+    parent_field_name = 'delinquent_track'
 
 
 class NoteSaleViewSet(_OutcomeBaseViewSet):

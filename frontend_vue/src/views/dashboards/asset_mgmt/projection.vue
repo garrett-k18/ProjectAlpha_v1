@@ -1,5 +1,5 @@
 <template>
-  <div class="card card-h-100">
+  <div class="card">
     <div class="d-flex card-header justify-content-between align-items-center">
       <h4 class="header-title">Projected Liquidations</h4>
       <div class="float-end">

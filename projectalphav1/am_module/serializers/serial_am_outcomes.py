@@ -18,6 +18,8 @@ from am_module.models.model_am_amData import (
     ShortSale, ShortSaleTask,
     Modification, ModificationTask,
     NoteSale, NoteSaleTask,
+    PerformingTrack, PerformingTask,
+    DelinquentTrack, DelinquentTask,
     REOScope,
     Offers,
 )
@@ -205,6 +207,46 @@ class ModificationSerializer(serializers.ModelSerializer):
         return obj
 
 
+class PerformingTrackSerializer(serializers.ModelSerializer):
+    asset_hub_id = _AssetHubPKField()
+
+    class Meta:
+        model = PerformingTrack
+        fields = [
+            'asset_hub', 'asset_hub_id',
+        ]
+        read_only_fields = ['asset_hub']
+
+    def create(self, validated_data: Dict[str, Any]):
+        asset_hub = validated_data.get('asset_hub')
+        obj, _ = PerformingTrack.objects.get_or_create(asset_hub=asset_hub, defaults=validated_data)
+        if _ is False:
+            for k, v in validated_data.items():
+                setattr(obj, k, v)
+            obj.save()
+        return obj
+
+
+class DelinquentTrackSerializer(serializers.ModelSerializer):
+    asset_hub_id = _AssetHubPKField()
+
+    class Meta:
+        model = DelinquentTrack
+        fields = [
+            'asset_hub', 'asset_hub_id',
+        ]
+        read_only_fields = ['asset_hub']
+
+    def create(self, validated_data: Dict[str, Any]):
+        asset_hub = validated_data.get('asset_hub')
+        obj, _ = DelinquentTrack.objects.get_or_create(asset_hub=asset_hub, defaults=validated_data)
+        if _ is False:
+            for k, v in validated_data.items():
+                setattr(obj, k, v)
+            obj.save()
+        return obj
+
+
 # -----------------------
 # Task Serializers (many)
 # -----------------------
@@ -226,6 +268,52 @@ class REOTaskSerializer(serializers.ModelSerializer):
         task_type = attrs.get('task_type') or getattr(self.instance, 'task_type', None)
         if hub and task_type:
             qs = REOtask.objects.filter(asset_hub=hub, task_type=task_type)
+            if self.instance:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise serializers.ValidationError('A task with this type already exists for this asset.')
+        return attrs
+
+
+class PerformingTaskSerializer(serializers.ModelSerializer):
+    asset_hub_id = _AssetHubPKField()
+
+    class Meta:
+        model = PerformingTask
+        fields = ['id', 'asset_hub', 'asset_hub_id', 'performing_track', 'task_type', 'task_started', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'asset_hub', 'created_at', 'updated_at']
+
+    def validate(self, attrs: Dict[str, Any]) -> Dict[str, Any]:
+        parent = attrs.get('performing_track')
+        hub = attrs.get('asset_hub')
+        if parent and hub and parent.asset_hub_id != hub.id:
+            raise serializers.ValidationError('PerformingTrack and asset_hub mismatch.')
+        task_type = attrs.get('task_type') or getattr(self.instance, 'task_type', None)
+        if hub and task_type:
+            qs = PerformingTask.objects.filter(asset_hub=hub, task_type=task_type)
+            if self.instance:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise serializers.ValidationError('A task with this type already exists for this asset.')
+        return attrs
+
+
+class DelinquentTaskSerializer(serializers.ModelSerializer):
+    asset_hub_id = _AssetHubPKField()
+
+    class Meta:
+        model = DelinquentTask
+        fields = ['id', 'asset_hub', 'asset_hub_id', 'delinquent_track', 'task_type', 'task_started', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'asset_hub', 'created_at', 'updated_at']
+
+    def validate(self, attrs: Dict[str, Any]) -> Dict[str, Any]:
+        parent = attrs.get('delinquent_track')
+        hub = attrs.get('asset_hub')
+        if parent and hub and parent.asset_hub_id != hub.id:
+            raise serializers.ValidationError('DelinquentTrack and asset_hub mismatch.')
+        task_type = attrs.get('task_type') or getattr(self.instance, 'task_type', None)
+        if hub and task_type:
+            qs = DelinquentTask.objects.filter(asset_hub=hub, task_type=task_type)
             if self.instance:
                 qs = qs.exclude(pk=self.instance.pk)
             if qs.exists():

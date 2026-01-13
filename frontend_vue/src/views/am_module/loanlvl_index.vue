@@ -2,7 +2,15 @@
   <!-- AM-specific Loan-Level wrapper -->
   <component :is="standalone ? Layout : 'div'">
     <Breadcrumb v-if="standalone" :title="displayTitle" :items="items" />
-    <LoanTabs :row="effectiveRow" :assetHubId="assetHubId" />
+
+    <template v-if="effectiveRow">
+      <LoanTabs :row="effectiveRow" :assetHubId="assetHubId" />
+    </template>
+    <template v-else>
+      <div class="p-3 text-center text-muted">
+        Loading asset snapshot…
+      </div>
+    </template>
   </component>
 </template>
 

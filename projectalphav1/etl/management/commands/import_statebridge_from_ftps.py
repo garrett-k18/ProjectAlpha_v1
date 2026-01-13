@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import ssl
 import time
 import datetime
@@ -174,6 +175,8 @@ def _matches_kind(remote_name: str, kind: str) -> bool:
         "pay_history": {"pay_history", "payhistory", "pay_history_report", "payhistoryreport"},
         "transaction": {"transaction", "transactiondata"},
         "arm": {"arm", "armdata"},
+        "eom_trial_balance": {"eom_trial_balance", "trialbalance", "trialbalancedata", "eomtrialbalance"},
+        "eom_trust_tracking": {"eom_trust_tracking", "trusttracking", "trusttrackingdata", "eomtrusttracking"},
     }
 
     kind_key = None
@@ -193,6 +196,8 @@ def _matches_kind(remote_name: str, kind: str) -> bool:
         "pay_history": "_payhistoryreport_" in name,
         "transaction": "_transactiondata_" in name,
         "arm": "_armdata_" in name,
+        "eom_trial_balance": "_trialbalancedata_" in name or "_eomtrialbalance_" in name or "trial balance" in name,
+        "eom_trust_tracking": "_trusttrackingdata_" in name or "_eomtrusttracking_" in name,
     }[kind_key]
 
 
@@ -217,8 +222,12 @@ class Command(BaseCommand):
         parser.add_argument("--report-skips", dest="report_skips", action="store_true")
         parser.add_argument("--max-skip-samples", dest="max_skip_samples", type=int, default=25)
         parser.add_argument("--quiet", dest="quiet", action="store_true")
+        parser.add_argument("--since-date", dest="since_date", default="", help="Filter files from this date onwards (YYYY-MM-DD format)")
+        parser.add_argument("--until-date", dest="until_date", default="", help="Filter files up to this date (YYYY-MM-DD format)")
 
     def handle(self, *args, **options):
+        import datetime
+        
         batch_size = int(options["batch_size"])
         dry_run = bool(options["dry_run"])
         max_files = int(options["max_files"])
@@ -229,8 +238,25 @@ class Command(BaseCommand):
         report_skips = bool(options.get("report_skips"))
         max_skip_samples = int(options.get("max_skip_samples") or 25)
         quiet = bool(options.get("quiet"))
+        since_date_str = str(options.get("since_date") or "").strip()
+        until_date_str = str(options.get("until_date") or "").strip()
+        
         if not quiet and _is_railway_runtime():
             quiet = True
+
+        # Parse date filters
+        since_date = None
+        until_date = None
+        if since_date_str:
+            try:
+                since_date = datetime.datetime.strptime(since_date_str, "%Y-%m-%d").date()
+            except ValueError:
+                raise CommandError(f"Invalid --since-date format. Use YYYY-MM-DD, got: {since_date_str}")
+        if until_date_str:
+            try:
+                until_date = datetime.datetime.strptime(until_date_str, "%Y-%m-%d").date()
+            except ValueError:
+                raise CommandError(f"Invalid --until-date format. Use YYYY-MM-DD, got: {until_date_str}")
 
         staging_dir_opt = str(options.get("staging_dir") or "").strip()
         staging_dir = Path(staging_dir_opt) if staging_dir_opt else (Path(settings.MEDIA_ROOT) / "statebridge" / "ftps")
@@ -272,12 +298,46 @@ class Command(BaseCommand):
 
             candidates = [
                 n for n in names
-                if n.lower().startswith("firstliencapital_") and n.lower().endswith(".xlsx")
+                if (n.lower().startswith("firstliencapital_") and n.lower().endswith(".xlsx"))
+                or (n.lower().endswith(".xls") and "trial balance" in n.lower())
             ]
             candidates.sort()
 
             if kind:
                 candidates = [n for n in candidates if _matches_kind(n, kind)]
+
+            # Filter by date range if specified
+            if since_date or until_date:
+                filtered = []
+                for name in candidates:
+                    # Extract date from filename (handles both YYYYMMDD and M.D.YYYY formats)
+                    file_date_str = None
+                    m = re.search(r"(\d{8})", name)
+                    if m:
+                        yyyymmdd = m.group(1)
+                        file_date_str = f"{yyyymmdd[0:4]}-{yyyymmdd[4:6]}-{yyyymmdd[6:8]}"
+                    else:
+                        m = re.search(r"(\d{1,2})\.(\d{1,2})\.(\d{4})", name)
+                        if m:
+                            month = m.group(1).zfill(2)
+                            day = m.group(2).zfill(2)
+                            year = m.group(3)
+                            file_date_str = f"{year}-{month}-{day}"
+                    
+                    if file_date_str:
+                        try:
+                            file_date = datetime.datetime.strptime(file_date_str, "%Y-%m-%d").date()
+                            include = True
+                            if since_date and file_date < since_date:
+                                include = False
+                            if until_date and file_date > until_date:
+                                include = False
+                            if include:
+                                filtered.append(name)
+                        except ValueError:
+                            # Skip files with invalid dates
+                            pass
+                candidates = filtered
 
             if latest_only and candidates:
                 latest_by_mtime = _pick_latest_by_mtime(ftp, candidates)

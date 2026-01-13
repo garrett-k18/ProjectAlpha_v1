@@ -21,6 +21,8 @@ from .model_etl_statebridge_raw import (
     SBDailyCommentData,
     SBDailyPayHistoryData,
     SBDailyTransactionData,
+    EOMTrialBalanceData,
+    EOMTrustTrackingData,
 )
 from .model_etl_import_mapping import (
     ImportMapping,
@@ -43,5 +45,7 @@ __all__ = [
     "SBDailyCommentData",
     "SBDailyPayHistoryData",
     "SBDailyTransactionData",
+    "EOMTrialBalanceData",
+    "EOMTrustTrackingData",
     "ImportMapping",
 ]

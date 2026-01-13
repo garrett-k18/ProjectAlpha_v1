@@ -14,24 +14,24 @@
       </b-col>
 
       <b-col xl="7" lg="6">
-        <Projection/>
+        <Sales/>
       </b-col>
     </b-row>
 
     <!-- Asset Management Data Grid placed directly below widgets -->
     <b-row>
       <b-col cols="12">
-        <AssetGrid />
+        <AssetGrid ref="assetGridRef" />
       </b-col>
     </b-row>
 
     <b-row>
-      <b-col lg="8">
+      <b-col lg="5" class="d-flex">
         <Revenue/>
       </b-col>
 
-      <b-col lg="4">
-        <AssetDispersion/>
+      <b-col lg="7" class="d-flex">
+        <AssetDispersion @marker-click="onMarkerClickFromMap" />
       </b-col>
     </b-row>
 
@@ -41,7 +41,7 @@
       </b-col>
 
       <b-col xl="3" lg="6" class="order-lg-1">
-        <Sales/>
+        <Projection/>
       </b-col>
 
       <b-col xl="3" lg="6" class="order-lg-1">
@@ -82,7 +82,15 @@ export default defineComponent({
   methods: {
     useMeta(meta: { title: string }): void {
       document.title = meta.title;
-    }
+    },
+
+    // Forward map marker clicks into the existing AM asset modal exposed by AssetGrid.
+    onMarkerClickFromMap(payload: { assetHubId: string | number; address?: string | null }): void {
+      const grid: any = (this.$refs as any)?.assetGridRef
+      if (grid && typeof grid.openAssetModalFromMarker === 'function') {
+        grid.openAssetModalFromMarker(payload)
+      }
+    },
   },
   mounted() {
     this.useMeta({

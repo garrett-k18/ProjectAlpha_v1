@@ -80,9 +80,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineProps, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import UiBadge from '@/components/ui/UiBadge.vue'
-import { useAmOutcomesStore, type OutcomeType, type DilTask, type FcTask, type ReoTask, type ShortSaleTask, type ModificationTask } from '@/stores/outcomes'
+import { useAmOutcomesStore, type OutcomeType, type DilTask, type FcTask, type ReoTask, type ShortSaleTask, type ModificationTask, type NoteSaleTask, type PerformingTask, type DelinquentTask } from '@/stores/outcomes'
 import type { BadgeToneKey } from '@/config/badgeTokens'
 
 /**
@@ -90,14 +90,14 @@ import type { BadgeToneKey } from '@/config/badgeTokens'
  * WHY: Drives loops so each type gets consistent fetch + presentation logic.
  * HOW: Matches the OutcomeType union exported by the Pinia store.
  */
-const outcomeTypes: OutcomeType[] = ['dil', 'fc', 'reo', 'short_sale', 'modification']
+const outcomeTypes: OutcomeType[] = ['dil', 'fc', 'reo', 'short_sale', 'modification', 'note_sale', 'performing', 'delinquent']
 
 /**
  * WHAT: Typed union for the various task payloads returned by the backend.
  * WHY: Allows us to store tasks in a single map without losing TS safety.
  * HOW: Union of each task interface defined in `@/stores/outcomes`.
  */
-type OutcomeTask = DilTask | FcTask | ReoTask | ShortSaleTask | ModificationTask
+type OutcomeTask = DilTask | FcTask | ReoTask | ShortSaleTask | ModificationTask | NoteSaleTask | PerformingTask | DelinquentTask
 
 /**
  * WHAT: Quickview props passed by the Snapshot tab parent.
@@ -127,6 +127,9 @@ const activeOutcomeMap = ref<Record<OutcomeType, boolean>>({
   reo: false,
   short_sale: false,
   modification: false,
+  note_sale: false,
+  performing: false,
+  delinquent: false,
 })
 
 /**
@@ -140,6 +143,9 @@ const tasksByType = ref<Record<OutcomeType, OutcomeTask[]>>({
   reo: [],
   short_sale: [],
   modification: [],
+  note_sale: [],
+  performing: [],
+  delinquent: [],
 })
 
 /**
@@ -194,6 +200,12 @@ function trackLabel(type: OutcomeType): string {
       return 'Foreclosure'
     case 'reo':
       return 'REO'
+    case 'note_sale':
+      return 'Note Sale'
+    case 'performing':
+      return 'Performing'
+    case 'delinquent':
+      return 'Delinquent'
     default:
       return type
   }
@@ -216,6 +228,12 @@ function trackTone(type: OutcomeType): BadgeToneKey {
       return 'danger'
     case 'reo':
       return 'info'
+    case 'note_sale':
+      return 'secondary'
+    case 'performing':
+      return 'success'
+    case 'delinquent':
+      return 'warning'
     default:
       return 'secondary'
   }
@@ -245,7 +263,8 @@ function taskLabelFor(type: OutcomeType, rawTask: OutcomeTask): string {
         eviction: 'Eviction',
         trashout: 'Trashout',
         renovation: 'Renovation',
-        marketing: 'Marketing',
+        pre_marketing: 'Pre-Marketing',
+        listed: 'Listed',
         under_contract: 'Under Contract',
         sold: 'Sold',
       }
@@ -307,7 +326,8 @@ function taskToneFor(type: OutcomeType, rawTask: OutcomeTask): BadgeToneKey {
         eviction: 'danger',
         trashout: 'warning',
         renovation: 'info',
-        marketing: 'primary',
+        pre_marketing: 'primary',
+        listed: 'primary',
         under_contract: 'success',
         sold: 'secondary',
       }
@@ -373,6 +393,9 @@ function resetQuickviewState(): void {
     reo: false,
     short_sale: false,
     modification: false,
+    note_sale: false,
+    performing: false,
+    delinquent: false,
   }
   tasksByType.value = {
     dil: [],
@@ -380,6 +403,9 @@ function resetQuickviewState(): void {
     reo: [],
     short_sale: [],
     modification: [],
+    note_sale: [],
+    performing: [],
+    delinquent: [],
   }
   loadError.value = null
 }
@@ -401,6 +427,12 @@ async function fetchTasksForType(hubId: number, type: OutcomeType): Promise<Outc
       return await outcomesStore.listShortSaleTasks(hubId, true)
     case 'modification':
       return await outcomesStore.listModificationTasks(hubId, true)
+    case 'note_sale':
+      return await outcomesStore.listNoteSaleTasks(hubId, true)
+    case 'performing':
+      return await outcomesStore.listPerformingTasks(hubId, true)
+    case 'delinquent':
+      return await outcomesStore.listDelinquentTasks(hubId, true)
     default:
       return []
   }

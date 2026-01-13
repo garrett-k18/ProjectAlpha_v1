@@ -21,7 +21,7 @@ import http from '@/lib/http'
 export type DilTaskType = 'pursuing_dil' | 'owner_contacted' | 'dil_failed' | 'dil_drafted' | 'dil_executed'
 
 // Allow a generic start for any outcome
-export type OutcomeType = 'dil' | 'fc' | 'reo' | 'short_sale' | 'modification' | 'note_sale'
+export type OutcomeType = 'dil' | 'fc' | 'reo' | 'short_sale' | 'modification' | 'note_sale' | 'performing' | 'delinquent'
 const outcomePath: Record<OutcomeType, string> = {
   dil: 'dil',
   fc: 'fc',
@@ -29,6 +29,8 @@ const outcomePath: Record<OutcomeType, string> = {
   short_sale: 'short-sale',
   modification: 'modification',
   note_sale: 'note-sale',
+  performing: 'performing',
+  delinquent: 'delinquent',
 }
 
 // FC Task support
@@ -170,6 +172,38 @@ export interface NoteSaleOutcome {
   trading_partner: number | null
 }
 
+export interface PerformingTrackOutcome {
+  asset_hub: number
+}
+
+export interface DelinquentTrackOutcome {
+  asset_hub: number
+}
+
+// Performing Task support
+export type PerformingTaskType = 'perf' | 'rpl' | 'note_sold'
+export interface PerformingTask {
+  id: number
+  asset_hub: number
+  performing_track: number
+  task_type: PerformingTaskType
+  task_started: string | null
+  created_at: string
+  updated_at: string
+}
+
+// Delinquent Task support
+export type DelinquentTaskType = 'dq_30' | 'dq_60' | 'dq_90' | 'dq_120_plus' | 'loss_mit' | 'fc_dil'
+export interface DelinquentTask {
+  id: number
+  asset_hub: number
+  delinquent_track: number
+  task_type: DelinquentTaskType
+  task_started: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface DilTask {
   id: number
   asset_hub: number
@@ -182,7 +216,7 @@ export interface DilTask {
 }
 
 // REO Task support
-export type ReoTaskType = 'eviction' | 'trashout' | 'renovation' | 'marketing' | 'under_contract' | 'sold'
+export type ReoTaskType = 'eviction' | 'trashout' | 'renovation' | 'pre_marketing' | 'listed' | 'under_contract' | 'sold'
 export interface ReoTask {
   id: number
   asset_hub: number
@@ -217,6 +251,8 @@ interface StateShape {
   shortSaleByHub: Record<number, ShortSaleOutcome | null>
   modificationByHub: Record<number, ModificationOutcome | null>
   noteSaleByHub: Record<number, NoteSaleOutcome | null>
+  performingByHub: Record<number, PerformingTrackOutcome | null>
+  delinquentByHub: Record<number, DelinquentTrackOutcome | null>
   // tasks by hub id
   dilTasksByHub: Record<number, DilTask[]>
   // REO tasks by hub id
@@ -229,6 +265,8 @@ interface StateShape {
   modificationTasksByHub: Record<number, ModificationTask[]>
   // Note Sale tasks by hub id
   noteSaleTasksByHub: Record<number, NoteSaleTask[]>
+  performingTasksByHub: Record<number, PerformingTask[]>
+  delinquentTasksByHub: Record<number, DelinquentTask[]>
   // loading + error per hub for fine-grained UI control
   loadingDil: Record<number, boolean>
   loadingDilTasks: Record<number, boolean>
@@ -237,6 +275,8 @@ interface StateShape {
   loadingShortSaleTasks: Record<number, boolean>
   loadingModificationTasks: Record<number, boolean>
   loadingNoteSaleTasks: Record<number, boolean>
+  loadingPerformingTasks: Record<number, boolean>
+  loadingDelinquentTasks: Record<number, boolean>
   errorDil: Record<number, string | null>
   errorDilTasks: Record<number, string | null>
   errorReoTasks: Record<number, string | null>
@@ -244,6 +284,8 @@ interface StateShape {
   errorShortSaleTasks: Record<number, string | null>
   errorModificationTasks: Record<number, string | null>
   errorNoteSaleTasks: Record<number, string | null>
+  errorPerformingTasks: Record<number, string | null>
+  errorDelinquentTasks: Record<number, string | null>
 }
 
 export const useAmOutcomesStore = defineStore('amOutcomes', {
@@ -254,12 +296,16 @@ export const useAmOutcomesStore = defineStore('amOutcomes', {
     shortSaleByHub: {},
     modificationByHub: {},
     noteSaleByHub: {},
+    performingByHub: {},
+    delinquentByHub: {},
     dilTasksByHub: {},
     reoTasksByHub: {},
     fcTasksByHub: {},
     shortSaleTasksByHub: {},
     modificationTasksByHub: {},
     noteSaleTasksByHub: {},
+    performingTasksByHub: {},
+    delinquentTasksByHub: {},
     loadingDil: {},
     loadingDilTasks: {},
     loadingReoTasks: {},
@@ -267,6 +313,8 @@ export const useAmOutcomesStore = defineStore('amOutcomes', {
     loadingShortSaleTasks: {},
     loadingModificationTasks: {},
     loadingNoteSaleTasks: {},
+    loadingPerformingTasks: {},
+    loadingDelinquentTasks: {},
     errorDil: {},
     errorDilTasks: {},
     errorReoTasks: {},
@@ -274,6 +322,8 @@ export const useAmOutcomesStore = defineStore('amOutcomes', {
     errorShortSaleTasks: {},
     errorModificationTasks: {},
     errorNoteSaleTasks: {},
+    errorPerformingTasks: {},
+    errorDelinquentTasks: {},
     // dynamic extension: attach caches for other outcomes
     // REO scopes cache keyed by `${hubId}:${taskId || 0}:${scopeKind || ''}`
     // Keep loading and error maps with same key
@@ -304,6 +354,8 @@ export const useAmOutcomesStore = defineStore('amOutcomes', {
       else if (type === 'short_sale') this.shortSaleByHub[hubId] = res.data as ShortSaleOutcome
       else if (type === 'modification') this.modificationByHub[hubId] = res.data as ModificationOutcome
       else if (type === 'note_sale') this.noteSaleByHub[hubId] = res.data as NoteSaleOutcome
+      else if (type === 'performing') this.performingByHub[hubId] = res.data as PerformingTrackOutcome
+      else if (type === 'delinquent') this.delinquentByHub[hubId] = res.data as DelinquentTrackOutcome
       return res.data
     },
 
@@ -472,6 +524,21 @@ export const useAmOutcomesStore = defineStore('amOutcomes', {
         delete this.modificationTasksByHub[hubId]
         delete this.loadingModificationTasks[hubId]
         delete this.errorModificationTasks[hubId]
+      } else if (type === 'note_sale') {
+        delete this.noteSaleByHub[hubId]
+        delete this.noteSaleTasksByHub[hubId]
+        delete this.loadingNoteSaleTasks[hubId]
+        delete this.errorNoteSaleTasks[hubId]
+      } else if (type === 'performing') {
+        delete this.performingByHub[hubId]
+        delete this.performingTasksByHub[hubId]
+        delete this.loadingPerformingTasks[hubId]
+        delete this.errorPerformingTasks[hubId]
+      } else if (type === 'delinquent') {
+        delete this.delinquentByHub[hubId]
+        delete this.delinquentTasksByHub[hubId]
+        delete this.loadingDelinquentTasks[hubId]
+        delete this.errorDelinquentTasks[hubId]
       }
     },
 
@@ -492,7 +559,148 @@ export const useAmOutcomesStore = defineStore('amOutcomes', {
       else if (type === 'reo') this.reoByHub[hubId] = first as ReoData | null
       else if (type === 'short_sale') this.shortSaleByHub[hubId] = first as ShortSaleOutcome | null
       else if (type === 'modification') this.modificationByHub[hubId] = first as ModificationOutcome | null
+      else if (type === 'note_sale') this.noteSaleByHub[hubId] = first as NoteSaleOutcome | null
+      else if (type === 'performing') this.performingByHub[hubId] = first as PerformingTrackOutcome | null
+      else if (type === 'delinquent') this.delinquentByHub[hubId] = first as DelinquentTrackOutcome | null
       return first
+    },
+
+    // -----------------------------
+    // Performing Tasks helpers
+    // -----------------------------
+    async listPerformingTasks(hubId: number, force = false): Promise<PerformingTask[]> {
+      if (!force && this.performingTasksByHub[hubId] !== undefined) return this.performingTasksByHub[hubId]
+      try {
+        this.loadingPerformingTasks[hubId] = true
+        this.errorPerformingTasks[hubId] = null
+        const res = await http.get<PerformingTask[]>('/am/outcomes/performing-tasks/', { params: { asset_hub_id: hubId } })
+        const items = Array.isArray(res.data) ? res.data : []
+        const itemsSorted = [...items].sort((a, b) => {
+          const aT = Date.parse(a.created_at)
+          const bT = Date.parse(b.created_at)
+          if (!isNaN(aT) && !isNaN(bT)) return bT - aT
+          return (b.id ?? 0) - (a.id ?? 0)
+        })
+        this.performingTasksByHub[hubId] = itemsSorted
+        return itemsSorted
+      } catch (err: any) {
+        const msg = err?.response?.data?.detail || err?.message || 'Failed to load Performing tasks'
+        this.errorPerformingTasks[hubId] = msg
+        throw err
+      } finally {
+        this.loadingPerformingTasks[hubId] = false
+      }
+    },
+    async createPerformingTask(hubId: number, taskType: PerformingTaskType): Promise<PerformingTask> {
+      try {
+        this.loadingPerformingTasks[hubId] = true
+        this.errorPerformingTasks[hubId] = null
+        await this.ensureOutcome(hubId, 'performing')
+        const res = await http.post<PerformingTask>('/am/outcomes/performing-tasks/', {
+          asset_hub_id: hubId,
+          performing_track: hubId,
+          task_type: taskType,
+        })
+        const current = this.performingTasksByHub[hubId] ?? []
+        const next = [res.data, ...current]
+        const seen = new Set<number>()
+        this.performingTasksByHub[hubId] = next.filter(t => {
+          if (seen.has(t.id)) return false
+          seen.add(t.id)
+          return true
+        })
+        return res.data
+      } catch (err: any) {
+        const msg = err?.response?.data?.detail || err?.message || 'Failed to create Performing task'
+        this.errorPerformingTasks[hubId] = msg
+        throw err
+      } finally {
+        this.loadingPerformingTasks[hubId] = false
+      }
+    },
+    async deletePerformingTask(hubId: number, taskId: number): Promise<void> {
+      try {
+        this.loadingPerformingTasks[hubId] = true
+        this.errorPerformingTasks[hubId] = null
+        await http.delete(`/am/outcomes/performing-tasks/${taskId}/`, { params: { asset_hub_id: hubId } })
+        const list = this.performingTasksByHub[hubId] ?? []
+        this.performingTasksByHub[hubId] = list.filter(t => t.id !== taskId)
+      } catch (err: any) {
+        const msg = err?.response?.data?.detail || err?.message || 'Failed to delete Performing task'
+        this.errorPerformingTasks[hubId] = msg
+        throw err
+      } finally {
+        this.loadingPerformingTasks[hubId] = false
+      }
+    },
+
+    // -----------------------------
+    // Delinquent Tasks helpers
+    // -----------------------------
+    async listDelinquentTasks(hubId: number, force = false): Promise<DelinquentTask[]> {
+      if (!force && this.delinquentTasksByHub[hubId] !== undefined) return this.delinquentTasksByHub[hubId]
+      try {
+        this.loadingDelinquentTasks[hubId] = true
+        this.errorDelinquentTasks[hubId] = null
+        const res = await http.get<DelinquentTask[]>('/am/outcomes/delinquent-tasks/', { params: { asset_hub_id: hubId } })
+        const items = Array.isArray(res.data) ? res.data : []
+        const itemsSorted = [...items].sort((a, b) => {
+          const aT = Date.parse(a.created_at)
+          const bT = Date.parse(b.created_at)
+          if (!isNaN(aT) && !isNaN(bT)) return bT - aT
+          return (b.id ?? 0) - (a.id ?? 0)
+        })
+        this.delinquentTasksByHub[hubId] = itemsSorted
+        return itemsSorted
+      } catch (err: any) {
+        const msg = err?.response?.data?.detail || err?.message || 'Failed to load Delinquent tasks'
+        this.errorDelinquentTasks[hubId] = msg
+        throw err
+      } finally {
+        this.loadingDelinquentTasks[hubId] = false
+      }
+    },
+    async createDelinquentTask(hubId: number, taskType: DelinquentTaskType): Promise<DelinquentTask> {
+      try {
+        this.loadingDelinquentTasks[hubId] = true
+        this.errorDelinquentTasks[hubId] = null
+        await this.ensureOutcome(hubId, 'delinquent')
+        const res = await http.post<DelinquentTask>('/am/outcomes/delinquent-tasks/', {
+          asset_hub_id: hubId,
+          delinquent_track: hubId,
+          task_type: taskType,
+        })
+        const current = this.delinquentTasksByHub[hubId] ?? []
+        const next = [res.data, ...current]
+        const seen = new Set<number>()
+        this.delinquentTasksByHub[hubId] = next.filter(t => {
+          if (seen.has(t.id)) return false
+          seen.add(t.id)
+          return true
+        })
+        return res.data
+      } catch (err: any) {
+        const msg = err?.response?.data?.detail || err?.message || 'Failed to create Delinquent task'
+        this.errorDelinquentTasks[hubId] = msg
+        throw err
+      } finally {
+        this.loadingDelinquentTasks[hubId] = false
+      }
+    },
+    async deleteDelinquentTask(hubId: number, taskId: number): Promise<void> {
+      try {
+        this.loadingDelinquentTasks[hubId] = true
+        this.errorDelinquentTasks[hubId] = null
+        await http.delete(`/am/outcomes/delinquent-tasks/${taskId}/`, { params: { asset_hub_id: hubId } })
+        const list = this.delinquentTasksByHub[hubId] ?? []
+        this.delinquentTasksByHub[hubId] = list.filter(t => t.id !== taskId)
+      } catch (err: any) {
+        const msg = err?.response?.data?.detail || err?.message || 'Failed to delete Delinquent task'
+        this.errorDelinquentTasks[hubId] = msg
+        throw err
+      } finally {
+        this.loadingDelinquentTasks[hubId] = false
+      }
     },
 
     // -----------------------------

@@ -13,12 +13,16 @@ from am_module.models.model_am_amData import (
     ShortSaleTask,
     ModificationTask,
     NoteSaleTask,
+    PerformingTask,
+    DelinquentTask,
     FCSale,
     REOData,
     DIL,
     ShortSale,
     Modification,
     NoteSale,
+    PerformingTrack,
+    DelinquentTrack,
 )
 
 
@@ -53,11 +57,13 @@ def get_task_metrics(hub_id: int) -> Dict[str, Any]:
     # HOW: Map model class to ordered sequence of task_type values
     TASK_SEQUENCES = {
         FCTask: ['nod_noi', 'fc_filing', 'mediation', 'judgement', 'redemption', 'sale_scheduled', 'sold'],
-        REOtask: ['eviction', 'trashout', 'renovation', 'marketing', 'under_contract', 'sold'],
+        REOtask: ['eviction', 'trashout', 'renovation', 'pre_marketing', 'listed', 'under_contract', 'sold'],
         DILTask: ['pursuing_dil', 'owner_contacted', 'dil_failed', 'dil_drafted', 'dil_executed'],
         ShortSaleTask: ['list_price_accepted', 'listed', 'under_contract', 'sold'],
         ModificationTask: ['mod_drafted', 'mod_executed', 'mod_rpl', 'mod_failed'],
         NoteSaleTask: ['potential_note_sale', 'out_to_market', 'pending_sale', 'sold'],
+        PerformingTask: ['perf', 'rpl', 'note_sold'],
+        DelinquentTask: ['dq_30', 'dq_60', 'dq_90', 'dq_120_plus', 'loss_mit', 'fc_dil'],
     }
     
     # WHAT: Define which task types actually close the track
@@ -70,6 +76,8 @@ def get_task_metrics(hub_id: int) -> Dict[str, Any]:
         ShortSaleTask: ['sold'],
         ModificationTask: ['mod_failed'],  # Only 'failed' closes track, not 're-performing'
         NoteSaleTask: ['sold'],
+        PerformingTask: ['note_sold'],
+        DelinquentTask: ['loss_mit', 'fc_dil'],
     }
     
     active_tasks = []
@@ -180,6 +188,8 @@ def _serialize_task_pills(task_data_list: List[Dict[str, Any]], is_completed: bo
             'dil': 'DIL',
             'reo': 'REO',
             'notesale': 'Note Sale',
+            'performing': 'Perf',
+            'delinquent': 'DQ',
         }
         track_prefix = track_prefix_map.get(outcome_type, outcome_type.upper())
         
@@ -229,6 +239,8 @@ def _get_outcome_tone(outcome_type: str) -> str:
         'shortsale': 'warning',
         'modification': 'modification-green',
         'notesale': 'secondary',
+        'performing': 'success',
+        'delinquent': 'warning',
     }
     return tone_map.get(outcome_type, 'secondary')
 
@@ -303,6 +315,20 @@ def get_active_outcome_tracks(hub_id: int) -> Dict[str, Any]:
             'completion_types': ['sold'],
             'label': 'Note Sale',
             'tone': 'secondary',
+        },
+        'performing': {
+            'outcome_model': PerformingTrack,
+            'task_model': PerformingTask,
+            'completion_types': ['note_sold'],
+            'label': 'Performing',
+            'tone': 'success',
+        },
+        'delinquent': {
+            'outcome_model': DelinquentTrack,
+            'task_model': DelinquentTask,
+            'completion_types': ['loss_mit', 'fc_dil'],
+            'label': 'Delinquent',
+            'tone': 'warning',
         },
     }
     
@@ -426,7 +452,8 @@ def get_track_milestones(hub_id: int) -> List[Dict[str, Any]]:
                 'eviction',       # Eviction
                 'trashout',       # Trashout
                 'renovation',     # Renovation
-                'marketing',      # Marketing
+                'pre_marketing',  # Pre-Marketing
+                'listed',         # Listed
                 'under_contract', # Under Contract
                 'sold',          # Sold (completion)
             ]
@@ -440,6 +467,29 @@ def get_track_milestones(hub_id: int) -> List[Dict[str, Any]]:
                 'out_to_market',       # Out to Market
                 'pending_sale',        # Pending Sale
                 'sold',               # Sold (completion)
+            ]
+        },
+        'performing': {
+            'label': 'Performing',
+            'tone': 'success',
+            'task_model': PerformingTask,
+            'sequence': [
+                'perf',
+                'rpl',
+                'note_sold',
+            ]
+        },
+        'delinquent': {
+            'label': 'Delinquent',
+            'tone': 'warning',
+            'task_model': DelinquentTask,
+            'sequence': [
+                'dq_30',
+                'dq_60',
+                'dq_90',
+                'dq_120_plus',
+                'loss_mit',
+                'fc_dil',
             ]
         }
     }
@@ -519,7 +569,8 @@ def get_track_milestones(hub_id: int) -> List[Dict[str, Any]]:
                 # REO intervals
                 'trashout': 7,          # 7 days for trashout
                 'renovation': 30,       # 30 days for renovation
-                'marketing': 14,        # 14 days to start marketing
+                'pre_marketing': 14,    # 14 days for pre-marketing prep
+                'listed': 7,            # 7 days to get listed
                 'under_contract': 60,   # 60 days to get under contract
             }
             
@@ -589,11 +640,23 @@ def _format_task_label(task_type: str) -> str:
         'eviction': 'Eviction',
         'trashout': 'Trashout',
         'renovation': 'Renovation',
-        'marketing': 'Marketing',
+        'pre_marketing': 'Pre-Marketing',
+        'listed': 'Listed',
         # Note Sale labels
         'potential_note_sale': 'Potential Note Sale',
         'out_to_market': 'Out to Market',
         'pending_sale': 'Pending Sale',
+        # Performing labels
+        'perf': 'Performing',
+        'rpl': 'Re-Performing (RPL)',
+        'note_sold': 'Note Sold',
+        # Delinquent labels
+        'dq_30': '30 Days Delinquent',
+        'dq_60': '60 Days Delinquent',
+        'dq_90': '90 Days Delinquent',
+        'dq_120_plus': '120+ Days Delinquent',
+        'loss_mit': 'Loss Mit',
+        'fc_dil': 'FC/DIL',
     }
     return label_map.get(task_type.lower(), task_type.title())
 

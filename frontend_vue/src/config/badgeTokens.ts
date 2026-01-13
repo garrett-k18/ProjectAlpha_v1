@@ -598,20 +598,19 @@ export const activeTracksEnumMap: Record<string, { label: string; color: string;
   'REO': { label: 'REO', color: 'bg-info', title: 'Real Estate Owned' },
   'FC': { label: 'FC', color: 'bg-danger', title: 'Foreclosure Sale' },
   'Short Sale': { label: 'Short Sale', color: 'bg-warning text-dark', title: 'Short Sale' },
+  'Performing': { label: 'Performing', color: 'bg-success', title: 'Performing Track' },
+  'Delinquent': { label: 'Delinquent', color: 'bg-warning text-dark', title: 'Delinquent Track' },
 };
 
-/**
- * Color mapping for Active Tasks based on outcome type prefix
- * WHAT: Maps outcome type prefixes to badge colors for task display
- * WHY: Active Tasks shows "DIL: Owner/Heirs contacted" - we color based on the DIL prefix
- * HOW: Extract prefix before colon, look up color, use full text as badge label
- */
 export const activeTasksColorMap: Record<string, string> = {
   'DIL': 'bg-primary',
   'Modification': 'bg-success',
   'REO': 'bg-info',
   'FC': 'bg-danger',
-  'Short Sale': 'bg-warning text-dark',
+  'Short Sale': 'bg-warning',
+  'Note Sale': 'bg-secondary',
+  'Performing': 'bg-success',
+  'Delinquent': 'bg-warning',
 };
 
 /**

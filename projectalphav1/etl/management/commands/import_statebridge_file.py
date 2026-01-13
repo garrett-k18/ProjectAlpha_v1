@@ -21,6 +21,8 @@ from etl.models import (
     SBDailyLoanData,
     SBDailyPayHistoryData,
     SBDailyTransactionData,
+    EOMTrialBalanceData,
+    EOMTrustTrackingData,
 )
 
 
@@ -54,6 +56,7 @@ def _to_str_or_none(value: Any) -> Optional[str]:
 def _read_statebridge_dataframe(file_path: Path) -> pd.DataFrame:
     suffix = file_path.suffix.lower()
     if suffix in {".xlsx", ".xls"}:
+        # Use openpyxl for .xlsx, xlrd for .xls (older Excel format)
         engine = "openpyxl" if suffix == ".xlsx" else "xlrd"
         return pd.read_excel(
             file_path,
@@ -76,11 +79,22 @@ def _read_statebridge_dataframe(file_path: Path) -> pd.DataFrame:
 
 
 def _extract_file_date_iso(filename: str) -> Optional[str]:
+    # Try YYYYMMDD format first (e.g., 20240131)
     m = re.search(r"(\d{8})", filename)
-    if not m:
-        return None
-    yyyymmdd = m.group(1)
-    return f"{yyyymmdd[0:4]}-{yyyymmdd[4:6]}-{yyyymmdd[6:8]}"
+    if m:
+        yyyymmdd = m.group(1)
+        return f"{yyyymmdd[0:4]}-{yyyymmdd[4:6]}-{yyyymmdd[6:8]}"
+    
+    # Try M.D.YYYY or D.M.YYYY format (e.g., 1.1.2026 or 01.01.2026)
+    # This handles files like "Trial Balance1.1.2026.xls"
+    m = re.search(r"(\d{1,2})\.(\d{1,2})\.(\d{4})", filename)
+    if m:
+        month = m.group(1).zfill(2)
+        day = m.group(2).zfill(2)
+        year = m.group(3)
+        return f"{year}-{month}-{day}"
+    
+    return None
 
 
 def _infer_kind_from_filename(filename: str) -> str:
@@ -99,6 +113,10 @@ def _infer_kind_from_filename(filename: str) -> str:
         return "transaction"
     if "_armdata_" in name:
         return "arm"
+    if "_trialbalancedata_" in name or "_eomtrialbalance_" in name or "trial balance" in name:
+        return "eom_trial_balance"
+    if "_trusttrackingdata_" in name or "_eomtrusttracking_" in name:
+        return "eom_trust_tracking"
     raise ValueError(f"Unsupported StateBridge file name: {filename}")
 
 
@@ -111,6 +129,8 @@ def _model_for_kind(kind: str) -> Type[Any]:
         "pay_history": SBDailyPayHistoryData,
         "transaction": SBDailyTransactionData,
         "arm": SBDailyArmData,
+        "eom_trial_balance": EOMTrialBalanceData,
+        "eom_trust_tracking": EOMTrustTrackingData,
     }[kind]
 
 
@@ -129,6 +149,10 @@ def _unique_key_fields_for_model(model: Type[Any]) -> Tuple[str, ...]:
         return ("file_date", "loan_number")
     if model is SBDailyTransactionData:
         return ("file_date", "loan_transaction_id")
+    if model is EOMTrialBalanceData:
+        return ("file_date", "loan_id")
+    if model is EOMTrustTrackingData:
+        return ("file_date", "loan_id", "received_date")
     return tuple()
 
 
@@ -191,6 +215,20 @@ def _existing_keys_in_db(
         existing = model.objects.filter(file_date=file_date_iso, loan_transaction_id__in=txn_ids).values_list(
             "file_date",
             "loan_transaction_id",
+        )
+        return set(tuple(row) for row in existing)
+
+    if model is EOMTrialBalanceData:
+        loan_ids = {k[1] for k in keys_in_file_unique}
+        existing = model.objects.filter(file_date=file_date_iso, loan_id__in=loan_ids).values_list("file_date", "loan_id")
+        return set(tuple(row) for row in existing)
+
+    if model is EOMTrustTrackingData:
+        loan_ids = {k[1] for k in keys_in_file_unique}
+        existing = model.objects.filter(file_date=file_date_iso, loan_id__in=loan_ids).values_list(
+            "file_date",
+            "loan_id",
+            "received_date",
         )
         return set(tuple(row) for row in existing)
 

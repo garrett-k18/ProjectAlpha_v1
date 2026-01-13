@@ -219,7 +219,7 @@
  *   - Bootstrap Vue Next: https://bootstrap-vue-next.github.io/bootstrap-vue-next/
  */
 
-import { computed, defineProps, onMounted, ref, watch, withDefaults } from 'vue'
+import { computed, ref, watch, onMounted } from 'vue'
 import { useNotesStore } from '@/stores/notes'
 import { useAmOutcomesStore } from '@/stores/outcomes'
 
@@ -561,6 +561,9 @@ function getTrackLabel(outcomeType: string): string {
     reo: 'REO',
     short_sale: 'Short Sale',
     modification: 'Modification',
+    note_sale: 'Note Sale',
+    performing: 'Performing',
+    delinquent: 'Delinquent',
   }
   return labels[outcomeType] || outcomeType
 }
@@ -591,7 +594,8 @@ function getTaskTypeLabel(outcomeType: string, taskType: string): string {
       eviction: 'Eviction',
       trashout: 'Trashout',
       renovation: 'Renovation',
-      marketing: 'Marketing',
+      pre_marketing: 'Pre-Marketing',
+      listed: 'Listed',
       under_contract: 'Under Contract',
       sold: 'Sold',
     },
@@ -606,6 +610,25 @@ function getTaskTypeLabel(outcomeType: string, taskType: string): string {
       mod_accepted: 'Accepted',
       mod_started: 'Started',
       mod_failed: 'Failed',
+    },
+    note_sale: {
+      potential_note_sale: 'Potential Note Sale',
+      out_to_market: 'Out to Market',
+      pending_sale: 'Pending Sale',
+      sold: 'Sold',
+    },
+    performing: {
+      perf: 'Performing',
+      rpl: 'Re-Performing (RPL)',
+      note_sold: 'Note Sold',
+    },
+    delinquent: {
+      dq_30: '30 Days Delinquent',
+      dq_60: '60 Days Delinquent',
+      dq_90: '90 Days Delinquent',
+      dq_120_plus: '120+ Days Delinquent',
+      loss_mit: 'Loss Mit',
+      fc_dil: 'FC/DIL',
     },
   }
   return labels[outcomeType]?.[taskType] || taskType
@@ -645,7 +668,7 @@ async function loadNarrativeData(): Promise<void> {
 
     // Fetch AM tasks from all outcome types
     const amEvents: NarrativeEvent[] = []
-    const outcomeTypes: Array<'dil' | 'fc' | 'reo' | 'short_sale' | 'modification'> = ['dil', 'fc', 'reo', 'short_sale', 'modification']
+    const outcomeTypes: Array<'dil' | 'fc' | 'reo' | 'short_sale' | 'modification' | 'note_sale' | 'performing' | 'delinquent'> = ['dil', 'fc', 'reo', 'short_sale', 'modification', 'note_sale', 'performing', 'delinquent']
     
     for (const outcomeType of outcomeTypes) {
       try {
@@ -670,6 +693,15 @@ async function loadNarrativeData(): Promise<void> {
             break
           case 'modification':
             tasks = await outcomesStore.listModificationTasks(hubId, true)
+            break
+          case 'note_sale':
+            tasks = await outcomesStore.listNoteSaleTasks(hubId, true)
+            break
+          case 'performing':
+            tasks = await outcomesStore.listPerformingTasks(hubId, true)
+            break
+          case 'delinquent':
+            tasks = await outcomesStore.listDelinquentTasks(hubId, true)
             break
         }
         

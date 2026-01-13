@@ -7,13 +7,19 @@ from .servicers import ServicerLoanData
 from .model_am_modeling import BlendedOutcomeModel, ReUWAMProjections, UWCashFlows
 
 # Import outcome models and tasks from model_am_amData.py (CRITICAL: Required for Django model registry)
-from .model_am_amData import (
-    AssetCRMContact,
+from .model_am_tracksTasks import (
     REOData, REOtask,  # Note: REOtask has lowercase 't' in the model definition
     FCSale, FCTask,
     DIL, DILTask,
     ShortSale, ShortSaleTask,
     Modification, ModificationTask,
+    NoteSale, NoteSaleTask,
+    PerformingTrack, PerformingTask,
+    DelinquentTrack, DelinquentTask,
+)
+
+from .model_am_amData import (
+    AssetCRMContact,
     REOScope,
     Offers,
     AMNote,
@@ -37,6 +43,9 @@ __all__ = [
     'DIL', 'DILTask',
     'ShortSale', 'ShortSaleTask',
     'Modification', 'ModificationTask',
+    'NoteSale', 'NoteSaleTask',
+    'PerformingTrack', 'PerformingTask',
+    'DelinquentTrack', 'DelinquentTask',
     'REOScope',
     'Offers',
     'AMNote',

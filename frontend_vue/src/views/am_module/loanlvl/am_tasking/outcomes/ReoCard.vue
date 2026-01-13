@@ -107,9 +107,9 @@
                 :task-type="t.task_type as 'trashout' | 'renovation'"
               />
             </div>
-            <!-- WHAT: Offers section for Marketing, Under Contract tasks -->
-            <!-- WHY: Track offers received during marketing and sale phases -->
-            <div v-else-if="t.task_type === 'marketing' || t.task_type === 'under_contract'" class="mb-3">
+            <!-- WHAT: Offers section for Pre-Marketing, Listed, Under Contract tasks -->
+            <!-- WHY: Track offers received during pre-marketing, listing, and sale phases -->
+            <div v-else-if="t.task_type === 'pre_marketing' || t.task_type === 'listed' || t.task_type === 'under_contract'" class="mb-3">
               <OffersSection
                 :hub-id="props.hubId"
                 offer-source="reo"
@@ -197,7 +197,7 @@
 </template>
 
 <script setup lang="ts">
-import { withDefaults, defineProps, ref, computed, watch, onMounted, defineEmits, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useAmOutcomesStore, type ReoTask, type ReoTaskType, type ReoData } from '@/stores/outcomes'
 import http from '@/lib/http'
 import UiBadge from '@/components/ui/UiBadge.vue'
@@ -212,7 +212,7 @@ import SubtaskNotes from '@/views/am_module/loanlvl/am_tasking/components/Subtas
 // Scopes section for Trashout/Renovation tasks (refactored to match OffersSection pattern)
 // Path: src/views/am_module/loanlvl/am_tasking/components/ReoScopesSection.vue
 import ReoScopesSection from '@/views/am_module/loanlvl/am_tasking/components/ReoScopesSection.vue'
-// Offers section for Marketing tasks (shows REO-tagged offers)
+// Offers section for Pre-Marketing/Listed tasks (shows REO-tagged offers)
 // Path: src/views/am_module/loanlvl/am_tasking/components/OffersSection.vue
 import OffersSection from '@/views/am_module/loanlvl/am_tasking/components/OffersSection.vue'
 // Hyper UI currency input component
@@ -276,7 +276,8 @@ const taskOptions: ReadonlyArray<{ value: ReoTaskType; label: string }> = [
   { value: 'eviction', label: 'Eviction' },
   { value: 'trashout', label: 'Trashout' },
   { value: 'renovation', label: 'Renovation' },
-  { value: 'marketing', label: 'Marketing' },
+  { value: 'pre_marketing', label: 'Pre-Marketing' },
+  { value: 'listed', label: 'Listed' },
   { value: 'under_contract', label: 'Under Contract' },
   { value: 'sold', label: 'Sold' },
 ]
@@ -292,15 +293,16 @@ function labelFor(tp: ReoTaskType): string {
 
 // Return Bootstrap pill badge class matching the task type
 function badgeClass(tp: ReoTaskType): BadgeToneKey {
-  const map: Record<ReoTaskType, BadgeToneKey> = {
+  const tones: Record<ReoTaskType, BadgeToneKey> = {
     eviction: 'danger',
     trashout: 'warning',
     renovation: 'info',
-    marketing: 'primary',
+    pre_marketing: 'primary',
+    listed: 'primary',
     under_contract: 'success',
     sold: 'success',
   }
-  return map[tp]
+  return tones[tp]
 }
 
 // Return Bootstrap border classes for subtle left border matching the pill color
@@ -310,7 +312,8 @@ function itemBorderClass(tp: ReoTaskType): string {
     eviction: 'border-start',
     trashout: 'border-start',
     renovation: 'border-start',
-    marketing: 'border-start',
+    pre_marketing: 'border-start',
+    listed: 'border-start',
     under_contract: 'border-start',
     sold: 'border-start',
   }
@@ -319,18 +322,19 @@ function itemBorderClass(tp: ReoTaskType): string {
 
 // Compute per-type left-edge style using Bootstrap CSS variables for exact color match
 function leftEdgeStyle(tp: ReoTaskType): Record<string, string> {
-  const colorMap: Record<ReoTaskType, string> = {
+  const leftEdgeColors: Record<ReoTaskType, string> = {
     eviction: 'var(--bs-danger, #dc3545)',
     trashout: 'var(--bs-warning, #ffc107)',
     renovation: 'var(--bs-info, #0dcaf0)',
-    marketing: 'var(--bs-primary, #0d6efd)',
+    pre_marketing: 'var(--bs-primary, #0d6efd)',
+    listed: 'var(--bs-primary, #0d6efd)',
     under_contract: 'var(--bs-success, #198754)',
     sold: 'var(--bs-success, #198754)',
   }
   // Subtle but visible left edge; keep other sides neutral via border-light
   return {
     // Use inset box-shadow to draw a reliable left stripe and keep Bootstrap's small drop shadow
-    boxShadow: `inset 3px 0 0 ${colorMap[tp]}, var(--bs-box-shadow-sm, 0 .125rem .25rem rgba(0,0,0,.075))`,
+    boxShadow: `inset 3px 0 0 ${leftEdgeColors[tp]}, var(--bs-box-shadow-sm, 0 .125rem .25rem rgba(0,0,0,.075))`,
   }
 }
 

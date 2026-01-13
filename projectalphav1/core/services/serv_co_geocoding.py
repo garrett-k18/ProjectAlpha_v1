@@ -235,7 +235,7 @@ def _extract_msa_fields(census_obj: Any) -> Dict[str, Optional[str]]:
         if isinstance(candidate, dict):
             year_keys = [k for k in candidate.keys() if _is_year_key(k)]
             if year_keys:
-                preferred_order = ["2024", "2023", "2022", "2021", "2020", "2019", "2018", "2017", "2016", "2015", "2014", "2013", "2012", "2011", "2010"]
+                preferred_order = ["2025", "2024", "2023", "2022", "2021", "2020", "2019", "2018", "2017", "2016", "2015", "2014", "2013", "2012", "2011", "2010"]
                 for key in preferred_order:
                     if key in candidate:
                         return candidate[key]
@@ -331,7 +331,7 @@ def _extract_all_census_fields(census_obj: Any) -> Dict[str, Optional[str]]:
         if isinstance(candidate, dict):
             year_keys = [k for k in candidate.keys() if _is_year_key(k)]
             if year_keys:
-                preferred_order = ["2024", "2023", "2022", "2021", "2020", "2019", "2018", "2017", "2016", "2015", "2014", "2013", "2012", "2011", "2010"]
+                preferred_order = ["2025", "2024", "2023", "2022", "2021", "2020", "2019", "2018", "2017", "2016", "2015", "2014", "2013", "2012", "2011", "2010"]
                 for key in preferred_order:
                     if key in candidate:
                         return candidate[key]
@@ -539,17 +539,32 @@ def _parse_geocodio_result_entry(entry: Any) -> Tuple[Optional[Tuple[float, floa
         logger.info("[Geocode][Census] Raw census data: %s", str(census_obj)[:500])
         
         # WHAT: Extract the latest year's census data
-        # WHY: Census data is year-bucketed (2024, 2020, etc.)
+        # WHY: Census data is year-bucketed (2025, 2024, 2020, etc.)
         # HOW: Get the most recent year's data for MSA extraction
         latest_data = None
         if isinstance(census_obj, dict):
-            for year in ['2024', '2020', '2010']:
+            # Check for specific years in order, including 2025
+            for year in ['2025', '2024', '2023', '2022', '2021', '2020', '2019', '2018', '2017', '2016', '2015', '2010']:
                 if year in census_obj:
                     latest_data = census_obj[year]
+                    logger.info("[Geocode][Census] Found census data for year: %s", year)
                     break
+            
+            # If no specific year found, try to find any numeric year key
+            if not latest_data:
+                year_keys = [k for k in census_obj.keys() if isinstance(k, (int, str)) and str(k).isdigit()]
+                if year_keys:
+                    # Get the most recent year
+                    latest_year = max(year_keys, key=lambda x: int(x))
+                    latest_data = census_obj[latest_year]
+                    logger.info("[Geocode][Census] Found census data for dynamic year: %s", latest_year)
         
         if latest_data:
-            extras.update(_extract_all_census_fields(latest_data))
+            census_extras = _extract_all_census_fields(latest_data)
+            logger.info("[Geocode][Census] Extracted census fields: %s", list(census_extras.keys()))
+            extras.update(census_extras)
+        else:
+            logger.warning("[Geocode][Census] Could not extract year-specific data from census object")
     else:
         logger.warning("[Geocode][Census] No census data found in fields object")
     
@@ -945,10 +960,40 @@ def batch_geocode_row_ids(
         .values("pk", "asset_hub_id", "city", "state", "zip")
     )
 
+    # WHAT: Prefetch existing enrichment data to skip already-geocoded addresses
+    # WHY: Avoid wasting API calls on addresses that already have coordinates
+    # HOW: Bulk fetch all enrichment records and build lookup dict
+    all_asset_ids = [r["asset_hub_id"] for r in rows if r.get("asset_hub_id")]
+    logger.info("[Batch] Checking %d asset_hub_ids for existing geocode data", len(all_asset_ids))
+    existing_enrichments = {}
+    if all_asset_ids:
+        enrichments = LlDataEnrichment.objects.filter(
+            asset_hub_id__in=all_asset_ids
+        ).only("asset_hub_id", "geocode_lat", "geocode_lng")
+        existing_enrichments = {
+            e.asset_hub_id: e 
+            for e in enrichments 
+            if e.geocode_lat is not None and e.geocode_lng is not None
+        }
+        logger.info("[Batch] Found %d existing geocoded records to skip (out of %d enrichment records total)", 
+                    len(existing_enrichments), enrichments.count())
+        if len(existing_enrichments) > 0:
+            logger.info("[Batch] Sample existing asset_hub_ids: %s", list(existing_enrichments.keys())[:5])
+
     addr_to_rows: Dict[str, List[Dict[str, Any]]] = {}
     unique_addresses: List[Tuple[str, str]] = []
+    skipped_count = 0
 
     for row in rows:
+        asset_hub_id = row.get("asset_hub_id")
+        
+        # WHAT: Skip rows that already have geocode data
+        # WHY: Don't waste API calls on already-geocoded addresses
+        # HOW: Check if enrichment exists with lat/lng
+        if asset_hub_id and asset_hub_id in existing_enrichments:
+            skipped_count += 1
+            continue
+        
         candidates = _build_address_candidates(row)
         if not candidates:
             continue
@@ -960,18 +1005,20 @@ def batch_geocode_row_ids(
             addr_to_rows[norm] = []
             unique_addresses.append((norm, primary))
         addr_to_rows[norm].append({
-            "id": row["asset_hub_id"],  # Use asset_hub_id for persistence
+            "id": asset_hub_id,  # Use asset_hub_id for persistence
             "candidates": candidates,
             "display_name": _build_display_address(row),
         })
 
     stats["unique_addresses"] = len(unique_addresses)
-    logger.info("[Batch] Found %d unique addresses from %d rows", len(unique_addresses), len(rows))
+    stats["skipped_count"] = skipped_count
+    logger.info("[Batch] Found %d unique addresses from %d rows (skipped %d already geocoded)", 
+                len(unique_addresses), len(rows), skipped_count)
     for i, (norm, addr) in enumerate(unique_addresses[:5]):  # Log first 5
         logger.info("[Batch] Address %d: %s -> %s", i+1, addr, norm)
     
     if not unique_addresses:
-        logger.warning("[Batch] No unique addresses found!")
+        logger.warning("[Batch] No unique addresses to geocode (all already have data or no valid addresses)")
         return stats
 
     for norm, addr in unique_addresses:
@@ -1010,10 +1057,12 @@ def batch_geocode_row_ids(
 
 
 def geocode_missing_assets(limit: Optional[int] = None, *, chunk_size: int = 1000, fields: Optional[Sequence[str]] = None) -> Dict[str, Any]:
+    # WHAT: Find SellerRawData records that need geocoding
+    # WHY: Only geocode records that don't have both lat AND lng
+    # HOW: Query for records where enrichment is missing OR where BOTH lat and lng are null
     qs = SellerRawData.objects.filter(
         Q(asset_hub__enrichment__isnull=True)
-        | Q(asset_hub__enrichment__geocode_lat__isnull=True)
-        | Q(asset_hub__enrichment__geocode_lng__isnull=True)
+        | (Q(asset_hub__enrichment__geocode_lat__isnull=True) & Q(asset_hub__enrichment__geocode_lng__isnull=True))
     ).values_list("pk", flat=True)
     if limit is not None:
         qs = qs[:limit]

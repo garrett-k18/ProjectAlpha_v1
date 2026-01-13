@@ -26,6 +26,7 @@ from rest_framework.authentication import SessionAuthentication
 from am_module.models.model_am_amData import (
     AMNote,
     FCTask, REOtask, DILTask, ShortSaleTask, ModificationTask, NoteSaleTask,
+    PerformingTask, DelinquentTask,
 )
 
 class StandardResultsSetPagination(PageNumberPagination):
@@ -494,6 +495,24 @@ def am_pipeline_dashboard(request):
                 ('potential_note_sale', 'Potential'),
                 ('out_to_market', 'Out to Market'),
                 ('pending_sale', 'Pending Sale'),
+            ],
+        },
+        'performing': {
+            'model': PerformingTask,
+            'label': 'Performing',
+            'stages': [
+                ('perf', 'Performing'),
+                ('rpl', 'Re-Performing (RPL)'),
+            ],
+        },
+        'delinquent': {
+            'model': DelinquentTask,
+            'label': 'Delinquent',
+            'stages': [
+                ('dq_30', '30 Days Delinquent'),
+                ('dq_60', '60 Days Delinquent'),
+                ('dq_90', '90 Days Delinquent'),
+                ('dq_120_plus', '120+ Days Delinquent'),
             ],
         },
     }

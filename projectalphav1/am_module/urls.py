@@ -13,6 +13,8 @@ from am_module.views.view_am_taskOutcomes import (
     ShortSaleViewSet, ShortSaleTaskViewSet,
     ModificationViewSet, ModificationTaskViewSet,
     NoteSaleViewSet, NoteSaleTaskViewSet,
+    PerformingTrackViewSet, PerformingTaskViewSet,
+    DelinquentTrackViewSet, DelinquentTaskViewSet,
     REOScopeViewSet,
     OffersViewSet,
     TaskMetricsView,
@@ -37,6 +39,10 @@ router.register(r'outcomes/modification', ModificationViewSet, basename='am-modi
 router.register(r'outcomes/modification-tasks', ModificationTaskViewSet, basename='am-modification-tasks')
 router.register(r'outcomes/note-sale', NoteSaleViewSet, basename='am-note-sale')
 router.register(r'outcomes/note-sale-tasks', NoteSaleTaskViewSet, basename='am-note-sale-tasks')
+router.register(r'outcomes/performing', PerformingTrackViewSet, basename='am-performing')
+router.register(r'outcomes/performing-tasks', PerformingTaskViewSet, basename='am-performing-tasks')
+router.register(r'outcomes/delinquent', DelinquentTrackViewSet, basename='am-delinquent')
+router.register(r'outcomes/delinquent-tasks', DelinquentTaskViewSet, basename='am-delinquent-tasks')
 router.register(r'outcomes/reo-scopes', REOScopeViewSet, basename='am-reo-scopes')
 router.register(r'outcomes/offers', OffersViewSet, basename='am-offers')
 router.register(r'outcomes/heir-contacts', HeirContactViewSet, basename='am-heir-contacts')

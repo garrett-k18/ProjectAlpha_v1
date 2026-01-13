@@ -962,3 +962,153 @@ class SBDailyTransactionData(models.Model):
 
     def __str__(self):
         return f"Transaction {self.loan_id} - {self.transaction_date} ({self.transaction_code})"
+
+
+class EOMTrialBalanceData(models.Model):
+    """
+    RAW DATA LANDING TABLE - All fields are CharField to accept data as-is.
+
+    WHAT: Store StateBridge end-of-month trial balance data exactly as received.
+    WHY: Raw data may have formatting issues, invalid values, encoding problems.
+    HOW: Accept everything as strings, defer validation to ETL → Core tables.
+
+    PATTERN:
+    1. EOMTrialBalanceData (this table) = Raw strings, no validation
+    2. ETL cleaning process = Parse, validate, transform
+    3. Core tables = Typed fields with constraints
+    """
+
+    # File tracking field - extracted from filename
+    file_date = models.CharField(max_length=20, null=True, blank=True, db_index=True)
+
+    # Loan identification fields
+    loan_id = models.CharField(max_length=50, null=True, blank=True, db_index=True)
+    investor_id = models.CharField(max_length=50, null=True, blank=True, db_index=True)
+    investor_loan_id = models.CharField(max_length=50, null=True, blank=True)
+
+    # Borrower information
+    borrower_name = models.CharField(max_length=150, null=True, blank=True)
+
+    # Balance fields - all stored as strings to preserve original formatting
+    principal_bal = models.CharField(max_length=50, null=True, blank=True)
+    escrow_bal = models.CharField(max_length=50, null=True, blank=True)
+    other_funds_bal = models.CharField(max_length=50, null=True, blank=True)
+    late_charge_bal = models.CharField(max_length=50, null=True, blank=True)
+    legal_fee_bal = models.CharField(max_length=50, null=True, blank=True)
+    deferred_prin = models.CharField(max_length=50, null=True, blank=True)
+    unapplied_bal = models.CharField(max_length=50, null=True, blank=True)
+    loss_draft_bal = models.CharField(max_length=50, null=True, blank=True)
+    asst_bal = models.CharField(max_length=50, null=True, blank=True)
+    nsf_fee_bal = models.CharField(max_length=50, null=True, blank=True)
+    oth_fee_bal = models.CharField(max_length=50, null=True, blank=True)
+    deferred_int = models.CharField(max_length=50, null=True, blank=True)
+
+    # Status and type fields
+    primary_status = models.CharField(max_length=50, null=True, blank=True, db_index=True)
+    loan_type = models.CharField(max_length=50, null=True, blank=True)
+    legal_status = models.CharField(max_length=50, null=True, blank=True)
+    warning_status = models.CharField(max_length=50, null=True, blank=True)
+
+    # Date fields - stored as strings in YYYY-MM-DD format
+    due_date = models.CharField(max_length=20, null=True, blank=True)
+    date_inactive = models.CharField(max_length=20, null=True, blank=True)
+
+    # Metadata fields for audit tracking
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'eom_trial_balance_records'
+        verbose_name = 'StateBridge EOM Trial Balance Data'
+        verbose_name_plural = 'StateBridge EOM Trial Balance Data'
+
+        indexes = [
+            models.Index(fields=['loan_id'], name='eom_trial_loan_id_idx'),
+            models.Index(fields=['investor_id'], name='eom_trial_investor_id_idx'),
+            models.Index(fields=['file_date'], name='eom_trial_file_date_idx'),
+            models.Index(fields=['primary_status'], name='eom_trial_status_idx'),
+            models.Index(fields=['loan_id', 'file_date'], name='eom_trial_loan_date_idx'),
+        ]
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=['file_date', 'loan_id'],
+                name='uniq_eom_trial_fdate_loanid',
+                condition=models.Q(file_date__isnull=False)
+                & ~models.Q(file_date="")
+                & models.Q(loan_id__isnull=False)
+                & ~models.Q(loan_id=""),
+            ),
+        ]
+
+    def __str__(self):
+        return f"EOM Trial Balance {self.loan_id} - {self.file_date}"
+
+
+class EOMTrustTrackingData(models.Model):
+    """
+    RAW DATA LANDING TABLE - All fields are CharField to accept data as-is.
+
+    WHAT: Store StateBridge end-of-month trust tracking data exactly as received.
+    WHY: Raw data may have formatting issues, invalid values, encoding problems.
+    HOW: Accept everything as strings, defer validation to ETL → Core tables.
+
+    PATTERN:
+    1. EOMTrustTrackingData (this table) = Raw strings, no validation
+    2. ETL cleaning process = Parse, validate, transform
+    3. Core tables = Typed fields with constraints
+    """
+
+    # File tracking field - extracted from filename
+    file_date = models.CharField(max_length=20, null=True, blank=True, db_index=True)
+
+    # Loan identification fields
+    loan_id = models.CharField(max_length=50, null=True, blank=True, db_index=True)
+    investor_loan_id = models.CharField(max_length=50, null=True, blank=True, db_index=True)
+
+    # Date fields - stored as strings in YYYY-MM-DD format
+    received_date = models.CharField(max_length=20, null=True, blank=True, db_index=True)
+    due_date = models.CharField(max_length=20, null=True, blank=True, db_index=True)
+
+    # Payment and collection fields - all stored as strings to preserve original formatting
+    principal_paid_off = models.CharField(max_length=50, null=True, blank=True)
+    interest_collected = models.CharField(max_length=50, null=True, blank=True)
+    sf_collected = models.CharField(max_length=50, null=True, blank=True)
+    net_interest = models.CharField(max_length=50, null=True, blank=True)
+
+    # Description fields
+    description = models.CharField(max_length=200, null=True, blank=True)
+    payoff_reason = models.CharField(max_length=100, null=True, blank=True)
+
+    # Metadata fields for audit tracking
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'eom_trust_tracking_records'
+        verbose_name = 'StateBridge EOM Trust Tracking Data'
+        verbose_name_plural = 'StateBridge EOM Trust Tracking Data'
+
+        indexes = [
+            models.Index(fields=['loan_id'], name='eom_trust_loan_id_idx'),
+            models.Index(fields=['investor_loan_id'], name='eom_trust_investor_loan_id_idx'),
+            models.Index(fields=['received_date'], name='eom_trust_received_date_idx'),
+            models.Index(fields=['due_date'], name='eom_trust_due_date_idx'),
+            models.Index(fields=['loan_id', 'received_date'], name='eom_trust_loan_received_idx'),
+        ]
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=['file_date', 'loan_id', 'received_date'],
+                name='uniq_eom_trust_fdate_loanid_recd',
+                condition=models.Q(file_date__isnull=False)
+                & ~models.Q(file_date="")
+                & models.Q(loan_id__isnull=False)
+                & ~models.Q(loan_id="")
+                & models.Q(received_date__isnull=False)
+                & ~models.Q(received_date=""),
+            ),
+        ]
+
+    def __str__(self):
+        return f"EOM Trust Tracking {self.loan_id} - {self.received_date}"

@@ -168,6 +168,12 @@
               <button class="track-option" @click="selectTrack('note_sale')" :disabled="ensureBusy">
                 <UiBadge tone="secondary" size="md">Note Sale</UiBadge>
               </button>
+              <button class="track-option" @click="selectTrack('performing')" :disabled="ensureBusy">
+                <UiBadge tone="success" size="md">Performing</UiBadge>
+              </button>
+              <button class="track-option" @click="selectTrack('delinquent')" :disabled="ensureBusy">
+                <UiBadge tone="warning" size="md">Delinquent</UiBadge>
+              </button>
             </div>
           </div>
         </div>
@@ -186,6 +192,8 @@
             <ShortSaleCard v-if="visibleOutcomes.short_sale" :hubId="hubId!" :masterCollapsed="tracksCollapsed" @delete="() => requestDelete('short_sale')" />
             <ModificationCard v-if="visibleOutcomes.modification" :hubId="hubId!" :masterCollapsed="tracksCollapsed" @delete="() => requestDelete('modification')" />
             <NoteSaleCard v-if="visibleOutcomes.note_sale" :hubId="hubId!" :masterCollapsed="tracksCollapsed" @delete="() => requestDelete('note_sale')" />
+            <PerformingCard v-if="visibleOutcomes.performing" :hubId="hubId!" :masterCollapsed="tracksCollapsed" @delete="() => requestDelete('performing')" />
+            <DelinquentCard v-if="visibleOutcomes.delinquent" :hubId="hubId!" :masterCollapsed="tracksCollapsed" @delete="() => requestDelete('delinquent')" />
             
             <div v-if="!anyVisibleOutcome" class="no-tracks">
               <i class="fas fa-info-circle"></i>
@@ -425,6 +433,8 @@ import ReoCard from '@/views/am_module/loanlvl/am_tasking/outcomes/ReoCard.vue'
 import ShortSaleCard from '@/views/am_module/loanlvl/am_tasking/outcomes/ShortSaleCard.vue'
 import ModificationCard from '@/views/am_module/loanlvl/am_tasking/outcomes/ModificationCard.vue'
 import NoteSaleCard from '@/views/am_module/loanlvl/am_tasking/outcomes/NoteSaleCard.vue'
+import PerformingCard from '@/views/am_module/loanlvl/am_tasking/outcomes/PerformingCard.vue'
+import DelinquentCard from '@/views/am_module/loanlvl/am_tasking/outcomes/DelinquentCard.vue'
 import { useAmOutcomesStore, type OutcomeType } from '@/stores/outcomes'
 // Recent Activity widget (feature-local). Path: views/.../am_tasking/components/recent-activity.vue
 import RecentActivity, { type ActivityItem } from '@/views/am_module/loanlvl/am_tasking/components/recent-activity.vue'
@@ -778,7 +788,7 @@ const ensureBusy = ref(false)
 const selectedOutcome = ref<OutcomeType | ''>('')
 const showTrackMenu = ref(false)
 const trackMenuRef = ref<HTMLElement | null>(null)
-const visibleOutcomes = ref<Record<OutcomeType, boolean>>({ dil: false, fc: false, reo: false, short_sale: false, modification: false, note_sale: false })
+const visibleOutcomes = ref<Record<OutcomeType, boolean>>({ dil: false, fc: false, reo: false, short_sale: false, modification: false, note_sale: false, performing: false, delinquent: false })
 const anyVisibleOutcome = computed(() => Object.values(visibleOutcomes.value).some(Boolean))
 // WHAT: Track whether outcome cards are collapsed or expanded
 // WHY: Allow users to hide/show all outcome cards at once
@@ -1040,6 +1050,8 @@ function trackLabel(t: OutcomeType): string {
     case 'fc': return 'Foreclosure'
     case 'reo': return 'REO'
     case 'note_sale': return 'Note Sale'
+    case 'performing': return 'Performing'
+    case 'delinquent': return 'Delinquent'
     default: return t
   }
 }
@@ -1053,6 +1065,8 @@ function trackTone(t: OutcomeType): import('@/config/badgeTokens').BadgeToneKey 
     case 'fc': return 'danger'
     case 'reo': return 'info'
     case 'note_sale': return 'secondary'
+    case 'performing': return 'success'
+    case 'delinquent': return 'warning'
     default: return 'secondary'
   }
 }
@@ -1068,11 +1082,12 @@ const fcTaskLabel: Record<import('@/stores/outcomes').FcTaskType, string> = {
   sale_scheduled: 'Sale Scheduled',
   sold: 'Sold',
 }
-const reoTaskLabel: Record<import('@/stores/outcomes').ReoTaskType, string> = {
+const reoTaskLabels: Record<import('@/stores/outcomes').ReoTaskType, string> = {
   eviction: 'Eviction',
   trashout: 'Trashout',
   renovation: 'Renovation',
-  marketing: 'Marketing',
+  pre_marketing: 'Pre-Marketing',
+  listed: 'Listed',
   under_contract: 'Under Contract',
   sold: 'Sold',
 }
@@ -1090,9 +1105,10 @@ const reoToneMap: Record<import('@/stores/outcomes').ReoTaskType, BadgeToneKey> 
   eviction: 'danger',
   trashout: 'warning',
   renovation: 'info',
-  marketing: 'primary',
+  pre_marketing: 'primary',
+  listed: 'primary',
   under_contract: 'success',
-  sold: 'secondary',
+  sold: 'success',
 }
 const shortSaleTaskLabel: Record<import('@/stores/outcomes').ShortSaleTaskType, string> = {
   list_price_accepted: 'List Price Accepted',
@@ -1148,6 +1164,34 @@ const noteSaleToneMap: Record<import('@/stores/outcomes').NoteSaleTaskType, Badg
   sold: 'success',
 }
 
+const performingTaskLabel: Record<import('@/stores/outcomes').PerformingTaskType, string> = {
+  perf: 'Performing',
+  rpl: 'Re-Performing (RPL)',
+  note_sold: 'Note Sold',
+}
+const performingToneMap: Record<import('@/stores/outcomes').PerformingTaskType, BadgeToneKey> = {
+  perf: 'success',
+  rpl: 'primary',
+  note_sold: 'secondary',
+}
+
+const delinquentTaskLabel: Record<import('@/stores/outcomes').DelinquentTaskType, string> = {
+  dq_30: '30 Days Delinquent',
+  dq_60: '60 Days Delinquent',
+  dq_90: '90 Days Delinquent',
+  dq_120_plus: '120+ Days Delinquent',
+  loss_mit: 'Loss Mit',
+  fc_dil: 'FC/DIL',
+}
+const delinquentToneMap: Record<import('@/stores/outcomes').DelinquentTaskType, BadgeToneKey> = {
+  dq_30: 'warning',
+  dq_60: 'warning',
+  dq_90: 'danger',
+  dq_120_plus: 'danger',
+  loss_mit: 'success',
+  fc_dil: 'primary',
+}
+
 type BadgeToneKey = import('@/config/badgeTokens').BadgeToneKey
 type PillItem = { key: string; label: string; tone: BadgeToneKey }
 
@@ -1184,7 +1228,7 @@ const activeTaskItems = computed<PillItem[]>(() => {
     const latest = pickLatest(list)
     if (latest) {
       const tp = latest.task_type as import('@/stores/outcomes').ReoTaskType
-      items.push({ key: `reo-${latest.id}`, label: `REO: ${reoTaskLabel[tp] ?? latest.task_type}`, tone: reoToneMap[tp] })
+      items.push({ key: `reo-${latest.id}`, label: `REO: ${reoTaskLabels[tp] ?? latest.task_type}`, tone: reoToneMap[tp] })
     }
   }
   // Short Sale
@@ -1221,6 +1265,26 @@ const activeTaskItems = computed<PillItem[]>(() => {
     if (latest) {
       const tp = latest.task_type as import('@/stores/outcomes').NoteSaleTaskType
       items.push({ key: `note-sale-${latest.id}`, label: `Note Sale: ${noteSaleTaskLabel[tp] ?? latest.task_type}`, tone: noteSaleToneMap[tp] })
+    }
+  }
+
+  // Performing
+  if (visibleOutcomes.value.performing) {
+    const list = outcomesStore.performingTasksByHub[id] ?? []
+    const latest = pickLatest(list)
+    if (latest) {
+      const tp = latest.task_type as import('@/stores/outcomes').PerformingTaskType
+      items.push({ key: `performing-${latest.id}`, label: `Performing: ${performingTaskLabel[tp] ?? latest.task_type}`, tone: performingToneMap[tp] })
+    }
+  }
+
+  // Delinquent
+  if (visibleOutcomes.value.delinquent) {
+    const list = outcomesStore.delinquentTasksByHub[id] ?? []
+    const latest = pickLatest(list)
+    if (latest) {
+      const tp = latest.task_type as import('@/stores/outcomes').DelinquentTaskType
+      items.push({ key: `delinquent-${latest.id}`, label: `Delinquent: ${delinquentTaskLabel[tp] ?? latest.task_type}`, tone: delinquentToneMap[tp] })
     }
   }
   return items
@@ -1395,11 +1459,11 @@ async function confirmDelete() {
 // WHY: On page load/refresh, we need to restore the visible track cards
 // HOW: Fetches all outcome types in PARALLEL for better performance
 async function refreshVisible() {
-  visibleOutcomes.value = { dil: false, fc: false, reo: false, short_sale: false, modification: false, note_sale: false }
+  visibleOutcomes.value = { dil: false, fc: false, reo: false, short_sale: false, modification: false, note_sale: false, performing: false, delinquent: false }
   const id = hubId.value
   if (!id) return
   
-  const types: OutcomeType[] = ['dil', 'fc', 'reo', 'short_sale', 'modification', 'note_sale']
+  const types: OutcomeType[] = ['dil', 'fc', 'reo', 'short_sale', 'modification', 'note_sale', 'performing', 'delinquent']
   
   // WHAT: Fetch all outcomes in parallel instead of sequentially
   // WHY: Reduces load time from 6 sequential calls to 1 parallel batch
@@ -1429,6 +1493,8 @@ async function refreshVisible() {
     else if (t === 'dil') taskFetchers.push(outcomesStore.listDilTasks(id))
     else if (t === 'note_sale') taskFetchers.push(outcomesStore.listNoteSaleTasks(id))
     else if (t === 'modification') taskFetchers.push(outcomesStore.listModificationTasks(id))
+    else if (t === 'performing') taskFetchers.push(outcomesStore.listPerformingTasks(id))
+    else if (t === 'delinquent') taskFetchers.push(outcomesStore.listDelinquentTasks(id))
   }
   
   if (taskFetchers.length) {
