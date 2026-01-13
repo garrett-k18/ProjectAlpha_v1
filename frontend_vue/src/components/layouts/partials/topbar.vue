@@ -514,12 +514,12 @@ export default {
         // Call the Django auth store logout method (clears token, user data, etc.)
         await this.auth.logout();
         
-        // Redirect to login page
-        this.$router.push('/auth/login');
+        // Redirect to login page with redirectFrom query parameter
+        this.$router.push({ name: 'login', query: { redirectFrom: '/home' } });
       } catch (error) {
         console.error('Logout error:', error);
         // Still redirect to login even if logout API call fails
-        this.$router.push('/auth/login');
+        this.$router.push({ name: 'login', query: { redirectFrom: '/home' } });
       }
     },
   },

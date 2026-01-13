@@ -59,6 +59,11 @@ class AssetDetails(models.Model):
         ACTIVE = 'ACTIVE', 'Active'  # WHAT: Flag assets currently in portfolio workflows (default state)
         LIQUIDATED = 'LIQUIDATED', 'Liquidated'  # WHAT: Represents assets sold/resolved and no longer actively managed
 
+    class AssetClass(models.TextChoices):
+        NPL = 'NPL', 'NPL'
+        REO = 'REO', 'REO'
+        PERFORMING = 'PERFORMING', 'Performing'
+
     asset = models.OneToOneField(
         AssetIdHub,
         on_delete=models.CASCADE,
@@ -96,6 +101,15 @@ class AssetDetails(models.Model):
         default=AssetStatus.ACTIVE,  # WHY: Maintain backward compatibility by treating existing hubs as Active unless explicitly updated
         db_index=True,  # WHY: Enable fast filtering/grouping by lifecycle status across dashboards and reports
         help_text='Canonical lifecycle status for this asset hub (drives UI dropdown and module coordination).',  # WHAT: Document downstream usage for administrators
+    )
+
+    asset_class = models.CharField(
+        max_length=32,
+        choices=AssetClass.choices,
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text='High-level asset classification (NPL, REO, Performing).'
     )
 
     legacy_flag = models.BooleanField(

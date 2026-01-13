@@ -1071,5 +1071,5 @@ export const allRoutes: RouteRecordRaw[] = [
     ...landingRoutes,
     ...dashboardRoutes, 
     ...authRoutes, 
-    ...errorPageRoutes, 
-    ...authProtectedRoutes]
+    ...authProtectedRoutes,
+    ...errorPageRoutes]
