@@ -565,8 +565,6 @@ def _parse_geocodio_result_entry(entry: Any) -> Tuple[Optional[Tuple[float, floa
             extras.update(census_extras)
         else:
             logger.warning("[Geocode][Census] Could not extract year-specific data from census object")
-    else:
-        logger.warning("[Geocode][Census] No census data found in fields object")
     
     # WHAT: Extract school district data
     # WHY: User wants school district name
@@ -575,8 +573,6 @@ def _parse_geocodio_result_entry(entry: Any) -> Tuple[Optional[Tuple[float, floa
     if school_obj:
         logger.info("[Geocode][School] Raw school data: %s", str(school_obj)[:300])
         extras.update(_extract_school_fields(school_obj))
-    else:
-        logger.info("[Geocode][School] No school data found")
     
     # WHAT: Log all extracted data for debugging
     # WHY: User wants to see what fields are actually coming through
@@ -635,10 +631,19 @@ def _persist_enrichment_rows(
     updated_rows = 0
     
     # WHAT: Log what we're about to persist
-    # WHY: User wants to see what's being processed to avoid wasting API calls
-    # HOW: Show coordinates and MSA data (or lack thereof)
-    logger.info("[Persist] Coordinates: lat=%s, lng=%s, MSA: %s (%s), Address: %s", 
-                lat, lng, msa_name or "None", msa_code or "None", used_address or "Unknown")
+    # WHY: Track progress during backfills
+    # HOW: Keep output minimal when no extra metadata is present
+    if msa_name or msa_code or state_fips or county_fips or school_name:
+        logger.info(
+            "[Persist] Coordinates: lat=%s, lng=%s, MSA: %s (%s), Address: %s",
+            lat,
+            lng,
+            msa_name or "None",
+            msa_code or "None",
+            used_address or "Unknown",
+        )
+    else:
+        logger.info("[Persist] Coordinates: lat=%s, lng=%s, Address: %s", lat, lng, used_address or "Unknown")
 
     for row_meta in rows_info:
         row_id = row_meta.get("id")
@@ -684,11 +689,15 @@ def _persist_enrichment_rows(
             "geocode_school_district_type": school_type or "",
         }
         
-        # WHAT: Log what we're saving for this specific row
-        # WHY: User wants detailed tracking of what gets persisted
-        # HOW: Show row ID and whether it has MSA data
-        logger.info("[Persist] Row %s: %s -> MSA: %s", row_id, fallback_addr or "No address", 
-                    msa_name or "NO MSA DATA")
+        if msa_name or msa_code or state_fips or county_fips or school_name:
+            logger.info(
+                "[Persist] Row %s: %s -> MSA: %s",
+                row_id,
+                fallback_addr or "No address",
+                msa_name or "NO MSA DATA",
+            )
+        else:
+            logger.info("[Persist] Row %s: %s", row_id, fallback_addr or "No address")
 
         try:
             # WHAT: Use asset_hub_id as the primary key since seller_raw_data was removed
@@ -846,10 +855,15 @@ def _geocode_geocodio(
         
         return coords, extras
         
+    except requests.exceptions.HTTPError as e:
+        status = getattr(getattr(e, 'response', None), 'status_code', None)
+        if status == 422:
+            logger.warning("[Geocodio] Unprocessable address '%s' (422); skipping", address)
+            return None, extras
+        logger.warning("[Geocodio] HTTP error for address '%s' (status=%s): %s", address, status, str(e))
+        return None, extras
     except Exception as e:
-        print(f"[GEOCODIO_ERROR] {e}")
-        import traceback
-        traceback.print_exc()
+        logger.exception("[Geocodio] Unexpected error for address '%s': %s", address, str(e))
         return None, extras
 
 
@@ -922,10 +936,11 @@ def _batch_geocode_geocodio(
                 norm = _normalize_address_for_dedup([addr])
                 resolved[norm] = (coords, extras, addr)
 
+    except requests.exceptions.HTTPError as exc:
+        status = getattr(getattr(exc, 'response', None), 'status_code', None)
+        logger.warning("[Geocodio] Batch HTTP error (status=%s): %s", status, str(exc))
     except Exception as exc:
-        print(f"[GEOCODIO_BATCH_ERROR] {exc}")
-        import traceback
-        traceback.print_exc()
+        logger.exception("[Geocodio] Unexpected batch error: %s", str(exc))
 
     return resolved
 

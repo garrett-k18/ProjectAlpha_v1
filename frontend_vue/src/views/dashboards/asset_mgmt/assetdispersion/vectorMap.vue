@@ -1,11 +1,12 @@
 <template>
   <!-- US-focused vector map component for Asset Management dashboard -->
-  <div>
+  <div class="d-flex justify-content-center">
     <BaseVectorMap
       :id="id || 'asset-mgmt-us-map'"
       :map-height="mapHeight"
       :options="mapOptions"
       :markers="markersComputed"
+      class="w-100"
     />
   </div>
 </template>
@@ -16,10 +17,9 @@
  * Uses the same base-vector-map component as the acquisitions dashboard
  * but with a different marker style and focused on the US (including HI and AK)
  */
-import { defineComponent, computed } from 'vue'; // WHAT: Import Vue helpers to create the component with computed props.
-import BaseVectorMap from "@/components/base-vector-map.vue"; // WHAT: Import shared vector map wrapper built on jsVectorMap.
+import { defineComponent, computed } from 'vue';
+import BaseVectorMap from "@/components/base-vector-map.vue";
 
-// Define interface for map markers
 export interface Marker {
   latLng: [number, number];
   name: string;
@@ -31,90 +31,85 @@ export default defineComponent({
   components: { BaseVectorMap },
   
   props: {
-    // Allow custom ID for the map element
     id: {
       type: String,
       default: null
     },
-    // Custom height for the map
     mapHeight: {
       type: Number,
       default: 217
     },
-    // Location data to display on the map
     locationData: {
       type: Array,
       default: () => []
     },
-    // Optional custom marker color (can be changed from parent)
     markerColor: {
       type: String,
-      default: '#4fc6e1' // Default: blue-ish color (different from acquisitions pink)
+      default: '#727cf5'
     },
-    // Optional custom marker hover color
     markerHoverColor: {
       type: String,
-      default: '#69d3ea' // Lighter blue for hover
+      default: '#4A6FA5' // Using Brand Steel Blue for hover
     },
-    // Optional custom marker selected color
     markerSelectedColor: {
       type: String,
-      default: '#3db9d3' // Darker blue for selected
+      default: '#1B3B5F' // Using Brand Navy for selected
     }
   },
 
   computed: {
-    // jVectorMap options for US map with markers
     mapOptions() {
       return {
-        // Use US Miller map that includes HI and AK
         map: 'us_mill_en',
         normalizeFunction: 'polynomial',
-        hoverOpacity: 0.7,
+        hoverOpacity: 0.8,
         hoverColor: false,
         regionStyle: {
           initial: {
-            fill: '#91a6bd40' // Light gray-blue for states
+            fill: '#E9ECEF', // Neutral light gray for professional look
+            stroke: '#FFFFFF',
+            'stroke-width': 1.5
+          },
+          hover: {
+            fill: '#DEE2E6'
           }
         },
-        // Custom marker styling (different from acquisitions)
         markerStyle: {
           initial: {
-            r: 3.5, // WHAT: Slightly enlarge single-asset pins so individual locations are easier to see.
+            r: 4,
             fill: this.markerColor,
             stroke: '#ffffff',
             'stroke-width': 1.5,
-            'fill-opacity': 0.5
+            'fill-opacity': 0.7
           },
           hover: {
             fill: this.markerHoverColor,
-            'stroke-width': 2
+            'stroke-width': 2,
+            'fill-opacity': 1
           },
           selected: {
             fill: this.markerSelectedColor
           }
         },
-        // Keep background transparent; disable scroll zoom
         backgroundColor: 'transparent',
         zoomOnScroll: false,
         zoomButtons: false,
-        // Enable marker selection for interaction
         markersSelectable: true,
-        labels: { // WHAT: Configure inline marker labels so clusters display counts (docs: https://github.com/themustafaomar/jsvectormap#labels).
+        labels: {
           markers: {
-            render: (marker: any) => { // WHAT: Render callback receives marker configuration object from jsVectorMap.
-              const count = marker?.config?.data?.count // WHAT: Extract density count injected via Pinia store for this cluster.
-              return typeof count === 'number' ? `${count}` : '' // WHAT: Return numeric count as string to display inside the cluster bubble.
+            render: (marker: any) => {
+              const count = marker?.config?.data?.count
+              return typeof count === 'number' && count > 1 ? `${count}` : ''
             },
-            offsets: (marker: any) => { // WHAT: Provide zero offsets to keep labels centered in the marker circle.
-              void marker // WHAT: Explicitly touch argument to satisfy lint for unused variables.
+            offsets: (marker: any) => {
+              void marker
               return [0, 0]
             },
           },
         },
-        onMarkerTooltipShow: (event: any, tooltip: any, index: number) => { // WHAT: Customize tooltip text to show Loan ID and address details.
-          void event // WHAT: Prevent unused variable lint for emitted event parameter.
-          const markerConfig = (tooltip?.mapObject?.markersConfig ?? [])[index] // WHAT: Access normalized markers array maintained by jsVectorMap instance.
+        onMarkerTooltipShow: (event: any, tooltip: any, index: number) => {
+          void event
+          const markerConfig = (tooltip?.mapObject?.markersConfig ?? [])[index]
           const data = markerConfig?.data || {}
 
           const loanId = data.asset_hub_id ?? ''
@@ -126,21 +121,17 @@ export default defineComponent({
           const addressParts = [street, cityState].filter(Boolean)
           let address = addressParts.join(' - ')
 
-          // Fallback to marker name/label when structured fields are missing so tooltip still looks useful.
           if (!address) {
             const fallbackLabel = (markerConfig?.name ?? '').toString().trim()
             address = fallbackLabel
           }
 
-          // Build tooltip as: "Loan ID - Address - City, State" with graceful fallbacks when pieces are missing.
           const pieces: string[] = []
           if (loanId) pieces.push(String(loanId))
           if (address) pieces.push(address)
 
           tooltip.text = pieces.join(' - ') || 'Asset'
         },
-
-        // WHAT: Emit marker-click events upward so parent components can open the asset snapshot modal.
         onMarkerClick: (event: any, index: number) => {
           void event
           const raw = Array.isArray((this as any).locationData) ? (this as any).locationData : []
@@ -153,7 +144,6 @@ export default defineComponent({
           const cityState = [city, state].filter(Boolean).join(', ')
           let address = [street, cityState].filter(Boolean).join(', ')
 
-          // Fallback to label/name when address parts are not populated from the markers endpoint.
           if (!address) {
             const label = (entry?.label ?? entry?.name ?? '').toString().trim()
             address = label
@@ -161,7 +151,6 @@ export default defineComponent({
 
           if (!assetHubId) return
 
-          // Emit Vue event so AssetDispersion can open AM loan-level modal.
           ;(this as any).$emit('marker-click', {
             assetHubId,
             address,
@@ -170,52 +159,66 @@ export default defineComponent({
       };
     },
     
-    // Define interface for location data items
     markersComputed() {
-      const raw = Array.isArray(this.locationData) ? this.locationData : []; // WHAT: Ensure we always iterate over an array to avoid runtime errors.
+      const raw = Array.isArray(this.locationData) ? this.locationData : [];
       return raw
-        .map((entry: any, index: number) => { // WHAT: Transform each raw marker entry into jsVectorMap format.
-          const explicitLatLng = Array.isArray(entry?.latLng) ? entry.latLng : null; // WHAT: Detect pre-normalized lat/lng tuples provided by store.
-          const latFromFields = typeof entry?.lat === 'number' ? entry.lat : (typeof entry?.lat === 'string' ? Number(entry.lat) : null); // WHAT: Handle markers exposing lat numeric or string fields for flexibility.
-          const lngFromFields = typeof entry?.lng === 'number' ? entry.lng : (typeof entry?.lng === 'string' ? Number(entry.lng) : null); // WHAT: Handle markers exposing lng numeric or string fields for flexibility.
-          const latLngTuple = explicitLatLng ?? (latFromFields !== null && lngFromFields !== null ? [latFromFields, lngFromFields] : null); // WHAT: Pick the best available coordinate source for the marker.
-          if (!Array.isArray(latLngTuple)) return null; // WHAT: Abort markers without coordinates so map renders cleanly.
-          const lat = Number(latLngTuple[0]); // WHAT: Force latitude into numeric form for jsVectorMap consumption.
-          const lng = Number(latLngTuple[1]); // WHAT: Force longitude into numeric form for jsVectorMap consumption.
-          if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null; // WHAT: Skip entries with invalid numeric coordinates.
-          const preferredName = typeof entry?.name === 'string' && entry.name.trim().length > 0 ? entry.name.trim() : null; // WHAT: Capture explicit marker name when present.
-          const fallbackLabel = typeof entry?.label === 'string' && entry.label.trim().length > 0 ? entry.label.trim() : null; // WHAT: Use backend label fallback when explicit name absent.
-          const defaultLabel = `${lat.toFixed(2)}, ${lng.toFixed(2)}`; // WHAT: Generate coordinate-based label as last resort for readability.
-          const markerName = preferredName ?? fallbackLabel ?? defaultLabel; // WHAT: Pick the most descriptive label available for tooltips.
-          const explicitId = typeof entry?.id === 'string' ? entry.id : (typeof entry?.id === 'number' ? String(entry.id) : null); // WHAT: Use provided identifier when available for Vue keying.
-          const syntheticId = `${lat}-${lng}-${index}`; // WHAT: Build fallback identifier combining coordinates and index to ensure uniqueness.
-          const baseId = explicitId ?? syntheticId; // WHAT: Finalize marker identifier for stable rendering.
-          const style = typeof entry?.style === 'object' && entry.style !== null ? entry.style : undefined; // WHAT: Respect custom marker style (e.g., radius) supplied by store.
-          const dataPayload = typeof entry?.data === 'object' && entry.data !== null ? { ...entry.data } : {}; // WHAT: Clone ancillary data for safe downstream consumption.
-          if (typeof entry?.count !== 'undefined') { dataPayload.count = entry.count; } // WHAT: Inline density count metric for tooltips when count provided separately.
-          if (typeof entry?.asset_hub_id !== 'undefined') { (dataPayload as any).asset_hub_id = entry.asset_hub_id; } // WHAT: Surface asset hub id for tooltip + click drill-down.
+        .map((entry: any, index: number) => {
+          const explicitLatLng = Array.isArray(entry?.latLng) ? entry.latLng : null;
+          const latFromFields = typeof entry?.lat === 'number' ? entry.lat : (typeof entry?.lat === 'string' ? Number(entry.lat) : null);
+          const lngFromFields = typeof entry?.lng === 'number' ? entry.lng : (typeof entry?.lng === 'string' ? Number(entry.lng) : null);
+          const latLngTuple = explicitLatLng ?? (latFromFields !== null && lngFromFields !== null ? [latFromFields, lngFromFields] : null);
+          if (!Array.isArray(latLngTuple)) return null;
+          const lat = Number(latLngTuple[0]);
+          const lng = Number(latLngTuple[1]);
+          if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+          const preferredName = typeof entry?.name === 'string' && entry.name.trim().length > 0 ? entry.name.trim() : null;
+          const fallbackLabel = typeof entry?.label === 'string' && entry.label.trim().length > 0 ? entry.label.trim() : null;
+          const defaultLabel = `${lat.toFixed(2)}, ${lng.toFixed(2)}`;
+          const markerName = preferredName ?? fallbackLabel ?? defaultLabel;
+          const explicitId = typeof entry?.id === 'string' ? entry.id : (typeof entry?.id === 'number' ? String(entry.id) : null);
+          const syntheticId = `${lat}-${lng}-${index}`;
+          const baseId = explicitId ?? syntheticId;
+          const markerLifecycle = (entry?.lifecycle_status ?? entry?.asset_status ?? '').toString().trim().toUpperCase()
+          const statusFill = markerLifecycle === 'ACTIVE'
+            ? '#28a745'
+            : (markerLifecycle === 'LIQUIDATED' ? '#ffc107' : null)
+
+          const explicitStyle = typeof entry?.style === 'object' && entry.style !== null ? entry.style : undefined;
+          const style = explicitStyle ?? (statusFill ? {
+            initial: { fill: statusFill },
+            hover: { fill: statusFill },
+            selected: { fill: statusFill },
+            selectedHover: { fill: statusFill },
+          } : undefined);
+          const dataPayload = typeof entry?.data === 'object' && entry.data !== null ? { ...entry.data } : {};
+          if (typeof entry?.count !== 'undefined') { dataPayload.count = entry.count; }
+          if (typeof entry?.asset_hub_id !== 'undefined') { (dataPayload as any).asset_hub_id = entry.asset_hub_id; }
           if (typeof entry?.state === 'string') { (dataPayload as any).state = entry.state; }
           if (typeof entry?.city === 'string') { (dataPayload as any).city = entry.city; }
           if (typeof entry?.street_address === 'string') { (dataPayload as any).street_address = entry.street_address; }
-          const marker = {
-            latLng: [lat, lng] as [number, number], // WHAT: Provide coordinates in jsVectorMap format.
-            name: markerName, // WHAT: Attach resolved label to marker for tooltip display.
-            id: baseId, // WHAT: Attach identifier to help Vue track marker updates.
-            ...(style ? { style } : {}), // WHAT: Include style block only when defined to keep payload lean.
-            ...(Object.keys(dataPayload).length > 0 ? { data: dataPayload } : {}), // WHAT: Include data object only when it carries at least one property.
-          }; // WHAT: Compose normalized marker object required by BaseVectorMap.
-          return marker; // WHAT: Emit normalized marker for current entry.
+          if (typeof entry?.lifecycle_status === 'string') { (dataPayload as any).lifecycle_status = entry.lifecycle_status; }
+          return {
+            latLng: [lat, lng] as [number, number],
+            name: markerName,
+            id: baseId,
+            ...(style ? { style } : {}),
+            ...(Object.keys(dataPayload).length > 0 ? { data: dataPayload } : {}),
+          };
         })
-        .filter((marker: Marker | null): marker is Marker => marker !== null); // WHAT: Remove null placeholders while asserting type for TypeScript.
+        .filter((marker: Marker | null): marker is Marker => marker !== null);
     }
   }
 });
 </script>
 
 <style scoped>
-/* Hide jVectorMap zoom buttons */
 :deep(.jvectormap-zoomin),
 :deep(.jvectormap-zoomout) {
   display: none !important;
+}
+/* Ensure the SVG is centered within the injected jvm container */
+:deep(.jvm-container svg) {
+  display: block;
+  margin: 0 auto;
 }
 </style>

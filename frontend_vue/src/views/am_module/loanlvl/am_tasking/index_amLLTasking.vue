@@ -1360,6 +1360,15 @@ async function selectTrack(type: OutcomeType) {
     selectedOutcome.value = type
     await outcomesStore.ensureOutcome(hubId.value, type)
     visibleOutcomes.value[type] = true
+
+    if (type !== 'short_sale' && type !== 'delinquent') {
+      const dq = await outcomesStore.fetchOutcome(hubId.value, 'delinquent')
+      visibleOutcomes.value.delinquent = !!dq
+      if (!dq) {
+        outcomesStore.delinquentByHub[hubId.value] = null
+        outcomesStore.delinquentTasksByHub[hubId.value] = []
+      }
+    }
     
     // WHAT: Emit track added event for auto-refresh
     // WHY: Notify other components that new track was created

@@ -18,6 +18,7 @@ export interface AssetDispersionMarker { // WHAT: Strongly type the marker objec
   state?: string // WHAT: Two-letter state abbreviation used for aggregation in summaries.
   city?: string // WHAT: Optional city name for richer map tooltips.
   street_address?: string // WHAT: Optional street address for richer map tooltips.
+  lifecycle_status?: string | null // WHAT: Asset lifecycle status used for marker coloring (ACTIVE/LIQUIDATED).
 } // WHAT: Close AssetDispersionMarker interface declaration.
 
 export interface AssetDispersionQuery { // WHAT: Enumerate supported query params mirroring backend filter contract.
@@ -65,6 +66,7 @@ export const useAssetDispersionStore = defineStore('assetDispersion', () => { //
         const rawLabel = typeof marker.label === 'string' ? marker.label : ''
         const cityRaw = typeof marker.city === 'string' ? marker.city : ''
         const streetRaw = typeof marker.street_address === 'string' ? marker.street_address : ''
+        const lifecycle_status = typeof marker.lifecycle_status === 'string' ? marker.lifecycle_status : null
 
         const state = typeof marker.state === 'string' ? marker.state.strip?.() ?? marker.state : '' // WHAT: Cater for Python-provided strings while guarding against undefined.
         const normalizedState = typeof state === 'string' && state.trim().length > 0 ? state.trim().toUpperCase() : '' // WHAT: Normalize state abbreviation to uppercase for consistent grouping.
@@ -91,6 +93,7 @@ export const useAssetDispersionStore = defineStore('assetDispersion', () => { //
           state: normalizedState,
           city,
           street_address,
+          lifecycle_status,
         }
       }) // WHAT: Transform raw backend payload into strongly typed markers.
       markers.value = normalizedMarkers // WHAT: Store freshly retrieved markers in reactive state.

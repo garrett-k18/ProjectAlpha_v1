@@ -83,6 +83,22 @@ class AssetInventoryRowSerializer(serializers.Serializer):
         allow_null=True,
         help_text='Canonical master status from AssetDetails (ACTIVE/LIQUIDATED - displays as "Asset Master Status" with editable dropdown)'
     )
+    asset_class = serializers.SerializerMethodField(
+        help_text='Canonical asset class from AssetDetails (NPL, REO, PERFORMING) - only for Active loans'
+    )
+
+    def get_asset_class(self, obj):
+        """
+        Return the asset class only if the master status is ACTIVE.
+        
+        WHAT: Conditional retrieval of asset_class
+        WHY: User request - only show asset class tags for active loans
+        HOW: Check asset_hub.details.asset_status == 'ACTIVE'
+        """
+        details = getattr(obj.asset_hub, 'details', None)
+        if details and details.asset_status == 'ACTIVE':
+            return details.asset_class
+        return None
     lifecycle_status = serializers.CharField(
         source='_computed_lifecycle_status',
         read_only=True,

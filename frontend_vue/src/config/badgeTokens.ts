@@ -171,7 +171,7 @@ export const badgeToneMap: Record<BadgeToneKey, BadgeVisualConfig> = {
     ariaLabel: undefined,
   },
   warning: {
-    classes: 'bg-warning text-dark border-0',
+    classes: 'bg-warning text-white border-0',
     ariaLabel: undefined,
   },
   danger: {
@@ -226,11 +226,11 @@ export const badgeToneMap: Record<BadgeToneKey, BadgeVisualConfig> = {
     ariaLabel: 'Current delinquency status',
   },
   'delinquency-30': {
-    classes: 'bg-warning text-dark border-0 shadow-sm',
+    classes: 'bg-warning text-white border-0 shadow-sm',
     ariaLabel: 'Thirty days delinquent',
   },
   'delinquency-60': {
-    classes: 'bg-warning text-dark border-0 shadow-sm',
+    classes: 'bg-warning text-white border-0 shadow-sm',
     ariaLabel: 'Sixty days delinquent',
   },
   'delinquency-90': {
@@ -260,7 +260,7 @@ export const badgeToneMap: Record<BadgeToneKey, BadgeVisualConfig> = {
     ariaLabel: 'Multifamily property type',
   },
   'property-land': {
-    classes: 'bg-warning text-dark border-0',
+    classes: 'bg-warning text-white border-0',
     ariaLabel: 'Land property type',
   },
   'property-mixed-use': {
@@ -282,7 +282,7 @@ export const badgeToneMap: Record<BadgeToneKey, BadgeVisualConfig> = {
     ariaLabel: 'Liquidated lifecycle status',
   },
   'lifecycle-hold': {
-    classes: 'bg-warning text-dark border-0',
+    classes: 'bg-warning text-white border-0',
     ariaLabel: 'Hold or watch lifecycle status',
   },
   'lifecycle-default': {
@@ -485,7 +485,7 @@ export const propertyTypeEnumMap: Record<string, { label: string; color: string;
   'Manufactured': { label: 'Manufactured', color: 'bg-primary', title: 'Manufactured Home' },
   'Condo': { label: 'Condo', color: 'bg-info', title: 'Condominium' },
   '2-4 Family': { label: '2-4 Family', color: 'bg-success', title: '2-4 Family Property' },
-  'Land': { label: 'Land', color: 'bg-warning text-dark', title: 'Vacant Land' },
+  'Land': { label: 'Land', color: 'bg-warning text-white', title: 'Vacant Land' },
   'Multifamily 5+': { label: 'Multifamily 5+', color: 'bg-success', title: 'Multifamily 5+ Units' },
   'Single Family': { label: 'Single Family', color: 'bg-primary', title: 'Single Family Residence' },
   'Multi-Family': { label: 'Multi-Family', color: 'bg-success', title: 'Multi-Family Property' },
@@ -499,10 +499,10 @@ export const propertyTypeEnumMap: Record<string, { label: string; color: string;
 export const occupancyEnumMap: Record<string, { label: string; color: string; title: string }> = {
   'Vacant': { label: 'Vacant', color: 'bg-danger', title: 'Property is Vacant' },
   'Occupied': { label: 'Occupied', color: 'bg-success', title: 'Property is Occupied' },
-  'Unknown': { label: 'Occ. Unknown', color: 'bg-warning text-dark', title: 'Occupancy Status Unknown' },
+  'Unknown': { label: 'Occ. Unknown', color: 'bg-warning text-white', title: 'Occupancy Status Unknown' },
   'Owner Occupied': { label: 'Owner Occupied', color: 'bg-primary', title: 'Owner Occupied' },
   'Non-Owner Occupied': { label: 'Non-Owner Occupied', color: 'bg-info', title: 'Non-Owner Occupied' },
-  'Investment': { label: 'Investment', color: 'bg-warning text-dark', title: 'Investment Property' },
+  'Investment': { label: 'Investment', color: 'bg-warning text-white', title: 'Investment Property' },
 };
 
 /**
@@ -513,6 +513,7 @@ export const assetStatusEnumMap: Record<string, { label: string; color: string; 
   'NPL': { label: 'NPL', color: 'bg-danger', title: 'Non-Performing Loan' },
   'REO': { label: 'REO', color: 'bg-secondary', title: 'Real Estate Owned' },
   'PERF': { label: 'PERF', color: 'bg-success', title: 'Performing' },
+  'PERFORMING': { label: 'PERF', color: 'bg-success', title: 'Performing' },
   'RPL': { label: 'RPL', color: 'bg-info', title: 'Re-Performing Loan' },
 };
 
@@ -524,7 +525,7 @@ export const productTypeEnumMap: Record<string, { label: string; color: string; 
   'BPL': { label: 'BPL', color: 'bg-primary', title: 'Business Purpose Loan' },
   'FRM': { label: 'FRM', color: 'bg-success', title: 'Fixed Rate Mortgage' },
   'ARM': { label: 'ARM', color: 'bg-info', title: 'Adjustable Rate Mortgage' },
-  'HELOC': { label: 'HELOC', color: 'bg-warning text-dark', title: 'Home Equity Line of Credit' },
+  'HELOC': { label: 'HELOC', color: 'bg-warning text-white', title: 'Home Equity Line of Credit' },
   'Other': { label: 'Other', color: 'bg-secondary', title: 'Other Product Type' },
 };
 
@@ -591,15 +592,18 @@ export const modificationFlagEnumMap: Record<string, { label: string; color: str
 /**
  * AG Grid enum map for Active Tracks (outcome workflows)
  * EDIT: Add new track types for AG Grid here
+ * IMPORTANT: When adding a new backend track/task model, keep this list in sync with
+ * `projectalphav1/am_module/services/serv_am_assetInventory.py` (active_tracks/active_tasks).
  */
 export const activeTracksEnumMap: Record<string, { label: string; color: string; title: string }> = {
   'DIL': { label: 'DIL', color: 'bg-primary', title: 'Deed in Lieu' },
   'Modification': { label: 'Modification', color: 'bg-success', title: 'Loan Modification' },
   'REO': { label: 'REO', color: 'bg-info', title: 'Real Estate Owned' },
   'FC': { label: 'FC', color: 'bg-danger', title: 'Foreclosure Sale' },
-  'Short Sale': { label: 'Short Sale', color: 'bg-warning text-dark', title: 'Short Sale' },
+  'Short Sale': { label: 'Short Sale', color: 'bg-warning text-white', title: 'Short Sale' },
+  'Note Sale': { label: 'Note Sale', color: 'bg-secondary', title: 'Note Sale' },
   'Performing': { label: 'Performing', color: 'bg-success', title: 'Performing Track' },
-  'Delinquent': { label: 'Delinquent', color: 'bg-warning text-dark', title: 'Delinquent Track' },
+  'Delinquent': { label: 'Delinquent', color: 'bg-warning text-white', title: 'Delinquent Track' },
 };
 
 export const activeTasksColorMap: Record<string, string> = {
@@ -607,10 +611,10 @@ export const activeTasksColorMap: Record<string, string> = {
   'Modification': 'bg-success',
   'REO': 'bg-info',
   'FC': 'bg-danger',
-  'Short Sale': 'bg-warning',
+  'Short Sale': 'bg-warning text-white',
   'Note Sale': 'bg-secondary',
   'Performing': 'bg-success',
-  'Delinquent': 'bg-warning',
+  'Delinquent': 'bg-warning text-white',
 };
 
 /**

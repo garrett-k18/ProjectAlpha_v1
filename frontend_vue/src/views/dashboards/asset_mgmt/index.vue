@@ -8,34 +8,24 @@
       </b-col>
     </b-row>
 
-    <b-row>
-      <b-col xl="5" lg="6">
-        <Stats/>
-      </b-col>
-
-      <b-col xl="7" lg="6">
-        <Sales/>
-      </b-col>
-    </b-row>
-
-    <!-- Asset Management Data Grid placed directly below widgets -->
+    <!-- Asset Management Data Grid placed at the top -->
     <b-row>
       <b-col cols="12">
         <AssetGrid ref="assetGridRef" />
       </b-col>
     </b-row>
 
-    <b-row>
-      <b-col lg="5" class="d-flex">
-        <Revenue/>
-      </b-col>
-
+    <b-row class="mt-3 g-3">
       <b-col lg="7" class="d-flex">
         <AssetDispersion @marker-click="onMarkerClickFromMap" />
       </b-col>
+
+      <b-col lg="5" class="d-flex">
+        <AssetAllocation/>
+      </b-col>
     </b-row>
 
-    <b-row>
+    <b-row class="mt-3">
       <b-col xl="6" lg="12" class="order-lg-2 order-xl-1">
         <Products/>
       </b-col>
@@ -49,6 +39,12 @@
       </b-col>
     </b-row>
 
+    <b-row class="mt-3">
+      <b-col cols="12">
+        <Revenue/>
+      </b-col>
+    </b-row>
+
   </Layout>
 </template>
 
@@ -57,10 +53,9 @@ import { defineComponent } from 'vue';
 import Layout from "@/components/layouts/layout.vue";
 import Activity from "@/views/dashboards/asset_mgmt/activity.vue";
 import Products from "@/views/dashboards/asset_mgmt/products.vue";
-import Sales from "@/views/dashboards/asset_mgmt/sales.vue";
+import AssetAllocation from "@/views/dashboards/asset_mgmt/assetAllocation.vue";
 import Revenue from "@/views/dashboards/asset_mgmt/revenue.vue";
 import Projection from "@/views/dashboards/asset_mgmt/projection.vue";
-import Stats from "@/views/dashboards/asset_mgmt/stats.vue";
 import AssetDispersion from "@/views/dashboards/asset_mgmt/assetdispersion/assetdispersion.vue";
 import AssetGrid from "@/views/dashboards/asset_mgmt/asset-grid.vue";
 import DateRangePicker from "@/components/custom/date-range-picker.vue";
@@ -71,10 +66,9 @@ export default defineComponent({
     Layout,
     Activity,
     Products,
-    Sales,
+    AssetAllocation,
     Revenue,
     Projection,
-    Stats,
     AssetDispersion,
     AssetGrid,
     DateRangePicker

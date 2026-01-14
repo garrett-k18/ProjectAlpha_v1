@@ -3,7 +3,7 @@ Backfill geocoding for existing assets.
 
 This command geocodes all assets that don't have geocode data yet
 in their LlDataEnrichment records. It uses the Geocodio API to fetch lat/lng
-coordinates and census data (MSA, FIPS, school districts, etc.) for each asset's address.
+coordinates for each asset's address.
 
 Usage:
     python manage.py backfill_geocode [--limit N] [--dry-run]
@@ -12,7 +12,6 @@ Options:
     --limit N       Process only N assets (default: all)
     --dry-run       Show what would be geocoded without making API calls
     --chunk-size N  Number of addresses per batch (default: 1000)
-    --fields        Comma-separated Geocodio fields (default: census,school)
 
 Examples:
     # Dry run to see what would be geocoded
@@ -20,9 +19,6 @@ Examples:
     
     # Geocode first 100 assets
     python manage.py backfill_geocode --limit 100
-    
-    # Geocode all missing assets with custom fields
-    python manage.py backfill_geocode --fields census,school,timezone
 """
 from __future__ import annotations
 
@@ -33,8 +29,7 @@ from django.core.management.base import BaseCommand
 from django.db.models import Q
 
 from acq_module.models.model_acq_seller import SellerRawData
-from core.models import LlDataEnrichment
-from core.services.serv_co_geocoding import geocode_missing_assets
+from core.services.serv_co_geocoding import batch_geocode_row_ids
 
 logger = logging.getLogger(__name__)
 
@@ -60,21 +55,11 @@ class Command(BaseCommand):
             default=1000,
             help='Number of addresses to process per batch (default: 1000)',
         )
-        parser.add_argument(
-            '--fields',
-            type=str,
-            default='census,school',
-            help='Comma-separated Geocodio fields to request (default: census,school)',
-        )
 
     def handle(self, *args, **options):
         limit: Optional[int] = options.get('limit')
         dry_run: bool = options.get('dry_run', False)
         chunk_size: int = options.get('chunk_size', 1000)
-        fields_str: str = options.get('fields', 'census,school')
-        
-        # Parse fields
-        fields = [f.strip() for f in fields_str.split(',') if f.strip()]
 
         self.stdout.write(self.style.SUCCESS('=' * 80))
         self.stdout.write(self.style.SUCCESS('GEOCODE BACKFILL'))
@@ -88,9 +73,9 @@ class Command(BaseCommand):
         # HOW: Query SellerRawData with missing enrichment data
         
         assets_qs = SellerRawData.objects.filter(
-            Q(asset_hub__enrichment__isnull=True) |
-            Q(asset_hub__enrichment__geocode_lat__isnull=True) |
-            Q(asset_hub__enrichment__geocode_lng__isnull=True)
+            Q(asset_hub__enrichment__isnull=True)
+            | Q(asset_hub__enrichment__geocode_lat__isnull=True)
+            | Q(asset_hub__enrichment__geocode_lng__isnull=True)
         ).select_related('asset_hub')
         
         if limit:
@@ -104,7 +89,7 @@ class Command(BaseCommand):
         
         self.stdout.write(f'[INFO] Found {total_count} assets to geocode')
         self.stdout.write(f'[INFO] Chunk size: {chunk_size} addresses per batch')
-        self.stdout.write(f'[INFO] Geocodio fields: {", ".join(fields)}')
+        self.stdout.write('[INFO] Geocodio fields: none (lat/lng only)')
         
         if dry_run:
             self.stdout.write(self.style.WARNING('\n[DRY RUN] Showing first 10 assets that would be geocoded:'))
@@ -123,14 +108,8 @@ class Command(BaseCommand):
         self.stdout.write(f'[INFO] Using Geocodio API key from environment')
         
         try:
-            # WHAT: Call the existing geocode_missing_assets function
-            # WHY: This handles the Geocodio API calls and persists results
-            # HOW: Pass limit, chunk_size, and fields to the service
-            result = geocode_missing_assets(
-                limit=limit,
-                chunk_size=chunk_size,
-                fields=fields,
-            )
+            row_ids = list(assets_qs.values_list('pk', flat=True))
+            result = batch_geocode_row_ids(row_ids, chunk_size=chunk_size, fields=None)
             
             requested_rows = result.get('requested_rows', 0)
             unique_addresses = result.get('unique_addresses', 0)

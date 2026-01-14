@@ -88,6 +88,9 @@ def build_queryset(
         .prefetch_related("asset_hub__reo_tasks")  # Load all REO tasks in ONE query
         .prefetch_related("asset_hub__fc_tasks")  # Load all FC tasks in ONE query
         .prefetch_related("asset_hub__short_sale_tasks")  # Load all Short Sale tasks in ONE query
+        .prefetch_related("asset_hub__note_sale_tasks")  # Load all Note Sale tasks in ONE query
+        .prefetch_related("asset_hub__performing_tasks")  # Load all Performing tasks in ONE query
+        .prefetch_related("asset_hub__delinquent_tasks")  # Load all Delinquent tasks in ONE query
         .prefetch_related("asset_hub__servicer_loan_data")  # Load all servicer data in ONE query
         .prefetch_related("asset_hub__ammetrics")  # Load all AMMetrics in ONE query for delinquency status
         # Also prefetch the outcome models themselves (used by get_active_tracks)
@@ -96,6 +99,9 @@ def build_queryset(
         .select_related("asset_hub__reo_data")
         .select_related("asset_hub__fc_sale")
         .select_related("asset_hub__short_sale")
+        .select_related("asset_hub__note_sale")
+        .select_related("asset_hub__performing_track")
+        .select_related("asset_hub__delinquent_track")
         .annotate(
             seller_name=F("seller__name"),  # WHAT: Expose friendly name aliases to match legacy serializer fields
             trade_name=F("trade__trade_name"),
@@ -358,8 +364,15 @@ class AssetInventoryEnricher:
         if not hub:
             return None
 
+        # IMPORTANT:
+        # If you add a new track/task model in `am_module.models.model_am_tracksTasks`, you must update:
+        # - this `get_active_tracks()` / `get_active_tasks()` logic
+        # - queryset prefetches in `build_queryset()` (to avoid N+1 queries)
+        # - frontend badge mappings in `frontend_vue/src/config/badgeTokens.ts`
+        # Otherwise, new tracks/tasks may not appear in the AM grid.
+
         # WHAT: Map outcome model related names to their display labels
-        # WHY: These are the 1:1 outcome models that indicate active workflows
+        # WHY: These are the 1:1 outcome/track models that indicate active workflows
         # HOW: Check hasattr on hub for each related_name, collect labels for existing records
         tracks = []
         
@@ -378,6 +391,19 @@ class AssetInventoryEnricher:
         
         if hasattr(hub, 'short_sale') and getattr(hub, 'short_sale', None) is not None:
             tracks.append('Short Sale')
+
+        if hasattr(hub, 'note_sale') and getattr(hub, 'note_sale', None) is not None:
+            tracks.append('Note Sale')
+
+        if hasattr(hub, 'performing_track') and getattr(hub, 'performing_track', None) is not None:
+            tracks.append('Performing')
+
+        if hasattr(hub, 'delinquent_track') and getattr(hub, 'delinquent_track', None) is not None:
+            tracks.append('Delinquent')
+
+        delinquency_status = self.get_delinquency_status(obj)
+        if delinquency_status and str(delinquency_status).strip().lower() not in ('current', '0'):
+            tracks.append('Delinquent')
 
         # WHAT: Return comma-separated string or None for empty
         return ', '.join(tracks) if tracks else None
@@ -460,6 +486,42 @@ class AssetInventoryEnricher:
                     if ss_task.task_type:
                         label = ss_task.get_task_type_display() if hasattr(ss_task, 'get_task_type_display') else ss_task.task_type
                         tasks.append(f'Short Sale: {label}')
+            except Exception:
+                pass
+
+        # Note Sale Tasks - use prefetched data (NO new query)
+        if hasattr(hub, 'note_sale') and getattr(hub, 'note_sale', None) is not None:
+            try:
+                ns_tasks_list = list(hub.note_sale_tasks.all())  # Uses prefetched data
+                if ns_tasks_list:
+                    ns_task = max(ns_tasks_list, key=lambda t: t.created_at or '')
+                    if ns_task.task_type:
+                        label = ns_task.get_task_type_display() if hasattr(ns_task, 'get_task_type_display') else ns_task.task_type
+                        tasks.append(f'Note Sale: {label}')
+            except Exception:
+                pass
+
+        # Performing Tasks - use prefetched data (NO new query)
+        if hasattr(hub, 'performing_track') and getattr(hub, 'performing_track', None) is not None:
+            try:
+                perf_tasks_list = list(hub.performing_tasks.all())  # Uses prefetched data
+                if perf_tasks_list:
+                    perf_task = max(perf_tasks_list, key=lambda t: t.created_at or '')
+                    if perf_task.task_type:
+                        label = perf_task.get_task_type_display() if hasattr(perf_task, 'get_task_type_display') else perf_task.task_type
+                        tasks.append(f'Performing: {label}')
+            except Exception:
+                pass
+
+        # Delinquent Tasks - use prefetched data (NO new query)
+        if hasattr(hub, 'delinquent_track') and getattr(hub, 'delinquent_track', None) is not None:
+            try:
+                dq_tasks_list = list(hub.delinquent_tasks.all())  # Uses prefetched data
+                if dq_tasks_list:
+                    dq_task = max(dq_tasks_list, key=lambda t: t.created_at or '')
+                    if dq_task.task_type:
+                        label = dq_task.get_task_type_display() if hasattr(dq_task, 'get_task_type_display') else dq_task.task_type
+                        tasks.append(f'Delinquent: {label}')
             except Exception:
                 pass
 

@@ -148,7 +148,7 @@ const badges = computed(() => {
     if (b === null) return []
     // Allow overrides via cellRendererParams for color theming
     const yesColor = p?.colDef?.cellRendererParams?.booleanYesColor || p?.cellRendererParams?.booleanYesColor || 'bg-danger'
-    const noColor = p?.colDef?.cellRendererParams?.booleanNoColor || p?.cellRendererParams?.booleanNoColor || 'bg-warning text-dark'
+    const noColor = p?.colDef?.cellRendererParams?.booleanNoColor || p?.cellRendererParams?.booleanNoColor || 'bg-warning text-white'
     return [b
       ? { label: 'Yes', color: yesColor, title: 'True' }
       : { label: 'No', color: noColor, title: 'False' }]
@@ -166,8 +166,8 @@ const badges = computed(() => {
     if (found) {
       // Normalize label/color and force 'Default' to yellow for clarity
       const label = found.label ?? key
-      const color = found.color ?? 'bg-warning text-dark'
-      const adjustedColor = String(label).trim().toLowerCase() === 'default' ? 'bg-warning text-dark' : color
+      const color = found.color ?? 'bg-warning text-white'
+      const adjustedColor = String(label).trim().toLowerCase() === 'default' ? 'bg-warning text-white' : color
       return [{ label, color: adjustedColor, title: found.title ?? key }]
     }
     // NO FALLBACK: If enum value not in map, return empty array (show nothing)
@@ -179,7 +179,7 @@ const badges = computed(() => {
   if (b !== null) {
     return [b
       ? { label: 'Yes', color: 'bg-primary', title: 'True' }
-      : { label: 'No', color: 'bg-warning text-dark', title: 'False' }]
+      : { label: 'No', color: 'bg-warning text-white', title: 'False' }]
   }
   
   // NO FALLBACK: If no mode specified and not boolean, return empty array (show nothing)

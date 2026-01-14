@@ -74,6 +74,15 @@ export default {
           const lng = Array.isArray(coords) ? Number(coords[1]) : NaN
           if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
           const marker: any = { name: m?.name, coords: [lat, lng], id: m?.id }
+          if (m?.style && typeof m.style === 'object') {
+            const styleObj: any = m.style
+            if (styleObj.initial || styleObj.hover || styleObj.selected || styleObj.selectedHover) {
+              marker.style = styleObj
+            } else {
+              marker.style = { initial: styleObj }
+            }
+          }
+
           if (typeof m?.count !== 'undefined' || typeof m?.data !== 'undefined') {
             marker.data = { ...((m?.data && typeof m.data === 'object') ? m.data : {}), count: m?.count }
           }

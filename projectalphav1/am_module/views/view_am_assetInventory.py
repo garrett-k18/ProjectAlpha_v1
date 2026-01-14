@@ -311,31 +311,59 @@ class AssetInventoryViewSet(ViewSet):
 
 @api_view(['GET'])
 def asset_dashboard_stats(request):
-    """Return aggregate counts for Asset Management dashboard stats card.
+    """Return aggregate counts for Asset Management dashboard stats card and pie chart.
     
-    WHAT: Count boarded assets by master status (Active vs Liquidated)
-    WHY: Dashboard needs high-level metrics for portfolio overview
-    HOW: Query SellerRawData with BOARD status, group by AssetIdHub.asset_status
+    WHAT: Count boarded assets by master status (Active vs Liquidated) and Asset Class
+    WHY: Dashboard needs high-level metrics for portfolio overview and allocation charts
+    HOW: Query SellerRawData with BOARD status, group by AssetDetails fields
     """
-    active_assets_count = (
-        SellerRawData.objects
-        .filter(
-            trade__status=Trade.Status.BOARD,  # FIELD: acq_status references Trade.Status enum
-            asset_hub__details__asset_status=AssetDetails.AssetStatus.ACTIVE,  # FIELD: AssetDetails.asset_status (master status)
-        )
-        .count()
+    from django.db.models import Count
+
+    # 1. Overall master status counts (for top widgets)
+    master_counts = (
+        AssetDetails.objects
+        .filter(asset__acq_raw__trade__status=Trade.Status.BOARD)
+        .values('asset_status')
+        .annotate(count=Count('asset_id'))
     )
-    liquidated_assets_count = (
-        SellerRawData.objects
+    
+    counts_dict = {row['asset_status']: row['count'] for row in master_counts}
+    active_total = counts_dict.get(AssetDetails.AssetStatus.ACTIVE, 0)
+    liquidated_total = counts_dict.get(AssetDetails.AssetStatus.LIQUIDATED, 0)
+
+    # 2. Asset Class breakdown for ACTIVE assets (for pie chart)
+    # WHAT: NPL, PERFORMING, REO
+    class_counts = (
+        AssetDetails.objects
         .filter(
-            trade__status=Trade.Status.BOARD,  # FIELD: acq_status references Trade.Status enum
-            asset_hub__details__asset_status=AssetDetails.AssetStatus.LIQUIDATED,  # FIELD: AssetDetails.asset_status (master status)
+            asset__acq_raw__trade__status=Trade.Status.BOARD,
+            asset_status=AssetDetails.AssetStatus.ACTIVE
         )
-        .count()
+        .values('asset_class')
+        .annotate(count=Count('asset_id'))
     )
+
+    allocation = {
+        "NPL": 0,
+        "Performing": 0,
+        "REO": 0,
+        "Liquidated": liquidated_total
+    }
+
+    for row in class_counts:
+        cls = row['asset_class']
+        cnt = row['count']
+        if cls == AssetDetails.AssetClass.NPL:
+            allocation["NPL"] = cnt
+        elif cls == AssetDetails.AssetClass.REO:
+            allocation["REO"] = cnt
+        elif cls == AssetDetails.AssetClass.PERFORMING:
+            allocation["Performing"] = cnt
+
     payload = {
-        "active_assets": active_assets_count,
-        "liquidated_assets": liquidated_assets_count,
+        "active_assets": active_total,
+        "liquidated_assets": liquidated_total,
+        "allocation": allocation
     }
     return Response(payload)
 
@@ -359,21 +387,33 @@ def asset_geo_markers(request: Request):
     # WHY: Mirror AG Grid column filters (state, lifecycle status, etc.) so markers remain
     # perfectly in sync with the grid selection; initialize a typed dict to accumulate them.
     filters: dict[str, str] = {}
-    for key in ['state', 'asset_status', 'seller_name', 'trade_name', 'lifecycle_status']:
+    for key in ['state', 'seller_name', 'trade_name', 'lifecycle_status']:
         value = request.query_params.get(key)
         if value:
             filters[key] = value
+
+    lifecycle_param = request.query_params.get('asset_status') or request.query_params.get('lifecycle_status')
+    if lifecycle_param:
+        filters['lifecycle_status'] = lifecycle_param
     # HOW: Build the base queryset using shared service function to ensure identical joins
-    # and annotations, then constrain to assets flagged ACTIVE in the AssetDetails lifecycle enum.
+    # and annotations, then apply lifecycle filtering if requested.
     qs = build_queryset(q=q, filters=filters, ordering=None)
-    qs = qs.filter(asset_hub__details__asset_status=AssetDetails.AssetStatus.ACTIVE)
+
+    if lifecycle_param == AssetDetails.AssetStatus.ACTIVE:
+        qs = qs.filter(
+            Q(asset_hub__details__asset_status=AssetDetails.AssetStatus.ACTIVE)
+            | Q(asset_hub__details__isnull=True)
+        )
+    elif lifecycle_param == AssetDetails.AssetStatus.LIQUIDATED:
+        qs = qs.filter(asset_hub__details__asset_status=AssetDetails.AssetStatus.LIQUIDATED)
     # WHAT: Pull related enrichment + metadata up front to avoid N+1 lookups while iterating.
-    qs = qs.select_related('asset_hub__enrichment', 'asset_hub', 'seller', 'trade')
+    qs = qs.select_related('asset_hub__enrichment', 'asset_hub__details', 'asset_hub', 'seller', 'trade')
     # WHY: Emit one marker per asset record so the frontend renders individual pins rather than clustered aggregates.
     markers = []
     for row in qs:
         hub = getattr(row, 'asset_hub', None)
         enrichment = getattr(hub, 'enrichment', None) if hub is not None else None
+        details = getattr(hub, 'details', None) if hub is not None else None
         lat = getattr(enrichment, 'geocode_lat', None)
         lng = getattr(enrichment, 'geocode_lng', None)
         if lat is None or lng is None:
@@ -389,6 +429,9 @@ def asset_geo_markers(request: Request):
             "label": label,  # WHAT: Provide human-readable location text when available.
             "count": 1,  # WHAT: Maintain count attribute for backwards compatibility with existing UI expectations.
             "state": (row.state or "").strip(),  # WHAT: Include state abbreviation for frontend aggregation (docs reviewed: https://docs.djangoproject.com/en/5.0/ref/models/instances/#field-access for safe field access).
+            "city": (row.city or "").strip(),
+            "street_address": (row.street_address or "").strip(),
+            "lifecycle_status": getattr(details, 'asset_status', None) if details is not None else None,
         })
     payload = {
         "markers": markers,

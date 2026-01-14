@@ -5,7 +5,9 @@
 # HOW: Filter tasks by completion status based on task_type values
 # ============================================================
 
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Type
+
+from django.db import transaction
 from am_module.models.model_am_amData import (
     FCTask,
     REOtask,
@@ -24,6 +26,33 @@ from am_module.models.model_am_amData import (
     PerformingTrack,
     DelinquentTrack,
 )
+
+
+def enforce_track_exclusivity_after_activation(*, created_model: Type, asset_hub) -> None:
+    """Enforce AM track exclusivity rules after a track is activated.
+
+    Current rule:
+    - Delinquent cannot be active at the same time as any other track except Short Sale.
+
+    Implementation note:
+    - DelinquentTrack is currently a 1:1 record with no status/end_date fields.
+      To "end" Delinquent, we delete the DelinquentTrack and its tasks.
+    """
+    if created_model in (ShortSale, DelinquentTrack):
+        return
+
+    if asset_hub is None:
+        return
+
+    with transaction.atomic():
+        try:
+            DelinquentTask.objects.filter(asset_hub=asset_hub).delete()
+        except Exception:
+            pass
+        try:
+            DelinquentTrack.objects.filter(asset_hub=asset_hub).delete()
+        except Exception:
+            pass
 
 
 def get_task_metrics(hub_id: int) -> Dict[str, Any]:

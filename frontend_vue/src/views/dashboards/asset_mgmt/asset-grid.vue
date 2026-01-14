@@ -6,7 +6,7 @@
   -->
   <div class="card" ref="cardRef" :class="{ 'fullwindow-card': isFullWindow }">
     <div class="d-flex card-header justify-content-between align-items-center">
-      <h4 class="header-title">Asset Inventory</h4>
+      <h4 class="header-title mb-0">Asset Inventory</h4>
       <div class="d-flex align-items-center gap-2">
         <!-- Fullscreen toggle to mirror acquisitions experience -->
         <button
@@ -249,10 +249,10 @@ const cols: Record<string, ColDef> = {
     },
   },
   trade: { headerName: 'Trade', field: 'trade_name', cellClass: 'text-start' },
-  // FIELD: asset_status → Renamed display as "Asset Class" and moved to right of Trade (unpinned)
+  // FIELD: asset_class → New backfilled class from AssetDetails (NPL, REO, PERFORMING)
   assetClass: {
     headerName: 'Asset Class',
-    field: 'asset_status',  // Backend field: asset_status (SellerRawData)
+    field: 'asset_class',  // Backend field: asset_class (AssetDetails)
     cellRenderer: BadgeCell as any,
     cellRendererParams: {
       mode: 'enum',
@@ -273,7 +273,7 @@ const cols: Record<string, ColDef> = {
       mode: 'enum',
       enumMap: {
         'ACTIVE': { label: 'Active', color: 'bg-success', title: 'Active' },
-        'LIQUIDATED': { label: 'Liquidated', color: 'bg-warning text-dark', title: 'Liquidated' },
+        'LIQUIDATED': { label: 'Liquidated', color: 'bg-warning text-white', title: 'Liquidated' },
       },
     },
   },
@@ -583,9 +583,13 @@ function onModalShown(): void {
 }
 function onModalHidden(): void {
   document.removeEventListener('keydown', onKeydown as any)
+  const shouldRefresh = selectedId.value != null
   selectedId.value = null
   selectedRow.value = null
   selectedAddr.value = null
+  if (shouldRefresh) {
+    fetchRows()
+  }
 }
 function onKeydown(e: KeyboardEvent): void {
   if (e.ctrlKey && (e.key === 'Enter' || e.code === 'Enter')) {
@@ -686,7 +690,7 @@ const bodyOverflowStack = ref<number>(0) // WHAT: Counter to manage document bod
 const gridStyle = computed(() => (
   isFullWindow.value
     ? { width: '100%', height: '100%' } // WHAT: Stretch grid to fill available space when in full window mode
-    : { width: '100%', height: '420px' } // WHAT: Default fixed height inside dashboard layout
+    : { width: '100%', height: '700px' } // WHAT: Default fixed height inside dashboard layout
 ))
 
 function updateGridSize(): void {

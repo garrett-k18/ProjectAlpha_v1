@@ -31,6 +31,7 @@ from am_module.models.model_am_amData import (
 )
 from am_module.models.model_am_dil import HeirContact
 from core.models.model_core_notification import Notification
+from am_module.services.serv_am_tasking import enforce_track_exclusivity_after_activation
 from am_module.serializers.serial_am_outcomes import (
     REODataSerializer, REOTaskSerializer,
     FCSaleSerializer, FCTaskSerializer,
@@ -97,6 +98,15 @@ class _OutcomeBaseViewSet(mixins.ListModelMixin,
                 tasks_rel.all().delete()
             self.perform_destroy(instance)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def perform_create(self, serializer):
+        obj = serializer.save()
+
+        created_model = getattr(getattr(serializer, 'Meta', None), 'model', None)
+        enforce_track_exclusivity_after_activation(
+            created_model=created_model,
+            asset_hub=getattr(obj, 'asset_hub', None),
+        )
 
 
 class REODataViewSet(_OutcomeBaseViewSet):

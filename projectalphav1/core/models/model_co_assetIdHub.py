@@ -148,6 +148,15 @@ class AssetDetails(models.Model):
         # WHAT: Skip auto-inference of is_commercial
         # WHY: Allow manual control without automatic validation
         # NOTE: Removed auto-inference logic - set is_commercial manually if needed
+        if not self.asset_class:
+            acq_raw = getattr(self.asset, 'acq_raw', None)
+            raw_status = getattr(acq_raw, 'asset_status', None)
+            if raw_status == 'NPL':
+                self.asset_class = self.AssetClass.NPL
+            elif raw_status == 'REO':
+                self.asset_class = self.AssetClass.REO
+            elif raw_status in {'PERF', 'RPL'}:
+                self.asset_class = self.AssetClass.PERFORMING
         super().save(*args, **kwargs)
 
     def _infer_is_commercial(self) -> bool:
