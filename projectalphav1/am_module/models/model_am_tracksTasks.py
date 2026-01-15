@@ -1510,10 +1510,10 @@ class DelinquentTask(models.Model):
     """Delinquent workflow task linked to a `DelinquentTrack` record."""
 
     class TaskType(models.TextChoices):
-        DQ_30 = "dq_30", "30 Days Delinquent"
-        DQ_60 = "dq_60", "60 Days Delinquent"
-        DQ_90 = "dq_90", "90 Days Delinquent"
-        DQ_120_PLUS = "dq_120_plus", "120+ Days Delinquent"
+        DQ_30 = "dq_30", "30 DLQ"
+        DQ_60 = "dq_60", "60 DLQ"
+        DQ_90 = "dq_90", "90 DLQ"
+        DQ_120_PLUS = "dq_120_plus", "120+ DLQ"
         LOSS_MIT = "loss_mit", "Loss Mit"
         FC_DIL = "fc_dil", "FC/DIL"
 

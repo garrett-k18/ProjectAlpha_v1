@@ -113,7 +113,7 @@
     dialog-class="modal-dialog-centered"
     hide-footer
   >
-    <PipelineWidget />
+    <PipelineWidget @open-asset="onOpenAssetFromPipeline" />
   </b-modal>
 
   <b-modal
@@ -1109,6 +1109,15 @@ export default {
         selectedRow: this.selectedRow,
         selectedAddr: this.selectedAddr
       });
+      this.showAssetModal = true
+    },
+
+    onOpenAssetFromPipeline(payload: { id: string | number; row: any; addr?: string }): void {
+      console.log('[Home Dashboard] onOpenAssetFromPipeline called', payload);
+      this.selectedId = payload.id
+      this.selectedRow = payload.row || null
+      this.selectedAddr = payload.addr || null
+      this.showPipelineModal = false
       this.showAssetModal = true
     },
 

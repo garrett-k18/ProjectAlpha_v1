@@ -245,9 +245,6 @@ class ServicerCommentDataAdmin(admin.ModelAdmin):
         'additional_notes',
         'asset_hub__sellertape_id',
         'asset_hub__servicer_id',
-        'asset_hub__am_boarded__street_address',
-        'asset_hub__am_boarded__city',
-        'asset_hub__am_boarded__state',
     )
     readonly_fields = ('created_at', 'updated_at')
     ordering = ('-id',)

@@ -23,38 +23,212 @@
     </div>
 
     <div class="card-body pt-0">
-      <!-- Controls row placed directly under header, aligned left -->
-      <div class="d-flex justify-content-between flex-wrap gap-2 mb-2">
-        <!-- Quick Filter on the left -->
-        <div class="input-group input-group-sm" style="width: 260px; max-width: 100%;">
-          <span class="input-group-text"><i class="mdi mdi-magnify"></i></span>
-          <input
-            v-model="quickFilter"
-            type="text"
-            class="form-control"
-            placeholder="Quick filter..."
-            aria-label="Quick filter"
-          />
+      <!-- All filters in one row -->
+      <div class="d-flex justify-content-between flex-wrap gap-2 mb-2 align-items-center">
+        <!-- Left side: Quick filter + Dropdown filters -->
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+          <!-- Quick Filter -->
+          <div class="input-group input-group-sm" style="width: 200px;">
+            <span class="input-group-text"><i class="mdi mdi-magnify"></i></span>
+            <input
+              v-model="quickFilter"
+              type="text"
+              class="form-control"
+              placeholder="Quick filter..."
+              aria-label="Quick filter"
+            />
+            <button
+              v-if="quickFilter"
+              class="btn btn-light"
+              type="button"
+              title="Clear"
+              @click="quickFilter = ''"
+            >
+              <i class="mdi mdi-close"></i>
+            </button>
+          </div>
+
+          <!-- Trade Name Filter (Multi-select) -->
+          <div class="dropdown" style="position: relative;">
+            <button 
+              class="btn btn-sm btn-outline-secondary dropdown-toggle" 
+              type="button" 
+              @click="showTradeDropdown = !showTradeDropdown"
+              style="min-width: 120px;"
+            >
+              Trade{{ selectedTrades.length > 0 ? ` (${selectedTrades.length})` : '' }}
+            </button>
+            <div 
+              v-if="showTradeDropdown" 
+              class="dropdown-menu show p-2" 
+              style="max-height: 300px; overflow-y: auto; min-width: 200px;"
+              @click.stop
+            >
+              <div v-for="trade in uniqueTrades" :key="trade" class="form-check">
+                <input 
+                  class="form-check-input" 
+                  type="checkbox" 
+                  :id="`trade-${trade}`"
+                  :value="trade"
+                  v-model="selectedTrades"
+                  @change="applyFilters"
+                />
+                <label class="form-check-label small" :for="`trade-${trade}`">
+                  {{ trade }}
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Seller Name Filter (Multi-select) -->
+          <div class="dropdown" style="position: relative;">
+            <button 
+              class="btn btn-sm btn-outline-secondary dropdown-toggle" 
+              type="button" 
+              @click="showSellerDropdown = !showSellerDropdown"
+              style="min-width: 120px;"
+            >
+              Seller{{ selectedSellers.length > 0 ? ` (${selectedSellers.length})` : '' }}
+            </button>
+            <div 
+              v-if="showSellerDropdown" 
+              class="dropdown-menu show p-2" 
+              style="max-height: 300px; overflow-y: auto; min-width: 200px;"
+              @click.stop
+            >
+              <div v-for="seller in uniqueSellers" :key="seller" class="form-check">
+                <input 
+                  class="form-check-input" 
+                  type="checkbox" 
+                  :id="`seller-${seller}`"
+                  :value="seller"
+                  v-model="selectedSellers"
+                  @change="applyFilters"
+                />
+                <label class="form-check-label small" :for="`seller-${seller}`">
+                  {{ seller }}
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Fund/Partnership Filter (Multi-select) -->
+          <div class="dropdown" style="position: relative;">
+            <button 
+              class="btn btn-sm btn-outline-secondary dropdown-toggle" 
+              type="button" 
+              @click="showFundDropdown = !showFundDropdown"
+              style="min-width: 120px;"
+            >
+              Fund{{ selectedFunds.length > 0 ? ` (${selectedFunds.length})` : '' }}
+            </button>
+            <div 
+              v-if="showFundDropdown" 
+              class="dropdown-menu show p-2" 
+              style="max-height: 300px; overflow-y: auto; min-width: 200px;"
+              @click.stop
+            >
+              <div v-for="fund in uniqueFunds" :key="fund" class="form-check">
+                <input 
+                  class="form-check-input" 
+                  type="checkbox" 
+                  :id="`fund-${fund}`"
+                  :value="fund"
+                  v-model="selectedFunds"
+                  @change="applyFilters"
+                />
+                <label class="form-check-label small" :for="`fund-${fund}`">
+                  {{ fund }}
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Active Tracks Filter (Multi-select) -->
+          <div class="dropdown" style="position: relative;">
+            <button 
+              class="btn btn-sm btn-outline-secondary dropdown-toggle" 
+              type="button" 
+              @click="showTracksDropdown = !showTracksDropdown"
+              style="min-width: 120px;"
+            >
+              Tracks{{ selectedTracks.length > 0 ? ` (${selectedTracks.length})` : '' }}
+            </button>
+            <div 
+              v-if="showTracksDropdown" 
+              class="dropdown-menu show p-2" 
+              style="max-height: 300px; overflow-y: auto; min-width: 200px;"
+              @click.stop
+            >
+              <div v-for="track in uniqueTracks" :key="track" class="form-check">
+                <input 
+                  class="form-check-input" 
+                  type="checkbox" 
+                  :id="`track-${track}`"
+                  :value="track"
+                  v-model="selectedTracks"
+                  @change="applyFilters"
+                />
+                <label class="form-check-label small" :for="`track-${track}`">
+                  {{ track }}
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Clear Filters Button -->
           <button
-            v-if="quickFilter"
-            class="btn btn-light"
+            v-if="selectedTrades.length > 0 || selectedSellers.length > 0 || selectedFunds.length > 0 || selectedTracks.length > 0 || activeSmartFilter"
+            class="btn btn-sm btn-light"
             type="button"
-            title="Clear"
-            @click="quickFilter = ''"
+            title="Clear all filters"
+            @click="clearAllFilters"
           >
-            <i class="mdi mdi-close"></i>
+            <i class="mdi mdi-filter-remove"></i>
           </button>
         </div>
 
-        <!-- View dropdown on the right -->
-        <div class="d-flex align-items-center gap-2">
-          <label for="viewSelect" class="small mb-0">View</label>
-          <select id="viewSelect" class="form-select form-select-sm" v-model="activeView" @change="applyView">
-            <option value="snapshot">Snapshot</option>
-            <option value="performance">Performance</option>
-            <option value="servicing">Servicing</option>
-            <option value="all">All</option>
-          </select>
+        <!-- Right side: Smart Filter Buttons + View -->
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+          <!-- Smart Filter Buttons -->
+          <button
+            class="btn btn-sm"
+            :class="activeSmartFilter === 'active_tracks' ? 'btn-primary' : 'btn-outline-primary'"
+            type="button"
+            title="Show assets with active AM tracks"
+            @click="toggleSmartFilter('active_tracks')"
+          >
+            <i class="mdi mdi-chart-timeline-variant"></i> Active
+          </button>
+          <button
+            class="btn btn-sm"
+            :class="activeSmartFilter === 'delinquent' ? 'btn-warning' : 'btn-outline-warning'"
+            type="button"
+            title="Show delinquent assets"
+            @click="toggleSmartFilter('delinquent')"
+          >
+            <i class="mdi mdi-alert"></i> DQ
+          </button>
+          <button
+            class="btn btn-sm"
+            :class="activeSmartFilter === 'high_value' ? 'btn-success' : 'btn-outline-success'"
+            type="button"
+            title="Show high-value assets (>$100k)"
+            @click="toggleSmartFilter('high_value')"
+          >
+            <i class="mdi mdi-currency-usd"></i> High $
+          </button>
+
+          <!-- View dropdown -->
+          <div class="d-flex align-items-center gap-1">
+            <label for="viewSelect" class="small mb-0 text-nowrap">View:</label>
+            <select id="viewSelect" class="form-select form-select-sm" v-model="activeView" @change="applyView" style="min-width: 100px;">
+              <option value="snapshot">Snapshot</option>
+              <option value="performance">Performance</option>
+              <option value="servicing">Servicing</option>
+              <option value="all">All</option>
+            </select>
+          </div>
         </div>
       </div>
       <!-- AG Grid with Quartz theme and consistent height -->
@@ -66,7 +240,8 @@
         :rowData="rowData"
         :columnDefs="columnDefs"
         :defaultColDef="defaultColDef"
-        :quickFilterText="quickFilter"
+        :isExternalFilterPresent="isExternalFilterPresent"
+        :doesExternalFilterPass="doesExternalFilterPass"
         :rowSelection="{ mode: 'multiRow', checkboxes: false, headerCheckbox: false, enableClickSelection: true }"
         :animateRows="true"
         :loading="loading"
@@ -155,7 +330,7 @@
 import { AgGridVue } from 'ag-grid-vue3'
 import { themeQuartz } from 'ag-grid-community'
 import type { GridApi, GridReadyEvent, ColDef, ValueFormatterParams } from 'ag-grid-community'
-import { ref, computed, nextTick, watch, onBeforeUnmount } from 'vue'
+import { ref, computed, nextTick, watch, onBeforeUnmount, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { BModal } from 'bootstrap-vue-next'
 import LoanLevelIndex from '@/views/am_module/loanlvl_index.vue'
@@ -166,6 +341,7 @@ import http from '@/lib/http'
 // activeTracksEnumMap: Badge styling for active_tracks field (DIL, Modification, REO, FC, Short Sale)
 // activeTasksColorMap: Color mapping for active_tasks field based on outcome type prefix
 import { propertyTypeEnumMap, occupancyEnumMap, assetStatusEnumMap, activeTracksEnumMap, activeTasksColorMap } from '@/config/badgeTokens'
+import { getAssetMasterStatusEnumMap } from '@/config/categoryColors'
 
 // Props for optional filtering (overrides URL query params)
 const props = defineProps<{
@@ -271,10 +447,7 @@ const cols: Record<string, ColDef> = {
     cellRenderer: BadgeCell as any,  // WHAT: Render as badge with color coding
     cellRendererParams: {
       mode: 'enum',
-      enumMap: {
-        'ACTIVE': { label: 'Active', color: 'bg-success', title: 'Active' },
-        'LIQUIDATED': { label: 'Liquidated', color: 'bg-warning text-white', title: 'Liquidated' },
-      },
+      enumMap: getAssetMasterStatusEnumMap(), // ⚠️ EDIT COLORS IN: categoryColors.ts → ASSET_MASTER_STATUS_COLORS
     },
   },
   // FIELD: active_tracks → Comma-separated list of active outcome workflows (DIL, Modification, REO, FC, Short Sale)
@@ -645,6 +818,23 @@ const sortExpr = ref<string>('')
 // Quick filter state bound to the grid's quickFilterText option
 const quickFilter = ref<string>('')
 
+// Enhanced filter state (multi-select arrays)
+const selectedTrades = ref<string[]>([])
+const selectedSellers = ref<string[]>([])
+const selectedFunds = ref<string[]>([])
+const selectedTracks = ref<string[]>([])  // Active track types filter
+const activeSmartFilter = ref<string>('')
+const uniqueTrades = ref<string[]>([])
+const uniqueSellers = ref<string[]>([])
+const uniqueFunds = ref<string[]>([])
+const uniqueTracks = ref<string[]>([])  // Available track types
+
+// Dropdown visibility state
+const showTradeDropdown = ref<boolean>(false)
+const showSellerDropdown = ref<boolean>(false)
+const showFundDropdown = ref<boolean>(false)
+const showTracksDropdown = ref<boolean>(false)
+
 // Number formatting helpers (consistent with acquisitions)
 function currencyFormatter(params: ValueFormatterParams): string {
   const v = params.value
@@ -738,9 +928,49 @@ function onGridReady(e: GridReadyEvent) {
     pageSize.value = pageSizeSelection.value
   }
   
+  // WHAT: Load filter options from entire dataset (not just current page)
+  // WHY: Dropdowns need to show all available values across all assets
+  fetchFilterOptions()
+  
   // WHAT: Don't call updateGridSize here - let it happen after data loads in fetchRows
   // WHY: Autosizing before data loads causes columns to size based only on headers, not content
   fetchRows()
+}
+
+// AG Grid external filter functions for smart filters
+function isExternalFilterPresent(): boolean {
+  return activeSmartFilter.value !== ''
+}
+
+function doesExternalFilterPass(node: any): boolean {
+  if (!activeSmartFilter.value) return true
+  
+  const row = node.data
+  if (!row) return false
+  
+  switch (activeSmartFilter.value) {
+    case 'active_tracks':
+      // Show only assets with active AM tracks
+      return !!(row.active_tracks && row.active_tracks.trim())
+    
+    case 'delinquent':
+      // Show only delinquent assets (check delinquency_status or active_tracks contains 'Delinquent')
+      const hasDelinquentStatus = row.delinquency_status && 
+        String(row.delinquency_status).toLowerCase() !== 'current' && 
+        String(row.delinquency_status) !== '0'
+      const hasDelinquentTrack = row.active_tracks && 
+        String(row.active_tracks).toLowerCase().includes('delinquent')
+      return hasDelinquentStatus || hasDelinquentTrack
+    
+    case 'high_value':
+      // Show only high-value assets (current balance > $100k or ARV > $100k)
+      const currentBalance = row.servicer_loan_data?.current_balance || 0
+      const arv = row.internal_initial_uw_arv_value || row.seller_arv_value || 0
+      return currentBalance > 100000 || arv > 100000
+    
+    default:
+      return true
+  }
 }
 
 function toggleFullWindow(): void {
@@ -787,16 +1017,21 @@ async function fetchRows(): Promise<void> {
     if (sortExpr.value) params.sort = sortExpr.value
     
     // Apply filters: props take precedence over URL query params
-    const tradeName = props.filterTradeName || route.value.query.trade_name
-    const sellerName = props.filterSellerName || route.value.query.seller_name
+    const tradeName = props.filterTradeName || (selectedTrades.value.length > 0 ? selectedTrades.value.join(',') : '') || route.value.query.trade_name
+    const sellerName = props.filterSellerName || (selectedSellers.value.length > 0 ? selectedSellers.value.join(',') : '') || route.value.query.seller_name
+    const fundName = (selectedFunds.value.length > 0 ? selectedFunds.value.join(',') : '') || route.value.query.fund_name
+    const trackTypes = (selectedTracks.value.length > 0 ? selectedTracks.value.join(',') : '') || route.value.query.active_tracks
     if (tradeName) params.trade_name = tradeName
     if (sellerName) params.seller_name = sellerName
+    if (fundName) params.fund_name = fundName
+    if (trackTypes) params.active_tracks = trackTypes
     if (props.filterActiveOnly) params.lifecycle_status = 'ACTIVE'
     
     const { data } = await http.get('/am/assets/', { params })
     // DRF pagination: { count, next, previous, results }
     totalCount.value = typeof data?.count === 'number' ? data.count : null
     rowData.value = Array.isArray(data?.results) ? data.results : []
+    
     if (totalCount.value != null && pageSize.value > 0) {
       totalPages.value = Math.max(1, Math.ceil(totalCount.value / pageSize.value))
     } else {
@@ -908,21 +1143,98 @@ watch(quickFilter, () => {
 function onSortChanged(): void {
   const api: any = gridApi.value
   if (!api) return
-  const sortModels = api.getColumnState?.().filter((c: any) => c.sort)
-  if (!sortModels || sortModels.length === 0) {
+  const sortModel = api.getColumnState?.()?.filter((c: any) => c.sort != null) || []
+  if (sortModel.length === 0) {
     sortExpr.value = ''
-    fetchRows()
     return
   }
-  // Exclude derived 'address' from server-side sorting; let grid sort client-side for it
-  const serverSorts = sortModels
-    .filter((c: any) => c.colId !== 'address')
-    .map((c: any) => (c.sort === 'desc' ? `-${c.colId}` : c.colId))
-  sortExpr.value = serverSorts.join(',')
-  if (serverSorts.length > 0) {
-    fetchRows()
+  const parts = sortModel.map((c: any) => {
+    const field = c.colId
+    const dir = c.sort === 'desc' ? '-' : ''
+    return `${dir}${field}`
+  })
+  sortExpr.value = parts.join(',')
+}
+
+// Fetch unique filter values from backend API (entire dataset, not just current page)
+async function fetchFilterOptions(): Promise<void> {
+  try {
+    const { data } = await http.get('/am/assets/filter_options/')
+    uniqueTrades.value = data.trades || []
+    uniqueSellers.value = data.sellers || []
+    uniqueFunds.value = data.funds || []
+    uniqueTracks.value = data.tracks || []
+  } catch (err) {
+    console.error('Failed to fetch filter options:', err)
+    // Fallback to empty arrays if API fails
+    uniqueTrades.value = []
+    uniqueSellers.value = []
+    uniqueFunds.value = []
+    uniqueTracks.value = []
   }
 }
+
+// Apply dropdown filters
+function applyFilters(): void {
+  page.value = 1  // Reset to first page when filtering
+  fetchRows()
+}
+
+// Toggle smart filter buttons
+function toggleSmartFilter(filterType: string): void {
+  // Toggle off if clicking the same filter
+  if (activeSmartFilter.value === filterType) {
+    activeSmartFilter.value = ''
+  } else {
+    activeSmartFilter.value = filterType
+  }
+  applySmartFilter()
+}
+
+// Apply smart filter logic using AG Grid's external filter
+function applySmartFilter(): void {
+  const api = gridApi.value
+  if (!api) return
+  
+  // Tell AG Grid to re-run filtering
+  api.onFilterChanged()
+}
+
+// Clear all filters
+function clearAllFilters(): void {
+  selectedTrades.value = []
+  selectedSellers.value = []
+  selectedFunds.value = []
+  selectedTracks.value = []
+  activeSmartFilter.value = ''
+  page.value = 1
+  fetchRows()
+}
+
+// Watch for external filter changes and apply smart filter logic
+watch(activeSmartFilter, () => {
+  const api = gridApi.value
+  if (api) {
+    api.onFilterChanged()
+  }
+})
+
+// Close dropdowns when clicking outside
+onMounted(() => {
+  const handleClickOutside = (event: MouseEvent) => {
+    const target = event.target as HTMLElement
+    if (!target.closest('.dropdown')) {
+      showTradeDropdown.value = false
+      showSellerDropdown.value = false
+      showFundDropdown.value = false
+      showTracksDropdown.value = false
+    }
+  }
+  document.addEventListener('click', handleClickOutside)
+  onUnmounted(() => {
+    document.removeEventListener('click', handleClickOutside)
+  })
+})
 
 // WHAT: Keep AG Grid overlay messaging synchronized with dataset size (loading handled by :loading prop in v32+)
 // WHY: Display appropriate "No assets found" message when dataset is empty

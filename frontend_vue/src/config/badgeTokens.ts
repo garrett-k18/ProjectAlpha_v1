@@ -9,9 +9,45 @@
  * WHY: Eliminates dual styling sources and provides easy maintenance
  * HOW: Centralized variables + mappings + helper functions
  * 
+ * ⚠️ IMPORTANT COLOR RULES:
+ * ========================
+ * 1. ALL COLORS MUST COME FROM colorPalette.ts
+ * 2. DO NOT use hardcoded hex values (e.g., '#FF0000')
+ * 3. Use STATUS_COLORS or TAG_COLORS constants
+ * 4. Use helper functions: getStatusColor(), getTagColor(), createPaletteBadge()
+ * 
+ * ✅ CORRECT Examples:
+ * - inlineStyles: `background-color: ${STATUS_COLORS.success};`
+ * - inlineStyles: `background-color: ${getTagColor('clay')};`
+ * - createPaletteBadge(STATUS_COLORS.warning, 'My badge')
+ * 
+ * ❌ WRONG Examples:
+ * - inlineStyles: 'background-color: #FF0000;'  // Hardcoded hex
+ * - inlineStyles: 'background-color: red;'      // Color name
+ * 
  * Documentation: https://hyperui.dev/components/badges
  * ============================================================================
  */
+
+import {
+  STATUS_COLORS,
+  TAG_COLORS,
+  getStatusColor,
+  getTagColor,
+  COLOR_INFO_TEAL,
+  COLOR_MUTED_PLUM,
+  COLOR_STEEL_TEAL,
+  COLOR_SLATE_TEAL,
+  COLOR_INDIGO,
+  COLOR_DUSTY_LAVENDER,
+} from './colorPalette';
+import {
+  getPropertyTypeEnumMap,
+  getAssetMasterStatusEnumMap,
+  getLoanPerformanceEnumMap,
+  getAssetPipelineTrackEnumMap,
+  getAssetPipelineTrackColorMap,
+} from './categoryColors';
 
 // ============================================================================
 // 🎨 MASTER STYLING VARIABLES - EDIT THESE TO CHANGE ALL BADGE DIMENSIONS
@@ -69,6 +105,8 @@ export interface BadgeVisualConfig {
 // ============================================================================
 // 🎨 COLOR TONE DEFINITIONS - Add/Remove badge colors here
 // ============================================================================
+// IMPORTANT: All colors must come from colorPalette.ts
+// Use STATUS_COLORS or TAG_COLORS constants - NO hardcoded hex values!
 
 export type BadgeToneKey =
   // Standard Bootstrap colors
@@ -98,6 +136,24 @@ export type BadgeToneKey =
   | 'property-sfr'
   | 'property-condo'
   | 'property-townhome'
+  // Tag/Category colors (from SCSS palette)
+  | 'tag-clay'
+  | 'tag-thyme'
+  | 'tag-stone'
+  | 'tag-eucalyptus'
+  | 'tag-seafoam'
+  | 'tag-moss'
+  | 'tag-mineral-blue'
+  | 'tag-umber'
+  | 'tag-mauve'
+  | 'tag-heather'
+  | 'tag-slate-purple'
+  | 'tag-pewter'
+  | 'tag-graphite'
+  | 'tag-ash'
+  | 'tag-navy-blue'
+  | 'tag-info-blue'
+  | 'tag-steel-gray'
   | 'property-multifamily'
   | 'property-land'
   | 'property-mixed-use'
@@ -186,38 +242,38 @@ export const badgeToneMap: Record<BadgeToneKey, BadgeVisualConfig> = {
   },
   
   // Calendar Event Type Colors
-  // WHAT: Distinct colors for each calendar event type using ProjectAlpha palette (no gold)
+  // WHAT: Distinct colors for each calendar event type using ProjectAlpha palette
   // WHY: Users need to quickly identify different event types at a glance
-  // REFERENCE: color-palette.txt - Selected colors from palette
+  // NOTE: All colors from STATUS_COLORS - no hardcoded values
   'calendar-liquidation': {
     classes: 'text-white border-0',
     ariaLabel: 'Actual liquidation event',
-    inlineStyles: 'background-color: #00796B;', // Info Teal
+    inlineStyles: `background-color: ${COLOR_INFO_TEAL};`, // Info Teal from palette
   },
   'calendar-projected': {
     classes: 'text-white border-0',
     ariaLabel: 'Projected liquidation event',
-    inlineStyles: 'background-color: #6B5A7A;', // Muted Plum
+    inlineStyles: `background-color: ${COLOR_MUTED_PLUM};`, // Muted Plum from palette
   },
   'calendar-bid': {
     classes: 'text-white border-0',
     ariaLabel: 'Bid date event',
-    inlineStyles: 'background-color: #4A7A8A;', // Steel Teal
+    inlineStyles: `background-color: ${COLOR_STEEL_TEAL};`, // Steel Teal from palette
   },
   'calendar-settlement': {
     classes: 'text-white border-0',
     ariaLabel: 'Settlement date event',
-    inlineStyles: 'background-color: #5A8A95;', // Slate Teal
+    inlineStyles: `background-color: ${COLOR_SLATE_TEAL};`, // Slate Teal from palette
   },
   'calendar-follow-up': {
     classes: 'text-white border-0',
     ariaLabel: 'Follow-up reminder event',
-    inlineStyles: 'background-color: #3F51B5;', // Indigo
+    inlineStyles: `background-color: ${COLOR_INDIGO};`, // Indigo from palette
   },
   'calendar-milestone': {
     classes: 'text-white border-0',
     ariaLabel: 'Milestone event',
-    inlineStyles: 'background-color: #8A7A9A;', // Dusty Lavender
+    inlineStyles: `background-color: ${COLOR_DUSTY_LAVENDER};`, // Dusty Lavender from palette
   },
   
   // Delinquency Status Colors
@@ -242,18 +298,21 @@ export const badgeToneMap: Record<BadgeToneKey, BadgeVisualConfig> = {
     ariaLabel: 'Delinquent one hundred twenty days or more',
   },
 
-  // Property Type Colors
+  // Property Type Colors (using tag colors from palette)
   'property-sfr': {
-    classes: 'bg-primary text-white border-0',
+    classes: 'text-white border-0',
     ariaLabel: 'Single family residence property type',
+    inlineStyles: `background-color: ${getTagColor('navy-blue')};`,
   },
   'property-condo': {
-    classes: 'bg-info text-white border-0',
+    classes: 'text-white border-0',
     ariaLabel: 'Condominium property type',
+    inlineStyles: `background-color: ${getTagColor('info-blue')};`,
   },
   'property-townhome': {
-    classes: 'bg-secondary text-white border-0',
+    classes: 'text-white border-0',
     ariaLabel: 'Townhome property type',
+    inlineStyles: `background-color: ${getTagColor('steel-gray')};`,
   },
   'property-multifamily': {
     classes: 'bg-success text-white border-0',
@@ -289,11 +348,131 @@ export const badgeToneMap: Record<BadgeToneKey, BadgeVisualConfig> = {
     classes: 'bg-dark text-white border-0',
     ariaLabel: 'Lifecycle status',
   },
+  
+  // ============================================================================
+  // 🏷️ TAG/CATEGORY COLORS - From colorPalette.ts (mirrors SCSS palette)
+  // ============================================================================
+  // Main Tags (Primary Classifications)
+  'tag-clay': {
+    classes: 'text-white border-0',
+    ariaLabel: 'Document or property classification tag',
+    inlineStyles: `background-color: ${getTagColor('clay')};`,
+  },
+  'tag-thyme': {
+    classes: 'text-white border-0',
+    ariaLabel: 'Property type classification tag',
+    inlineStyles: `background-color: ${getTagColor('thyme')};`,
+  },
+  'tag-stone': {
+    classes: 'text-white border-0',
+    ariaLabel: 'General classification tag',
+    inlineStyles: `background-color: ${getTagColor('stone')};`,
+  },
+  'tag-eucalyptus': {
+    classes: 'text-white border-0',
+    ariaLabel: 'Positive feature or attribute tag',
+    inlineStyles: `background-color: ${getTagColor('eucalyptus')};`,
+  },
+  'tag-seafoam': {
+    classes: 'text-white border-0',
+    ariaLabel: 'Location or geographic tag',
+    inlineStyles: `background-color: ${getTagColor('seafoam')};`,
+  },
+  'tag-moss': {
+    classes: 'text-white border-0',
+    ariaLabel: 'Environmental or nature tag',
+    inlineStyles: `background-color: ${getTagColor('moss')};`,
+  },
+  'tag-mineral-blue': {
+    classes: 'text-white border-0',
+    ariaLabel: 'Reference or information tag',
+    inlineStyles: `background-color: ${getTagColor('mineral-blue')};`,
+  },
+  'tag-umber': {
+    classes: 'text-white border-0',
+    ariaLabel: 'Foundation or structural tag',
+    inlineStyles: `background-color: ${getTagColor('umber')};`,
+  },
+  
+  // Sub-Tags (Secondary/Supporting)
+  'tag-mauve': {
+    classes: 'text-white border-0',
+    ariaLabel: 'Workflow or review state tag',
+    inlineStyles: `background-color: ${getTagColor('mauve')};`,
+  },
+  'tag-heather': {
+    classes: 'text-white border-0',
+    ariaLabel: 'Process or workflow stage tag',
+    inlineStyles: `background-color: ${getTagColor('heather')};`,
+  },
+  'tag-slate-purple': {
+    classes: 'text-white border-0',
+    ariaLabel: 'Advanced workflow or special process tag',
+    inlineStyles: `background-color: ${getTagColor('slate-purple')};`,
+  },
+  'tag-pewter': {
+    classes: 'text-white border-0',
+    ariaLabel: 'Metadata or system tag',
+    inlineStyles: `background-color: ${getTagColor('pewter')};`,
+  },
+  'tag-graphite': {
+    classes: 'text-white border-0',
+    ariaLabel: 'Secondary or supporting tag',
+    inlineStyles: `background-color: ${getTagColor('graphite')};`,
+  },
+  'tag-ash': {
+    classes: 'text-white border-0',
+    ariaLabel: 'Archived or inactive tag',
+    inlineStyles: `background-color: ${getTagColor('ash')};`,
+  },
+  
+  // Blue Variants (Property Types & Classifications)
+  'tag-navy-blue': {
+    classes: 'text-white border-0',
+    ariaLabel: 'Primary property type tag',
+    inlineStyles: `background-color: ${getTagColor('navy-blue')};`,
+  },
+  'tag-info-blue': {
+    classes: 'text-white border-0',
+    ariaLabel: 'Informational property type tag',
+    inlineStyles: `background-color: ${getTagColor('info-blue')};`,
+  },
+  'tag-steel-gray': {
+    classes: 'text-white border-0',
+    ariaLabel: 'Secondary property type tag',
+    inlineStyles: `background-color: ${getTagColor('steel-gray')};`,
+  },
 };
 
 // ============================================================================
 // 🔧 CORE HELPER FUNCTIONS
 // ============================================================================
+
+/**
+ * Helper to create badge config with palette color
+ * ENFORCES: Only palette colors can be used - no random hex values
+ * 
+ * @param color - Palette color constant from colorPalette.ts
+ * @param ariaLabel - Optional ARIA label for accessibility
+ * @returns BadgeVisualConfig with inline styles using palette color
+ * 
+ * @example
+ * // ✅ CORRECT - Uses palette color
+ * 'my-workflow': createPaletteBadge(STATUS_COLORS.success, 'My workflow badge')
+ * 
+ * // ❌ WRONG - Don't do this
+ * 'my-workflow': { inlineStyles: 'background-color: #FF0000;' }
+ */
+export function createPaletteBadge(
+  color: string,
+  ariaLabel?: string
+): BadgeVisualConfig {
+  return {
+    classes: 'text-white border-0',
+    ariaLabel,
+    inlineStyles: `background-color: ${color};`,
+  };
+}
 
 export interface BadgeTokenLookupResult {
   /** Computed class string after merging size + tone. */
@@ -478,19 +657,10 @@ export function getDelinquencyBadgeTone(status?: string | null): BadgeToneKey {
 
 /**
  * AG Grid enum map for Property Type badges
- * EDIT: Add new property types for AG Grid here
+ * ⚠️ EDIT COLORS IN: categoryColors.ts → PROPERTY_TYPE_COLORS
+ * This map is auto-generated from categoryColors.ts configuration
  */
-export const propertyTypeEnumMap: Record<string, { label: string; color: string; title: string }> = {
-  'SFR': { label: 'SFR', color: 'bg-primary', title: 'Single Family Residence' },
-  'Manufactured': { label: 'Manufactured', color: 'bg-primary', title: 'Manufactured Home' },
-  'Condo': { label: 'Condo', color: 'bg-info', title: 'Condominium' },
-  '2-4 Family': { label: '2-4 Family', color: 'bg-success', title: '2-4 Family Property' },
-  'Land': { label: 'Land', color: 'bg-warning text-white', title: 'Vacant Land' },
-  'Multifamily 5+': { label: 'Multifamily 5+', color: 'bg-success', title: 'Multifamily 5+ Units' },
-  'Single Family': { label: 'Single Family', color: 'bg-primary', title: 'Single Family Residence' },
-  'Multi-Family': { label: 'Multi-Family', color: 'bg-success', title: 'Multi-Family Property' },
-  'Townhouse': { label: 'Townhouse', color: 'bg-secondary', title: 'Townhouse' },
-};
+export const propertyTypeEnumMap: Record<string, { label: string; color: string; title: string }> = getPropertyTypeEnumMap();
 
 /**
  * AG Grid enum map for Occupancy badges
@@ -506,16 +676,11 @@ export const occupancyEnumMap: Record<string, { label: string; color: string; ti
 };
 
 /**
- * AG Grid enum map for Asset Status badges
- * EDIT: Add new asset statuses for AG Grid here
+ * AG Grid enum map for Asset Status badges (Loan Performance)
+ * ⚠️ EDIT COLORS IN: categoryColors.ts → LOAN_PERFORMANCE_COLORS
+ * This map is auto-generated from categoryColors.ts configuration
  */
-export const assetStatusEnumMap: Record<string, { label: string; color: string; title: string }> = {
-  'NPL': { label: 'NPL', color: 'bg-danger', title: 'Non-Performing Loan' },
-  'REO': { label: 'REO', color: 'bg-secondary', title: 'Real Estate Owned' },
-  'PERF': { label: 'PERF', color: 'bg-success', title: 'Performing' },
-  'PERFORMING': { label: 'PERF', color: 'bg-success', title: 'Performing' },
-  'RPL': { label: 'RPL', color: 'bg-info', title: 'Re-Performing Loan' },
-};
+export const assetStatusEnumMap: Record<string, { label: string; color: string; title: string }> = getLoanPerformanceEnumMap();
 
 /**
  * AG Grid enum map for Product Type badges
@@ -591,31 +756,19 @@ export const modificationFlagEnumMap: Record<string, { label: string; color: str
 
 /**
  * AG Grid enum map for Active Tracks (outcome workflows)
- * EDIT: Add new track types for AG Grid here
+ * ⚠️ EDIT COLORS IN: categoryColors.ts → ASSET_PIPELINE_TRACK_COLORS
  * IMPORTANT: When adding a new backend track/task model, keep this list in sync with
  * `projectalphav1/am_module/services/serv_am_assetInventory.py` (active_tracks/active_tasks).
+ * This map is auto-generated from categoryColors.ts configuration
  */
-export const activeTracksEnumMap: Record<string, { label: string; color: string; title: string }> = {
-  'DIL': { label: 'DIL', color: 'bg-primary', title: 'Deed in Lieu' },
-  'Modification': { label: 'Modification', color: 'bg-success', title: 'Loan Modification' },
-  'REO': { label: 'REO', color: 'bg-info', title: 'Real Estate Owned' },
-  'FC': { label: 'FC', color: 'bg-danger', title: 'Foreclosure Sale' },
-  'Short Sale': { label: 'Short Sale', color: 'bg-warning text-white', title: 'Short Sale' },
-  'Note Sale': { label: 'Note Sale', color: 'bg-secondary', title: 'Note Sale' },
-  'Performing': { label: 'Performing', color: 'bg-success', title: 'Performing Track' },
-  'Delinquent': { label: 'Delinquent', color: 'bg-warning text-white', title: 'Delinquent Track' },
-};
+export const activeTracksEnumMap: Record<string, { label: string; color: string; title: string }> = getAssetPipelineTrackEnumMap();
 
-export const activeTasksColorMap: Record<string, string> = {
-  'DIL': 'bg-primary',
-  'Modification': 'bg-success',
-  'REO': 'bg-info',
-  'FC': 'bg-danger',
-  'Short Sale': 'bg-warning text-white',
-  'Note Sale': 'bg-secondary',
-  'Performing': 'bg-success',
-  'Delinquent': 'bg-warning text-white',
-};
+/**
+ * Color map for Active Tracks badges (used in AG Grid)
+ * ⚠️ EDIT COLORS IN: categoryColors.ts → ASSET_PIPELINE_TRACK_COLORS
+ * This map is auto-generated from categoryColors.ts configuration
+ */
+export const activeTasksColorMap: Record<string, string> = getAssetPipelineTrackColorMap();
 
 /**
  * Helper that maps calendar event types to badge tone keys

@@ -131,7 +131,7 @@ class AssetInventoryRowSerializer(serializers.Serializer):
     property_type = serializers.CharField(allow_null=True)
     occupancy = serializers.CharField(allow_null=True)
 
-    # ========== Seller/Trade Fields ==========
+    # ========== Seller/Trade/Fund Fields ==========
     seller_name = serializers.CharField(
         source='_computed_seller_name',
         read_only=True,
@@ -144,6 +144,25 @@ class AssetInventoryRowSerializer(serializers.Serializer):
         allow_null=True,
         help_text='Trade display name (from annotation or FK)'
     )
+    fund_name = serializers.SerializerMethodField(
+        help_text='Fund/Partnership name from AssetDetails.fund_legal_entity'
+    )
+    
+    def get_fund_name(self, obj):
+        """Return the fund/partnership name from AssetDetails.
+        
+        WHAT: Extract fund name from asset_hub.details.fund_legal_entity
+        WHY: Enable fund-based filtering in AG Grid
+        HOW: Navigate through relationships safely with null checks
+        """
+        try:
+            details = getattr(obj.asset_hub, 'details', None)
+            if details and details.fund_legal_entity:
+                # Return the fund entity name
+                return details.fund_legal_entity.fund.name if hasattr(details.fund_legal_entity, 'fund') else None
+        except Exception:
+            pass
+        return None
 
     # ========== Blended Outcome Model Fields ==========
     # All these fields come directly from asset_hub.blended_outcome_model via DRF source paths

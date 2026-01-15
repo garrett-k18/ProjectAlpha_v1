@@ -334,8 +334,15 @@ class Command(BaseCommand):
             target_field = target_fields_by_name.get(f.name)
             if target_field is None:
                 continue
+            
+            raw_value = getattr(raw, f.name, None)
+            
+            # Clean loan_number fields by stripping leading zeros
+            if f.name == 'loan_number' and raw_value is not None:
+                raw_value = self._normalize_servicer_id(raw_value)
+            
             defaults[f.name] = self._coerce_for_field(
-                getattr(raw, f.name, None),
+                raw_value,
                 target_field=target_field,
                 field_name=f.name,
             )

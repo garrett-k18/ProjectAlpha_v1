@@ -11,7 +11,8 @@ File: Main Css File
 @import "./node_modules/bootstrap/scss/variables";
 
 // ProjectAlpha color palette - must be imported before variables that use it
-@import "config/modern/color-palette";
+// Centralized color definitions - single source of truth for all colors
+@import "config/color-palette";
 
 @import "config/saas/variables";
 @import "config/saas/variables-dark";

@@ -187,10 +187,10 @@ onMounted(() => document.addEventListener('click', handleDocClick))
 onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
 
 const taskOptions: Array<{ value: DelinquentTaskType; label: string }> = [
-  { value: 'dq_30', label: '30 Days Delinquent' },
-  { value: 'dq_60', label: '60 Days Delinquent' },
-  { value: 'dq_90', label: '90 Days Delinquent' },
-  { value: 'dq_120_plus', label: '120+ Days Delinquent' },
+  { value: 'dq_30', label: '30 DLQ' },
+  { value: 'dq_60', label: '60 DLQ' },
+  { value: 'dq_90', label: '90 DLQ' },
+  { value: 'dq_120_plus', label: '120+ DLQ' },
   { value: 'loss_mit', label: 'Loss Mit' },
   { value: 'fc_dil', label: 'FC/DIL' },
 ]

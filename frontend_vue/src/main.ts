@@ -10,6 +10,9 @@ import BootstrapVueNext from 'bootstrap-vue-next'
 import VueApexCharts from 'vue3-apexcharts'
 import VueTheMask from "vue-the-mask";
 
+import PrimeVue from 'primevue/config'
+import Aura from '@primevue/themes/aura'
+
 import jQuery from 'jquery'
 window.$ = window.jQuery = jQuery
 
@@ -32,6 +35,7 @@ import 'vue3-form-wizard/dist/style.css';
 import 'bootstrap-datepicker/dist/css/bootstrap-datepicker.min.css'
 import 'bootstrap-timepicker/css/bootstrap-timepicker.min.css'
 import 'flatpickr/dist/flatpickr.min.css'
+import 'primeicons/primeicons.css'
 
 import '@/assets/scss/app-saas.scss'
 import '@/assets/scss/icons.scss'
@@ -71,6 +75,7 @@ app.use(router)
 app.use(BootstrapVueNext)
 app.use(VueApexCharts)
 app.use(VueTheMask);
+app.use(PrimeVue, { theme: { preset: Aura } })
 app.use(MetaPlug);
 
 // Register global currency directive: v-currency

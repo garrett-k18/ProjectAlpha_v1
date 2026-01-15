@@ -22,7 +22,7 @@ import http from '@/lib/http'
 
 // Canonical token types for tone mapping and filters are maintained in badgeTokens.
 // Notes use tags for categorization and their own context fields for scoping.
-export type NoteTag = 'urgent' | 'legal' | 'qc' | 'ops' | 'info' | null
+export type NoteTag = 'general' | 'legal' | 'escrow' | 'foreclosure' | 'reo' | 'borrower_heir' | null
 
 export type NoteScope = 'asset' | 'outcome' | 'task'
 

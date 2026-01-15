@@ -4,6 +4,7 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.decorators import action, api_view
 from rest_framework.request import Request
 from django.shortcuts import get_object_or_404
+from django.db.models import Q
 
 from am_module.services.serv_am_assetInventory import build_queryset, AssetInventoryEnricher
 from am_module.serializers.serial_am_assetInventory import (
@@ -53,7 +54,7 @@ class AssetInventoryViewSet(ViewSet):
         ordering = request.query_params.get('sort')
         # Collect simple filters (extend allow-list as needed)
         filters = {}
-        for k in ['state', 'asset_status', 'seller_name', 'trade_name', 'trade', 'lifecycle_status']:
+        for k in ['state', 'asset_status', 'seller_name', 'trade_name', 'trade', 'lifecycle_status', 'fund_name', 'active_tracks']:
             v = request.query_params.get(k)
             if v:
                 filters[k] = v
@@ -194,6 +195,41 @@ class AssetInventoryViewSet(ViewSet):
             return Response({}, status=status.HTTP_200_OK)
         return Response(ServicerLoanDataSerializer(latest).data)
 
+    @action(detail=True, methods=['get'])
+    def servicer_comments(self, request: Request, pk: int | str | None = None):
+        """Return all ServicerCommentData for a boarded asset by AM asset id.
+
+        URL: /api/am/assets/<id>/servicer_comments/
+        Response: List of servicer comments ordered by comment_date DESC
+        """
+        asset = get_object_or_404(
+            SellerRawData.objects.select_related("asset_hub"),
+            pk=pk,
+            trade__status=Trade.Status.BOARD,
+        )
+        hub = getattr(asset, 'asset_hub', None)
+        if hub is None:
+            return Response([], status=status.HTTP_200_OK)
+        
+        from am_module.models.servicers import ServicerCommentData
+        
+        comments = (
+            ServicerCommentData.objects
+            .filter(asset_hub=hub)
+            .order_by('-comment_date', '-created_at')
+            .values(
+                'id',
+                'comment_date',
+                'department',
+                'comment',
+                'additional_notes',
+                'investor_loan_number',
+                'file_date',
+                'created_at',
+            )
+        )
+        return Response(list(comments), status=status.HTTP_200_OK)
+
     # DEV: Allow unauthenticated POST and avoid CSRF by not using SessionAuthentication here
     @action(detail=True, methods=['get', 'post'], permission_classes=[AllowAny], authentication_classes=[])
     def notes(self, request: Request, pk: int | str | None = None):
@@ -234,6 +270,93 @@ class AssetInventoryViewSet(ViewSet):
             updated_by=getattr(request, 'user', None) if getattr(request, 'user', None) and request.user.is_authenticated else None,
         )
         return Response(AMNoteSerializer(note).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['get'])
+    def filter_options(self, request: Request):
+        """Return unique filter values for dropdowns across entire dataset.
+        
+        URL: /api/am/assets/filter_options/
+        Response: {
+            "trades": ["FLC-36", "FLC-38", ...],
+            "sellers": ["HUD", "ABC Bank", ...],
+            "funds": ["WFL Homes, LLC", ...]
+        }
+        
+        WHAT: Query all boarded assets to get distinct values for filter dropdowns
+        WHY: Dropdowns need to show all available options, not just current page
+        HOW: Use Django's distinct() on annotated fields
+        """
+        from core.models import FundLegalEntity
+        
+        # Get base queryset of all boarded assets
+        qs = (
+            SellerRawData.objects
+            .filter(trade__status='BOARD')
+            .select_related('seller', 'trade', 'asset_hub__details__fund_legal_entity__fund')
+        )
+        
+        # Get unique trade names
+        trades = list(
+            qs.exclude(trade__trade_name__isnull=True)
+            .exclude(trade__trade_name='')
+            .values_list('trade__trade_name', flat=True)
+            .distinct()
+            .order_by('trade__trade_name')
+        )
+        
+        # Get unique seller names
+        sellers = list(
+            qs.exclude(seller__name__isnull=True)
+            .exclude(seller__name='')
+            .values_list('seller__name', flat=True)
+            .distinct()
+            .order_by('seller__name')
+        )
+        
+        # Get unique fund names
+        funds = list(
+            qs.exclude(asset_hub__details__fund_legal_entity__fund__name__isnull=True)
+            .exclude(asset_hub__details__fund_legal_entity__fund__name='')
+            .values_list('asset_hub__details__fund_legal_entity__fund__name', flat=True)
+            .distinct()
+            .order_by('asset_hub__details__fund_legal_entity__fund__name')
+        )
+        
+        # Get unique active track types
+        # WHAT: Extract all unique track types from outcome models
+        # WHY: Tracks filter needs to show all available track types (DIL, Modification, REO, Short Sale, Performing, Delinquent)
+        # HOW: Query outcome models directly since active_tracks is a computed field
+        from am_module.models.model_am_tracksTasks import (
+            DIL, Modification, ShortSale, REOData,
+            PerformingTrack, DelinquentTrack
+        )
+        
+        # Get all asset hubs that have boarded assets
+        hub_ids = qs.values_list('asset_hub_id', flat=True).distinct()
+        
+        # Check which track types exist across all hubs
+        tracks_set = set()
+        if DIL.objects.filter(asset_hub_id__in=hub_ids).exists():
+            tracks_set.add('DIL')
+        if Modification.objects.filter(asset_hub_id__in=hub_ids).exists():
+            tracks_set.add('Modification')
+        if REOData.objects.filter(asset_hub_id__in=hub_ids).exists():
+            tracks_set.add('REO')
+        if ShortSale.objects.filter(asset_hub_id__in=hub_ids).exists():
+            tracks_set.add('Short Sale')
+        if PerformingTrack.objects.filter(asset_hub_id__in=hub_ids).exists():
+            tracks_set.add('Performing')
+        if DelinquentTrack.objects.filter(asset_hub_id__in=hub_ids).exists():
+            tracks_set.add('Delinquent')
+        
+        tracks = sorted(list(tracks_set))
+        
+        return Response({
+            'trades': trades,
+            'sellers': sellers,
+            'funds': funds,
+            'tracks': tracks,
+        })
 
     @action(detail=False, methods=['get'])
     def columns(self, request: Request):

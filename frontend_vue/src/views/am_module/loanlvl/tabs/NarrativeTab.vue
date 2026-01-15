@@ -10,19 +10,27 @@
     <div class="filter-section card mb-2">
       <div class="card-body p-2">
         <div class="d-flex flex-wrap align-items-center gap-2">
-          <span class="text-muted small me-2">
-            <i class="ri-filter-line me-1"></i>Filter by:
-          </span>
+          <div class="d-flex align-items-center me-3">
+            <span class="small text-muted fw-medium">FILTERS</span>
+          </div>
           <button
             v-for="filter in eventFilters"
             :key="filter.type"
+            type="button"
             class="btn btn-sm"
-            :class="activeFilters.includes(filter.type) ? 'btn-primary' : 'btn-outline-secondary'"
+            :class="
+              activeFilters.length > 0 && activeFilters.includes(filter.type)
+                ? 'text-white border-0'
+                : 'btn-outline-light text-dark border'
+            "
+            :style="
+              activeFilters.length > 0 && activeFilters.includes(filter.type)
+                ? `${getEventBadgeStyle(filter.type)} border-radius: 0.25rem;`
+                : 'border-radius: 0.25rem;'
+            "
             @click="toggleFilter(filter.type)"
           >
-            <i :class="filter.icon" class="me-1"></i>
             {{ filter.label }}
-            <span class="badge bg-light text-dark ms-1">{{ filter.count }}</span>
           </button>
           <button
             v-if="activeFilters.length > 0"
@@ -35,48 +43,16 @@
       </div>
     </div>
 
-    <!-- Interactive Timeline (now filterable and scrollable) -->
-    <div class="timeline-section card mb-4">
-      <div class="card-header d-flex align-items-center justify-content-between py-2">
-        <div>
-          <h5 class="mb-0">
-            <i class="ri-time-line text-primary me-2"></i>Loan Journey Timeline
-          </h5>
-          <small class="text-muted">Key milestones and events from acquisition to present</small>
-        </div>
-        <div class="d-flex gap-2">
-          <span class="badge bg-light text-dark">{{ filteredEvents.length }} events</span>
-          <span class="badge bg-primary-subtle text-primary">{{ activeDays }} days active</span>
-        </div>
+    <!-- Timeline Component -->
+    <div class="card mb-3 shadow-sm">
+      <div class="card-header bg-white border-bottom">
+        <h5 class="mb-1 d-flex align-items-center">
+          <i class="ri-time-line text-primary me-2"></i>Loan Journey Timeline
+        </h5>
+        <small class="text-muted">Key milestones and events from acquisition to present</small>
       </div>
-      
-      <div class="card-body p-2 timeline-card-body">
-        <!-- Visual Timeline (scrollable) -->
-        <div class="visual-timeline position-relative">
-          <!-- Timeline line -->
-          <div class="timeline-line"></div>
-          
-          <!-- Scrollable timeline events container -->
-          <div class="timeline-scroll-container">
-            <div class="timeline-events d-flex align-items-end position-relative">
-              <div
-                v-for="(milestone, index) in filteredMilestones"
-                :key="index"
-                class="timeline-milestone text-center"
-                :class="{ 'active': milestone.active }"
-                @click="scrollToEvent(milestone.id)"
-              >
-                <div class="milestone-dot" :class="`bg-${milestone.color}`">
-                  <i :class="milestone.icon"></i>
-                </div>
-                <div class="milestone-label mt-2">
-                  <small class="fw-semibold d-block">{{ milestone.label }}</small>
-                  <small class="text-muted">{{ milestone.date }}</small>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+      <div class="card-body p-2">
+        <TimelineView />
       </div>
     </div>
 
@@ -141,16 +117,45 @@
                     <!-- Event title with tag badge -->
                     <div class="d-flex align-items-center gap-2 mb-1">
                       <span
-                        class="badge"
-                        :class="`bg-${getEventColor(event.type)}-subtle text-${getEventColor(event.type)}`"
+                        class="badge text-white border-0"
+                        :style="getEventBadgeStyle(event.type)"
                       >
                         {{ getEventTypeLabel(event.type) }}
                       </span>
-                      <h6 class="mb-0 fw-semibold">{{ event.title }}</h6>
+                      <!-- Sub-tag badge for note tags (like "General", "Legal", "Escrow", etc.) -->
+                      <span
+                        v-if="event.type === 'note'"
+                        class="badge text-white border-0 small"
+                        :style="getSubTagBadgeStyle(event.tags && event.tags.length > 0 ? event.tags[0] : 'general')"
+                      >
+                        {{ event.tags && event.tags.length > 0 
+                          ? (event.tags[0] === 'borrower_heir' 
+                              ? 'Borrower/Heir' 
+                              : humanizeLabel(event.tags[0]).replace('Borrower Heir', 'Borrower/Heir'))
+                          : 'General' }}
+                      </span>
+                      <!-- Sub-tag badge for milestone task type -->
+                      <span
+                        v-if="event.type === 'milestone' && event.tags && event.tags.length > 0"
+                        class="badge text-white border-0 small"
+                        :style="getTrackBadgeStyle(event.tags[0])"
+                      >
+                        {{ getTrackBadgeLabel(event.tags[0]) }}
+                      </span>
+                      <!-- Sub-tag badge for servicer notes -->
+                      <span
+                        v-if="event.type === 'servicer_notes' && event.tags && event.tags.length > 0"
+                        class="badge text-white border-0 small"
+                        :style="getSubTagBadgeStyle(event.tags[0])"
+                      >
+                        {{ humanizeLabel(event.tags[0]) }}
+                      </span>
+                      <!-- Title for non-note, non-servicer events -->
+                      <h6 v-if="event.type !== 'servicer_notes' && event.type !== 'note' && event.type !== 'milestone'" class="mb-0 fw-semibold">{{ event.title }}</h6>
                     </div>
 
                     <!-- Author info -->
-                    <small v-if="event.author" class="text-muted d-block mb-1">
+                    <small v-if="event.author && event.type !== 'milestone'" class="text-muted d-block mb-1">
                       <i class="ri-user-line me-1"></i>{{ event.author }}
                     </small>
 
@@ -158,13 +163,17 @@
                     <div class="event-body text-muted" v-html="event.body"></div>
 
                     <!-- Event metadata/tags -->
-                    <div v-if="event.tags && event.tags.length > 0" class="mt-1 d-flex flex-wrap gap-1">
+                    <div
+                      v-if="event.type !== 'servicer_notes' && event.type !== 'note' && event.type !== 'milestone' && event.tags && event.tags.length > 0"
+                      class="mt-1 d-flex flex-wrap gap-1"
+                    >
                       <span
                         v-for="tag in event.tags"
                         :key="tag"
-                        class="badge bg-light text-dark small"
+                        class="badge text-white border-0 small"
+                        :style="getSubTagBadgeStyle(tag)"
                       >
-                        {{ tag }}
+                        {{ humanizeLabel(tag) }}
                       </span>
                     </div>
                   </div>
@@ -222,6 +231,12 @@
 import { computed, ref, watch, onMounted } from 'vue'
 import { useNotesStore } from '@/stores/notes'
 import { useAmOutcomesStore } from '@/stores/outcomes'
+import http from '@/lib/http'
+import { getTagColor, TAG_COLORS } from '@/config/colorPalette'
+import { ASSET_PIPELINE_TRACK_COLORS } from '@/config/categoryColors'
+import dayjs from 'dayjs'
+import advancedFormat from 'dayjs/plugin/advancedFormat'
+import TimelineView from '@/components/TimelineView.vue'
 
 /**
  * WHAT: Component props passed by the parent LoanTabs component.
@@ -247,6 +262,30 @@ const props = withDefaults(
 const notesStore = useNotesStore()
 const outcomesStore = useAmOutcomesStore()
 
+dayjs.extend(advancedFormat)
+
+type TagColorName = keyof typeof TAG_COLORS
+
+function getTrackTagColor(outcomeType: string): TagColorName {
+  const keyMap: Record<string, keyof typeof ASSET_PIPELINE_TRACK_COLORS> = {
+    dil: 'DIL',
+    fc: 'FC',
+    reo: 'REO',
+    short_sale: 'Short Sale',
+    modification: 'Modification',
+    note_sale: 'Note Sale',
+    performing: 'Performing',
+    delinquent: 'Delinquent',
+  }
+  const mappedKey = keyMap[outcomeType]
+  const tagColor = mappedKey ? ASSET_PIPELINE_TRACK_COLORS[mappedKey] : undefined
+  return (tagColor || 'pewter') as TagColorName
+}
+
+function getTrackBadgeStyle(outcomeType: string): string {
+  return `background-color: ${getTagColor(getTrackTagColor(outcomeType))};`
+}
+
 /**
  * WHAT: Reactive array of all narrative events from various sources.
  * WHY: Central data structure for the story feed.
@@ -254,7 +293,7 @@ const outcomesStore = useAmOutcomesStore()
  */
 interface NarrativeEvent {
   id: string
-  type: 'note' | 'email' | 'asset_management' | 'milestone' | 'system' | 'communication'
+  type: 'note' | 'email' | 'asset_management' | 'milestone' | 'system' | 'communication' | 'servicer_notes'
   title: string
   body: string
   timestamp: string
@@ -288,15 +327,15 @@ const activeFilters = ref<string[]>([])
 const eventFilters = computed(() => [
   {
     type: 'note',
-    label: 'Notes',
+    label: 'AM Notes',
     icon: 'ri-sticky-note-line',
     count: allEvents.value.filter(e => e.type === 'note').length,
   },
   {
-    type: 'asset_management',
-    label: 'Asset Management',
-    icon: 'ri-file-list-3-line',
-    count: allEvents.value.filter(e => e.type === 'asset_management').length,
+    type: 'servicer_notes',
+    label: 'Servicer Notes',
+    icon: 'ri-customer-service-2-line',
+    count: allEvents.value.filter(e => e.type === 'servicer_notes').length,
   },
   {
     type: 'milestone',
@@ -319,28 +358,11 @@ const eventFilters = computed(() => [
 ])
 
 /**
- * WHAT: Timeline milestones for visual timeline display.
+ * WHAT: Timeline milestones for PrimeVue Timeline display.
  * WHY: Highlights key events in the loan lifecycle.
- * HOW: Derived from allEvents or hardcoded placeholders with event type associations.
+ * HOW: Populated dynamically from asset data (acquisition date, track started dates).
  */
-const milestones = ref([
-  { id: 'milestone-1', label: 'Acquisition', date: 'Jan 2024', icon: 'ri-home-4-line', color: 'primary', active: true, eventType: 'milestone' },
-  { id: 'milestone-2', label: 'First Contact', date: 'Feb 2024', icon: 'ri-phone-line', color: 'info', active: true, eventType: 'correspondence' },
-  { id: 'milestone-3', label: 'Inspection', date: 'Mar 2024', icon: 'ri-search-eye-line', color: 'warning', active: true, eventType: 'asset_management' },
-  { id: 'milestone-4', label: 'Negotiations', date: 'Apr 2024', icon: 'ri-chat-3-line', color: 'success', active: false, eventType: 'correspondence' },
-  { id: 'milestone-5', label: 'DIL Track', date: 'Active', icon: 'ri-file-list-3-line', color: 'success', active: true, eventType: 'asset_management' },
-  { id: 'milestone-6', label: 'Legal Review', date: 'Mar 2024', icon: 'ri-scales-3-line', color: 'warning', active: true, eventType: 'note' },
-])
-
-/**
- * WHAT: Computed filtered milestones based on active filters.
- * WHY: Shows only milestones relevant to selected event types.
- * HOW: Filters milestones array by eventType matching activeFilters.
- */
-const filteredMilestones = computed(() => {
-  if (activeFilters.value.length === 0) return milestones.value
-  return milestones.value.filter(m => activeFilters.value.includes(m.eventType))
-})
+const milestones = ref<Array<{ id: string; label: string; dateLabel: string; icon: string; color: string }>>([])
 
 /**
  * WHAT: Computed total event count.
@@ -445,30 +467,87 @@ function formatRelativeTime(timestamp: string): string {
  */
 function getEventTypeLabel(type: string): string {
   const labels: Record<string, string> = {
-    note: 'Note',
+    note: 'AM Notes',
     email: 'Email',
-    asset_management: 'Asset Management',
-    milestone: 'Milestone',
+    milestone: 'Milestones',
     system: 'System Event',
     communication: 'Communication',
+    servicer_notes: 'Servicer Notes',
   }
+  if (type === 'asset_management') return labels.milestone
   return labels[type] || type
 }
 
 /**
- * WHAT: Helper to get color class for event type.
- * WHY: Provides visual differentiation for event categories.
+ * WHAT: Helper to get tag color name for event type.
+ * WHY: Provides visual differentiation using centralized tag colors.
+ * HOW: Maps event types to tag color names from palette.
+ */
+function getEventTagColor(type: string): TagColorName {
+  const tagColors: Record<string, TagColorName> = {
+    note: 'eucalyptus',              // #78A083 - Fresh green for notes
+    email: 'seafoam',                // #7A9B8E - Blue-green for emails
+    milestone: 'warm-yellow',        // #D4A574 - Warm yellow for milestones
+    system: 'pewter',                // #8B9196 - Cool gray for system events
+    communication: 'heather',       // #9B8FA5 - Soft purple for communication
+    servicer_notes: 'info-blue',     // #5A8A95 - Slate teal for servicer notes
+    correspondence: 'seafoam',       // #7A9B8E - Blue-green for correspondence
+  }
+  if (type === 'asset_management') return tagColors.milestone
+  return tagColors[type] || 'pewter'
+}
+
+/**
+ * WHAT: Helper to get inline style for event type badge.
+ * WHY: Uses palette tag colors instead of Bootstrap classes.
+ * HOW: Returns inline style string with background color from tag palette.
+ */
+function getEventBadgeStyle(type: string): string {
+  const tagColor = getEventTagColor(type)
+  return `background-color: ${getTagColor(tagColor)};`
+}
+
+/**
+ * WHAT: Helper to get sub-tag color for note/event tags.
+ * WHY: Uses sub-tag colors from palette for consistent styling.
+ * HOW: Maps tag names to sub-tag colors, cycling through available sub-tags.
+ */
+function getSubTagColor(tagName: string): TagColorName {
+  // Sub-tag colors from palette (in order of preference)
+  const subTagColors: TagColorName[] = ['mauve', 'heather', 'slate-purple', 'pewter', 'graphite', 'ash']
+  
+  // Create a simple hash from tag name to consistently assign colors
+  const hash = tagName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+  const index = hash % subTagColors.length
+  
+  return subTagColors[index]
+}
+
+/**
+ * WHAT: Helper to get inline style for sub-tag badge.
+ * WHY: Uses palette sub-tag colors for consistent styling.
+ * HOW: Returns inline style string with background color from sub-tag palette.
+ */
+function getSubTagBadgeStyle(tagName: string): string {
+  const tagColor = getSubTagColor(tagName)
+  return `background-color: ${getTagColor(tagColor)};`
+}
+
+/**
+ * WHAT: Helper to get Bootstrap color class for event type (legacy support).
+ * WHY: Still used for some UI elements that need Bootstrap classes.
  * HOW: Maps event types to Bootstrap color classes.
  */
 function getEventColor(type: string): string {
   const colors: Record<string, string> = {
     note: 'primary',
     email: 'info',
-    asset_management: 'success',
     milestone: 'warning',
     system: 'secondary',
     communication: 'purple',
+    servicer_notes: 'info',
   }
+  if (type === 'asset_management') return colors.milestone
   return colors[type] || 'secondary'
 }
 
@@ -481,11 +560,12 @@ function getEventIcon(type: string): string {
   const icons: Record<string, string> = {
     note: 'ri-sticky-note-line',
     email: 'ri-mail-line',
-    asset_management: 'ri-file-list-3-line',
     milestone: 'ri-flag-line',
     system: 'ri-settings-3-line',
     communication: 'ri-message-3-line',
+    servicer_notes: 'ri-customer-service-2-line',
   }
+  if (type === 'asset_management') return icons.milestone
   return icons[type] || 'ri-information-line'
 }
 
@@ -518,6 +598,7 @@ function clearFilters(): void {
  * HOW: Uses element.scrollIntoView with smooth behavior.
  */
 function scrollToEvent(eventId: string): void {
+  if (!eventId) return
   const element = document.getElementById(`event-${eventId}`)
   if (element) {
     element.scrollIntoView({ behavior: 'smooth', block: 'center' })
@@ -549,6 +630,32 @@ function copyEventLink(event: NarrativeEvent): void {
   console.log('Link copied:', url)
 }
 
+function humanizeLabel(value: string): string {
+  if (!value) return ''
+
+  const acronyms = new Set(['DIL', 'REO', 'FC', 'NOD', 'NOI'])
+
+  return value
+    .trim()
+    .replace(/[_-]+/g, ' ')
+    .split(' ')
+    .filter(Boolean)
+    .map(word => {
+      const upper = word.toUpperCase()
+      if (acronyms.has(upper)) return upper
+      return upper.charAt(0) + upper.slice(1).toLowerCase()
+    })
+    .join(' ')
+}
+
+function formatJourneyDate(value: unknown): string {
+  if (!value) return '—'
+  const d = dayjs(String(value))
+  if (!d.isValid()) return '—'
+  return d.format('MMM Do YYYY')
+}
+
+
 /**
  * WHAT: Helper to get track label from outcome type.
  * WHY: Converts outcome type codes to user-friendly track names.
@@ -566,6 +673,20 @@ function getTrackLabel(outcomeType: string): string {
     delinquent: 'Delinquent',
   }
   return labels[outcomeType] || outcomeType
+}
+
+function getTrackBadgeLabel(outcomeType: string): string {
+  const labels: Record<string, string> = {
+    dil: 'DIL',
+    fc: 'Foreclosure',
+    reo: 'REO',
+    short_sale: 'Short Sale',
+    modification: 'Modification',
+    note_sale: 'Note Sale',
+    performing: 'Performing',
+    delinquent: 'Delinquent',
+  }
+  return labels[outcomeType] || (outcomeType ? outcomeType.toUpperCase() : '')
 }
 
 /**
@@ -623,15 +744,15 @@ function getTaskTypeLabel(outcomeType: string, taskType: string): string {
       note_sold: 'Note Sold',
     },
     delinquent: {
-      dq_30: '30 Days Delinquent',
-      dq_60: '60 Days Delinquent',
-      dq_90: '90 Days Delinquent',
-      dq_120_plus: '120+ Days Delinquent',
+      dq_30: '30 DLQ',
+      dq_60: '60 DLQ',
+      dq_90: '90 DLQ',
+      dq_120_plus: '120+ DLQ',
       loss_mit: 'Loss Mit',
       fc_dil: 'FC/DIL',
     },
   }
-  return labels[outcomeType]?.[taskType] || taskType
+  return labels[outcomeType]?.[taskType] || humanizeLabel(taskType)
 }
 
 /**
@@ -646,6 +767,17 @@ async function loadNarrativeData(): Promise<void> {
     return
   }
 
+  const purchaseDate = props.row?.purchase_date
+  milestones.value = [
+    {
+      id: 'journey-acquisition',
+      label: 'Acquisition',
+      dateLabel: formatJourneyDate(purchaseDate),
+      icon: 'ri-home-4-line',
+      color: 'primary',
+    },
+  ]
+
   loading.value = true
 
   try {
@@ -656,20 +788,48 @@ async function loadNarrativeData(): Promise<void> {
     const noteEvents: NarrativeEvent[] = notes.map(note => ({
       id: `note-${note.id}`,
       type: 'note',
-      title: note.tag ? note.tag.charAt(0).toUpperCase() + note.tag.slice(1) : 'General',
+      title: note.tag ? note.tag.charAt(0).toUpperCase() + note.tag.slice(1).replace('_', '/') : 'General',
       body: note.body, // Full HTML content from Quill editor
       timestamp: note.created_at,
       author: note.created_by_username || undefined,
-      tags: note.tag ? [note.tag] : [],
+      tags: note.tag ? [note.tag] : ['general'], // Use 'general' as default tag if none assigned
       metadata: { 
         noteId: note.id,
       },
     }))
 
+    // Fetch servicer comments
+    let servicerCommentEvents: NarrativeEvent[] = []
+    try {
+      const assetId = props.row?.id || hubId
+      const { data: comments } = await http.get(`/am/assets/${assetId}/servicer_comments/`)
+      
+      servicerCommentEvents = comments.map((comment: any) => ({
+        id: `servicer-comment-${comment.id}`,
+        type: 'servicer_notes',
+        title: comment.comment, // Just the comment type as title
+        body: comment.additional_notes
+          ? `<p><strong>${comment.comment}</strong> ${comment.additional_notes}</p>`
+          : `<p><strong>${comment.comment}</strong></p>`,
+        timestamp: comment.created_at,
+        tags: [comment.department], // Department as sub-tag
+        metadata: {
+          commentId: comment.id,
+          commentDate: comment.comment_date,
+          department: comment.department,
+          investorLoanNumber: comment.investor_loan_number,
+        },
+      }))
+    } catch (error) {
+      console.error('Failed to fetch servicer comments:', error)
+    }
+
     // Fetch AM tasks from all outcome types
     const amEvents: NarrativeEvent[] = []
     const outcomeTypes: Array<'dil' | 'fc' | 'reo' | 'short_sale' | 'modification' | 'note_sale' | 'performing' | 'delinquent'> = ['dil', 'fc', 'reo', 'short_sale', 'modification', 'note_sale', 'performing', 'delinquent']
     
+    const trackMilestones: Array<{ id: string; label: string; dateLabel: string; icon: string; color: string }> = []
+
     for (const outcomeType of outcomeTypes) {
       try {
         // Check if outcome exists for this asset
@@ -712,9 +872,9 @@ async function loadNarrativeData(): Promise<void> {
           
           amEvents.push({
             id: `am-${outcomeType}-${task.id}`,
-            type: 'asset_management',
+            type: 'milestone',
             title: `${trackLabel}: ${taskTypeLabel}`,
-            body: task.notes || `<p>${trackLabel} task: ${taskTypeLabel}</p>`,
+            body: task.notes || `<p>${taskTypeLabel}</p>`,
             timestamp: task.created_at || new Date().toISOString(),
             author: task.created_by_username || 'Asset Management',
             tags: [outcomeType, task.task_type],
@@ -725,13 +885,33 @@ async function loadNarrativeData(): Promise<void> {
             },
           })
         })
+
+        const trackStartCandidate = tasks
+          .map(t => t.task_started || t.created_at)
+          .filter(Boolean)
+          .map((v: any) => String(v))
+          .sort((a: string, b: string) => Date.parse(a) - Date.parse(b))[0]
+
+        const firstEventId = tasks.length > 0 ? `am-${outcomeType}-${tasks[0].id}` : ''
+        trackMilestones.push({
+          id: firstEventId || `journey-track-${outcomeType}`,
+          label: `${getTrackLabel(outcomeType)} Track`,
+          dateLabel: trackStartCandidate ? formatJourneyDate(trackStartCandidate) : 'Active',
+          icon: 'ri-flag-line',
+          color: 'warning',
+        })
       } catch (error) {
         console.error(`Failed to fetch ${outcomeType} tasks:`, error)
       }
     }
+
+    milestones.value = [
+      milestones.value[0],
+      ...trackMilestones,
+    ]
     
     // Combine all events and sort by timestamp
-    allEvents.value = [...noteEvents, ...amEvents].sort((a, b) => {
+    allEvents.value = [...noteEvents, ...servicerCommentEvents, ...amEvents].sort((a, b) => {
       return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     })
 
@@ -775,9 +955,7 @@ watch(() => props.assetHubId, (newId, oldId) => {
 
 /* Timeline Card Body - scrollable */
 .timeline-card-body {
-  max-height: 250px;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: visible;
 }
 
 /* Custom scrollbar for timeline card */
@@ -799,98 +977,6 @@ watch(() => props.assetHubId, (newId, oldId) => {
   background: #a1a1a1;
 }
 
-/* Timeline Section */
-.visual-timeline {
-  padding: 2rem 0;
-  position: relative;
-}
-
-.timeline-line {
-  position: absolute;
-  top: 2rem;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: linear-gradient(to right, #e9ecef 0%, #0d6efd 30%, #0d6efd 70%, #e9ecef 100%);
-  border-radius: 2px;
-  z-index: 0;
-}
-
-/* Scrollable timeline container */
-.timeline-scroll-container {
-  overflow-x: auto;
-  overflow-y: hidden;
-  position: relative;
-  padding: 0 1rem;
-}
-
-/* Custom scrollbar for timeline */
-.timeline-scroll-container::-webkit-scrollbar {
-  height: 6px;
-}
-
-.timeline-scroll-container::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 3px;
-}
-
-.timeline-scroll-container::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 3px;
-}
-
-.timeline-scroll-container::-webkit-scrollbar-thumb:hover {
-  background: #a1a1a1;
-}
-
-.timeline-events {
-  position: relative;
-  z-index: 1;
-  min-width: max-content;
-  gap: 1rem;
-}
-
-.timeline-milestone {
-  flex: 1;
-  cursor: pointer;
-  transition: transform 0.2s ease;
-  min-width: 100px;
-}
-
-.timeline-milestone:hover {
-  transform: translateY(-5px);
-}
-
-.milestone-dot {
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto;
-  border: 4px solid white;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  font-size: 1.5rem;
-  color: white;
-  transition: all 0.3s ease;
-}
-
-.timeline-milestone.active .milestone-dot {
-  box-shadow: 0 6px 20px rgba(13, 110, 253, 0.4);
-  transform: scale(1.1);
-}
-
-.timeline-milestone:not(.active) .milestone-dot {
-  opacity: 0.6;
-  filter: grayscale(50%);
-}
-
-.milestone-label {
-  font-size: 0.75rem;
-  max-width: 100px;
-  margin: 0 auto;
-}
 
 /* Date Dividers */
 .date-divider {

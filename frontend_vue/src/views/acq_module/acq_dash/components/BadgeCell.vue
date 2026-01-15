@@ -13,16 +13,22 @@
     <span 
       v-for="(b, idx) in badges" 
       :key="idx" 
-      class="badge rounded fw-semibold" 
-      :class="[b.color, sizeClass]"
-      :style="sizeStyle"
+      class="badge rounded fw-semibold text-white border-0" 
+      :class="b.inlineStyle ? '' : [b.color, sizeClass]"
+      :style="getBadgeStyle(b)"
       :title="b.title"
     >
       {{ b.label }}
     </span>
   </span>
   <!-- Single badge mode -->
-  <span v-else-if="badges.length === 1" class="badge rounded fw-semibold" :class="[badges[0].color, sizeClass]" :style="sizeStyle" :title="badges[0].title">
+  <span 
+    v-else-if="badges.length === 1" 
+    class="badge rounded fw-semibold text-white border-0" 
+    :class="badges[0].inlineStyle ? '' : [badges[0].color, sizeClass]" 
+    :style="getBadgeStyle(badges[0])" 
+    :title="badges[0].title"
+  >
     {{ badges[0].label }}
   </span>
   <span v-else></span>
@@ -84,11 +90,26 @@ const sizeClass = computed(() => {
 })
 
 /**
+ * Helper function to combine size style with inline color style
+ * WHAT: Merges size styles with color inline styles when using palette colors
+ * WHY: BadgeCell needs to support both Bootstrap classes and inline styles
+ * HOW: If inlineStyle exists, combine with sizeStyle; otherwise return sizeStyle only
+ */
+function getBadgeStyle(badge: { inlineStyle?: string }): string {
+  const baseStyle = sizeStyle.value
+  if (badge.inlineStyle) {
+    return `${baseStyle} ${badge.inlineStyle}`
+  }
+  return baseStyle
+}
+
+/**
  * Badge configs computed from value and optional renderer params.
  * params.cellRendererParams can specify:
  * - mode: 'boolean' | 'enum' | 'multi' | 'multi-prefix'
  * - enumMap: Record<string, { label: string; color: string; title?: string }> (for 'enum' and 'multi' modes)
- * - colorMap: Record<string, string> (for 'multi-prefix' mode - maps prefix to color class)
+ *   - color can be: Bootstrap class (bg-success) OR inline style string (background-color: #HEX;)
+ * - colorMap: Record<string, string> (for 'multi-prefix' mode - maps prefix to color class or inline style)
  * - size: 'xs' | 'sm' | 'md' | 'lg'
  */
 const badges = computed(() => {
@@ -108,9 +129,12 @@ const badges = computed(() => {
     for (const val of values) {
       const found = enumMap[val] || enumMap[val.toLowerCase?.()] || enumMap[String(val).toLowerCase?.()]
       if (found) {
+        // Check if color is inline style (contains 'background-color') or Bootstrap class
+        const isInlineStyle = found.color?.includes('background-color')
         result.push({
           label: found.label ?? val,
           color: found.color ?? 'bg-secondary',
+          inlineStyle: isInlineStyle ? found.color : undefined,  // Only set if inline style
           title: found.title ?? val
         })
       }
@@ -133,9 +157,12 @@ const badges = computed(() => {
       const prefix = colonIndex > 0 ? val.substring(0, colonIndex).trim() : val
       const taskDescription = colonIndex > 0 ? val.substring(colonIndex + 1).trim() : val
       const color = colorMap[prefix] || 'bg-secondary'
+      // Check if color is inline style (contains 'background-color') or Bootstrap class
+      const isInlineStyle = color?.includes('background-color')
       result.push({
         label: taskDescription,  // Only the task description after the colon (e.g., "Pursuing DIL" instead of "DIL: Pursuing DIL")
         color: color,
+        inlineStyle: isInlineStyle ? color : undefined,  // Only set if inline style
         title: val  // Keep full text in tooltip for context
       })
     }
@@ -168,7 +195,14 @@ const badges = computed(() => {
       const label = found.label ?? key
       const color = found.color ?? 'bg-warning text-white'
       const adjustedColor = String(label).trim().toLowerCase() === 'default' ? 'bg-warning text-white' : color
-      return [{ label, color: adjustedColor, title: found.title ?? key }]
+      // Check if color is inline style (contains 'background-color') or Bootstrap class
+      const isInlineStyle = adjustedColor?.includes('background-color')
+      return [{ 
+        label, 
+        color: adjustedColor, 
+        inlineStyle: isInlineStyle ? adjustedColor : undefined,  // Only set if inline style
+        title: found.title ?? key 
+      }]
     }
     // NO FALLBACK: If enum value not in map, return empty array (show nothing)
     return []

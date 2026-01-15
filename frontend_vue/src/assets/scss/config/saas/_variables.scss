@@ -6,16 +6,17 @@
 // Color system
 
 // scss-docs-start gray-color-variables
-$white:    #fff;
-$gray-100: #F5F3EE;  // Cream - warm light background
-$gray-200: #E9ECEF;  // Light Gray - subtle backgrounds
+// ProjectAlpha colors - using centralized palette colors
+$white:    $color-pure-white;
+$gray-100: $color-cream;        // Cream - warm light background
+$gray-200: $color-light-gray;   // Light Gray - subtle backgrounds
 $gray-300: #dee2e6;
 $gray-400: #ced4da;
-$gray-500: #95A5A6;  // Medium Gray - inactive states
-$gray-600: #78909C;  // Cool Gray - archived/historical
-$gray-700: #6c757d;  // Slate Gray - secondary text
-$gray-800: #2C3E50;  // Charcoal - body text
-$gray-900: #1B3B5F;  // Primary Navy - matches indigo for dark theme
+$gray-500: $color-medium-gray;  // Medium Gray - inactive states
+$gray-600: $color-cool-gray;    // Cool Gray - archived/historical
+$gray-700: $color-slate-gray;   // Slate Gray - secondary text
+$gray-800: $color-charcoal;     // Charcoal - body text
+$gray-900: $color-primary-navy; // Primary Navy - matches indigo for dark theme
 $black:    #000;
 // scss-docs-end gray-color-variables
 
@@ -36,17 +37,17 @@ $grays: (
 // fusv-enable
 
 // scss-docs-start color-variables
-// Updated to ProjectAlpha Professional Navy & Gold Theme
-$blue:       #4A6FA5;  // Steel Blue - for secondary buttons/links
-$indigo:     #1B3B5F;  // Primary Navy - main brand color
-$purple:     #6B5A7A;  // Muted Plum - for review/special status
-$pink:       #ff679b;  // Keep original (minimal usage)
-$red:        #C62828;  // Error Red - muted professional red
-$orange:     #CD7F32;  // Bronze - warm metallic accent
-$yellow:     #D4AF37;  // Accent Gold - primary accent/warning
-$green:      #2E7D32;  // Success Green - muted professional green
-$teal:       #00796B;  // Info Teal - informational states
-$cyan:       #5A8A95;  // Slate Teal - processing/secondary info
+// ProjectAlpha colors - using centralized palette colors
+$blue:       $color-steel-blue;      // Steel Blue - for secondary buttons/links
+$indigo:     $color-primary-navy;     // Primary Navy - main brand color
+$purple:     $color-muted-plum;       // Muted Plum - for review/special status
+$pink:       #ff679b;                  // Keep original (minimal usage)
+$red:        $color-error-red;        // Error Red - muted professional red
+$orange:     $color-bronze;            // Bronze - warm metallic accent
+$yellow:     $color-accent-gold;      // Accent Gold - primary accent/warning
+$green:      $color-success-green;    // Success Green - muted professional green
+$teal:       $color-info-teal;        // Info Teal - informational states
+$cyan:       $color-slate-teal;       // Slate Teal - processing/secondary info
 // scss-docs-end color-variables
 
 // scss-docs-start colors-map
@@ -435,8 +436,8 @@ $position-values: (
 //
 // Settings for the `<body>` element.
 
-$body-color:                #6c757d;
-$body-bg:                   #EDE7E1;  // Off-White Beige - warm professional background
+$body-color:                $color-slate-gray;
+$body-bg:                   $color-off-white-beige;  // Off-White Beige - warm professional background
 $body-text-align:           null;
 
 $body-secondary-color:      $gray-600;

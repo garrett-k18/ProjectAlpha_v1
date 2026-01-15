@@ -827,11 +827,12 @@ class NoteTag(models.TextChoices):
     Used by:
     - am_module.models.AMNote
     """
-    URGENT = 'urgent', 'Urgent'
+    GENERAL = 'general', 'General'
     LEGAL = 'legal', 'Legal'
-    QC = 'qc', 'Quality Control'
-    OPS = 'ops', 'Operations'
-    INFO = 'info', 'Info'
+    ESCROW = 'escrow', 'Escrow'
+    FORECLOSURE = 'foreclosure', 'Foreclosure'
+    REO = 'reo', 'REO'
+    BORROWER_HEIR = 'borrower_heir', 'Borrower/Heir'
 
 
 class YesNo(models.TextChoices):

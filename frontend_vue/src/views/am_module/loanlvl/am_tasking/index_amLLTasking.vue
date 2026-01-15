@@ -1176,10 +1176,10 @@ const performingToneMap: Record<import('@/stores/outcomes').PerformingTaskType, 
 }
 
 const delinquentTaskLabel: Record<import('@/stores/outcomes').DelinquentTaskType, string> = {
-  dq_30: '30 Days Delinquent',
-  dq_60: '60 Days Delinquent',
-  dq_90: '90 Days Delinquent',
-  dq_120_plus: '120+ Days Delinquent',
+  dq_30: '30 DLQ',
+  dq_60: '60 DLQ',
+  dq_90: '90 DLQ',
+  dq_120_plus: '120+ DLQ',
   loss_mit: 'Loss Mit',
   fc_dil: 'FC/DIL',
 }

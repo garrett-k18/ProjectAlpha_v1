@@ -30,6 +30,7 @@ QUICK_FILTER_FIELDS = (
     "seller__name",  # WHAT: Map friendly seller_name search to SellerRawData->Seller join
     "trade__trade_name",  # WHAT: Surfaced trade name via ForeignKey per Django join docs
     "sellertape_id",
+    "asset_hub__servicer_id",  # WHAT: Search by servicer loan ID (primary identifier for asset managers)
     "asset_hub__details__asset_status",
 )
 
@@ -79,6 +80,8 @@ def build_queryset(
         .filter(trade__status='BOARD')  # WHAT: Limit to assets from trades that have been boarded (promoted into AM module)
         .select_related("asset_hub")
         .select_related("asset_hub__details")
+        .select_related("asset_hub__details__fund_legal_entity")  # WHAT: Optimize fund_name access
+        .select_related("asset_hub__details__fund_legal_entity__fund")  # WHAT: Optimize fund name resolution
         .select_related("asset_hub__blended_outcome_model")
         .select_related("seller", "trade")  # HOW: ensure seller/trade names resolve without extra queries
         # PERFORMANCE: Prefetch all related data in bulk queries to avoid N+1
@@ -127,9 +130,30 @@ def build_queryset(
             if value in (None, ""):
                 continue
             if key == "seller_name":
-                allowed["seller__name"] = value
+                # WHAT: Support multi-select (comma-separated values)
+                # WHY: Frontend sends multiple selections as "HUD,ABC Bank"
+                if ',' in value:
+                    seller_names = [s.strip() for s in value.split(',') if s.strip()]
+                    qs = qs.filter(seller__name__in=seller_names)
+                else:
+                    allowed["seller__name"] = value
             elif key == "trade_name":
-                allowed["trade__trade_name"] = value
+                # WHAT: Support multi-select (comma-separated values)
+                # WHY: Frontend sends multiple selections as "FLC-36,FLC-38"
+                if ',' in value:
+                    trade_names = [t.strip() for t in value.split(',') if t.strip()]
+                    qs = qs.filter(trade__trade_name__in=trade_names)
+                else:
+                    allowed["trade__trade_name"] = value
+            elif key == "fund_name":
+                # WHAT: Support multi-select (comma-separated values)
+                # WHY: Frontend sends multiple selections for fund filtering
+                # HOW: Navigate through asset_hub -> details -> fund_legal_entity -> fund -> name
+                if ',' in value:
+                    fund_names = [f.strip() for f in value.split(',') if f.strip()]
+                    qs = qs.filter(asset_hub__details__fund_legal_entity__fund__name__in=fund_names)
+                else:
+                    allowed["asset_hub__details__fund_legal_entity__fund__name"] = value
             elif key == "trade":
                 # WHAT: Filter by trade ID (primary key)
                 # WHY: Support filtering loans by trade for task creation
@@ -140,6 +164,40 @@ def build_queryset(
                     continue
             elif key == "lifecycle_status":
                 allowed["asset_hub__details__asset_status"] = value
+            elif key == "active_tracks":
+                # WHAT: Support filtering by active track types (DIL, Modification, REO, FC, Short Sale, Note Sale)
+                # WHY: Frontend needs to filter assets by which outcome tracks they're actively in
+                # HOW: Check for existence of related task models on asset_hub (since active_tracks is computed)
+                # NOTE: active_tracks is a computed field, not a DB field, so we filter on the actual related models
+                
+                # Map track names to their related model names on asset_hub
+                # These correspond to the related_name values in model_am_tracksTasks.py
+                track_to_model = {
+                    'dil': 'dil',
+                    'modification': 'modification',
+                    'reo': 'reo_data',  # REOData model uses 'reo_data' as related_name
+                    'fc': 'fc_sale',
+                    'short_sale': 'short_sale',
+                    'note_sale': 'note_sale',
+                }
+                
+                if ',' in value:
+                    # Multiple tracks - filter assets that have ANY of the selected tracks
+                    track_types = [t.strip().lower() for t in value.split(',') if t.strip()]
+                    track_q = Q()
+                    for track in track_types:
+                        model_name = track_to_model.get(track)
+                        if model_name:
+                            # Check if the related model exists (is not null)
+                            track_q |= Q(**{f'asset_hub__{model_name}__isnull': False})
+                    if track_q:
+                        qs = qs.filter(track_q)
+                else:
+                    # Single track selection
+                    track = value.strip().lower()
+                    model_name = track_to_model.get(track)
+                    if model_name:
+                        qs = qs.filter(**{f'asset_hub__{model_name}__isnull': False})
             else:
                 allowed[key] = value
         if allowed:
