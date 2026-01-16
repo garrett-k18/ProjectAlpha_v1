@@ -781,6 +781,7 @@ export function getCalendarEventBadgeTone(eventType?: string | null): BadgeToneK
     case 'projected_liquidation':
       return 'calendar-projected';
     case 'bid_date':
+    case 'trade': // Trade events use the same color as bid_date (Steel Teal)
       return 'calendar-bid';
     case 'settlement_date':
       return 'calendar-settlement';
@@ -807,6 +808,7 @@ export function getCalendarEventColors(eventType?: string | null): { bg: string;
     case 'projected_liquidation':
       return { bg: '#6B5A7A', border: '#6B5A7A', text: '#ffffff' }; // Muted Plum
     case 'bid_date':
+    case 'trade': // Trade events use the same color as bid_date (Steel Teal #4A7A8A)
       return { bg: '#4A7A8A', border: '#4A7A8A', text: '#ffffff' }; // Steel Teal
     case 'settlement_date':
       return { bg: '#5A8A95', border: '#5A8A95', text: '#ffffff' }; // Slate Teal

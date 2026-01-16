@@ -131,6 +131,53 @@ def _humanize_field_name(field_name: str) -> str:
     return f.replace("_", " ").strip().title()
 
 
+def _build_hub_label_map(hub_ids: set[int]) -> dict[int, tuple[str, str]]:
+    hub_label_map: dict[int, tuple[str, str]] = {}
+    if not hub_ids:
+        return hub_label_map
+
+    hubs = (
+        AssetIdHub.objects.filter(id__in=hub_ids)
+        .select_related("acq_raw")
+        .prefetch_related("servicer_loan_data")
+    )
+    for hub in hubs:
+        servicer_loan_id = (str(getattr(hub, "servicer_id", "") or "").strip())
+
+        addr = ""
+        srd = getattr(hub, "acq_raw", None)
+        if srd is not None:
+            addr = _format_full_address(
+                getattr(srd, "street_address", None),
+                getattr(srd, "city", None),
+                getattr(srd, "state", None),
+                getattr(srd, "zip", None),
+            )
+
+        if not addr:
+            servicer_rows = list(getattr(hub, "servicer_loan_data", []).all())
+            if servicer_rows:
+                servicer_rows.sort(
+                    key=lambda s: (
+                        getattr(s, "reporting_year", 0) or 0,
+                        getattr(s, "reporting_month", 0) or 0,
+                        getattr(s, "as_of_date", "") or "",
+                    ),
+                    reverse=True,
+                )
+                latest = servicer_rows[0]
+                addr = _format_full_address(
+                    getattr(latest, "address", None),
+                    getattr(latest, "city", None),
+                    getattr(latest, "state", None),
+                    getattr(latest, "zip_code", None),
+                )
+
+        hub_label_map[int(hub.id)] = (servicer_loan_id, addr)
+
+    return hub_label_map
+
+
 class NotificationViewSet(DevAuthBypassMixin, viewsets.ReadOnlyModelViewSet):
     queryset = Notification.objects.all()
     serializer_class = NotificationSerializer
@@ -224,14 +271,33 @@ class ActivityFeedView(DevAuthBypassMixin, APIView):
             else:
                 n_qs = n_qs.annotate(is_read=models.Value(False, output_field=models.BooleanField()))
 
-            for n in n_qs.order_by("-created_at", "-id")[: limit * 2]:
+            notif_rows = list(n_qs.order_by("-created_at", "-id")[: limit * 2])
+            hub_ids = {int(n.asset_hub_id) for n in notif_rows if getattr(n, "asset_hub_id", None)}
+            hub_label_map = _build_hub_label_map(hub_ids)
+
+            for n in notif_rows:
                 actor = getattr(n.created_by, "username", None) if getattr(n, "created_by", None) else None
+
+                hub_pk = getattr(n, "asset_hub_id", None)
+                servicer_loan_id, addr = ("", "")
+                if hub_pk is not None and int(hub_pk) in hub_label_map:
+                    servicer_loan_id, addr = hub_label_map[int(hub_pk)]
+
+                if servicer_loan_id and addr:
+                    title = f"{servicer_loan_id} - {addr}"
+                elif servicer_loan_id:
+                    title = servicer_loan_id
+                elif addr:
+                    title = addr
+                else:
+                    title = n.title
+
                 items.append(
                     {
                         "id": f"notification:{n.id}",
                         "source": "notification",
                         "created_at": n.created_at,
-                        "title": n.title,
+                        "title": title,
                         "message": n.message or "",
                         "event_type": n.event_type,
                         "asset_hub_id": n.asset_hub_id,
@@ -253,44 +319,7 @@ class ActivityFeedView(DevAuthBypassMixin, APIView):
 
             hub_label_map: dict[int, tuple[str, str]] = {}
             if hub_ids:
-                hubs = (
-                    AssetIdHub.objects.filter(id__in=hub_ids)
-                    .select_related("acq_raw")
-                    .prefetch_related("servicer_loan_data")
-                )
-                for hub in hubs:
-                    servicer_loan_id = (str(getattr(hub, "servicer_id", "") or "").strip())
-
-                    addr = ""
-                    srd = getattr(hub, "acq_raw", None)
-                    if srd is not None:
-                        addr = _format_full_address(
-                            getattr(srd, "street_address", None),
-                            getattr(srd, "city", None),
-                            getattr(srd, "state", None),
-                            getattr(srd, "zip", None),
-                        )
-
-                    if not addr:
-                        servicer_rows = list(getattr(hub, "servicer_loan_data", []).all())
-                        if servicer_rows:
-                            servicer_rows.sort(
-                                key=lambda s: (
-                                    getattr(s, "reporting_year", 0) or 0,
-                                    getattr(s, "reporting_month", 0) or 0,
-                                    getattr(s, "as_of_date", "") or "",
-                                ),
-                                reverse=True,
-                            )
-                            latest = servicer_rows[0]
-                            addr = _format_full_address(
-                                getattr(latest, "address", None),
-                                getattr(latest, "city", None),
-                                getattr(latest, "state", None),
-                                getattr(latest, "zip_code", None),
-                            )
-
-                    hub_label_map[int(hub.id)] = (servicer_loan_id, addr)
+                hub_label_map = _build_hub_label_map({int(h) for h in hub_ids if h is not None})
 
             for a in audit_rows:
                 field_raw = (getattr(a, "field_name", "") or "").strip()

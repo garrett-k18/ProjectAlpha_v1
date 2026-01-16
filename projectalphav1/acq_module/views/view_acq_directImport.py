@@ -197,7 +197,7 @@ def import_seller_tape(request):
 
                 Notification.objects.create(
                     event_type=Notification.EventType.TRADE_IMPORT,
-                    title="New trade import",
+                    title="Trade Import Completed",
                     message=f"Imported {records_imported} records for seller {seller_name}.",
                     created_by=getattr(request, 'user', None) if getattr(request, 'user', None) and request.user.is_authenticated else None,
                     metadata={

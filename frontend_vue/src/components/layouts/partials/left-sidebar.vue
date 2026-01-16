@@ -47,7 +47,7 @@
         <li class="side-nav-item">
           <router-link to="/home" class="side-nav-link side-nav-link-ref">
             <i class="uil-home-alt"></i>
-            <span> My Dashboard </span>
+            <span> {{ dashboardLabel }} </span>
           </router-link>
         </li>
 
@@ -183,12 +183,12 @@ export default {
 
       const firstNameFromField = user.first_name?.trim()
       if (firstNameFromField) {
-        return `${firstNameFromField} Dashboard`
+        return `${firstNameFromField}'s Dashboard`
       }
 
       const derivedFirstName = user.name?.split(" ")[0]?.trim()
       if (derivedFirstName) {
-        return `${derivedFirstName} Dashboard`
+        return `${derivedFirstName}'s Dashboard`
       }
 
       return "Dashboard"

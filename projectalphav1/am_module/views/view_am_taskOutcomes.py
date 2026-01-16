@@ -170,7 +170,7 @@ class _TaskBaseViewSet(mixins.ListModelMixin,
         try:
             Notification.objects.create(
                 event_type=Notification.EventType.TASK_CHANGED,
-                title="AM task created",
+                title="Task Created",
                 message=f"Task {getattr(obj, 'task_type', '')} created for asset hub {getattr(obj, 'asset_hub_id', None)}.",
                 asset_hub=getattr(obj, 'asset_hub', None),
                 created_by=actor,
@@ -202,7 +202,7 @@ class _TaskBaseViewSet(mixins.ListModelMixin,
             try:
                 Notification.objects.create(
                     event_type=Notification.EventType.TASK_CHANGED,
-                    title="AM task changed",
+                    title="Task Updated",
                     message=f"Task changed from {prev_task_type} to {new_task_type} for asset hub {getattr(obj, 'asset_hub_id', None)}.",
                     asset_hub=getattr(obj, 'asset_hub', None),
                     created_by=actor,

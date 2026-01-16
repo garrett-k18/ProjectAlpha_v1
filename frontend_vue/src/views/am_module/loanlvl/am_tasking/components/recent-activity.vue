@@ -2,17 +2,6 @@
   <div class="card h-100">
     <div class="card-header d-flex justify-content-between align-items-center">
       <h4 class="header-title">{{ title }}</h4>
-      <div class="float-end">
-        <b-dropdown toggle-class="arrow-none card-drop p-0" variant="light" right>
-          <template v-slot:button-content>
-            <i class="mdi mdi-dots-vertical"></i>
-          </template>
-          <b-dropdown-item href="javascript:void(0);">Sales Report</b-dropdown-item>
-          <b-dropdown-item href="javascript:void(0);">Export Report</b-dropdown-item>
-          <b-dropdown-item href="javascript:void(0);">Profit</b-dropdown-item>
-          <b-dropdown-item href="javascript:void(0);">Action</b-dropdown-item>
-        </b-dropdown>
-      </div>
     </div>
 
     <simplebar class="card-body py-0 mb-3" :style="`max-height:${activityWindowHeight}`">
@@ -24,8 +13,11 @@
           <div class="timeline-item-info">
             <a
                 href="#"
-                :class="`text-${activity.color} fw-bold mb-1 d-block`"
-            >{{ activity.title }}</a>
+                class="text-body fw-bold mb-1 d-block"
+            >
+              <span v-if="activity.badgeText" :class="`badge bg-${activity.badgeColor || 'secondary'} me-1`">{{ activity.badgeText }}</span>
+              {{ activity.title }}
+            </a>
             <small>
               {{ activity.text }}
               <span class="fw-bold">{{ activity.boldText }}</span>
@@ -57,6 +49,8 @@ export interface ActivityItem {
   subtext: string
   boldText?: string
   color: 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'secondary' | string
+  badgeText?: string
+  badgeColor?: 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'secondary' | string
 }
 
 /**

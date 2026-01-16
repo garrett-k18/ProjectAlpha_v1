@@ -157,7 +157,7 @@ class AssetInventoryViewSet(ViewSet):
             ):
                 Notification.objects.create(
                     event_type=Notification.EventType.ASSET_LIQUIDATED,
-                    title="Asset liquidated",
+                    title="Asset Liquidated",
                     message=f"Asset hub {hub.id} marked as LIQUIDATED.",
                     asset_hub=hub,
                     created_by=getattr(request, 'user', None) if getattr(request, 'user', None) and request.user.is_authenticated else None,
