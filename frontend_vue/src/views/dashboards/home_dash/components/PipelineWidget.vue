@@ -300,7 +300,7 @@
 
 <script lang="ts">
 import { defineComponent, ref, computed, onMounted } from 'vue';
-import axios from 'axios';
+import http from '@/lib/http'
 import { getTagColor, TAG_COLORS } from '@/config/colorPalette';
 import { ASSET_PIPELINE_TRACK_COLORS, ASSET_MASTER_STATUS_COLORS } from '@/config/categoryColors';
 
@@ -501,39 +501,32 @@ export default defineComponent({
       }));
     };
 
-    const navigateToAssets = async (track: string, taskType: string) => {
-      const trackLabel = stageLabels[track]?.[taskType] || taskType;
-      selectedStage.value = { track, taskType, label: trackLabel };
-      
+    const fetchStageAssets = async (track: string, stage: string, stageLabel: string) => {
       assetsLoading.value = true;
       assetsError.value = null;
       stageAssets.value = [];
-      
+
       try {
         // Use the existing asset inventory endpoint with filters
-        const response = await axios.get('/api/am/assets/', {
-          params: { 
+        const response = await http.get('/am/assets/', {
+          params: {
             active_tracks: track,
-            page_size: 50
+            page_size: 50,
           }
         });
-        
+
         // Filter assets by task type on the frontend using active_tasks field
         // active_tasks contains strings like "FC: Judgement, DIL: Owner contacted"
         const allAssets = response.data.results || [];
         stageAssets.value = allAssets.filter((asset: any) => {
           const activeTasks = asset.active_tasks || '';
-          // Get the display label for this task type
-          const taskLabel = trackLabel;
-          // Check if the active_tasks string contains this specific task
-          // Example: if taskLabel is "Judgement", check if "FC: Judgement" is in active_tasks
-          return activeTasks.toLowerCase().includes(taskLabel.toLowerCase());
+          return activeTasks.toLowerCase().includes(String(stageLabel).toLowerCase());
         });
-        
+
         assetsPagination.value = {
           count: stageAssets.value.length,
           next: null,
-          previous: null
+          previous: null,
         };
       } catch (err: any) {
         assetsError.value = err.response?.data?.detail || 'Failed to load assets for this stage';
@@ -541,6 +534,12 @@ export default defineComponent({
       } finally {
         assetsLoading.value = false;
       }
+    };
+
+    const navigateToAssets = async (track: string, taskType: string) => {
+      const trackLabel = stageLabels[track]?.[taskType] || taskType;
+      selectedStage.value = { track, taskType, label: trackLabel };
+      await fetchStageAssets(track, taskType, trackLabel);
     };
 
     const goBack = () => {
@@ -724,7 +723,7 @@ export default defineComponent({
       loading.value = true;
       error.value = null;
       try {
-        const response = await axios.get('/api/am/dashboard/pipeline/');
+        const response = await http.get('/am/dashboard/pipeline/');
         pipelineData.value = response.data;
       } catch (err: any) {
         error.value = err.response?.data?.detail || 'Failed to load pipeline data';
