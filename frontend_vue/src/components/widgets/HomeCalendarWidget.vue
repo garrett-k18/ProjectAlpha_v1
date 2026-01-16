@@ -87,12 +87,25 @@
                   <!-- WHAT: Show task category for follow_up events -->
                   <!-- WHY: Users need to see the task category (Follow-up, Document Review, etc.) -->
                   <!-- HOW: Display task_category if event is a task -->
+                  <!-- WHAT: Show task category for follow_up events -->
+                  <!-- WHY: Users need to see the task category (Follow-up, Document Review, etc.) -->
+                  <!-- HOW: Display task_category if event is a task -->
                   <span 
                     v-if="(event.event_type === 'follow_up' || event.category === 'follow_up') && event.task_category"
                     class="badge bg-light text-dark border"
                     style="font-size: 0.7rem; margin-top: 1px;"
                   >
                     {{ getTaskCategoryLabel(event.task_category) }}
+                  </span>
+                  <!-- WHAT: Show sub_type for Trade events (Bid Date, Settlement Date) -->
+                  <!-- WHY: Users need to distinguish between different trade date types -->
+                  <!-- HOW: Display sub_type if event is a trade event -->
+                  <span 
+                    v-if="(event.event_type === 'trade' || event.category === 'trade') && event.sub_type"
+                    class="badge bg-light text-dark border"
+                    style="font-size: 0.7rem; margin-top: 1px;"
+                  >
+                    {{ getTradeSubTypeLabel(event.sub_type) }}
                   </span>
                 </div>
                 <!-- WHAT: Display formatted date for each event -->
@@ -522,6 +535,7 @@ export default {
           const rawType = originalEvent.event_type || originalEvent.category || 'milestone';
           const eventType = this.normalizeEventType(rawType);
           const taskCategory = originalEvent.task_category || originalEvent.reason;
+          const tradeSubType = originalEvent.sub_type || event.extendedProps.sub_type;
           const eventTypeLabel = this.getEventTypeLabel(eventType);
           
           // WHAT: Use getEventTitle to generate proper title format
@@ -531,13 +545,16 @@ export default {
           
           // WHAT: Build uniform 2-line structure for all calendar tiles
           // WHY: Consistent dimensions across all event types
-          // HOW: Line 1: Type + Category (if task), Line 2: Address/Title
+          // HOW: Line 1: Type + Category (if task) or Type + Sub Type (if trade), Line 2: Address/Title
           
-          // Line 1: Event type with optional category on same line
+          // Line 1: Event type with optional category/sub-type on same line
           let line1 = '';
           if (eventType === 'follow_up' && taskCategory) {
             const categoryLabel = this.getTaskCategoryLabel(taskCategory);
             line1 = `<div style="font-size: 0.75em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${eventTypeLabel}: ${categoryLabel}</div>`;
+          } else if (eventType === 'trade' && tradeSubType) {
+            const subTypeLabel = this.getTradeSubTypeLabel(tradeSubType);
+            line1 = `<div style="font-size: 0.75em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${eventTypeLabel}: ${subTypeLabel}</div>`;
           } else {
             line1 = `<div style="font-size: 0.75em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${eventTypeLabel}</div>`;
           }
@@ -563,8 +580,16 @@ export default {
           const eventType = arg?.event?.extendedProps?.event_type || 'milestone';
           const eventTypeLabel = this.getEventTypeLabel(eventType);
           const fullTitle = originalEvent ? this.getEventTitle(originalEvent) : (arg?.event?.title || '');
+          // WHAT: Include sub_type in tooltip for Trade events
+          // WHY: Users need to see date type (Bid Date, Settlement Date) in tooltip
+          const subType = originalEvent?.sub_type || arg?.event?.extendedProps?.sub_type;
+          let tooltipTitle = `${eventTypeLabel}: ${fullTitle}`;
+          if (eventType === 'trade' && subType) {
+            const subTypeLabel = this.getTradeSubTypeLabel(subType);
+            tooltipTitle = `${eventTypeLabel} (${subTypeLabel}): ${fullTitle}`;
+          }
           if (arg?.el) {
-            arg.el.setAttribute('title', `${eventTypeLabel}: ${fullTitle}`);
+            arg.el.setAttribute('title', tooltipTitle);
           }
           // NOTE: Height updates are now handled only in syncCalendarEvents with debouncing to prevent flicker
         },
@@ -1198,6 +1223,19 @@ export default {
       return categoryMap[category] || this.formatTitleCaseLabel(category);
     },
 
+    /**
+     * getTradeSubTypeLabel: Formats trade sub_type (bid_date, settlement_date) for display
+     * @param subType - Sub-type value (e.g., 'bid_date', 'settlement_date')
+     * @returns Human-readable label (e.g., 'Bid Date', 'Settlement Date')
+     */
+    getTradeSubTypeLabel(subType: string): string {
+      const subTypeMap: Record<string, string> = {
+        'bid_date': 'Bid Date',
+        'settlement_date': 'Settlement Date'
+      };
+      return subTypeMap[subType] || this.formatTitleCaseLabel(subType);
+    },
+
     formatTitleCaseLabel(value: string): string {
       if (!value) return value;
 
@@ -1346,6 +1384,7 @@ export default {
             category: event.category,
             event_type: normalizedType,
             task_category: event.task_category || event.reason,  // WHAT: Pass task category for calendar tile display
+            sub_type: event.sub_type,  // WHAT: Pass sub_type for Trade events (bid_date, settlement_date)
             reason: event.reason,  // WHAT: Legacy reason field (fallback for task_category)
             asset_hub_id: event.asset_hub_id,  // Pass through the AssetIdHub ID
             address: event.address,  // Pass through the address
@@ -1535,6 +1574,7 @@ export default {
             address: event.address,
             event_type: eventType, // WHAT: Normalized semantic event type
             task_category: event.task_category || event.reason, // WHAT: Task category for follow_up events (follow_up, nod_noi, escrow, reo)
+            sub_type: event.sub_type || null, // WHAT: Sub-type for Trade events (bid_date, settlement_date)
             reason: event.reason, // WHAT: Legacy reason field (fallback for task_category)
             url: event.url,
             source_id: event.source_id,

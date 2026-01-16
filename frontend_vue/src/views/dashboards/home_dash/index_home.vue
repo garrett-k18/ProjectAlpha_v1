@@ -23,9 +23,11 @@
     <!-- Stats Row - Key metrics tiles (minimal top margin as hero provides context) -->
     <StatsWidget
       :tasksCount="tasksCount"
+      :listsCount="listsCount"
       :tradesCount="tradesCount"
       @open-pipeline="showPipelineModal = true"
       @open-tasks="openTasksModal"
+      @open-lists="openListsModal"
       @open-trades="openTradesModal"
       class="mb-3"
     />
@@ -311,6 +313,45 @@
   </b-modal>
 
   <b-modal
+    v-model="showListsModal"
+    title="My Lists"
+    size="lg"
+    dialog-class="modal-dialog-centered"
+    hide-footer
+  >
+    <div v-if="listsLoading" class="text-center py-4">
+      <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+      <p class="text-muted mt-2 mb-0">Loading lists...</p>
+    </div>
+    <div v-else>
+      <div v-if="listsError" class="alert alert-danger mb-3">
+        <i class="mdi mdi-alert-circle-outline me-2"></i>{{ listsError }}
+      </div>
+      <div v-if="customLists.length" class="list-group">
+        <div
+          v-for="list in customLists"
+          :key="`list-${list.id}`"
+          class="list-group-item list-group-item-action d-flex justify-content-between align-items-start"
+        >
+          <div class="me-3">
+            <div class="fw-semibold">{{ list.name }}</div>
+            <div v-if="list.description" class="text-muted small">{{ list.description }}</div>
+          </div>
+          <span class="badge bg-primary rounded-pill">
+            {{ Array.isArray(list.assets) ? list.assets.length : 0 }}
+          </span>
+        </div>
+      </div>
+      <div v-else class="text-center py-5">
+        <i class="mdi mdi-format-list-bulleted text-muted" style="font-size: 3rem;"></i>
+        <p class="text-muted mt-2 mb-0">No custom lists yet</p>
+      </div>
+    </div>
+  </b-modal>
+
+  <b-modal
     v-model="showTradesModal"
     title="Active Trades"
     size="lg"
@@ -562,7 +603,9 @@ export default {
       isLoadingRecentActivity: false,
       showPipelineModal: false,
       showTasksModal: false,
+      showListsModal: false,
       tasksCount: 0,
+      listsCount: 0,
       tasksLoading: false,
       tasksError: '',
       taskAssets: [] as TaskAssetRow[],
@@ -577,6 +620,9 @@ export default {
       tradesLoading: false,
       tradesError: '',
       trades: [] as TradeRow[],
+      listsLoading: false,
+      listsError: '',
+      customLists: [] as Array<{ id: number; name: string; description?: string | null; assets?: any[] }>,
       showTradeGridModal: false,
       selectedTrade: null as TradeRow | null,
       // EXACT copy from asset-grid.vue modal state
@@ -590,6 +636,7 @@ export default {
     await this.loadRecentActivity()
     this.loadActiveTasks()
     this.loadActiveTrades()
+    this.loadCustomListsCount()
   },
   computed: {
     /**
@@ -1053,10 +1100,63 @@ export default {
       }
     },
 
+    async loadCustomListsCount() {
+      // WHAT: Load count of custom asset lists for "My Lists" tile
+      // WHY: Users expect the tile to reflect their saved lists
+      // HOW: Call AM custom lists endpoint and derive count from results
+      try {
+        const resp = await http.get('/am/custom-lists/')
+        if (Array.isArray((resp as any)?.data)) {
+          this.listsCount = (resp as any).data.length
+        } else if (Array.isArray((resp as any)?.data?.results)) {
+          this.listsCount = (resp as any).data.results.length
+        } else {
+          this.listsCount = 0
+        }
+      } catch (e) {
+        console.error('[Home Dashboard] loadCustomListsCount failed', e)
+        this.listsCount = 0
+      }
+    },
+
+    async loadCustomLists() {
+      // WHAT: Load full custom list data for the "My Lists" modal
+      // WHY: Users need to see list names and asset counts
+      // HOW: Call AM custom lists endpoint and map to local state
+      this.listsLoading = true
+      this.listsError = ''
+      try {
+        const resp = await http.get('/am/custom-lists/')
+        if (Array.isArray((resp as any)?.data)) {
+          this.customLists = (resp as any).data
+        } else if (Array.isArray((resp as any)?.data?.results)) {
+          this.customLists = (resp as any).data.results
+        } else {
+          this.customLists = []
+        }
+      } catch (e) {
+        console.error('[Home Dashboard] loadCustomLists failed', e)
+        this.customLists = []
+        this.listsError = 'Failed to load custom lists.'
+      } finally {
+        this.listsLoading = false
+      }
+    },
+
     openTradesModal() {
       this.showTradesModal = true
       if (!this.tradesLoading && this.trades.length === 0) {
         this.loadActiveTrades()
+      }
+    },
+
+    openListsModal() {
+      // WHAT: Open "My Lists" modal and load list data
+      // WHY: Users expect the tile to open a list details modal
+      // HOW: Fetch lists only when needed to reduce API calls
+      this.showListsModal = true
+      if (!this.listsLoading && this.customLists.length === 0) {
+        this.loadCustomLists()
       }
     },
 

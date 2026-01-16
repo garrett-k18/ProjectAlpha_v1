@@ -52,6 +52,7 @@ class LoginView(ObtainAuthToken):
                 profile = UserProfile.objects.create(user=user)
 
             # Return token and user data
+            # Include must_change_password flag to indicate if user needs to change password
             return Response({
                 'token': token.key,
                 'user_id': user.pk,
@@ -64,6 +65,7 @@ class LoginView(ObtainAuthToken):
                 'access_level': profile.access_level,
                 'theme_preference': profile.theme_preference,
                 'profile_picture': profile.profile_picture.url if profile.profile_picture else None,
+                'must_change_password': profile.must_change_password,
             })
         else:
             # Return error for invalid credentials
@@ -208,6 +210,73 @@ class UserDetailsView(APIView):
         
         return Response({
             'message': 'User details updated successfully'
+        }, status=status.HTTP_200_OK)
+
+
+class ChangePasswordView(APIView):
+    """
+    API endpoint for users to change their password
+    Used for initial password change when must_change_password flag is set
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    
+    @transaction.atomic
+    def post(self, request):
+        """
+        Change user's password
+        
+        Args:
+            request.data should contain:
+                - old_password: Current password (required for verification)
+                - new_password: New password to set
+                
+        Returns:
+            Success message and updated must_change_password status
+        """
+        # Get old and new passwords from request
+        old_password = request.data.get('old_password')
+        new_password = request.data.get('new_password')
+        
+        # Validate required fields
+        if not old_password or not new_password:
+            return Response({
+                'error': 'Both old password and new password are required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Validate new password length (Django default minimum is usually enforced)
+        if len(new_password) < 8:
+            return Response({
+                'error': 'New password must be at least 8 characters long'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Get current user
+        user = request.user
+        
+        # Verify old password matches
+        if not user.check_password(old_password):
+            return Response({
+                'error': 'Current password is incorrect'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Check if new password is same as old password
+        if user.check_password(new_password):
+            return Response({
+                'error': 'New password must be different from current password'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Set new password (Django's set_password handles hashing)
+        user.set_password(new_password)
+        user.save()
+        
+        # Get user profile and clear must_change_password flag
+        profile = UserProfile.objects.get(user=user)
+        profile.must_change_password = False
+        profile.save()
+        
+        # Return success response
+        return Response({
+            'message': 'Password changed successfully',
+            'must_change_password': False
         }, status=status.HTTP_200_OK)
 
 

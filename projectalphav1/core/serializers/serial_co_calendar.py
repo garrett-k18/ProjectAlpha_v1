@@ -541,6 +541,9 @@ class UnifiedCalendarEventSerializer(serializers.Serializer):
     # Trade name - for displaying trade information in follow-ups modal
     trade_name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
+    # Sub-type for Trade events (e.g., 'bid_date', 'settlement_date') - distinguishes trade date types
+    sub_type = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
     # Task type for CalendarEvent records
     task_type = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 

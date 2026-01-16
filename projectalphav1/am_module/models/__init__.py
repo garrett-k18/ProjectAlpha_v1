@@ -27,6 +27,9 @@ from .model_am_amData import (
     AuditLog,
 )
 
+# Import custom list model (AM user-defined asset lists)
+from .model_am_customLists import CustomAssetList
+
 # Import DIL-specific models
 from .model_am_dil import HeirContact
 
@@ -52,4 +55,5 @@ __all__ = [
     'AMMetrics',
     'AuditLog',
     'HeirContact',
+    'CustomAssetList',
 ]

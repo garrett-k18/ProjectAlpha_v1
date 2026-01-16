@@ -188,37 +188,8 @@
           </button>
         </div>
 
-        <!-- Right side: Smart Filter Buttons + View -->
-        <div class="d-flex flex-wrap gap-2 align-items-center">
-          <!-- Smart Filter Buttons -->
-          <button
-            class="btn btn-sm"
-            :class="activeSmartFilter === 'active_tracks' ? 'btn-primary' : 'btn-outline-primary'"
-            type="button"
-            title="Show assets with active AM tracks"
-            @click="toggleSmartFilter('active_tracks')"
-          >
-            <i class="mdi mdi-chart-timeline-variant"></i> Active
-          </button>
-          <button
-            class="btn btn-sm"
-            :class="activeSmartFilter === 'delinquent' ? 'btn-warning' : 'btn-outline-warning'"
-            type="button"
-            title="Show delinquent assets"
-            @click="toggleSmartFilter('delinquent')"
-          >
-            <i class="mdi mdi-alert"></i> DQ
-          </button>
-          <button
-            class="btn btn-sm"
-            :class="activeSmartFilter === 'high_value' ? 'btn-success' : 'btn-outline-success'"
-            type="button"
-            title="Show high-value assets (>$100k)"
-            @click="toggleSmartFilter('high_value')"
-          >
-            <i class="mdi mdi-currency-usd"></i> High $
-          </button>
-
+        <!-- Right side: View dropdown (centered) -->
+        <div class="d-flex flex-wrap gap-2 align-items-center justify-content-center">
           <!-- View dropdown -->
           <div class="d-flex align-items-center gap-1">
             <label for="viewSelect" class="small mb-0 text-nowrap">View:</label>
@@ -242,7 +213,8 @@
         :defaultColDef="defaultColDef"
         :isExternalFilterPresent="isExternalFilterPresent"
         :doesExternalFilterPass="doesExternalFilterPass"
-        :rowSelection="{ mode: 'multiRow', checkboxes: false, headerCheckbox: false, enableClickSelection: true }"
+        :selectionColumnDef="{ pinned: 'left', width: 50 }"
+        :rowSelection="{ mode: 'multiRow', checkboxes: true, headerCheckbox: true, enableClickSelection: true }"
         :animateRows="true"
         :loading="loading"
         :rowHeight="50"
@@ -272,6 +244,64 @@
 
         <div class="small" v-if="totalCount !== null">Total: <strong>{{ totalCount }}</strong></div>
       </div>
+
+      <!-- Add to Custom List Modal -->
+      <!-- WHAT: Modal to create a custom list from selected assets -->
+      <!-- WHY: Users need a lightweight workflow to group assets into reusable lists -->
+      <!-- HOW: Collect selected asset IDs + list metadata, then POST to backend -->
+      <BModal
+        v-model="showAddToListModal"
+        title="Add Assets to Custom List"
+        size="lg"
+        dialog-class="modal-dialog-centered"
+        @hidden="resetAddToListModal"
+      >
+        <div class="d-flex flex-column gap-3">
+          <!-- Selected asset summary -->
+          <div class="alert alert-light border mb-0">
+            <strong>{{ selectedListAssetIds.length }}</strong> asset(s) selected for this list
+          </div>
+
+          <!-- List name -->
+          <div>
+            <label class="form-label">List Name</label>
+            <input
+              v-model="newListName"
+              type="text"
+              class="form-control"
+              placeholder="e.g., Q1 DIL Review"
+            />
+          </div>
+
+          <!-- List description -->
+          <div>
+            <label class="form-label">Description (optional)</label>
+            <textarea
+              v-model="newListDescription"
+              class="form-control"
+              rows="3"
+              placeholder="Add a short description for this list..."
+            ></textarea>
+          </div>
+        </div>
+
+        <template #footer>
+          <div class="d-flex align-items-center gap-2 ms-auto">
+            <button type="button" class="btn btn-light" @click="showAddToListModal = false">
+              Cancel
+            </button>
+            <button
+              type="button"
+              class="btn btn-primary"
+              :disabled="!canSaveCustomList || isSavingCustomList"
+              @click="saveCustomList"
+            >
+              <span v-if="isSavingCustomList" class="spinner-border spinner-border-sm me-1" role="status"></span>
+              {{ isSavingCustomList ? 'Saving...' : 'Create List' }}
+            </button>
+          </div>
+        </template>
+      </BModal>
 
       <!-- Loan-Level Modal (mirrors acquisitions dashboard) -->
       <!-- Docs: https://bootstrap-vue-next.github.io/bootstrap-vue-next/docs/components/modal -->
@@ -364,7 +394,26 @@ const constantColumns: ColDef[] = [
     filter: false,
     suppressHeaderContextMenu: true,
     cellRenderer: ActionsCell as any,
-    cellRendererParams: { onAction: onRowAction },
+    // WHAT: Provide custom actions for AM grid (View + Add to List)
+    // WHY: AM uses a different action set than the acquisition grid
+    // HOW: Pass action config list to ActionsCell via cellRendererParams
+    cellRendererParams: {
+      onAction: onRowAction,
+      actions: [
+        {
+          key: 'view',
+          title: 'View Asset',
+          iconClass: 'mdi-eye',
+          variantClass: 'btn-outline-primary',
+        },
+        {
+          key: 'add_to_list',
+          title: 'Add to Custom List',
+          iconClass: 'mdi-playlist-plus',
+          variantClass: 'btn-outline-secondary',
+        },
+      ],
+    },
   },
   {
     headerName: 'Servicer ID',
@@ -599,14 +648,30 @@ function applyView() {
 // Modal + Actions from ActionsCell (view/edit/notes/delete)
 // ---------------------------------------------------------------------------
 // Modal visibility and selected payload
+// Loan-level modal state (view asset)
 const showAssetModal = ref<boolean>(false)
 const selectedId = ref<string | number | null>(null)
 const selectedRow = ref<any>(null)
 const selectedAddr = ref<string | null>(null)
 
+// Custom list modal state (Add to List)
+const showAddToListModal = ref<boolean>(false) // WHAT: Controls Add-to-List modal visibility
+const newListName = ref<string>('') // WHAT: User-provided list name
+const newListDescription = ref<string>('') // WHAT: Optional list description
+const selectedListAssetIds = ref<Array<string | number>>([]) // WHAT: Asset hub IDs selected for the list
+const isSavingCustomList = ref<boolean>(false) // WHAT: Save-in-progress flag for the list modal
+
 // Header should only render once we have a meaningful row payload; this avoids brief flashes of
 // partial data (e.g., hub id + state only) when opening from map markers.
 const headerReady = computed<boolean>(() => !!selectedRow.value)
+
+// WHAT: Form readiness for creating a custom list
+// WHY: Prevent empty list submissions or zero-asset lists
+// HOW: Require a list name and at least one selected asset
+const canSaveCustomList = computed<boolean>(() => {
+  const hasName = String(newListName.value || '').trim().length > 0
+  return hasName && selectedListAssetIds.value.length > 0
+})
 
 // Build friendly header text for modal
 const modalIdText = computed<string>(() => {
@@ -675,15 +740,89 @@ function onLoanRowLoaded(row: any): void {
 }
 
 function onRowAction(action: string, row: any): void {
-  // Normalize action; only 'view' opens modal currently
+  // WHAT: Normalize actions from ActionsCell
+  // WHY: Handle View and Add-to-List with explicit behavior, log others for later
   if (action === 'view') {
     selectedId.value = getAssetHubIdFromRow(row)
     selectedRow.value = row
     selectedAddr.value = buildAddress(row)
     showAssetModal.value = true
-  } else {
-    // Placeholders for future actions
-    console.log(`[AssetGrid] action="${action}"`, row)
+    return
+  }
+
+  if (action === 'add_to_list') {
+    openAddToListModal(row)
+    return
+  }
+
+  // Placeholders for future actions
+  console.log(`[AssetGrid] action="${action}"`, row)
+}
+
+/**
+ * getSelectedAssetRows: Returns the asset rows currently selected in AG Grid.
+ * WHAT: Gather selected rows from the grid selection API
+ * WHY: Add-to-list should use explicit selections if they exist
+ * HOW: Use gridApi.getSelectedRows() and fall back to an empty array
+ */
+function getSelectedAssetRows(): any[] {
+  const api = gridApi.value
+  if (!api || typeof api.getSelectedRows !== 'function') return []
+  return api.getSelectedRows() || []
+}
+
+/**
+ * openAddToListModal: Prepares and opens the Add-to-List modal.
+ * WHAT: Build the selected asset id list
+ * WHY: The modal needs to know which assets will be added
+ * HOW: Prefer selected grid rows; if none, use the clicked row
+ */
+function openAddToListModal(clickedRow?: any): void {
+  const selectedRows = getSelectedAssetRows()
+  const rowsToUse = selectedRows.length > 0 ? selectedRows : (clickedRow ? [clickedRow] : [])
+  selectedListAssetIds.value = rowsToUse
+    .map((row: any) => getAssetHubIdFromRow(row))
+    .filter((id: any) => id !== null && id !== undefined) as Array<string | number>
+
+  showAddToListModal.value = true
+}
+
+/**
+ * resetAddToListModal: Clears modal state after close.
+ * WHAT: Reset fields so each list creation starts fresh
+ * WHY: Avoid stale values between operations
+ * HOW: Clear text inputs and selected asset IDs
+ */
+function resetAddToListModal(): void {
+  newListName.value = ''
+  newListDescription.value = ''
+  selectedListAssetIds.value = []
+  isSavingCustomList.value = false
+}
+
+/**
+ * saveCustomList: Persist the custom list and selected assets to the backend.
+ * WHAT: Create a new list with the selected assets
+ * WHY: Users need to group assets into reusable lists
+ * HOW: POST to /am/custom-lists/ with list metadata and asset IDs
+ */
+async function saveCustomList(): Promise<void> {
+  if (!canSaveCustomList.value) return
+  isSavingCustomList.value = true
+  try {
+    const payload = {
+      name: newListName.value.trim(),
+      description: newListDescription.value.trim(),
+      asset_ids: selectedListAssetIds.value,
+    }
+    await http.post('/am/custom-lists/', payload)
+    showAddToListModal.value = false
+    resetAddToListModal()
+  } catch (error) {
+    console.error('[AssetGrid] Failed to create custom list:', error)
+    alert('Failed to create custom list. Please try again.')
+  } finally {
+    isSavingCustomList.value = false
   }
 }
 

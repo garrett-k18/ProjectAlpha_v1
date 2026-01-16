@@ -125,3 +125,110 @@ class BrokerPortalTokenAdmin(admin.ModelAdmin):
 
         super().save_model(request, obj, form, change)
 
+
+@admin.register(UserProfile)
+class UserProfileAdmin(admin.ModelAdmin):
+    """
+    Admin for UserProfile model
+    Includes must_change_password field for managing temporary passwords
+    """
+    
+    # List columns shown in the changelist view
+    list_display = (
+        'user',
+        'job_title',
+        'department',
+        'access_level',
+        'must_change_password',  # Show if user needs to change password
+        'created_at',
+    )
+    
+    # Sidebar filters
+    list_filter = (
+        'must_change_password',  # Filter by users who need to change password
+        'access_level',
+        'department',
+        'created_at',
+    )
+    
+    # Search fields
+    search_fields = (
+        'user__username',
+        'user__email',
+        'user__first_name',
+        'user__last_name',
+        'job_title',
+        'department',
+    )
+    
+    # Fields to display in the form
+    fieldsets = (
+        ('User Information', {
+            'fields': ('user',)
+        }),
+        ('Profile Details', {
+            'fields': ('job_title', 'department', 'phone_number', 'profile_picture')
+        }),
+        ('Access & Preferences', {
+            'fields': ('access_level', 'theme_preference', 'notification_enabled')
+        }),
+        ('Password Management', {
+            'fields': ('must_change_password',),
+            'description': 'Set to True when creating a user with a temporary password. User will be required to change password on first login.'
+        }),
+    )
+    
+    # Default ordering
+    ordering = ('-created_at',)
+    
+    # Read-only fields (check if fields exist to avoid errors)
+    readonly_fields = ('created_at', 'updated_at') if hasattr(UserProfile, '_meta') and 'created_at' in [f.name for f in UserProfile._meta.get_fields()] else ()
+
+
+# Inline admin for UserProfile to show in User admin
+class UserProfileInline(admin.StackedInline):
+    """
+    Inline admin for UserProfile
+    Allows editing user profile directly from User admin page
+    """
+    model = UserProfile
+    can_delete = False
+    verbose_name_plural = 'Profile'
+    fk_name = 'user'
+    
+    # Fields to display in the inline form
+    fieldsets = (
+        ('Profile Details', {
+            'fields': ('job_title', 'department', 'phone_number', 'profile_picture')
+        }),
+        ('Access & Preferences', {
+            'fields': ('access_level', 'theme_preference', 'notification_enabled')
+        }),
+        ('Password Management', {
+            'fields': ('must_change_password',),
+            'description': 'Set to True when creating a user with a temporary password. User will be required to change password on first login.'
+        }),
+    )
+
+
+# Unregister default User admin and register custom one with inline
+# Only unregister if User is already registered
+if admin.site.is_registered(User):
+    admin.site.unregister(User)
+
+@admin.register(User)
+class UserAdmin(BaseUserAdmin):
+    """
+    Custom User admin with UserProfile inline
+    Allows setting must_change_password when creating users with temporary passwords
+    """
+    inlines = (UserProfileInline,)
+    
+    def save_model(self, request, obj, form, change):
+        """
+        Override save to handle must_change_password flag
+        When creating a new user, if must_change_password is set in the inline,
+        it will be saved automatically via the inline save
+        """
+        super().save_model(request, obj, form, change)
+

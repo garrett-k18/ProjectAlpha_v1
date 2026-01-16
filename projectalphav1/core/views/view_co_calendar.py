@@ -462,13 +462,16 @@ def _get_trade_assumption_events(start_date=None, end_date=None, seller_id=None,
                     'time': 'All Day',
                     'description': desc_template.format(trade_name=trade_name),
                     'category': category,
+                    'event_type': category,  # WHAT: Set event_type to 'trade' for frontend filtering/display
                     'source_model': 'TradeLevelAssumption',
                     'source_id': record.id,
                     'editable': False,
                     'url': f'/acq/trade/{record.trade_id}/' if record.trade_id else ''
                 }
                 
-                # Add sub_type if available for distinguishing trade event types
+                # WHAT: Add sub_type to distinguish bid_date vs settlement_date
+                # WHY: Frontend needs to display "Bid Date" or "Settlement Date" sub-tag
+                # HOW: sub_type comes from CALENDAR_DATE_FIELDS tuple (5th element)
                 if sub_type:
                     event_data['sub_type'] = sub_type
                 

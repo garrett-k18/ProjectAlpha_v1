@@ -72,46 +72,97 @@
     <!-- end Auth fluid right content -->
 </DefaultLayout>
 <!-- end auth-fluid-->
+
+<!-- Password Change Modal -->
+<!-- Shown when user logs in with temporary password and must_change_password is true -->
+<ChangePasswordModal
+  v-model="showPasswordChangeModal"
+  @password-changed="onPasswordChanged"
+/>
 </template>
 
 <script lang="ts">
 import { defineComponent } from 'vue';
 import DefaultLayout from '@/components/layouts/default-layout.vue'
+import ChangePasswordModal from '@/components/auth/ChangePasswordModal.vue';
 import { useDjangoAuthStore } from "@/stores/djangoAuth";
 import type { UserProfile } from "@/stores/djangoAuth";
 import router from "@/router";
 
 export default defineComponent({
-    components: { DefaultLayout },
+    components: { 
+        DefaultLayout,
+        ChangePasswordModal
+    },
     data() {
         return {
+            // Form fields for login
             email: '',
             password: '',
             checked: false,
+            // Django auth store reference
             djangoAuth: useDjangoAuthStore(),
+            // Error state for login
             error: false,
-            loading: false
+            errorMessage: '',
+            // Loading state for login
+            loading: false,
+            // Flag to control password change modal visibility
+            showPasswordChangeModal: false
         }
     },
     methods: {
+        /**
+         * Handle user login
+         * Checks if password change is required after successful login
+         */
         async logIn() {
+          // Reset error state
           this.error = false;
           this.errorMessage = '';
           this.loading = true;
           
           try {
             // Use our Django auth store to log in
-            await this.djangoAuth.logIn(this.email, this.password);
+            const userData = await this.djangoAuth.logIn(this.email, this.password);
             this.loading = false;
-            // After successful login, prefer an explicit redirectFrom target (set by router guard)
-            // and fall back to the main homepage dashboard ('/home') as the default.
-            const redirectTarget = (this.$route.query.redirectFrom as string) || '/home';
-            return router.push(redirectTarget);
+            
+            // Check if user must change password
+            // If must_change_password flag is true, show password change modal instead of redirecting
+            if (userData.must_change_password) {
+              // Show password change modal
+              this.showPasswordChangeModal = true;
+              // Don't redirect yet - wait for password change
+            } else {
+              // Password change not required, proceed with normal redirect
+              // After successful login, prefer an explicit redirectFrom target (set by router guard)
+              // and fall back to the main homepage dashboard ('/home') as the default.
+              const redirectTarget = (this.$route.query.redirectFrom as string) || '/home';
+              return router.push(redirectTarget);
+            }
           } catch (error) {
+            // Handle login error
             this.error = true;
             this.errorMessage = this.djangoAuth.error || 'Login failed';
             this.loading = false;
           }
+        },
+
+        /**
+         * Handle password change completion
+         * Called when user successfully changes their password
+         * Redirects to home page after password change
+         */
+        onPasswordChanged() {
+          // Password changed successfully
+          // Close the modal
+          this.showPasswordChangeModal = false;
+          
+          // Redirect to home page
+          // After password change, prefer an explicit redirectFrom target (set by router guard)
+          // and fall back to the main homepage dashboard ('/home') as the default.
+          const redirectTarget = (this.$route.query.redirectFrom as string) || '/home';
+          router.push(redirectTarget);
         }
     }
 });

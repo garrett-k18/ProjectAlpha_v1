@@ -83,184 +83,182 @@
             
             <!-- FC State Months -->
             <td>
-              <input 
+              <EditableField
+                :value="state.fcStateMonths"
+                @update="state.fcStateMonths = $event as number; markAsChanged()"
                 type="number"
-                class="form-control form-control-sm"
-                v-model.number="state.fcStateMonths"
-                @input="markAsChanged"
-                min="0"
-                step="1"
+                :min="0"
+                :step="1"
+                placeholder="0"
               />
             </td>
             
             <!-- Eviction Duration -->
             <td>
-              <input 
+              <EditableField
+                :value="state.evictionDuration"
+                @update="state.evictionDuration = $event as number; markAsChanged()"
                 type="number"
-                class="form-control form-control-sm"
-                v-model.number="state.evictionDuration"
-                @input="markAsChanged"
-                min="0"
-                step="1"
+                :min="0"
+                :step="1"
+                placeholder="0"
               />
             </td>
             
             <!-- Rehab Duration -->
             <td>
-              <input 
+              <EditableField
+                :value="state.rehabDuration"
+                @update="state.rehabDuration = $event as number; markAsChanged()"
                 type="number"
-                class="form-control form-control-sm"
-                v-model.number="state.rehabDuration"
-                @input="markAsChanged"
-                min="0"
-                step="1"
+                :min="0"
+                :step="1"
+                placeholder="0"
               />
             </td>
             
             <!-- REO Marketing Duration -->
             <td>
-              <input 
+              <EditableField
+                :value="state.reoMarketingDuration"
+                @update="state.reoMarketingDuration = $event as number; markAsChanged()"
                 type="number"
-                class="form-control form-control-sm"
-                v-model.number="state.reoMarketingDuration"
-                @input="markAsChanged"
-                min="0"
-                step="1"
+                :min="0"
+                :step="1"
+                placeholder="0"
               />
             </td>
             
             <!-- REO Local Market Ext Duration -->
             <td>
-              <input 
+              <EditableField
+                :value="state.reoLocalMarketExtDuration"
+                @update="state.reoLocalMarketExtDuration = $event as number; markAsChanged()"
                 type="number"
-                class="form-control form-control-sm"
-                v-model.number="state.reoLocalMarketExtDuration"
-                @input="markAsChanged"
-                min="0"
-                step="1"
+                :min="0"
+                :step="1"
+                placeholder="0"
               />
             </td>
             
             <!-- DIL Duration Avg -->
             <td>
-              <input 
+              <EditableField
+                :value="state.dilDurationAvg"
+                @update="state.dilDurationAvg = $event as number; markAsChanged()"
                 type="number"
-                class="form-control form-control-sm"
-                v-model.number="state.dilDurationAvg"
-                @input="markAsChanged"
-                min="0"
-                step="1"
+                :min="0"
+                :step="1"
+                placeholder="0"
               />
             </td>
             
             <!-- Property Tax Rate -->
             <td>
-              <div class="input-group input-group-sm">
-                <input
-                  type="number"
-                  class="form-control form-control-sm"
-                  :value="formatPercentage(state.propertyTaxRate)"
-                  @input="state.propertyTaxRate = parsePercentage(($event.target as HTMLInputElement).value); markAsChanged()"
-                  min="0"
-                  max="10"
-                  step="0.01"
-                  placeholder="1.20"
-                />
-                <span class="input-group-text">%</span>
-              </div>
+              <EditableField
+                :value="state.propertyTaxRate"
+                @update="state.propertyTaxRate = $event as number; markAsChanged()"
+                type="number"
+                :min="0"
+                :max="10"
+                :step="0.01"
+                suffix="%"
+                :formatValue="(val) => formatPercentage(val as number)"
+                :parseValue="(val) => parsePercentage(val)"
+                placeholder="0.00"
+              />
             </td>
 
             <!-- Transfer Tax Rate -->
             <td>
-              <div class="input-group input-group-sm">
-                <input
-                  type="number"
-                  class="form-control form-control-sm"
-                  :value="formatPercentage(state.transferTaxRate)"
-                  @input="state.transferTaxRate = parsePercentage(($event.target as HTMLInputElement).value); markAsChanged()"
-                  min="0"
-                  max="10"
-                  step="0.01"
-                  placeholder="0.50"
-                />
-                <span class="input-group-text">%</span>
-              </div>
+              <EditableField
+                :value="state.transferTaxRate"
+                @update="state.transferTaxRate = $event as number; markAsChanged()"
+                type="number"
+                :min="0"
+                :max="10"
+                :step="0.01"
+                suffix="%"
+                :formatValue="(val) => formatPercentage(val as number)"
+                :parseValue="(val) => parsePercentage(val)"
+                placeholder="0.00"
+              />
             </td>
 
             <!-- Insurance Rate Avg -->
             <td>
-              <div class="input-group input-group-sm">
-                <input
-                  type="number"
-                  class="form-control form-control-sm"
-                  :value="formatPercentage(state.insuranceRateAvg)"
-                  @input="state.insuranceRateAvg = parsePercentage(($event.target as HTMLInputElement).value); markAsChanged()"
-                  min="0"
-                  max="10"
-                  step="0.01"
-                  placeholder="0.50"
-                />
-                <span class="input-group-text">%</span>
-              </div>
+              <EditableField
+                :value="state.insuranceRateAvg"
+                @update="state.insuranceRateAvg = $event as number; markAsChanged()"
+                type="number"
+                :min="0"
+                :max="10"
+                :step="0.01"
+                suffix="%"
+                :formatValue="(val) => formatPercentage(val as number)"
+                :parseValue="(val) => parsePercentage(val)"
+                placeholder="0.00"
+              />
             </td>
             
             <!-- FC Legal Fees Avg -->
             <td>
-              <input 
+              <EditableField
+                :value="state.fcLegalFeesAvg"
+                @update="state.fcLegalFeesAvg = $event as number; markAsChanged()"
                 type="text"
-                class="form-control form-control-sm"
-                :value="formatCurrency(state.fcLegalFeesAvg)"
-                @input="state.fcLegalFeesAvg = parseFloat(($event.target as HTMLInputElement).value.replace(/,/g, '')); markAsChanged()"
-                placeholder="500"
+                :formatValue="(val) => formatCurrency(val as number)"
+                :parseValue="(val) => parseFloat(val.replace(/,/g, ''))"
+                placeholder="0"
               />
             </td>
 
             <!-- DIL Cost Avg -->
             <td>
-              <input 
+              <EditableField
+                :value="state.dilCostAvg"
+                @update="state.dilCostAvg = $event as number; markAsChanged()"
                 type="text"
-                class="form-control form-control-sm"
-                :value="formatCurrency(state.dilCostAvg)"
-                @input="state.dilCostAvg = parseFloat(($event.target as HTMLInputElement).value.replace(/,/g, '')); markAsChanged()"
-                placeholder="300"
+                :formatValue="(val) => formatCurrency(val as number)"
+                :parseValue="(val) => parseFloat(val.replace(/,/g, ''))"
+                placeholder="0"
               />
             </td>
 
             <!-- CFK Cost Avg -->
             <td>
-              <input 
+              <EditableField
+                :value="state.cfkCostAvg"
+                @update="state.cfkCostAvg = $event as number; markAsChanged()"
                 type="text"
-                class="form-control form-control-sm"
-                :value="formatCurrency(state.cfkCostAvg)"
-                @input="state.cfkCostAvg = parseFloat(($event.target as HTMLInputElement).value.replace(/,/g, '')); markAsChanged()"
-                placeholder="200"
+                :formatValue="(val) => formatCurrency(val as number)"
+                :parseValue="(val) => parseFloat(val.replace(/,/g, ''))"
+                placeholder="0"
               />
             </td>
             
             <!-- Value Adjustment Annual -->
             <td>
-              <div class="input-group input-group-sm">
-                <input
-                  type="number"
-                  class="form-control form-control-sm"
-                  :value="formatPercentage(state.valueAdjustmentAnnual)"
-                  @input="state.valueAdjustmentAnnual = parsePercentage(($event.target as HTMLInputElement).value); markAsChanged()"
-                  min="-100"
-                  max="100"
-                  step="0.01"
-                  placeholder="2.00"
-                />
-                <span class="input-group-text">%</span>
-              </div>
+              <EditableField
+                :value="state.valueAdjustmentAnnual"
+                @update="state.valueAdjustmentAnnual = $event as number; markAsChanged()"
+                type="number"
+                :min="-100"
+                :max="100"
+                :step="0.01"
+                suffix="%"
+                :formatValue="(val) => formatPercentage(val as number)"
+                :parseValue="(val) => parsePercentage(val)"
+                placeholder="0.00"
+              />
             </td>
             
             <!-- Notes -->
             <td>
-              <input 
+              <EditableField
+                :value="state.notes"
+                @update="state.notes = $event as string; markAsChanged()"
                 type="text"
-                class="form-control form-control-sm"
-                v-model="state.notes"
-                @input="markAsChanged"
                 placeholder="Optional notes..."
               />
             </td>
@@ -300,6 +298,7 @@
  */
 import { ref, computed, onMounted } from 'vue'
 import UiBadge from '@/components/ui/UiBadge.vue'
+import EditableField from './EditableField.vue'
 
 // Component emits
 const emit = defineEmits<{
@@ -610,18 +609,9 @@ onMounted(() => {
   white-space: nowrap;
 }
 
-/* Allow inputs to expand to fit content */
-.table input.form-control-sm {
-  min-width: 80px;
-}
-
-/* Make percentage input groups narrower to fit on one line */
-.table .input-group-sm input.form-control-sm {
-  min-width: 60px;
-  max-width: 80px;
-}
-
-.table .input-group-sm .input-group-text {
-  padding: 0.25rem 0.5rem;
+/* Editable field styling in table */
+.table td {
+  padding: 8px 4px;
+  vertical-align: middle;
 }
 </style>

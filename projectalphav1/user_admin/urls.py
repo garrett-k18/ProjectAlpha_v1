@@ -1,6 +1,6 @@
 from django.urls import path
 from django.views.generic import RedirectView
-from .views.auth_views import LoginView, LogoutView, RegisterView, UserDetailsView, CSRFTokenView
+from .views.auth_views import LoginView, LogoutView, RegisterView, UserDetailsView, ChangePasswordView, CSRFTokenView
 
 # URL patterns for user_admin app
 urlpatterns = [
@@ -13,4 +13,6 @@ urlpatterns = [
     path('api/auth/logout/', LogoutView.as_view(), name='logout'),
     path('api/auth/register/', RegisterView.as_view(), name='register'),
     path('api/auth/user/', UserDetailsView.as_view(), name='user-details'),
+    # Password change endpoint for initial password change
+    path('api/auth/change-password/', ChangePasswordView.as_view(), name='change-password'),
 ]

@@ -24,6 +24,11 @@ class UserProfile(models.Model):
     theme_preference = models.CharField(max_length=20, default='light')
     notification_enabled = models.BooleanField(default=True)
     
+    # Password management
+    # Flag to indicate if user must change their password on next login
+    # Set to True when admin creates user with temporary password
+    must_change_password = models.BooleanField(default=False)
+    
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

@@ -21,6 +21,7 @@ export interface UserProfile {
   theme_preference: string;
   notification_enabled: boolean;
   profile_picture?: string;
+  must_change_password?: boolean; // Flag indicating if user must change password
 }
 
 // Note:
@@ -215,6 +216,43 @@ export const useDjangoAuthStore = defineStore("djangoAuth", {
       } catch (error: any) {
         console.error('Profile update error:', error);
         this.error = error.response?.data?.error || 'Failed to update profile';
+        throw error;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    /**
+     * Change user password
+     * Used for initial password change when must_change_password is true
+     * @param oldPassword Current password
+     * @param newPassword New password to set
+     * @returns Response data
+     */
+    async changePassword(oldPassword: string, newPassword: string) {
+      if (!this.token) {
+        throw new Error('Not authenticated');
+      }
+      
+      this.loading = true;
+      this.error = null;
+      
+      try {
+        this.setAuthHeader();
+        const res = await http.post('/auth/change-password/', {
+          old_password: oldPassword,
+          new_password: newPassword
+        });
+        
+        // Update must_change_password flag in authUser
+        if (this.authUser) {
+          this.authUser.must_change_password = false;
+        }
+        
+        return res.data;
+      } catch (error: any) {
+        console.error('Password change error:', error);
+        this.error = error.response?.data?.error || 'Failed to change password';
         throw error;
       } finally {
         this.loading = false;

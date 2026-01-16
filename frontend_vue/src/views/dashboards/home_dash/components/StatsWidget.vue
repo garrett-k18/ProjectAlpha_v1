@@ -39,9 +39,13 @@ import { defineComponent } from 'vue';
 
 export default defineComponent({
   name: 'StatsWidget',
-  emits: ['open-pipeline', 'open-tasks', 'open-trades'],
+  emits: ['open-pipeline', 'open-tasks', 'open-lists', 'open-trades'],
   props: {
     tasksCount: {
+      type: [String, Number],
+      default: null,
+    },
+    listsCount: {
       type: [String, Number],
       default: null,
     },
@@ -92,11 +96,19 @@ export default defineComponent({
         ;(this as any).stats[1].value = String(val)
       },
     },
+    listsCount: {
+      immediate: true,
+      handler(val: string | number | null) {
+        if (val == null) return
+        if (!Array.isArray((this as any).stats) || (this as any).stats.length < 3) return
+        ;(this as any).stats[2].value = String(val)
+      },
+    },
     tradesCount: {
       immediate: true,
       handler(val: string | number | null) {
         if (val == null) return
-        if (!Array.isArray((this as any).stats) || (this as any).stats.length < 5) return
+        if (!Array.isArray((this as any).stats) || (this as any).stats.length < 4) return
         ;(this as any).stats[3].value = String(val)
       },
     },
@@ -107,10 +119,11 @@ export default defineComponent({
         this.$emit('open-pipeline');
       } else if (idx === 1) {
         this.$emit('open-tasks');
+      } else if (idx === 2) {
+        this.$emit('open-lists');
       } else if (idx === 3) {
         this.$emit('open-trades');
       }
-      // idx 2 = My Lists - add handler as needed
     },
   },
 });

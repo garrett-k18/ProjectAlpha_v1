@@ -3,6 +3,7 @@ from rest_framework.routers import DefaultRouter
 from am_module.views.view_am_assetInventory import AssetInventoryViewSet, asset_dashboard_stats, asset_geo_markers, am_pipeline_dashboard
 from am_module.views.notes import AMNoteViewSet
 from am_module.views.view_am_noteSummary import AMNoteSummaryView
+from am_module.views.view_am_customLists import CustomAssetListViewSet
 from am_module.views.view_performance_summary import PerformanceSummaryViewSet
 from am_module.views.views import cash_flow_series_view, sb_daily_loan_data_raw
 from am_module.views.view_am_assetcrmcontact import AssetCRMContactViewSet
@@ -24,6 +25,7 @@ from am_module.views.view_am_taskOutcomes import (
 
 router = DefaultRouter()
 router.register(r'assets', AssetInventoryViewSet, basename='asset-inventory')
+router.register(r'custom-lists', CustomAssetListViewSet, basename='am-custom-lists')
 router.register(r'notes', AMNoteViewSet, basename='am-notes')
 router.register(r'performance-summary', PerformanceSummaryViewSet, basename='performance-summary')
 router.register(r'asset-crm-contacts', AssetCRMContactViewSet, basename='asset-crm-contacts')

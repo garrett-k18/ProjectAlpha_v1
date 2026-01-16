@@ -19,6 +19,7 @@ from am_module.models.model_am_amData import (
     REOScope, Offers,
 )
 from am_module.models.model_am_dil import HeirContact
+from am_module.models.model_am_customLists import CustomAssetList
 
 # ============================================================
 # DEPRECATED ADMIN CLASSES - DO NOT USE
@@ -694,3 +695,15 @@ class OffersAdmin(admin.ModelAdmin):
     
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('asset_hub', 'trading_partner')
+
+
+@admin.register(CustomAssetList)
+class CustomAssetListAdmin(admin.ModelAdmin):
+    """
+    WHAT: Admin interface for AM custom asset lists
+    WHY: Allow staff to inspect and manage custom lists
+    HOW: Show key metadata and enable search by name/owner
+    """
+    list_display = ('id', 'name', 'created_by', 'created_at', 'updated_at')
+    search_fields = ('name', 'description', 'created_by__username', 'created_by__email')
+    list_filter = ('created_at', 'updated_at')
