@@ -30,6 +30,8 @@ from am_module.models.model_am_amData import (
     PerformingTask, DelinquentTask,
 )
 
+import logging
+
 class StandardResultsSetPagination(PageNumberPagination):
     page_size = 50  # Match frontend default page size
     page_size_query_param = 'page_size'
@@ -586,194 +588,225 @@ def am_pipeline_dashboard(request):
         }
     """
     from django.db.models import Count
-    
-    # WHAT: Get all active asset hub IDs (boarded + ACTIVE status)
-    # WHY: Only show pipeline for assets currently being managed
-    active_hub_ids = set(
-        SellerRawData.objects
-        .filter(
-            trade__status=Trade.Status.BOARD,
-            asset_hub__details__asset_status=AssetDetails.AssetStatus.ACTIVE,
+
+    logger = logging.getLogger(__name__)
+
+    try:
+        # WHAT: Get all active asset hub IDs (boarded + ACTIVE status)
+        # WHY: Only show pipeline for assets currently being managed
+        active_hub_ids = set(
+            SellerRawData.objects
+            .filter(
+                trade__status=Trade.Status.BOARD,
+                asset_hub__details__asset_status=AssetDetails.AssetStatus.ACTIVE,
+            )
+            .values_list('asset_hub_id', flat=True)
         )
-        .values_list('asset_hub_id', flat=True)
-    )
-    
-    # WHAT: Define track configurations with display labels (excluding 'sold' - terminal state)
-    # WHY: Centralize stage ordering and labels for consistent frontend display
-    # NOTE: 'sold' is excluded from active pipeline - shown in "Recently Liquidated" section instead
-    track_configs = {
-        'fc': {
-            'model': FCTask,
-            'label': 'Foreclosure',
-            'stages': [
-                ('nod_noi', 'NOD/NOI'),
-                ('fc_filing', 'FC Filing'),
-                ('mediation', 'Mediation'),
-                ('judgement', 'Judgement'),
-                ('redemption', 'Redemption'),
-                ('sale_scheduled', 'Sale Scheduled'),
-            ],
-        },
-        'reo': {
-            'model': REOtask,
-            'label': 'REO',
-            'stages': [
-                ('eviction', 'Eviction'),
-                ('trashout', 'Trashout'),
-                ('renovation', 'Renovation'),
-                ('marketing', 'Marketing'),
-                ('under_contract', 'Under Contract'),
-            ],
-        },
-        'dil': {
-            'model': DILTask,
-            'label': 'DIL',
-            'stages': [
-                ('pursuing_dil', 'Pursuing DIL'),
-                ('owner_contacted', 'Owner Contacted'),
-                ('dil_drafted', 'Drafted'),
-                ('dil_executed', 'Executed'),
-            ],
-        },
-        'short_sale': {
-            'model': ShortSaleTask,
-            'label': 'Short Sale',
-            'stages': [
-                ('list_price_accepted', 'List Price Accepted'),
-                ('listed', 'Listed'),
-                ('under_contract', 'Under Contract'),
-            ],
-        },
-        'modification': {
-            'model': ModificationTask,
-            'label': 'Modification',
-            'stages': [
-                ('mod_drafted', 'Drafted'),
-                ('mod_executed', 'Executed'),
-                ('mod_rpl', 'Re-Performing'),
-                ('mod_failed', 'Failed'),
-            ],
-        },
-        'note_sale': {
-            'model': NoteSaleTask,
-            'label': 'Note Sale',
-            'stages': [
-                ('potential_note_sale', 'Potential'),
-                ('out_to_market', 'Out to Market'),
-                ('pending_sale', 'Pending Sale'),
-            ],
-        },
-        'performing': {
-            'model': PerformingTask,
-            'label': 'Performing',
-            'stages': [
-                ('perf', 'Performing'),
-                ('rpl', 'Re-Performing (RPL)'),
-            ],
-        },
-        'delinquent': {
-            'model': DelinquentTask,
-            'label': 'Delinquent',
-            'stages': [
-                ('dq_30', '30 Days Delinquent'),
-                ('dq_60', '60 Days Delinquent'),
-                ('dq_90', '90 Days Delinquent'),
-                ('dq_120_plus', '120+ Days Delinquent'),
-            ],
-        },
-    }
-    
-    tracks = {}
-    summary = []
-    totals = {}
-    
-    for track_key, config in track_configs.items():
-        model = config['model']
-        stage_labels = dict(config['stages'])
-        
-        # WHAT: Count tasks by task_type for active assets only
-        # WHY: Get distribution of assets across pipeline stages
-        counts = (
-            model.objects
-            .filter(asset_hub_id__in=active_hub_ids)
-            .values('task_type')
-            .annotate(count=Count('id'))
+
+        # WHAT: Define track configurations with display labels (excluding 'sold' - terminal state)
+        # WHY: Centralize stage ordering and labels for consistent frontend display
+        # NOTE: 'sold' is excluded from active pipeline - shown in "Recently Liquidated" section instead
+        track_configs = {
+            'fc': {
+                'model': FCTask,
+                'label': 'Foreclosure',
+                'stages': [
+                    ('nod_noi', 'NOD/NOI'),
+                    ('fc_filing', 'FC Filing'),
+                    ('mediation', 'Mediation'),
+                    ('judgement', 'Judgement'),
+                    ('redemption', 'Redemption'),
+                    ('sale_scheduled', 'Sale Scheduled'),
+                ],
+            },
+            'reo': {
+                'model': REOtask,
+                'label': 'REO',
+                'stages': [
+                    ('eviction', 'Eviction'),
+                    ('trashout', 'Trashout'),
+                    ('renovation', 'Renovation'),
+                    ('marketing', 'Marketing'),
+                    ('under_contract', 'Under Contract'),
+                ],
+            },
+            'dil': {
+                'model': DILTask,
+                'label': 'DIL',
+                'stages': [
+                    ('pursuing_dil', 'Pursuing DIL'),
+                    ('owner_contacted', 'Owner Contacted'),
+                    ('dil_drafted', 'Drafted'),
+                    ('dil_executed', 'Executed'),
+                ],
+            },
+            'short_sale': {
+                'model': ShortSaleTask,
+                'label': 'Short Sale',
+                'stages': [
+                    ('list_price_accepted', 'List Price Accepted'),
+                    ('listed', 'Listed'),
+                    ('under_contract', 'Under Contract'),
+                ],
+            },
+            'modification': {
+                'model': ModificationTask,
+                'label': 'Modification',
+                'stages': [
+                    ('mod_drafted', 'Drafted'),
+                    ('mod_executed', 'Executed'),
+                    ('mod_rpl', 'Re-Performing'),
+                    ('mod_failed', 'Failed'),
+                ],
+            },
+            'note_sale': {
+                'model': NoteSaleTask,
+                'label': 'Note Sale',
+                'stages': [
+                    ('potential_note_sale', 'Potential'),
+                    ('out_to_market', 'Out to Market'),
+                    ('pending_sale', 'Pending Sale'),
+                ],
+            },
+            'performing': {
+                'model': PerformingTask,
+                'label': 'Performing',
+                'stages': [
+                    ('perf', 'Performing'),
+                    ('rpl', 'Re-Performing (RPL)'),
+                ],
+            },
+            'delinquent': {
+                'model': DelinquentTask,
+                'label': 'Delinquent',
+                'stages': [
+                    ('dq_30', '30 Days Delinquent'),
+                    ('dq_60', '60 Days Delinquent'),
+                    ('dq_90', '90 Days Delinquent'),
+                    ('dq_120_plus', '120+ Days Delinquent'),
+                ],
+            },
+        }
+
+        tracks = {}
+        summary = []
+        totals = {}
+
+        for track_key, config in track_configs.items():
+            model = config['model']
+            stage_labels = dict(config['stages'])
+
+            # WHAT: Count tasks by task_type for active assets only
+            # WHY: Get distribution of assets across pipeline stages
+            counts = (
+                model.objects
+                .filter(asset_hub_id__in=active_hub_ids)
+                .exclude(task_type__isnull=True)
+                .values('task_type')
+                .annotate(count=Count('id'))
+            )
+
+            track_counts = {}
+            track_total = 0
+
+            for row in counts:
+                task_type = row.get('task_type')
+                if not task_type:
+                    continue
+                task_type_s = str(task_type)
+                count = int(row.get('count') or 0)
+                if count <= 0:
+                    continue
+
+                track_counts[task_type_s] = count
+                track_total += count
+
+                # Add to summary list with display label
+                label = stage_labels.get(task_type_s, task_type_s)
+                summary.append({
+                    'stage': f"{config['label']}: {label}",
+                    'count': count,
+                    'track': track_key,
+                    'task_type': task_type_s,
+                    'order': list(stage_labels.keys()).index(task_type_s) if task_type_s in stage_labels else 99,
+                })
+
+            tracks[track_key] = track_counts
+            totals[track_key] = track_total
+
+        # WHAT: Sort summary by track then stage order
+        # WHY: Frontend displays stages in logical workflow order
+        summary.sort(key=lambda x: (x['track'], x['order']))
+
+        # WHAT: Get recently liquidated assets grouped by liquidation type
+        # WHY: Show "Recently Liquidated" tab with breakdown by outcome track
+        # HOW: Query LIQUIDATED assets and count by which track has a 'sold' task
+        liquidated_hub_ids = set(
+            SellerRawData.objects
+            .filter(
+                trade__status=Trade.Status.BOARD,
+                asset_hub__details__asset_status=AssetDetails.AssetStatus.LIQUIDATED,
+            )
+            .values_list('asset_hub_id', flat=True)
         )
-        
-        track_counts = {}
-        track_total = 0
-        
-        for row in counts:
-            task_type = row['task_type']
-            count = row['count']
-            track_counts[task_type] = count
-            track_total += count
-            
-            # Add to summary list with display label
-            label = stage_labels.get(task_type, task_type)
-            summary.append({
-                'stage': f"{config['label']}: {label}",
-                'count': count,
-                'track': track_key,
-                'task_type': task_type,
-                'order': list(stage_labels.keys()).index(task_type) if task_type in stage_labels else 99,
-            })
-        
-        tracks[track_key] = track_counts
-        totals[track_key] = track_total
-    
-    # WHAT: Sort summary by track then stage order
-    # WHY: Frontend displays stages in logical workflow order
-    summary.sort(key=lambda x: (x['track'], x['order']))
-    
-    # WHAT: Get recently liquidated assets grouped by liquidation type
-    # WHY: Show "Recently Liquidated" tab with breakdown by outcome track
-    # HOW: Query LIQUIDATED assets and count by which track has a 'sold' task
-    liquidated_hub_ids = set(
-        SellerRawData.objects
-        .filter(
-            trade__status=Trade.Status.BOARD,
-            asset_hub__details__asset_status=AssetDetails.AssetStatus.LIQUIDATED,
+
+        # WHAT: Count liquidated assets by outcome type (which track has 'sold' task)
+        # WHY: Show breakdown like "FC Sale: 5, REO: 3, Short Sale: 2"
+        recently_liquidated = {
+            'fc_sale': FCTask.objects.filter(
+                asset_hub_id__in=liquidated_hub_ids,
+                task_type='sold'
+            ).count(),
+            'reo': REOtask.objects.filter(
+                asset_hub_id__in=liquidated_hub_ids,
+                task_type='sold'
+            ).count(),
+            'short_sale': ShortSaleTask.objects.filter(
+                asset_hub_id__in=liquidated_hub_ids,
+                task_type='sold'
+            ).count(),
+            'note_sale': NoteSaleTask.objects.filter(
+                asset_hub_id__in=liquidated_hub_ids,
+                task_type='sold'
+            ).count(),
+            'dil': DILTask.objects.filter(
+                asset_hub_id__in=liquidated_hub_ids,
+                task_type='dil_executed'
+            ).count(),
+            'modification': ModificationTask.objects.filter(
+                asset_hub_id__in=liquidated_hub_ids,
+                task_type__in=['mod_rpl', 'note_sale']
+            ).count(),
+        }
+        recently_liquidated['total'] = sum(int(v or 0) for v in recently_liquidated.values())
+
+        payload = {
+            'tracks': tracks,
+            'summary': summary,
+            'totals': totals,
+            'active_asset_count': len(active_hub_ids),
+            'recently_liquidated': recently_liquidated,
+            'liquidated_asset_count': len(liquidated_hub_ids),
+        }
+        return Response(payload)
+    except Exception:
+        logger.exception("am_pipeline_dashboard failed")
+        return Response(
+            {
+                'tracks': {},
+                'summary': [],
+                'totals': {},
+                'active_asset_count': 0,
+                'recently_liquidated': {
+                    'fc_sale': 0,
+                    'reo': 0,
+                    'short_sale': 0,
+                    'note_sale': 0,
+                    'dil': 0,
+                    'modification': 0,
+                    'total': 0,
+                },
+                'liquidated_asset_count': 0,
+            },
+            status=status.HTTP_200_OK,
         )
-        .values_list('asset_hub_id', flat=True)
-    )
-    
-    # WHAT: Count liquidated assets by outcome type (which track has 'sold' task)
-    # WHY: Show breakdown like "FC Sale: 5, REO: 3, Short Sale: 2"
-    recently_liquidated = {
-        'fc_sale': FCTask.objects.filter(
-            asset_hub_id__in=liquidated_hub_ids,
-            task_type='sold'
-        ).count(),
-        'reo': REOtask.objects.filter(
-            asset_hub_id__in=liquidated_hub_ids,
-            task_type='sold'
-        ).count(),
-        'short_sale': ShortSaleTask.objects.filter(
-            asset_hub_id__in=liquidated_hub_ids,
-            task_type='sold'
-        ).count(),
-        'note_sale': NoteSaleTask.objects.filter(
-            asset_hub_id__in=liquidated_hub_ids,
-            task_type='sold'
-        ).count(),
-        'dil': DILTask.objects.filter(
-            asset_hub_id__in=liquidated_hub_ids,
-            task_type='dil_executed'
-        ).count(),
-        'modification': ModificationTask.objects.filter(
-            asset_hub_id__in=liquidated_hub_ids,
-            task_type__in=['mod_rpl', 'note_sale']
-        ).count(),
-    }
-    recently_liquidated['total'] = sum(recently_liquidated.values())
-    
-    payload = {
-        'tracks': tracks,
-        'summary': summary,
-        'totals': totals,
-        'active_asset_count': len(active_hub_ids),
-        'recently_liquidated': recently_liquidated,
-        'liquidated_asset_count': len(liquidated_hub_ids),
-    }
-    return Response(payload)
