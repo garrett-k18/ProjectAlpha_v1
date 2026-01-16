@@ -71,14 +71,7 @@
                     </div>
                     <!-- end card -->
 
-                    <b-row class="mt-3">
-                        <b-col cols="12" class="text-center">
-                            <p class="text-muted">Don't have an account?
-                                <router-link to="/register" class="text-muted ms-1"><b>Sign Up</b></router-link>
-                            </p>
-                        </b-col> <!-- end col -->
-                    </b-row>
-                    <!-- end row -->
+                    <!-- Sign Up section removed - users must be assigned accounts, no self-registration -->
 
                 </b-col> <!-- end col -->
             </b-row>

@@ -3,8 +3,11 @@
 
 # We want Cursor to see .env files for development purposes
 # (they remain in .gitignore for git version control)
+
+# Explicitly allow .env files to be indexed and editable by Cursor
 !.env
+!.env.*
 !.env.local
-!.env.*.local
 !.env.development
+!.env.*.local
 

@@ -62,11 +62,7 @@
                     <!-- end form-->
                 </div>
 
-                <!-- Footer-->
-                <footer class="footer footer-alt">
-                    <p class="text-muted">Don't have an account? <router-link to="/register-2" class="text-muted ms-1"><b>Sign Up</b></router-link>
-                    </p>
-                </footer>
+                <!-- Footer removed - users must be assigned accounts, no self-registration -->
 
             </div> <!-- end .card-body -->
         </div>
