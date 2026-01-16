@@ -162,7 +162,7 @@
 
 <script lang="ts">
 import simplebar from "simplebar-vue"
-import {useAuthStore} from "@/stores/auth"
+import { useDjangoAuthStore } from '@/stores/djangoAuth'
 
 export default {
   components: {simplebar},
@@ -174,8 +174,8 @@ export default {
      * present, ensuring the sidebar title always renders meaningful text.
      */
     dashboardLabel(): string {
-      const authStore = useAuthStore()
-      const user = authStore.user as {first_name?: string; name?: string} | null
+      const authStore = useDjangoAuthStore()
+      const user = authStore.user as { first_name?: string; name?: string } | null
 
       if (!user) {
         return "Dashboard"
