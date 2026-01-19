@@ -697,6 +697,9 @@ export default {
       listAssetsError: '',
       listAssetRows: [] as any[],
       listAssetColumnDefs: [
+        { field: 'trade_name', headerName: 'Trade', width: 180 },
+        { field: 'lifecycle_status', headerName: 'Lifecycle Status', width: 160 },
+        { field: 'active_tracks', headerName: 'Active Track(s)', width: 180 },
         { field: 'servicer_id', headerName: 'Servicer ID', width: 140 },
         { field: 'street_address', headerName: 'Address', flex: 1, minWidth: 240 },
         { field: 'city', headerName: 'City', width: 160 },
@@ -1262,6 +1265,9 @@ export default {
       this.listAssetsView = view
       if (view === 'showtape') {
         this.listAssetColumnDefs = [
+          { field: 'trade_name', headerName: 'Trade', width: 180 },
+          { field: 'lifecycle_status', headerName: 'Lifecycle Status', width: 160 },
+          { field: 'active_tracks', headerName: 'Active Track(s)', width: 180 },
           { field: 'servicer_id', headerName: 'Servicer ID', width: 140 },
           { field: 'street_address', headerName: 'Address', flex: 1, minWidth: 240 },
           { field: 'city', headerName: 'City', width: 160 },
