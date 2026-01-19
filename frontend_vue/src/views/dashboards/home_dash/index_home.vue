@@ -334,6 +334,7 @@
           v-for="list in customLists"
           :key="`list-${list.id}`"
           class="list-group-item list-group-item-action d-flex justify-content-between align-items-start"
+          @click="openListAssets(list)"
         >
           <div class="me-3">
             <div class="fw-semibold">{{ list.name }}</div>
@@ -347,6 +348,45 @@
       <div v-else class="text-center py-5">
         <i class="mdi mdi-format-list-bulleted text-muted" style="font-size: 3rem;"></i>
         <p class="text-muted mt-2 mb-0">No custom lists yet</p>
+      </div>
+    </div>
+  </b-modal>
+
+  <b-modal
+    v-model="showListAssetsModal"
+    :title="selectedList ? selectedList.name : 'List Assets'"
+    size="xl"
+    dialog-class="modal-dialog-centered"
+    hide-footer
+  >
+    <div v-if="listAssetsLoading" class="text-center py-4">
+      <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+      <p class="text-muted mt-2 mb-0">Loading assets...</p>
+    </div>
+    <div v-else>
+      <div v-if="listAssetsError" class="alert alert-danger mb-3">
+        <i class="mdi mdi-alert-circle-outline me-2"></i>{{ listAssetsError }}
+      </div>
+      <div v-else>
+        <ag-grid-vue
+          v-if="listAssetRows.length"
+          class="acq-grid"
+          :style="{ width: '100%', height: '60vh' }"
+          :theme="themeQuartz"
+          :columnDefs="listAssetColumnDefs"
+          :rowData="listAssetRows"
+          :defaultColDef="listAssetDefaultColDef"
+          :animateRows="true"
+          :pagination="true"
+          :paginationPageSize="50"
+          :enableCellTextSelection="true"
+        />
+        <div v-else class="text-center py-5">
+          <i class="mdi mdi-format-list-bulleted text-muted" style="font-size: 3rem;"></i>
+          <p class="text-muted mt-2 mb-0">No assets found for this list</p>
+        </div>
       </div>
     </div>
   </b-modal>
@@ -494,6 +534,8 @@ import LoanLevelIndex from '@/views/am_module/loanlvl_index.vue'
 import AssetGrid from '@/views/dashboards/asset_mgmt/asset-grid.vue'
 import { useDjangoAuthStore } from '@/stores/djangoAuth'
 import http from '@/lib/http'
+import { AgGridVue } from 'ag-grid-vue3'
+import { themeQuartz } from 'ag-grid-community'
 
 type ActivityRow = {
   id: string
@@ -595,6 +637,7 @@ export default {
     AIChatWidget,
     LoanLevelIndex,
     AssetGrid,
+    AgGridVue,
   },
   // Options API state for simplicity and broad compatibility across the app
   data() {
@@ -623,6 +666,28 @@ export default {
       listsLoading: false,
       listsError: '',
       customLists: [] as Array<{ id: number; name: string; description?: string | null; assets?: any[] }>,
+      showListAssetsModal: false,
+      selectedList: null as ({ id: number; name: string; description?: string | null; assets?: any[] } | null),
+      listAssetsLoading: false,
+      listAssetsError: '',
+      listAssetRows: [] as any[],
+      listAssetColumnDefs: [
+        { field: 'servicer_id', headerName: 'Servicer ID', width: 140 },
+        { field: 'street_address', headerName: 'Address', flex: 1, minWidth: 240 },
+        { field: 'city', headerName: 'City', width: 160 },
+        { field: 'state', headerName: 'State', width: 110 },
+      ] as any[],
+      listAssetDefaultColDef: {
+        resizable: true,
+        filter: true,
+        wrapHeaderText: true,
+        autoHeaderHeight: true,
+        headerClass: 'text-center',
+        cellClass: 'text-center',
+        floatingFilter: false,
+        menuTabs: ['filterMenuTab'],
+      } as any,
+      themeQuartz,
       showTradeGridModal: false,
       selectedTrade: null as TradeRow | null,
       // EXACT copy from asset-grid.vue modal state
@@ -1157,6 +1222,53 @@ export default {
       this.showListsModal = true
       if (!this.listsLoading && this.customLists.length === 0) {
         this.loadCustomLists()
+      }
+    },
+
+    async openListAssets(list: { id: number; name: string; description?: string | null; assets?: any[] }) {
+      this.selectedList = list
+      this.showListsModal = false
+      this.showListAssetsModal = true
+      await this.loadListAssets(list)
+    },
+
+    async loadListAssets(list: { id: number; name: string; description?: string | null; assets?: any[] }) {
+      this.listAssetsLoading = true
+      this.listAssetsError = ''
+      this.listAssetRows = []
+
+      try {
+        const rawIds = Array.isArray(list.assets) ? list.assets : []
+        const ids = Array.from(new Set(rawIds.map((x: any) => Number(x)).filter((n: number) => Number.isFinite(n))))
+        if (ids.length === 0) {
+          this.listAssetRows = []
+          return
+        }
+
+        const rows: any[] = []
+        const chunkSize = 10
+        for (let i = 0; i < ids.length; i += chunkSize) {
+          const chunk = ids.slice(i, i + chunkSize)
+          const chunkRows = await Promise.all(
+            chunk.map(async (id) => {
+              try {
+                const res = await http.get(`/am/assets/${id}/`)
+                return res.data
+              } catch {
+                return null
+              }
+            }),
+          )
+          rows.push(...chunkRows.filter(Boolean))
+        }
+
+        this.listAssetRows = rows
+      } catch (e) {
+        console.error('[Home Dashboard] loadListAssets failed', e)
+        this.listAssetsError = 'Failed to load list assets.'
+        this.listAssetRows = []
+      } finally {
+        this.listAssetsLoading = false
       }
     },
 

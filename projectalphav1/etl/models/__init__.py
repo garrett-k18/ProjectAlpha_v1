@@ -27,6 +27,11 @@ from .model_etl_statebridge_raw import (
 from .model_etl_import_mapping import (
     ImportMapping,
 )
+from .model_etl_settlementStmt import (
+    TradeSettlementStatementDocument,
+    TradeSettlementStatementETL,
+    TradeSettlementStatementLineItem,
+)
 
 __all__ = [
     "ValuationETL",
@@ -48,4 +53,7 @@ __all__ = [
     "EOMTrialBalanceData",
     "EOMTrustTrackingData",
     "ImportMapping",
+    "TradeSettlementStatementDocument",
+    "TradeSettlementStatementETL",
+    "TradeSettlementStatementLineItem",
 ]

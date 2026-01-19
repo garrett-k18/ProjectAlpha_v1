@@ -40,6 +40,11 @@ from etl.services.services_valuationExtract.serv_etl_valuation_vision_extractor 
 )
 
 from etl.services.services_valuationExtract.serv_etl_valuationPipeline import ValuationExtractionPipeline
+from etl.services.services_tradeSettlementExtract.serv_etl_settlementStmt_pipeline import (
+    TradeSettlementExtractionService,
+    TradeSettlementStatementPipeline,
+    TradeSettlementExtractionResult,
+)
 
 __all__ = [
     'OutlookScanner',
@@ -69,4 +74,8 @@ __all__ = [
     'DocumentExtractionResult',
     'FieldExtractionRecord',
     'ValuationExtractionPipeline',
+    # Trade settlement extraction workflow (shares Gemini client)
+    'TradeSettlementExtractionService',
+    'TradeSettlementStatementPipeline',
+    'TradeSettlementExtractionResult',
 ]

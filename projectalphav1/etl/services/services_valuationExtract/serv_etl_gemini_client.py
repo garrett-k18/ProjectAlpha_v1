@@ -23,6 +23,8 @@ except Exception:  # pragma: no cover - best effort optional import
     genai = None  # type: ignore
 
 
+# WHAT: Shared Gemini Vision client builder for ETL extractors.
+# WHY: Reused by valuation and trade settlement extraction workflows.
 def build_valuation_gemini_vision_client(
     *,
     default_model: str = "gemini-2.5-flash",

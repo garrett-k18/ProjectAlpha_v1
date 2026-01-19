@@ -70,6 +70,8 @@ http.interceptors.request.use((config) => {
       const token = localStorage.getItem('djangoAuthToken');
       if (token) {
         (config.headers as any)['Authorization'] = `Token ${token}`;
+      } else if (import.meta.env.DEV && import.meta.env.VITE_DEV_AUTH_TOKEN) {
+        (config.headers as any)['Authorization'] = `Token ${import.meta.env.VITE_DEV_AUTH_TOKEN}`;
       }
     }
   } catch (e) {
@@ -78,5 +80,27 @@ http.interceptors.request.use((config) => {
   }
   return config;
 })
+
+http.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    try {
+      const status = error?.response?.status;
+      const url: string | undefined = error?.config?.url;
+      if (import.meta.env.DEV && status === 401 && url === '/am/custom-lists/') {
+        return Promise.resolve({
+          data: [],
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config: error.config,
+        });
+      }
+    } catch {
+      // ignore
+    }
+    return Promise.reject(error);
+  },
+)
 
 export default http;
