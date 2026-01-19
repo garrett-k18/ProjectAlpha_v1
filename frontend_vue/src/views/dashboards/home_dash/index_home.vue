@@ -359,6 +359,30 @@
     dialog-class="modal-dialog-centered"
     hide-footer
   >
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+      <div class="d-flex flex-wrap gap-2">
+        <button
+          type="button"
+          class="btn btn-sm"
+          :class="listAssetsView === 'showtape' ? 'btn-primary' : 'btn-outline-primary'"
+          @click="setListAssetsView('showtape')"
+        >
+          Showtape
+        </button>
+        <button
+          type="button"
+          class="btn btn-sm"
+          :class="listAssetsView === 'bid_analysis' ? 'btn-primary' : 'btn-outline-primary'"
+          @click="setListAssetsView('bid_analysis')"
+        >
+          Bid Analysis
+        </button>
+      </div>
+      <div v-if="selectedList" class="text-muted small">
+        {{ Array.isArray(selectedList.assets) ? selectedList.assets.length : 0 }} assets
+      </div>
+    </div>
+
     <div v-if="listAssetsLoading" class="text-center py-4">
       <div class="spinner-border text-primary" role="status">
         <span class="visually-hidden">Loading...</span>
@@ -668,6 +692,7 @@ export default {
       customLists: [] as Array<{ id: number; name: string; description?: string | null; assets?: any[] }>,
       showListAssetsModal: false,
       selectedList: null as ({ id: number; name: string; description?: string | null; assets?: any[] } | null),
+      listAssetsView: 'showtape' as 'showtape' | 'bid_analysis',
       listAssetsLoading: false,
       listAssetsError: '',
       listAssetRows: [] as any[],
@@ -1229,7 +1254,27 @@ export default {
       this.selectedList = list
       this.showListsModal = false
       this.showListAssetsModal = true
+      this.setListAssetsView('showtape')
       await this.loadListAssets(list)
+    },
+
+    setListAssetsView(view: 'showtape' | 'bid_analysis') {
+      this.listAssetsView = view
+      if (view === 'showtape') {
+        this.listAssetColumnDefs = [
+          { field: 'servicer_id', headerName: 'Servicer ID', width: 140 },
+          { field: 'street_address', headerName: 'Address', flex: 1, minWidth: 240 },
+          { field: 'city', headerName: 'City', width: 160 },
+          { field: 'state', headerName: 'State', width: 110 },
+        ]
+      } else {
+        this.listAssetColumnDefs = [
+          { field: 'servicer_id', headerName: 'Servicer ID', width: 140 },
+          { field: 'street_address', headerName: 'Address', flex: 1, minWidth: 240 },
+          { field: 'city', headerName: 'City', width: 160 },
+          { field: 'state', headerName: 'State', width: 110 },
+        ]
+      }
     },
 
     async loadListAssets(list: { id: number; name: string; description?: string | null; assets?: any[] }) {
