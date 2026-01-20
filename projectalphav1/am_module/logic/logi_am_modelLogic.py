@@ -10,8 +10,66 @@ Docs reviewed:
 - Django QuerySet API: https://docs.djangoproject.com/en/stable/ref/models/querysets/
 """
 
+from decimal import Decimal
 from django.db.models import Q
 from am_module.models.model_am_modeling import BlendedOutcomeModel, ReUWAMProjections
+
+
+def resolve_latest_internal_asis_value(
+    internal_initial_uw_asis_value,
+    internal_asis_value,
+):
+    """
+    Resolve latest as-is value per AM valuation rules.
+
+    WHAT: Prefer Internal Initial UW as-is value, fallback to latest Internal valuation
+    WHY: Preserve underwriting baseline while still surfacing updated internal valuations when baseline is blank
+    HOW: Return first non-null value in the priority order
+    """
+    return internal_initial_uw_asis_value or internal_asis_value
+
+
+def compute_current_total_debt_from_servicer(
+    *,
+    current_balance=None,
+    deferred_balance=None,
+    escrow_advance_balance=None,
+    third_party_recov_balance=None,
+    suspense_balance=None,
+    servicer_late_fees=None,
+    other_charges=None,
+    interest_arrears=None,
+):
+    """
+    Compute current total debt from servicer-cleaned balances.
+
+    WHAT: Sum key servicer balances into a single debt figure
+    WHY: Centralize calculation logic for consistent debt reporting
+    HOW:
+      - Escrow balance is excluded (cash held, not debt)
+      - Escrow advance balance is included (typically negative/owed)
+      - Suspense balance is subtracted (funds held, not debt)
+    """
+
+    def as_decimal(value):
+        if value in (None, ''):
+            return Decimal('0')
+        try:
+            return Decimal(str(value))
+        except Exception:
+            return Decimal('0')
+
+    total = Decimal('0')
+    total += as_decimal(current_balance)
+    total += as_decimal(deferred_balance)
+    total += as_decimal(escrow_advance_balance)
+    total += as_decimal(third_party_recov_balance)
+    total += as_decimal(servicer_late_fees)
+    total += as_decimal(other_charges)
+    total += as_decimal(interest_arrears)
+    total -= as_decimal(suspense_balance)
+
+    return total
 
 
 def get_projected_liquidation_events(start_date=None, end_date=None, seller_id=None, trade_id=None):

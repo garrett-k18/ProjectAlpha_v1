@@ -25,7 +25,7 @@ from etl.models import (
     SBDailyPayHistoryData,
     SBDailyTransactionData,
 )
-from am_module.models.servicers import (
+from am_module.models.model_am_servicersCleaned import (
     ServicerArmData,
     ServicerBankruptcyData,
     ServicerCommentData,

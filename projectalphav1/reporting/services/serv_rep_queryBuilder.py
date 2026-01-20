@@ -21,10 +21,17 @@ Docs reviewed:
 """
 
 from typing import Optional, List
+from functools import lru_cache
 from django.db import connection
-from django.db.models import QuerySet, Q, F, Value, CharField, DecimalField, IntegerField
+from django.db.models import QuerySet, Q, F, Value, CharField, DecimalField, IntegerField, ExpressionWrapper, OuterRef, Subquery, DateField
 from django.db.models.functions import Coalesce
 from acq_module.models.model_acq_seller import SellerRawData, Trade
+from am_module.models.model_am_servicersCleaned import ServicerLoanData
+
+
+@lru_cache(maxsize=1)
+def _has_blended_outcome_table() -> bool:
+    return 'am_module_blendedoutcomemodel' in connection.introspection.table_names()
 
 
 def build_base_queryset() -> QuerySet[SellerRawData]:
@@ -55,6 +62,9 @@ def build_base_queryset() -> QuerySet[SellerRawData]:
             'asset_hub__reo_data',
             'asset_hub__fc_sale',
             'asset_hub__short_sale',
+            'asset_hub__note_sale',
+            'asset_hub__performing_track',
+            'asset_hub__delinquent_track',
         )
         .prefetch_related(
             'asset_hub__valuations',    # WHAT: Valuations for AIV/ARV calculations
@@ -63,6 +73,10 @@ def build_base_queryset() -> QuerySet[SellerRawData]:
             'asset_hub__reo_tasks',
             'asset_hub__fc_tasks',
             'asset_hub__short_sale_tasks',
+            'asset_hub__note_sale_tasks',
+            'asset_hub__performing_tasks',
+            'asset_hub__delinquent_tasks',
+            'asset_hub__ammetrics',
         )
         # WHAT: Filter to only BOARDED trades by default
         # WHY: Reporting should only show closed/boarded loans, not trades in due diligence
@@ -71,7 +85,7 @@ def build_base_queryset() -> QuerySet[SellerRawData]:
     )
 
     # Conditionally add select_related for blended outcome model if table exists
-    if 'am_module_blendedoutcomemodel' in connection.introspection.table_names():
+    if _has_blended_outcome_table():
         queryset = queryset.select_related('asset_hub__blended_outcome_model')
     
     # ========================================================================
@@ -88,6 +102,12 @@ def build_base_queryset() -> QuerySet[SellerRawData]:
     from django.db.models import F, Value, CharField
     from django.db.models.functions import Concat, Coalesce
     
+    latest_servicer = (
+        ServicerLoanData.objects
+        .filter(asset_hub_id=OuterRef('asset_hub_id'))
+        .order_by('-reporting_year', '-reporting_month', '-as_of_date', '-pk')
+    )
+
     queryset = queryset.annotate(
         # ====================================================================
         # ✅ CORE REQUIRED FIELDS - ALWAYS AVAILABLE IN ALL QUERIES
@@ -132,10 +152,13 @@ def build_base_queryset() -> QuerySet[SellerRawData]:
         # ──────────────────────────────────────────────────────────────────
         # CURRENT BALANCE (from ServicerLoanData)
         # ──────────────────────────────────────────────────────────────────
-        # WHAT: Current balance from servicing platform
-        # WHY: Most up-to-date balance from servicer (vs. tape balance)
-        # SOURCE: asset_hub.servicer_loan_data.current_balance
-        servicer_current_balance=F('asset_hub__servicer_loan_data__current_balance'),
+        # WHAT: Current balance from latest servicer snapshot
+        # WHY: Avoid duplicate rows from multi-row servicer data
+        # SOURCE: latest ServicerLoanData snapshot per asset_hub
+        servicer_current_balance=Subquery(
+            latest_servicer.values('current_balance')[:1],
+            output_field=DecimalField(max_digits=15, decimal_places=2),
+        ),
         
         # ====================================================================
         # 📊 ADDITIONAL SERVICER FIELDS - Available but not required
@@ -147,23 +170,44 @@ def build_base_queryset() -> QuerySet[SellerRawData]:
         
         # WHAT: Interest rate from servicer
         # WHY: Current interest rate from servicing platform
-        servicer_interest_rate=F('asset_hub__servicer_loan_data__interest_rate'),
+        servicer_interest_rate=Subquery(
+            latest_servicer.values('interest_rate')[:1],
+            output_field=DecimalField(max_digits=5, decimal_places=3),
+        ),
         
-        # WHAT: Total debt from servicer (includes fees, advances, escrow)
-        # WHY: Complete debt picture from servicing platform
-        servicer_total_debt=F('asset_hub__servicer_loan_data__total_debt'),
+        # WHAT: Total debt from servicer (computed using servicer balances)
+        # WHY: Align with computed_total_debt rules for servicing dashboards
+        servicer_total_debt=ExpressionWrapper(
+            Coalesce(F('servicer_current_balance'), Value(0), output_field=DecimalField())
+            + Coalesce(Subquery(latest_servicer.values('deferred_balance')[:1], output_field=DecimalField(max_digits=15, decimal_places=2)), Value(0), output_field=DecimalField())
+            + Coalesce(Subquery(latest_servicer.values('escrow_advance_balance')[:1], output_field=DecimalField(max_digits=15, decimal_places=2)), Value(0), output_field=DecimalField())
+            + Coalesce(Subquery(latest_servicer.values('third_party_recov_balance')[:1], output_field=DecimalField(max_digits=15, decimal_places=2)), Value(0), output_field=DecimalField())
+            + Coalesce(Subquery(latest_servicer.values('servicer_late_fees')[:1], output_field=DecimalField(max_digits=15, decimal_places=2)), Value(0), output_field=DecimalField())
+            + Coalesce(Subquery(latest_servicer.values('other_charges')[:1], output_field=DecimalField(max_digits=15, decimal_places=2)), Value(0), output_field=DecimalField())
+            + Coalesce(Subquery(latest_servicer.values('interest_arrears')[:1], output_field=DecimalField(max_digits=15, decimal_places=2)), Value(0), output_field=DecimalField())
+            - Coalesce(Subquery(latest_servicer.values('suspense_balance')[:1], output_field=DecimalField(max_digits=15, decimal_places=2)), Value(0), output_field=DecimalField()),
+            output_field=DecimalField(max_digits=15, decimal_places=2),
+        ),
         
         # WHAT: Next due date from servicer
         # WHY: Track payment schedules
-        servicer_next_due_date=F('asset_hub__servicer_loan_data__next_due_date'),
+        servicer_next_due_date=Subquery(
+            latest_servicer.values('next_due_date')[:1],
+            output_field=DateField(),
+        ),
         
-        servicer_current_fico=F('asset_hub__servicer_loan_data__current_fico'),
-        servicer_maturity_date=F('asset_hub__servicer_loan_data__maturity_date'),
+        servicer_current_fico=Subquery(
+            latest_servicer.values('current_fico')[:1],
+            output_field=IntegerField(),
+        ),
+        servicer_maturity_date=Subquery(
+            latest_servicer.values('maturity_date')[:1],
+            output_field=DateField(),
+        ),
     )
 
     # Only annotate BlendedOutcomeModel fields if the table exists
-    has_blended = 'am_module_blendedoutcomemodel' in connection.introspection.table_names()
-    if has_blended:
+    if _has_blended_outcome_table():
         queryset = queryset.annotate(
             purchase_date=F('asset_hub__blended_outcome_model__purchase_date'),
             purchase_price=F('asset_hub__blended_outcome_model__purchase_price'),
@@ -549,7 +593,8 @@ def apply_track_filter(
 
 def apply_task_status_filter(
     queryset: QuerySet[SellerRawData],
-    task_statuses: Optional[List[str]] = None
+    task_statuses: Optional[List[str]] = None,
+    tracks: Optional[List[str]] = None,
 ) -> QuerySet[SellerRawData]:
     """
     WHAT: Filter queryset by active task statuses (eviction, trashout, nod_noi, etc.)
@@ -565,30 +610,39 @@ def apply_task_status_filter(
     if task_statuses and len(task_statuses) > 0:
         # WHAT: Build OR filter for multiple task types
         # WHY: User can select multiple task types simultaneously
-        # HOW: Use Q objects to combine multiple task checks across all task models
+        # HOW: Use Q objects with __in to reduce OR explosion
         task_q = Q()
         
         # WHAT: Check each task type across all task models
         # WHY: Task types can exist in any of the 6 task models
         # HOW: Use asset_hub relationship to join task models
-        task_related_names = [
-            'reo_tasks',
-            'fc_tasks',
-            'dil_tasks',
-            'short_sale_tasks',
-            'modification_tasks',
-            'note_sale_tasks',
-        ]
+        task_related_map = {
+            'reo': 'reo_tasks',
+            'fc': 'fc_tasks',
+            'dil': 'dil_tasks',
+            'short_sale': 'short_sale_tasks',
+            'modification': 'modification_tasks',
+            'note_sale': 'note_sale_tasks',
+        }
+
+        task_related_names = list(task_related_map.values())
+        if tracks:
+            task_related_names = [
+                task_related_map[track]
+                for track in tracks
+                if track in task_related_map
+            ]
+
+        if not task_related_names:
+            return queryset
         
-        # WHAT: Add filter for each task type across all task models
-        # WHY: Find assets that have any of the selected task types active
+        # WHAT: Add filter for each task model using __in list
+        # WHY: Fewer OR branches and cleaner SQL
         for related_name in task_related_names:
-            for task_type in task_statuses:
-                # WHAT: Check if asset has this task type in this task model
-                # WHY: Task can exist in any of the 6 outcome track task models
-                task_q |= Q(**{f'asset_hub__{related_name}__task_type': task_type})
+            task_q |= Q(**{f'asset_hub__{related_name}__task_type__in': task_statuses})
         
-        queryset = queryset.filter(task_q)
+        # DISTINCT: Multiple task rows can cause duplicates
+        queryset = queryset.filter(task_q).distinct()
     
     return queryset
 
@@ -762,7 +816,7 @@ def build_reporting_queryset(
     # WHY: Each filter narrows down the dataset
     queryset = apply_trade_filter(queryset, trade_ids)
     queryset = apply_track_filter(queryset, tracks)
-    queryset = apply_task_status_filter(queryset, task_statuses)
+    queryset = apply_task_status_filter(queryset, task_statuses, tracks)
     queryset = apply_fund_filter(queryset, fund_id, partnership_ids)
     queryset = apply_entity_filter(queryset, entity_id)
     queryset = apply_date_range_filter(queryset, start_date, end_date)

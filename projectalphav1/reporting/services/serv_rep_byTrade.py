@@ -201,6 +201,7 @@ def get_by_trade_grid_data(request) -> List[Dict[str, Any]]:
             # servicing fields (these were fine to keep)
             'servicer_current_balance': float(getattr(asset, 'servicer_current_balance', 0) or 0),
             'servicer_total_debt': float(getattr(asset, 'servicer_total_debt', 0) or 0),
+            'computed_total_debt': float(getattr(asset, 'servicer_total_debt', 0) or 0),
             'servicer_next_due_date': servicer_next_due_date_value,
             'months_dlq': asset.months_dlq,
             'servicer_current_fico': getattr(asset, 'servicer_current_fico', None),

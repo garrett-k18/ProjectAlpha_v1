@@ -37,7 +37,7 @@ import json                        # For serializing JSON diffs
 # WHY: ServicerLoanData is in a separate module that imports from this one
 # HOW: Import only during type checking, not at runtime
 if TYPE_CHECKING:
-    from .servicers import ServicerLoanData
+    from .model_am_servicersCleaned import ServicerLoanData
 
 from .model_am_tracksTasks import (
     DIL,

@@ -13,7 +13,7 @@ from am_module.serializers.serial_am_assetInventory import (
 )
 from am_module.serializers.serial_am_note import AMNoteSerializer
 from am_module.serializers.serial_am_servicerData import ServicerLoanDataSerializer
-from am_module.models.servicers import ServicerLoanData
+from am_module.models.model_am_servicersCleaned import ServicerLoanData
 
 # Import acquisitions models to surface photos linked to SellerRawData (via sellertape_id)
 from acq_module.models.model_acq_seller import SellerRawData, Trade
@@ -213,7 +213,7 @@ class AssetInventoryViewSet(ViewSet):
         if hub is None:
             return Response([], status=status.HTTP_200_OK)
         
-        from am_module.models.servicers import ServicerCommentData
+        from am_module.models.model_am_servicersCleaned import ServicerCommentData
         
         comments = (
             ServicerCommentData.objects

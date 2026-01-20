@@ -47,7 +47,7 @@
           <div class="card text-center">
             <div class="card-body py-2">
               <div class="text-muted small">Total Debt</div>
-              <div class="fw-bold">{{ formatCurrency(data.total_debt) }}</div>
+              <div class="fw-bold">{{ formatCurrency(resolvedTotalDebt) }}</div>
             </div>
           </div>
         </b-col>
@@ -92,9 +92,16 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 const props = defineProps<{
   data: any
 }>()
+
+const resolvedTotalDebt = computed(() => (
+  props.data?.computed_total_debt ??
+  props.data?.total_debt ??
+  null
+))
 
 function formatNumber(value: number): string {
   return new Intl.NumberFormat().format(value || 0)

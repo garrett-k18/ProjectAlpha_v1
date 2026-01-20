@@ -3,7 +3,7 @@ from django.contrib import admin
 # from am_module.models.boarded_data import SellerBoardedData, BlendedOutcomeModel
 # from am_module.models.asset_metrics import AssetMetrics
 from am_module.models.model_am_modeling import BlendedOutcomeModel  # Keep only BlendedOutcomeModel (not deprecated)
-from am_module.models.servicers import (
+from am_module.models.model_am_servicersCleaned import (
     ServicerArmData,
     ServicerBankruptcyData,
     ServicerCommentData,

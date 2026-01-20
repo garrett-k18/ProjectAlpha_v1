@@ -18,7 +18,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.db.models import Q
 
-from am_module.models.servicers import (
+from am_module.models.model_am_servicersCleaned import (
     ServicerCommentData,
     ServicerPayHistoryData,
     ServicerTransactionData,

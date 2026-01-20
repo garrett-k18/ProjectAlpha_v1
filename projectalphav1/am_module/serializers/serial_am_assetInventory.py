@@ -291,6 +291,24 @@ class AssetInventoryRowSerializer(serializers.Serializer):
         help_text='Latest ARV from Internal Initial UW valuation'
     )
 
+    internal_asis_value = serializers.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        source='_computed_internal_asis_value',
+        read_only=True,
+        allow_null=True,
+        help_text='Latest as-is value from Internal valuation'
+    )
+
+    latest_internal_asis_value = serializers.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        source='_computed_latest_internal_asis_value',
+        read_only=True,
+        allow_null=True,
+        help_text='Resolved as-is value (Internal Initial UW preferred, else Internal valuation)'
+    )
+
     # Seller
     seller_asis_value = serializers.DecimalField(
         max_digits=15,

@@ -1,0 +1,1 @@
+#General Logic for all models in Core app

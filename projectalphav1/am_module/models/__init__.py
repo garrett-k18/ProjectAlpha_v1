@@ -1,7 +1,7 @@
 # Import models to make them available when importing from am_module.models
 # DEPRECATED: SellerBoardedData - use SellerRawData from acq_module instead
 # from .boarded_data import SellerBoardedData
-from .servicers import ServicerLoanData
+from .model_am_servicersCleaned import ServicerLoanData
 
 # Import BlendedOutcomeModel, ReUWAMProjections, and UWCashFlows from model_am_modeling.py
 from .model_am_modeling import BlendedOutcomeModel, ReUWAMProjections, UWCashFlows

@@ -55,7 +55,7 @@
             </tr>
             <tr>
               <td>Total Debt</td>
-              <td class="text-end">{{ formatCurrency(data.total_debt) }}</td>
+              <td class="text-end">{{ formatCurrency(resolvedTotalDebt) }}</td>
             </tr>
             <tr>
               <td>Delinquency Rate</td>
@@ -69,9 +69,16 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 const props = defineProps<{
   data: any
 }>()
+
+const resolvedTotalDebt = computed(() => (
+  props.data?.computed_total_debt ??
+  props.data?.total_debt ??
+  null
+))
 
 function formatNumber(value: number): string {
   return new Intl.NumberFormat().format(value || 0)

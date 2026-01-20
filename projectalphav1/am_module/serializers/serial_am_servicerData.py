@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from rest_framework import serializers
-from am_module.models.servicers import ServicerLoanData
+from am_module.models.model_am_servicersCleaned import ServicerLoanData
+from am_module.logic.logi_am_modelLogic import compute_current_total_debt_from_servicer
 
 
 class ServicerLoanDataSerializer(serializers.Serializer):
@@ -61,6 +62,7 @@ class ServicerLoanDataSerializer(serializers.Serializer):
     other_charges = serializers.DecimalField(max_digits=15, decimal_places=2, allow_null=True)
     interest_arrears = serializers.DecimalField(max_digits=15, decimal_places=2, allow_null=True)
     total_debt = serializers.DecimalField(max_digits=15, decimal_places=2, allow_null=True)
+    computed_total_debt = serializers.SerializerMethodField()
     lien_pos = serializers.IntegerField(allow_null=True)
     maturity_date = serializers.DateField(allow_null=True)
     default_rate = serializers.DecimalField(max_digits=5, decimal_places=3, allow_null=True)
@@ -118,6 +120,18 @@ class ServicerLoanDataSerializer(serializers.Serializer):
     current_neg_am_bal = serializers.DecimalField(max_digits=15, decimal_places=2, allow_null=True)
     deferred_interest = serializers.DecimalField(max_digits=15, decimal_places=2, allow_null=True)
     deferred_principal = serializers.DecimalField(max_digits=15, decimal_places=2, allow_null=True)
+
+    def get_computed_total_debt(self, obj: ServicerLoanData):
+        return compute_current_total_debt_from_servicer(
+            current_balance=getattr(obj, 'current_balance', None),
+            deferred_balance=getattr(obj, 'deferred_balance', None),
+            escrow_advance_balance=getattr(obj, 'escrow_advance_balance', None),
+            third_party_recov_balance=getattr(obj, 'third_party_recov_balance', None),
+            suspense_balance=getattr(obj, 'suspense_balance', None),
+            servicer_late_fees=getattr(obj, 'servicer_late_fees', None),
+            other_charges=getattr(obj, 'other_charges', None),
+            interest_arrears=getattr(obj, 'interest_arrears', None),
+        )
     first_due_date = serializers.DateField(allow_null=True)
     interest_method = serializers.CharField(allow_null=True, allow_blank=True)
     last_escrow_analysis_date = serializers.DateField(allow_null=True)

@@ -1,10 +1,10 @@
 <template>
   <!-- Root padding container keeps spacing consistent with modal body -->
   <div>
-    <!-- Three-card layout for snapshot summary content -->
+    <!-- Top row: Property Descriptors | Photos | Map -->
     <b-row class="g-3 align-items-stretch" style="min-height: 400px;">
       <b-col lg="4" class="d-flex">
-        <AssetSummary
+        <PropertyDescriptorsSummary
           class="h-100 w-100"
           :row="row"
           :assetHubId="assetHubId"
@@ -53,9 +53,17 @@
       </b-col>
     </b-row>
 
-    <!-- Asset Management quickview row sits beneath the primary snapshot cards -->
+    <!-- Second row: Purchase/Performance | AM Quickview | Notes -->
     <b-row class="g-3 align-items-stretch mt-3">
-      <b-col lg="8" class="d-flex">
+      <b-col lg="4" class="d-flex">
+        <PurchasePerformanceSummary
+          class="h-100 w-100"
+          :row="row"
+          :assetHubId="assetHubId"
+        />
+      </b-col>
+
+      <b-col lg="5" class="d-flex">
         <AssetManagementQuickview
           class="h-100 w-100"
           :row="row"
@@ -63,8 +71,7 @@
         />
       </b-col>
       
-      <!-- Notes quickview shows all notes for this asset in a scrollable card -->
-      <b-col lg="4" class="d-flex">
+      <b-col lg="3" class="d-flex">
         <NotesQuickView
           class="h-100 w-100"
           :row="row"
@@ -76,11 +83,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, withDefaults, defineProps } from 'vue' // Import Vue helpers for typed props and derived state
+import { computed } from 'vue' // Import Vue helpers for typed props and derived state
 import PropertyMap from '@/components/PropertyMap.vue' // Import shared map component to display asset location
 import PhotoCarousel from '@/components/PhotoCarousel.vue' // Import shared photo carousel component for asset imagery
 import type { PhotoItem } from '@/components/PhotoCarousel.vue' // Import PhotoItem type for strong typing of carousel data
-import AssetSummary from '@/views/am_module/loanlvl/components/asset_summary.vue' // Import the Asset Summary card component for Snapshot tab use
+import PropertyDescriptorsSummary from '@/views/am_module/loanlvl/components/property_descriptors_summary.vue' // Import Property Descriptors card for asset/property attributes
+import PurchasePerformanceSummary from '@/views/am_module/loanlvl/components/purchase_performance_summary.vue' // Import Purchase & Performance card for financial metrics
 import AssetManagementQuickview from '@/views/am_module/loanlvl/components/asset_management_quickview.vue' // Import newly added quickview card summarizing AM tasking context
 import NotesQuickView from '@/views/am_module/loanlvl/components/notes_quickview.vue' // Import notes quickview card for displaying all asset notes in Snapshot tab
 

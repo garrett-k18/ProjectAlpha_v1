@@ -340,9 +340,21 @@
             <div class="fw-semibold">{{ list.name }}</div>
             <div v-if="list.description" class="text-muted small">{{ list.description }}</div>
           </div>
-          <span class="badge bg-primary rounded-pill">
-            {{ Array.isArray(list.assets) ? list.assets.length : 0 }}
-          </span>
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-primary rounded-pill">
+              {{ Array.isArray(list.assets) ? list.assets.length : 0 }}
+            </span>
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-danger"
+              :disabled="deletingListId === list.id"
+              @click.stop="deleteCustomList(list)"
+              title="Delete list"
+            >
+              <span v-if="deletingListId === list.id" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+              <span v-else>Delete</span>
+            </button>
+          </div>
         </div>
       </div>
       <div v-else class="text-center py-5">
@@ -689,6 +701,7 @@ export default {
       trades: [] as TradeRow[],
       listsLoading: false,
       listsError: '',
+      deletingListId: null as number | null,
       customLists: [] as Array<{ id: number; name: string; description?: string | null; assets?: any[] }>,
       showListAssetsModal: false,
       selectedList: null as ({ id: number; name: string; description?: string | null; assets?: any[] } | null),
@@ -1029,17 +1042,12 @@ export default {
         // WHAT: Fetch all incomplete tasks (no user filter in dev mode)
         // WHY: In dev mode with bypassed auth, we want to see all tasks
         // HOW: Backend will filter by user if authenticated, otherwise show all public tasks
-        console.log('[Home Dashboard] Fetching tasks with params:', { completed: false })
         const resp = await http.get('/core/calendar/events/custom/', {
           params: {
             completed: false,
             // Note: Backend handles user filtering based on authentication
           }
         })
-        console.log('[Home Dashboard] Raw API response:', resp)
-        console.log('[Home Dashboard] Response data type:', typeof (resp as any)?.data)
-        console.log('[Home Dashboard] Response data:', (resp as any)?.data)
-        console.log('[Home Dashboard] Is data an array?', Array.isArray((resp as any)?.data))
         
         // WHAT: DRF ModelViewSet returns paginated results by default
         // WHY: Need to check if data is in results array or directly in data
@@ -1052,9 +1060,6 @@ export default {
           // If data exists but isn't an array, wrap it
           taskEvents = [(resp as any).data]
         }
-        
-        console.log('[Home Dashboard] Parsed task events:', taskEvents)
-        console.log('[Home Dashboard] Task events count:', taskEvents.length)
         
         // WHAT: Group tasks by asset_hub_id (or use negative IDs for standalone tasks)
         // WHY: Support both asset-linked tasks and standalone tasks without asset_hub
@@ -1070,17 +1075,6 @@ export default {
           // WHAT: Assign unique negative ID for standalone tasks (no asset_hub)
           // WHY: Allow tasks without asset_hub to display in the modal
           const groupId = Number.isFinite(idNum) ? idNum : standaloneIndex--
-          
-          console.log('[Home Dashboard] Processing task:', {
-            id: r.id,
-            title: r.title,
-            rawId,
-            idNum,
-            groupId,
-            completed: r.completed,
-            asset_hub: r.asset_hub,
-            asset_hub_id: r.asset_hub_id
-          })
           
           const bucket = grouped.get(groupId) ?? []
           bucket.push(r)
@@ -1132,9 +1126,6 @@ export default {
         const sorted = assets.sort((a, b) => 
           String(a.next_date).localeCompare(String(b.next_date)) || a.asset_hub_id - b.asset_hub_id
         )
-
-        console.log('[Home Dashboard] Final sorted assets:', sorted)
-        console.log('[Home Dashboard] Final task count:', sorted.length)
 
         this.taskAssets = sorted
         this.tasksCount = sorted.length
@@ -1253,6 +1244,24 @@ export default {
       }
     },
 
+    async deleteCustomList(list: { id: number; name: string }) {
+      if (!list?.id) return
+      const ok = window.confirm(`Delete list "${list.name}"?`)
+      if (!ok) return
+
+      this.deletingListId = list.id
+      this.listsError = ''
+      try {
+        await http.delete(`/am/custom-lists/${list.id}/`)
+        await this.loadCustomLists()
+      } catch (e) {
+        console.error('[Home Dashboard] deleteCustomList failed', e)
+        this.listsError = 'Failed to delete list.'
+      } finally {
+        this.deletingListId = null
+      }
+    },
+
     async openListAssets(list: { id: number; name: string; description?: string | null; assets?: any[] }) {
       this.selectedList = list
       this.showListsModal = false
@@ -1361,22 +1370,15 @@ export default {
     
     // Handle calendar event click to open asset modal
     onOpenAssetModal(payload: { id: string | number; row: any; addr?: string }): void {
-      console.log('[Home Dashboard] onOpenAssetModal called', payload);
       this.selectedId = payload.id
       // Set row to null so LoanLevelIndex fetches the complete asset data by ID
       // Calendar event object doesn't have trade_name, street_address, city, state, etc.
       this.selectedRow = null
       this.selectedAddr = payload.addr || null
-      console.log('[Home Dashboard] Opening modal with:', {
-        selectedId: this.selectedId,
-        selectedRow: this.selectedRow,
-        selectedAddr: this.selectedAddr
-      });
       this.showAssetModal = true
     },
 
     onOpenAssetFromPipeline(payload: { id: string | number; row: any; addr?: string }): void {
-      console.log('[Home Dashboard] onOpenAssetFromPipeline called', payload);
       this.selectedId = payload.id
       this.selectedRow = payload.row || null
       this.selectedAddr = payload.addr || null
@@ -1386,7 +1388,6 @@ export default {
 
     // Handle row-loaded event from LoanLevelIndex
     onRowLoaded(row: any): void {
-      console.log('[Home Dashboard] onRowLoaded called', row);
       // Update selectedRow with the fetched asset data so modal header displays correctly
       this.selectedRow = row
     },

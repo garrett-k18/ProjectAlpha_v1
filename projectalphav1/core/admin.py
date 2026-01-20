@@ -101,7 +101,7 @@ class AssetDetailsAdmin(admin.ModelAdmin):
 # DEPRECATED: SellerBoardedData - use SellerRawData instead
 # from am_module.models.boarded_data import SellerBoardedData, BlendedOutcomeModel
 from am_module.models.model_am_modeling import BlendedOutcomeModel
-from am_module.models.servicers import ServicerLoanData
+from am_module.models.model_am_servicersCleaned import ServicerLoanData
 
 # Use standard Django admin site
 

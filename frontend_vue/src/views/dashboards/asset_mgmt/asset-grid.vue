@@ -552,7 +552,13 @@ const cols: Record<string, ColDef> = {
   sCurrentBalance: { headerName: 'Current Balance', valueGetter: (p:any) => p.data?.servicer_loan_data?.current_balance, valueFormatter: currencyFormatter },
   sInterestRate: { headerName: 'Interest Rate', valueGetter: (p:any) => p.data?.servicer_loan_data?.interest_rate, valueFormatter: (p:any) => (p.value == null ? '' : `${(Number(p.value) * 100).toFixed(2)}%`) },
   sNextDueDate: { headerName: 'Next Due Date', valueGetter: (p:any) => p.data?.servicer_loan_data?.next_due_date, valueFormatter: dateFormatter },
-  sTotalDebt: { headerName: 'Total Debt', valueGetter: (p:any) => p.data?.servicer_loan_data?.total_debt, valueFormatter: currencyFormatter },
+  sTotalDebt: {
+    headerName: 'Total Debt',
+    valueGetter: (p:any) =>
+      p.data?.servicer_loan_data?.computed_total_debt
+        ?? p.data?.servicer_loan_data?.total_debt,
+    valueFormatter: currencyFormatter,
+  },
   sInvestorId: { headerName: 'Investor ID', valueGetter: (p:any) => p.data?.servicer_loan_data?.investor_id },
   sServicerId: { headerName: 'Servicer ID', valueGetter: (p:any) => p.data?.servicer_loan_data?.servicer_id },
   sFCStatus: { headerName: 'FC Status', valueGetter: (p:any) => p.data?.servicer_loan_data?.fc_status },

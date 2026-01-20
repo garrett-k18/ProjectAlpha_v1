@@ -6,9 +6,10 @@
 
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from acq_module.models.model_acq_seller import SellerRawData
-from reporting.logic.logic_rep_metrics import calculate_by_status_metrics
-from reporting.logic.logic_rep_filters import apply_filters
+from reporting.services.serv_rep_byStatus import (
+    get_by_status_chart_data,
+    get_by_status_grid_data,
+)
 
 
 @api_view(['GET'])
@@ -22,29 +23,8 @@ def get_by_status_chart(request):
     
     **RETURNS**: List of {x: status, y: total_upb, meta: {count, percentage}}
     """
-    # Start with all seller data
-    queryset = SellerRawData.objects.select_related('trade')
-    
-    # Apply filters
-    queryset = apply_filters(request, queryset)
-    
-    # Group by status and calculate metrics (includes percentage)
-    statuses = calculate_by_status_metrics(queryset)
-    
-    # Format for chart (Chart.js format)
-    result = [
-        {
-            'x': s['trade__status'],
-            'y': float(s['total_upb'] or 0),
-            'meta': {
-                'count': s['asset_count'],
-                'percentage': round(s['percentage'], 2)
-            }
-        }
-        for s in statuses
-    ]
-    
-    return Response(result)
+    chart_data = get_by_status_chart_data(request)
+    return Response(chart_data)
 
 
 @api_view(['GET'])
@@ -58,27 +38,5 @@ def get_by_status_grid(request):
     
     **RETURNS**: List of {status, count, total_upb, avg_upb, percentage, ...}
     """
-    # Start with all seller data
-    queryset = SellerRawData.objects.select_related('trade')
-    
-    # Apply filters
-    queryset = apply_filters(request, queryset)
-    
-    # Group by status and calculate metrics (includes percentage)
-    statuses = calculate_by_status_metrics(queryset)
-    
-    # Format for grid table
-    result = [
-        {
-            'status': s['trade__status'],
-            'count': s['asset_count'],
-            'total_upb': float(s['total_upb'] or 0),
-            'avg_upb': float(s['avg_upb'] or 0),
-            'percentage': round(s['percentage'], 2),
-            'avg_ltv': float(s['avg_ltv'] or 0),
-            'total_debt': float(s['total_debt'] or 0)
-        }
-        for s in statuses
-    ]
-    
-    return Response(result)
+    grid_data = get_by_status_grid_data(request)
+    return Response(grid_data)

@@ -721,6 +721,7 @@ const headerAsset = computed<HeaderAssetView>(() => {
 
   // Total debt prefers aligned servicer payload; fallback to mocked asset or row totals
   const totalDebt = normalizeNumeric(
+    (servicerAligned ? servicer?.computed_total_debt : null) ??
     (servicerAligned ? servicer?.total_debt : null) ??
     rowData?.total_debt ??
     rowData?.servicer_total_debt ??

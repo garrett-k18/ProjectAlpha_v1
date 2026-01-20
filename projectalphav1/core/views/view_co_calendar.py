@@ -37,7 +37,8 @@ from rest_framework.exceptions import PermissionDenied
 # Import models that contain date fields
 from acq_module.models.model_acq_seller import SellerRawData, Seller, Trade
 from acq_module.models.model_acq_assumptions import TradeLevelAssumption
-from am_module.models.servicers import ServicerLoanData as ServicerData
+from am_module.models.model_am_servicersCleaned import ServicerLoanData as ServicerData
+
 from core.models import CalendarEvent
 from am_module.logic.logi_am_modelLogic import get_projected_liquidation_events
 from core.serializers.serial_co_calendar import (

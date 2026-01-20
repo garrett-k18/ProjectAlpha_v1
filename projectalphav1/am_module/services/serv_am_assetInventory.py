@@ -18,8 +18,9 @@ from typing import Iterable, Optional
 from django.db.models import QuerySet, Q, F
 from acq_module.models.model_acq_seller import SellerRawData  # WHAT: Post-refactor boarded dataset source per docs (https://docs.djangoproject.com/en/stable/topics/db/models/)
 from am_module.models.model_am_amData import AMMetrics
-from am_module.models.servicers import ServicerLoanData
+from am_module.models.model_am_servicersCleaned import ServicerLoanData
 from core.models.model_co_valuations import Valuation
+from am_module.logic.logi_am_modelLogic import resolve_latest_internal_asis_value
 
 # Fields used by quick filter 'q'
 QUICK_FILTER_FIELDS = (
@@ -38,6 +39,7 @@ QUICK_FILTER_FIELDS = (
 # WHY: Constrain valuation queries to only relevant sources for better performance
 VALUATION_SOURCES = {
     'internalInitialUW',
+    'internal',
     'seller',
 }
 
@@ -281,6 +283,11 @@ class AssetInventoryEnricher:
         # Valuation fields
         obj._computed_internal_initial_uw_asis_value = self.get_internal_initial_uw_asis_value(obj)
         obj._computed_internal_initial_uw_arv_value = self.get_internal_initial_uw_arv_value(obj)
+        obj._computed_internal_asis_value = self.get_internal_asis_value(obj)
+        obj._computed_latest_internal_asis_value = resolve_latest_internal_asis_value(
+            obj._computed_internal_initial_uw_asis_value,
+            obj._computed_internal_asis_value,
+        )
         obj._computed_seller_asis_value = self.get_seller_asis_value(obj)
         obj._computed_seller_arv_value = self.get_seller_arv_value(obj)
         obj._computed_latest_uw_value = self.get_latest_uw_value(obj)
@@ -677,6 +684,11 @@ class AssetInventoryEnricher:
         """Get ARV value from Internal Initial UW valuation source."""
         v = self._latest_val_by_source(obj, 'internalInitialUW')
         return getattr(v, 'arv_value', None) if v else None
+
+    def get_internal_asis_value(self, obj: SellerRawData):
+        """Get as-is value from Internal valuation source."""
+        v = self._latest_val_by_source(obj, 'internal')
+        return getattr(v, 'asis_value', None) if v else None
 
     # ========== Seller Valuation ==========
 

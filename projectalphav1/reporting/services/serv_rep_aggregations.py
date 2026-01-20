@@ -297,7 +297,8 @@ def group_by_trade(queryset: QuerySet[SellerRawData]) -> List[Dict[str, Any]]:
             # ================================================================
             'total_upb': float(trade['total_upb'] or 0),
             'avg_upb': float(trade['avg_upb'] or 0),
-            'total_debt': float(trade['total_debt'] or 0),
+            'total_debt': float(trade['servicer_total_debt_sum'] or 0),
+            'computed_total_debt': float(trade['servicer_total_debt_sum'] or 0),
             
             # ================================================================
             # SERVICER BALANCE FIELDS (from ServicerLoanData via annotations)
@@ -353,6 +354,7 @@ def group_by_status(queryset: QuerySet[SellerRawData]) -> List[Dict[str, Any]]:
             asset_count=Count('pk'),
             total_upb=Coalesce(Sum('current_balance'), 0.0, output_field=DecimalField()),
             avg_upb=Coalesce(Avg('current_balance'), 0.0, output_field=DecimalField()),
+            servicer_total_debt_sum=Coalesce(Sum('servicer_total_debt'), 0.0, output_field=DecimalField()),
             avg_ltv=Coalesce(
                 Avg(
                     F('current_balance') * 100.0 / F('seller_asis_value'),
@@ -373,6 +375,8 @@ def group_by_status(queryset: QuerySet[SellerRawData]) -> List[Dict[str, Any]]:
             'asset_count': status['asset_count'] or 0,
             'total_upb': float(status['total_upb'] or 0),
             'avg_upb': float(status['avg_upb'] or 0),
+            'total_debt': float(status['servicer_total_debt_sum'] or 0),
+            'computed_total_debt': float(status['servicer_total_debt_sum'] or 0),
             'avg_ltv': float(status['avg_ltv'] or 0),
         })
     

@@ -434,6 +434,7 @@ export interface CalendarEvent {
   state?: string; // State for location display
   event_type?: string; // Event type for tag display (realized_liquidation, bid_date, etc.)
   task_category?: string; // Task category for follow_up events (follow_up, document_review, etc.)
+  sub_type?: string | null; // Sub-type for certain event types (e.g., Trade events: bid_date, settlement_date)
   reason?: string; // Legacy reason field (fallback for task_category)
   url?: string; // URL to navigate to asset detail page
   source_id?: number; // Source record ID (e.g., ServicerLoanData.id)
@@ -739,14 +740,12 @@ export default {
   computed: {
     eventListPanelStyle(): Record<string, string> {
       if (!this.eventListMaxHeightPx) {
-        console.log('[Height Debug] eventListPanelStyle: No height set, returning empty object');
         return {};
       }
       const style = {
         maxHeight: `${this.eventListMaxHeightPx}px`,
         height: `${this.eventListMaxHeightPx}px`,
       };
-      console.log('[Height Debug] eventListPanelStyle returning:', style);
       return style;
     },
 
@@ -798,9 +797,6 @@ export default {
      * HOW: Uses currentViewDate (updated via FullCalendar's datesSet callback) to filter events, then applies event type filter if selected, then sorts by date
      */
     visibleEvents(): CalendarEvent[] {
-      console.log('[HomeCalendarWidget] visibleEvents - Total events:', this.events.length, 
-        'Current view date:', (this as any).currentViewDate?.toISOString());
-      
       // WHAT: Start with all events - we'll filter by month and type
       // WHY: Need to see all events first, then apply filters
       let filtered = [...this.events];
@@ -809,37 +805,23 @@ export default {
       // WHY: Keep event list synchronized with calendar widget view
       // HOW: Compare each event's date with currentViewDate to check if same month/year
       if ((this as any).currentViewDate) {
-        const beforeMonthFilter = filtered.length;
         filtered = filtered.filter(event => {
           const eventDate = this.parseDateStr(event.date);
-          const isSame = this.isSameMonth(eventDate, (this as any).currentViewDate);
-          if (!isSame && beforeMonthFilter < 20) { // Only log if we have few events
-            console.log('[HomeCalendarWidget] Event filtered out by month:', event.date, 
-              'Event:', eventDate.toISOString(), 'View:', (this as any).currentViewDate.toISOString(),
-              'Event month:', eventDate.getMonth() + 1, 'View month:', (this as any).currentViewDate.getMonth() + 1);
-          }
-          return isSame;
+          return this.isSameMonth(eventDate, (this as any).currentViewDate);
         });
-        console.log('[HomeCalendarWidget] After month filter:', filtered.length, 
-          'events (was', beforeMonthFilter, ')');
       } else {
         console.warn('[HomeCalendarWidget] currentViewDate is not set, showing all events');
       }
-      
-      console.log('[HomeCalendarWidget] Before type filter:', filtered.length, 
-        'events. Selected filters:', this.selectedEventTypeFilters);
       
       // WHAT: Apply event type filters if any are selected
       // WHY: Users can filter to see multiple specific event types simultaneously (e.g., Liquidations AND Bid Dates)
       // HOW: Check if event's event_type is included in selectedEventTypeFilters array
       if (this.selectedEventTypeFilters.length > 0) {
-        const beforeFilter = filtered.length;
         filtered = filtered.filter(event => {
           const eventType = event.event_type || event.category || 'milestone';
           const matches = this.selectedEventTypeFilters.includes(eventType);
           return matches;
         });
-        console.log('[HomeCalendarWidget] After type filter:', filtered.length, 'events (was', beforeFilter, ')');
       }
       
       // WHAT: Sort events by date (earliest first) for easier reading
@@ -879,7 +861,6 @@ export default {
         this.$nextTick(() => {
           const wrapperEl = (this.$refs.calendarWrapper as HTMLElement | undefined);
           if (!wrapperEl) {
-            console.log('[Height Debug] No calendarWrapper ref found');
             return;
           }
 
@@ -1318,8 +1299,6 @@ export default {
     
     // Handle event click - liquidation and follow-up events open asset modal
     handleEventClick(event: any): void {
-      console.log('[HomeCalendarWidget] handleEventClick called', event);
-      
       if (!this.isLiquidationEvent(event)) {
         return; // Do nothing for non-clickable events
       }
@@ -1328,11 +1307,7 @@ export default {
       // WHY: Both liquidation and follow-up events have asset_hub_id FK
       // HOW: Use event.asset_hub_id (the correct AssetIdHub ID)
       const assetHubId = event?.asset_hub_id || event?.extendedProps?.asset_hub_id;
-      
-      console.log('[HomeCalendarWidget] Using asset_hub_id:', assetHubId, 'from event:', event);
-      
       if (assetHubId) {
-        console.log('[HomeCalendarWidget] Emitting open-asset-modal with assetHubId:', assetHubId);
         // Emit to parent to open modal
         this.$emit('open-asset-modal', {
           id: assetHubId,
@@ -1432,8 +1407,8 @@ export default {
 
       const button = document.createElement('button');
       button.className = 'btn btn-sm btn-outline-primary calendar-task-button ms-2';
-      button.innerHTML = '<i class="fas fa-tasks me-1"></i>Create/View Tasks';
-      button.title = 'Create/View Tasks';
+      button.innerHTML = '<i class="fas fa-tasks me-1"></i>Create Tasks';
+      button.title = 'Create Tasks';
       button.onclick = () => this.openTaskModal();
       toolbarChunk.appendChild(button); // Far right
     },
@@ -1531,7 +1506,6 @@ export default {
         
         // WHAT: Fetch events from backend API endpoint with date range filter
         // WHY: Only fetch events for visible months, not all events ever
-        console.log('[HomeCalendarWidget] Fetching events for range:', startDateStr, 'to', endDateStr);
         
         // WHAT: Use http instance for proper error handling and baseURL configuration
         const response = await http.get('/core/calendar/events/', {
@@ -1543,13 +1517,6 @@ export default {
         
         // WHAT: Extract data from axios response
         const backendEvents = response.data;
-        console.log('[HomeCalendarWidget] Received', backendEvents.length, 'events');
-        
-        // WHAT: Debug - check if task_category is in the API response
-        const sampleTask = backendEvents.find((e: any) => e.event_type === 'follow_up');
-        if (sampleTask) {
-          console.log('[HomeCalendarWidget] Sample task from API:', sampleTask);
-        }
         
         // WHAT: Transform backend event structure to match frontend CalendarEvent interface
         // WHY: Backend and frontend may use different field names/structures
@@ -1585,18 +1552,12 @@ export default {
           };
         });
         
-        console.log('[HomeCalendarWidget] Mapped', this.events.length, 'events. Event types:', 
-          [...new Set(this.events.map(e => e.event_type))]);
-        console.log('[HomeCalendarWidget] Task categories:', 
-          this.events.filter(e => e.event_type === 'follow_up').map(e => ({ id: e.id, category: e.task_category })));
-        
         // WHAT: Ensure currentViewDate is set to match the first event's month if not already set
         // WHY: If datesSet hasn't fired yet, we need currentViewDate to match the loaded events
         // HOW: Use the first event's date to set currentViewDate if it's not already set
         if (this.events.length > 0 && (!(this as any).currentViewDate || (this as any).currentViewDate.getTime() === new Date().getTime())) {
           const firstEventDate = this.parseDateStr(this.events[0].date);
           (this as any).currentViewDate = new Date(firstEventDate.getFullYear(), firstEventDate.getMonth(), 1);
-          console.log('[HomeCalendarWidget] Set currentViewDate to first event month:', (this as any).currentViewDate.toISOString());
         }
         
         // WHAT: Sync events to FullCalendar widget so they appear on the calendar grid

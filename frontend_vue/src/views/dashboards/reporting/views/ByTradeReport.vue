@@ -641,6 +641,12 @@ const baseColumnDefs = ref<ColDef[]>([
     headerName: 'Total Debt at Purchase',
     field: 'total_debt',
     width: 150,
+    valueGetter: (params: ValueGetterParams<any, any>) => (
+      params.data?.computed_total_debt ??
+      params.data?.servicer_total_debt ??
+      params.data?.total_debt ??
+      null
+    ),
     valueFormatter: currencyFormatter,
     hide: true,
     aggFunc: 'sum',
@@ -666,6 +672,12 @@ const baseColumnDefs = ref<ColDef[]>([
     headerName: 'Total Debt',
     field: 'servicer_total_debt',
     width: 150,
+    valueGetter: (params: ValueGetterParams<any, any>) => (
+      params.data?.computed_total_debt ??
+      params.data?.servicer_total_debt ??
+      params.data?.total_debt ??
+      null
+    ),
     valueFormatter: currencyFormatter,
     hide: true,
     aggFunc: 'sum',
@@ -732,7 +744,7 @@ const baseColumnDefs = ref<ColDef[]>([
     width: 120,
     valueFormatter: percentFormatter,
     hide: true,
-    aggFunc: { type: 'ratioOfSums', numeratorField: 'purchase_price', denominatorField: 'total_debt' } as any,
+    aggFunc: { type: 'ratioOfSums', numeratorField: 'purchase_price', denominatorField: 'computed_total_debt' } as any,
   },
   {
     headerName: 'Bid % Seller As-Is',
