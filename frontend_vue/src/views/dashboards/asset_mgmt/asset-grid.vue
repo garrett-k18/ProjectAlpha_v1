@@ -386,8 +386,8 @@ const constantColumns: ColDef[] = [
     headerName: 'Actions',
     colId: 'actions',
     pinned: 'left',
-    width: 220,
-    minWidth: 210,  // Keep fixed width for Actions column (has buttons)
+    width: 140,
+    minWidth: 130,  // WHAT: Reduced width for Actions column with only 2 buttons (View + Add to List)
     lockPosition: true,
     suppressMovable: true,
     sortable: false,
@@ -433,20 +433,16 @@ const constantColumns: ColDef[] = [
     },
   },
   {
-    headerName: 'Property Address',
-    colId: 'address',
-    wrapHeaderText: true,
-    autoHeaderHeight: true,
+    headerName: 'City',
+    field: 'city',
+    pinned: 'left',
     headerClass: ['ag-left-aligned-header', 'text-start'],
     cellClass: ['ag-left-aligned-cell', 'text-start'],
-    cellStyle: { justifyContent: 'flex-start', textAlign: 'left' },
+  },
+  {
+    headerName: 'State',
+    field: 'state',
     pinned: 'left',
-    valueGetter: (p: any) => {
-      const s = (p.data?.street_address || '').toString().trim()
-      const c = (p.data?.city || '').toString().trim()
-      const st = (p.data?.state || '').toString().trim()
-      return [s, c, st].filter(Boolean).join(', ')
-    },
   },
 ]
 
@@ -1433,5 +1429,37 @@ watch(rowData, () => {
   align-items: center;
   justify-content: center;
   text-align: center;
+}
+
+/* WHAT: Align selection column checkboxes (header master checkbox with row checkboxes) */
+/* WHY: Header checkbox was slightly to the right of row checkboxes, causing visual misalignment */
+/* HOW: Center checkboxes in their containers and apply slight left translation to header checkbox */
+:deep(.asset-grid .ag-header-select-all),
+:deep(.asset-grid .ag-selection-checkbox) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+}
+
+/* WHAT: Center the header checkbox input wrapper and nudge it left to align with row checkboxes */
+:deep(.asset-grid .ag-header-select-all .ag-checkbox-input-wrapper) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  padding: 0;
+  transform: translateX(-4px); /* WHAT: Slight left nudge to align master checkbox with row checkboxes */
+}
+
+/* WHAT: Center row checkbox input wrappers */
+:deep(.asset-grid .ag-selection-checkbox .ag-checkbox-input-wrapper) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  padding: 0;
 }
 </style>
