@@ -6,6 +6,16 @@
     <div class="card-body pt-0">
       <div class="row g-3">
         <div class="col-md-6">
+          <small class="text-muted d-block">Lifecycle Status</small>
+          <UiBadge
+            v-if="lifecycleStatus"
+            :tone="lifecycleStatusTone"
+            size="sm"
+            :label="lifecycleStatus"
+          />
+          <span v-else class="fw-semibold text-dark">{{ blankDisplay }}</span>
+        </div>
+        <div class="col-md-6">
           <small class="text-muted d-block">Property Type</small>
           <UiBadge
             v-if="propertyType"
@@ -65,7 +75,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import UiBadge from '@/components/ui/UiBadge.vue'
-import { getPropertyTypeBadgeTone, getOccupancyBadgeTone, getProductTypeBadgeTone, getAssetStatusBadgeTone } from '@/config/badgeTokens'
+import { getPropertyTypeBadgeTone, getOccupancyBadgeTone, getProductTypeBadgeTone, getAssetStatusBadgeTone, getLifecycleBadgeTone } from '@/config/badgeTokens'
 
 const blankDisplay = ''
 
@@ -86,11 +96,13 @@ const propertyType = computed(() => formatString(props.row?.property_type))
 const occupancy = computed(() => formatString(props.row?.occupancy))
 const productType = computed(() => formatString(props.row?.product_type))
 const assetClass = computed(() => formatString(props.row?.asset_class ?? props.row?.asset_status))
+const lifecycleStatus = computed(() => formatString(props.row?.lifecycle_status ?? props.row?.asset_status))
 
 const propertyTypeTone = computed(() => getPropertyTypeBadgeTone(props.row?.property_type))
 const occupancyTone = computed(() => getOccupancyBadgeTone(props.row?.occupancy))
 const productTypeTone = computed(() => getProductTypeBadgeTone(props.row?.product_type))
 const assetClassTone = computed(() => getAssetStatusBadgeTone(props.row?.asset_class ?? props.row?.asset_status))
+const lifecycleStatusTone = computed(() => getLifecycleBadgeTone(props.row?.lifecycle_status ?? props.row?.asset_status))
 
 const maybeNumber = (value: unknown): number | null => {
   if (value === null || value === undefined) return null

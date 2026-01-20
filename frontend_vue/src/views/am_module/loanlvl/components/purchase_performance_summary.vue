@@ -14,8 +14,8 @@
           <span class="fw-semibold text-dark">{{ purchaseCost }}</span>
         </div>
         <div class="col-md-6">
-          <small class="text-muted d-block">Latest UW Value</small>
-          <span class="fw-semibold text-dark">{{ latestUwValue }}</span>
+          <small class="text-muted d-block">Initial UW <span class="fst-italic">As-is - ARV</span></small>
+          <span class="fw-semibold text-dark">{{ initialUwRange }}</span>
         </div>
         <div class="col-md-6">
           <small class="text-muted d-block">Months DLQ</small>
@@ -68,6 +68,13 @@ const formatString = (value: unknown): string => {
 
 const purchaseDate = computed(() => formatDate(props.row?.purchase_date))
 const purchaseCost = computed(() => formatCurrency(props.row?.purchase_cost))
-const latestUwValue = computed(() => formatCurrency(props.row?.latest_uw_value ?? props.row?.latest_underwriting_value))
+const initialUwRange = computed(() => {
+  const asIs = formatCurrency(props.row?.internal_initial_uw_asis_value)
+  const arv = formatCurrency(props.row?.internal_initial_uw_arv_value)
+
+  if (!asIs && !arv) return blankDisplay
+  if (asIs && arv) return `${asIs} - ${arv}`
+  return asIs || arv
+})
 const monthsDlq = computed(() => formatString(props.row?.months_dlq))
 </script>

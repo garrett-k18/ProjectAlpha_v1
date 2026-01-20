@@ -1,7 +1,8 @@
 <template>
   <div class="navbar-custom">
     <div class="topbar container-fluid">
-      <!-- Three-column layout: Left (logo/buttons), Center (search), Right (menu) -->
+      <!-- Two-column layout: Left (logo/buttons), Right (menu) -->
+
       <div class="d-flex align-items-center justify-content-between w-100">
         <!-- Left Section: Logo and Menu Buttons -->
         <div class="d-flex align-items-center gap-lg-2 gap-1 flex-shrink-0">
@@ -43,113 +44,8 @@
           </button>
         </div>
 
-        <!-- Center Section: Search Bar -->
-        <div class="flex-grow-1 d-flex justify-content-center px-3">
-          <b-nav-item-dropdown
-              v-if="$route.name !== 'home'"
-              class="app-search d-none d-lg-block app-search-wrap"
-              menu-class="dropdown-menu dropdown-menu-animated dropdown-lg"
-              toggle-class="arrow-none p-0"
-          >
-          <template #button-content>
-            <div class="chat-input-wrapper shadow-none w-100">
-              <input
-                type="text"
-                class="form-control border-0 bg-white py-1 px-3 small flex-grow-1"
-                placeholder="AI Search..."
-                style="flex: 1 1 auto;"
-              />
-              <button
-                type="button"
-                class="btn btn-primary btn-sm rounded-0 p-0 d-flex align-items-center justify-content-center flex-shrink-0"
-                style="width: 32px; height: 32px; margin-right: 0px;"
-              >
-                <i class="ri-arrow-up-line fs-5"></i>
-              </button>
-            </div>
-          </template>
-
-          <div style="width: 320px">
-            <b-dropdown-header class="noti-title">
-              <h5 class="text-overflow mb-2">Found <span class="text-danger">17</span> results</h5>
-            </b-dropdown-header>
-
-            <b-dropdown-item class="notify-item">
-              <i class="uil-notes font-16 me-1"></i>
-              <span>Analytics Report</span>
-            </b-dropdown-item>
-
-            <b-dropdown-item class="notify-item">
-              <i class="uil-life-ring font-16 me-1"></i>
-              <span>How can I help you?</span>
-            </b-dropdown-item>
-
-            <b-dropdown-item class="notify-item">
-              <i class="uil-cog font-16 me-1"></i>
-              <span>User profile settings</span>
-            </b-dropdown-item>
-
-            <b-dropdown-header class="noti-title">
-              <h6 class="text-overflow mb-2 text-uppercase">Users</h6>
-            </b-dropdown-header>
-
-            <b-dropdown-item class="notify-item">
-              <div class="d-flex">
-                <img
-                    class="d-flex me-2 rounded-circle"
-                    src="@/assets/images/users/avatar-2.jpg"
-                    alt="Generic placeholder image"
-                    height="32"
-                />
-                <div class="w-100">
-                  <h5 class="m-0 font-14">Erwin Brown</h5>
-                  <span class="font-12 mb-0">UI Designer</span>
-                </div>
-              </div>
-            </b-dropdown-item>
-
-            <b-dropdown-item class="notify-item">
-              <div class="d-flex">
-                <img
-                    class="d-flex me-2 rounded-circle"
-                    src="@/assets/images/users/avatar-5.jpg"
-                    alt="Generic placeholder image"
-                    height="32"
-                />
-                <div class="w-100">
-                  <h5 class="m-0 font-14">Jacob Deo</h5>
-                  <span class="font-12 mb-0">Developer</span>
-                </div>
-              </div>
-            </b-dropdown-item>
-          </div>
-          </b-nav-item-dropdown>
-        </div>
-
         <!-- Right Section: Menu Items -->
         <ul class="topbar-menu d-flex align-items-center gap-3 flex-shrink-0">
-        <li class="dropdown d-lg-none" v-if="$route.name !== 'home'">
-          <a
-              class="nav-link dropdown-toggle arrow-none"
-              data-bs-toggle="dropdown"
-              role="button"
-              aria-haspopup="false"
-              aria-expanded="false"
-          >
-            <i class="ri-search-line font-22"></i>
-          </a>
-          <div class="dropdown-menu dropdown-menu-animated dropdown-lg p-0">
-            <b-form class="p-3">
-              <b-form-input
-                  type="search"
-                  placeholder="Search ..."
-                  aria-label="Recipient's username"
-              />
-            </b-form>
-          </div>
-        </li>
-
-
         <b-nav-item-dropdown
             class="notification-list"
             toggle-class="arrow-none"
@@ -526,70 +422,3 @@ export default {
 
 }
 </script>
-
-<style scoped>
-/* AI Search Bar styling for Topbar - matching AIChatWidget.vue */
-.chat-input-wrapper {
-  display: flex;
-  align-items: center;
-  background-color: #f8f9fa;
-  border: 1px solid #dee2e6;
-  border-radius: 0; /* Squared corners */
-  overflow: hidden;
-  transition: all 0.2s ease;
-  width: 100%; /* Fill full width of container */
-}
-
-.chat-input-wrapper:focus-within {
-  border-color: #D4AF37;
-  box-shadow: 0 0 0 0.2rem rgba(212, 175, 55, 0.15);
-}
-
-.chat-input-wrapper .form-control {
-  flex: 1 1 auto;
-  min-width: 0; /* Allow flexbox to shrink if needed */
-  box-shadow: none;
-  background-color: transparent;
-}
-
-.chat-input-wrapper .form-control:focus {
-  box-shadow: none;
-  background-color: transparent;
-}
-
-/* Custom width for header search - longer and centered */
-.app-search-wrap {
-  min-width: 600px;
-  max-width: 800px;
-  width: 100%;
-}
-
-/* Force the BootstrapVue dropdown button and all nested elements to fill width */
-.app-search-wrap :deep(.btn-group) {
-  width: 100% !important;
-  display: flex !important;
-}
-
-.app-search-wrap :deep(.dropdown-toggle) {
-  width: 100% !important;
-}
-
-.app-search-wrap :deep(.btn-content) {
-  width: 100% !important;
-  display: block !important;
-}
-
-@media (max-width: 1400px) {
-  .app-search-wrap {
-    min-width: 500px;
-    max-width: 650px;
-  }
-}
-
-@media (max-width: 1200px) {
-  .app-search-wrap {
-    min-width: 400px;
-    max-width: 500px;
-  }
-}
-</style>
