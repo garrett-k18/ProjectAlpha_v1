@@ -295,8 +295,8 @@ function taskLabel(v: NoteSaleTaskType): string {
 const existingTypes = computed<Set<NoteSaleTaskType>>(() => new Set(tasks.value.map(t => t.task_type)))
 
 // Map Note Sale task types to UiBadge tones
-function pillTone(tp: NoteSaleTaskType): import('@/config/badgeTokens').BadgeToneKey {
-  const m: Record<NoteSaleTaskType, import('@/config/badgeTokens').BadgeToneKey> = {
+function pillTone(tp: NoteSaleTaskType): import('@/GlobalStandardizations/badges').BadgeToneKey {
+  const m: Record<NoteSaleTaskType, import('@/GlobalStandardizations/badges').BadgeToneKey> = {
     potential_note_sale: 'secondary',
     out_to_market: 'info',
     pending_sale: 'warning',

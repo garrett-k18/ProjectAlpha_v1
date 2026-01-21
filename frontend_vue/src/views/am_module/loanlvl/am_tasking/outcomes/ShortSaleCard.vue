@@ -508,8 +508,8 @@ async function confirmDeleteTask() {
   }
 }
 
-function badgeClass(tp: ShortSaleTaskType): import('@/config/badgeTokens').BadgeToneKey {
-  const map: Record<ShortSaleTaskType, import('@/config/badgeTokens').BadgeToneKey> = {
+function badgeClass(tp: ShortSaleTaskType): import('@/GlobalStandardizations/badges').BadgeToneKey {
+  const map: Record<ShortSaleTaskType, import('@/GlobalStandardizations/badges').BadgeToneKey> = {
     list_price_accepted: 'warning',
     listed: 'info',
     under_contract: 'primary',

@@ -75,7 +75,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import UiBadge from '@/components/ui/UiBadge.vue'
-import { getPropertyTypeBadgeTone, getOccupancyBadgeTone, getProductTypeBadgeTone, getAssetStatusBadgeTone, getLifecycleBadgeTone } from '@/config/badgeTokens'
+import { getPropertyTypeBadgeTone, getOccupancyBadgeTone, getProductTypeBadgeTone, getAssetStatusBadgeTone, getLifecycleBadgeTone } from '@/GlobalStandardizations/badges'
 
 const blankDisplay = ''
 

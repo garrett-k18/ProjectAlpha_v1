@@ -57,7 +57,7 @@ import AssetAllocation from "@/views/dashboards/asset_mgmt/assetAllocation.vue";
 import Revenue from "@/views/dashboards/asset_mgmt/revenue.vue";
 import Projection from "@/views/dashboards/asset_mgmt/projection.vue";
 import AssetDispersion from "@/views/dashboards/asset_mgmt/assetdispersion/assetdispersion.vue";
-import AssetGrid from "@/views/dashboards/asset_mgmt/asset-grid.vue";
+import AssetGrid from "@/views/dashboards/asset_mgmt/am_aggrid/am_aggrid.vue";
 import DateRangePicker from "@/components/custom/date-range-picker.vue";
 
 export default defineComponent({

@@ -430,8 +430,8 @@ async function updateTaskStarted(taskId: number, newDate: string) {
   }
 }
 
-function badgeClass(tp: FcTaskType): import('@/config/badgeTokens').BadgeToneKey {
-  const map: Record<FcTaskType, import('@/config/badgeTokens').BadgeToneKey> = {
+function badgeClass(tp: FcTaskType): import('@/GlobalStandardizations/badges').BadgeToneKey {
+  const map: Record<FcTaskType, import('@/GlobalStandardizations/badges').BadgeToneKey> = {
     nod_noi: 'warning',
     fc_filing: 'primary',
     mediation: 'info',

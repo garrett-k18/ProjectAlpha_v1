@@ -9,12 +9,11 @@
     - UPDATED: Changed from rounded-pill to rounded for more professional/serious tone
   -->
   <!-- Multi-badge mode: render multiple small badges with gap -->
-  <span v-if="badges.length > 1" class="d-inline-flex gap-1 flex-wrap justify-content-center">
+<span v-if="badges.length > 1" class="d-inline-flex gap-1 flex-wrap justify-content-center">
     <span 
       v-for="(b, idx) in badges" 
       :key="idx" 
-      class="badge rounded fw-semibold text-white border-0" 
-      :class="b.inlineStyle ? '' : [b.color, sizeClass]"
+      :class="b.inlineStyle ? sizeClass : [b.color, sizeClass]"
       :style="getBadgeStyle(b)"
       :title="b.title"
     >
@@ -24,8 +23,7 @@
   <!-- Single badge mode -->
   <span 
     v-else-if="badges.length === 1" 
-    class="badge rounded fw-semibold text-white border-0" 
-    :class="badges[0].inlineStyle ? '' : [badges[0].color, sizeClass]" 
+    :class="badges[0].inlineStyle ? sizeClass : [badges[0].color, sizeClass]" 
     :style="getBadgeStyle(badges[0])" 
     :title="badges[0].title"
   >
@@ -36,6 +34,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { BADGE_SIZE_CONFIG } from '@/GlobalStandardizations/badges'
 
 /**
  * AG Grid passes a single `params` object to Vue cell renderers.
@@ -62,31 +61,24 @@ function toBoolLike(v: unknown): boolean | null {
  * Badge size styles based on size parameter ('xs' | 'sm' | 'md' | 'lg')
  * WHAT: Maps size keys to inline CSS for consistent badge dimensions (square style with slight rounding)
  * WHY: Allows small badges for multi-badge cells vs. larger single badges
- * HOW: Returns CSS string for padding, font-size, border-radius based on badgeTokens.ts presets
+ * HOW: Returns CSS string for padding, font-size, border-radius based on GlobalStandardizations
  */
 const sizeStyle = computed(() => {
   const p = props.params || {}
-  const size = p?.colDef?.cellRendererParams?.size || p?.cellRendererParams?.size || 'md'
-  
-  // Size presets matching badgeTokens.ts PILL_DIMENSIONS (square badges with slight rounding)
-  const sizeMap: Record<string, string> = {
-    xs: 'padding: 0.125rem 0.5rem; font-size: 0.5rem; border-radius: 0.25rem;',
-    sm: 'padding: 0.1rem 0.4rem; font-size: 0.7rem; border-radius: 0.25rem;',  // Small preset - reduced padding for compact multi-badge cells
-    md: 'padding: 0.25rem 0.75rem; font-size: 0.75rem; border-radius: 0.25rem;',
-    lg: 'padding: 0.375rem 1rem; font-size: 0.875rem; border-radius: 0.375rem;',
-  }
-  
-  return sizeMap[size] || sizeMap.md
+  const size = p?.colDef?.cellRendererParams?.size || p?.cellRendererParams?.size || 'xs2'
+
+  const sizeConfig = BADGE_SIZE_CONFIG[size as keyof typeof BADGE_SIZE_CONFIG] || BADGE_SIZE_CONFIG.md
+  return sizeConfig.inlineStyles || ''
 })
 
 /**
- * Legacy size class for backward compatibility (can be removed if not needed)
+ * Size class for badge styling
  */
 const sizeClass = computed(() => {
   const p = props.params || {}
-  const size = p?.colDef?.cellRendererParams?.size || p?.cellRendererParams?.size
-  // Return empty string - we use inline styles now
-  return ''
+  const size = p?.colDef?.cellRendererParams?.size || p?.cellRendererParams?.size || 'xs2'
+  const sizeConfig = BADGE_SIZE_CONFIG[size as keyof typeof BADGE_SIZE_CONFIG] || BADGE_SIZE_CONFIG.md
+  return sizeConfig.classes
 })
 
 /**

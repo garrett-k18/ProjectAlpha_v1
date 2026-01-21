@@ -2,10 +2,10 @@
   UiBadge.vue - SINGLE SOURCE OF TRUTH PRESENTATION LAYER
   ---------------------------------------------------------------------------
   Pure presentation component that renders badges using centralized styling from
-  `@/config/badgeTokens.ts`. ALL styling logic consolidated in badgeTokens.ts.
+  GlobalStandardizations. ALL styling logic consolidated in badge config.
   WHAT: Lightweight Vue wrapper for badge rendering
   WHY: Eliminates dual styling sources and CSS conflicts
-  HOW: Consumes complete styling from badgeTokens.ts (classes + inline styles)
+  HOW: Consumes complete styling from GlobalStandardizations/badges
   Hyper UI badge reference: https://hyperui.dev/components/badges
 -->
 <template>
@@ -29,8 +29,8 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { BadgeToneKey, BadgeSizeKey } from '@/config/badgeTokens'
-import { resolveBadgeTokens } from '@/config/badgeTokens'
+import type { BadgeToneKey, BadgeSizeKey } from '@/GlobalStandardizations/badges'
+import { resolveBadgeTokens } from '@/GlobalStandardizations/badges'
 
 // ============================================================================
 // PROPS - Simple badge component interface
@@ -48,10 +48,10 @@ const props = withDefaults(defineProps<{
 })
 
 // ============================================================================
-// COMPUTED PROPERTIES - All styling resolved from badgeTokens.ts
+// COMPUTED PROPERTIES - All styling resolved from GlobalStandardizations
 // ============================================================================
 
-/** Get complete styling configuration from badgeTokens.ts */
+/** Get complete styling configuration from badge system */
 const tokens = computed(() => resolveBadgeTokens(props.tone, props.size))
 
 /** CSS classes for the badge */

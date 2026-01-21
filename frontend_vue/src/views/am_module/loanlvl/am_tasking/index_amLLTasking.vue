@@ -425,7 +425,7 @@ defineOptions({
 })
 // (legacy imports removed)
 import UiBadge from '@/components/ui/UiBadge.vue'
-import { getDelinquencyBadgeTone, getPropertyTypeBadgeTone } from '@/config/badgeTokens'
+import { getDelinquencyBadgeTone, getPropertyTypeBadgeTone } from '@/GlobalStandardizations/badges'
 // Outcome cards + store
 import DilCard from '@/views/am_module/loanlvl/am_tasking/outcomes/DilCard.vue'
 import FcCard from '@/views/am_module/loanlvl/am_tasking/outcomes/FcCard.vue'
@@ -461,9 +461,9 @@ interface HeaderAssetView {
   totalDebt?: number
   delinquencyStatus?: string | null
   delinquencyStatusLabel?: string | null
-  delinquencyTone: import('@/config/badgeTokens').BadgeToneKey
+  delinquencyTone: import('@/GlobalStandardizations/badges').BadgeToneKey
   propertyTypeLabel?: string | null
-  propertyTypeTone: import('@/config/badgeTokens').BadgeToneKey
+  propertyTypeTone: import('@/GlobalStandardizations/badges').BadgeToneKey
   // Underwriting values used for the UW Property Value range display
   uwAsIsValue?: number | null
   uwArvValue?: number | null
@@ -1058,7 +1058,7 @@ function trackLabel(t: OutcomeType): string {
 }
 
 // Map an outcome type to a UiBadge tone defined in badgeTokens
-function trackTone(t: OutcomeType): import('@/config/badgeTokens').BadgeToneKey {
+function trackTone(t: OutcomeType): import('@/GlobalStandardizations/badges').BadgeToneKey {
   switch (t) {
     case 'modification': return 'modification-green'
     case 'short_sale': return 'warning'
@@ -1193,7 +1193,7 @@ const delinquentToneMap: Record<import('@/stores/outcomes').DelinquentTaskType, 
   fc_dil: 'primary',
 }
 
-type BadgeToneKey = import('@/config/badgeTokens').BadgeToneKey
+type BadgeToneKey = import('@/GlobalStandardizations/badges').BadgeToneKey
 type PillItem = { key: string; label: string; tone: BadgeToneKey }
 
 // Pick only the most recent subtask per outcome for Active Tasks

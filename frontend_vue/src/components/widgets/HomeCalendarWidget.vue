@@ -402,8 +402,8 @@
 import FullCalendar from '@fullcalendar/vue3';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
-import { getCalendarEventBadgeTone, getCalendarEventColors, resolveBadgeTokens, getLifecycleBadgeTone } from '@/config/badgeTokens';
-import type { BadgeToneKey } from '@/config/badgeTokens';
+import { getCalendarEventBadgeTone, getCalendarEventColors, resolveBadgeTokens, getLifecycleBadgeTone } from '@/GlobalStandardizations/badges';
+import type { BadgeToneKey } from '@/GlobalStandardizations/badges';
 import http from '@/lib/http';
 import VueMultiselect from 'vue-multiselect';
 import UiBadge from '@/components/ui/UiBadge.vue';

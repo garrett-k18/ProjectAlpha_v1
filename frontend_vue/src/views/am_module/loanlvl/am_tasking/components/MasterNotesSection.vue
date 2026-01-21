@@ -186,7 +186,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useNotesStore, type NoteItem, type OutcomeKey } from '@/stores/notes'
 import UiBadge from '@/components/ui/UiBadge.vue'
-import type { BadgeToneKey } from '@/config/badgeTokens'
+import type { BadgeToneKey } from '@/GlobalStandardizations/badges'
 
 // WHAT: Component props for asset hub identification
 // WHY: Load all notes for this specific asset

@@ -6,7 +6,7 @@
     "src/**/*.tsx",
     "src/**/*.vue",
     "src/assets/maps/us-mill-en.js"
-  ],
+, "archive/asset-grid-OLD-BACKUP.vue"  ],
   "exclude": [
     "src/**/__tests__/*",
     "src/**/*.spec.ts",

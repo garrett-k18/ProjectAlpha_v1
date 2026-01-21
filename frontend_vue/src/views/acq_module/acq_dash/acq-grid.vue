@@ -179,10 +179,10 @@ import { storeToRefs } from 'pinia'
 import { BModal } from 'bootstrap-vue-next'
 import http from '@/lib/http'
 import ActionsCell from '@/views/acq_module/acq_dash/components/ActionsCell.vue'
-import BadgeCell from '@/views/acq_module/acq_dash/components/BadgeCell.vue'
+import BadgeCell from '@/components/ui/BadgeCell.vue'
 import { useAcqSelectionsStore } from '@/stores/acqSelections'
 import { useAgGridRowsStore } from '@/stores/agGridRows'
-import { propertyTypeEnumMap, occupancyEnumMap, assetStatusEnumMap } from '@/config/badgeTokens'
+import { propertyTypeEnumMap, occupancyEnumMap, assetStatusEnumMap } from '@/GlobalStandardizations/badges'
 
 /* --------------------------------------------------------------------------
  * Pinned-left constant columns (order matters)

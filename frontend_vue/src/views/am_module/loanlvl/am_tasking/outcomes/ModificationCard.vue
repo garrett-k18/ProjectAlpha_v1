@@ -153,7 +153,7 @@ import { withDefaults, defineProps, ref, computed, watch, onMounted, onBeforeUnm
 import { useAmOutcomesStore, type ModificationTask, type ModificationTaskType } from '@/stores/outcomes'
 import http from '@/lib/http'
 import UiBadge from '@/components/ui/UiBadge.vue'
-import type { BadgeToneKey } from '@/config/badgeTokens'
+import type { BadgeToneKey } from '@/GlobalStandardizations/badges'
 import { useDataRefresh } from '@/composables/useDataRefresh'
 import EditableDate from '@/components/ui/EditableDate.vue'
 // Hyper UI currency input component

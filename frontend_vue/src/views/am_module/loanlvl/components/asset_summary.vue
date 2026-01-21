@@ -43,7 +43,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import UiBadge from '@/components/ui/UiBadge.vue'
-import { getLifecycleBadgeTone } from '@/config/badgeTokens'
+import { getLifecycleBadgeTone } from '@/GlobalStandardizations/badges'
 
 const blankDisplay = '' // WHAT: Centralize blank display string so Asset Summary omits em dash placeholders per AM UX guidance
 

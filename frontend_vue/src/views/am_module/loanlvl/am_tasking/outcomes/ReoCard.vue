@@ -201,7 +201,7 @@ import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useAmOutcomesStore, type ReoTask, type ReoTaskType, type ReoData } from '@/stores/outcomes'
 import http from '@/lib/http'
 import UiBadge from '@/components/ui/UiBadge.vue'
-import type { BadgeToneKey } from '@/config/badgeTokens'
+import type { BadgeToneKey } from '@/GlobalStandardizations/badges'
 import { useDataRefresh } from '@/composables/useDataRefresh'
 // Reusable editable date component with inline picker
 // Path: src/components/ui/EditableDate.vue

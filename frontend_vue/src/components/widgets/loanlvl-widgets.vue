@@ -120,8 +120,8 @@
 
 import { computed, withDefaults, defineProps } from 'vue'
 import UiBadge from '@/components/ui/UiBadge.vue'
-import type { BadgeToneKey } from '@/config/badgeTokens'
-import { getAssetStatusBadgeTone, getPropertyTypeBadgeTone, getProductTypeBadgeTone, getOccupancyBadgeTone, toYesNoLabel, getFcFlagBadgeTone, getBkFlagBadgeTone, getModFlagBadgeTone } from '@/config/badgeTokens'
+import type { BadgeToneKey } from '@/GlobalStandardizations/badges'
+import { getAssetStatusBadgeTone, getPropertyTypeBadgeTone, getProductTypeBadgeTone, getOccupancyBadgeTone, toYesNoLabel, getFcFlagBadgeTone, getBkFlagBadgeTone, getModFlagBadgeTone } from '@/GlobalStandardizations/badges'
 
 const props = withDefaults(defineProps<{ row?: Record<string, any> | null }>(), {
   row: null,

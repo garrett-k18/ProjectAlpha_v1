@@ -205,8 +205,8 @@ function taskLabel(v: DelinquentTaskType): string {
 
 const existingTypes = computed<Set<DelinquentTaskType>>(() => new Set(tasks.value.map(t => t.task_type)))
 
-function pillTone(tp: DelinquentTaskType): import('@/config/badgeTokens').BadgeToneKey {
-  const m: Record<DelinquentTaskType, import('@/config/badgeTokens').BadgeToneKey> = {
+function pillTone(tp: DelinquentTaskType): import('@/GlobalStandardizations/badges').BadgeToneKey {
+  const m: Record<DelinquentTaskType, import('@/GlobalStandardizations/badges').BadgeToneKey> = {
     dq_30: 'warning',
     dq_60: 'warning',
     dq_90: 'danger',

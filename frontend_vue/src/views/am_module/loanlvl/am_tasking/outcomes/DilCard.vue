@@ -347,8 +347,8 @@ function taskLabel(v: DilTaskType): string {
 const existingTypes = computed<Set<DilTaskType>>(() => new Set(tasks.value.map(t => t.task_type)))
 
 // Map DIL task types to UiBadge tones so all pills follow our shared badge template.
-function pillTone(tp: DilTaskType): import('@/config/badgeTokens').BadgeToneKey {
-  const m: Record<DilTaskType, import('@/config/badgeTokens').BadgeToneKey> = {
+function pillTone(tp: DilTaskType): import('@/GlobalStandardizations/badges').BadgeToneKey {
+  const m: Record<DilTaskType, import('@/GlobalStandardizations/badges').BadgeToneKey> = {
     pursuing_dil: 'info',
     owner_contacted: 'primary',
     dil_failed: 'danger',

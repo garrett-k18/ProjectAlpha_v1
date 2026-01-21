@@ -371,8 +371,8 @@ import http from '@/lib/http'
 // assetStatusEnumMap: Badge styling for asset_status field (displayed as "Asset Class" in grid)
 // activeTracksEnumMap: Badge styling for active_tracks field (DIL, Modification, REO, FC, Short Sale)
 // activeTasksColorMap: Color mapping for active_tasks field based on outcome type prefix
-import { propertyTypeEnumMap, occupancyEnumMap, assetStatusEnumMap, activeTracksEnumMap, activeTasksColorMap } from '@/config/badgeTokens'
-import { getAssetMasterStatusEnumMap } from '@/config/categoryColors'
+import { propertyTypeEnumMap, occupancyEnumMap, assetStatusEnumMap, activeTracksEnumMap, activeTasksColorMap } from '@/GlobalStandardizations/badges'
+import { getAssetMasterStatusEnumMap } from '@/GlobalStandardizations/badges'
 
 // Props for optional filtering (overrides URL query params)
 const props = defineProps<{

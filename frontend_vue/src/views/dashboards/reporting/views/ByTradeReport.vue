@@ -211,8 +211,8 @@
 import { ref, computed } from 'vue'
 import type { ColDef, ColGroupDef, ValueFormatterParams, ValueGetterParams } from 'ag-grid-community'
 import ReportingAgGrid from '../components/ReportingAgGrid.vue'
-import BadgeCell from '@/views/acq_module/acq_dash/components/BadgeCell.vue'
-import { activeTracksEnumMap, activeTasksColorMap } from '@/config/badgeTokens'
+import BadgeCell from '@/components/ui/BadgeCell.vue'
+import { activeTracksEnumMap, activeTasksColorMap } from '@/GlobalStandardizations/badges'
 
 // WHAT: Component props - receive data from parent
 const props = defineProps<{

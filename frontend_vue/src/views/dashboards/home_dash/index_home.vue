@@ -567,7 +567,7 @@ import PipelineWidget from './components/PipelineWidget.vue'
 // AI Chat widget - conversational interface for company data queries
 import AIChatWidget from './components/AIChatWidget.vue'
 import LoanLevelIndex from '@/views/am_module/loanlvl_index.vue'
-import AssetGrid from '@/views/dashboards/asset_mgmt/asset-grid.vue'
+import AssetGrid from '@/views/dashboards/asset_mgmt/am_aggrid/am_aggrid.vue'
 import { useDjangoAuthStore } from '@/stores/djangoAuth'
 import http from '@/lib/http'
 import { AgGridVue } from 'ag-grid-vue3'

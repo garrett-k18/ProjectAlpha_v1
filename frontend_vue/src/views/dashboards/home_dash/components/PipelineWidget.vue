@@ -301,8 +301,8 @@
 <script lang="ts">
 import { defineComponent, ref, computed, onMounted } from 'vue';
 import http from '@/lib/http'
-import { getTagColor, TAG_COLORS } from '@/config/colorPalette';
-import { ASSET_PIPELINE_TRACK_COLORS, ASSET_MASTER_STATUS_COLORS } from '@/config/categoryColors';
+import { getTagColor, TAG_COLORS } from '@/GlobalStandardizations/colors';
+import { ASSET_PIPELINE_TRACK_COLORS, ASSET_MASTER_STATUS_COLORS } from '@/GlobalStandardizations/badges';
 
 type TagColorName = keyof typeof TAG_COLORS;
 

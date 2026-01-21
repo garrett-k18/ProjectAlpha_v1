@@ -83,7 +83,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import UiBadge from '@/components/ui/UiBadge.vue'
 import { useAmOutcomesStore, type OutcomeType, type DilTask, type FcTask, type ReoTask, type ShortSaleTask, type ModificationTask, type NoteSaleTask, type PerformingTask, type DelinquentTask } from '@/stores/outcomes'
-import type { BadgeToneKey } from '@/config/badgeTokens'
+import type { BadgeToneKey } from '@/GlobalStandardizations/badges'
 
 /**
  * WHAT: Strict list of outcome types we support in AM tasking.

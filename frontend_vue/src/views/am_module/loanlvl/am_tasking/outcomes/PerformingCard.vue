@@ -202,8 +202,8 @@ function taskLabel(v: PerformingTaskType): string {
 
 const existingTypes = computed<Set<PerformingTaskType>>(() => new Set(tasks.value.map(t => t.task_type)))
 
-function pillTone(tp: PerformingTaskType): import('@/config/badgeTokens').BadgeToneKey {
-  const m: Record<PerformingTaskType, import('@/config/badgeTokens').BadgeToneKey> = {
+function pillTone(tp: PerformingTaskType): import('@/GlobalStandardizations/badges').BadgeToneKey {
+  const m: Record<PerformingTaskType, import('@/GlobalStandardizations/badges').BadgeToneKey> = {
     perf: 'success',
     rpl: 'primary',
     note_sold: 'secondary',
