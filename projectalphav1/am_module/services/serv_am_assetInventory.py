@@ -693,14 +693,24 @@ class AssetInventoryEnricher:
     # ========== Seller Valuation ==========
 
     def get_seller_asis_value(self, obj: SellerRawData):
-        """Get as-is value from Seller valuation source."""
-        v = self._latest_val_by_source(obj, 'seller')
-        return getattr(v, 'asis_value', None) if v else None
+        """
+        Get as-is value from SellerRawData.
+
+        WHAT: Return seller-provided as-is value directly from raw acquisition data
+        WHY: Seller values are stored on SellerRawData and should be surfaced as-is
+        HOW: Read SellerRawData.seller_asis_value with a safe None fallback
+        """
+        return getattr(obj, 'seller_asis_value', None)
 
     def get_seller_arv_value(self, obj: SellerRawData):
-        """Get ARV value from Seller valuation source."""
-        v = self._latest_val_by_source(obj, 'seller')
-        return getattr(v, 'arv_value', None) if v else None
+        """
+        Get ARV value from SellerRawData.
+
+        WHAT: Return seller-provided ARV value directly from raw acquisition data
+        WHY: Seller values are stored on SellerRawData and should be surfaced as-is
+        HOW: Read SellerRawData.seller_arv_value with a safe None fallback
+        """
+        return getattr(obj, 'seller_arv_value', None)
 
     # ========== Latest UW Value (Prioritized) ==========
 

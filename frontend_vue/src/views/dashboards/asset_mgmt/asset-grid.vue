@@ -196,6 +196,7 @@
             <select id="viewSelect" class="form-select form-select-sm" v-model="activeView" @change="applyView" style="min-width: 100px;">
               <option value="snapshot">Snapshot</option>
               <option value="performance">Performance</option>
+              <option value="valuation">Valuation</option>
               <option value="servicing">Servicing</option>
               <option value="all">All</option>
             </select>
@@ -433,6 +434,13 @@ const constantColumns: ColDef[] = [
     },
   },
   {
+    headerName: 'Property Address',
+    field: 'street_address',
+    pinned: 'left',
+    headerClass: ['ag-left-aligned-header', 'text-start'],
+    cellClass: ['ag-left-aligned-cell', 'text-start'],
+  },
+  {
     headerName: 'City',
     field: 'city',
     pinned: 'left',
@@ -529,8 +537,8 @@ const cols: Record<string, ColDef> = {
     },
   },
   lifecycleStatus: { headerName: 'Lifecycle Status', field: 'lifecycle_status' },
-  arvSeller: { headerName: 'ARV (Seller)', field: 'seller_arv_value', valueFormatter: currencyFormatter },
-  asIsSeller: { headerName: 'As-Is (Seller)', field: 'seller_asis_value', valueFormatter: currencyFormatter },
+  asIsSeller: { headerName: 'Seller AIV', field: 'seller_asis_value', valueFormatter: currencyFormatter },
+  arvSeller: { headerName: 'Seller ARV', field: 'seller_arv_value', valueFormatter: currencyFormatter },
   acqCost: { headerName: 'Acq Cost', field: 'acq_cost', valueFormatter: currencyFormatter },
   totalExpenses: { headerName: 'Total Expenses', field: 'total_expenses', valueFormatter: currencyFormatter },
   totalHold: { headerName: 'Total Hold (days)', field: 'total_hold' },
@@ -546,8 +554,6 @@ const cols: Record<string, ColDef> = {
   // ---- Servicing (nested under servicer_loan_data) ----
   sAsOfDate: { headerName: 'As Of', valueGetter: (p:any) => p.data?.servicer_loan_data?.as_of_date, valueFormatter: dateFormatter },
   sCurrentBalance: { headerName: 'Current Balance', valueGetter: (p:any) => p.data?.servicer_loan_data?.current_balance, valueFormatter: currencyFormatter },
-  sInterestRate: { headerName: 'Interest Rate', valueGetter: (p:any) => p.data?.servicer_loan_data?.interest_rate, valueFormatter: (p:any) => (p.value == null ? '' : `${(Number(p.value) * 100).toFixed(2)}%`) },
-  sNextDueDate: { headerName: 'Next Due Date', valueGetter: (p:any) => p.data?.servicer_loan_data?.next_due_date, valueFormatter: dateFormatter },
   sTotalDebt: {
     headerName: 'Total Debt',
     valueGetter: (p:any) =>
@@ -555,6 +561,9 @@ const cols: Record<string, ColDef> = {
         ?? p.data?.servicer_loan_data?.total_debt,
     valueFormatter: currencyFormatter,
   },
+  sInterestRate: { headerName: 'Interest Rate', valueGetter: (p:any) => p.data?.servicer_loan_data?.interest_rate, valueFormatter: (p:any) => (p.value == null ? '' : `${(Number(p.value) * 100).toFixed(2)}%`) },
+  sNextDueDate: { headerName: 'Next Due Date', valueGetter: (p:any) => p.data?.servicer_loan_data?.next_due_date, valueFormatter: dateFormatter },
+  
   sInvestorId: { headerName: 'Investor ID', valueGetter: (p:any) => p.data?.servicer_loan_data?.investor_id },
   sServicerId: { headerName: 'Servicer ID', valueGetter: (p:any) => p.data?.servicer_loan_data?.servicer_id },
   sFCStatus: { headerName: 'FC Status', valueGetter: (p:any) => p.data?.servicer_loan_data?.fc_status },
@@ -590,13 +599,11 @@ const presets: Record<string, ColDef[]> = {
     cols.internal_initial_uw_asis_value,
     cols.internal_initial_uw_arv_value,
     cols.sCurrentBalance,
+    cols.sTotalDebt,  // WHAT: Total Debt positioned right after Current Balance for easy comparison
     cols.sInterestRate,
     cols.sNextDueDate,
-    cols.sTotalDebt,
   ],
   performance: [
-    cols.arvSeller,
-    cols.asIsSeller,
     cols.acqCost,
     cols.totalExpenses,
     cols.expectedPL,
@@ -604,6 +611,16 @@ const presets: Record<string, ColDef[]> = {
     cols.expectedIRR,
     cols.expectedMOIC,
     cols.expectedNPV,
+  ],
+  valuation: [
+    // WHAT: Valuation-only quick view for seller-provided pricing fields
+    // WHY: Keep valuation inputs separate from performance metrics for faster scanning
+    // HOW: Provide a dedicated preset with the seller ARV and as-is values
+    cols.asIsSeller,
+    cols.arvSeller,
+    cols.internal_initial_uw_asis_value,
+    cols.internal_initial_uw_arv_value,
+    
   ],
   servicing: [
     cols.sAsOfDate,
@@ -633,7 +650,7 @@ const presets: Record<string, ColDef[]> = {
   all: Object.values(cols),
 }
 
-const activeView = ref<'snapshot' | 'performance' | 'servicing' | 'all'>('snapshot')
+const activeView = ref<'snapshot' | 'performance' | 'valuation' | 'servicing' | 'all'>('snapshot')
 const columnDefs = ref<ColDef[]>([...constantColumns, ...presets[activeView.value]])
 
 function applyView() {
@@ -641,6 +658,15 @@ function applyView() {
 
   // Re-apply sort because visible columns changed
   nextTick(() => {
+    // WHAT: Reset column state so the new preset order takes effect
+    // WHY: AG Grid can retain prior column order even after columnDefs change
+    // HOW: Call resetColumnState after swapping presets
+    const api: any = gridApi.value
+    api?.resetColumnState?.()
+    // WHAT: Force header re-render for updated headerName labels
+    // WHY: AG Grid can cache header text between view changes
+    // HOW: Call refreshHeader after columnDefs update
+    api?.refreshHeader?.()
     onSortChanged()
     updateGridSize()  // WHAT: Autosize columns after view switch so address and other columns fit content
   })
@@ -1068,6 +1094,11 @@ function onGridReady(e: GridReadyEvent) {
   if (pageSizeSelection.value !== 'ALL' && typeof pageSizeSelection.value === 'number') {
     pageSize.value = pageSizeSelection.value
   }
+  
+  // WHAT: Force header re-render for any updated headerName labels
+  // WHY: AG Grid can cache header text across reloads
+  // HOW: Refresh header after grid API is ready
+  gridApi.value?.refreshHeader?.()
   
   // WHAT: Load filter options from entire dataset (not just current page)
   // WHY: Dropdowns need to show all available values across all assets
