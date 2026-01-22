@@ -105,11 +105,12 @@
         <template #header>
           <div class="d-flex align-items-center w-100">
             <h5 class="modal-title mb-0" v-if="modals.headerReady.value">
-              <div class="lh-sm">
+              <div class="lh-sm d-flex align-items-center">
                 <span class="fw-bold text-dark">{{ modals.modalIdText.value }}</span>
-                <span v-if="modals.modalTradeText.value" class="fw-bold text-dark ms-1">
-                  / {{ modals.modalTradeText.value }}
-                </span>
+                <template v-if="modals.modalTradeText.value">
+                  <span class="text-dark mx-2">|</span>
+                  <span class="fw-bold text-dark">{{ modals.modalTradeText.value }}</span>
+                </template>
               </div>
               <div class="text-muted lh-sm">
                 <span class="fw-bold text-dark">{{ modals.modalAddrText.value }}</span>

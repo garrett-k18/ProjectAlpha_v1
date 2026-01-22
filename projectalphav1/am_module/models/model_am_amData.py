@@ -309,7 +309,7 @@ class AMMetrics(models.Model):
 
         # Import locally to avoid circular dependency at module import time since
         # `.servicers` also references AM modules.
-        from .servicers import ServicerLoanData
+        from .servicers import ServicerLoanData  # pyright: ignore[reportMissingImports]
 
         # Ensure we have a snapshot to use; if none was supplied, fetch the most
         # recent record for this asset hub. We rely on ordering by `as_of_date`,

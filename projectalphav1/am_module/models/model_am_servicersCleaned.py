@@ -268,6 +268,70 @@ class _ServicerBase(models.Model):
         abstract = True
 
 
+class ServicerTrialBalanceData(_ServicerBase):
+    """Cleaned EOM trial balance data (monthly snapshot)."""
+
+    raw_source_snapshot = models.ForeignKey(
+        'etl.EOMTrialBalanceData',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='cleaned_records',
+    )
+
+    file_date = models.DateField(null=True, blank=True, db_index=True)
+
+    # Loan identification
+    loan_id = models.CharField(max_length=50, null=True, blank=True, db_index=True)
+    investor_id = models.CharField(max_length=50, null=True, blank=True, db_index=True)
+    investor_loan_id = models.CharField(max_length=50, null=True, blank=True)
+
+    # Borrower
+    borrower_name = models.CharField(max_length=150, null=True, blank=True)
+
+    # Balances
+    principal_bal = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)
+    escrow_bal = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)
+    other_funds_bal = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)
+    late_charge_bal = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)
+    legal_fee_bal = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)
+    deferred_prin = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)
+    unapplied_bal = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)
+    loss_draft_bal = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)
+    asst_bal = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)
+    nsf_fee_bal = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)
+    oth_fee_bal = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)
+    deferred_int = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)
+
+    # Status and type
+    primary_status = models.CharField(max_length=50, null=True, blank=True, db_index=True)
+    loan_type = models.CharField(max_length=50, null=True, blank=True)
+    legal_status = models.CharField(max_length=50, null=True, blank=True)
+    warning_status = models.CharField(max_length=50, null=True, blank=True)
+
+    # Dates
+    due_date = models.DateField(null=True, blank=True)
+    date_inactive = models.DateField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'am_servicer_trial_balance_data'
+        verbose_name = 'Servicer Trial Balance Data'
+        verbose_name_plural = 'Servicer Trial Balance Data'
+        indexes = [
+            models.Index(fields=['asset_hub']),
+            models.Index(fields=['file_date']),
+            models.Index(fields=['loan_id']),
+            models.Index(fields=['investor_id']),
+            models.Index(fields=['primary_status']),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['file_date', 'loan_id'],
+                name='uniq_am_trial_fdate_loanid',
+            ),
+        ]
+
+
 class ServicerForeclosureData(_ServicerBase):
     raw_source_snapshot = models.ForeignKey(
         'etl.SBDailyForeclosureData',

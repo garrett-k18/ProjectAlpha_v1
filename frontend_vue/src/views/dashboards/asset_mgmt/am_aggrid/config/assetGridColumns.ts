@@ -73,6 +73,59 @@ export const formatters = {
   },
 }
 
+function renderRecentValueCell(params: any, dateField: string): HTMLElement {
+  const container = document.createElement('div')
+  container.style.display = 'flex'
+  container.style.flexDirection = 'column'
+  container.style.alignItems = 'center'
+  container.style.justifyContent = 'center'
+  container.style.height = '100%'
+  container.style.lineHeight = '1.2'
+
+  const valueText = formatCurrencyValue(params.value)
+  const valueEl = document.createElement('div')
+  valueEl.textContent = valueText || '—'
+  container.appendChild(valueEl)
+
+    const dateText = formatDateValue(params.data?.[dateField])
+    if (dateText) {
+      const dateEl = document.createElement('div')
+      dateEl.textContent = dateText
+      dateEl.style.fontSize = '0.65rem'
+      dateEl.style.fontStyle = 'italic'
+      dateEl.style.color = '#6c757d'
+      dateEl.style.marginTop = '2px'
+      container.appendChild(dateEl)
+    }
+
+  return container
+}
+
+function formatDateValue(value: unknown): string {
+  if (!value) return ''
+  const date = new Date(String(value))
+  if (Number.isNaN(date.getTime())) return ''
+  return new Intl.DateTimeFormat('en-US', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date)
+}
+
+function formatCurrencyValue(value: unknown): string {
+  if (value == null || value === '') return ''
+  const num =
+    typeof value === 'number'
+      ? value
+      : Number(String(value).replace(/[^0-9.-]/g, ''))
+  if (Number.isNaN(num)) return ''
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  }).format(num)
+}
+
 // =============================================================================
 // COLUMN REGISTRY
 // =============================================================================
@@ -232,17 +285,19 @@ export const columnRegistry: Record<string, ColDef> = {
   },
 
   internal_initial_uw_asis_value: {
-    headerName: 'Underwritten AIV',      // 👈 CHANGE HEADER NAME HERE
-    field: 'internal_initial_uw_asis_value',
+    headerName: 'Recent AIV',            // 👈 CHANGE HEADER NAME HERE
+    field: 'latest_internal_asis_value',
     // width: 150,                        // 👈 UNCOMMENT TO SET FIXED WIDTH
-    valueFormatter: formatters.currency,
+    cellRenderer: (params: any) =>
+      renderRecentValueCell(params, 'latest_internal_asis_date'),
   },
 
   internal_initial_uw_arv_value: {
-    headerName: 'Underwritten ARV',      // 👈 CHANGE HEADER NAME HERE
-    field: 'internal_initial_uw_arv_value',
+    headerName: 'Recent ARV',            // 👈 CHANGE HEADER NAME HERE
+    field: 'latest_internal_arv_value',
     // width: 150,                        // 👈 UNCOMMENT TO SET FIXED WIDTH
-    valueFormatter: formatters.currency,
+    cellRenderer: (params: any) =>
+      renderRecentValueCell(params, 'latest_internal_arv_date'),
   },
 
   // -------------------------

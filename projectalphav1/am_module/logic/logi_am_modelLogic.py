@@ -10,6 +10,7 @@ Docs reviewed:
 - Django QuerySet API: https://docs.djangoproject.com/en/stable/ref/models/querysets/
 """
 
+import math
 from decimal import Decimal
 from django.db.models import Q
 from am_module.models.model_am_modeling import BlendedOutcomeModel, ReUWAMProjections
@@ -27,6 +28,20 @@ def resolve_latest_internal_asis_value(
     HOW: Return first non-null value in the priority order
     """
     return internal_initial_uw_asis_value or internal_asis_value
+
+
+def resolve_latest_internal_arv_value(
+    internal_initial_uw_arv_value,
+    internal_arv_value,
+):
+    """
+    Resolve latest ARV value per AM valuation rules.
+
+    WHAT: Prefer Internal Initial UW ARV value, fallback to latest Internal valuation
+    WHY: Preserve underwriting baseline while still surfacing updated internal valuations when baseline is blank
+    HOW: Return first non-null value in the priority order
+    """
+    return internal_initial_uw_arv_value or internal_arv_value
 
 
 def compute_current_total_debt_from_servicer(
@@ -70,6 +85,92 @@ def compute_current_total_debt_from_servicer(
     total -= as_decimal(suspense_balance)
 
     return total
+
+
+def resolve_expected_hold_duration(
+    expected_hold_duration,
+    purchase_date,
+    expected_exit_date,
+):
+    """
+    Resolve expected hold duration with fallback to date calculation.
+
+    WHAT: Wrapper for model-level hold duration resolution
+    WHY: Centralized logic lives on BlendedOutcomeModel
+    HOW: Mirror model-level logic for standalone calls
+    """
+    if expected_hold_duration is not None:
+        try:
+            return int(math.ceil(float(expected_hold_duration)))
+        except (ValueError, TypeError):
+            pass
+
+    if purchase_date and expected_exit_date:
+        try:
+            months = (expected_exit_date.year - purchase_date.year) * 12 + (expected_exit_date.month - purchase_date.month)
+            if expected_exit_date.day > purchase_date.day:
+                months += 1
+            return max(0, months)
+        except Exception:
+            pass
+    return None
+
+
+def resolve_gross_purchase_price(
+    purchase_price,
+    *,
+    broker_acq_fees=None,
+    other_fee=None,
+    taxtitle_fees=None,
+    legal_costs=None,
+    due_diligence=None,
+    fund_acq_fee=None,
+):
+    """
+    Sum of purchase price and acquisition costs.
+    """
+    if purchase_price is None:
+        return None
+    
+    fees = [broker_acq_fees, other_fee, taxtitle_fees, legal_costs, due_diligence, fund_acq_fee]
+    total_fees = sum([Decimal(str(v)) for v in fees if v is not None], Decimal('0'))
+    return Decimal(str(purchase_price)) + total_fees
+
+
+def resolve_expected_gross_cost(
+    expected_gross_cost,
+    purchase_price,
+    *,
+    total_expenses=None, # Sum of everything else
+    **acq_fee_kwargs
+):
+    """
+    Resolve expected gross cost: Gross Purchase Price + Holding/Operating Expenses.
+    """
+    if expected_gross_cost is not None:
+        return expected_gross_cost
+
+    gpp = resolve_gross_purchase_price(purchase_price, **acq_fee_kwargs)
+    if gpp is None:
+        return None
+    
+    # If total_expenses is passed, it should be the holding/operating part 
+    # to match the model logic of GPP + HOLDING.
+    holding_costs = Decimal(str(total_expenses)) if total_expenses is not None else Decimal('0')
+    return gpp + holding_costs
+
+
+def resolve_total_expenses(model):
+    """
+    Sum up all major expense categories from a modeling record.
+
+    WHAT: Aggregate individual modeled expense line items
+    WHY: Modeling records store fine-grained expenses but UI often needs a grand total
+    HOW: Call .total_expenses property on the model
+    """
+    if not model:
+        return None
+    return getattr(model, 'total_expenses', None)
 
 
 def get_projected_liquidation_events(start_date=None, end_date=None, seller_id=None, trade_id=None):

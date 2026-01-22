@@ -53,7 +53,7 @@ def _to_str_or_none(value: Any) -> Optional[str]:
     return str(value)
 
 
-def _read_statebridge_dataframe(file_path: Path) -> pd.DataFrame:
+def _read_statebridge_dataframe(file_path: Path, *, header: int | None) -> pd.DataFrame:
     suffix = file_path.suffix.lower()
     if suffix in {".xlsx", ".xls"}:
         # Use openpyxl for .xlsx, xlrd for .xls (older Excel format)
@@ -65,6 +65,7 @@ def _read_statebridge_dataframe(file_path: Path) -> pd.DataFrame:
             engine=engine,
             keep_default_na=False,
             na_values=[],
+            header=header,
         )
 
     if suffix == ".csv":
@@ -73,9 +74,47 @@ def _read_statebridge_dataframe(file_path: Path) -> pd.DataFrame:
             dtype=str,
             keep_default_na=False,
             na_values=[],
+            header=header,
         )
 
     raise ValueError(f"Unsupported StateBridge file extension: {suffix}")
+
+
+def _realign_eom_headers(df: pd.DataFrame) -> pd.DataFrame:
+    """Detect header row for EOM trial balance / trust tracking files.
+
+    Many StateBridge EOM Excel files include title rows before the actual headers.
+    We look for the first row containing a minimum set of expected headers, then
+    reassign columns and slice the data accordingly.
+    """
+
+    expected_headers = {
+        "loan_id",
+        "investor_id",
+        "borrower_name",
+        "principal_bal",
+        "primary_status",
+    }
+
+    header_row_idx = None
+    for idx, row in df.iterrows():
+        normalized = {_normalize_header(v) for v in row.tolist() if isinstance(v, str)}
+        matches = expected_headers.intersection(normalized)
+        if len(matches) >= 3:  # good enough signal this is the header row
+            header_row_idx = idx
+            columns = [c if isinstance(c, str) else "" for c in row.tolist()]
+            df = df.iloc[idx + 1 :].copy()
+            df.columns = columns
+            df = df.reset_index(drop=True)
+            break
+
+    # If no header row found, return original df; downstream will still attempt mapping
+    if header_row_idx is None:
+        return df
+
+    # Normalize empty/placeholder columns
+    df = df.rename(columns={c: c.strip() for c in df.columns if isinstance(c, str)})
+    return df
 
 
 def _extract_file_date_iso(filename: str) -> Optional[str]:
@@ -249,6 +288,10 @@ def _df_to_model_instances(
     model: Type[Any],
     filename: str,
 ) -> Tuple[list[Any], int]:
+    # If this is an EOM trial balance / trust file, re-align headers first
+    if model in {EOMTrialBalanceData, EOMTrustTrackingData}:
+        df = _realign_eom_headers(df)
+
     normalized_to_model_field = _build_model_field_map(model)
     column_map = {
         _normalize_header(col): col for col in df.columns.tolist() if isinstance(col, str)
@@ -309,7 +352,9 @@ def import_statebridge_file(
     kind = _infer_kind_from_filename(filename)
     model = _model_for_kind(kind)
 
-    df = _read_statebridge_dataframe(file_path)
+    # EOM trial balance/trust files need header detection; others have headers on row 0.
+    header_arg = None if model in {EOMTrialBalanceData, EOMTrustTrackingData} else 0
+    df = _read_statebridge_dataframe(file_path, header=header_arg)
 
     instances, rows_read = _df_to_model_instances(df, model, filename)
 

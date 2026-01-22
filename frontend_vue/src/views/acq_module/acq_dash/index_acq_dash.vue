@@ -1113,7 +1113,7 @@ export default {
       const tradeName = String(r.trade_name ?? r.trade?.trade_name ?? r.tradeName ?? '').trim()
 
       const primaryId = loanId || internalId
-      const line = [primaryId, tradeName].filter(Boolean).join(' / ')
+      const line = [primaryId, tradeName].filter(Boolean).join(' | ')
       return line || 'Asset'
     },
     // Second line: Address without ZIP. Prefer selectedRow fields; fallback to selectedAddr string

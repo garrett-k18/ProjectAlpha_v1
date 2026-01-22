@@ -128,6 +128,10 @@ class AssetInventoryRowSerializer(serializers.Serializer):
     street_address = serializers.CharField()
     city = serializers.CharField()
     state = serializers.CharField()
+    product_type = serializers.CharField(
+        allow_null=True,
+        help_text='Loan product type (BPL, HECM, VA, etc.) from SellerRawData'
+    )
     property_type = serializers.CharField(allow_null=True)
     occupancy = serializers.CharField(allow_null=True)
 
@@ -187,22 +191,74 @@ class AssetInventoryRowSerializer(serializers.Serializer):
         source='asset_hub.blended_outcome_model.purchase_date',
         help_text='Purchase date - frontend AssetSummary expects this field'
     )
+    current_balance = serializers.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+        help_text='Seller tape current balance (SellerRawData.current_balance)'
+    )
+    total_debt = serializers.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+        help_text='Seller tape total debt (SellerRawData.total_debt)'
+    )
+    seller_asis_value = serializers.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+        help_text='Seller as-is value from seller tape (SellerRawData.seller_asis_value)'
+    )
+    bid_pct_upb = serializers.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+        source='asset_hub.blended_outcome_model.bid_pct_upb',
+        help_text='Bid percentage of UPB (percent 0–100)'
+    )
+    bid_pct_td = serializers.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+        source='asset_hub.blended_outcome_model.bid_pct_td',
+        help_text='Bid percentage of Total Debt (percent 0–100)'
+    )
+    bid_pct_sellerasis = serializers.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+        source='asset_hub.blended_outcome_model.bid_pct_sellerasis',
+        help_text='Bid percentage of Seller as-is (percent 0–100)'
+    )
     total_expenses = serializers.DecimalField(
         max_digits=15,
         decimal_places=2,
         required=False,
         allow_null=True,
-        source='asset_hub.blended_outcome_model.expected_total_expenses'
+        source='_computed_total_expenses',
+        help_text='Sum of all modeled expense categories'
     )
     total_hold = serializers.IntegerField(
-        required=False,
+        source='_computed_expected_hold_duration',
+        read_only=True,
         allow_null=True,
-        source='asset_hub.blended_outcome_model.expected_total_hold'
+        help_text='Alias for expected_hold_duration'
     )
     exit_date = serializers.DateField(
         required=False,
         allow_null=True,
         source='asset_hub.blended_outcome_model.expected_exit_date'
+    )
+    expected_hold_duration = serializers.IntegerField(
+        source='_computed_expected_hold_duration',
+        read_only=True,
+        allow_null=True
     )
     expected_gross_proceeds = serializers.DecimalField(
         max_digits=15,
@@ -210,6 +266,22 @@ class AssetInventoryRowSerializer(serializers.Serializer):
         required=False,
         allow_null=True,
         source='asset_hub.blended_outcome_model.expected_gross_proceeds'
+    )
+    expected_gross_cost = serializers.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+        source='_computed_expected_gross_cost',
+        help_text='Total investment: Gross Purchase Price + Holding Expenses'
+    )
+    gross_purchase_price = serializers.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+        source='_computed_gross_purchase_price',
+        help_text='Purchase Price + Acquisition Costs'
     )
     expected_net_proceeds = serializers.DecimalField(
         max_digits=15,
@@ -307,6 +379,26 @@ class AssetInventoryRowSerializer(serializers.Serializer):
         read_only=True,
         allow_null=True,
         help_text='Resolved as-is value (Internal Initial UW preferred, else Internal valuation)'
+    )
+    latest_internal_asis_date = serializers.DateField(
+        source='_computed_latest_internal_asis_date',
+        read_only=True,
+        allow_null=True,
+        help_text='Date of the resolved Internal as-is valuation'
+    )
+    latest_internal_arv_value = serializers.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        source='_computed_latest_internal_arv_value',
+        read_only=True,
+        allow_null=True,
+        help_text='Resolved ARV value (Internal Initial UW preferred, else Internal valuation)'
+    )
+    latest_internal_arv_date = serializers.DateField(
+        source='_computed_latest_internal_arv_date',
+        read_only=True,
+        allow_null=True,
+        help_text='Date of the resolved Internal ARV valuation'
     )
 
     # Seller

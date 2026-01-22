@@ -118,7 +118,7 @@ export function useAssetFilters() {
       case 'high_value':
         const currentBalance = row.servicer_loan_data?.current_balance || 0
         const arv =
-          row.internal_initial_uw_arv_value || row.seller_arv_value || 0
+          row.latest_internal_arv_value ?? row.seller_arv_value ?? 0
         return currentBalance > 100000 || arv > 100000
 
       default:

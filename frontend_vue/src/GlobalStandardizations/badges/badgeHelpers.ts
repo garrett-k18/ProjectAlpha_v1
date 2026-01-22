@@ -383,7 +383,7 @@ export function getAssetPipelineTrackEnumMap(): Record<string, { label: string; 
 
   for (const [key, tagColor] of Object.entries(ASSET_PIPELINE_TRACK_COLORS)) {
     enumMap[key] = {
-      label: key,
+      label: key === 'Delinquent' ? 'DLQ' : key,
       color: `background-color: ${getTagColor(tagColor)};`,
       title: getAssetPipelineTrackTitle(key),
     };

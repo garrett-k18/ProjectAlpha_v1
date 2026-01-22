@@ -11,6 +11,7 @@ from am_module.models.model_am_servicersCleaned import (
     ServicerLoanData,
     ServicerPayHistoryData,
     ServicerTransactionData,
+    ServicerTrialBalanceData,
 )
 from am_module.models.model_am_amData import (
     AMMetrics, AuditLog, AssetCRMContact,
@@ -170,6 +171,21 @@ class ServicerLoanDataAdmin(admin.ModelAdmin):
         return "N/A"
     
     reporting_period.short_description = "Period"
+
+
+@admin.register(ServicerTrialBalanceData)
+class ServicerTrialBalanceDataAdmin(admin.ModelAdmin):
+    list_display = (
+        'loan_id',
+        'file_date',
+        'investor_id',
+        'borrower_name',
+        'principal_bal',
+        'primary_status',
+    )
+    list_filter = ('file_date', 'primary_status')
+    search_fields = ('loan_id', 'investor_id', 'borrower_name')
+    date_hierarchy = 'file_date'
 
 
 @admin.register(ServicerForeclosureData)

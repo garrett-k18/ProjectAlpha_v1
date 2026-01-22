@@ -1,3 +1,4 @@
+import math
 from decimal import Decimal
 from django.db import models
 from django.utils import timezone
@@ -114,11 +115,102 @@ class BlendedOutcomeModel(models.Model):
     cam_income = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The CAM income.")
     other_income = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, help_text="The other income.")
 
+    expected_gross_cost = models.DecimalField(
+        max_digits=15, 
+        decimal_places=2, 
+        null=True, 
+        blank=True, 
+        help_text="The expected gross cost (purchase price + acquisition costs).")
+
     expected_hold_duration = models.IntegerField(
         null=True,
         blank=True,
         help_text="Expected hold duration (in months)."
     )
+
+    @property
+    def acquisition_costs(self) -> Decimal:
+        """
+        Sum up all acquisition-related fees.
+        """
+        fees = [
+            self.broker_acq_fees, self.other_fee, self.taxtitle_fees, 
+            self.legal_costs, self.due_diligence, self.fund_acq_fee
+        ]
+        return sum([Decimal(str(v)) for v in fees if v is not None], Decimal('0'))
+
+    @property
+    def holding_operating_costs(self) -> Decimal:
+        """
+        Sum up all non-acquisition modeled expenses.
+        """
+        categories = [
+            self.fc_expenses, self.fc_legal_fees, self.other_fc_fees, self.dil_fees, self.cfk_fees,
+            self.bk_legal_fees, self.eviction_fees, self.reconciled_rehab_cost, self.trashout_cost,
+            self.property_preservation_cost, self.total_insurance, self.total_property_tax,
+            self.total_hoa, self.total_utility, self.total_other, self.fund_am_fees,
+            self.am_liq_fees, self.tax_title_transfer_cost, self.broker_closing_fees,
+            self.servicing_board_fee, self.servicing_current, self.servicing_30d, self.servicing_60d,
+            self.servicing_90d, self.servicing_120d, self.servicing_fc, self.servicing_bk,
+            self.servicing_liq_fee
+        ]
+        return sum([Decimal(str(v)) for v in categories if v is not None], Decimal('0'))
+
+    @property
+    def total_expenses(self) -> Decimal | None:
+        """
+        Sum up all major expense categories (Acquisition + Holding/Operating).
+        """
+        total = self.acquisition_costs + self.holding_operating_costs
+        return total if total > 0 else None
+
+    def resolve_hold_duration(self) -> int | None:
+        """
+        Get the hold duration, either from field or calculated from dates.
+        """
+        if self.expected_hold_duration is not None:
+            return int(math.ceil(float(self.expected_hold_duration)))
+        
+        if self.purchase_date and self.expected_exit_date:
+            try:
+                start = self.purchase_date
+                end = self.expected_exit_date
+                months = (end.year - start.year) * 12 + (end.month - start.month)
+                if end.day > start.day:
+                    months += 1
+                return max(0, months)
+            except Exception:
+                pass
+        return None
+
+    def resolve_gross_purchase_price(self) -> Decimal | None:
+        """
+        Sum of purchase price and acquisition costs.
+        """
+        if not self.purchase_price:
+            return None
+        return self.purchase_price + self.acquisition_costs
+
+    def resolve_gross_cost(self) -> Decimal | None:
+        """
+        Total investment cost: Gross Purchase Price + Holding/Operating Expenses.
+        """
+        gpp = self.resolve_gross_purchase_price()
+        if gpp is None:
+            return None
+        return gpp + self.holding_operating_costs
+
+    def save(self, *args, **kwargs):
+        """
+        Override save to auto-populate derived fields if they are blank.
+        """
+        if self.expected_hold_duration is None:
+            self.expected_hold_duration = self.resolve_hold_duration()
+        
+        if self.expected_gross_cost is None:
+            self.expected_gross_cost = self.resolve_gross_cost()
+            
+        super().save(*args, **kwargs)
 
     expected_exit_date = models.DateField(
         null=True,

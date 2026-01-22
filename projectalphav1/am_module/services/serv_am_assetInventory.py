@@ -20,7 +20,13 @@ from acq_module.models.model_acq_seller import SellerRawData  # WHAT: Post-refac
 from am_module.models.model_am_amData import AMMetrics
 from am_module.models.model_am_servicersCleaned import ServicerLoanData
 from core.models.model_co_valuations import Valuation
-from am_module.logic.logi_am_modelLogic import resolve_latest_internal_asis_value
+from am_module.logic.logi_am_modelLogic import (
+    resolve_latest_internal_asis_value,
+    resolve_latest_internal_arv_value,
+    resolve_expected_hold_duration,
+    resolve_expected_gross_cost,
+    resolve_total_expenses,
+)
 
 # Fields used by quick filter 'q'
 QUICK_FILTER_FIELDS = (
@@ -282,11 +288,49 @@ class AssetInventoryEnricher:
 
         # Valuation fields
         obj._computed_internal_initial_uw_asis_value = self.get_internal_initial_uw_asis_value(obj)
+        
+        # WHAT: Resolve modeling computed fields via central logic on the model
+        # WHY: Centralized logic now lives directly on BlendedOutcomeModel
+        # HOW: Use model properties and methods for resolution with fallbacks
+        model = getattr(obj.asset_hub, 'blended_outcome_model', None)
+        
+        if model:
+            obj._computed_expected_hold_duration = model.resolve_hold_duration()
+            obj._computed_total_expenses = model.total_expenses
+            obj._computed_expected_gross_cost = model.resolve_gross_cost()
+            obj._computed_gross_purchase_price = model.resolve_gross_purchase_price()
+        else:
+            obj._computed_expected_hold_duration = None
+            obj._computed_total_expenses = None
+            obj._computed_expected_gross_cost = None
+            obj._computed_gross_purchase_price = None
+
         obj._computed_internal_initial_uw_arv_value = self.get_internal_initial_uw_arv_value(obj)
+        obj._computed_internal_initial_uw_asis_date = self.get_internal_initial_uw_asis_date(obj)
+        obj._computed_internal_initial_uw_arv_date = self.get_internal_initial_uw_arv_date(obj)
         obj._computed_internal_asis_value = self.get_internal_asis_value(obj)
+        obj._computed_internal_asis_date = self.get_internal_asis_date(obj)
+        obj._computed_internal_arv_value = self.get_internal_arv_value(obj)
+        obj._computed_internal_arv_date = self.get_internal_arv_date(obj)
         obj._computed_latest_internal_asis_value = resolve_latest_internal_asis_value(
             obj._computed_internal_initial_uw_asis_value,
             obj._computed_internal_asis_value,
+        )
+        obj._computed_latest_internal_asis_date = self._resolve_latest_internal_date(
+            obj._computed_internal_initial_uw_asis_value,
+            obj._computed_internal_asis_value,
+            obj._computed_internal_initial_uw_asis_date,
+            obj._computed_internal_asis_date,
+        )
+        obj._computed_latest_internal_arv_value = resolve_latest_internal_arv_value(
+            obj._computed_internal_initial_uw_arv_value,
+            obj._computed_internal_arv_value,
+        )
+        obj._computed_latest_internal_arv_date = self._resolve_latest_internal_date(
+            obj._computed_internal_initial_uw_arv_value,
+            obj._computed_internal_arv_value,
+            obj._computed_internal_initial_uw_arv_date,
+            obj._computed_internal_arv_date,
         )
         obj._computed_seller_asis_value = self.get_seller_asis_value(obj)
         obj._computed_seller_arv_value = self.get_seller_arv_value(obj)
@@ -685,10 +729,35 @@ class AssetInventoryEnricher:
         v = self._latest_val_by_source(obj, 'internalInitialUW')
         return getattr(v, 'arv_value', None) if v else None
 
+    def get_internal_initial_uw_asis_date(self, obj: SellerRawData):
+        """Get value date from Internal Initial UW valuation source."""
+        v = self._latest_val_by_source(obj, 'internalInitialUW')
+        return getattr(v, 'value_date', None) if v else None
+
+    def get_internal_initial_uw_arv_date(self, obj: SellerRawData):
+        """Get value date from Internal Initial UW valuation source."""
+        v = self._latest_val_by_source(obj, 'internalInitialUW')
+        return getattr(v, 'value_date', None) if v else None
+
     def get_internal_asis_value(self, obj: SellerRawData):
         """Get as-is value from Internal valuation source."""
         v = self._latest_val_by_source(obj, 'internal')
         return getattr(v, 'asis_value', None) if v else None
+
+    def get_internal_arv_value(self, obj: SellerRawData):
+        """Get ARV value from Internal valuation source."""
+        v = self._latest_val_by_source(obj, 'internal')
+        return getattr(v, 'arv_value', None) if v else None
+
+    def get_internal_asis_date(self, obj: SellerRawData):
+        """Get value date from Internal valuation source."""
+        v = self._latest_val_by_source(obj, 'internal')
+        return getattr(v, 'value_date', None) if v else None
+
+    def get_internal_arv_date(self, obj: SellerRawData):
+        """Get value date from Internal valuation source."""
+        v = self._latest_val_by_source(obj, 'internal')
+        return getattr(v, 'value_date', None) if v else None
 
     # ========== Seller Valuation ==========
 
@@ -735,4 +804,24 @@ class AssetInventoryEnricher:
             if valuation and getattr(valuation, 'asis_value', None) is not None:
                 return valuation.asis_value
         # WHERE: Default to None when no valuation carries an as-is value
+        return None
+
+    def _resolve_latest_internal_date(
+        self,
+        initial_value,
+        fallback_value,
+        initial_date,
+        fallback_date,
+    ):
+        """
+        Return the value_date corresponding to the resolved internal valuation.
+
+        WHAT: Choose date tied to whichever valuation supplied the preferred value
+        WHY: Frontend needs to show when the "recent" value was recorded
+        HOW: Prefer Internal Initial UW when a value exists, otherwise use Internal valuation date
+        """
+        if initial_value is not None:
+            return initial_date
+        if fallback_value is not None:
+            return fallback_date
         return None

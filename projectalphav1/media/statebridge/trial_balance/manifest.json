@@ -1,0 +1,3425 @@
+{
+  "1450 First Lien Capital LP Trial Balance1.1.2026.xls": {
+    "remote_dir": "/FirstLienCapital/To_FirstLienCapital",
+    "downloaded_at": 1769104869,
+    "sha256": "5433348b06a7cd2508e22c4c601f0d2165eb6fd842f18b3145cdfbc71924216b",
+    "bytes": 79360,
+    "model": "EOMTrialBalanceData",
+    "rows_read": 125,
+    "rows_inserted": 0,
+    "skipped_due_to_duplicates": true,
+    "skip_report": {
+      "key_fields": [
+        "file_date",
+        "loan_id"
+      ],
+      "duplicates_in_file": 0,
+      "duplicates_in_db": 125,
+      "duplicate_in_file_samples": [],
+      "duplicate_in_db_samples": [
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625155"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625232"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625269"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625272"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625294"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625322"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625337"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625382"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625441"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625474"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625496"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625605"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625616"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625641"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625674"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625708"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625737"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625753"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625764"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625814"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625869"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625900"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000626046"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000626055"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000626066"
+          }
+        }
+      ]
+    }
+  },
+  "1450 First Lien Capital LP Trial Balance11.1.2025.xls": {
+    "remote_dir": "/FirstLienCapital/To_FirstLienCapital",
+    "downloaded_at": 1769104871,
+    "sha256": "2ed1ae6e4c84661dd6ee402b70872c6a6e2e01a200521493a2e25364a2d06f32",
+    "bytes": 79360,
+    "model": "EOMTrialBalanceData",
+    "rows_read": 125,
+    "rows_inserted": 0,
+    "skipped_due_to_duplicates": true,
+    "skip_report": {
+      "key_fields": [
+        "file_date",
+        "loan_id"
+      ],
+      "duplicates_in_file": 0,
+      "duplicates_in_db": 125,
+      "duplicate_in_file_samples": [],
+      "duplicate_in_db_samples": [
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625155"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625232"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625269"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625272"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625294"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625322"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625337"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625382"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625441"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625474"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625496"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625605"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625616"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625641"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625674"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625708"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625737"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625753"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625764"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625814"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625869"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625900"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000626046"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000626055"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000626066"
+          }
+        }
+      ]
+    }
+  },
+  "1450 First Lien Capital LP Trial Balance12.1.2025.xls": {
+    "remote_dir": "/FirstLienCapital/To_FirstLienCapital",
+    "downloaded_at": 1769104873,
+    "sha256": "b30141e7e56c5bf35cd97dc8c20a01bfec8aa18441e80e8a469f1b7e91285ac7",
+    "bytes": 79360,
+    "model": "EOMTrialBalanceData",
+    "rows_read": 125,
+    "rows_inserted": 0,
+    "skipped_due_to_duplicates": true,
+    "skip_report": {
+      "key_fields": [
+        "file_date",
+        "loan_id"
+      ],
+      "duplicates_in_file": 0,
+      "duplicates_in_db": 125,
+      "duplicate_in_file_samples": [],
+      "duplicate_in_db_samples": [
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625155"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625232"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625269"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625272"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625294"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625322"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625337"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625382"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625441"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625474"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625496"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625605"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625616"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625641"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625674"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625708"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625737"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625753"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625764"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625814"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625869"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625900"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000626046"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000626055"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000626066"
+          }
+        }
+      ]
+    }
+  },
+  "1451 AFL Mortgage 2, LLC Trial Balance1.1.2026.xls": {
+    "remote_dir": "/FirstLienCapital/To_FirstLienCapital",
+    "downloaded_at": 1769104875,
+    "sha256": "b684407aa2578f3b713ed65f25f79b78fd84ea83b8a4400855d8060a03b18db1",
+    "bytes": 56320,
+    "model": "EOMTrialBalanceData",
+    "rows_read": 42,
+    "rows_inserted": 0,
+    "skipped_due_to_duplicates": true,
+    "skip_report": {
+      "key_fields": [
+        "file_date",
+        "loan_id"
+      ],
+      "duplicates_in_file": 0,
+      "duplicates_in_db": 42,
+      "duplicate_in_file_samples": [],
+      "duplicate_in_db_samples": [
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000650601"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000650612"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000650625"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000650647"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000682363"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000682376"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000682381"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000682398"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000682404"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000682415"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000682428"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000682433"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000682440"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000682459"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000682460"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000682473"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000682488"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000682495"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000682503"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000682514"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000682527"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000682532"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000682549"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000682558"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000682569"
+          }
+        }
+      ]
+    }
+  },
+  "1451 AFL Mortgage 2, LLC Trial Balance11.1.2025.xls": {
+    "remote_dir": "/FirstLienCapital/To_FirstLienCapital",
+    "downloaded_at": 1769104877,
+    "sha256": "2a30f28d18705d4f13e7b5ee3125787330ec1c621219486b66d6ed7267904248",
+    "bytes": 56320,
+    "model": "EOMTrialBalanceData",
+    "rows_read": 42,
+    "rows_inserted": 0,
+    "skipped_due_to_duplicates": true,
+    "skip_report": {
+      "key_fields": [
+        "file_date",
+        "loan_id"
+      ],
+      "duplicates_in_file": 0,
+      "duplicates_in_db": 42,
+      "duplicate_in_file_samples": [],
+      "duplicate_in_db_samples": [
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000650601"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000650612"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000650625"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000650647"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000682363"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000682376"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000682381"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000682398"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000682404"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000682415"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000682428"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000682433"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000682440"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000682459"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000682460"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000682473"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000682488"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000682495"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000682503"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000682514"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000682527"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000682532"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000682549"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000682558"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000682569"
+          }
+        }
+      ]
+    }
+  },
+  "1451 AFL Mortgage 2, LLC Trial Balance12.1.2025.xls": {
+    "remote_dir": "/FirstLienCapital/To_FirstLienCapital",
+    "downloaded_at": 1769104879,
+    "sha256": "4e8090bd7ffb6d925df90d8102c11a577a85393dbd1a0b860a1afb92bc694680",
+    "bytes": 56320,
+    "model": "EOMTrialBalanceData",
+    "rows_read": 42,
+    "rows_inserted": 0,
+    "skipped_due_to_duplicates": true,
+    "skip_report": {
+      "key_fields": [
+        "file_date",
+        "loan_id"
+      ],
+      "duplicates_in_file": 0,
+      "duplicates_in_db": 42,
+      "duplicate_in_file_samples": [],
+      "duplicate_in_db_samples": [
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000650601"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000650612"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000650625"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000650647"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000682363"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000682376"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000682381"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000682398"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000682404"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000682415"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000682428"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000682433"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000682440"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000682459"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000682460"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000682473"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000682488"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000682495"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000682503"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000682514"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000682527"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000682532"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000682549"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000682558"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000682569"
+          }
+        }
+      ]
+    }
+  },
+  "1452 First Lien  - Transfer Out ID Trial Balance1.1.2026.xls": {
+    "remote_dir": "/FirstLienCapital/To_FirstLienCapital",
+    "downloaded_at": 1769104882,
+    "sha256": "0aa45dd2e478117d83a181df5c2094cc6917295928223bb86985e6070f232fb1",
+    "bytes": 157696,
+    "model": "EOMTrialBalanceData",
+    "rows_read": 410,
+    "rows_inserted": 0,
+    "skipped_due_to_duplicates": true,
+    "skip_report": {
+      "key_fields": [
+        "file_date",
+        "loan_id"
+      ],
+      "duplicates_in_file": 0,
+      "duplicates_in_db": 410,
+      "duplicate_in_file_samples": [],
+      "duplicate_in_db_samples": [
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625146"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625166"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625179"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625191"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625203"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625214"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625227"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625249"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625258"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625287"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625308"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625319"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625344"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625353"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625364"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625377"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625399"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625405"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625416"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625429"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625434"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625450"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625461"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625489"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625504"
+          }
+        }
+      ]
+    }
+  },
+  "1452 First Lien  - Transfer Out ID Trial Balance11.1.2025.xls": {
+    "remote_dir": "/FirstLienCapital/To_FirstLienCapital",
+    "downloaded_at": 1769104885,
+    "sha256": "03df18c6ec70863005de54f2fd14611c78d7a238577e6628b6bc5c3ce025c560",
+    "bytes": 157696,
+    "model": "EOMTrialBalanceData",
+    "rows_read": 410,
+    "rows_inserted": 0,
+    "skipped_due_to_duplicates": true,
+    "skip_report": {
+      "key_fields": [
+        "file_date",
+        "loan_id"
+      ],
+      "duplicates_in_file": 0,
+      "duplicates_in_db": 410,
+      "duplicate_in_file_samples": [],
+      "duplicate_in_db_samples": [
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625146"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625166"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625179"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625191"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625203"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625214"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625227"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625249"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625258"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625287"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625308"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625319"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625344"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625353"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625364"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625377"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625399"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625405"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625416"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625429"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625434"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625450"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625461"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625489"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625504"
+          }
+        }
+      ]
+    }
+  },
+  "1452 First Lien  - Transfer Out ID Trial Balance12.1.2025.xls": {
+    "remote_dir": "/FirstLienCapital/To_FirstLienCapital",
+    "downloaded_at": 1769104888,
+    "sha256": "1de41c67d5d27f91dca270bcb6b622763e1151dba9be9b5f7b65a3f8d3606d72",
+    "bytes": 157696,
+    "model": "EOMTrialBalanceData",
+    "rows_read": 410,
+    "rows_inserted": 0,
+    "skipped_due_to_duplicates": true,
+    "skip_report": {
+      "key_fields": [
+        "file_date",
+        "loan_id"
+      ],
+      "duplicates_in_file": 0,
+      "duplicates_in_db": 410,
+      "duplicate_in_file_samples": [],
+      "duplicate_in_db_samples": [
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625146"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625166"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625179"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625191"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625203"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625214"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625227"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625249"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625258"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625287"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625308"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625319"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625344"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625353"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625364"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625377"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625399"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625405"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625416"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625429"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625434"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625450"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625461"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625489"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625504"
+          }
+        }
+      ]
+    }
+  },
+  "1453 First Lien HECM, LLC Trial Balance1.1.2026.xls": {
+    "remote_dir": "/FirstLienCapital/To_FirstLienCapital",
+    "downloaded_at": 1769104890,
+    "sha256": "8684bca4f9298f4b4982d8a18038e3b0e237e91f7d56f7017034c78b4f97166e",
+    "bytes": 61952,
+    "model": "EOMTrialBalanceData",
+    "rows_read": 63,
+    "rows_inserted": 0,
+    "skipped_due_to_duplicates": true,
+    "skip_report": {
+      "key_fields": [
+        "file_date",
+        "loan_id"
+      ],
+      "duplicates_in_file": 0,
+      "duplicates_in_db": 63,
+      "duplicate_in_file_samples": [],
+      "duplicate_in_db_samples": [
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000662815"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000662828"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000662833"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000662840"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000662859"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000662860"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000662873"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000662888"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000662895"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000662901"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000662912"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000662925"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000662930"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000662947"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000662956"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000662967"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000662970"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000662985"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000662992"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000663005"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000663016"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000663029"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000663034"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000663041"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000663050"
+          }
+        }
+      ]
+    }
+  },
+  "1453 First Lien HECM, LLC Trial Balance11.1.2025.xls": {
+    "remote_dir": "/FirstLienCapital/To_FirstLienCapital",
+    "downloaded_at": 1769104892,
+    "sha256": "44b8aa3d3124ede0c1adca8f17743f4708aeb621df7ff98fb5b3c2259ae85859",
+    "bytes": 96768,
+    "model": "EOMTrialBalanceData",
+    "rows_read": 180,
+    "rows_inserted": 0,
+    "skipped_due_to_duplicates": true,
+    "skip_report": {
+      "key_fields": [
+        "file_date",
+        "loan_id"
+      ],
+      "duplicates_in_file": 0,
+      "duplicates_in_db": 180,
+      "duplicate_in_file_samples": [],
+      "duplicate_in_db_samples": [
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000662815"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000662828"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000662833"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000662840"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000662859"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000662860"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000662873"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000662888"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000662895"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000662901"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000662912"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000662925"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000662930"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000662947"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000662956"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000662967"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000662970"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000662985"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000662992"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000663005"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000663016"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000663029"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000663034"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000663041"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000663050"
+          }
+        }
+      ]
+    }
+  },
+  "1453 First Lien HECM, LLC Trial Balance12.1.2025.xls": {
+    "remote_dir": "/FirstLienCapital/To_FirstLienCapital",
+    "downloaded_at": 1769104895,
+    "sha256": "43686c34af8c2459576b60f750d419e7c23a5beea24e66f49062ca091bc30ea2",
+    "bytes": 61952,
+    "model": "EOMTrialBalanceData",
+    "rows_read": 63,
+    "rows_inserted": 0,
+    "skipped_due_to_duplicates": true,
+    "skip_report": {
+      "key_fields": [
+        "file_date",
+        "loan_id"
+      ],
+      "duplicates_in_file": 0,
+      "duplicates_in_db": 63,
+      "duplicate_in_file_samples": [],
+      "duplicate_in_db_samples": [
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000662815"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000662828"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000662833"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000662840"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000662859"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000662860"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000662873"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000662888"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000662895"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000662901"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000662912"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000662925"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000662930"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000662947"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000662956"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000662967"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000662970"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000662985"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000662992"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000663005"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000663016"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000663029"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000663034"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000663041"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000663050"
+          }
+        }
+      ]
+    }
+  },
+  "1454 FIRST LIEN INVESTMENT GP LLC Trial Balance1.1.2026.xls": {
+    "remote_dir": "/FirstLienCapital/To_FirstLienCapital",
+    "downloaded_at": 1769104897,
+    "sha256": "86cd9b173645f423bfab255f2c865690f8ffc659d19ee7f67bb1e5800ff4235b",
+    "bytes": 47104,
+    "model": "EOMTrialBalanceData",
+    "rows_read": 9,
+    "rows_inserted": 0,
+    "skipped_due_to_duplicates": true,
+    "skip_report": {
+      "key_fields": [
+        "file_date",
+        "loan_id"
+      ],
+      "duplicates_in_file": 0,
+      "duplicates_in_db": 9,
+      "duplicate_in_file_samples": [],
+      "duplicate_in_db_samples": [
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000237363"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000237398"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000237404"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000237433"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000237473"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000237488"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000237495"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000574625"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000574630"
+          }
+        }
+      ]
+    }
+  },
+  "1454 FIRST LIEN INVESTMENT GP LLC Trial Balance11.1.2025.xls": {
+    "remote_dir": "/FirstLienCapital/To_FirstLienCapital",
+    "downloaded_at": 1769104898,
+    "sha256": "00df598215f107751ad0e31015e6e610e3c3a6c0ab9ac4c32865323018c9aa92",
+    "bytes": 47104,
+    "model": "EOMTrialBalanceData",
+    "rows_read": 9,
+    "rows_inserted": 0,
+    "skipped_due_to_duplicates": true,
+    "skip_report": {
+      "key_fields": [
+        "file_date",
+        "loan_id"
+      ],
+      "duplicates_in_file": 0,
+      "duplicates_in_db": 9,
+      "duplicate_in_file_samples": [],
+      "duplicate_in_db_samples": [
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000237363"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000237398"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000237404"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000237433"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000237473"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000237488"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000237495"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000574625"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000574630"
+          }
+        }
+      ]
+    }
+  },
+  "1454 FIRST LIEN INVESTMENT GP LLC Trial Balance12.1.2025.xls": {
+    "remote_dir": "/FirstLienCapital/To_FirstLienCapital",
+    "downloaded_at": 1769104900,
+    "sha256": "2e9ebb2a92fbc6ac1929a1c0b879a7714fe01d8bbff72c5ed3706f9aaf024d0f",
+    "bytes": 47104,
+    "model": "EOMTrialBalanceData",
+    "rows_read": 9,
+    "rows_inserted": 0,
+    "skipped_due_to_duplicates": true,
+    "skip_report": {
+      "key_fields": [
+        "file_date",
+        "loan_id"
+      ],
+      "duplicates_in_file": 0,
+      "duplicates_in_db": 9,
+      "duplicate_in_file_samples": [],
+      "duplicate_in_db_samples": [
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000237363"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000237398"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000237404"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000237433"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000237473"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000237488"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000237495"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000574625"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000574630"
+          }
+        }
+      ]
+    }
+  },
+  "1455 First Lien Recovery Trial Balance1.1.2026.xls": {
+    "remote_dir": "/FirstLienCapital/To_FirstLienCapital",
+    "downloaded_at": 1769104902,
+    "sha256": "ef73bb2a0e02b50483669d4aed7c864c3e4cc83f61a2dd091d44d9d62b211b57",
+    "bytes": 45056,
+    "model": "EOMTrialBalanceData",
+    "rows_read": 2,
+    "rows_inserted": 0,
+    "skipped_due_to_duplicates": true,
+    "skip_report": {
+      "key_fields": [
+        "file_date",
+        "loan_id"
+      ],
+      "duplicates_in_file": 0,
+      "duplicates_in_db": 2,
+      "duplicate_in_file_samples": [],
+      "duplicate_in_db_samples": [
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000625184"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000626000"
+          }
+        }
+      ]
+    }
+  },
+  "1455 First Lien Recovery Trial Balance11.1.2025.xls": {
+    "remote_dir": "/FirstLienCapital/To_FirstLienCapital",
+    "downloaded_at": 1769104904,
+    "sha256": "e6c48543b03da0d81366626d37228d90c0b21250b922a437a62b1754af999169",
+    "bytes": 45056,
+    "model": "EOMTrialBalanceData",
+    "rows_read": 2,
+    "rows_inserted": 0,
+    "skipped_due_to_duplicates": true,
+    "skip_report": {
+      "key_fields": [
+        "file_date",
+        "loan_id"
+      ],
+      "duplicates_in_file": 0,
+      "duplicates_in_db": 2,
+      "duplicate_in_file_samples": [],
+      "duplicate_in_db_samples": [
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000625184"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000626000"
+          }
+        }
+      ]
+    }
+  },
+  "1455 First Lien Recovery Trial Balance12.1.2025.xls": {
+    "remote_dir": "/FirstLienCapital/To_FirstLienCapital",
+    "downloaded_at": 1769104906,
+    "sha256": "5b1a3dd1909d652fe23ebf28ae855dbc7ecb6463ccc57e638fa485807f8f5610",
+    "bytes": 45056,
+    "model": "EOMTrialBalanceData",
+    "rows_read": 2,
+    "rows_inserted": 0,
+    "skipped_due_to_duplicates": true,
+    "skip_report": {
+      "key_fields": [
+        "file_date",
+        "loan_id"
+      ],
+      "duplicates_in_file": 0,
+      "duplicates_in_db": 2,
+      "duplicate_in_file_samples": [],
+      "duplicate_in_db_samples": [
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000625184"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000626000"
+          }
+        }
+      ]
+    }
+  },
+  "1460 Reliant Trust, Series FLC Trial Balance1.1.2026.xls": {
+    "remote_dir": "/FirstLienCapital/To_FirstLienCapital",
+    "downloaded_at": 1769104908,
+    "sha256": "1224654df6b4e9f0bdf185286afed84555681339fcd235f524b00fc8b72b8591",
+    "bytes": 50176,
+    "model": "EOMTrialBalanceData",
+    "rows_read": 20,
+    "rows_inserted": 0,
+    "skipped_due_to_duplicates": true,
+    "skip_report": {
+      "key_fields": [
+        "file_date",
+        "loan_id"
+      ],
+      "duplicates_in_file": 0,
+      "duplicates_in_db": 20,
+      "duplicate_in_file_samples": [],
+      "duplicate_in_db_samples": [
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713101"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713112"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713167"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713240"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713288"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713338"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713390"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713420"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713435"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713497"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713505"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713534"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713541"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713561"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713574"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713617"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713662"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713675"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713697"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713710"
+          }
+        }
+      ]
+    }
+  },
+  "1460 Reliant Trust, Series FLC Trial Balance11.1.2025.xls": {
+    "remote_dir": "/FirstLienCapital/To_FirstLienCapital",
+    "downloaded_at": 1769104913,
+    "sha256": "4ad9170b33bf478a086d0ff90a39601fc50aba1ce2b0b6d41b5ac265423dc530",
+    "bytes": 50176,
+    "model": "EOMTrialBalanceData",
+    "rows_read": 20,
+    "rows_inserted": 0,
+    "skipped_due_to_duplicates": true,
+    "skip_report": {
+      "key_fields": [
+        "file_date",
+        "loan_id"
+      ],
+      "duplicates_in_file": 0,
+      "duplicates_in_db": 20,
+      "duplicate_in_file_samples": [],
+      "duplicate_in_db_samples": [
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713101"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713112"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713167"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713240"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713288"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713338"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713390"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713420"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713435"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713497"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713505"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713534"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713541"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713561"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713574"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713617"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713662"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713675"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713697"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713710"
+          }
+        }
+      ]
+    }
+  },
+  "1460 Reliant Trust, Series FLC Trial Balance12.1.2025.xls": {
+    "remote_dir": "/FirstLienCapital/To_FirstLienCapital",
+    "downloaded_at": 1769104917,
+    "sha256": "3c766f798427256e6206505ec13d13606a259dc7e9b604e852f76249088c4c9b",
+    "bytes": 50688,
+    "model": "EOMTrialBalanceData",
+    "rows_read": 21,
+    "rows_inserted": 0,
+    "skipped_due_to_duplicates": true,
+    "skip_report": {
+      "key_fields": [
+        "file_date",
+        "loan_id"
+      ],
+      "duplicates_in_file": 0,
+      "duplicates_in_db": 21,
+      "duplicate_in_file_samples": [],
+      "duplicate_in_db_samples": [
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713101"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713112"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713167"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713240"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713288"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713338"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713390"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713420"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713435"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713497"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713505"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713534"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713541"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713561"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713574"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713617"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713662"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713675"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713697"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713710"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000753934"
+          }
+        }
+      ]
+    }
+  },
+  "1461 WFL Capital LLC Trial Balance1.1.2026.xls": {
+    "remote_dir": "/FirstLienCapital/To_FirstLienCapital",
+    "downloaded_at": 1769104926,
+    "sha256": "8bd47ad2dc858bda17766faef77c604108fbc349513ecd7450bc170854aa15c5",
+    "bytes": 93696,
+    "model": "EOMTrialBalanceData",
+    "rows_read": 166,
+    "rows_inserted": 0,
+    "skipped_due_to_duplicates": true,
+    "skip_report": {
+      "key_fields": [
+        "file_date",
+        "loan_id"
+      ],
+      "duplicates_in_file": 0,
+      "duplicates_in_db": 166,
+      "duplicate_in_file_samples": [],
+      "duplicate_in_db_samples": [
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713055"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713066"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713079"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713084"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713091"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713125"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713130"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713147"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713156"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713170"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713185"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713192"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713204"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713215"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713228"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713233"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713259"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713260"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713273"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713295"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713309"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713310"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713323"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713345"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000713354"
+          }
+        }
+      ]
+    }
+  },
+  "1461 WFL Capital LLC Trial Balance11.1.2025.xls": {
+    "remote_dir": "/FirstLienCapital/To_FirstLienCapital",
+    "downloaded_at": 1769104929,
+    "sha256": "0afde31b4e0fc77516464b0d60ed94f384cad3a85d465435de084e22e5dfe815",
+    "bytes": 58880,
+    "model": "EOMTrialBalanceData",
+    "rows_read": 49,
+    "rows_inserted": 0,
+    "skipped_due_to_duplicates": true,
+    "skip_report": {
+      "key_fields": [
+        "file_date",
+        "loan_id"
+      ],
+      "duplicates_in_file": 0,
+      "duplicates_in_db": 49,
+      "duplicate_in_file_samples": [],
+      "duplicate_in_db_samples": [
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713055"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713066"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713079"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713084"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713091"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713125"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713130"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713147"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713156"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713170"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713185"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713192"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713204"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713215"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713228"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713233"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713259"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713260"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713273"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713295"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713309"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713310"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713323"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713345"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-11-01",
+            "loan_id": "0000713354"
+          }
+        }
+      ]
+    }
+  },
+  "1461 WFL Capital LLC Trial Balance12.1.2025.xls": {
+    "remote_dir": "/FirstLienCapital/To_FirstLienCapital",
+    "downloaded_at": 1769104933,
+    "sha256": "29290e5b8517a7aaa257d1254b248248f728c87500d2a7567096fb3ac3419d15",
+    "bytes": 93696,
+    "model": "EOMTrialBalanceData",
+    "rows_read": 165,
+    "rows_inserted": 0,
+    "skipped_due_to_duplicates": true,
+    "skip_report": {
+      "key_fields": [
+        "file_date",
+        "loan_id"
+      ],
+      "duplicates_in_file": 0,
+      "duplicates_in_db": 165,
+      "duplicate_in_file_samples": [],
+      "duplicate_in_db_samples": [
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713055"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713066"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713079"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713084"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713091"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713125"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713130"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713147"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713156"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713170"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713185"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713192"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713204"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713215"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713228"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713233"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713259"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713260"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713273"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713295"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713309"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713310"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713323"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713345"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2025-12-01",
+            "loan_id": "0000713354"
+          }
+        }
+      ]
+    }
+  },
+  "1462 HVLS-SP Structured Trust Trial Balance1.1.2026.xls": {
+    "remote_dir": "/FirstLienCapital/To_FirstLienCapital",
+    "downloaded_at": 1769104950,
+    "sha256": "18b628e6ee2cd989228abcb16f80a28c8cd9653ee43e3fc81e7c93e12dd6bfc2",
+    "bytes": 48640,
+    "model": "EOMTrialBalanceData",
+    "rows_read": 14,
+    "rows_inserted": 0,
+    "skipped_due_to_duplicates": true,
+    "skip_report": {
+      "key_fields": [
+        "file_date",
+        "loan_id"
+      ],
+      "duplicates_in_file": 0,
+      "duplicates_in_db": 14,
+      "duplicate_in_file_samples": [],
+      "duplicate_in_db_samples": [
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000757950"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000757961"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000757974"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000757989"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000757996"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000758009"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000758010"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000758023"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000758038"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000758045"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000758054"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000758065"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000758078"
+          }
+        },
+        {
+          "key": {
+            "file_date": "2026-01-01",
+            "loan_id": "0000758083"
+          }
+        }
+      ]
+    }
+  }
+}

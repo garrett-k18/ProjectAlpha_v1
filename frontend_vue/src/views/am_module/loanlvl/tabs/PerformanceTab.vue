@@ -35,7 +35,6 @@
 // WHY: Separates layout/header from metrics logic for modularity
 // HOW: Imports PLMetrics and passes props through
 // NOTE: PLMetrics handles all calculations and data - this is just the wrapper
-import { withDefaults, defineProps } from 'vue'
 import PLMetrics from '../performance/PLMetrics.vue'
 import CashFlowSeries from '../performance/CashFlowSeries.vue'
 import PerformanceWidgets from '../performance/PerformanceWidgets.vue'

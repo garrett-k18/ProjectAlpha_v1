@@ -54,7 +54,7 @@
     </b-row>
 
     <!-- Second row: Purchase/Performance | AM Quickview | Notes -->
-    <b-row class="g-3 align-items-stretch mt-3">
+    <b-row class="g-3 align-items-stretch mt-0">
       <b-col lg="4" class="d-flex">
         <PurchasePerformanceSummary
           class="h-100 w-100"
