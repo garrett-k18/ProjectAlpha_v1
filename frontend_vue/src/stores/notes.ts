@@ -127,16 +127,9 @@ export const useNotesStore = defineStore('amNotes', {
         // Handle paginated DRF response (results array) or plain array
         const results = res.data?.results || res.data
         const items = Array.isArray(results) ? results : []
-        // Sort pinned first then most recently updated (mirrors backend default but is explicit)
-        const sorted = [...items].sort((a, b) => {
-          if (a.pinned !== b.pinned) return a.pinned ? -1 : 1
-          const aT = Date.parse(a.updated_at)
-          const bT = Date.parse(b.updated_at)
-          if (!Number.isNaN(aT) && !Number.isNaN(bT)) return bT - aT
-          return (b.id ?? 0) - (a.id ?? 0)
-        })
-        this.notesByHub[assetHubId] = sorted
-        return sorted
+        // Sort pinned first then chronological order (Oldest -> Newest)
+        this.notesByHub[assetHubId] = this.sortNotes(items)
+        return this.notesByHub[assetHubId]
       } catch (err: any) {
         // Capture error message in a user-friendly way
         const msg = err?.response?.data?.detail || err?.message || 'Failed to load notes'
@@ -164,14 +157,15 @@ export const useNotesStore = defineStore('amNotes', {
 
         // Merge the new note into the cached list for this hub id
         const current = this.notesByHub[assetHubId] ?? []
-        const next = [res.data, ...current]
+        const next = [...current, res.data]
         // Ensure uniqueness by id in case of stale cache
         const seen = new Set<number>()
-        this.notesByHub[assetHubId] = next.filter(n => {
+        const unique = next.filter(n => {
           if (seen.has(n.id)) return false
           seen.add(n.id)
           return true
         })
+        this.notesByHub[assetHubId] = this.sortNotes(unique)
         return res.data
       } catch (err: any) {
         const msg = err?.response?.data?.detail || err?.message || 'Failed to create note'
@@ -190,7 +184,8 @@ export const useNotesStore = defineStore('amNotes', {
         // Include asset_hub_id query param for backend queryset filtering
         const res = await http.patch<NoteItem>(`/am/notes/${noteId}/`, patch, { params: { asset_hub_id: assetHubId } })
         const list = this.notesByHub[assetHubId] ?? []
-        this.notesByHub[assetHubId] = list.map(n => (n.id === noteId ? res.data : n))
+        const next = list.map(n => (n.id === noteId ? res.data : n))
+        this.notesByHub[assetHubId] = this.sortNotes(next)
         return res.data
       } catch (err: any) {
         const msg = err?.response?.data?.detail || err?.message || 'Failed to update note'
@@ -217,6 +212,23 @@ export const useNotesStore = defineStore('amNotes', {
       } finally {
         this.loadingByHub[assetHubId] = false
       }
+    },
+
+    // WHAT: Helper to sort notes consistently across list/create/patch
+    // WHY: Keep reverse-chronological order (newest first) while respecting pinned items
+    sortNotes(items: NoteItem[]): NoteItem[] {
+      return [...items].sort((a, b) => {
+        // Pinned notes always stay at the top
+        if (a.pinned !== b.pinned) return a.pinned ? -1 : 1
+        
+        // Non-pinned notes sorted by created_at descending (Newest -> Oldest)
+        const aT = Date.parse(a.created_at)
+        const bT = Date.parse(b.created_at)
+        if (!Number.isNaN(aT) && !Number.isNaN(bT)) return bT - aT
+        
+        // Fallback to ID descending
+        return (b.id ?? 0) - (a.id ?? 0)
+      })
     },
   },
 })

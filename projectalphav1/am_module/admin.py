@@ -11,6 +11,7 @@ from am_module.models.model_am_servicersCleaned import (
     ServicerLoanData,
     ServicerPayHistoryData,
     ServicerTransactionData,
+    ServicerTrackingPayoffData,
     ServicerTrialBalanceData,
 )
 from am_module.models.model_am_amData import (
@@ -171,6 +172,23 @@ class ServicerLoanDataAdmin(admin.ModelAdmin):
         return "N/A"
     
     reporting_period.short_description = "Period"
+
+
+@admin.register(ServicerTrackingPayoffData)
+class ServicerTrackingPayoffDataAdmin(admin.ModelAdmin):
+    list_display = (
+        'loan_id',
+        'file_date',
+        'received_date',
+        'due_date',
+        'principal_paid_off',
+        'interest_collected',
+        'net_interest',
+        'payoff_reason',
+    )
+    list_filter = ('file_date', 'received_date', 'payoff_reason')
+    search_fields = ('loan_id', 'investor_loan_id', 'payoff_reason', 'description')
+    date_hierarchy = 'file_date'
 
 
 @admin.register(ServicerTrialBalanceData)

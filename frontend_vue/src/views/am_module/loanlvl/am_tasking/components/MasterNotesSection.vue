@@ -11,7 +11,7 @@
   -->
   <div class="card h-100">
     <div class="card-header d-flex align-items-center justify-content-between">
-      <h4 class="header-title mb-0">Notes</h4>
+      <h4 class="header-title mb-0">AM Notes</h4>
       <!-- WHAT: Compact filter dropdown for outcome type -->
       <!-- WHY: Less visual clutter than button group -->
       <!-- HOW: Select element with all outcome options -->

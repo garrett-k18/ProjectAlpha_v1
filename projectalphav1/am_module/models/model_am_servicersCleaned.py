@@ -235,8 +235,8 @@ class ServicerLoanData(models.Model):
         period = f"{self.reporting_month}/{self.reporting_year}" if self.reporting_month and self.reporting_year else 'Unknown Period'
         return f"Loan Data for Hub #{hub_id} - {period}"
 
-    def save(self, *args, **kwargs) -> None:  
-        super().save(*args, **kwargs)
+        def save(self, *args, **kwargs) -> None:  
+            super().save(*args, **kwargs)
 
 
 class _ServicerBase(models.Model):
@@ -266,6 +266,55 @@ class _ServicerBase(models.Model):
 
     class Meta:
         abstract = True
+
+
+class ServicerTrackingPayoffData(_ServicerBase):
+    """Cleaned monthly tracking payoff data."""
+
+    raw_source_snapshot = models.ForeignKey(
+        'etl.EOMTrackingPayoffData',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='cleaned_records',
+    )
+
+    file_date = models.DateField(null=True, blank=True, db_index=True)
+
+    # Identification
+    loan_id = models.CharField(max_length=50, null=True, blank=True, db_index=True)
+    investor_loan_id = models.CharField(max_length=50, null=True, blank=True, db_index=True)
+
+    # Dates
+    received_date = models.DateField(null=True, blank=True, db_index=True)
+    due_date = models.DateField(null=True, blank=True, db_index=True)
+
+    # Amounts
+    principal_paid_off = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)
+    interest_collected = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)
+    sf_collected = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)
+    net_interest = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)
+
+    # Descriptions
+    description = models.CharField(max_length=200, null=True, blank=True)
+    payoff_reason = models.CharField(max_length=100, null=True, blank=True)
+
+    class Meta:
+        db_table = 'am_servicer_tracking_payoff_data'
+        verbose_name = 'Servicer Tracking Payoff Data'
+        verbose_name_plural = 'Servicer Tracking Payoff Data'
+        indexes = [
+            models.Index(fields=['asset_hub']),
+            models.Index(fields=['file_date']),
+            models.Index(fields=['loan_id']),
+            models.Index(fields=['received_date']),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['file_date', 'loan_id'],
+                name='uniq_am_trackpay_fdate_loanid',
+            ),
+        ]
 
 
 class ServicerTrialBalanceData(_ServicerBase):

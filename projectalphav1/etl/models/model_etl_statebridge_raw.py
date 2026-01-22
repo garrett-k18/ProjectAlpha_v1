@@ -959,7 +959,6 @@ class SBDailyTransactionData(models.Model):
                 & ~models.Q(loan_transaction_id=""),
             ),
         ]
-
     def __str__(self):
         return f"Transaction {self.loan_id} - {self.transaction_date} ({self.transaction_code})"
 
@@ -1043,6 +1042,65 @@ class EOMTrialBalanceData(models.Model):
 
     def __str__(self):
         return f"EOM Trial Balance {self.loan_id} - {self.file_date}"
+
+
+class EOMTrackingPayoffData(models.Model):
+    """
+    RAW DATA LANDING TABLE - All fields are CharField to accept data as-is.
+
+    WHAT: Store StateBridge monthly tracking payoff data exactly as received.
+    WHY: Raw data may have formatting issues; cleaning happens downstream.
+    HOW: Accept everything as strings, defer validation to ETL -> Core tables.
+    """
+
+    # File tracking field - extracted from filename
+    file_date = models.CharField(max_length=20, null=True, blank=True, db_index=True)
+
+    # Identification
+    loan_id = models.CharField(max_length=50, null=True, blank=True, db_index=True)
+    investor_loan_id = models.CharField(max_length=50, null=True, blank=True, db_index=True)
+
+    # Dates
+    received_date = models.CharField(max_length=20, null=True, blank=True, db_index=True)
+    due_date = models.CharField(max_length=20, null=True, blank=True, db_index=True)
+
+    # Amounts (as strings to preserve formatting)
+    principal_paid_off = models.CharField(max_length=50, null=True, blank=True)
+    interest_collected = models.CharField(max_length=50, null=True, blank=True)
+    sf_collected = models.CharField(max_length=50, null=True, blank=True)
+    net_interest = models.CharField(max_length=50, null=True, blank=True)
+
+    # Descriptions
+    description = models.CharField(max_length=200, null=True, blank=True)
+    payoff_reason = models.CharField(max_length=100, null=True, blank=True)
+
+    # Metadata fields for audit tracking
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'eom_tracking_payoff_records'
+        verbose_name = 'StateBridge Tracking Payoff Data'
+        verbose_name_plural = 'StateBridge Tracking Payoff Data'
+        indexes = [
+            models.Index(fields=['loan_id'], name='eom_track_loan_id_idx'),
+            models.Index(fields=['investor_loan_id'], name='eom_track_inv_loan_id_idx'),
+            models.Index(fields=['file_date'], name='eom_track_file_date_idx'),
+            models.Index(fields=['received_date'], name='eom_track_received_date_idx'),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['file_date', 'loan_id'],
+                name='uniq_eom_track_fdate_loanid',
+                condition=models.Q(file_date__isnull=False)
+                & ~models.Q(file_date="")
+                & models.Q(loan_id__isnull=False)
+                & ~models.Q(loan_id=""),
+            ),
+        ]
+
+    def __str__(self):
+        return f"EOM Tracking Payoff {self.loan_id} - {self.file_date}"
 
 
 class EOMTrustTrackingData(models.Model):

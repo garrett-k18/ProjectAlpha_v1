@@ -22,6 +22,7 @@ from .model_etl_statebridge_raw import (
     SBDailyPayHistoryData,
     SBDailyTransactionData,
     EOMTrialBalanceData,
+    EOMTrackingPayoffData,
     EOMTrustTrackingData,
 )
 from .model_etl_import_mapping import (

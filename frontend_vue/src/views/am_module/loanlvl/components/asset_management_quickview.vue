@@ -29,49 +29,45 @@
         {{ loadError }}
       </div>
 
-      <!-- Main quickview content once data is ready - Simplified layout showing tracks and their tasks -->
+      <!-- Main quickview content once data is ready - Track sub-cards layout -->
       <div v-else class="d-flex flex-column gap-3">
-        <!-- Quick summary stats at the top -->
-        <div class="d-flex gap-3 mb-2">
-          <div class="flex-fill text-center p-2 bg-light rounded">
-            <div class="fs-4 fw-bold text-primary">{{ activeTracksCount }}</div>
-            <small class="text-muted">Active Tracks</small>
-          </div>
-          <div class="flex-fill text-center p-2 bg-light rounded">
-            <div class="fs-4 fw-bold text-success">{{ totalTaskCount }}</div>
-            <small class="text-muted">Total Tasks</small>
-          </div>
-        </div>
-
-        <!-- Show each active track as a simple card with its tasks listed -->
-        <div v-if="trackSummaries.length" class="d-flex flex-column gap-2">
+        <!-- Show each active track as a sub-card with clearer hierarchy -->
+        <div v-if="trackSummaries.length" class="d-flex flex-column gap-3">
           <div
             v-for="summary in trackSummaries"
             :key="summary.key"
-            class="card mb-0 shadow-none border"
+            class="card mb-0 shadow-sm border"
           >
+            <!-- Track Header -->
+            <div class="card-header bg-light py-2 px-3 d-flex align-items-center justify-content-between">
+              <div class="d-flex align-items-center gap-2">
+                <UiBadge :tone="summary.tone" size="sm" :label="summary.title" />
+              </div>
+            </div>
+            
+            <!-- Track Body -->
             <div class="card-body p-3">
-              <!-- Track name and task count -->
-              <div class="d-flex align-items-center justify-content-between mb-2">
-                <div class="d-flex align-items-center gap-2">
-                  <UiBadge :tone="summary.tone" size="sm" :label="summary.title" />
-                  <span class="text-muted small">{{ summary.subtitle }}</span>
+              <!-- Latest task details -->
+              <div v-if="getLatestTaskForTrack(summary.key)" class="d-flex align-items-start gap-2">
+                <i class="ri-time-line text-primary mt-1"></i>
+                <div class="flex-fill">
+                  <div class="small">
+                    <span class="fw-semibold">{{ getLatestTaskForTrack(summary.key) }}</span>
+                  </div>
                 </div>
-                <span class="badge bg-light text-dark">{{ summary.countLabel }}</span>
               </div>
               
-              <!-- Latest task for this track -->
-              <div v-if="getLatestTaskForTrack(summary.key)" class="text-muted small">
-                <i class="ri-history-line me-1"></i>
-                {{ getLatestTaskForTrack(summary.key) }}
+              <!-- No tasks message -->
+              <div v-else class="text-muted small fst-italic">
+                No recent activity
               </div>
             </div>
           </div>
         </div>
 
         <!-- Empty state when no tracks exist -->
-        <div v-else class="text-center text-muted py-3">
-          <i class="ri-inbox-line fs-2 d-block mb-2"></i>
+        <div v-else class="text-center text-muted py-4">
+          <i class="ri-inbox-line fs-2 d-block mb-2 opacity-50"></i>
           <p class="mb-0">No active tracks or tasks</p>
         </div>
       </div>
