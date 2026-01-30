@@ -9,9 +9,9 @@
     - Pinia: https://pinia.vuejs.org/core-concepts/
     - DRF filtering: https://www.django-rest-framework.org/api-guide/filtering/
   -->
-  <div class="card h-100">
-    <div class="card-header d-flex align-items-center justify-content-between">
-      <h4 class="header-title mb-0">AM Notes</h4>
+  <div class="card h-100" style="background: var(--ui-bg-card-primary, #FDFBF7);">
+    <div class="card-header d-flex align-items-center justify-content-between" style="background: transparent; border-bottom: 1px solid var(--bs-border-color, #dee2e6);">
+      <h4 class="header-title mb-0" style="font-size: var(--ui-typography-lg, 1.125rem);">AM Notes</h4>
       <!-- WHAT: Compact filter dropdown for outcome type -->
       <!-- WHY: Less visual clutter than button group -->
       <!-- HOW: Select element with all outcome options -->
@@ -31,7 +31,7 @@
       </select>
     </div>
     
-    <div class="card-body p-3">
+    <div class="card-body p-3" style="padding: var(--ui-card-padding-base, 1rem) !important;">
       <!-- Composer: Add new note -->
       <!-- WHAT: Simple note composer without tag selector -->
       <!-- WHY: Keep creation simple, users can tag via edit after creation -->
@@ -449,7 +449,7 @@ watch(() => props.hubId, loadNotes)
 /* WHAT: Notes list container styles */
 /* WHY: Ensure smooth scrolling and proper spacing */
 .notes-list {
-  padding-right: 0.25rem; /* Space for scrollbar */
+  padding-right: var(--ui-spacing-xs, 0.25rem); /* Space for scrollbar */
 }
 
 /* WHAT: Individual note card hover effect */
@@ -457,11 +457,12 @@ watch(() => props.hubId, loadNotes)
 /* HOW: Hide actions by default, show on hover */
 .note-card {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  font-size: var(--ui-typography-sm, 0.875rem);
 }
 
 .note-card:hover {
   transform: translateY(-1px);
-  box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.1) !important;
+  box-shadow: var(--ui-shadow-sm, 0 0.25rem 0.5rem rgba(0, 0, 0, 0.1)) !important;
 }
 
 /* WHAT: Hide note actions by default */

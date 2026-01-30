@@ -27,8 +27,15 @@ class Seller(models.Model):
 
 
 class Trade(models.Model):
-    """Many trades belong to one seller...Need to make sure IDs start at 1000"""
-    seller = models.ForeignKey(Seller, on_delete=models.CASCADE, related_name='trades')
+    """Deal container for assets; seller is optional for non-loan asset types."""
+    seller = models.ForeignKey(
+        Seller,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='trades',
+        help_text='Nullable to support asset types without a seller (e.g., REO, single-asset equity).'
+    )
     trade_name = models.CharField(
         max_length=100,
         blank=True,  # Editable; if left blank we'll auto-generate on save
@@ -53,9 +60,20 @@ class Trade(models.Model):
    
     
     def __str__(self):
-        if self.trade_name:
-            return self.trade_name
-        return f"Trade for {self.seller.name}"
+        if self.deal_name:
+            return self.deal_name
+        seller_name = self.seller.name if self.seller else "Unknown Seller"
+        return f"Deal for {seller_name}"
+
+    @property
+    def deal_name(self) -> str:
+        """Alias for trade_name to support deal-centric naming."""
+        return self.trade_name
+
+    @deal_name.setter
+    def deal_name(self, value: str) -> None:
+        """Write-through alias for trade_name."""
+        self.trade_name = value
 
     def save(self, *args, **kwargs):
         """Save trade instance.
@@ -66,12 +84,13 @@ class Trade(models.Model):
         super().save(*args, **kwargs)
 
     class Meta:
-        verbose_name = "Trade"
-        verbose_name_plural = "Trades"
+        verbose_name = "Deal"
+        verbose_name_plural = "Deals"
         ordering = ['trade_name']
         indexes = [
             models.Index(fields=['seller']),
         ]
+        db_table = "acq_module_trade"
 
     def refresh_status_from_assets(self, commit: bool = True):
         """Update trade status based on active (KEEP) assets.
@@ -100,6 +119,20 @@ class Trade(models.Model):
                     self.status = computed
                     if commit:
                         self.save(update_fields=['status'])
+
+class Trade_Deal(Trade):
+    """
+    Proxy model to support deal-centric naming.
+
+    WHAT: Exposes a deal-centric class name without changing the table.
+    WHY: Allows codebases to migrate to Trade_Deal naming safely.
+    HOW: Django proxy to Trade so there is no new table.
+    """
+
+    class Meta:
+        proxy = True
+        verbose_name = "Deal"
+        verbose_name_plural = "Deals"
 
 
 class SellerRawData(models.Model):

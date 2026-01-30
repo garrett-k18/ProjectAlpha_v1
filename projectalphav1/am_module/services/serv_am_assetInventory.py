@@ -47,6 +47,7 @@ VALUATION_SOURCES = {
     'internalInitialUW',
     'internal',
     'seller',
+    'sellerProvided',
 }
 
 # NOTE on ordering:
@@ -763,23 +764,31 @@ class AssetInventoryEnricher:
 
     def get_seller_asis_value(self, obj: SellerRawData):
         """
-        Get as-is value from SellerRawData.
+        Get as-is value from seller-provided valuations.
 
-        WHAT: Return seller-provided as-is value directly from raw acquisition data
-        WHY: Seller values are stored on SellerRawData and should be surfaced as-is
-        HOW: Read SellerRawData.seller_asis_value with a safe None fallback
+        WHAT: Return seller-provided as-is value from Valuation records
+        WHY: All valuations should live in core.Valuation with source tags
+        HOW: Prefer sellerProvided source, fallback to legacy seller source
         """
-        return getattr(obj, 'seller_asis_value', None)
+        valuation = (
+            self._latest_val_by_source(obj, 'sellerProvided')
+            or self._latest_val_by_source(obj, 'seller')
+        )
+        return getattr(valuation, 'asis_value', None) if valuation else None
 
     def get_seller_arv_value(self, obj: SellerRawData):
         """
-        Get ARV value from SellerRawData.
+        Get ARV value from seller-provided valuations.
 
-        WHAT: Return seller-provided ARV value directly from raw acquisition data
-        WHY: Seller values are stored on SellerRawData and should be surfaced as-is
-        HOW: Read SellerRawData.seller_arv_value with a safe None fallback
+        WHAT: Return seller-provided ARV value from Valuation records
+        WHY: All valuations should live in core.Valuation with source tags
+        HOW: Prefer sellerProvided source, fallback to legacy seller source
         """
-        return getattr(obj, 'seller_arv_value', None)
+        valuation = (
+            self._latest_val_by_source(obj, 'sellerProvided')
+            or self._latest_val_by_source(obj, 'seller')
+        )
+        return getattr(valuation, 'arv_value', None) if valuation else None
 
     # ========== Latest UW Value (Prioritized) ==========
 
@@ -798,7 +807,7 @@ class AssetInventoryEnricher:
         """
         # WHAT: Iterate through valuation sources ordered by underwriting relevance
         # WHY: Internal Initial UW valuations should take precedence over seller values
-        for source in ('internalInitialUW', 'seller'):
+        for source in ('internalInitialUW', 'sellerProvided', 'seller'):
             valuation = self._latest_val_by_source(obj, source)
             # HOW: Only return when an as-is value exists to prevent None propagation
             if valuation and getattr(valuation, 'asis_value', None) is not None:

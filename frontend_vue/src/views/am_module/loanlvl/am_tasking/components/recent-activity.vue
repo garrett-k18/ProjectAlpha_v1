@@ -1,21 +1,26 @@
+<!--
+  WHAT: Recent Activity timeline widget - CLEAN REBUILD
+  WHY: Display recent activity events in a scrollable timeline
+  WHERE: AM Tasking tab, activity widgets row
+  HOW: Pass activityData array with ActivityItem objects
+-->
 <template>
-  <div class="card h-100">
-    <div class="card-header d-flex justify-content-between align-items-center">
-      <h4 class="header-title">{{ title }}</h4>
+  <div class="activity-card">
+    <!-- Header -->
+    <div class="activity-card-header">
+      <h4 class="activity-card-title">{{ title }}</h4>
     </div>
 
-    <simplebar class="card-body py-0 mb-3" :style="`max-height:${activityWindowHeight}`">
-      <div class="timeline-alt py-0">
+    <!-- Body with scrollable content -->
+    <simplebar class="activity-card-body">
+      <div class="timeline-alt">
         <div v-for="activity in activityData" :key="activity.id" class="timeline-item">
-          <i
-              :class="`mdi ${activity.icon} bg-${activity.color}-lighten text-${activity.color} timeline-icon`"
-          ></i>
+          <i :class="`mdi ${activity.icon} bg-${activity.color}-lighten text-${activity.color} timeline-icon`"></i>
           <div class="timeline-item-info">
-            <a
-                href="#"
-                class="text-body fw-bold mb-1 d-block"
-            >
-              <span v-if="activity.badgeText" :class="`badge bg-${activity.badgeColor || 'secondary'} me-1`">{{ activity.badgeText }}</span>
+            <a href="#" class="text-body fw-bold mb-1 d-block">
+              <span v-if="activity.badgeText" :class="`badge bg-${activity.badgeColor || 'secondary'} me-1`">
+                {{ activity.badgeText }}
+              </span>
               {{ activity.title }}
             </a>
             <small>
@@ -32,15 +37,11 @@
   </div>
 </template>
 
-
-<script lang="ts">
-// WHAT: Small, scrollable "recent activity" timeline used in AM Tasking.
-// WHY: Shows a list of colored events with titles and short descriptions.
-// WHERE: Feature: am_tasking (loan-level); can be reused in other panels.
-// HOW: Pass an array of ActivityItem via the `activityData` prop.
+<script setup lang="ts">
+import { type PropType } from 'vue'
 import simplebar from 'simplebar-vue'
-import type { PropType } from 'vue'
 
+// WHAT: Activity item data structure
 export interface ActivityItem {
   id: number
   icon: string
@@ -53,37 +54,61 @@ export interface ActivityItem {
   badgeColor?: 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'secondary' | string
 }
 
-/**
- * Recent-activity component
- * 1. User specifies the title of window using the 'title' input property.
- * 2. Window height set using the 'activityWindowHeight' input property. Height would count in pixel.
- * 3. Activitydata array specify the id, icon, title, text, subtext, boldText, color
- *    id - Unique id of activity
- *    icon - Activity icon name
- *    title - Activity name specified in title.
- *    text - Activity description specify in text.
- *    subtext - Activity performed on which time, that specified in subtext.
- *    boldText - From activity description the highlight words of text specified using boldText
- *    color - Activity icon color specify using the color
- */
-export default {
-  components: {
-    simplebar,
+// WHAT: Component props
+const props = defineProps({
+  title: {
+    type: String,
+    default: 'Recent Activity',
   },
-  props: {
-    title: {
-      type: String,
-      default: 'Recent Activity',
-    },
-    activityWindowHeight: {
-      type: String,
-      default: '424',
-    },
-    activityData: {
-      type: Array as PropType<ActivityItem[]>,
-      default: () => [],
-    },
+  activityWindowHeight: {
+    type: String,
+    default: '280px',
   },
-}
+  activityData: {
+    type: Array as PropType<ActivityItem[]>,
+    default: () => [],
+  },
+})
 </script>
 
+<style scoped>
+/* WHAT: Card container - fills parent with consistent background */
+/* WHY: Ensure no gaps or color mismatches */
+.activity-card {
+  background: #FDFBF7;
+  border-radius: 0.375rem;
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* WHAT: Card header styling */
+.activity-card-header {
+  background: transparent;
+  border-bottom: 1px solid #dee2e6;
+  padding: 1rem;
+  flex-shrink: 0;
+}
+
+.activity-card-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin: 0;
+  color: #212529;
+}
+
+/* WHAT: Card body - scrollable content area */
+.activity-card-body {
+  flex: 1;
+  padding: 1rem;
+  overflow-y: auto;
+  max-height: v-bind(activityWindowHeight);
+}
+
+/* WHAT: Timeline styles */
+.timeline-alt {
+  padding: 0;
+}
+</style>

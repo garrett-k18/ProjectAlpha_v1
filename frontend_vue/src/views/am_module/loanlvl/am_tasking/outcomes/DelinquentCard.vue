@@ -1,5 +1,5 @@
 <template>
-  <b-card class="w-100 h-100 border border-1 border-warning rounded-2 shadow-sm">
+  <b-card class="w-100 h-100 border border-1 border-warning rounded-2 shadow-sm" style="background: var(--ui-bg-card-primary, #FDFBF7);">
     <template #header>
       <div
         class="d-flex align-items-center justify-content-between"

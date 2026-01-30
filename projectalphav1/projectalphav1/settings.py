@@ -88,6 +88,7 @@ def get_database_url():
     env_map = {
         'dev': os.getenv('DB_DEV'),
         'newdev': os.getenv('DB_NEWDEV'),
+        'v2dev': os.getenv('DB_V2_DEV'),
         'prod': os.getenv('DB_PROD'),
         'local': None,  # Use local PostgreSQL settings
     }

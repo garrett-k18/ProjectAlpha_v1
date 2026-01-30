@@ -12,7 +12,8 @@ class SchemaRouter:
     # Define which models belong to which schema
     SELLER_MODELS = {
         'acq_module.models.seller.Seller',
-        'acq_module.models.seller.Trade', 
+        'acq_module.models.seller.Trade',
+        'acq_module.models.seller.Trade_Deal',
         'acq_module.models.seller.SellerRawData'
     }
     
@@ -65,7 +66,7 @@ class SchemaRouter:
                 return self._is_seller_model(model)
             # For migrations without model hints, check by name
             if model_name and app_label == 'acq_module':
-                seller_model_names = ['seller', 'trade', 'sellerrawdata']
+                seller_model_names = ['seller', 'trade', 'trade_deal', 'sellerrawdata']
                 return model_name.lower() in seller_model_names
             return False
             
@@ -75,7 +76,7 @@ class SchemaRouter:
                 return not self._is_seller_model(model)
             # For migrations without model hints, check by name  
             if model_name and app_label == 'acq_module':
-                seller_model_names = ['seller', 'trade', 'sellerrawdata']
+                seller_model_names = ['seller', 'trade', 'trade_deal', 'sellerrawdata']
                 return model_name.lower() not in seller_model_names
             return True
             

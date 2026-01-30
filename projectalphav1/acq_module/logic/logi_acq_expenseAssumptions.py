@@ -11,20 +11,36 @@ from core.models.model_co_assumptions import HOAAssumption
 from core.models.model_co_valuations import Valuation
 
 
+def _latest_seller_asis_value(asset_hub_id: int) -> Optional[Decimal]:
+    """Return latest seller-provided as-is value from Valuation records."""
+    valuation = (
+        Valuation.objects
+        .filter(
+            asset_hub_id=asset_hub_id,
+            source__in=[Valuation.Source.SELLER_PROVIDED, Valuation.Source.SELLER],
+        )
+        .only('asis_value', 'value_date', 'created_at')
+        .order_by('-value_date', '-created_at')
+        .first()
+    )
+    return valuation.asis_value if valuation else None
+
+
 def monthly_tax_for_asset(asset_hub_id: int) -> Decimal:
     """Convenience wrapper: compute monthly property tax for an asset ID.
 
-    Pulls `state` and `seller_asis_value` from `SellerRawData` using the given
-    AssetIdHub primary key, then delegates to state tax rates.
+    Pulls `state` from `SellerRawData` and seller-provided as-is value from
+    Valuation, then delegates to state tax rates.
     Returns Decimal('0.00') if the asset or required fields are missing.
     """
     raw = (
         SellerRawData.objects
         .filter(asset_hub_id=asset_hub_id)
-        .only('state', 'seller_asis_value')
+        .only('state')
         .first()
     )
-    if not raw or not raw.state or not raw.seller_asis_value:
+    asis_value = _latest_seller_asis_value(asset_hub_id)
+    if not raw or not raw.state or not asis_value:
         return Decimal('0.00')
 
     state = (
@@ -36,11 +52,7 @@ def monthly_tax_for_asset(asset_hub_id: int) -> Decimal:
     if not state or state.property_tax_rate is None:
         return Decimal('0.00')
 
-    base = (
-        raw.seller_asis_value
-        if isinstance(raw.seller_asis_value, Decimal)
-        else Decimal(str(raw.seller_asis_value))
-    )
+    base = asis_value if isinstance(asis_value, Decimal) else Decimal(str(asis_value))
     if base <= 0:
         return Decimal('0.00')
 
@@ -50,17 +62,18 @@ def monthly_tax_for_asset(asset_hub_id: int) -> Decimal:
 def monthly_insurance_for_asset(asset_hub_id: int) -> Decimal:
     """Convenience wrapper: compute monthly insurance for an asset ID.
 
-    Pulls `state` and `seller_asis_value` from `SellerRawData` using the given
-    AssetIdHub primary key, then delegates to state insurance rates.
+    Pulls `state` from `SellerRawData` and seller-provided as-is value from
+    Valuation, then delegates to state insurance rates.
     Returns Decimal('0.00') if the asset or required fields are missing.
     """
     raw = (
         SellerRawData.objects
         .filter(asset_hub_id=asset_hub_id)
-        .only('state', 'seller_asis_value')
+        .only('state')
         .first()
     )
-    if not raw or not raw.state or not raw.seller_asis_value:
+    asis_value = _latest_seller_asis_value(asset_hub_id)
+    if not raw or not raw.state or not asis_value:
         return Decimal('0.00')
 
     state = (
@@ -72,11 +85,7 @@ def monthly_insurance_for_asset(asset_hub_id: int) -> Decimal:
     if not state or state.insurance_rate_avg is None:
         return Decimal('0.00')
 
-    base = (
-        raw.seller_asis_value
-        if isinstance(raw.seller_asis_value, Decimal)
-        else Decimal(str(raw.seller_asis_value))
-    )
+    base = asis_value if isinstance(asis_value, Decimal) else Decimal(str(asis_value))
     if base <= 0:
         return Decimal('0.00')
 
@@ -96,14 +105,7 @@ def property_preservation(asset_hub_id: int) -> Decimal:
         Decimal: Calculated property preservation cost, or Decimal('0.00') if data is missing
     """
     # Get the seller raw data for this asset
-    raw = (
-        SellerRawData.objects
-        .filter(asset_hub_id=asset_hub_id)
-        .only('seller_asis_value')
-        .first()
-    )
-    if not raw:
-        return Decimal('0.00')
+    seller_asis_value = _latest_seller_asis_value(asset_hub_id)
     
     # Get the loan level assumption for this asset
     assumption = (
@@ -130,8 +132,8 @@ def property_preservation(asset_hub_id: int) -> Decimal:
     base_value = None
     if initial_uw_valuation and initial_uw_valuation.asis_value:
         base_value = initial_uw_valuation.asis_value
-    elif raw.seller_asis_value:
-        base_value = raw.seller_asis_value
+    elif seller_asis_value:
+        base_value = seller_asis_value
     
     if not base_value or base_value <= 0:
         return Decimal('0.00')

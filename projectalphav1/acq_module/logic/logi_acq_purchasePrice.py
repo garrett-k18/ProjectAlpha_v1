@@ -4,6 +4,7 @@ import logging
 from decimal import Decimal
 from acq_module.models.model_acq_assumptions import LoanLevelAssumption, TradeLevelAssumption
 from acq_module.models.model_acq_seller import SellerRawData
+from core.models.model_co_valuations import Valuation
 
 logger = logging.getLogger(__name__)
 
@@ -160,14 +161,23 @@ def purchase_price_metrics(asset_hub_id: int) -> dict:
         # print(f"  ✗ Total Debt: N/A (value: {raw_data.total_debt})")
         pass
     
-    # WHAT: Get seller as-is value from SellerRawData
-    # WHY: Seller valuation is stored directly on the SellerRawData model
-    if raw_data.seller_asis_value and raw_data.seller_asis_value > 0:
-        seller_asis = Decimal(str(raw_data.seller_asis_value))
+    # WHAT: Get seller as-is value from Valuation
+    # WHY: Seller valuations are stored in core.Valuation with source tags
+    seller_val = (
+        Valuation.objects.filter(
+            asset_hub_id=asset_hub_id,
+            source__in=[Valuation.Source.SELLER_PROVIDED, Valuation.Source.SELLER],
+        )
+        .only('asis_value', 'value_date', 'created_at')
+        .order_by('-value_date', '-created_at')
+        .first()
+    )
+    if seller_val and seller_val.asis_value and seller_val.asis_value > 0:
+        seller_asis = Decimal(str(seller_val.asis_value))
         result['purchase_of_sellerAsIs'] = ((price / seller_asis) * Decimal('100')).quantize(Decimal('0.01'))
         # print(f"  ✓ Seller As-Is: ${seller_asis:,.2f} → {result['purchase_of_sellerAsIs']}%")
     else:
-        # print(f"  ✗ Seller As-Is: N/A (value: {raw_data.seller_asis_value})")
+        # print("  ✗ Seller As-Is: N/A (value: None)")
         pass
     
     # WHAT: Get internal UW as-is value from Valuation

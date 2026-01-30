@@ -24,6 +24,7 @@ from django.utils.dateparse import parse_date
 
 from acq_module.models.model_acq_seller import SellerRawData, Seller, Trade
 from core.models import AssetIdHub, AssetDetails, LlDataEnrichment
+from core.models.model_co_valuations import Valuation
 from core.services.serv_co_geocoding import batch_geocode_row_ids
 from etl.services.services_sellerTapeImport.serv_etl_ai_seller_matcher import AISellerMatcher
 from etl.services.services_sellerTapeImport.serv_etl_ai_mapper import validate_choice_value
@@ -123,6 +124,18 @@ class DataImporter:
         logger.info('Detecting per-row columns...')
         self._detect_per_row_columns(df)
 
+        # Persist raw seller tape rows before transformations
+        logger.info('Saving raw seller tape rows...')
+        self._save_raw_rows(
+            df=df,
+            column_mapping=column_mapping,
+            seller=seller,
+            trade=trade,
+            file_path=file_path,
+            mapping_name=mapping_name,
+            mapping_method=mapping_method,
+        )
+
         # Transform and validate data
         logger.info(f'Transforming {len(df)} rows...')
         records, errors = self._transform_data(df, column_mapping, seller, trade)
@@ -172,6 +185,85 @@ class DataImporter:
             )
 
         return saved_count + updated_count
+
+    def _save_raw_rows(
+        self,
+        *,
+        df: pd.DataFrame,
+        column_mapping: Dict[str, str],
+        seller: Optional[Seller],
+        trade: Optional[Trade],
+        file_path: Optional[Path],
+        mapping_name: Optional[str],
+        mapping_method: str,
+        batch_size: int = 1000,
+    ) -> int:
+        """
+        WHAT: Persist raw seller tape rows to the ETL landing table.
+        WHY: Preserve original data for reprocessing and audit.
+        HOW: Store raw row JSON plus key identifiers and import metadata.
+        """
+        from etl.models.model_etl_seller_tape_raw import SellerTapeRawLoan
+
+        # Identify source columns for primary and alternate IDs (if mapped)
+        id_source_columns = [
+            src for src, tgt in column_mapping.items() if tgt == "sellertape_id"
+        ]
+        altid_source_columns = [
+            src for src, tgt in column_mapping.items() if tgt == "sellertape_altid"
+        ]
+
+        def normalize_raw_value(value: Any) -> Any:
+            """Normalize raw values into JSON-serializable types."""
+            if pd.isna(value):
+                return None
+            if isinstance(value, (datetime, date)):
+                return value.isoformat()
+            try:
+                if isinstance(value, (np.integer, np.floating)):
+                    return value.item()
+            except Exception:
+                pass
+            return value
+
+        rows = df.to_dict(orient="records")
+        created_count = 0
+
+        for i in range(0, len(rows), batch_size):
+            batch = rows[i:i + batch_size]
+            raw_models = []
+            for row_index, row in enumerate(batch, start=i + 1):
+                raw_payload = {key: normalize_raw_value(val) for key, val in row.items()}
+                sellertape_id = None
+                for src in id_source_columns:
+                    if src in row and row.get(src):
+                        sellertape_id = str(row.get(src)).strip()
+                        break
+                sellertape_altid = None
+                for src in altid_source_columns:
+                    if src in row and row.get(src):
+                        sellertape_altid = str(row.get(src)).strip()
+                        break
+
+                raw_models.append(
+                    SellerTapeRawLoan(
+                        seller=seller,
+                        trade=trade,
+                        source_file=str(file_path) if file_path else None,
+                        source_sheet=None,
+                        row_number=row_index,
+                        sellertape_id=sellertape_id,
+                        sellertape_altid=sellertape_altid,
+                        raw_payload=raw_payload,
+                        column_mapping=column_mapping,
+                        mapping_name=mapping_name,
+                        mapping_method=mapping_method,
+                    )
+                )
+            SellerTapeRawLoan.objects.bulk_create(raw_models, batch_size=batch_size)
+            created_count += len(raw_models)
+
+        return created_count
 
     def get_or_create_seller_trade(self, file_path: Optional[Path] = None) -> Tuple[Seller, Trade]:
         """
@@ -623,6 +715,8 @@ class DataImporter:
 
                                 # Ensure AssetDetails exists and keep trade pointer in sync
                                 self._ensure_asset_details(existing.asset_hub, existing.trade)
+                                # Sync seller-provided valuations from seller tape fields
+                                self._sync_seller_valuations(existing.asset_hub, record_data)
                             updated_count += 1
                         else:
                             skipped_count += 1
@@ -654,6 +748,8 @@ class DataImporter:
                                     asset_hub=asset_hub,
                                     defaults={},
                                 )
+                                # Sync seller-provided valuations from seller tape fields
+                                self._sync_seller_valuations(asset_hub, record_data)
                             saved_count += 1
                         except Exception as insert_error:
                             logger.error(f'Error inserting SellerRawData for {sellertape_id}: {insert_error}')
@@ -664,6 +760,82 @@ class DataImporter:
                     skipped_count += 1
 
         return saved_count, updated_count, skipped_count
+
+    def _sync_seller_valuations(self, asset_hub: AssetIdHub, record_data: Dict[str, Any]) -> None:
+        """
+        WHAT: Persist seller-provided valuation fields into Valuation model.
+        WHY: Centralize all valuation data in core.Valuation with explicit source tagging.
+        HOW: Create or update Valuation rows keyed by (asset_hub, source, value_date).
+        """
+        if not asset_hub:
+            return
+
+        def add_entry(
+            *,
+            value_date: Optional[date],
+            asis_value: Optional[Decimal],
+            arv_value: Optional[Decimal],
+            notes: Optional[str],
+        ) -> Optional[Dict[str, Any]]:
+            if asis_value is None and arv_value is None:
+                return None
+            return {
+                "asset_hub": asset_hub,
+                "source": Valuation.Source.SELLER_PROVIDED,
+                "value_date": value_date,
+                "asis_value": asis_value,
+                "arv_value": arv_value,
+                "notes": notes,
+            }
+
+        entries = []
+        entries.append(
+            add_entry(
+                value_date=record_data.get("seller_value_date"),
+                asis_value=record_data.get("seller_asis_value"),
+                arv_value=record_data.get("seller_arv_value"),
+                notes="Seller tape valuation (primary)",
+            )
+        )
+        entries.append(
+            add_entry(
+                value_date=record_data.get("additional_value_date"),
+                asis_value=record_data.get("additional_asis_value"),
+                arv_value=record_data.get("additional_arv_value"),
+                notes="Seller tape valuation (additional)",
+            )
+        )
+        entries.append(
+            add_entry(
+                value_date=record_data.get("origination_value_date"),
+                asis_value=record_data.get("origination_value"),
+                arv_value=record_data.get("origination_arv"),
+                notes="Seller tape valuation (origination)",
+            )
+        )
+
+        for entry in [e for e in entries if e is not None]:
+            value_date = entry["value_date"]
+            existing = Valuation.objects.filter(
+                asset_hub=asset_hub,
+                source=entry["source"],
+                value_date=value_date,
+            ).first()
+            if existing:
+                updates = []
+                if entry["asis_value"] is not None:
+                    existing.asis_value = entry["asis_value"]
+                    updates.append("asis_value")
+                if entry["arv_value"] is not None:
+                    existing.arv_value = entry["arv_value"]
+                    updates.append("arv_value")
+                if entry.get("notes") and (existing.notes != entry.get("notes")):
+                    existing.notes = entry.get("notes")
+                    updates.append("notes")
+                if updates:
+                    existing.save(update_fields=updates + ["updated_at"])
+            else:
+                Valuation.objects.create(**entry)
 
     def _ensure_asset_details(self, asset_hub: AssetIdHub, trade: Optional[Trade]):
         """Guarantee the AssetDetails one-to-one row exists and points to current trade."""

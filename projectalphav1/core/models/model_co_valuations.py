@@ -111,7 +111,8 @@ class Valuation(models.Model):
         DESKTOP = ("desktop", "Desktop Valuation")  # WHAT: Desktop valuation record.
         BPO_INTERIOR = ("BPOI", "BPOI")  # WHAT: Broker price opinion interior.
         BPO_EXTERIOR = ("BPOE", "BPOE")  # WHAT: Broker price opinion exterior.
-        SELLER = ("seller", "Seller Provided")  # WHAT: Seller submitted valuation.
+        SELLER = ("seller", "Seller Provided (Legacy)")  # WHAT: Backward-compatible seller submitted valuation.
+        SELLER_PROVIDED = ("sellerProvided", "Seller Provided")  # WHAT: Seller-provided tape valuation.
         APPRAISAL = ("appraisal", "Professional Appraisal")  # WHAT: Third-party professional appraisal.
 
     source = models.CharField(

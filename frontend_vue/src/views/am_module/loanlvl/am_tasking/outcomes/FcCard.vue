@@ -1,16 +1,16 @@
 <template>
   <!-- Subtle danger-colored border (no fill) to match the Foreclosure pill -->
-  <b-card class="w-100 h-100 border border-1 border-danger rounded-2 shadow-sm">
+  <b-card class="w-100 h-100 border border-1 border-danger rounded-2 shadow-sm" style="background: var(--ui-bg-card-primary, #FDFBF7);">
     <template #header>
       <div
         class="d-flex align-items-center justify-content-between"
         role="button"
         :aria-expanded="!collapsed"
         title="Toggle sub tasks"
-        style="cursor: pointer;"
+        style="cursor: pointer; background: transparent; padding: var(--ui-card-padding-base, 1rem);"
         @click="localCollapsed = !localCollapsed"
       >
-        <h5 class="mb-0 d-flex align-items-center">
+        <h5 class="mb-0 d-flex align-items-center" style="font-size: var(--ui-typography-lg, 1.125rem);">
           <i class="fas fa-gavel me-2 text-danger"></i>
           <UiBadge tone="danger" size="lg">Foreclosure</UiBadge>
         </h5>
@@ -48,7 +48,7 @@
     <!-- WHAT: Single column layout for Subtasks only -->
     <!-- WHY: Notes moved to master notes section -->
     <!-- HOW: Removed col-md-6 wrapper, subtasks take full width -->
-    <div class="p-3" v-show="!collapsed">
+    <div class="p-3" v-show="!collapsed" style="padding: var(--ui-card-padding-base, 1rem) !important;">
       <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
         <h5 class="mb-0 fw-bold text-body">Sub Tasks</h5>
         <div class="position-relative" ref="addMenuRef">

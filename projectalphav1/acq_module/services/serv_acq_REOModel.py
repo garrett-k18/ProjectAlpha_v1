@@ -732,7 +732,19 @@ def get_reo_expense_values(
         if raw_data:
             base_values['base_currentBalance'] = float(raw_data.current_balance) if raw_data.current_balance else None
             base_values['base_totalDebt'] = float(raw_data.total_debt) if raw_data.total_debt else None
-            base_values['base_sellerAsIs'] = float(raw_data.seller_asis_value) if raw_data.seller_asis_value else None
+            try:
+                seller_val = (
+                    Valuation.objects.filter(
+                        asset_hub_id=asset_hub_id,
+                        source__in=[Valuation.Source.SELLER_PROVIDED, Valuation.Source.SELLER],
+                    )
+                    .only('asis_value', 'value_date', 'created_at')
+                    .order_by('-value_date', '-created_at')
+                    .first()
+                )
+                base_values['base_sellerAsIs'] = float(seller_val.asis_value) if seller_val and seller_val.asis_value else None
+            except Exception:
+                base_values['base_sellerAsIs'] = None
             
             # WHAT: Valuation is already imported at top of file
             try:

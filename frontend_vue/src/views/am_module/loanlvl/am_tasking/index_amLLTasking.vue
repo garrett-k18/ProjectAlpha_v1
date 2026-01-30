@@ -426,6 +426,7 @@ defineOptions({
 // (legacy imports removed)
 import UiBadge from '@/components/ui/UiBadge.vue'
 import { getDelinquencyBadgeTone, getPropertyTypeBadgeTone } from '@/GlobalStandardizations/badges'
+import { AM_TASKING_TOKENS, UI_BACKGROUNDS, UI_SPACING, UI_TYPOGRAPHY, UI_SHADOWS, UI_RADIUS, UI_CARD_PADDING } from '@/GlobalStandardizations/ui'
 // Outcome cards + store
 import DilCard from '@/views/am_module/loanlvl/am_tasking/outcomes/DilCard.vue'
 import FcCard from '@/views/am_module/loanlvl/am_tasking/outcomes/FcCard.vue'
@@ -1591,6 +1592,10 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+/* WHAT: Import design tokens for consistent styling */
+/* WHY: Eliminate hardcoded values, use global standards */
+/* HOW: CSS custom properties set from TypeScript constants */
+
 /* Container */
 .tasking-container {
   width: 100%;
@@ -1598,26 +1603,26 @@ onBeforeUnmount(() => {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--ui-spacing-base, 1rem);
 }
 
 /* Header Card */
 .header-card {
-  background: #FDFBF7;
-  border-radius: 0.375rem;
-  padding: 1.25rem;
-  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  background: var(--ui-bg-card-primary, #FDFBF7);
+  border-radius: var(--ui-radius-base, 0.375rem);
+  padding: var(--ui-card-padding-comfortable, 1.25rem);
+  box-shadow: var(--ui-shadow-card, 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075));
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 2rem;
+  gap: var(--ui-spacing-xxl, 2rem);
   position: relative;
 }
 
 /* Follow-up and Task buttons container - positioned on the right */
 .header-card > .d-flex.gap-2 {
   position: absolute;
-  right: 1rem;
+  right: var(--ui-spacing-base, 1rem);
   top: 50%;
   transform: translateY(-50%);
 }
@@ -1630,15 +1635,15 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 0.75rem;
-  border-top: 1px solid #f1f3f5;
-  border-radius: 0.375rem;
+  gap: var(--ui-spacing-base, 1rem);
+  padding: var(--ui-spacing-md, 0.75rem);
+  border-top: 1px solid var(--bs-border-color, #f1f3f5);
+  border-radius: var(--ui-radius-base, 0.375rem);
   transition: background-color 0.2s ease;
 }
 
 .followup-item:hover {
-  background-color: #f8f9fa;
+  background-color: var(--bs-light, #f8f9fa);
 }
 
 .followup-item:first-child {
@@ -1648,45 +1653,45 @@ onBeforeUnmount(() => {
 .followup-line {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--ui-spacing-sm, 0.5rem);
   flex-wrap: wrap;
 }
 
 .followup-date {
   font-weight: 600;
-  color: #212529;
+  color: var(--bs-body-color, #212529);
 }
 
 .followup-title {
-  font-size: 0.95rem;
-  color: #212529;
+  font-size: var(--ui-typography-base, 0.95rem);
+  color: var(--bs-body-color, #212529);
   margin-top: 0.1rem;
 }
 
 .header-badges {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: var(--ui-spacing-md, 0.75rem);
   flex-wrap: wrap;
 }
 
 .badge-placeholder {
-  font-size: 0.875rem;
-  color: #6c757d;
+  font-size: var(--ui-typography-sm, 0.875rem);
+  color: var(--bs-secondary, #6c757d);
 }
 
 /* Details Fields */
 .details-fields {
   display: flex;
   align-items: center;
-  gap: 2rem;
+  gap: var(--ui-spacing-xxl, 2rem);
   flex: 1;
 }
 
 .detail-field {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--ui-spacing-xs, 0.25rem);
   text-align: center;
 }
 
@@ -1694,21 +1699,21 @@ onBeforeUnmount(() => {
 .kpi-cards-row {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
+  gap: var(--ui-spacing-base, 1rem);
   background-color: transparent;
   align-items: stretch; /* Make all cards same height */
 }
 
 .kpi-card {
-  background: #FDFBF7;
-  border-radius: 0.375rem;
-  padding: 1rem;
+  background: var(--ui-bg-card-primary, #FDFBF7);
+  border-radius: var(--ui-radius-base, 0.375rem);
+  padding: var(--ui-card-padding-base, 1rem);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: var(--ui-spacing-base, 1rem);
   min-height: 110px;
-  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  box-shadow: var(--ui-shadow-card, 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075));
   height: 100%; /* Fill grid cell height */
   min-width: 0; /* Allow grid items to shrink below content width */
 }
@@ -1719,36 +1724,36 @@ onBeforeUnmount(() => {
 }
 
 .kpi-number {
-  font-size: 2rem;
+  font-size: var(--ui-typography-xxl, 2rem);
   font-weight: 700;
   line-height: 1;
-  margin-bottom: 0.375rem;
-  color: #212529;
+  margin-bottom: var(--ui-spacing-xs, 0.375rem);
+  color: var(--bs-body-color, #212529);
 }
 
 .kpi-title {
-  font-size: 0.875rem;
-  color: #6c757d;
-  margin-bottom: 0.5rem;
+  font-size: var(--ui-typography-sm, 0.875rem);
+  color: var(--bs-secondary, #6c757d);
+  margin-bottom: var(--ui-spacing-sm, 0.5rem);
 }
 
 .kpi-badges-container {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.375rem;
+  gap: var(--ui-spacing-xs, 0.375rem);
   max-height: 3rem;
   overflow-y: auto;
 }
 
 .kpi-icon {
-  font-size: 2rem;
+  font-size: var(--ui-typography-xxl, 2rem);
   flex-shrink: 0;
   opacity: 0.7;
 }
 
 .no-data {
-  font-size: 0.875rem;
-  color: #6c757d;
+  font-size: var(--ui-typography-sm, 0.875rem);
+  color: var(--bs-secondary, #6c757d);
   font-style: italic;
 }
 
@@ -1756,7 +1761,7 @@ onBeforeUnmount(() => {
 .activity-widgets-row {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
+  gap: var(--ui-spacing-base, 1rem);
   background-color: transparent;
   align-items: stretch; /* Make all cards same height */
 }
@@ -1768,6 +1773,8 @@ onBeforeUnmount(() => {
   flex-direction: column; /* Allow content to flow vertically */
   min-width: 0; /* Allow grid items to shrink below content width */
   overflow: hidden; /* Prevent content from breaking layout */
+  background: var(--ui-bg-card-primary, #FDFBF7); /* WHAT: Fill entire widget with card background */
+  border-radius: var(--ui-radius-base, 0.375rem); /* WHY: Match card styling even if content doesn't fill */
 }
 
 /* Ensure child components can also shrink */
@@ -1778,14 +1785,14 @@ onBeforeUnmount(() => {
 
 /* Track Card */
 .track-card {
-  background: #FDFBF7;
-  border-radius: 0.375rem;
+  background: var(--ui-bg-card-primary, #FDFBF7);
+  border-radius: var(--ui-radius-base, 0.375rem);
   overflow: hidden;
-  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  box-shadow: var(--ui-shadow-card, 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075));
 }
 
 .track-header {
-  padding: 1rem 1.25rem;
+  padding: var(--ui-spacing-base, 1rem) var(--ui-card-padding-comfortable, 1.25rem);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1793,23 +1800,23 @@ onBeforeUnmount(() => {
 
 .track-title {
   margin: 0;
-  font-size: 1.125rem;
+  font-size: var(--ui-typography-lg, 1.125rem);
   font-weight: 600;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  color: #212529;
+  gap: var(--ui-spacing-sm, 0.5rem);
+  color: var(--bs-body-color, #212529);
 }
 
 /* WHAT: Collapse/expand toggle button styling */
 /* WHY: Clean icon button to toggle track outcomes visibility */
 .collapse-toggle-btn {
   background: transparent;
-  border: 1px solid #6c757d;
-  color: #6c757d;
+  border: 1px solid var(--bs-secondary, #6c757d);
+  color: var(--bs-secondary, #6c757d);
   width: 2rem;
   height: 2rem;
-  border-radius: 0.25rem;
+  border-radius: var(--ui-radius-sm, 0.25rem);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1820,9 +1827,9 @@ onBeforeUnmount(() => {
 }
 
 .collapse-toggle-btn:hover {
-  background: #6c757d;
+  background: var(--bs-secondary, #6c757d);
   color: white;
-  border-color: #6c757d;
+  border-color: var(--bs-secondary, #6c757d);
 }
 
 .collapse-toggle-btn svg {
@@ -1834,12 +1841,12 @@ onBeforeUnmount(() => {
 }
 
 .track-button {
-  background: #FDFBF7;
-  border: 1px solid #0d6efd;
-  color: #0d6efd;
-  padding: 0.375rem 0.75rem; /* Symmetric padding */
-  border-radius: 0.25rem;
-  font-size: 0.875rem;
+  background: var(--ui-bg-card-primary, #FDFBF7);
+  border: 1px solid var(--bs-primary, #0d6efd);
+  color: var(--bs-primary, #0d6efd);
+  padding: var(--ui-spacing-xs, 0.375rem) var(--ui-spacing-md, 0.75rem);
+  border-radius: var(--ui-radius-sm, 0.25rem);
+  font-size: var(--ui-typography-sm, 0.875rem);
   cursor: pointer;
   position: relative;
   transition: all 0.15s ease;
@@ -1850,7 +1857,7 @@ onBeforeUnmount(() => {
 }
 
 .track-button:hover:not(:disabled) {
-  background: #0d6efd;
+  background: var(--bs-primary, #0d6efd);
   color: white;
 }
 
@@ -1861,25 +1868,25 @@ onBeforeUnmount(() => {
 
 .track-button i {
   position: absolute;
-  right: 0.75rem;
+  right: var(--ui-spacing-md, 0.75rem);
   top: 50%;
   transform: translateY(-50%);
-  font-size: 0.75rem;
+  font-size: var(--ui-typography-xs, 0.75rem);
 }
 
 .track-dropdown {
   position: absolute;
   right: 0;
-  top: calc(100% + 0.25rem);
-  background: #FDFBF7;
-  border: 1px solid #dee2e6;
-  border-radius: 0.375rem;
-  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
-  padding: 0.75rem;
+  top: calc(100% + var(--ui-spacing-xs, 0.25rem));
+  background: var(--ui-bg-card-primary, #FDFBF7);
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  border-radius: var(--ui-radius-base, 0.375rem);
+  box-shadow: var(--ui-shadow-lg, 0 0.5rem 1rem rgba(0, 0, 0, 0.15));
+  padding: var(--ui-spacing-md, 0.75rem);
   min-width: 680px;
   z-index: 1060;
   display: flex;
-  gap: 0.5rem;
+  gap: var(--ui-spacing-sm, 0.5rem);
   justify-content: center;
 }
 
@@ -1901,21 +1908,21 @@ onBeforeUnmount(() => {
 }
 
 .track-outcomes {
-  padding: 1.25rem;
+  padding: var(--ui-card-padding-comfortable, 1.25rem);
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--ui-spacing-base, 1rem);
 }
 
 .no-tracks {
   text-align: center;
-  padding: 3rem 1rem;
-  color: #6c757d;
-  font-size: 0.95rem;
+  padding: 3rem var(--ui-spacing-base, 1rem);
+  color: var(--bs-secondary, #6c757d);
+  font-size: var(--ui-typography-base, 0.95rem);
 }
 
 .no-tracks i {
-  margin-right: 0.5rem;
+  margin-right: var(--ui-spacing-sm, 0.5rem);
 }
 
 /* Responsive */
@@ -1927,7 +1934,7 @@ onBeforeUnmount(() => {
   
   .details-fields {
     flex-wrap: wrap;
-    gap: 1.5rem;
+    gap: var(--ui-spacing-xl, 1.5rem);
   }
   
   .kpi-cards-row {
@@ -1948,11 +1955,11 @@ onBeforeUnmount(() => {
   .details-fields {
     flex-direction: column;
     align-items: flex-start;
-    gap: 1rem;
+    gap: var(--ui-spacing-base, 1rem);
   }
   
   .kpi-number {
-    font-size: 1.5rem;
+    font-size: var(--ui-typography-xl, 1.5rem);
   }
 }
 
@@ -1965,18 +1972,18 @@ onBeforeUnmount(() => {
 .tasks-items {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: var(--ui-spacing-md, 0.75rem);
 }
 
 .task-item {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  padding: 0.75rem;
-  border: 1px solid #dee2e6;
-  border-radius: 0.375rem;
-  background-color: #f8f9fa;
-  gap: 1rem;
+  padding: var(--ui-spacing-md, 0.75rem);
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  border-radius: var(--ui-radius-base, 0.375rem);
+  background-color: var(--bs-light, #f8f9fa);
+  gap: var(--ui-spacing-base, 1rem);
 }
 
 .task-main {
@@ -1987,31 +1994,31 @@ onBeforeUnmount(() => {
 .task-header {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.25rem;
+  gap: var(--ui-spacing-sm, 0.5rem);
+  margin-bottom: var(--ui-spacing-xs, 0.25rem);
 }
 
 .task-title {
-  font-size: 0.9rem;
-  color: #212529;
+  font-size: var(--ui-typography-base, 0.9rem);
+  color: var(--bs-body-color, #212529);
 }
 
 .task-details {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-top: 0.25rem;
+  gap: var(--ui-spacing-sm, 0.5rem);
+  margin-top: var(--ui-spacing-xs, 0.25rem);
 }
 
 .task-description {
-  color: #6c757d;
-  margin-top: 0.5rem;
+  color: var(--bs-secondary, #6c757d);
+  margin-top: var(--ui-spacing-sm, 0.5rem);
   line-height: 1.4;
 }
 
 .task-actions {
   display: flex;
-  gap: 0.25rem;
+  gap: var(--ui-spacing-xs, 0.25rem);
   flex-shrink: 0;
 }
 </style>
@@ -2019,15 +2026,15 @@ onBeforeUnmount(() => {
 <style>
 /* Global utility sizes for pill badges (Bootstrap badge compatible) */
 .size_small {
-  font-size: 0.75rem;
-  padding: 0.25rem 0.5rem;
+  font-size: var(--ui-typography-xs, 0.75rem);
+  padding: var(--ui-spacing-xs, 0.25rem) var(--ui-spacing-sm, 0.5rem);
 }
 .kpi-badges .badge.size_small {
-  font-size: 0.75rem; /* ensure override of earlier .kpi-badges .badge */
-  padding: 0.25rem 0.5rem;
+  font-size: var(--ui-typography-xs, 0.75rem);
+  padding: var(--ui-spacing-xs, 0.25rem) var(--ui-spacing-sm, 0.5rem);
 }
 .size_med {
-  font-size: 0.875rem;
-  padding: 0.4rem 0.75rem;
+  font-size: var(--ui-typography-sm, 0.875rem);
+  padding: 0.4rem var(--ui-spacing-md, 0.75rem);
 }
 </style>

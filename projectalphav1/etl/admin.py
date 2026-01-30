@@ -19,6 +19,7 @@ from etl.models import (
     SBDailyPayHistoryData,
     SBDailyTransactionData,
     EOMTrialBalanceData,
+    EOMTrackingPayoffData,
     EOMTrustTrackingData,
     ImportMapping,
 )
@@ -318,9 +319,31 @@ class ValuationETLAdmin(admin.ModelAdmin):
     
     # Pagination
     list_per_page = 50
-    
-    # Date hierarchy for easy filtering
-    date_hierarchy = 'inspection_date'
+
+
+@admin.register(EOMTrackingPayoffData)
+class EOMTrackingPayoffDataAdmin(admin.ModelAdmin):
+    list_display = (
+        'loan_id',
+        'file_date',
+        'investor_loan_id',
+        'received_date',
+        'due_date',
+        'principal_paid_off',
+        'interest_collected',
+        'sf_collected',
+        'net_interest',
+        'payoff_reason',
+        'created_at',
+    )
+    list_filter = ('file_date', 'received_date', 'payoff_reason')
+    search_fields = (
+        'loan_id',
+        'investor_loan_id',
+        'description',
+        'payoff_reason',
+    )
+    ordering = ('-file_date', '-created_at')
 
 
 @admin.register(ComparablesETL)
