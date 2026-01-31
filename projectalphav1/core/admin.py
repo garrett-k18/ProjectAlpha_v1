@@ -53,7 +53,7 @@ from core.models import (
 )
 
 # Cross-app children that reference AssetIdHub
-from acq_module.models.model_acq_seller import SellerRawData, Trade
+from acq_module.models.model_acq_seller import AcqAsset, Trade
 
 
 @admin.register(Notification)
@@ -1012,9 +1012,9 @@ class LlDataEnrichmentAdmin(admin.ModelAdmin):
         qs = super().get_queryset(request)
         return qs.select_related(
             'asset_hub',                       # Optional hub link displayed in raw ID widget
-            'asset_hub__acq_raw',              # Base loan row (SellerRawData via hub)
-            'asset_hub__acq_raw__trade',       # Trade info used in filters/search
-            'asset_hub__acq_raw__seller',      # Seller info used in search
+            'asset_hub__acq_asset',            # Base acquisition asset via hub
+            'asset_hub__acq_asset__trade',     # Trade info used in filters/search
+            'asset_hub__acq_asset__seller',    # Seller info used in search
         )
 
 
@@ -1413,7 +1413,7 @@ def delete_hub_and_children(modeladmin, request, queryset):
     Deletion order (to satisfy FK constraints):
     1) Photo, Document
     2) Valuation
-    3) SellerRawData (acq)
+    3) AcqAsset (acq)
     4) BlendedOutcomeModel, ServicerLoanData (AM)
     5) Hub
     """
@@ -1426,8 +1426,8 @@ def delete_hub_and_children(modeladmin, request, queryset):
         # Valuations (core)
         Valuation.objects.filter(asset_hub=hub).delete()
 
-        # Acquisitions raw
-        SellerRawData.objects.filter(asset_hub=hub).delete()
+        # Acquisitions asset bundle
+        AcqAsset.objects.filter(asset_hub=hub).delete()
 
         # AM side
         BlendedOutcomeModel.objects.filter(asset_hub=hub).delete()
@@ -1521,7 +1521,7 @@ class AssetIdHubAdmin(admin.ModelAdmin):
     list_display = (
         'id', 'sellertape_id', 'seller_tape_altid', 'servicer_id', 'trade_id_display', 'is_commercial_flag', 'servicer_refs',
         # PK columns showing actual IDs of related records
-        'seller_raw_data_id', 'blended_outcome_model_id',  # seller_boarded_data_id removed (deprecated)
+        'acq_asset_id', 'blended_outcome_model_id',  # seller_boarded_data_id removed (deprecated)
         'servicer_loan_data_id', 'valuation_id', 'photo_id', 'document_id',
         'created_at',
     )
@@ -1532,7 +1532,7 @@ class AssetIdHubAdmin(admin.ModelAdmin):
         'id',
         'servicer_id',
     )
-    list_filter = ('acq_raw__trade', 'details__is_commercial', 'details__legacy_flag')
+    list_filter = ('acq_asset__trade', 'details__is_commercial', 'details__legacy_flag')
     actions_on_top = True
     actions_on_bottom = True
     actions = ['delete_selected', delete_hub_and_children]
@@ -1545,7 +1545,7 @@ class AssetIdHubAdmin(admin.ModelAdmin):
         """
         qs = super().get_queryset(request)
         return qs.select_related(
-            'acq_raw',  # SellerRawData reverse relation
+            'acq_asset',  # AcqAsset reverse relation
             # 'am_boarded',  # SellerBoardedData reverse relation - DEPRECATED
             'blended_outcome_model',  # BlendedOutcomeModel reverse relation
         )
@@ -1569,23 +1569,24 @@ class AssetIdHubAdmin(admin.ModelAdmin):
     servicer_refs.short_description = 'Servicer Data'
 
     def seller_tape_altid(self, obj: AssetIdHub):  # type: ignore[name-defined]
-        srd = getattr(obj, 'acq_raw', None)
-        return getattr(srd, 'sellertape_altid', None) or '—'
+        asset = getattr(obj, 'acq_asset', None)
+        loan = getattr(asset, 'loan', None) if asset else None
+        return getattr(loan, 'sellertape_altid', None) or '—'
 
     seller_tape_altid.short_description = 'Alt ID'
-    seller_tape_altid.admin_order_field = 'acq_raw__sellertape_altid'
+    seller_tape_altid.admin_order_field = 'acq_asset__loan__sellertape_altid'
 
     def trade_id_display(self, obj: AssetIdHub):  # type: ignore[name-defined]
-        srd = getattr(obj, 'acq_raw', None)
-        if srd and srd.trade_id:
-            return srd.trade_id
+        asset = getattr(obj, 'acq_asset', None)
+        if asset and asset.trade_id:
+            return asset.trade_id
         details = getattr(obj, 'details', None)
         if details and details.trade_id:
             return details.trade_id
         return '—'
 
     trade_id_display.short_description = 'Trade ID'
-    trade_id_display.admin_order_field = 'acq_raw__trade_id'
+    trade_id_display.admin_order_field = 'acq_asset__trade_id'
 
     # Override the built-in delete_selected to delete the hub bundle in the correct order
     @admin.action(description="Delete selected Asset ID Hub (bundle)")
@@ -1596,10 +1597,10 @@ class AssetIdHubAdmin(admin.ModelAdmin):
     # WHY: Show actual IDs instead of checkmarks for reference table
     # HOW: Access reverse OneToOne relationships and return PK or dash
     
-    def seller_raw_data_id(self, obj: AssetIdHub):
-        """Display SellerRawData PK if exists"""
-        return obj.acq_raw.pk if hasattr(obj, 'acq_raw') else '—'
-    seller_raw_data_id.short_description = 'SellerRawData'
+    def acq_asset_id(self, obj: AssetIdHub):
+        """Display AcqAsset PK if exists"""
+        return obj.acq_asset.pk if hasattr(obj, 'acq_asset') else '—'
+    acq_asset_id.short_description = 'AcqAsset'
 
     # def seller_boarded_data_id(self, obj: AssetIdHub):
     #     """DEPRECATED - SellerBoardedData no longer used"""

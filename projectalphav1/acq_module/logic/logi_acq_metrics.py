@@ -6,7 +6,7 @@ acq_module.logic.logi_acq_metrics
 Logic for loan-level metrics calculations such as LTV (Loan-to-Value),
 days/months delinquent, and other property-specific metrics.
 
-These functions operate on SellerRawData instances and compute
+These functions operate on AcqAsset instances and compute
 derived values that aren't directly stored in the database.
 """
 from __future__ import annotations
@@ -27,10 +27,10 @@ from django.db.models import (
 )
 from django.db.models.functions import Coalesce, Cast, Extract
 
-from .common import sellertrade_qs
+from .common import sellertrade_qs, annotate_seller_valuations
 from core.models.model_co_assumptions import StateReference, Servicer
 from acq_module.models.model_acq_assumptions import TradeLevelAssumption, LoanLevelAssumption
-from acq_module.models.model_acq_seller import SellerRawData
+from acq_module.models.model_acq_seller import AcqAsset
 from core.models.propertycfs import HistoricalPropertyCashFlow
 from acq_module.logic.logi_acq_purchasePrice import purchase_price
 from acq_module.logic.logi_acq_summaryStats import count_upb_td_val_summary
@@ -63,7 +63,9 @@ def get_ltv_data(seller_id: int, trade_id: int) -> List[LtvDataItem]:
         - Calculation is done in the database for efficiency
     """
     # Get the base queryset for the selected seller and trade
-    qs = sellertrade_qs(seller_id, trade_id)
+    qs = annotate_seller_valuations(
+        sellertrade_qs(seller_id, trade_id)
+    )
     
     # Annotate with LTV calculation
     # Convert to percentage and round to 1 decimal place
@@ -74,7 +76,7 @@ def get_ltv_data(seller_id: int, trade_id: int) -> List[LtvDataItem]:
             When(
                 seller_asis_value__gt=0,
                 then=ExpressionWrapper(
-                    (F('current_balance') * 100) / F('seller_asis_value'),
+                    (F('loan__current_balance') * 100) / F('seller_asis_value'),
                     output_field=DecimalField(max_digits=7, decimal_places=1)
                 )
             ),
@@ -89,7 +91,7 @@ def get_ltv_data(seller_id: int, trade_id: int) -> List[LtvDataItem]:
     for item in qs:
         result.append({
             'id': str(item.id),
-            'current_balance': item.current_balance or Decimal('0.00'),
+            'current_balance': item.loan.current_balance if item.loan and item.loan.current_balance is not None else Decimal('0.00'),
             'seller_asis_value': item.seller_asis_value or Decimal('0.00'),
             'ltv': item.ltv  # Keep as null if calculation wasn't possible
         })
@@ -117,7 +119,7 @@ def get_ltv_scatter_data(seller_id: int, trade_id: int) -> List[LtvDataItem]:
 
 
 def calculate_asset_model_data_fast(
-    raw_data: SellerRawData,
+    asset: AcqAsset,
     trade_assumption: Optional[TradeLevelAssumption],
     loan_assumption: Optional[LoanLevelAssumption],
     state_ref: Optional[StateReference],
@@ -127,9 +129,16 @@ def calculate_asset_model_data_fast(
     """
     Fast modeling calculations shared by the Modeling Center grid.
     """
-    current_balance = raw_data.current_balance or Decimal('0')
-    total_debt = raw_data.total_debt or Decimal('0')
-    seller_asis = raw_data.seller_asis_value or Decimal('0')
+    # WHAT: Pull loan-level financials from the related loan record
+    # WHY: The monolithic SellerRawData model has been removed
+    # HOW: Read values off asset.loan with null-safe fallbacks
+    current_balance = asset.loan.current_balance if asset.loan and asset.loan.current_balance is not None else Decimal('0')
+    total_debt = asset.loan.total_debt if asset.loan and asset.loan.total_debt is not None else Decimal('0')
+
+    # WHAT: Use seller-provided valuation if present
+    # WHY: Model proceeds should use seller valuations when available
+    # HOW: Prefer annotated seller_asis_value if present; otherwise default to 0
+    seller_asis = getattr(asset, 'seller_asis_value', None) or Decimal('0')
 
     acq_price = current_balance * bid_pct
 
@@ -154,8 +163,8 @@ def calculate_asset_model_data_fast(
     total_timeline_asis = servicing_transfer_months + foreclosure_months + reo_marketing_months
     total_timeline_arv = total_timeline_asis + reo_renovation_months
 
-    proceeds_asis = raw_data.seller_asis_value or current_balance * Decimal('0.70')
-    proceeds_arv = raw_data.seller_arv_value or proceeds_asis * Decimal('1.15')
+    proceeds_asis = seller_asis or current_balance * Decimal('0.70')
+    proceeds_arv = getattr(asset, 'seller_arv_value', None) or proceeds_asis * Decimal('1.15')
 
     acq_costs = Decimal('0')
     if trade_assumption:
@@ -268,10 +277,10 @@ def calculate_asset_model_data_fast(
     return {
         'id': raw_data.pk,
         'asset_hub_id': raw_data.asset_hub_id,
-        'seller_loan_id': raw_data.sellertape_id,
+        'seller_loan_id': asset.loan.sellertape_id if asset.loan else None,
         'street_address': raw_data.street_address,
         'city': raw_data.city,
-        'state': raw_data.state,
+        'state': asset.property.state if asset.property else None,
         'current_balance': float(current_balance),
         'total_debt': float(total_debt),
         'primary_model': 'reo_sale',
@@ -482,7 +491,9 @@ def get_tdtv_data(seller_id: int, trade_id: int) -> List[TdtvDataItem]:
         - Calculation is done in the database for efficiency
     """
     # Get the base queryset for the selected seller and trade
-    qs = sellertrade_qs(seller_id, trade_id)
+    qs = annotate_seller_valuations(
+        sellertrade_qs(seller_id, trade_id)
+    )
     
     # Annotate with TDTV calculation
     # Convert to percentage and round to 1 decimal place
@@ -493,7 +504,7 @@ def get_tdtv_data(seller_id: int, trade_id: int) -> List[TdtvDataItem]:
             When(
                 seller_arv_value__gt=0,
                 then=ExpressionWrapper(
-                    (F('total_debt') * 100) / F('seller_arv_value'),
+                    (F('loan__total_debt') * 100) / F('seller_arv_value'),
                     output_field=DecimalField(max_digits=7, decimal_places=1)
                 )
             ),
@@ -508,7 +519,7 @@ def get_tdtv_data(seller_id: int, trade_id: int) -> List[TdtvDataItem]:
     for item in qs:
         result.append({
             'id': str(item.id),
-            'total_debt': item.total_debt or Decimal('0.00'),
+            'total_debt': item.loan.total_debt if item.loan and item.loan.total_debt is not None else Decimal('0.00'),
             'seller_arv_value': item.seller_arv_value or Decimal('0.00'),
             'tdtv': item.tdtv  # Keep as null if calculation wasn't possible
         })
@@ -524,7 +535,7 @@ def get_single_asset_metrics(asset_id: int) -> Dict[str, Any]:
     """Calculate key metrics for a single asset.
     
     Args:
-        asset_id: SellerRawData asset_hub_id (primary key)
+        asset_id: AcqAsset asset_hub_id (primary key)
         
     Returns:
         Dict containing calculated metrics:
@@ -537,23 +548,32 @@ def get_single_asset_metrics(asset_id: int) -> Dict[str, Any]:
         - has_equity: Boolean if asset has positive equity
     """
     try:
-        # Get the asset record using asset_hub_id as the primary key
-        asset = SellerRawData.objects.get(asset_hub_id=asset_id)
+        # WHAT: Get asset record using asset_hub_id as the primary key
+        # WHY: AcqAsset is now the hub-linked acquisition container
+        # HOW: Select related loan + foreclosure and annotate seller valuations
+        asset = (
+            annotate_seller_valuations(
+                AcqAsset.objects.select_related('loan', 'foreclosure_timeline')
+            )
+            .get(asset_hub_id=asset_id)
+        )
         
         # Calculate LTV (current_balance / seller_asis_value)
         ltv = None
         if asset.seller_asis_value and asset.seller_asis_value > 0:
-            ltv = float((asset.current_balance or Decimal('0')) / asset.seller_asis_value * 100)
+            current_balance = asset.loan.current_balance if asset.loan and asset.loan.current_balance is not None else Decimal('0')
+            ltv = float((current_balance / asset.seller_asis_value) * 100)
         
         # Calculate TDTV (total_debt / seller_arv_value)
         tdtv = None
         if asset.seller_arv_value and asset.seller_arv_value > 0:
-            tdtv = float((asset.total_debt or Decimal('0')) / asset.seller_arv_value * 100)
+            total_debt = asset.loan.total_debt if asset.loan and asset.loan.total_debt is not None else Decimal('0')
+            tdtv = float((total_debt / asset.seller_arv_value) * 100)
         
         # Calculate days delinquent
         days_dlq = 0
-        if asset.as_of_date and asset.next_due_date:
-            delta = asset.as_of_date - asset.next_due_date
+        if asset.as_of_date and asset.loan and asset.loan.next_due_date:
+            delta = asset.as_of_date - asset.loan.next_due_date
             days_dlq = delta.days
         
         # Calculate months delinquent (approximate: days / 30)
@@ -561,7 +581,7 @@ def get_single_asset_metrics(asset_id: int) -> Dict[str, Any]:
         
         # Determine status flags
         is_delinquent = days_dlq > 0
-        is_foreclosure = bool(asset.fc_flag) if hasattr(asset, 'fc_flag') else False
+        is_foreclosure = bool(asset.foreclosure_timeline.fc_flag) if asset.foreclosure_timeline else False
         
         # Determine if asset has equity (LTV < 100%)
         has_equity = ltv is not None and ltv < 100
@@ -577,7 +597,7 @@ def get_single_asset_metrics(asset_id: int) -> Dict[str, Any]:
             'delinquency_months': months_dlq,  # Alias for compatibility
         }
         
-    except SellerRawData.DoesNotExist:
+    except AcqAsset.DoesNotExist:
         # Return null metrics if asset not found
         return {
             'ltv': None,
@@ -636,7 +656,7 @@ def get_days_dlq_data(seller_id: int, trade_id: int) -> List[DlqDataItem]:
     # ExpressionWrapper ensures the database performs the calculation efficiently.
     qs = qs.annotate(
         dlq_interval=ExpressionWrapper(
-            F('as_of_date') - F('next_due_date'),  # interval: how many days between reporting and next due
+            F('as_of_date') - F('loan__next_due_date'),  # interval: how many days between reporting and next due
             output_field=DurationField(),           # explicit output type so Django knows this is an interval
         )
     )
@@ -676,7 +696,7 @@ def acq_seller_orig_cap_rate(seller_id: int, asset_hub_id: int) -> Decimal:
     How:
         - Pull the latest HistoricalPropertyCashFlow row for the given AssetIdHub (by year desc)
         - Compute NOI from the cash flow row
-        - Use SellerRawData.origination_value as market value proxy
+        - Use AcqLoan.origination_value as market value proxy (fallback to seller as-is valuation)
         - Compute Cap Rate as (NOI / value) * 100
 
     Safety:
@@ -706,12 +726,29 @@ def acq_seller_orig_cap_rate(seller_id: int, asset_hub_id: int) -> Decimal:
 
     noi = hpcf.net_operating_income()
 
-    # Get origination value from SellerRawData
-    seller = SellerRawData.objects.filter(id=seller_id).only('origination_value').first()
-    if not seller or not seller.origination_value:
+    # WHAT: Get origination value from AcqLoan (fallback to seller as-is valuation)
+    # WHY: Origination value belongs to loan-level data in the new model split
+    # HOW: Pull related loan values via AcqAsset + seller filter
+    asset = (
+        annotate_seller_valuations(
+            AcqAsset.objects.select_related('loan')
+        )
+        .filter(asset_hub_id=asset_hub_id, seller_id=seller_id)
+        .first()
+    )
+    if not asset:
         return Decimal('0.00')
 
-    value = seller.origination_value if isinstance(seller.origination_value, Decimal) else Decimal(str(seller.origination_value))
+    orig_value = None
+    if asset.loan and asset.loan.origination_value is not None:
+        orig_value = asset.loan.origination_value
+    elif asset.seller_asis_value:
+        orig_value = asset.seller_asis_value
+
+    if not orig_value:
+        return Decimal('0.00')
+
+    value = orig_value if isinstance(orig_value, Decimal) else Decimal(str(orig_value))
     if value <= 0:
         return Decimal('0.00')
 
@@ -721,10 +758,10 @@ def acq_seller_orig_cap_rate(seller_id: int, asset_hub_id: int) -> Decimal:
 
 def acq_seller_as_is_cap_rate(seller_id: int, asset_hub_id: int) -> Decimal:
     """
-    Calculate Cap Rate using the current seller as-is value (SellerRawData.seller_asis_value).
+    Calculate Cap Rate using the current seller as-is valuation.
 
     Args:
-        seller_id: SellerRawData primary key
+        seller_id: Seller primary key
         asset_hub_id: AssetIdHub primary key used to locate NOI from HistoricalPropertyCashFlow
 
     Returns:
@@ -748,12 +785,18 @@ def acq_seller_as_is_cap_rate(seller_id: int, asset_hub_id: int) -> Decimal:
     # Compute NOI from latest historical cash flow
     noi = hpcf.net_operating_income()
     
-    # Seller as-is value
-    seller = SellerRawData.objects.filter(id=seller_id).only('seller_asis_value').first()
-    if not seller or not seller.seller_asis_value:
+    # Seller as-is value (latest seller-provided valuation)
+    asset = (
+        annotate_seller_valuations(
+            AcqAsset.objects.select_related('loan')
+        )
+        .filter(asset_hub_id=asset_hub_id, seller_id=seller_id)
+        .first()
+    )
+    if not asset or not asset.seller_asis_value:
         return Decimal('0.00')
 
-    value = seller.seller_asis_value if isinstance(seller.seller_asis_value, Decimal) else Decimal(str(seller.seller_asis_value))
+    value = asset.seller_asis_value if isinstance(asset.seller_asis_value, Decimal) else Decimal(str(asset.seller_asis_value))
     if value <= 0:
         return Decimal('0.00')
 

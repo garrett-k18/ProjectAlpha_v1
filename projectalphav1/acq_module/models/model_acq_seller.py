@@ -3,7 +3,6 @@
 from django.db import models
 from django.utils import timezone
 import re
-from core.models.model_co_lookupTables import PropertyType
 
 
 class Seller(models.Model):
@@ -45,6 +44,7 @@ class Trade(models.Model):
         INDICATIVE = 'INDICATIVE', 'Indicative'
         DD = 'DD', 'Due Diligence'
         AWARDED = 'AWARDED', 'Awarded'
+        CLOSED = 'CLOSED', 'Closed'
         BOARD = 'BOARD', 'Boarded'
       
     # Timestamps for trade lifecycle
@@ -104,8 +104,8 @@ class Trade(models.Model):
         """
         # WHAT: Count active (KEEP) assets in this trade
         # WHY: Determine if trade still has assets in the active pool
-        active_asset_count = self.seller_raw_data.filter(
-            acq_status=SellerRawData.AcquisitionStatus.KEEP
+        active_asset_count = self.acq_assets.filter(
+            acq_status=AcqAsset.AcquisitionStatus.KEEP
         ).count()
         
         # WHAT: If all assets are dropped and trade not already archived, suggest archiving
@@ -120,122 +120,676 @@ class Trade(models.Model):
                     if commit:
                         self.save(update_fields=['status'])
 
-class Trade_Deal(Trade):
+Trade_Deal = Trade
+
+
+class AcqAsset(models.Model):
     """
-    Proxy model to support deal-centric naming.
+    Core cross-industry asset container for acquisitions.
 
-    WHAT: Exposes a deal-centric class name without changing the table.
-    WHY: Allows codebases to migrate to Trade_Deal naming safely.
-    HOW: Django proxy to Trade so there is no new table.
+    WHAT: Holds asset-level identifiers and deal context (no property/loan specifics).
+    WHY: Supports non-loan assets (REO, single-asset equity, commercial, etc.).
+    HOW: 1:1 with AssetIdHub; optional Seller/Trade for non-seller assets.
     """
 
-    class Meta:
-        proxy = True
-        verbose_name = "Deal"
-        verbose_name_plural = "Deals"
+    # ===== Enumerations =====
+    class AcquisitionStatus(models.TextChoices):
+        """Asset-level inclusion status for deal workflows."""
+        KEEP = 'KEEP', 'Keep'  # In active pool
+        DROP = 'DROP', 'Drop'  # Excluded from active pool
 
+    class AssetClass(models.TextChoices):
+        """Primary asset class classification."""
+        REAL_ESTATE_1_4 = 'REAL_ESTATE_1_4', 'Real Estate 1-4'
+        MULTIFAMILY_5_PLUS = 'MULTIFAMILY_5_PLUS', 'Multifamily 5+'
+        COMMERCIAL = 'COMMERCIAL', 'Commercial'
+        PERFORMING_NOTE = 'PERFORMING_NOTE', 'Performing Note'
+        NPL = 'NPL', 'NPL'
 
-class SellerRawData(models.Model):
-    # Django 3.0+ enumeration types for choices
-    # Docs: https://docs.djangoproject.com/en/stable/ref/models/fields/#enumeration-types
-    # NOTE: PropertyType is imported from core.lookupTables for consistency across all models
-    
-    class ProductType(models.TextChoices):
-        BPL = 'BPL', 'BPL'
-        HECM = 'HECM', 'HECM'
-        VA = 'VA', 'VA'
-        CONV = 'Conv', 'Conv'
-        COMMERCIAL = 'Commercial', 'Commercial'
-    
-    # Occupancy choices (TextChoices)
-    class Occupancy(models.TextChoices):
-        VACANT = 'Vacant', 'Vacant'
-        OCCUPIED = 'Occupied', 'Occupied'
-        UNKNOWN = 'Unknown', 'Unknown'
-
-    # Asset status choices (TextChoices)
     class AssetStatus(models.TextChoices):
+        """Legacy asset status used by modeling logic (tape-driven)."""
         NPL = 'NPL', 'NPL'       # Non-Performing Loan
         REO = 'REO', 'REO'       # Real Estate Owned
         PERF = 'PERF', 'PERF'    # Performing
         RPL = 'RPL', 'RPL'       # Re-Performing Loan
 
-    # Asset-level status choices
-    # WHAT: Simple binary status for asset-level filtering
-    # WHY: Assets are either in the active pool (KEEP) or excluded (DROP)
-    # HOW: Trade-level status controls the overall trade lifecycle (PASS, DD, AWARDED, BOARD)
-    class AcquisitionStatus(models.TextChoices):
-        KEEP = 'KEEP', 'Keep'  # Default: asset is in active bidding pool
-        DROP = 'DROP', 'Drop'  # Asset is excluded from active bidding
+    class NoteSubclass(models.TextChoices):
+        """Subclass for note asset class (Performing/NPL/RPL)."""
+        NPL = 'NPL', 'NPL'       # Non-Performing Loan
+        PERF = 'PERF', 'PERF'    # Performing
+        RPL = 'RPL', 'RPL'       # Re-Performing Loan
+
+    class RealEstateSubclass(models.TextChoices):
+        """Subclass for 1-4 unit real estate assets."""
+        SFR = 'SFR', 'Single Family'
+        CONDO = 'Condo', 'Condo'
+        TOWNHOUSE = 'Townhouse', 'Townhouse'
+        TWO_FOUR = '2-4 Family', '2-4 Family'
+        MANUFACTURED = 'Manufactured', 'Manufactured'
+        LAND = 'Land', 'Land'
+
+    class MultifamilySubclass(models.TextChoices):
+        """Subclass for multifamily 5+ assets."""
+        GARDEN = 'Garden', 'Garden'
+        MID_RISE = 'Mid-Rise', 'Mid-Rise'
+        HIGH_RISE = 'High-Rise', 'High-Rise'
+        STUDENT = 'Student', 'Student Housing'
+        SENIOR = 'Senior', 'Senior Housing'
+        AFFORDABLE = 'Affordable', 'Affordable Housing'
+
+    class CommercialSubclass(models.TextChoices):
+        """Subclass for commercial assets."""
+        OFFICE = 'Office', 'Office'
+        RETAIL = 'Retail', 'Retail'
+        INDUSTRIAL = 'Industrial', 'Industrial'
+        MIXED_USE = 'Mixed Use', 'Mixed Use'
+        STORAGE = 'Storage', 'Storage'
+        HOSPITALITY = 'Hospitality', 'Hospitality'
+        HEALTHCARE = 'Healthcare', 'Healthcare'
+
+    # ===== Relationships =====
     # WHAT: Hub-owned primary key - strict 1:1 with core.AssetIdHub
-    # WHY: Aligns with hub-first architecture so this model's PK equals the hub ID
-    # HOW: OneToOneField with primary_key=True (same pattern as BlendedOutcomeModel)
+    # WHY: Aligns with hub-first architecture for cross-module joins
+    # HOW: OneToOneField with primary_key=True
     asset_hub = models.OneToOneField(
         'core.AssetIdHub',
         on_delete=models.PROTECT,
         primary_key=True,
-        related_name='acq_raw',
+        related_name='acq_asset',
         help_text='1:1 with hub; this model\'s PK equals the hub ID.',
     )
+    # WHAT: Optional seller reference (nullable for non-seller assets)
+    # WHY: REO and equity may not have a seller entity
+    # HOW: SET_NULL to preserve asset if seller is deleted
     seller = models.ForeignKey(
         Seller,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='seller_raw_data',
-        help_text='Nullable reference so Seller deletions preserve this raw row.'
+        related_name='acq_assets',
+        help_text='Nullable reference for assets without a seller.',
     )
+    # WHAT: Optional deal reference
+    # WHY: Some assets are stand-alone without a deal container
+    # HOW: SET_NULL to preserve asset if deal is deleted
     trade = models.ForeignKey(
         Trade,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='seller_raw_data',
-        help_text='Nullable reference so Trade deletions keep the raw asset record.'
+        related_name='acq_assets',
+        help_text='Nullable reference for assets not tied to a deal.',
     )
-    # WHAT: Unique loan identifier from seller's tape (primary identifier)
-    # WHY: CharField to handle any format - numbers, letters, dashes, etc. (e.g., "ABC-123-456", "9160091924")
-    # HOW: Max 100 chars covers all seller tape ID formats
-    sellertape_id = models.CharField(max_length=100)
-    # WHAT: Alternative/secondary loan identifier from seller's tape
-    # WHY: CharField to handle any format - some sellers use alphanumeric alt IDs
-    # HOW: Max 100 chars, optional field
-    sellertape_altid = models.CharField(max_length=100, null=True, blank=True)
+
+    # ===== Status fields =====
+    # WHAT: Legacy asset status for model recommendations and legacy filters
+    # WHY: Modeling logic still uses NPL/REO/PERF/RPL status codes
+    # HOW: Nullable choice field, populated during import when available
     asset_status = models.CharField(
         max_length=100,
         choices=AssetStatus.choices,
         null=True,
         blank=True,
     )
-    # WHAT: Asset-level acquisition status (KEEP or DROP)
-    # WHY: Simple binary flag to include/exclude assets from active pool
-    # HOW: Trade-level status (on Trade model) controls overall lifecycle (PASS, DD, AWARDED, BOARD)
+    # WHAT: Keep/Drop filter status
+    # WHY: Supports pipeline selection and trade-level rollups
+    # HOW: Default KEEP for new assets
     acq_status = models.CharField(
         max_length=20,
         choices=AcquisitionStatus.choices,
         default=AcquisitionStatus.KEEP,
         db_index=True,
-        help_text='Asset-level status: KEEP (in active pool) or DROP (excluded). Trade-level status controls lifecycle.'
+        help_text='Asset-level status: KEEP (in active pool) or DROP (excluded).',
     )
-    as_of_date = models.DateField(null=True, blank=True)
-    
-    street_address = models.CharField(max_length=100, null=True, blank=True)
-    city = models.CharField(max_length=100, null=True, blank=True)
-    state = models.CharField(max_length=100, null=True, blank=True)
-    zip = models.CharField(max_length=100, null=True, blank=True)
-    property_type = models.CharField(
-        max_length=100,
-        choices=PropertyType.choices,
-        default=PropertyType.SFR,
+    # WHAT: Primary asset class (used to drive downstream subtype behavior)
+    # WHY: Each asset class has its own subtype semantics
+    # HOW: Enum choices with explicit class labels
+    asset_class = models.CharField(
+        max_length=30,
+        choices=AssetClass.choices,
         null=True,
         blank=True,
+        help_text='Primary asset class (Real Estate 1-4, Multifamily 5+, Commercial, Performing Note, NPL).',
     )
+    # ===== Class-specific subtype fields =====
+    # WHAT: Subtype for Real Estate 1-4 assets
+    # WHY: Capture class-specific subtypes without overloading a single field
+    # HOW: Nullable choice field; only populate when asset_class=REAL_ESTATE_1_4
+    real_estate_subclass_type = models.CharField(
+        max_length=20,
+        choices=RealEstateSubclass.choices,
+        null=True,
+        blank=True,
+        help_text='Subtype for Real Estate 1-4 assets (only when asset_class=REAL_ESTATE_1_4).',
+    )
+    # WHAT: Subtype for Multifamily 5+ assets
+    # WHY: Capture class-specific subtypes without overloading a single field
+    # HOW: Nullable choice field; only populate when asset_class=MULTIFAMILY_5_PLUS
+    multifamily_subclass_type = models.CharField(
+        max_length=20,
+        choices=MultifamilySubclass.choices,
+        null=True,
+        blank=True,
+        help_text='Subtype for Multifamily 5+ assets (only when asset_class=MULTIFAMILY_5_PLUS).',
+    )
+    # WHAT: Subtype for Commercial assets
+    # WHY: Capture class-specific subtypes without overloading a single field
+    # HOW: Nullable choice field; only populate when asset_class=COMMERCIAL
+    commercial_subclass_type = models.CharField(
+        max_length=20,
+        choices=CommercialSubclass.choices,
+        null=True,
+        blank=True,
+        help_text='Subtype for Commercial assets (only when asset_class=COMMERCIAL).',
+    )
+    # WHAT: Subclass for note assets (Performing/NPL/RPL)
+    # WHY: This is the note-specific subclass classification
+    # HOW: Nullable choice field; only populate for note-related asset_class values
+    note_subclass_type = models.CharField(
+        max_length=10,
+        choices=NoteSubclass.choices,
+        null=True,
+        blank=True,
+        help_text='Subclass for note assets (only when asset_class=PERFORMING_NOTE or NPL).',
+    )
+
+
+    # WHAT: As-of date for tape snapshot
+    # WHY: Needed for time-based analysis and data freshness
+    # HOW: Nullable DateField
+    as_of_date = models.DateField(null=True, blank=True)
+
+    # ===== Timestamps =====
+    # WHAT: Automatic timestamp tracking
+    # WHY: Track when assets are created/updated
+    # HOW: Django auto_now_add/auto_now
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def is_dropped(self) -> bool:
+        """Return True when acquisition status is Drop for compatibility."""
+        return self.acq_status == self.AcquisitionStatus.DROP
+
+    def get_property_type_from_subclass(self):
+        """
+        WHAT: Resolve a unified property type from asset subclass fields.
+        WHY: Use subclass values as the single frontend property type.
+        HOW: Return the subclass value based on asset_class.
+        """
+        # WHAT: 1-4 residential subclasses
+        # WHY: These are the desired property type values for 1-4 assets
+        # HOW: Return the stored subclass value directly
+        if self.asset_class == self.AssetClass.REAL_ESTATE_1_4:
+            return self.real_estate_subclass_type
+
+        # WHAT: Multifamily subclasses
+        # WHY: Use subclass labels (Garden, Mid-Rise, etc.)
+        # HOW: Return the stored subclass value directly
+        if self.asset_class == self.AssetClass.MULTIFAMILY_5_PLUS:
+            return self.multifamily_subclass_type
+
+        # WHAT: Commercial subclasses
+        # WHY: Use subclass labels (Office, Retail, etc.)
+        # HOW: Return the stored subclass value directly
+        if self.asset_class == self.AssetClass.COMMERCIAL:
+            return self.commercial_subclass_type
+
+        # WHAT: Notes and non-property assets
+        # WHY: These are not property assets
+        # HOW: Return None so callers can handle as non-property
+        return None
+
+    # -------------------------------------------------------------------------
+    # Legacy field compatibility properties (read-only)
+    # -------------------------------------------------------------------------
+    # NOTE: These properties provide a compatibility layer for code that
+    # previously accessed SellerRawData fields directly. They should be treated
+    # as read-only projections from the related AcqLoan/AcqProperty records.
+
+    @property
+    def sellertape_id(self):
+        """Legacy alias for loan.sellertape_id."""
+        loan = getattr(self, "loan", None)
+        return loan.sellertape_id if loan else None
+
+    @property
+    def sellertape_altid(self):
+        """Legacy alias for loan.sellertape_altid."""
+        loan = getattr(self, "loan", None)
+        return loan.sellertape_altid if loan else None
+
+    @property
+    def current_balance(self):
+        """Legacy alias for loan.current_balance."""
+        loan = getattr(self, "loan", None)
+        return loan.current_balance if loan else None
+
+    @property
+    def total_debt(self):
+        """Legacy alias for loan.total_debt."""
+        loan = getattr(self, "loan", None)
+        return loan.total_debt if loan else None
+
+    @property
+    def interest_rate(self):
+        """Legacy alias for loan.interest_rate."""
+        loan = getattr(self, "loan", None)
+        return loan.interest_rate if loan else None
+
+    @property
+    def default_rate(self):
+        """Legacy alias for loan.default_rate."""
+        loan = getattr(self, "loan", None)
+        return loan.default_rate if loan else None
+
+    @property
+    def maturity_date(self):
+        """Legacy alias for loan.current_maturity_date (fallback to original)."""
+        loan = getattr(self, "loan", None)
+        if not loan:
+            return None
+        return loan.current_maturity_date or loan.original_maturity_date
+
+    @property
+    def months_delinquent(self):
+        """Legacy alias for loan.months_dlq."""
+        loan = getattr(self, "loan", None)
+        return loan.months_dlq if loan else None
+
+    @property
+    def street_address(self):
+        """Legacy alias for property.street_address."""
+        prop = getattr(self, "property", None)
+        return prop.street_address if prop else None
+
+    @property
+    def city(self):
+        """Legacy alias for property.city."""
+        prop = getattr(self, "property", None)
+        return prop.city if prop else None
+
+    @property
+    def state(self):
+        """Legacy alias for property.state."""
+        prop = getattr(self, "property", None)
+        return prop.state if prop else None
+
+    @property
+    def zip(self):
+        """Legacy alias for property.zip."""
+        prop = getattr(self, "property", None)
+        return prop.zip if prop else None
+
+    @property
+    def bedrooms(self):
+        """Legacy alias for property.beds."""
+        prop = getattr(self, "property", None)
+        return prop.beds if prop else None
+
+    @property
+    def bathrooms(self):
+        """Legacy alias for property.baths."""
+        prop = getattr(self, "property", None)
+        return prop.baths if prop else None
+
+    @property
+    def sqft(self):
+        """Legacy alias for property.sq_ft."""
+        prop = getattr(self, "property", None)
+        return prop.sq_ft if prop else None
+
+    @property
+    def lot_size(self):
+        """Legacy alias for property.lot_size."""
+        prop = getattr(self, "property", None)
+        return prop.lot_size if prop else None
+
+    @property
+    def year_built(self):
+        """Legacy alias for property.year_built."""
+        prop = getattr(self, "property", None)
+        return prop.year_built if prop else None
+
+    @property
+    def occupancy(self):
+        """Legacy alias for property.occupancy."""
+        prop = getattr(self, "property", None)
+        return prop.occupancy if prop else None
+
+    @property
+    def product_type(self):
+        """Legacy alias for loan.product_type."""
+        loan = getattr(self, "loan", None)
+        return loan.product_type if loan else None
+
+    @property
+    def property_type(self):
+        """Legacy alias for property.property_type_merged."""
+        prop = getattr(self, "property", None)
+        return prop.property_type_merged if prop else None
+
+    class Meta:
+        verbose_name = "Acquisition Asset"
+        verbose_name_plural = "Acquisition Assets"
+        indexes = [
+            models.Index(fields=['asset_hub']),
+            models.Index(fields=['acq_status']),
+            models.Index(fields=['asset_class']),
+            models.Index(fields=['asset_status']),
+            models.Index(fields=['seller']),
+            models.Index(fields=['trade']),
+        ]
+        ordering = ['-created_at']
+
+    def __str__(self):
+        """Human-readable label for admin and logs."""
+        seller_name = self.seller.name if self.seller else "Unassigned Seller"
+        trade_name = self.trade.trade_name if self.trade else "Unassigned Deal"
+        return f"AcqAsset {self.pk} - {seller_name} - {trade_name}"
+
+
+class AcqLoan(models.Model):
+    """
+    Loan/borrower/servicing data tied to an acquisition asset.
+
+    WHAT: Stores loan-specific fields (balances, rates, terms, borrower names).
+    WHY: Separates loan data from property data for cross-industry support.
+    HOW: 1:1 with AcqAsset (nullable loans are allowed by omission).
+    """
+
+    class ProductType(models.TextChoices):
+        """Loan product type classification."""
+        BPL = 'BPL', 'BPL'
+        HECM = 'HECM', 'HECM'
+        VA = 'VA', 'VA'
+        CONV = 'Conv', 'Conv'
+        COMMERCIAL = 'Commercial', 'Commercial'
+        Bridge = 'Bridge', 'Bridge'
+
+    # WHAT: 1:1 link to asset container
+    # WHY: Each asset may have at most one loan record
+    # HOW: OneToOneField with primary_key=True
+    asset = models.OneToOneField(
+        AcqAsset,
+        on_delete=models.CASCADE,
+        primary_key=True,
+        related_name='loan',
+        help_text='1:1 link to acquisition asset.',
+    )
+
+    # ===== Note identifiers =====
+    # WHAT: Seller-provided primary identifier (raw tape ID)
+    # WHY: Needed for traceability and matching on note assets
+    # HOW: CharField to allow any format (numeric/alphanumeric)
+    sellertape_id = models.CharField(max_length=100)
+    # WHAT: Seller-provided alternate identifier
+    # WHY: Some tapes include multiple identifiers for the same note
+    # HOW: Optional CharField
+    sellertape_altid = models.CharField(max_length=100, null=True, blank=True)
+
+    # ===== Borrower names (non-PII) =====
+    borrower1_last = models.CharField(max_length=100, null=True, blank=True, help_text="If entity, put entity in borrower1_last.")
+    borrower1_first = models.CharField(max_length=100, null=True, blank=True)
+    borrower2_last = models.CharField(max_length=100, null=True, blank=True)
+    borrower2_first = models.CharField(max_length=100, null=True, blank=True)
+
+    # ===== Loan financials =====
+    current_balance = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    deferred_balance = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    interest_rate = models.DecimalField(max_digits=6, decimal_places=4, null=True, blank=True)
+    next_due_date = models.DateField(null=True, blank=True)
+    last_paid_date = models.DateField(null=True, blank=True)
+    first_pay_date = models.DateField(null=True, blank=True)
+    origination_date = models.DateField(null=True, blank=True)
+    original_balance = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    original_term = models.IntegerField(null=True, blank=True)
+    original_rate = models.DecimalField(max_digits=6, decimal_places=4, null=True, blank=True)
+    original_maturity_date = models.DateField(null=True, blank=True)
+
+    # ===== Origination valuation =====
+    # WHAT: Origination as-is value (market value at origination)
+    # WHY: Needed for legacy cap rate and origination analytics
+    # HOW: Decimal value with optional date
+    origination_value = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    # WHAT: Origination ARV value
+    # WHY: Capture rehab-adjusted value at origination when provided
+    # HOW: Optional DecimalField
+    origination_arv = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    # WHAT: Origination value date
+    # WHY: Time alignment for origination analytics
+    # HOW: Optional DateField
+    origination_value_date = models.DateField(null=True, blank=True)
+    default_rate = models.DecimalField(max_digits=6, decimal_places=4, null=True, blank=True)
+    months_dlq = models.IntegerField(null=True, blank=True)
+    current_maturity_date = models.DateField(null=True, blank=True)
+    current_term = models.IntegerField(null=True, blank=True)
+
+    # ===== Loan fees/advances =====
+    accrued_note_interest = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    accrued_default_interest = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    escrow_balance = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    escrow_advance = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    recoverable_corp_advance = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    late_fees = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    other_fees = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    suspense_balance = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    total_debt = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+
+    # ===== Loan product =====
     product_type = models.CharField(
         max_length=50,
         choices=ProductType.choices,
         null=True,
         blank=True,
     )
+
+    # ===== Timestamps =====
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Acquisition Loan"
+        verbose_name_plural = "Acquisition Loans"
+        indexes = [
+            models.Index(fields=['asset']),
+            models.Index(fields=['product_type']),
+        ]
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"AcqLoan for Asset {self.asset_id}"
+
+    @property
+    def bk_flag(self):
+        """Legacy alias for bankruptcy.bk_flag."""
+        bk = getattr(self, "bankruptcy", None)
+        return bk.bk_flag if bk else None
+
+    @property
+    def bk_chapter(self):
+        """Legacy alias for bankruptcy.bk_chapter."""
+        bk = getattr(self, "bankruptcy", None)
+        return bk.bk_chapter if bk else None
+
+    @property
+    def mod_flag(self):
+        """Legacy alias for modification.mod_flag."""
+        mod = getattr(self, "modification", None)
+        return mod.mod_flag if mod else None
+
+    @property
+    def mod_date(self):
+        """Legacy alias for modification.mod_date."""
+        mod = getattr(self, "modification", None)
+        return mod.mod_date if mod else None
+
+    @property
+    def mod_maturity_date(self):
+        """Legacy alias for modification.mod_maturity_date."""
+        mod = getattr(self, "modification", None)
+        return mod.mod_maturity_date if mod else None
+
+    @property
+    def mod_term(self):
+        """Legacy alias for modification.mod_term."""
+        mod = getattr(self, "modification", None)
+        return mod.mod_term if mod else None
+
+    @property
+    def mod_rate(self):
+        """Legacy alias for modification.mod_rate."""
+        mod = getattr(self, "modification", None)
+        return mod.mod_rate if mod else None
+
+    @property
+    def mod_initial_balance(self):
+        """Legacy alias for modification.mod_initial_balance."""
+        mod = getattr(self, "modification", None)
+        return mod.mod_initial_balance if mod else None
+
+
+class AcqBankruptcy(models.Model):
+    """
+    Bankruptcy data tied to a loan.
+
+    WHAT: Stores bankruptcy flags and chapter details.
+    WHY: Isolates BK fields from core loan data for clarity.
+    HOW: 1:1 with AcqLoan (asset-aligned primary key).
+    """
+
+    # WHAT: 1:1 link to loan container
+    # WHY: Each loan may have at most one BK record
+    # HOW: OneToOneField with primary_key=True
+    loan = models.OneToOneField(
+        AcqLoan,
+        on_delete=models.CASCADE,
+        primary_key=True,
+        related_name='bankruptcy',
+        help_text='1:1 link to acquisition loan.',
+    )
+
+    # WHAT: Bankruptcy flag
+    # WHY: Indicate BK status for workflow/reporting
+    # HOW: Nullable BooleanField
+    bk_flag = models.BooleanField(default=False, null=True, blank=True)
+    # WHAT: Bankruptcy chapter
+    # WHY: Capture BK chapter where provided (e.g., 7, 11, 13)
+    # HOW: Short CharField
+    bk_chapter = models.CharField(max_length=10, null=True, blank=True)
+
+    # ===== Timestamps =====
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Acquisition Bankruptcy"
+        verbose_name_plural = "Acquisition Bankruptcies"
+        indexes = [
+            models.Index(fields=['loan']),
+            models.Index(fields=['bk_flag']),
+        ]
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"AcqBankruptcy for Loan {self.loan_id}"
+
+
+class AcqModification(models.Model):
+    """
+    Modification data tied to a loan.
+
+    WHAT: Stores modification flags and terms.
+    WHY: Isolates mod fields from core loan data for clarity.
+    HOW: 1:1 with AcqLoan (asset-aligned primary key).
+    """
+
+    # WHAT: 1:1 link to loan container
+    # WHY: Each loan may have at most one mod record
+    # HOW: OneToOneField with primary_key=True
+    loan = models.OneToOneField(
+        AcqLoan,
+        on_delete=models.CASCADE,
+        primary_key=True,
+        related_name='modification',
+        help_text='1:1 link to acquisition loan.',
+    )
+
+    # WHAT: Modification flag
+    # WHY: Indicate whether loan is modified
+    # HOW: BooleanField with default False
+    mod_flag = models.BooleanField(default=False)
+    # WHAT: Modification effective date
+    # WHY: Track when modification took effect
+    # HOW: Optional DateField
+    mod_date = models.DateField(null=True, blank=True)
+    # WHAT: Modification maturity date
+    # WHY: Track new maturity date after modification
+    # HOW: Optional DateField
+    mod_maturity_date = models.DateField(null=True, blank=True)
+    # WHAT: Modification term (months)
+    # WHY: Track modified term length
+    # HOW: Optional IntegerField
+    mod_term = models.IntegerField(null=True, blank=True)
+    # WHAT: Modification interest rate
+    # WHY: Track modified rate for modeling
+    # HOW: Optional DecimalField
+    mod_rate = models.DecimalField(max_digits=6, decimal_places=4, null=True, blank=True)
+    # WHAT: Modification initial balance
+    # WHY: Track modified principal balance
+    # HOW: Optional DecimalField
+    mod_initial_balance = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+
+    # ===== Timestamps =====
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Acquisition Modification"
+        verbose_name_plural = "Acquisition Modifications"
+        indexes = [
+            models.Index(fields=['loan']),
+            models.Index(fields=['mod_flag']),
+        ]
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"AcqModification for Loan {self.loan_id}"
+
+
+class AcqProperty(models.Model):
+    """
+    Property data tied to an acquisition asset.
+
+    WHAT: Stores address and physical characteristics.
+    WHY: Separates property from loan to support non-loan assets.
+    HOW: 1:1 with AcqAsset.
+    """
+
+    class Occupancy(models.TextChoices):
+        """Occupancy classification for property assets."""
+        VACANT = 'Vacant', 'Vacant'
+        OCCUPIED = 'Occupied', 'Occupied'
+        UNKNOWN = 'Unknown', 'Unknown'
+
+    # WHAT: 1:1 link to asset container
+    # WHY: Each asset has a single primary property record
+    # HOW: OneToOneField with primary_key=True
+    asset = models.OneToOneField(
+        AcqAsset,
+        on_delete=models.CASCADE,
+        primary_key=True,
+        related_name='property',
+        help_text='1:1 link to acquisition asset.',
+    )
+
+    # ===== Address =====
+    street_address = models.CharField(max_length=100, null=True, blank=True)
+    city = models.CharField(max_length=100, null=True, blank=True)
+    state = models.CharField(max_length=100, null=True, blank=True)
+    zip = models.CharField(max_length=100, null=True, blank=True)
+
+    # ===== Property characteristics =====
     occupancy = models.CharField(
         max_length=100,
         choices=Occupancy.choices,
@@ -249,52 +803,56 @@ class SellerRawData(models.Model):
     beds = models.IntegerField(null=True, blank=True)
     baths = models.IntegerField(null=True, blank=True)
 
-    borrower1_last = models.CharField(max_length=100, null=True, blank=True, help_text="If entity, put entity in borrower1_last.")
-    borrower1_first = models.CharField(max_length=100, null=True, blank=True)
-    borrower2_last = models.CharField(max_length=100, null=True, blank=True)
-    borrower2_first = models.CharField(max_length=100, null=True, blank=True)
-    
-        #Financials
-    current_balance = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    deferred_balance = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    interest_rate = models.DecimalField(max_digits=6, decimal_places=4, null=True, blank=True)
-    next_due_date = models.DateField(null=True, blank=True)
-    last_paid_date = models.DateField(null=True, blank=True)
-    
-    first_pay_date = models.DateField(null=True, blank=True)
-    origination_date = models.DateField(null=True, blank=True)
-    original_balance = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    original_term = models.IntegerField(null=True, blank=True)
-    original_rate = models.DecimalField(max_digits=6, decimal_places=4, null=True, blank=True)
-    original_maturity_date = models.DateField(null=True, blank=True)
-    
-    default_rate = models.DecimalField(max_digits=6, decimal_places=4, null=True, blank=True)
-    months_dlq = models.IntegerField(null=True, blank=True)
-    current_maturity_date = models.DateField(null=True, blank=True)
-    current_term = models.IntegerField(null=True, blank=True)
-    
-    accrued_note_interest = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    accrued_default_interest = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    escrow_balance = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    escrow_advance = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    recoverable_corp_advance = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    late_fees = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    other_fees = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    suspense_balance = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    total_debt = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    @property
+    def property_type_merged(self):
+        """
+        WHAT: Unified property type value for downstream use.
+        WHY: Subclass is the single source of truth for property type.
+        HOW: Return the asset subclass value based on asset_class.
+        """
+        asset = getattr(self, 'asset', None)
+        if not asset:
+            return None
+        return asset.get_property_type_from_subclass()
 
-    origination_value = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    origination_arv = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    origination_value_date = models.DateField(null=True, blank=True)
-    
-    seller_value_date = models.DateField(null=True, blank=True)
-    seller_arv_value = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    # ===== Timestamps =====
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
-    seller_asis_value = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    additional_asis_value = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    additional_arv_value = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    additional_value_date = models.DateField(null=True, blank=True)
+    class Meta:
+        verbose_name = "Acquisition Property"
+        verbose_name_plural = "Acquisition Properties"
+        indexes = [
+            models.Index(fields=['asset']),
+            models.Index(fields=['state']),
+        ]
+        ordering = ['-created_at']
 
+    def __str__(self):
+        return f"AcqProperty for Asset {self.asset_id}"
+
+
+class AcqForeclosureTimeline(models.Model):
+    """
+    Foreclosure timeline fields tied to an acquisition asset.
+
+    WHAT: Tracks FC dates and flags for FC-specific workflows.
+    WHY: Keeps FC timeline separate from loan/property fields.
+    HOW: 1:1 with AcqAsset.
+    """
+
+    # WHAT: 1:1 link to asset container
+    # WHY: Each asset has at most one FC timeline
+    # HOW: OneToOneField with primary_key=True
+    asset = models.OneToOneField(
+        AcqAsset,
+        on_delete=models.CASCADE,
+        primary_key=True,
+        related_name='foreclosure_timeline',
+        help_text='1:1 link to acquisition asset.',
+    )
+
+    # ===== FC fields =====
     fc_flag = models.BooleanField(default=False, null=True, blank=True)
     fc_first_legal_date = models.DateField(null=True, blank=True)
     fc_referred_date = models.DateField(null=True, blank=True)
@@ -303,162 +861,19 @@ class SellerRawData(models.Model):
     fc_sale_date = models.DateField(null=True, blank=True)
     fc_starting = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
 
-    bk_flag = models.BooleanField(default=False, null=True, blank=True)
-    bk_chapter = models.CharField(max_length=10, null=True, blank=True)
-    
-    mod_flag = models.BooleanField(default=False)
-    mod_date = models.DateField(null=True, blank=True)
-    mod_maturity_date = models.DateField(null=True, blank=True)
-    mod_term = models.IntegerField(null=True, blank=True)
-    mod_rate = models.DecimalField(max_digits=6, decimal_places=4, null=True, blank=True)
-    mod_initial_balance = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)    
-
-    # Timestamps
-    # WHAT: Automatic timestamp tracking for record creation and updates
-    # WHY: Track when assets are added to system and when they're modified
-    # HOW: Django auto_now_add for creation, auto_now for updates
+    # ===== Timestamps =====
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    @property
-    def is_dropped(self) -> bool:
-        """Return True when acquisition status is Drop for backward compatibility."""
-        return self.acq_status == self.AcquisitionStatus.DROP
-
     class Meta:
-        verbose_name = "Seller Raw Data"
-        verbose_name_plural = "Seller Raw Data"
+        verbose_name = "Acquisition Foreclosure Timeline"
+        verbose_name_plural = "Acquisition Foreclosure Timelines"
         indexes = [
-            models.Index(fields=['asset_hub']),  # Primary key index (now asset_hub)
-            models.Index(fields=['asset_status']),
-            models.Index(fields=['acq_status']),
-            models.Index(fields=['seller']),
-            models.Index(fields=['trade']),
-            models.Index(fields=['state']),
+            models.Index(fields=['asset']),
         ]
         ordering = ['-created_at']
-        constraints = [
-            # Enforce property_type choices at database level
-            models.CheckConstraint(
-                check=models.Q(property_type__isnull=True) | models.Q(
-                    property_type__in=['SFR', 'Manufactured', 'Condo', 'Townhouse', '2-4 Family', 
-                                      'Land', 'Multifamily 5+', 'Industrial', 'Mixed Use', 'Storage', 'Healthcare']
-                ),
-                name='valid_property_type',
-            ),
-            # Enforce product_type choices at database level
-            models.CheckConstraint(
-                check=models.Q(product_type__isnull=True) | models.Q(
-                    product_type__in=['BPL', 'HECM', 'VA', 'Conv', 'Commercial']
-                ),
-                name='valid_product_type',
-            ),
-            # Enforce occupancy choices at database level
-            models.CheckConstraint(
-                check=models.Q(occupancy__isnull=True) | models.Q(
-                    occupancy__in=['Vacant', 'Occupied', 'Unknown']
-                ),
-                name='valid_occupancy',
-            ),
-            # Enforce asset_status choices at database level
-            models.CheckConstraint(
-                check=models.Q(asset_status__isnull=True) | models.Q(
-                    asset_status__in=['NPL', 'REO', 'PERF', 'RPL']
-                ),
-                name='valid_asset_status',
-            ),
-        ]  
-    
-
-
-   #Calced fields#
-    
-    def calculate_total_debt(self):
-        """Calculate the total debt from all debt components
-        
-        Returns:
-            Decimal: The calculated total debt value
-        """
-        # Sum all debt components
-        total = sum([
-            self.current_balance or 0,
-            self.deferred_balance or 0,
-            self.accrued_note_interest or 0,
-            self.escrow_advance or 0,
-            self.escrow_balance or 0,
-            self.recoverable_corp_advance or 0,
-            self.late_fees or 0,
-            self.other_fees or 0,
-            self.suspense_balance or 0,
-        ])
-        
-        return total
-    
-    def calculate_months_dlq(self):
-        """Calculate the months delinquent based on as_of_date and next_due_date
-        
-        Returns:
-            int: The number of months delinquent
-        """
-        if not self.as_of_date or not self.next_due_date:
-            return 0
-            
-        # Calculate months between as_of_date and next_due_date
-        month_diff = (self.as_of_date.year - self.next_due_date.year) * 12 + (self.as_of_date.month - self.next_due_date.month)
-        
-        # If next_due_date is in the future, we're not delinquent
-        if month_diff < 0:
-            return 0
-            
-        return month_diff
-
-    def save(self, *args, **kwargs):
-        """Override save method to normalize fields and calculate derived values
-
-        Behavior:
-        - Normalize `state` to uppercase at the model layer so all reporting
-          logic can rely on a consistent value. We do not truncate or otherwise
-          modify the value here.
-        - If `total_debt` is not provided, calculate it from component fields.
-        - If `months_dlq` is not provided, calculate it from the dates.
-        """
-        # Normalize the state value if provided: strip whitespace and uppercase.
-        if self.state is not None:
-            # Ensure a consistent representation for downstream aggregations
-            cleaned = self.state.strip()
-            self.state = cleaned.upper() if cleaned else cleaned
-
-        # If total_debt is not provided, calculate it
-        if self.total_debt is None:
-            self.total_debt = self.calculate_total_debt()
-        
-        # If months_dlq is not provided, calculate it
-        if self.months_dlq is None:
-            self.months_dlq = self.calculate_months_dlq()
-
-        super().save(*args, **kwargs)
-        if self.trade_id:
-            self.trade.refresh_status_from_assets()
-
-    def delete(self, *args, **kwargs):
-        trade = self.trade if self.trade_id else None
-        super().delete(*args, **kwargs)
-        if trade:
-            trade.refresh_status_from_assets()
 
     def __str__(self):
-        """Return a safe, human-readable label for admin and logs."""
-        # WHAT: Resolve seller name while guarding against null FK after Seller deletion
-        seller_name = (
-            self.seller.name  # HOW: Use actual seller name when FK still populated
-            if self.seller is not None
-            else "Unassigned Seller"  # WHY: Provide fallback label when FK was nulled
-        )
-        # WHAT: Resolve trade name while handling nullable FK to avoid AttributeError in admin lists
-        trade_name = (
-            self.trade.trade_name  # HOW: Surface trade title for clarity in UI lists
-            if self.trade is not None
-            else "Unassigned Trade"  # WHY: Keep string informative even when FK missing
-        )
-        # RETURN: Include primary key plus resolved names to match previous display format safely
-        return f"Seller Raw Data {self.pk} - {seller_name} - {trade_name}"
+        return f"AcqForeclosureTimeline for Asset {self.asset_id}"
+
+

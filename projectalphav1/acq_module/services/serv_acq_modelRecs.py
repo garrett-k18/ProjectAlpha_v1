@@ -17,7 +17,7 @@ Business Rules:
 from decimal import Decimal
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
-from ..models.model_acq_seller import SellerRawData
+from ..models.model_acq_seller import AcqAsset
 from ..logic.logi_acq_metrics import get_single_asset_metrics
 
 
@@ -50,12 +50,12 @@ class ModelRecommendationService:
         'note_sale': {'name': 'Note Sale', 'order': 5},
     }
     
-    def __init__(self, asset: SellerRawData):
+    def __init__(self, asset: AcqAsset):
         """
         Initialize service with an asset.
         
         Args:
-            asset: SellerRawData instance to analyze
+            asset: AcqAsset instance to analyze
         """
         self.asset = asset
         self._recommendations: Optional[List[ModelRecommendation]] = None
@@ -348,9 +348,9 @@ def get_model_recommendations(asset_hub_id: int) -> Dict:
         Dict with recommendations and metadata
         
     Raises:
-        SellerRawData.DoesNotExist: If asset not found
+        AcqAsset.DoesNotExist: If asset not found
     """
-    asset = SellerRawData.objects.select_related('asset_hub').get(asset_hub_id=asset_hub_id)
+    asset = AcqAsset.objects.select_related('asset_hub').get(asset_hub_id=asset_hub_id)
     service = ModelRecommendationService(asset)
     return service.get_recommendations_dict()
 

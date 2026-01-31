@@ -13,7 +13,8 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
-from acq_module.models.model_acq_seller import Seller, Trade, SellerRawData
+from acq_module.models.model_acq_seller import Seller, Trade, AcqAsset
+from acq_module.logic.common import annotate_seller_valuations
 from core.models.model_co_valuations import Valuation
 from acq_module.logic import (
     current_balance_stratification_dynamic,
@@ -144,10 +145,12 @@ def list_trades_with_active_assets(request):
 @permission_classes([AllowAny])
 def get_pool_summary(request, seller_id: int, trade_id: int):
     """Get aggregate pool summary for dashboard widgets."""
-    qs = SellerRawData.objects.filter(
-        seller_id=seller_id,
-        trade_id=trade_id
-    ).exclude(acq_status=SellerRawData.AcquisitionStatus.DROP)
+    qs = annotate_seller_valuations(
+        AcqAsset.objects.filter(
+            seller_id=seller_id,
+            trade_id=trade_id
+        )
+    ).exclude(acq_status=AcqAsset.AcquisitionStatus.DROP)
 
     # Use Decimal defaults so we don't mix DecimalField with integer literal 0
     zero_money = Value(0, output_field=DecimalField(max_digits=15, decimal_places=2))
@@ -156,8 +159,8 @@ def get_pool_summary(request, seller_id: int, trade_id: int):
         # NOTE: SellerRawData primary key is asset_hub, not a plain id column
         assets=Count('asset_hub'),
         # Field names aligned with frontend expectations
-        current_balance=Coalesce(Sum('current_balance'), zero_money),
-        total_debt=Coalesce(Sum('total_debt'), zero_money),
+        current_balance=Coalesce(Sum('loan__current_balance'), zero_money),
+        total_debt=Coalesce(Sum('loan__total_debt'), zero_money),
         seller_asis_value=Coalesce(Sum('seller_asis_value'), zero_money),
     )
 
@@ -183,10 +186,12 @@ def get_pool_summary(request, seller_id: int, trade_id: int):
 @permission_classes([AllowAny])
 def get_valuation_completion_summary(request, seller_id: int, trade_id: int):
     """Get valuation completion counts for dashboard."""
-    base_qs = SellerRawData.objects.filter(
-        seller_id=seller_id,
-        trade_id=trade_id
-    ).exclude(acq_status=SellerRawData.AcquisitionStatus.DROP)
+    base_qs = annotate_seller_valuations(
+        AcqAsset.objects.filter(
+            seller_id=seller_id,
+            trade_id=trade_id
+        )
+    ).exclude(acq_status=AcqAsset.AcquisitionStatus.DROP)
     
     total = base_qs.count()
     
@@ -262,12 +267,12 @@ def get_title_completion_summary(request, seller_id: int, trade_id: int):
 @permission_classes([AllowAny])
 def get_states_for_selection(request, seller_id: int, trade_id: int):
     """Get list of states in the portfolio."""
-    states = SellerRawData.objects.filter(
+    states = AcqAsset.objects.filter(
         seller_id=seller_id,
         trade_id=trade_id
     ).exclude(
-        acq_status=SellerRawData.AcquisitionStatus.DROP
-    ).values_list('state', flat=True).distinct()
+        acq_status=AcqAsset.AcquisitionStatus.DROP
+    ).values_list('property__state', flat=True).distinct()
     return Response(list(states))
 
 
@@ -275,12 +280,12 @@ def get_states_for_selection(request, seller_id: int, trade_id: int):
 @permission_classes([AllowAny])
 def get_state_count_for_selection(request, seller_id: int, trade_id: int):
     """Get count of unique states."""
-    count = SellerRawData.objects.filter(
+    count = AcqAsset.objects.filter(
         seller_id=seller_id,
         trade_id=trade_id
     ).exclude(
-        acq_status=SellerRawData.AcquisitionStatus.DROP
-    ).values('state').distinct().count()
+        acq_status=AcqAsset.AcquisitionStatus.DROP
+    ).values('property__state').distinct().count()
     return Response({'count': count})
 
 
@@ -288,12 +293,12 @@ def get_state_count_for_selection(request, seller_id: int, trade_id: int):
 @permission_classes([AllowAny])
 def get_count_by_state(request, seller_id: int, trade_id: int):
     """Get asset count by state."""
-    data = SellerRawData.objects.filter(
+    data = AcqAsset.objects.filter(
         seller_id=seller_id,
         trade_id=trade_id
     ).exclude(
-        acq_status=SellerRawData.AcquisitionStatus.DROP
-    ).values('state').annotate(count=Count('asset_hub')).order_by('-count')
+        acq_status=AcqAsset.AcquisitionStatus.DROP
+    ).values('property__state').annotate(count=Count('asset_hub')).order_by('-count')
     return Response(list(data))
 
 
@@ -301,12 +306,12 @@ def get_count_by_state(request, seller_id: int, trade_id: int):
 @permission_classes([AllowAny])
 def get_sum_current_balance_by_state(request, seller_id: int, trade_id: int):
     """Get sum of current balance by state."""
-    data = SellerRawData.objects.filter(
+    data = AcqAsset.objects.filter(
         seller_id=seller_id,
         trade_id=trade_id
     ).exclude(
-        acq_status=SellerRawData.AcquisitionStatus.DROP
-    ).values('state').annotate(sum_current_balance=Sum('current_balance')).order_by('-sum_current_balance')
+        acq_status=AcqAsset.AcquisitionStatus.DROP
+    ).values('property__state').annotate(sum_current_balance=Sum('loan__current_balance')).order_by('-sum_current_balance')
     return Response(list(data))
 
 
@@ -314,12 +319,12 @@ def get_sum_current_balance_by_state(request, seller_id: int, trade_id: int):
 @permission_classes([AllowAny])
 def get_sum_total_debt_by_state(request, seller_id: int, trade_id: int):
     """Get sum of total debt by state."""
-    data = SellerRawData.objects.filter(
+    data = AcqAsset.objects.filter(
         seller_id=seller_id,
         trade_id=trade_id
     ).exclude(
-        acq_status=SellerRawData.AcquisitionStatus.DROP
-    ).values('state').annotate(sum_total_debt=Sum('total_debt')).order_by('-sum_total_debt')
+        acq_status=AcqAsset.AcquisitionStatus.DROP
+    ).values('property__state').annotate(sum_total_debt=Sum('loan__total_debt')).order_by('-sum_total_debt')
     return Response(list(data))
 
 
@@ -327,12 +332,14 @@ def get_sum_total_debt_by_state(request, seller_id: int, trade_id: int):
 @permission_classes([AllowAny])
 def get_sum_seller_asis_value_by_state(request, seller_id: int, trade_id: int):
     """Get sum of seller as-is value by state."""
-    data = SellerRawData.objects.filter(
-        seller_id=seller_id,
-        trade_id=trade_id
+    data = annotate_seller_valuations(
+        AcqAsset.objects.filter(
+            seller_id=seller_id,
+            trade_id=trade_id
+        )
     ).exclude(
-        acq_status=SellerRawData.AcquisitionStatus.DROP
-    ).values('state').annotate(sum_seller_asis_value=Sum('seller_asis_value')).order_by('-sum_seller_asis_value')
+        acq_status=AcqAsset.AcquisitionStatus.DROP
+    ).values('property__state').annotate(sum_seller_asis_value=Sum('seller_asis_value')).order_by('-sum_seller_asis_value')
     return Response(list(data))
 
 

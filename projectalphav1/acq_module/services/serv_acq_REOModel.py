@@ -12,7 +12,7 @@ from typing import Optional, Dict, Any
 from datetime import date
 from decimal import Decimal
 
-from acq_module.models.model_acq_seller import SellerRawData
+from acq_module.models.model_acq_seller import AcqAsset
 from acq_module.models.model_acq_assumptions import TradeLevelAssumption, LoanLevelAssumption
 from acq_module.logic.logi_acq_durationAssumptions import get_asset_fc_timeline
 from acq_module.logic.logi_acq_expenseAssumptions import monthly_tax_for_asset, monthly_insurance_for_asset, acq_broker_fee, acq_fee_other
@@ -55,9 +55,14 @@ def get_reo_timeline_sums(asset_hub_id: int, reference_date: Optional[date] = No
     if reference_date is None:
         reference_date = date.today()
     
-    # WHAT: Get asset's SellerRawData to access trade and state
+    # WHAT: Get asset container to access trade and state
     # WHY: Need trade for servicing transfer date, state for REO marketing duration
-    raw_data = SellerRawData.objects.filter(asset_hub_id=asset_hub_id).select_related('trade').first()
+    asset = (
+        AcqAsset.objects
+        .select_related('trade', 'property')
+        .filter(asset_hub_id=asset_hub_id)
+        .first()
+    )
     
     # WHAT: PERFORMANCE - Fetch LoanLevelAssumption ONCE to avoid N+1 queries
     # WHY: This function was querying it 3 separate times (FC, renovation, marketing overrides)
@@ -66,17 +71,17 @@ def get_reo_timeline_sums(asset_hub_id: int, reference_date: Optional[date] = No
     # WHAT: PERFORMANCE - Fetch StateReference ONCE to avoid duplicate queries
     # WHY: This function was querying it 2 separate times (rehab duration, marketing duration)
     state_ref = None
-    if raw_data and raw_data.state:
-        state_ref = StateReference.objects.filter(state_code=raw_data.state).first()
+    if asset and asset.property and asset.property.state:
+        state_ref = StateReference.objects.filter(state_code=asset.property.state).first()
     
     # WHAT: Default to 0 instead of None so calculations still work
     # WHY: Returning None breaks frontend calculations; 0 is a valid "no duration" value
     servicing_transfer_months = 0
     
-    if raw_data and raw_data.trade:
+    if asset and asset.trade:
         # WHAT: Get TradeLevelAssumption for this trade
         # WHY: Contains servicing_transfer_date field with fallback logic
-        trade_assumption = TradeLevelAssumption.objects.filter(trade=raw_data.trade).select_related('servicer').first()
+        trade_assumption = TradeLevelAssumption.objects.filter(trade=asset.trade).select_related('servicer').first()
         
         if trade_assumption:
             # WHAT: Use effective_servicing_transfer_date property
@@ -141,7 +146,7 @@ def get_reo_timeline_sums(asset_hub_id: int, reference_date: Optional[date] = No
                 if reo_renovation_months < 0:
                     reo_renovation_months = 0
         except Exception as e:
-            print(f"ERROR getting REO renovation duration for state {raw_data.state}: {str(e)}")
+            print(f"ERROR getting REO renovation duration for state {asset.property.state if asset and asset.property else None}: {str(e)}")
     
     # WHAT: If no state reference, default to 0 renovation months
     if reo_renovation_months is None:
@@ -169,7 +174,7 @@ def get_reo_timeline_sums(asset_hub_id: int, reference_date: Optional[date] = No
                 if reo_marketing_months < 0:
                     reo_marketing_months = 0
         except Exception as e:
-            print(f"ERROR getting REO marketing duration for state {raw_data.state}: {str(e)}")
+            print(f"ERROR getting REO marketing duration for state {asset.property.state if asset and asset.property else None}: {str(e)}")
     
     # WHAT: Calculate total timeline
     # WHY: Need to show complete duration from acquisition to sale
@@ -316,16 +321,30 @@ def get_reo_expense_values(
     servicer_liquidation_fee = Decimal('0.0')
     
     # Get asset data with optimized queries
-    raw_data = SellerRawData.objects.filter(asset_hub_id=asset_hub_id).select_related('trade').first()
+    asset = (
+        AcqAsset.objects
+        .select_related('trade', 'property', 'loan')
+        .filter(asset_hub_id=asset_hub_id)
+        .first()
+    )
     
-    if not raw_data:
+    if not asset:
         return {}
+    
+    # WHAT: Normalize commonly used asset fields
+    # WHY: Avoid repeated null-checks throughout the function
+    # HOW: Pull from related property/loan with safe fallbacks
+    asset_state = asset.property.state if asset.property else None
+    property_type = asset.property.property_type_merged if asset.property else None
+    square_feet = asset.property.sq_ft if asset.property else None
+    current_balance = asset.loan.current_balance if asset.loan else None
+    total_debt = asset.loan.total_debt if asset.loan else None
     
     # Fetch TradeLevelAssumption ONCE and reuse throughout function
     trade_assumption = None
     servicer = None
-    if raw_data.trade:
-        trade_assumption = TradeLevelAssumption.objects.filter(trade=raw_data.trade).select_related('servicer').first()
+    if asset.trade:
+        trade_assumption = TradeLevelAssumption.objects.filter(trade=asset.trade).select_related('servicer').first()
         if trade_assumption:
             servicer = trade_assumption.servicer
     
@@ -370,9 +389,9 @@ def get_reo_expense_values(
             print(f"ERROR calculating insurance: {str(e)}")
     
     # WHAT: Get legal costs from state reference
-    if raw_data.state:
+    if asset_state:
         try:
-            state_ref = StateReference.objects.filter(state_code=raw_data.state).first()
+            state_ref = StateReference.objects.filter(state_code=asset_state).first()
             if state_ref and state_ref.fc_legal_fees_avg:
                 legal_cost = state_ref.fc_legal_fees_avg
         except Exception as e:
@@ -387,9 +406,9 @@ def get_reo_expense_values(
             monthly_utilities = Decimal('0.0')
             monthly_property_pres = Decimal('0.0')
             
-            # WHAT: Get property type and square footage from SellerRawData
-            property_type = raw_data.property_type if raw_data else None
-            square_feet = raw_data.sq_ft if raw_data else None
+            # WHAT: Use property type and square footage from AcqProperty
+            # WHY: Property data was split into its own model
+            # HOW: Use cached local variables from asset.property
             
             # WHAT: Calculate monthly HOA fee
             # HOW: Lookup by property type in HOAAssumption table
@@ -486,9 +505,6 @@ def get_reo_expense_values(
     # WHY: Cost to clear out property after foreclosure/eviction
     # HOW: Use SquareFootageAssumption if square feet available, otherwise PropertyTypeAssumption
     try:
-        property_type = raw_data.property_type if raw_data else None
-        square_feet = raw_data.sq_ft if raw_data else None
-        
         # WHAT: Try square footage model first if square feet is available
         # HOW: Use RESIDENTIAL category for SquareFootageAssumption (independent of property_type)
         if square_feet and square_feet > 0:
@@ -523,9 +539,6 @@ def get_reo_expense_values(
     # WHY: Cost to renovate property before REO sale
     # HOW: Priority 1 - Internal UW rehab estimate, 2 - Square footage model, 3 - Property type model
     try:
-        property_type = raw_data.property_type if raw_data else None
-        square_feet = raw_data.sq_ft if raw_data else None
-        
         # WHAT: Priority 1 - Check for Internal Initial UW valuation rehab estimate
         # WHY: Most accurate if underwriter provided specific rehab estimate
         try:
@@ -729,9 +742,9 @@ def get_reo_expense_values(
     try:
         price_metrics = purchase_price_metrics(asset_hub_id)
         
-        if raw_data:
-            base_values['base_currentBalance'] = float(raw_data.current_balance) if raw_data.current_balance else None
-            base_values['base_totalDebt'] = float(raw_data.total_debt) if raw_data.total_debt else None
+        if asset:
+            base_values['base_currentBalance'] = float(current_balance) if current_balance else None
+            base_values['base_totalDebt'] = float(total_debt) if total_debt else None
             try:
                 seller_val = (
                     Valuation.objects.filter(

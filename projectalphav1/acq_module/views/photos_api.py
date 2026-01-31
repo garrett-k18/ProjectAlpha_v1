@@ -23,7 +23,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status, serializers
 
-from ..models.model_acq_seller import SellerRawData
+from ..models.model_acq_seller import AcqAsset
 from core.models.attachments import Photo
 
 
@@ -48,7 +48,7 @@ class OutputPhotoSerializer(serializers.Serializer):
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def list_photos_by_raw_id(request, id: int):
-    """Return all photos for a given SellerRawData id in a normalized structure.
+    """Return all photos for a given asset id in a normalized structure.
 
     URL: /api/acq/photos/<id>/
     Path params:
@@ -61,8 +61,8 @@ def list_photos_by_raw_id(request, id: int):
       {"src": "https://host/media/...", "alt": "Broker photo", "thumb": "..."}
     ]
     """
-    # Ensure the parent record exists; router will place SellerRawData reads into seller_data DB
-    raw = get_object_or_404(SellerRawData, pk=id)
+    # Ensure the parent record exists; router will place AcqAsset reads into seller_data DB
+    asset = get_object_or_404(AcqAsset, pk=id)
 
     # Helper to build absolute URLs from storage-relative .url
     def abs_url(rel_url: str) -> str:
@@ -71,7 +71,7 @@ def list_photos_by_raw_id(request, id: int):
     items: List[Dict] = []
 
     # Unified photos for the owning hub
-    hub = getattr(raw, 'asset_hub', None)
+    hub = getattr(asset, 'asset_hub', None)
     qs = Photo.objects.none()
     if hub is not None:
         qs = Photo.objects.filter(asset_hub=hub)

@@ -91,15 +91,15 @@ class BlendedOutcomeModelAdmin(admin.ModelAdmin):
     list_filter = (
         "created_at",
         "updated_at",
-        "asset_hub__acq_raw__trade",
+        "asset_hub__acq_asset__trade",
     )
     search_fields = (
         # Traverse hub -> acquisitions raw tape for human fields
         "asset_hub__sellertape_id",
         "asset_hub__servicer_id",
-        "asset_hub__acq_raw__street_address",
-        "asset_hub__acq_raw__city",
-        "asset_hub__acq_raw__state",
+        "asset_hub__acq_asset__street_address",
+        "asset_hub__acq_asset__city",
+        "asset_hub__acq_asset__state",
     )
     readonly_fields = ("created_at", "updated_at")
     ordering = ("-created_at",)
@@ -115,9 +115,9 @@ class BlendedOutcomeModelAdmin(admin.ModelAdmin):
 
     def trade_id_display(self, obj):
         trade_id = None
-        acq_raw = getattr(obj.asset_hub, "acq_raw", None)
-        if acq_raw and acq_raw.trade_id:
-            trade_id = acq_raw.trade_id
+        acq_asset = getattr(obj.asset_hub, "acq_asset", None)
+        if acq_asset and acq_asset.trade_id:
+            trade_id = acq_asset.trade_id
         else:
             details = getattr(obj.asset_hub, "details", None)
             if details and details.trade_id:

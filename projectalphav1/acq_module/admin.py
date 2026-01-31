@@ -2,7 +2,16 @@ from django.contrib import admin
 from django.utils.html import format_html
 
 # All valuation models moved to core
-from .models.model_acq_seller import Seller, Trade, SellerRawData
+from .models.model_acq_seller import (
+    Seller,
+    Trade,
+    AcqAsset,
+    AcqLoan,
+    AcqProperty,
+    AcqForeclosureTimeline,
+    AcqBankruptcy,
+    AcqModification,
+)
 from .models.model_acq_assumptions import LoanLevelAssumption, TradeLevelAssumption, StaticModelAssumptions, NoteSaleAssumption  # StaticModelAssumptions is DEPRECATED
 """
 NOTE: Valuation models have been unified.
@@ -42,9 +51,9 @@ class TradeInline(admin.TabularInline):
     model = Trade
     extra = 0
 
-class SellerRawDataInline(admin.TabularInline):
-    """Inline admin for SellerRawData model to display in Trade admin"""
-    model = SellerRawData
+class AcqAssetInline(admin.TabularInline):
+    """Inline admin for AcqAsset model to display in Trade admin"""
+    model = AcqAsset
     extra = 0
     # Do not specify `fields` so Django renders all editable fields by default.
     show_change_link = True
@@ -87,22 +96,70 @@ class TradeAdmin(admin.ModelAdmin):
     list_per_page = 5
     inlines = []
 
-@admin.register(SellerRawData)
-class SellerRawDataAdmin(admin.ModelAdmin):
-    """Admin configuration for SellerRawData model"""
-    # Show all concrete fields (this is a wide list view)
-    list_display = all_concrete_field_names(SellerRawData)
-    # Optimize FK lookups for list view performance
+@admin.register(AcqAsset)
+class AcqAssetAdmin(admin.ModelAdmin):
+    """Admin configuration for AcqAsset model"""
+    list_display = all_concrete_field_names(AcqAsset)
     list_select_related = ('seller', 'trade')
-    list_filter = ('asset_status', 'state', 'seller', 'trade', 'property_type', 'product_type', 'occupancy')
+    list_filter = ('asset_status', 'acq_status', 'asset_class', 'seller', 'trade')
     search_fields = (
-        'street_address', 'city', 'state', 'zip',
-        'sellertape_id', 'sellertape_altid',
-        'borrower1_last', 'borrower1_first', 'borrower2_last', 'borrower2_first'
+        'asset_hub__sellertape_id',
+        'seller__name',
+        'trade__trade_name',
     )
-    # Expose read-only identifiers and audit fields on the form
     readonly_fields = ('asset_hub', 'created_at', 'updated_at')
-    # Use Django's default add/change form, which renders ALL model fields by default.
+    list_per_page = 5
+
+
+@admin.register(AcqLoan)
+class AcqLoanAdmin(admin.ModelAdmin):
+    """Admin configuration for AcqLoan model"""
+    list_display = all_concrete_field_names(AcqLoan)
+    list_select_related = ('asset',)
+    list_filter = ('product_type',)
+    search_fields = ('sellertape_id', 'sellertape_altid', 'borrower1_last', 'borrower1_first')
+    readonly_fields = ('asset', 'created_at', 'updated_at')
+    list_per_page = 5
+
+
+@admin.register(AcqProperty)
+class AcqPropertyAdmin(admin.ModelAdmin):
+    """Admin configuration for AcqProperty model"""
+    list_display = all_concrete_field_names(AcqProperty)
+    list_select_related = ('asset',)
+    list_filter = ('state', 'occupancy')
+    search_fields = ('street_address', 'city', 'state', 'zip')
+    readonly_fields = ('asset', 'created_at', 'updated_at')
+    list_per_page = 5
+
+
+@admin.register(AcqForeclosureTimeline)
+class AcqForeclosureTimelineAdmin(admin.ModelAdmin):
+    """Admin configuration for AcqForeclosureTimeline model"""
+    list_display = all_concrete_field_names(AcqForeclosureTimeline)
+    list_select_related = ('asset',)
+    list_filter = ('fc_flag',)
+    readonly_fields = ('asset', 'created_at', 'updated_at')
+    list_per_page = 5
+
+
+@admin.register(AcqBankruptcy)
+class AcqBankruptcyAdmin(admin.ModelAdmin):
+    """Admin configuration for AcqBankruptcy model"""
+    list_display = all_concrete_field_names(AcqBankruptcy)
+    list_select_related = ('loan',)
+    list_filter = ('bk_flag',)
+    readonly_fields = ('loan', 'created_at', 'updated_at')
+    list_per_page = 5
+
+
+@admin.register(AcqModification)
+class AcqModificationAdmin(admin.ModelAdmin):
+    """Admin configuration for AcqModification model"""
+    list_display = all_concrete_field_names(AcqModification)
+    list_select_related = ('loan',)
+    list_filter = ('mod_flag',)
+    readonly_fields = ('loan', 'created_at', 'updated_at')
     list_per_page = 5
 
 ## Servicer and StateReference have been moved to core.models.model_co_assumptions and are registered in core.admin
@@ -111,7 +168,7 @@ class SellerRawDataAdmin(admin.ModelAdmin):
 class LoanLevelAssumptionAdmin(admin.ModelAdmin):
     """Admin configuration for LoanLevelAssumption model"""
     list_display = ('asset_hub', 'acquisition_price', 'months_to_resolution', 'probability_of_cure', 'probability_of_foreclosure', 'fc_duration_override_months')
-    list_filter = ('asset_hub__acq_raw__seller', 'asset_hub__acq_raw__trade')
+    list_filter = ('asset_hub__acq_asset__seller', 'asset_hub__acq_asset__trade')
     list_per_page = 5
 
 # ============================================================================

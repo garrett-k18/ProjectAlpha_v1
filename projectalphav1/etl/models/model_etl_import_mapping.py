@@ -276,22 +276,19 @@ class ImportMapping(models.Model):
     
     def validate_mapping(self):
         """
-        WHAT: Validate that mapped fields exist in SellerRawData model
+        WHAT: Validate that mapped fields exist in ETL registry
         WHY: Prevent errors from invalid field names
         HOW: Check each target field against model fields
         
         Returns:
             Dict with validation results: {valid: bool, errors: list}
         """
-        from acq_module.models.model_acq_seller import SellerRawData
+        from etl.services.services_sellerTapeImport.etl_field_registry import get_import_field_specs
         
-        # WHAT: Get valid field names from model
+        # WHAT: Get valid field names from registry
         # WHY: Need reference list for validation
-        # HOW: Extract non-auto-created fields
-        valid_fields = {
-            f.name for f in SellerRawData._meta.get_fields()
-            if not f.auto_created and f.name not in ['asset_hub', 'seller', 'trade']
-        }
+        # HOW: Use registry spec keys
+        valid_fields = set(get_import_field_specs().keys())
         
         errors = []
         # WHAT: Check each mapped field

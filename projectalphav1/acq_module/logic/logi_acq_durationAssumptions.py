@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional
 
 from django.db.models import Prefetch, Sum
 
-from acq_module.models.model_acq_seller import SellerRawData
+from acq_module.models.model_acq_seller import AcqAsset
 from core.models.model_co_geoAssumptions import StateReference
 from core.models.model_co_assumptions import FCStatus, FCTimelines
 from .logi_acq_expenseAssumptions import (
@@ -46,12 +46,18 @@ def get_asset_fc_timeline(asset_id: int) -> Dict[str, Any]:
     """
 
     # Resolve asset state (already normalized upstream by ETL/model layer)
-    # SellerRawData has a OneToOneField primary key to core.AssetIdHub via `asset_hub`.
+    # AcqAsset has a OneToOneField primary key to core.AssetIdHub via `asset_hub`.
     # Query explicitly by asset_hub_id to avoid any ambiguity with PKs in data imports.
-    raw = SellerRawData.objects.filter(asset_hub_id=asset_id).only("state").first()
-    if not raw or not raw.state:
+    asset = (
+        AcqAsset.objects
+        .select_related("property")
+        .filter(asset_hub_id=asset_id)
+        .only("property__state")
+        .first()
+    )
+    if not asset or not asset.property or not asset.property.state:
         return {"state": None, "statuses": []}
-    state_code = raw.state
+    state_code = asset.property.state
 
     # Preload all statuses in defined order for consistent rows
     statuses: List[FCStatus] = list(FCStatus.objects.all().order_by("order", "status"))
@@ -124,7 +130,7 @@ def get_state_fc_total_duration_days(state_code: str) -> Optional[int]:
 
 
 def get_asset_fc_total_duration_days(asset_id: int) -> Optional[int]:
-    """Resolve the asset's state from `SellerRawData` and return that state's total duration days.
+    """Resolve the asset's state from `AcqProperty` and return that state's total duration days.
 
     Args:
         asset_id: The AssetIdHub primary key.
@@ -132,10 +138,16 @@ def get_asset_fc_total_duration_days(asset_id: int) -> Optional[int]:
     Returns:
         Integer total of days across statuses for the asset's state, or None if unknown.
     """
-    raw = SellerRawData.objects.filter(asset_hub_id=asset_id).only('state').first()
-    if not raw or not raw.state:
+    asset = (
+        AcqAsset.objects
+        .select_related("property")
+        .filter(asset_hub_id=asset_id)
+        .only("property__state")
+        .first()
+    )
+    if not asset or not asset.property or not asset.property.state:
         return None
-    return get_state_fc_total_duration_days(raw.state)
+    return get_state_fc_total_duration_days(asset.property.state)
 
 
 def get_state_fc_metrics(state_code: str) -> Dict[str, Optional[int]]:

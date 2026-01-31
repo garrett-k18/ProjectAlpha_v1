@@ -25,7 +25,7 @@ from functools import lru_cache
 from django.db import connection
 from django.db.models import QuerySet, Q, F, Value, CharField, DecimalField, IntegerField, ExpressionWrapper, OuterRef, Subquery, DateField
 from django.db.models.functions import Coalesce
-from acq_module.models.model_acq_seller import SellerRawData, Trade
+from acq_module.models.model_acq_seller import AcqAsset, Trade
 from am_module.models.model_am_servicersCleaned import ServicerLoanData
 
 
@@ -34,9 +34,9 @@ def _has_blended_outcome_table() -> bool:
     return 'am_module_blendedoutcomemodel' in connection.introspection.table_names()
 
 
-def build_base_queryset() -> QuerySet[SellerRawData]:
+def build_base_queryset() -> QuerySet[AcqAsset]:
     """
-    WHAT: Build base SellerRawData queryset with optimized joins and field annotations
+    WHAT: Build base AcqAsset queryset with optimized joins and field annotations
     WHY: Reduce N+1 queries by eagerly loading related data and annotate computed fields
     HOW: Use select_related for ForeignKey joins, annotate for field mapping
     
@@ -48,7 +48,7 @@ def build_base_queryset() -> QuerySet[SellerRawData]:
     # WHY: Trade, Seller, AssetHub, ServicerLoanData are frequently accessed in reporting
     # HOW: Use select_related for ForeignKey, prefetch_related for reverse FKs
     queryset = (
-        SellerRawData.objects
+        AcqAsset.objects
         .select_related(
             'trade',                    # WHAT: Trade details (name, status, bid_date)
             'trade__seller',            # WHAT: Seller details (name, POC)
@@ -57,6 +57,8 @@ def build_base_queryset() -> QuerySet[SellerRawData]:
             # WHY: Many assets don't have AssetDetails yet, we want to show them all
             # HOW: Django will do LEFT JOIN automatically when filtering/annotating
             'seller',                   # WHAT: Direct seller FK if exists
+            'loan',
+            'property',
             'asset_hub__dil',
             'asset_hub__modification',
             'asset_hub__reo_data',
@@ -126,26 +128,28 @@ def build_base_queryset() -> QuerySet[SellerRawData]:
         servicer_id=F('asset_hub__servicer_id'),
         
         # ──────────────────────────────────────────────────────────────────
-        # ADDRESS FIELDS (from SellerRawData - already on base model)
+        # ADDRESS FIELDS (from AcqProperty)
         # ──────────────────────────────────────────────────────────────────
-        # NOTE: These fields are ALREADY on SellerRawData, no annotation needed!
-        # - street_address ✅ (directly accessible)
-        # - city ✅ (directly accessible)
-        # - state ✅ (directly accessible)
-        # - zip ✅ (directly accessible)
-        # 
-        # Just reference them directly in aggregations/serializers:
-        # .values('street_address', 'city', 'state')
-        # 
-        # OPTIONAL: Computed full address field for convenience
+        # NOTE: These legacy names are annotated for reporting compatibility.
+        # They allow downstream reports to continue referencing street_address/city/state/zip.
+        street_address=F('property__street_address'),
+        city=F('property__city'),
+        state=F('property__state'),
+        zip=F('property__zip'),
+        sellertape_id=F('loan__sellertape_id'),
+        current_balance=F('loan__current_balance'),
+        total_debt=F('loan__total_debt'),
+        interest_rate=F('loan__interest_rate'),
+        default_rate=F('loan__default_rate'),
+        maturity_date=Coalesce(F('loan__current_maturity_date'), F('loan__original_maturity_date')),
         full_address=Concat(
-            F('street_address'),
+            F('property__street_address'),
             Value(', '),
-            F('city'),
+            F('property__city'),
             Value(', '),
-            F('state'),
+            F('property__state'),
             Value(' '),
-            Coalesce(F('zip'), Value('')),
+            Coalesce(F('property__zip'), Value('')),
             output_field=CharField()
         ),
         
@@ -523,9 +527,9 @@ def build_base_queryset() -> QuerySet[SellerRawData]:
 
 
 def apply_trade_filter(
-    queryset: QuerySet[SellerRawData],
+    queryset: QuerySet[AcqAsset],
     trade_ids: Optional[List[int]] = None
-) -> QuerySet[SellerRawData]:
+) -> QuerySet[AcqAsset]:
     """
     WHAT: Filter queryset by trade IDs
     WHY: Users select specific trades in sidebar
@@ -546,9 +550,9 @@ def apply_trade_filter(
 
 
 def apply_track_filter(
-    queryset: QuerySet[SellerRawData],
+    queryset: QuerySet[AcqAsset],
     tracks: Optional[List[str]] = None
-) -> QuerySet[SellerRawData]:
+) -> QuerySet[AcqAsset]:
     """
     WHAT: Filter queryset by AM outcome tracks (REO, FC, DIL, Short Sale, Modification, Note Sale)
     WHY: Users select specific outcome tracks to view in reporting
@@ -592,10 +596,10 @@ def apply_track_filter(
 
 
 def apply_task_status_filter(
-    queryset: QuerySet[SellerRawData],
+    queryset: QuerySet[AcqAsset],
     task_statuses: Optional[List[str]] = None,
     tracks: Optional[List[str]] = None,
-) -> QuerySet[SellerRawData]:
+) -> QuerySet[AcqAsset]:
     """
     WHAT: Filter queryset by active task statuses (eviction, trashout, nod_noi, etc.)
     WHY: Users select specific tasks to view in reporting
@@ -648,10 +652,10 @@ def apply_task_status_filter(
 
 
 def apply_fund_filter(
-    queryset: QuerySet[SellerRawData],
+    queryset: QuerySet[AcqAsset],
     fund_id: Optional[int] = None,
     partnership_ids: Optional[List[int]] = None
-) -> QuerySet[SellerRawData]:
+) -> QuerySet[AcqAsset]:
     """
     WHAT: Filter queryset by fund/partnership (FundLegalEntity)
     WHY: Users want to see data for specific investment funds or partnerships
@@ -680,9 +684,9 @@ def apply_fund_filter(
 
 
 def apply_entity_filter(
-    queryset: QuerySet[SellerRawData],
+    queryset: QuerySet[AcqAsset],
     entity_id: Optional[int] = None
-) -> QuerySet[SellerRawData]:
+) -> QuerySet[AcqAsset]:
     """
     WHAT: Filter queryset by legal entity
     WHY: Users need entity-level reporting for accounting/compliance
@@ -707,10 +711,10 @@ def apply_entity_filter(
 
 
 def apply_date_range_filter(
-    queryset: QuerySet[SellerRawData],
+    queryset: QuerySet[AcqAsset],
     start_date: Optional[str] = None,
     end_date: Optional[str] = None
-) -> QuerySet[SellerRawData]:
+) -> QuerySet[AcqAsset]:
     """
     WHAT: Filter queryset by date range
     WHY: Users want to see data for specific time periods
@@ -736,9 +740,9 @@ def apply_date_range_filter(
 
 
 def apply_quick_filter(
-    queryset: QuerySet[SellerRawData],
+    queryset: QuerySet[AcqAsset],
     q: Optional[str] = None
-) -> QuerySet[SellerRawData]:
+) -> QuerySet[AcqAsset]:
     """
     WHAT: Apply quick search filter across multiple fields
     WHY: Users type in search box to find specific assets/trades
@@ -778,7 +782,7 @@ def build_reporting_queryset(
     end_date: Optional[str] = None,
     q: Optional[str] = None,
     ordering: Optional[str] = None,
-) -> QuerySet[SellerRawData]:
+) -> QuerySet[AcqAsset]:
     """
     WHAT: Build complete reporting queryset with all filters applied
     WHY: Single function to handle all reporting filter combinations

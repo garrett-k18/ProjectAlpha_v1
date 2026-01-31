@@ -15,7 +15,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.shortcuts import get_object_or_404
 
-from ..models.model_acq_seller import SellerRawData
+from ..models.model_acq_seller import AcqAsset
 from ..services.serv_acq_modelRecs import ModelRecommendationService
 from ..services.serv_acq_FCModel import get_fc_timeline_sums, get_fc_expense_values
 from ..services.serv_acq_REOModel import get_reo_timeline_sums, get_reo_expense_values
@@ -32,6 +32,18 @@ logger = logging.getLogger(__name__)
 def get_permission_classes():
     """Return permission classes based on DEBUG setting."""
     return [AllowAny] if getattr(settings, 'DEBUG', False) else [IsAuthenticated]
+
+
+def get_acq_asset_or_404(asset_id: int) -> AcqAsset:
+    """
+    WHAT: Fetch an acquisition asset with related records.
+    WHY: Many endpoints need loan/property/FC data for the same asset.
+    HOW: Use select_related and get_object_or_404 for a single query.
+    """
+    return get_object_or_404(
+        AcqAsset.objects.select_related('loan', 'property', 'foreclosure_timeline'),
+        pk=asset_id
+    )
 
 
 @api_view(['GET'])
@@ -68,9 +80,9 @@ def get_asset_model_recommendations(request, asset_id):
         }
     """
     # WHAT: Get asset by primary key (which is asset_hub in this model)
-    # WHY: SellerRawData uses asset_hub as its primary key, so pk lookup is most explicit
+    # WHY: AcqAsset uses asset_hub as its primary key, so pk lookup is most explicit
     # HOW: get_object_or_404 raises 404 if not found
-    asset = get_object_or_404(SellerRawData, pk=asset_id)
+    asset = get_acq_asset_or_404(asset_id)
     
     try:
         # Generate recommendations using service
@@ -133,7 +145,7 @@ def bulk_model_recommendations(request):
     
     try:
         # Fetch all assets in one query
-        assets = SellerRawData.objects.filter(asset_hub_id__in=asset_ids)
+        assets = AcqAsset.objects.filter(asset_hub_id__in=asset_ids)
         
         # Generate recommendations for each
         results = []
@@ -204,13 +216,15 @@ def get_fc_model_timeline_sums(request, asset_id):
         }
     """
     # WHAT: Get asset by primary key (which is asset_hub in this model)
-    # WHY: SellerRawData uses asset_hub as its primary key, so pk lookup is most explicit
+    # WHY: AcqAsset uses asset_hub as its primary key, so pk lookup is most explicit
     # HOW: get_object_or_404 raises 404 if not found
     print(f'\n\n=== FC MODEL SUMS ENDPOINT CALLED FOR ASSET {asset_id} ===\n')
-    asset = get_object_or_404(SellerRawData, pk=asset_id)
-    print(f'Asset found: hub_id={asset.asset_hub_id}, state={asset.state}, sellertape_id={asset.sellertape_id}\n')
+    asset = get_acq_asset_or_404(asset_id)
+    asset_state = asset.property.state if asset.property else None
+    asset_sellertape_id = asset.loan.sellertape_id if asset.loan else None
+    print(f'Asset found: hub_id={asset.asset_hub_id}, state={asset_state}, sellertape_id={asset_sellertape_id}\n')
     
-    logger.info(f'[FC MODEL SUMS] Request for asset_id={asset_id}, asset_hub_id={asset.asset_hub_id}, state={asset.state}')
+    logger.info(f'[FC MODEL SUMS] Request for asset_id={asset_id}, asset_hub_id={asset.asset_hub_id}, state={asset_state}')
     
     try:
         # WHAT: Get timeline sums using service
@@ -292,7 +306,7 @@ def get_reo_model_timeline_sums(request, asset_id):
     # WHAT: Get asset by primary key (which is asset_hub in this model)
     # WHY: SellerRawData uses asset_hub as its primary key, so pk lookup is most explicit
     # HOW: get_object_or_404 raises 404 if not found
-    asset = get_object_or_404(SellerRawData, pk=asset_id)
+    asset = get_acq_asset_or_404(asset_id)
     
     try:
         # WHAT: Get timeline sums using REO service
@@ -349,7 +363,7 @@ def update_fc_duration_override(request, asset_id):
     # WHAT: Get asset by primary key (which is asset_hub in this model)
     # WHY: SellerRawData uses asset_hub as its primary key, so pk lookup is most explicit
     # HOW: get_object_or_404 raises 404 if not found
-    asset = get_object_or_404(SellerRawData, pk=asset_id)
+    asset = get_acq_asset_or_404(asset_id)
     
     override_value = request.data.get('fc_duration_override_months')
     
@@ -422,7 +436,7 @@ def update_reo_fc_duration_override(request, asset_id):
         }
     """
     # WHAT: Get asset by primary key (which is asset_hub in this model)
-    asset = get_object_or_404(SellerRawData, pk=asset_id)
+    asset = get_acq_asset_or_404(asset_id)
     override_value = request.data.get('reo_fc_duration_override_months')
     
     if override_value is None:
@@ -484,7 +498,7 @@ def update_reo_renovation_override(request, asset_id):
         }
     """
     # WHAT: Get asset by primary key (which is asset_hub in this model)
-    asset = get_object_or_404(SellerRawData, pk=asset_id)
+    asset = get_acq_asset_or_404(asset_id)
     override_value = request.data.get('reo_renovation_override_months')
     
     if override_value is None:
@@ -546,7 +560,7 @@ def update_reo_marketing_override(request, asset_id):
         }
     """
     # WHAT: Get asset by primary key (which is asset_hub in this model)
-    asset = get_object_or_404(SellerRawData, pk=asset_id)
+    asset = get_acq_asset_or_404(asset_id)
     override_value = request.data.get('reo_marketing_override_months')
     
     if override_value is None:
@@ -617,7 +631,7 @@ def update_acquisition_price(request, asset_id):
     # WHAT: Get asset by primary key (which is asset_hub in this model)
     # WHY: SellerRawData uses asset_hub as its primary key, so pk lookup is most explicit
     # HOW: get_object_or_404 raises 404 if not found
-    asset = get_object_or_404(SellerRawData, pk=asset_id)
+    asset = get_acq_asset_or_404(asset_id)
     
     acquisition_price_value = request.data.get('acquisition_price')
     
@@ -766,8 +780,8 @@ def get_reo_cashflow_series(request, asset_id):
     HOW: Uses generate_reo_cashflow_series service to build complete cash flow timeline
     """
     # WHAT: Get asset by primary key
-    # WHY: SellerRawData uses asset_hub as its primary key
-    asset = get_object_or_404(SellerRawData, pk=asset_id)
+    # WHY: AcqAsset uses asset_hub as its primary key
+    asset = get_acq_asset_or_404(asset_id)
     
     # WHAT: Get scenario from query parameters (default to 'as_is')
     # WHY: Support both As-Is and ARV scenarios for cash flow generation

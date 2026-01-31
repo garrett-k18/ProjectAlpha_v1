@@ -20,7 +20,7 @@ from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
 from rest_framework import status
 
-from acq_module.models.model_acq_seller import SellerRawData
+from acq_module.models.model_acq_seller import AcqAsset
 from core.models.model_co_valuations import Valuation, ValuationGradeReference
 from acq_module.serializers.serial_acq_valuationCenter import (
     ValuationCenterRowSerializer,
@@ -47,7 +47,7 @@ def build_valuation_center_queryset(seller_id: int, trade_id: int):
     """
     Build optimized queryset for valuation center data.
     
-    WHAT: Query SellerRawData with prefetched valuations
+    WHAT: Query AcqAsset with prefetched valuations
     WHY: Single query + prefetch avoids N+1 problem
     HOW: 
         - Filter by seller/trade
@@ -59,13 +59,13 @@ def build_valuation_center_queryset(seller_id: int, trade_id: int):
         trade_id: Trade ID for data siloing
     
     Returns:
-        QuerySet of SellerRawData with prefetched valuations
+        QuerySet of AcqAsset with prefetched valuations
     """
     return (
-        SellerRawData.objects
+        AcqAsset.objects
         .filter(seller_id=seller_id, trade_id=trade_id)
-        .exclude(acq_status=SellerRawData.AcquisitionStatus.DROP)
-        .select_related('asset_hub')
+        .exclude(acq_status=AcqAsset.AcquisitionStatus.DROP)
+        .select_related('asset_hub', 'loan', 'property')
         .prefetch_related(
             Prefetch(
                 'asset_hub__valuations',
@@ -137,10 +137,10 @@ def valuation_center_update(request, asset_id: int):
     """
     logger.info(f"[valuation_center] PUT update asset={asset_id} body={request.data}")
     
-    # Get the SellerRawData record
-    srd = get_object_or_404(SellerRawData, pk=asset_id)
+    # Get the AcqAsset record
+    asset = get_object_or_404(AcqAsset, pk=asset_id)
     
-    if not srd.asset_hub:
+    if not asset.asset_hub:
         return Response(
             {'error': 'Asset has no hub record'},
             status=status.HTTP_400_BAD_REQUEST
@@ -160,7 +160,7 @@ def valuation_center_update(request, asset_id: int):
     # Find canonical valuation for this asset/source
     # WHAT: There should effectively be a single "Internal Initial UW" record per asset
     # HOW: If any valuations exist for this asset/source, pick the latest one; otherwise create one
-    valuations_qs = Valuation.objects.filter(asset_hub=srd.asset_hub, source=source).order_by('-created_at')
+    valuations_qs = Valuation.objects.filter(asset_hub=asset.asset_hub, source=source).order_by('-created_at')
 
     if valuations_qs.exists():
         valuation = valuations_qs.first()
@@ -168,7 +168,7 @@ def valuation_center_update(request, asset_id: int):
         logger.info(f"[valuation_center] Updating existing valuation id={valuation.id}")
     else:
         valuation = Valuation.objects.create(
-            asset_hub=srd.asset_hub,
+            asset_hub=asset.asset_hub,
             source=source,
             value_date=date.today(),
         )

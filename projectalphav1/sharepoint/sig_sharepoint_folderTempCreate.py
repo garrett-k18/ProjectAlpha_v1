@@ -62,7 +62,7 @@ def create_trade_folders(sender, instance, created, **kwargs):
         # Don't raise - folder creation failure shouldn't block trade creation
 
 
-@receiver(post_save, sender='acq_module.SellerRawData')
+@receiver(post_save, sender='acq_module.AcqAsset')
 def create_asset_folders(sender, instance, created, **kwargs):
     """
     Create SharePoint folders when an asset is created.

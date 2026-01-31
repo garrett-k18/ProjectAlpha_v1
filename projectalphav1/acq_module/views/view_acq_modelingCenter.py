@@ -19,7 +19,8 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 
-from acq_module.models.model_acq_seller import SellerRawData
+from acq_module.models.model_acq_seller import AcqAsset
+from acq_module.logic.common import annotate_seller_valuations
 from acq_module.models.model_acq_assumptions import TradeLevelAssumption, LoanLevelAssumption
 from core.models.model_co_geoAssumptions import StateReference
 from core.models.model_co_assumptions import Servicer
@@ -69,11 +70,13 @@ def modeling_center_data(request, seller_id: int, trade_id: int):
         
         # Get all assets for this trade (exclude dropped)
         assets = list(
-            SellerRawData.objects
-            .filter(seller_id=seller_id, trade_id=trade_id)
-            .exclude(acq_status=SellerRawData.AcquisitionStatus.DROP)
-            .select_related('trade', 'asset_hub')
-            .order_by('pk')
+            annotate_seller_valuations(
+                AcqAsset.objects
+                .filter(seller_id=seller_id, trade_id=trade_id)
+                .exclude(acq_status=AcqAsset.AcquisitionStatus.DROP)
+                .select_related('trade', 'asset_hub', 'loan', 'property')
+                .order_by('pk')
+            )
         )
         print(f"[ModelingCenter] Found {len(assets)} assets")
         
@@ -90,7 +93,7 @@ def modeling_center_data(request, seller_id: int, trade_id: int):
         loan_assumptions_map = {la.asset_hub_id: la for la in loan_assumptions_qs}
         
         # Get unique states and bulk fetch state references
-        states = set(a.state for a in assets if a.state)
+        states = set(a.property.state for a in assets if a.property and a.property.state)
         state_refs_qs = StateReference.objects.filter(state_code__in=states)
         state_refs_map = {sr.state_code: sr for sr in state_refs_qs}
         
@@ -108,10 +111,10 @@ def modeling_center_data(request, seller_id: int, trade_id: int):
         for asset in assets:
             try:
                 loan_assumption = loan_assumptions_map.get(asset.asset_hub_id)
-                state_ref = state_refs_map.get(asset.state) if asset.state else None
+                state_ref = state_refs_map.get(asset.property.state) if asset.property and asset.property.state else None
                 
                 model_data = calculate_asset_model_data_fast(
-                    raw_data=asset,
+                    asset=asset,
                     trade_assumption=trade_assumption,
                     loan_assumption=loan_assumption,
                     state_ref=state_ref,
@@ -125,12 +128,12 @@ def modeling_center_data(request, seller_id: int, trade_id: int):
                 results.append({
                     'id': asset.pk,
                     'asset_hub_id': asset.asset_hub_id,
-                    'seller_loan_id': asset.sellertape_id,  # Use sellertape_id
-                    'street_address': asset.street_address,
-                    'city': asset.city,
-                    'state': asset.state,
-                    'current_balance': float(asset.current_balance or 0),
-                    'total_debt': float(asset.total_debt or 0),
+                    'seller_loan_id': asset.loan.sellertape_id if asset.loan else None,  # Use sellertape_id
+                    'street_address': asset.property.street_address if asset.property else None,
+                    'city': asset.property.city if asset.property else None,
+                    'state': asset.property.state if asset.property else None,
+                    'current_balance': float(asset.loan.current_balance or 0) if asset.loan else 0,
+                    'total_debt': float(asset.loan.total_debt or 0) if asset.loan else 0,
                     'primary_model': None,
                     'acquisition_price': 0,
                     'total_costs_asis': 0,

@@ -30,7 +30,6 @@ from rest_framework.permissions import AllowAny  # TODO: tighten to IsAuthentica
 from rest_framework.response import Response
 from rest_framework import status, serializers
 
-from ...models.model_acq_seller import SellerRawData
 from core.models.model_co_valuations import Valuation
 from core.models.model_co_crm import MasterCRM
 from ...services.brokers import list_assigned_loan_entries

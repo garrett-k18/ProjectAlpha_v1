@@ -149,8 +149,8 @@ class AssetDetails(models.Model):
         # WHY: Allow manual control without automatic validation
         # NOTE: Removed auto-inference logic - set is_commercial manually if needed
         if not self.asset_class:
-            acq_raw = getattr(self.asset, 'acq_raw', None)
-            raw_status = getattr(acq_raw, 'asset_status', None)
+            acq_asset = getattr(self.asset, 'acq_asset', None)
+            raw_status = getattr(acq_asset, 'asset_status', None)
             if raw_status == 'NPL':
                 self.asset_class = self.AssetClass.NPL
             elif raw_status == 'REO':
@@ -173,23 +173,37 @@ class AssetDetails(models.Model):
 
         # 1) SRD standardized tags
         try:
-            SellerRawData = apps.get_model('acq_module', 'SellerRawData')
+            AcqAsset = apps.get_model('acq_module', 'AcqAsset')
         except Exception:
-            SellerRawData = None
-        srd = getattr(hub, 'acq_raw', None) if hub is not None else None
-        if srd is not None:
-            pt = getattr(srd, 'property_type', None)
-            prod = getattr(srd, 'product_type', None)
-            # WHAT: Define commercial property types as string values (what's stored in DB)
-            # WHY: These are the actual string values stored in the property_type field
+            AcqAsset = None
+        acq_asset = getattr(hub, 'acq_asset', None) if hub is not None else None
+        if acq_asset is not None:
+            pt = None
+            prod = None
+            if getattr(acq_asset, 'property', None):
+                pt = getattr(acq_asset.property, 'property_type_merged', None)
+            if getattr(acq_asset, 'loan', None):
+                prod = getattr(acq_asset.loan, 'product_type', None)
+            # WHAT: Define commercial property types as string values (subclass codes)
+            # WHY: Subclass is the single property type source of truth
+            # HOW: Compare against stored subclass values
             commercial_pts = {
-                'Multifamily 5+',  # WHAT: Commercial property type
-                'Industrial',      # WHAT: Commercial property type
-                'Mixed Use',       # WHAT: Commercial property type
+                'Industrial',
+                'Mixed Use',
+                'Storage',
+                'Healthcare',
+                'Office',
+                'Retail',
+                'Hospitality',
             }
-            # WHAT: Check if property type is commercial OR product type is Commercial
-            # WHY: Either condition indicates a commercial asset
-            # HOW: Compare against stored string values
+            # WHAT: Treat multifamily and commercial asset classes as commercial
+            # WHY: Multifamily 5+ and Commercial are handled as commercial assets
+            # HOW: Check asset_class or property_type/subclass + product type
+            if acq_asset.asset_class in {
+                getattr(AcqAsset.AssetClass, 'MULTIFAMILY_5_PLUS', None),
+                getattr(AcqAsset.AssetClass, 'COMMERCIAL', None),
+            }:
+                return True
             if pt in commercial_pts or prod == 'Commercial':
                 return True
 

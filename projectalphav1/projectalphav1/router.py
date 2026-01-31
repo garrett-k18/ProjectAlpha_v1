@@ -13,8 +13,10 @@ class SchemaRouter:
     SELLER_MODELS = {
         'acq_module.models.seller.Seller',
         'acq_module.models.seller.Trade',
-        'acq_module.models.seller.Trade_Deal',
-        'acq_module.models.seller.SellerRawData'
+        'acq_module.models.seller.AcqAsset',
+        'acq_module.models.seller.AcqLoan',
+        'acq_module.models.seller.AcqProperty',
+        'acq_module.models.seller.AcqForeclosureTimeline',
     }
     
     def _is_seller_model(self, model):
@@ -66,7 +68,14 @@ class SchemaRouter:
                 return self._is_seller_model(model)
             # For migrations without model hints, check by name
             if model_name and app_label == 'acq_module':
-                seller_model_names = ['seller', 'trade', 'trade_deal', 'sellerrawdata']
+                seller_model_names = [
+                    'seller',
+                    'trade',
+                    'acqasset',
+                    'acqloan',
+                    'acqproperty',
+                    'acqforeclosuretimeline',
+                ]
                 return model_name.lower() in seller_model_names
             return False
             
@@ -76,7 +85,14 @@ class SchemaRouter:
                 return not self._is_seller_model(model)
             # For migrations without model hints, check by name  
             if model_name and app_label == 'acq_module':
-                seller_model_names = ['seller', 'trade', 'trade_deal', 'sellerrawdata']
+                seller_model_names = [
+                    'seller',
+                    'trade',
+                    'acqasset',
+                    'acqloan',
+                    'acqproperty',
+                    'acqforeclosuretimeline',
+                ]
                 return model_name.lower() not in seller_model_names
             return True
             

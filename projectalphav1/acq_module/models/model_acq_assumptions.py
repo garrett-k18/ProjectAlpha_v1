@@ -3,7 +3,7 @@
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from decimal import Decimal, InvalidOperation
-from .model_acq_seller import Trade, SellerRawData
+from .model_acq_seller import Trade
 
 
 class LoanLevelAssumption(models.Model):

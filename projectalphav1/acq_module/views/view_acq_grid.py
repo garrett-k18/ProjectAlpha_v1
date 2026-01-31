@@ -16,7 +16,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
 
-from acq_module.models.model_acq_seller import SellerRawData
+from acq_module.models.model_acq_seller import AcqAsset
 from core.models.model_co_valuations import Valuation
 from acq_module.serializers.serial_acq_grid import GridRowSerializer
 
@@ -38,7 +38,7 @@ def build_grid_queryset(seller_id: int, trade_id: int, view: str = 'snapshot'):
     """
     Build optimized queryset for grid data.
     
-    WHAT: Query SellerRawData with efficient prefetch
+    WHAT: Query AcqAsset with efficient prefetch
     WHY: Single query + prefetch, no N+1
     HOW: 
         - Filter by seller/trade/view
@@ -54,9 +54,16 @@ def build_grid_queryset(seller_id: int, trade_id: int, view: str = 'snapshot'):
         QuerySet
     """
     qs = (
-        SellerRawData.objects
+        AcqAsset.objects
         .filter(seller_id=seller_id, trade_id=trade_id)
-        .select_related('trade', 'asset_hub', 'asset_hub__enrichment')
+        .select_related(
+            'trade',
+            'asset_hub',
+            'asset_hub__enrichment',
+            'loan',
+            'property',
+            'foreclosure_timeline',
+        )
         .prefetch_related(
             Prefetch(
                 'asset_hub__valuations',
@@ -69,13 +76,13 @@ def build_grid_queryset(seller_id: int, trade_id: int, view: str = 'snapshot'):
     # Apply view filter
     if view == 'snapshot':
         # Exclude dropped assets
-        qs = qs.exclude(acq_status=SellerRawData.AcquisitionStatus.DROP)
+        qs = qs.exclude(acq_status=AcqAsset.AcquisitionStatus.DROP)
     elif view == 'drops':
         # Only dropped assets
-        qs = qs.filter(acq_status=SellerRawData.AcquisitionStatus.DROP)
+        qs = qs.filter(acq_status=AcqAsset.AcquisitionStatus.DROP)
     elif view == 'valuations':
         # Assets with any valuation (for valuation-focused views)
-        qs = qs.exclude(acq_status=SellerRawData.AcquisitionStatus.DROP)
+        qs = qs.exclude(acq_status=AcqAsset.AcquisitionStatus.DROP)
     # 'all' = no additional filter
     
     return qs

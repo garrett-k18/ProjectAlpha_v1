@@ -26,7 +26,7 @@ from django.db import transaction
 from django.utils import timezone
 from django.contrib.auth import get_user_model
 
-from acq_module.models.model_acq_seller import Trade, SellerRawData
+from acq_module.models.model_acq_seller import Trade, AcqAsset
 from etl.services.services_valuationExtract.serv_etl_claude_client import (
     build_valuation_claude_vision_client
 )
@@ -381,9 +381,9 @@ class AwardedAssetsService:
         # WHAT: Get all assets for this trade
         # WHY: Need to categorize into keep/drop
         # HOW: Query SellerRawData filtered by trade
-        all_assets = SellerRawData.objects.filter(
+        all_assets = AcqAsset.objects.filter(
             trade=self.trade
-        ).select_related('asset_hub')
+        ).select_related('asset_hub', 'loan', 'property')
         
         total_count = all_assets.count()
         
@@ -397,9 +397,10 @@ class AwardedAssetsService:
             # WHAT: Build list of all possible IDs for this asset
             # WHY: Match against any ID field
             # HOW: Collect non-null IDs from SellerRawData and AssetIdHub
+            loan = getattr(asset, 'loan', None)
             asset_ids = [
-                str(asset.sellertape_id).strip() if asset.sellertape_id else None,
-                str(asset.sellertape_altid).strip() if asset.sellertape_altid else None,
+                str(loan.sellertape_id).strip() if loan and loan.sellertape_id else None,
+                str(loan.sellertape_altid).strip() if loan and loan.sellertape_altid else None,
             ]
             
             # WHAT: Add asset_hub sellertape_id if available
@@ -419,11 +420,11 @@ class AwardedAssetsService:
             if any(aid in awarded_ids for aid in asset_ids):
                 matched_assets.append({
                     'id': asset.pk,  # WHAT: Use pk since asset_hub is the primary key (no separate id field)
-                    'sellertape_id': asset.sellertape_id,
-                    'street_address': asset.street_address or '',
-                    'city': asset.city or '',
-                    'state': asset.state or '',
-                    'current_balance': float(asset.current_balance) if asset.current_balance else 0,
+                    'sellertape_id': loan.sellertape_id if loan else None,
+                    'street_address': asset.property.street_address if asset.property and asset.property.street_address else '',
+                    'city': asset.property.city if asset.property and asset.property.city else '',
+                    'state': asset.property.state if asset.property and asset.property.state else '',
+                    'current_balance': float(asset.loan.current_balance) if asset.loan and asset.loan.current_balance else 0,
                     'acquisition_status': asset.acq_status,
                     'matched_on': next((aid for aid in asset_ids if aid in awarded_ids), None)
                 })
@@ -435,13 +436,14 @@ class AwardedAssetsService:
         will_be_dropped = []
         for asset in all_assets:
             if asset.pk not in matched_ids:  # WHAT: Use pk since asset_hub is the primary key
+                loan = getattr(asset, 'loan', None)
                 will_be_dropped.append({
                     'id': asset.pk,  # WHAT: Use pk since asset_hub is the primary key (no separate id field)
-                    'sellertape_id': asset.sellertape_id,
-                    'street_address': asset.street_address or '',
-                    'city': asset.city or '',
-                    'state': asset.state or '',
-                    'current_balance': float(asset.current_balance) if asset.current_balance else 0,
+                    'sellertape_id': loan.sellertape_id if loan else None,
+                    'street_address': asset.property.street_address if asset.property and asset.property.street_address else '',
+                    'city': asset.property.city if asset.property and asset.property.city else '',
+                    'state': asset.property.state if asset.property and asset.property.state else '',
+                    'current_balance': float(asset.loan.current_balance) if asset.loan and asset.loan.current_balance else 0,
                     'acquisition_status': asset.acq_status
                 })
         
@@ -523,10 +525,10 @@ class AwardedAssetsService:
         # WHAT: Update acquisition_status to DROP for non-awarded assets
         # WHY: Soft delete - can be undone
         # HOW: Bulk update with filter using pk since asset_hub is the primary key
-        updated_count = SellerRawData.objects.filter(
+        updated_count = AcqAsset.objects.filter(
             pk__in=dropped_ids  # WHAT: Use pk__in since asset_hub is the primary key (no separate id field)
         ).update(
-            acq_status=SellerRawData.AcquisitionStatus.DROP,
+            acq_status=AcqAsset.AcquisitionStatus.DROP,
             updated_at=timezone.now()
         )
         
@@ -571,9 +573,9 @@ class AwardedAssetsService:
         # WHAT: Build query for dropped assets
         # WHY: Find assets to restore
         # HOW: Filter by trade and DROP status
-        query = SellerRawData.objects.filter(
+        query = AcqAsset.objects.filter(
             trade=self.trade,
-            acq_status=SellerRawData.AcquisitionStatus.DROP
+            acq_status=AcqAsset.AcquisitionStatus.DROP
         )
         
         # WHAT: Optionally filter to specific asset IDs
@@ -586,7 +588,7 @@ class AwardedAssetsService:
         # WHY: Restore assets to active pool
         # HOW: Bulk update
         restored_count = query.update(
-            acq_status=SellerRawData.AcquisitionStatus.KEEP,
+            acq_status=AcqAsset.AcquisitionStatus.KEEP,
             updated_at=timezone.now()
         )
         
@@ -712,27 +714,40 @@ If you cannot find any identifiers, return:
         # WHAT: Get all dropped assets
         # WHY: Show current state
         # HOW: Query and map pk to 'id' for consistency with frontend
-        dropped_qs = SellerRawData.objects.filter(
+        dropped_qs = AcqAsset.objects.filter(
             trade=self.trade,
-            acq_status=SellerRawData.AcquisitionStatus.DROP
-        ).values(
-            'pk', 'sellertape_id', 'street_address',
-            'city', 'state', 'current_balance', 'updated_at'
+            acq_status=AcqAsset.AcquisitionStatus.DROP
+        ).select_related('loan', 'property').values(
+            'pk',
+            'loan__sellertape_id',
+            'property__street_address',
+            'property__city',
+            'property__state',
+            'loan__current_balance',
+            'updated_at'
         )
         
         # WHAT: Map 'pk' key to 'id' for consistency with other return dictionaries
         # WHY: Frontend expects 'id' key, and asset_hub is the primary key (no separate id field)
         # HOW: List comprehension to create new dicts with renamed key
         dropped = [
-            {'id': asset['pk'], **{k: v for k, v in asset.items() if k != 'pk'}}
+            {
+                'id': asset.get('pk'),
+                'sellertape_id': asset.get('loan__sellertape_id'),
+                'street_address': asset.get('property__street_address') or '',
+                'city': asset.get('property__city') or '',
+                'state': asset.get('property__state') or '',
+                'current_balance': asset.get('loan__current_balance') or 0,
+                'updated_at': asset.get('updated_at'),
+            }
             for asset in dropped_qs
         ]
         
         # WHAT: Get count of kept assets
         # WHY: Show summary
-        kept_count = SellerRawData.objects.filter(
+        kept_count = AcqAsset.objects.filter(
             trade=self.trade,
-            acq_status=SellerRawData.AcquisitionStatus.KEEP
+            acq_status=AcqAsset.AcquisitionStatus.KEEP
         ).count()
         
         return {

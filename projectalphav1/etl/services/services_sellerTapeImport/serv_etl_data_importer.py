@@ -1,9 +1,9 @@
 """
 Data Import Module
 
-WHAT: Transforms and imports data into SellerRawData model
+WHAT: Transforms and imports data into AcqAsset/Loan/Property models
 WHY: Handles seller/trade management, data transformation, and database operations
-HOW: Validates data, creates sellers/trades, and bulk inserts records
+HOW: Validates data, creates sellers/trades, and writes per-model records
 
 USAGE:
     importer = DataImporter(seller_id=1000, trade_id=2000)
@@ -22,12 +22,24 @@ import numpy as np
 from django.db import transaction
 from django.utils.dateparse import parse_date
 
-from acq_module.models.model_acq_seller import SellerRawData, Seller, Trade
+from acq_module.models.model_acq_seller import (
+    AcqAsset,
+    AcqLoan,
+    AcqProperty,
+    AcqForeclosureTimeline,
+    AcqBankruptcy,
+    AcqModification,
+    Seller,
+    Trade,
+)
 from core.models import AssetIdHub, AssetDetails, LlDataEnrichment
 from core.models.model_co_valuations import Valuation
 from core.services.serv_co_geocoding import batch_geocode_row_ids
 from etl.services.services_sellerTapeImport.serv_etl_ai_seller_matcher import AISellerMatcher
 from etl.services.services_sellerTapeImport.serv_etl_ai_mapper import validate_choice_value
+from etl.services.services_sellerTapeImport.etl_field_registry import (
+    get_import_field_targets,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -473,10 +485,19 @@ class DataImporter:
 
         record = {
             'seller': resolved_seller,
-            'trade': resolved_trade
+            'trade': resolved_trade,
+            'asset': {},
+            'loan': {},
+            'property': {},
+            'foreclosure': {},
+            'bankruptcy': {},
+            'modification': {},
+            'valuation': {},
+            'raw_values': {},  # WHAT: Preserve original mapped field names for downstream syncs
         }
 
         # Apply column mapping and type conversion
+        field_targets = get_import_field_targets()
         for source_col, target_field in mapping.items():
             value = row.get(source_col)
 
@@ -484,26 +505,61 @@ class DataImporter:
             if pd.isna(value) or value == '':
                 continue
 
-            # Get field from model to determine type
+            # Resolve target group/field from registry
+            target = field_targets.get(target_field)
+            if not target:
+                continue  # Skip unknown fields
+
+            target_group, model_field_name = target
+
+            # WHAT: Handle special mapping for property_type -> subclass
+            # WHY: Property type is now derived from asset subclasses
+            # HOW: Normalize choice and map to asset_class + subclass fields
+            if target_group == "special" and model_field_name == "property_type":
+                cleaned_value = self._clean_choice_field(value, "property_type")
+                if cleaned_value is not None:
+                    self._apply_property_type_to_asset(record["asset"], cleaned_value)
+                    record["raw_values"][target_field] = cleaned_value
+                continue
+
+            # WHAT: Resolve Django field from target model for conversion
+            # WHY: Use correct type conversion by model field definition
+            # HOW: Look up field on the target model class
+            model_lookup = {
+                "asset": AcqAsset,
+                "loan": AcqLoan,
+                "property": AcqProperty,
+                "foreclosure": AcqForeclosureTimeline,
+                "valuation": Valuation,
+                "bankruptcy": AcqBankruptcy,
+                "modification": AcqModification,
+            }
+            model_cls = model_lookup.get(target_group)
+            if not model_cls:
+                continue
+
             try:
-                field = SellerRawData._meta.get_field(target_field)
+                field = model_cls._meta.get_field(model_field_name)
             except Exception:
-                continue  # Skip unmapped fields
+                continue  # Skip if field doesn't exist on model
 
             # Convert based on field type
             try:
                 converted_value = self._convert_value(value, field)
                 if converted_value is not None:
-                    record[target_field] = converted_value
+                    record[target_group][model_field_name] = converted_value
+                    record["raw_values"][target_field] = converted_value
             except Exception as e:
                 logger.warning(f'Conversion error for {target_field}: {e}')
 
         # Auto-generate sellertape_id if missing
-        if 'sellertape_id' not in record or not record['sellertape_id']:
+        if not record["loan"].get("sellertape_id"):
             # Generate unique ID: SELLER_{seller_id}_ROW_{row_index}
             import uuid
-            record['sellertape_id'] = f"AUTO_{uuid.uuid4().hex[:12].upper()}"
-            logger.info(f"Auto-generated sellertape_id: {record['sellertape_id']}")
+            generated_id = f"AUTO_{uuid.uuid4().hex[:12].upper()}"
+            record["loan"]["sellertape_id"] = generated_id
+            record["raw_values"]["sellertape_id"] = generated_id
+            logger.info(f"Auto-generated sellertape_id: {generated_id}")
 
         return record
 
@@ -570,6 +626,45 @@ class DataImporter:
             seller = trade.seller
 
         return seller or default_seller, trade or default_trade
+
+    def _apply_property_type_to_asset(self, asset_data: Dict[str, Any], property_type: Optional[str]) -> None:
+        """
+        WHAT: Map legacy property_type values into asset class + subclass fields
+        WHY: property_type was removed; subclass is now the single source of truth
+        HOW: Detect subclass set membership and populate asset_class + subclass
+        """
+        if not property_type:
+            return
+
+        # WHAT: Resolve by subclass membership
+        # WHY: Each subclass implies a primary asset class
+        # HOW: Check membership against TextChoices values
+        real_estate_values = {choice[0] for choice in AcqAsset.RealEstateSubclass.choices}
+        multifamily_values = {choice[0] for choice in AcqAsset.MultifamilySubclass.choices}
+        commercial_values = {choice[0] for choice in AcqAsset.CommercialSubclass.choices}
+        note_values = {choice[0] for choice in AcqAsset.NoteSubclass.choices}
+
+        if property_type in real_estate_values:
+            asset_data["asset_class"] = AcqAsset.AssetClass.REAL_ESTATE_1_4
+            asset_data["real_estate_subclass_type"] = property_type
+            return
+        if property_type in multifamily_values:
+            asset_data["asset_class"] = AcqAsset.AssetClass.MULTIFAMILY_5_PLUS
+            asset_data["multifamily_subclass_type"] = property_type
+            return
+        if property_type in commercial_values:
+            asset_data["asset_class"] = AcqAsset.AssetClass.COMMERCIAL
+            asset_data["commercial_subclass_type"] = property_type
+            return
+        if property_type in note_values:
+            # NOTE: AssetClass has NPL and PERFORMING_NOTE only; map RPL/PERF to PERFORMING_NOTE
+            asset_data["asset_class"] = (
+                AcqAsset.AssetClass.NPL
+                if property_type == AcqAsset.NoteSubclass.NPL
+                else AcqAsset.AssetClass.PERFORMING_NOTE
+            )
+            asset_data["note_subclass_type"] = property_type
+            return
 
     def _clean_choice_field(self, value: Any, field_name: str) -> Optional[str]:
         """
@@ -662,7 +757,16 @@ class DataImporter:
             field_name = field.name if hasattr(field, 'name') else ''
             
             # Apply choice field cleaning for known choice fields
-            if field_name in ['property_type', 'product_type', 'occupancy', 'asset_status']:
+            if field_name in [
+                'product_type',
+                'occupancy',
+                'asset_status',
+                'asset_class',
+                'real_estate_subclass_type',
+                'multifamily_subclass_type',
+                'commercial_subclass_type',
+                'note_subclass_type',
+            ]:
                 cleaned_value = self._clean_choice_field(value, field_name)
                 if cleaned_value is None:
                     return None
@@ -681,7 +785,7 @@ class DataImporter:
         """
         WHAT: Save validated records to database in batches
         WHY: Efficient bulk insertion with transaction safety
-        HOW: Creates AssetIdHub first (1:1 requirement), then creates/updates SellerRawData
+        HOW: Creates AssetIdHub first (1:1 requirement), then creates/updates AcqAsset and children
 
         Returns:
             Tuple of (saved_count, updated_count, skipped_count)
@@ -694,29 +798,93 @@ class DataImporter:
             batch = records[i:i + batch_size]
 
             for record_data in batch:
-                sellertape_id = record_data.get('sellertape_id')
+                loan_data = record_data.get("loan", {})
+                asset_data = record_data.get("asset", {})
+                property_data = record_data.get("property", {})
+                foreclosure_data = record_data.get("foreclosure", {})
+                bankruptcy_data = record_data.get("bankruptcy", {})
+                modification_data = record_data.get("modification", {})
+                raw_values = record_data.get("raw_values", {})
+                sellertape_id = loan_data.get("sellertape_id")
 
                 try:
                     # Check if record exists
-                    existing = SellerRawData.objects.filter(
+                    existing = AcqAsset.objects.filter(
                         seller=record_data['seller'],
                         trade=record_data['trade'],
-                        sellertape_id=sellertape_id
-                    ).first()
+                        loan__sellertape_id=sellertape_id
+                    ).select_related("asset_hub", "loan", "property", "foreclosure_timeline").first()
 
                     if existing:
                         if self.update_existing:
                             # Update existing record
                             with transaction.atomic():
-                                for field, value in record_data.items():
-                                    if field not in ['asset_hub', 'seller', 'trade']:
-                                        setattr(existing, field, value)
+                                for field, value in asset_data.items():
+                                    setattr(existing, field, value)
                                 existing.save()
+
+                                # WHAT: Update or create loan record
+                                # WHY: Loan-level fields moved off AcqAsset
+                                # HOW: Create if missing, otherwise update fields
+                                loan_obj = getattr(existing, "loan", None)
+                                if loan_obj is None:
+                                    loan_obj = AcqLoan.objects.create(asset=existing, **loan_data)
+                                else:
+                                    for field, value in loan_data.items():
+                                        setattr(loan_obj, field, value)
+                                    loan_obj.save()
+
+                                # WHAT: Update or create property record
+                                # WHY: Property fields moved off AcqAsset
+                                # HOW: Create if missing, otherwise update fields
+                                property_obj = getattr(existing, "property", None)
+                                if property_obj is None:
+                                    property_obj = AcqProperty.objects.create(asset=existing, **property_data)
+                                else:
+                                    for field, value in property_data.items():
+                                        setattr(property_obj, field, value)
+                                    property_obj.save()
+
+                                # WHAT: Update or create foreclosure timeline if data provided
+                                # WHY: FC fields moved off AcqAsset
+                                # HOW: Create/update only when FC data is present
+                                if foreclosure_data:
+                                    fc_obj = getattr(existing, "foreclosure_timeline", None)
+                                    if fc_obj is None:
+                                        AcqForeclosureTimeline.objects.create(asset=existing, **foreclosure_data)
+                                    else:
+                                        for field, value in foreclosure_data.items():
+                                            setattr(fc_obj, field, value)
+                                        fc_obj.save()
+
+                                # WHAT: Update or create bankruptcy data if provided
+                                # WHY: BK fields moved off AcqLoan
+                                # HOW: Create/update only when BK data is present
+                                if bankruptcy_data:
+                                    bk_obj = getattr(loan_obj, "bankruptcy", None)
+                                    if bk_obj is None:
+                                        AcqBankruptcy.objects.create(loan=loan_obj, **bankruptcy_data)
+                                    else:
+                                        for field, value in bankruptcy_data.items():
+                                            setattr(bk_obj, field, value)
+                                        bk_obj.save()
+
+                                # WHAT: Update or create modification data if provided
+                                # WHY: Mod fields moved off AcqLoan
+                                # HOW: Create/update only when mod data is present
+                                if modification_data:
+                                    mod_obj = getattr(loan_obj, "modification", None)
+                                    if mod_obj is None:
+                                        AcqModification.objects.create(loan=loan_obj, **modification_data)
+                                    else:
+                                        for field, value in modification_data.items():
+                                            setattr(mod_obj, field, value)
+                                        mod_obj.save()
 
                                 # Ensure AssetDetails exists and keep trade pointer in sync
                                 self._ensure_asset_details(existing.asset_hub, existing.trade)
                                 # Sync seller-provided valuations from seller tape fields
-                                self._sync_seller_valuations(existing.asset_hub, record_data)
+                                self._sync_seller_valuations(existing.asset_hub, raw_values)
                             updated_count += 1
                         else:
                             skipped_count += 1
@@ -724,12 +892,40 @@ class DataImporter:
                         # Create AssetIdHub first
                         asset_hub = AssetIdHub.objects.create(sellertape_id=sellertape_id)
 
-                        # Create SellerRawData with asset_hub as PK
+                        # Create AcqAsset + children with asset_hub as PK
                         try:
                             with transaction.atomic():
-                                record_data['asset_hub'] = asset_hub
-                                seller_raw = SellerRawData.objects.create(**record_data)
-                                self._new_row_ids.append(seller_raw.asset_hub_id)
+                                asset = AcqAsset.objects.create(
+                                    asset_hub=asset_hub,
+                                    seller=record_data["seller"],
+                                    trade=record_data["trade"],
+                                    **asset_data,
+                                )
+                                self._new_row_ids.append(asset.asset_hub_id)
+
+                                # WHAT: Create loan + property records
+                                # WHY: Maintain 1:1 structure for downstream usage
+                                # HOW: Create both children (nullable fields allowed)
+                                loan_obj = AcqLoan.objects.create(asset=asset, **loan_data)
+                                AcqProperty.objects.create(asset=asset, **property_data)
+
+                                # WHAT: Create foreclosure timeline if FC data present
+                                # WHY: Avoid empty FC rows when no data is provided
+                                # HOW: Only create when FC data exists
+                                if foreclosure_data:
+                                    AcqForeclosureTimeline.objects.create(asset=asset, **foreclosure_data)
+
+                                # WHAT: Create bankruptcy data if provided
+                                # WHY: Avoid empty BK rows when no data is provided
+                                # HOW: Only create when BK data exists
+                                if bankruptcy_data:
+                                    AcqBankruptcy.objects.create(loan=loan_obj, **bankruptcy_data)
+
+                                # WHAT: Create modification data if provided
+                                # WHY: Avoid empty mod rows when no data is provided
+                                # HOW: Only create when mod data exists
+                                if modification_data:
+                                    AcqModification.objects.create(loan=loan_obj, **modification_data)
                                 
                                 # WHAT: Auto-create LoanLevelAssumption for each new asset
                                 # WHY: Required for duration overrides and loan-specific calculations
@@ -741,7 +937,7 @@ class DataImporter:
                                 )
 
                                 # Ensure one-to-one AssetDetails row exists for this hub
-                                self._ensure_asset_details(asset_hub, seller_raw.trade)
+                                self._ensure_asset_details(asset_hub, record_data["trade"])
 
                                 # Ensure one-to-one LlDataEnrichment row exists for this hub
                                 LlDataEnrichment.objects.get_or_create(
@@ -749,10 +945,10 @@ class DataImporter:
                                     defaults={},
                                 )
                                 # Sync seller-provided valuations from seller tape fields
-                                self._sync_seller_valuations(asset_hub, record_data)
+                                self._sync_seller_valuations(asset_hub, raw_values)
                             saved_count += 1
                         except Exception as insert_error:
-                            logger.error(f'Error inserting SellerRawData for {sellertape_id}: {insert_error}')
+                            logger.error(f'Error inserting AcqAsset for {sellertape_id}: {insert_error}')
                             skipped_count += 1
 
                 except Exception as e:
@@ -761,7 +957,7 @@ class DataImporter:
 
         return saved_count, updated_count, skipped_count
 
-    def _sync_seller_valuations(self, asset_hub: AssetIdHub, record_data: Dict[str, Any]) -> None:
+    def _sync_seller_valuations(self, asset_hub: AssetIdHub, raw_values: Dict[str, Any]) -> None:
         """
         WHAT: Persist seller-provided valuation fields into Valuation model.
         WHY: Centralize all valuation data in core.Valuation with explicit source tagging.
@@ -791,25 +987,25 @@ class DataImporter:
         entries = []
         entries.append(
             add_entry(
-                value_date=record_data.get("seller_value_date"),
-                asis_value=record_data.get("seller_asis_value"),
-                arv_value=record_data.get("seller_arv_value"),
+                value_date=raw_values.get("seller_value_date"),
+                asis_value=raw_values.get("seller_asis_value"),
+                arv_value=raw_values.get("seller_arv_value"),
                 notes="Seller tape valuation (primary)",
             )
         )
         entries.append(
             add_entry(
-                value_date=record_data.get("additional_value_date"),
-                asis_value=record_data.get("additional_asis_value"),
-                arv_value=record_data.get("additional_arv_value"),
+                value_date=raw_values.get("additional_value_date"),
+                asis_value=raw_values.get("additional_asis_value"),
+                arv_value=raw_values.get("additional_arv_value"),
                 notes="Seller tape valuation (additional)",
             )
         )
         entries.append(
             add_entry(
-                value_date=record_data.get("origination_value_date"),
-                asis_value=record_data.get("origination_value"),
-                arv_value=record_data.get("origination_arv"),
+                value_date=raw_values.get("origination_value_date"),
+                asis_value=raw_values.get("origination_value"),
+                arv_value=raw_values.get("origination_arv"),
                 notes="Seller tape valuation (origination)",
             )
         )
@@ -861,7 +1057,7 @@ class DataImporter:
             logger.exception("Failed to sync AssetDetails for asset_hub %s", asset_hub_id := getattr(asset_hub, 'id', None))
 
     def _run_batch_geocode_for_new_rows(self) -> Optional[Dict[str, Any]]:
-        """Call Geocodio batch helper for all newly created SellerRawData rows."""
+        """Call Geocodio batch helper for all newly created AcqAsset rows."""
         if not self._new_row_ids:
             return None
 

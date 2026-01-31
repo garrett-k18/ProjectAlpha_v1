@@ -54,14 +54,14 @@ def get_asset_documents(request, asset_hub_id):
     """
     try:
         # Get asset from database
-        SellerRawData = apps.get_model('acq_module', 'SellerRawData')
+        AcqAsset = apps.get_model('acq_module', 'AcqAsset')
         
         try:
-            # SellerRawData PK = asset_hub, so query by pk
-            asset = SellerRawData.objects.select_related(
-                'asset_hub', 'trade', 'trade__seller'
+            # AcqAsset PK = asset_hub, so query by pk
+            asset = AcqAsset.objects.select_related(
+                'asset_hub', 'trade', 'trade__seller', 'property', 'loan'
             ).get(pk=asset_hub_id)
-        except SellerRawData.DoesNotExist:
+        except AcqAsset.DoesNotExist:
             return Response({
                 'success': False,
                 'error': f'Asset {asset_hub_id} not found'
@@ -79,10 +79,10 @@ def get_asset_documents(request, asset_hub_id):
         seller_name = trade.seller.name if trade.seller else None
 
         # Build address string for SharePoint folder naming
-        street = asset.street_address or ''
-        city = asset.city or ''
-        state = asset.state or ''
-        zip_code = asset.zip or ''
+        street = asset.property.street_address if asset.property else ''
+        city = asset.property.city if asset.property else ''
+        state = asset.property.state if asset.property else ''
+        zip_code = asset.property.zip if asset.property else ''
         full_address = f"{street}, {city}, {state} {zip_code}".strip(', ').strip()
 
         servicer_id = None

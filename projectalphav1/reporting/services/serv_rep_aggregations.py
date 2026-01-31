@@ -24,17 +24,17 @@ from typing import List, Dict, Any
 from django.db.models import QuerySet, Sum, Avg, Count, Max, Min, Q, F, DecimalField, Value, Case, When
 from django.db.models.functions import Coalesce
 from django.utils import timezone
-from acq_module.models.model_acq_seller import SellerRawData
+from acq_module.models.model_acq_seller import AcqAsset
 
 
-def calculate_summary_metrics(queryset: QuerySet[SellerRawData]) -> Dict[str, Any]:
+def calculate_summary_metrics(queryset: QuerySet[AcqAsset]) -> Dict[str, Any]:
     """
     WHAT: Calculate high-level summary metrics for top KPI bar
     WHY: Display Total UPB, Asset Count, Avg LTV, Delinquency Rate
     HOW: Use Django aggregate functions on filtered queryset
     
     ARGS:
-        queryset: Filtered SellerRawData queryset
+        queryset: Filtered AcqAsset queryset
     
     RETURNS: Dict with summary metrics
         {
@@ -112,14 +112,14 @@ def calculate_summary_metrics(queryset: QuerySet[SellerRawData]) -> Dict[str, An
     }
 
 
-def group_by_trade(queryset: QuerySet[SellerRawData]) -> List[Dict[str, Any]]:
+def group_by_trade(queryset: QuerySet[AcqAsset]) -> List[Dict[str, Any]]:
     """
     WHAT: Group assets by trade and calculate per-trade metrics
     WHY: Power "By Trade" report view
     HOW: Use values() + annotate() for GROUP BY query
     
     ARGS:
-        queryset: Filtered SellerRawData queryset (with annotated fields from queryBuilder)
+        queryset: Filtered AcqAsset queryset (with annotated fields from queryBuilder)
     
     RETURNS: List of dicts with per-trade metrics
         [
@@ -336,14 +336,14 @@ def group_by_trade(queryset: QuerySet[SellerRawData]) -> List[Dict[str, Any]]:
     return results
 
 
-def group_by_status(queryset: QuerySet[SellerRawData]) -> List[Dict[str, Any]]:
+def group_by_status(queryset: QuerySet[AcqAsset]) -> List[Dict[str, Any]]:
     """
     WHAT: Group assets by trade status
     WHY: Power "By Status" report view
     HOW: Use values() + annotate() grouped by trade__status
     
     ARGS:
-        queryset: Filtered SellerRawData queryset
+        queryset: Filtered AcqAsset queryset
     
     RETURNS: List of dicts with per-status metrics
     """
@@ -383,14 +383,14 @@ def group_by_status(queryset: QuerySet[SellerRawData]) -> List[Dict[str, Any]]:
     return results
 
 
-def group_by_fund(queryset: QuerySet[SellerRawData]) -> List[Dict[str, Any]]:
+def group_by_fund(queryset: QuerySet[AcqAsset]) -> List[Dict[str, Any]]:
     """
     WHAT: Group assets by fund
     WHY: Power "By Fund" report view
     HOW: Use values() + annotate() grouped by fund
     
     ARGS:
-        queryset: Filtered SellerRawData queryset
+        queryset: Filtered AcqAsset queryset
     
     RETURNS: List of dicts with per-fund metrics
     
@@ -401,14 +401,14 @@ def group_by_fund(queryset: QuerySet[SellerRawData]) -> List[Dict[str, Any]]:
     return []
 
 
-def group_by_entity(queryset: QuerySet[SellerRawData]) -> List[Dict[str, Any]]:
+def group_by_entity(queryset: QuerySet[AcqAsset]) -> List[Dict[str, Any]]:
     """
     WHAT: Group assets by legal entity
     WHY: Power "By Entity" report view
     HOW: Use values() + annotate() grouped by entity
     
     ARGS:
-        queryset: Filtered SellerRawData queryset
+        queryset: Filtered AcqAsset queryset
     
     RETURNS: List of dicts with per-entity metrics
     

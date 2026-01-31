@@ -23,8 +23,8 @@ from rest_framework import status
 from django.core.files.uploadedfile import UploadedFile
 import logging
 
-from acq_module.models.model_acq_seller import SellerRawData
 from core.models.model_core_notification import Notification
+from etl.services.services_sellerTapeImport.etl_field_registry import get_import_field_specs
 
 logger = logging.getLogger(__name__)
 
@@ -323,17 +323,13 @@ def preview_seller_tape(request):
             # Get source columns from file
             source_columns = list(df.columns)
             
-            # Get available target fields from SellerRawData model
+            # Get available target fields from the ETL registry
             target_fields = []
-            for field in SellerRawData._meta.get_fields():
-                if field.auto_created or field.name in ['asset_hub', 'seller', 'trade']:
-                    continue
-                field_type = field.get_internal_type()
-                help_text = getattr(field, 'help_text', '') or ''
+            for field_name, spec in get_import_field_specs().items():
                 target_fields.append({
-                    'name': field.name,
-                    'type': field_type,
-                    'description': help_text or f'{field.name} ({field_type})'
+                    'name': field_name,
+                    'type': spec.field_type,
+                    'description': spec.description or f'{field_name} ({spec.field_type})'
                 })
             
             # Sort target fields alphabetically for easier selection

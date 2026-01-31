@@ -54,7 +54,7 @@ def get_trade_options_data(partnership_ids: Optional[List[int]] = None) -> List[
         trade_options = get_trade_options_data(partnership_ids=[1, 2])
         return Response(trade_options)
     """
-    from acq_module.models.model_acq_seller import SellerRawData
+    from acq_module.models.model_acq_seller import AcqAsset
     
     # WHAT: Query all trades with seller details
     # WHY: Show trade name + seller name in dropdown for context
@@ -74,9 +74,9 @@ def get_trade_options_data(partnership_ids: Optional[List[int]] = None) -> List[
     if partnership_ids and len(partnership_ids) > 0:
         # WHAT: Get trade IDs that have assets in the selected partnership(s)
         # WHY: Filter trades based on AssetDetails.fund_legal_entity relationship
-        # HOW: Query SellerRawData → asset_hub → details → fund_legal_entity
+        # HOW: Query AcqAsset → asset_hub → details → fund_legal_entity
         trade_ids_with_partnership = (
-            SellerRawData.objects
+            AcqAsset.objects
             .filter(
                 trade__status='BOARD',
                 asset_hub__details__fund_legal_entity_id__in=partnership_ids
@@ -89,9 +89,9 @@ def get_trade_options_data(partnership_ids: Optional[List[int]] = None) -> List[
     trades = trades.annotate(
         # WHAT: Count of assets in this trade
         # WHY: Show user how many assets per trade in dropdown
-        # HOW: Count SellerRawData rows via reverse FK relationship
-        # NOTE: related_name is 'seller_raw_data' on SellerRawData.trade FK
-        asset_count=Count('seller_raw_data'),
+        # HOW: Count AcqAsset rows via reverse FK relationship
+        # NOTE: related_name is 'acq_assets' on AcqAsset.trade FK
+        asset_count=Count('acq_assets'),
         # WHAT: Get seller name via FK annotation
         # WHY: Include seller name in results
         # HOW: Use F() expression to reference related field
@@ -132,12 +132,12 @@ def get_status_options_data() -> List[Dict[str, Any]]:
     # WHAT: Import AssetIdHub to query outcome tracks
     # WHY: Need to check which assets have which outcome records
     from core.models.model_co_assetIdHub import AssetIdHub
-    from acq_module.models.model_acq_seller import SellerRawData
+    from acq_module.models.model_acq_seller import AcqAsset
     
     # WHAT: Get all boarded assets
     # WHY: Only show tracks for boarded assets in reporting
     boarded_assets = (
-        SellerRawData.objects
+        AcqAsset.objects
         .filter(trade__status='BOARD')
         .values_list('asset_hub_id', flat=True)
     )
@@ -210,12 +210,12 @@ def get_task_status_options_data(track: Optional[str] = None) -> List[Dict[str, 
     # WHAT: Import task models from AM module
     # WHY: Need to query each task type table
     from am_module.models.model_am_amData import REOtask, FCTask, DILTask, ShortSaleTask, ModificationTask, NoteSaleTask
-    from acq_module.models.model_acq_seller import SellerRawData
+    from acq_module.models.model_acq_seller import AcqAsset
     
     # WHAT: Get all boarded asset IDs
     # WHY: Only show tasks for boarded assets in reporting
     boarded_asset_ids = list(
-        SellerRawData.objects
+        AcqAsset.objects
         .filter(trade__status='BOARD')
         .values_list('asset_hub_id', flat=True)
     )

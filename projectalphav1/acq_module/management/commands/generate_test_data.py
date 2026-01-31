@@ -1,23 +1,17 @@
 """
 Management command to generate test data using Factory Boy.
 
-This command generates realistic, interconnected test data based on
-parameters from TEST_DATA_CONFIG.md.
-
 Usage:
-    python manage.py generate_test_data --sellers=12 --assets-per-trade=20
-    python manage.py generate_test_data --preset=minimal
-    python manage.py generate_test_data --database=dev
+    python manage.py generate_test_data
+    python manage.py generate_test_data --sellers=5 --trades-per-seller=1-2 --assets-per-trade=1-25
+    python manage.py generate_test_data --seller-val-pct=0.9 --internal-val-pct=0.5 --broker-val-pct=0.9
 """
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.conf import settings
 import random
-import sys
 
-# Import factories
-sys.path.append(str(settings.BASE_DIR))
 from factories.factory_core import AssetIdHubFactory, AssetDetailsFactory, LlDataEnrichmentFactory
 from factories.factory_acq import (
     SellerFactory,
@@ -32,7 +26,6 @@ from factories.factory_acq import (
 from factories.factory_assumptions import LoanLevelAssumptionFactory, TradeLevelAssumptionFactory
 from factories.factory_valuations import ValuationFactory
 
-# Import models
 from core.models.model_co_assumptions import Servicer
 from core.models.model_co_valuations import ValuationGradeReference
 from acq_module.models.model_acq_seller import AcqAsset
@@ -42,7 +35,6 @@ class Command(BaseCommand):
     help = 'Generate interconnected test data using Factory Boy'
 
     def add_arguments(self, parser):
-        # Volume parameters (from TEST_DATA_CONFIG.md)
         parser.add_argument(
             '--sellers',
             type=int,
@@ -61,8 +53,7 @@ class Command(BaseCommand):
             default='1-25',
             help='Assets per trade as range (default: 1-25)'
         )
-        
-        # Database selection
+
         parser.add_argument(
             '--database',
             type=str,
@@ -70,7 +61,6 @@ class Command(BaseCommand):
             help='Database to use (default, dev, newdev, prod)'
         )
 
-        # Valuation distribution
         parser.add_argument(
             '--seller-val-pct',
             type=float,
@@ -89,8 +79,7 @@ class Command(BaseCommand):
             default=0.90,
             help='Percent of assets with broker valuations (default: 0.90)'
         )
-        
-        # Options
+
         parser.add_argument(
             '--verbose',
             action='store_true',
@@ -106,20 +95,18 @@ class Command(BaseCommand):
         verbose = options['verbose']
         dry_run = options['dry_run']
         database = options['database']
-        
-        # Parse range parameters
+
         num_sellers = options['sellers']
         trades_range = self.parse_range(options['trades_per_seller'])
         assets_range = self.parse_range(options['assets_per_trade'])
         seller_val_pct = options['seller_val_pct']
         internal_val_pct = options['internal_val_pct']
         broker_val_pct = options['broker_val_pct']
-        
-        # Calculate totals
+
         avg_trades = sum(trades_range) / 2
         avg_assets = sum(assets_range) / 2
         estimated_total_assets = int(num_sellers * avg_trades * avg_assets)
-        
+
         self.stdout.write(
             self.style.SUCCESS(
                 f'\n>> Test Data Generation Plan\n'
@@ -135,41 +122,34 @@ class Command(BaseCommand):
                 f'{"=" * 50}\n'
             )
         )
-        
+
         if dry_run:
             self.stdout.write(self.style.WARNING('>> DRY RUN - No data will be created'))
             return
-        
+
         try:
-            # Use specified database
             using_db = database if database != 'default' else 'default'
-            
+
             with transaction.atomic(using=using_db):
                 self.stdout.write('>> Phase 1: Using existing reference data...')
-                
-                # Use existing servicers (config specifies to keep existing data)
+
                 servicers = list(Servicer.objects.all())
-                
                 if not servicers:
                     self.stdout.write(
-                        self.style.WARNING(
-                            '  ! No servicers found. Creating default servicer...'
-                        )
+                        self.style.WARNING('  ! No servicers found. Creating default servicer...')
                     )
                     servicer = Servicer.objects.create(
                         servicer_name="Default Servicer",
                         is_default_for_trade_assumptions=True
                     )
                     servicers = [servicer]
-                
-                # Ensure at least one servicer is default
+
                 if servicers and not any(s.is_default_for_trade_assumptions for s in servicers):
                     servicers[0].is_default_for_trade_assumptions = True
                     servicers[0].save()
-                
+
                 self.stdout.write(f'  [OK] Using {len(servicers)} existing servicers')
-                
-                # Create valuation grades if missing
+
                 grades = ['A+', 'A', 'B', 'C', 'D', 'F']
                 for i, grade in enumerate(grades):
                     ValuationGradeReference.objects.get_or_create(
@@ -182,47 +162,43 @@ class Command(BaseCommand):
                     )
                 if verbose:
                     self.stdout.write(f'  [OK] Created valuation grades')
-                
+
                 self.stdout.write('\n>> Phase 2: Creating sellers and trades...')
-                
+
                 sellers = []
                 trades = []
-                
-                for i in range(num_sellers):
-                    # Create seller
+
+                for _ in range(num_sellers):
                     seller = SellerFactory.create()
                     sellers.append(seller)
-                    
-                    # Create trades for this seller
+
                     num_trades = random.randint(*trades_range)
-                    for j in range(num_trades):
+                    for _ in range(num_trades):
                         trade = TradeFactory.create(seller=seller)
                         trades.append(trade)
-                        
-                        # Create trade-level assumption
+
                         TradeLevelAssumptionFactory.create(
                             trade=trade,
                             servicer=servicers[0] if servicers else None
                         )
-                    
+
                     if verbose:
                         self.stdout.write(
                             f'  [OK] Created seller: {seller.name} with {num_trades} trades'
                         )
-                
+
                 self.stdout.write(
                     f'  [OK] Created {len(sellers)} sellers and {len(trades)} trades'
                 )
-                
-                self.stdout.write('\n>> Phase 3: Creating assets...')
-                
-                total_assets = 0
-                
-                for trade in trades:
-                    # Create assets for this trade
-                    num_assets = random.randint(*assets_range)
 
+                self.stdout.write('\n>> Phase 3: Creating assets...')
+
+                total_assets = 0
+
+                for trade in trades:
+                    num_assets = random.randint(*assets_range)
                     asset_classes = self.build_asset_classes_for_trade(num_assets)
+
                     for asset_class in asset_classes:
                         asset_hub = AssetIdHubFactory.create()
 
@@ -268,15 +244,14 @@ class Command(BaseCommand):
                         total_assets += 1
                         if total_assets % 50 == 0:
                             self.stdout.write(f'  ... Created {total_assets} assets so far')
-                    
+
                     if verbose:
                         self.stdout.write(
                             f'  [OK] Created {num_assets} assets for trade: {trade.trade_name}'
                         )
-                
+
                 self.stdout.write(f'  [OK] Created {total_assets} total assets')
-                
-                # Summary
+
                 self.stdout.write(
                     self.style.SUCCESS(
                         f'\n>> Test data generation complete!\n'
@@ -290,6 +265,7 @@ class Command(BaseCommand):
                         f'{"=" * 50}\n'
                     )
                 )
+
         except Exception as e:
             self.stdout.write(
                 self.style.ERROR(f'\n>> Error during generation: {str(e)}\n')
@@ -299,13 +275,11 @@ class Command(BaseCommand):
             raise CommandError(f'Data generation failed: {str(e)}')
 
     def parse_range(self, range_str):
-        """Parse range string like '1-2' into tuple (1, 2)."""
         parts = range_str.split('-')
         if len(parts) == 2:
             return (int(parts[0]), int(parts[1]))
-        else:
-            val = int(parts[0])
-            return (val, val)
+        val = int(parts[0])
+        return (val, val)
 
     def build_asset_classes_for_trade(self, num_assets: int):
         non_note_classes = [

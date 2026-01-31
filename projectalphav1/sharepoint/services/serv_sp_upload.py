@@ -49,8 +49,8 @@ class SharePointUploadService:
         """
         try:
             # Get asset
-            SellerRawData = apps.get_model('acq_module', 'SellerRawData')
-            asset = SellerRawData.objects.select_related(
+            AcqAsset = apps.get_model('acq_module', 'AcqAsset')
+            asset = AcqAsset.objects.select_related(
                 'asset_hub', 'trade', 'trade__seller'
             ).get(pk=asset_hub_id)
             

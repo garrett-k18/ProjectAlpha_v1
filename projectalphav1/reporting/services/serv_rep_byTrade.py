@@ -22,7 +22,7 @@ Docs reviewed:
 from typing import List, Dict, Any, Optional
 from django.db.models import QuerySet
 from django.utils import timezone
-from acq_module.models.model_acq_seller import SellerRawData
+from acq_module.models.model_acq_seller import AcqAsset
 from am_module.services.serv_am_assetInventory import AssetInventoryEnricher
 from .serv_rep_queryBuilder import build_reporting_queryset, parse_filter_params
 from .serv_rep_aggregations import group_by_trade
@@ -285,7 +285,11 @@ def get_trade_drill_down_data(trade_id: int) -> Dict[str, Any]:
         return Response(details)
     """
     # WHAT: Filter to single trade
-    queryset = SellerRawData.objects.filter(trade_id=trade_id).select_related('trade', 'trade__seller')
+    queryset = (
+        AcqAsset.objects
+        .filter(trade_id=trade_id)
+        .select_related('trade', 'trade__seller', 'loan', 'property')
+    )
     
     # WHAT: Calculate metrics for this trade only
     trade_metrics = group_by_trade(queryset)

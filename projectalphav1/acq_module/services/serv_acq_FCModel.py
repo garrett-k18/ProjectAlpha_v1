@@ -12,7 +12,7 @@ from typing import Optional, Dict, Any
 from datetime import date
 from decimal import Decimal
 
-from acq_module.models.model_acq_seller import SellerRawData
+from acq_module.models.model_acq_seller import AcqAsset
 from acq_module.models.model_acq_assumptions import TradeLevelAssumption, LoanLevelAssumption
 from acq_module.logic.logi_acq_durationAssumptions import get_asset_fc_timeline
 from acq_module.logic.logi_acq_expenseAssumptions import monthly_tax_for_asset, monthly_insurance_for_asset, acq_broker_fee, acq_fee_other
@@ -21,6 +21,7 @@ from acq_module.logic.logi_acq_purchasePrice import purchase_price, purchase_pri
 from acq_module.logic.logi_acq_outcomespecific import fcoutcomeLogic
 from core.models.model_co_geoAssumptions import StateReference
 from core.models.model_co_assumptions import Servicer
+from core.models.model_co_valuations import Valuation
 
 
 def get_fc_timeline_sums(asset_hub_id: int, reference_date: Optional[date] = None) -> Dict[str, Any]:
@@ -54,18 +55,23 @@ def get_fc_timeline_sums(asset_hub_id: int, reference_date: Optional[date] = Non
     if reference_date is None:
         reference_date = date.today()
     
-    # WHAT: Get asset's SellerRawData to access trade
+    # WHAT: Get asset container to access trade
     # WHY: Need trade to find TradeLevelAssumption for servicing_transfer_date
-    raw_data = SellerRawData.objects.filter(asset_hub_id=asset_hub_id).select_related('trade').first()
+    asset = (
+        AcqAsset.objects
+        .select_related('trade', 'property')
+        .filter(asset_hub_id=asset_hub_id)
+        .first()
+    )
     
     # WHAT: Default to 0 instead of None so calculations still work
     # WHY: Returning None breaks frontend calculations; 0 is a valid "no duration" value
     servicing_transfer_months = 0
     
-    if raw_data and raw_data.trade:
+    if asset and asset.trade:
         # WHAT: Get TradeLevelAssumption for this trade
         # WHY: Contains servicing_transfer_date field with fallback logic
-        trade_assumption = TradeLevelAssumption.objects.filter(trade=raw_data.trade).first()
+        trade_assumption = TradeLevelAssumption.objects.filter(trade=asset.trade).first()
         
         if trade_assumption:
             # WHAT: Use effective_servicing_transfer_date property which has fallback logic
@@ -237,9 +243,15 @@ def get_fc_expense_values(
         - base_sellerAsIs: Optional[float] - Seller as-is value amount
         - base_internalUWAsIs: Optional[float] - Internal UW as-is value amount
     """
-    # WHAT: Get asset's SellerRawData to access state and trade
+    # WHAT: Get asset container to access state and trade
     # WHY: Need state for legal fees and trade for servicer
-    raw_data = SellerRawData.objects.filter(asset_hub_id=asset_hub_id).select_related('trade').first()
+    asset = (
+        AcqAsset.objects
+        .select_related('trade', 'property', 'loan')
+        .filter(asset_hub_id=asset_hub_id)
+        .first()
+    )
+    asset_state = asset.property.state if asset and asset.property else None
     
     # WHAT: Initialize expense values with None
     # WHY: Return None if data not available
@@ -278,8 +290,8 @@ def get_fc_expense_values(
         # WHAT: Also fetch the percentage for frontend display
         # WHY: Frontend may need to show the percentage
         # HOW: Use acq_broker_fees (acquisition broker fee percentage) from trade assumptions
-        if raw_data and raw_data.trade:
-            trade_assumptions = TradeLevelAssumption.objects.filter(trade=raw_data.trade).only('acq_broker_fees').first()
+        if asset and asset.trade:
+            trade_assumptions = TradeLevelAssumption.objects.filter(trade=asset.trade).only('acq_broker_fees').first()
             if trade_assumptions and trade_assumptions.acq_broker_fees is not None:
                 acq_broker_fee_pct = float(trade_assumptions.acq_broker_fees)
         # else:
@@ -296,8 +308,8 @@ def get_fc_expense_values(
             # print(f"2. Other Fees: ${acq_other_fees:,.2f}")
             pass
         # WHAT: Also fetch the percentage for frontend live calculation
-        if raw_data and raw_data.trade:
-            trade_assumptions = TradeLevelAssumption.objects.filter(trade=raw_data.trade).only('acq_other_costs').first()
+        if asset and asset.trade:
+            trade_assumptions = TradeLevelAssumption.objects.filter(trade=asset.trade).only('acq_other_costs').first()
             if trade_assumptions and trade_assumptions.acq_other_costs is not None:
                 acq_other_fee_pct = float(trade_assumptions.acq_other_costs)
         # else:
@@ -308,9 +320,9 @@ def get_fc_expense_values(
     
     # WHAT: Get flat per-asset fees from TradeLevelAssumption
     # WHY: Legal, DD, and tax/title costs are applied to all assets in the trade
-    if raw_data and raw_data.trade:
+    if asset and asset.trade:
         try:
-            trade_assumption = TradeLevelAssumption.objects.filter(trade=raw_data.trade).first()
+            trade_assumption = TradeLevelAssumption.objects.filter(trade=asset.trade).first()
             if trade_assumption:
                 if trade_assumption.acq_legal_cost:
                     acq_legal = Decimal(str(trade_assumption.acq_legal_cost))
@@ -348,11 +360,11 @@ def get_fc_expense_values(
     # WHY: Calculate based on servicer's board fee, 120-day fee, and FC fee
     # HOW: servicing_fees = board_fee + (onetwentyday_fee * servicing_transfer_months) + (fc_fee * foreclosure_months)
     # NOTE: Liquidation fee is calculated separately and returned as servicer_liquidation_fee
-    if raw_data and raw_data.trade:
+    if asset and asset.trade:
         try:
             # WHAT: Get TradeLevelAssumption to access servicer
             # WHY: Servicer is linked to the trade
-            trade_assumption = TradeLevelAssumption.objects.filter(trade=raw_data.trade).select_related('servicer').first()
+            trade_assumption = TradeLevelAssumption.objects.filter(trade=asset.trade).select_related('servicer').first()
             
             if trade_assumption and trade_assumption.servicer:
                 servicer = trade_assumption.servicer
@@ -434,9 +446,9 @@ def get_fc_expense_values(
     
     # WHAT: Get legal fees from StateReference table
     # WHY: Legal fees are state-specific and stored in reference table
-    if raw_data and raw_data.state:
+    if asset_state:
         try:
-            state_ref = StateReference.objects.filter(state_code=raw_data.state).only('fc_legal_fees_avg').first()
+            state_ref = StateReference.objects.filter(state_code=asset_state).only('fc_legal_fees_avg').first()
             if state_ref and state_ref.fc_legal_fees_avg is not None:
                 legal_cost = state_ref.fc_legal_fees_avg
                 # WHAT: Convert to Decimal if not already
@@ -449,9 +461,9 @@ def get_fc_expense_values(
     # WHAT: Calculate Servicer Liquidation Fee separately
     # WHY: This is a liquidation expense, not a carry cost
     # HOW: Use fcoutcomeLogic to calculate liquidation fee = MAX(flat_fee, pct_fee * proceeds)
-    if raw_data and raw_data.trade:
+    if asset and asset.trade:
         try:
-            trade_assumption = TradeLevelAssumption.objects.filter(trade=raw_data.trade).select_related('servicer').first()
+            trade_assumption = TradeLevelAssumption.objects.filter(trade=asset.trade).select_related('servicer').first()
             if trade_assumption and trade_assumption.servicer:
                 # print(f"\n{'='*80}")
                 # print(f"SERVICER LIQUIDATION FEE CALCULATION - Asset Hub ID: {asset_hub_id}")
@@ -568,13 +580,22 @@ def get_fc_expense_values(
         
         # WHAT: Also get base values for frontend live calculations
         # WHY: Frontend needs these to recalculate percentages as user types
-        if raw_data:
-            base_values['base_currentBalance'] = float(raw_data.current_balance) if raw_data.current_balance else None
-            base_values['base_totalDebt'] = float(raw_data.total_debt) if raw_data.total_debt else None
-            base_values['base_sellerAsIs'] = float(raw_data.seller_asis_value) if raw_data.seller_asis_value else None
+        if asset and asset.loan:
+            base_values['base_currentBalance'] = float(asset.loan.current_balance) if asset.loan.current_balance else None
+            base_values['base_totalDebt'] = float(asset.loan.total_debt) if asset.loan.total_debt else None
+            # Seller as-is from Valuation
+            seller_val = (
+                Valuation.objects.filter(
+                    asset_hub_id=asset_hub_id,
+                    source__in=[Valuation.Source.SELLER_PROVIDED, Valuation.Source.SELLER],
+                )
+                .only('asis_value', 'value_date', 'created_at')
+                .order_by('-value_date', '-created_at')
+                .first()
+            )
+            base_values['base_sellerAsIs'] = float(seller_val.asis_value) if seller_val and seller_val.asis_value else None
             
             # WHAT: Get internal UW as-is value from Valuation for base
-            from core.models.model_co_valuations import Valuation
             try:
                 internal_val = Valuation.objects.filter(
                     asset_hub_id=asset_hub_id, 

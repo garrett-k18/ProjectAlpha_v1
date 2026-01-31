@@ -3,7 +3,7 @@ from typing import Optional, List
 import numpy as np
 from numpy_financial import irr, npv
 
-from acq_module.models.model_acq_seller import SellerRawData
+from acq_module.models.model_acq_seller import AcqAsset
 from acq_module.models.model_acq_assumptions import TradeLevelAssumption, LoanLevelAssumption
 from acq_module.logic.logi_acq_expenseAssumptions import monthly_tax_for_asset, monthly_insurance_for_asset
 from acq_module.logic.logi_acq_durationAssumptions import get_asset_fc_timeline
@@ -50,17 +50,18 @@ class fcoutcomeLogic:
         """
         # WHAT: Fetch base debt and state for legal fees
         # WHY: Need current debt baseline and state for cost lookups
-        raw: Optional[SellerRawData] = (
-            SellerRawData.objects
+        asset: Optional[AcqAsset] = (
+            AcqAsset.objects
+            .select_related("loan", "property")
             .filter(asset_hub_id=asset_hub_id)
-            .only('total_debt', 'state')
+            .only('loan__total_debt', 'property__state')
             .first()
         )
 
-        if not raw:
+        if not asset or not asset.loan or not asset.property:
             return Decimal('0.00')
 
-        base_debt: Decimal = raw.total_debt or Decimal('0.00')
+        base_debt: Decimal = asset.loan.total_debt or Decimal('0.00')
         
         # print(f"\n{'='*80}")
         # print(f"FORECASTED TOTAL DEBT CALCULATION - Asset Hub ID: {asset_hub_id}")
@@ -172,11 +173,11 @@ class fcoutcomeLogic:
         # WHY: logi_acq__proceedAssumptions imports logi_acq_outcomespecific, so we delay import
         from acq_module.logic.logi_acq__proceedAssumptions import fc_sale_proceeds
         
-        # WHAT: Get the asset's SellerRawData to access trade
+        # WHAT: Get the asset's AcqAsset to access trade
         # WHY: Need trade to find TradeLevelAssumption which has servicer
         # print(f"Step 1: Looking up SellerRawData for asset_hub_id={asset_hub_id}")
         raw_data = (
-            SellerRawData.objects
+            AcqAsset.objects
             .filter(asset_hub_id=asset_hub_id)
             .select_related('trade')
             .first()

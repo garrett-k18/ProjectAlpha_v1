@@ -1,8 +1,8 @@
 from django.core.management.base import BaseCommand
-from acq_module.models.model_acq_seller import SellerRawData
+from acq_module.models.model_acq_seller import AcqAsset
 
 class Command(BaseCommand):
-    help = 'Backfill acq_status for all SellerRawData records to BOARD'
+    help = 'Backfill acq_status for all AcqAsset records to KEEP'
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -12,17 +12,17 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        status = 'BOARD'
+        status = AcqAsset.AcquisitionStatus.KEEP
         dry_run = options['dry_run']
         # Validate status is valid
-        valid_statuses = [choice[0] for choice in SellerRawData.AcquisitionStatus.choices]
+        valid_statuses = [choice[0] for choice in AcqAsset.AcquisitionStatus.choices]
         if status not in valid_statuses:
             self.stderr.write(f'Invalid status: {status}. Valid choices: {valid_statuses}')
             return
 
         if dry_run:
-            count = SellerRawData.objects.all().count()
+            count = AcqAsset.objects.all().count()
             self.stdout.write(f'DRY RUN: Would update {count} records to acq_status={status}')
         else:
-            count = SellerRawData.objects.all().update(acq_status=status)
+            count = AcqAsset.objects.all().update(acq_status=status)
             self.stdout.write(f'Updated {count} records to acq_status={status}')

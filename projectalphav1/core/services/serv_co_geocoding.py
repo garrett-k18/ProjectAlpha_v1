@@ -18,11 +18,11 @@ import requests
 from typing import Dict, List, Optional, Tuple, Any, Sequence
 from decimal import Decimal
 
-from django.db.models import Q
+from django.db.models import Q, F
 from django.utils import timezone
 
-# App model import: `SellerRawData` contains the address fields we need
-from acq_module.models.model_acq_seller import SellerRawData
+# App model import: `AcqProperty` contains the address fields we need
+from acq_module.models.model_acq_seller import AcqProperty
 from core.models import LlDataEnrichment
 
 # ---------------------------------------------------------------------------
@@ -713,11 +713,12 @@ def _persist_enrichment_rows(
             continue
 
         if getattr(enr_obj, 'asset_hub_id', None) is None:
+            # WHAT: AcqProperty primary key equals asset_hub_id
+            # WHY: AssetIdHub is the canonical identifier for enrichment
+            # HOW: Use row_id directly to backfill if needed
             try:
-                _raw = SellerRawData.objects.only('asset_hub_id').get(pk=row_id)
-                if getattr(_raw, 'asset_hub_id', None) is not None:
-                    enr_obj.asset_hub_id = _raw.asset_hub_id
-                    enr_obj.save(update_fields=['asset_hub'])
+                enr_obj.asset_hub_id = row_id
+                enr_obj.save(update_fields=['asset_hub'])
             except Exception:
                 pass
 
@@ -971,7 +972,9 @@ def batch_geocode_row_ids(
 
     clean_ids = [rid for rid in row_ids if rid]
     rows = list(
-        SellerRawData.objects.filter(pk__in=clean_ids)
+        AcqProperty.objects
+        .filter(pk__in=clean_ids)
+        .annotate(asset_hub_id=F("asset_id"))
         .values("pk", "asset_hub_id", "city", "state", "zip")
     )
 
@@ -1075,9 +1078,9 @@ def geocode_missing_assets(limit: Optional[int] = None, *, chunk_size: int = 100
     # WHAT: Find SellerRawData records that need geocoding
     # WHY: Only geocode records that don't have both lat AND lng
     # HOW: Query for records where enrichment is missing OR where BOTH lat and lng are null
-    qs = SellerRawData.objects.filter(
-        Q(asset_hub__enrichment__isnull=True)
-        | (Q(asset_hub__enrichment__geocode_lat__isnull=True) & Q(asset_hub__enrichment__geocode_lng__isnull=True))
+    qs = AcqProperty.objects.filter(
+        Q(asset__asset_hub__enrichment__isnull=True)
+        | (Q(asset__asset_hub__enrichment__geocode_lat__isnull=True) & Q(asset__asset_hub__enrichment__geocode_lng__isnull=True))
     ).values_list("pk", flat=True)
     if limit is not None:
         qs = qs[:limit]
@@ -1117,7 +1120,9 @@ def preview_msa_for_row_ids(
 
     clean_ids = [rid for rid in row_ids if rid]
     rows = list(
-        SellerRawData.objects.filter(pk__in=clean_ids)
+        AcqProperty.objects
+        .filter(pk__in=clean_ids)
+        .annotate(asset_hub_id=F("asset_id"))
         .values("pk", "asset_hub_id", "city", "state", "zip")
     )
 
@@ -1274,8 +1279,9 @@ def geocode_markers_for_seller_trade(seller_id: int, trade_id: int) -> Dict[str,
     # Query only the fields needed to compose addresses and labels for markers
     query_start = time.time()
     rows = list(
-        SellerRawData.objects
-        .filter(Q(seller_id=seller_id) & Q(trade_id=trade_id))
+        AcqProperty.objects
+        .filter(Q(asset__seller_id=seller_id) & Q(asset__trade_id=trade_id))
+        .annotate(asset_hub_id=F("asset_id"))
         .values("pk", "asset_hub_id", "city", "state", "zip")
     )
     query_time = time.time() - query_start
@@ -1377,7 +1383,7 @@ def geocode_markers_for_seller_trade(seller_id: int, trade_id: int) -> Dict[str,
 
 # Function: geocode_row – single-row enrichment used by signals/import hooks.
 def geocode_row(row_id: int) -> Optional[Tuple[float, float]]:
-    """Geocode a single SellerRawData row and persist to LlDataEnrichment.
+    """Geocode a single AcqProperty row and persist to LlDataEnrichment.
 
     This is used by post-save signals to populate coordinates automatically
     on creation without requiring a batch call. It follows the same order:
@@ -1388,15 +1394,18 @@ def geocode_row(row_id: int) -> Optional[Tuple[float, float]]:
         if not api_key:
             return None
 
-        r = (SellerRawData.objects
-             .filter(pk=row_id)
-             .values("pk", "asset_hub_id", "city", "state", "zip")
-             .first())
+        r = (
+            AcqProperty.objects
+            .filter(pk=row_id)
+            .annotate(asset_hub_id=F("asset_id"))
+            .values("pk", "asset_hub_id", "city", "state", "zip")
+            .first()
+        )
         if not r:
             return None
 
         # Check persisted first
-        enr = LlDataEnrichment.objects.filter(seller_raw_data_id=row_id).only(
+        enr = LlDataEnrichment.objects.filter(asset_hub_id=row_id).only(
             "geocode_lat", "geocode_lng"
         ).first()
         if enr and enr.geocode_lat is not None and enr.geocode_lng is not None:
@@ -1415,7 +1424,7 @@ def geocode_row(row_id: int) -> Optional[Tuple[float, float]]:
         msa_name = extras.get("msa_name")
         msa_code = extras.get("msa_code")
         enr_obj, created = LlDataEnrichment.objects.get_or_create(
-            seller_raw_data_id=row_id,
+            asset_hub_id=row_id,
             defaults={
                 "geocode_lat": lat,
                 "geocode_lng": lng,
@@ -1427,16 +1436,11 @@ def geocode_row(row_id: int) -> Optional[Tuple[float, float]]:
                 "geocode_msa_code": msa_code,
             },
         )
-        # Ensure asset_hub mirrors the raw row's hub
+        # Ensure asset_hub mirrors the property row's hub
         if getattr(enr_obj, 'asset_hub_id', None) is None:
             try:
-                from acq_module.models.model_acq_seller import SellerRawData as _SRD
-                _raw = _SRD.objects.only('asset_hub_id').get(pk=row_id)
-                if getattr(_raw, 'asset_hub_id', None) is not None:
-                    enr_obj.asset_hub_id = _raw.asset_hub_id
-                    enr_obj.save(update_fields=[
-                        'asset_hub',
-                    ])
+                enr_obj.asset_hub_id = row_id
+                enr_obj.save(update_fields=['asset_hub'])
             except Exception:
                 pass
         if not created:

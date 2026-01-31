@@ -15,7 +15,7 @@ from decimal import Decimal
 from typing import Dict, Optional, Tuple
 from django.db.models import Q
 
-from acq_module.models.model_acq_seller import SellerRawData
+from acq_module.models.model_acq_seller import AcqAsset
 from core.models.model_co_assumptions import (
     PropertyTypeAssumption,
     SquareFootageAssumption,
@@ -52,22 +52,26 @@ class UtilityAssumptionWorkflow:
         self._state_reference = None
     
     @property
-    def seller_data(self) -> Optional[SellerRawData]:
-        """Get seller raw data for this asset (cached)."""
+    def seller_data(self) -> Optional[AcqAsset]:
+        """Get acquisition asset for this hub (cached)."""
         if self._seller_data is None:
             try:
-                self._seller_data = SellerRawData.objects.get(asset_hub_id=self.asset_hub_id)
-            except SellerRawData.DoesNotExist:
+                self._seller_data = (
+                    AcqAsset.objects
+                    .select_related('property')
+                    .get(asset_hub_id=self.asset_hub_id)
+                )
+            except AcqAsset.DoesNotExist:
                 self._seller_data = None
         return self._seller_data
     
     @property
     def state_reference(self) -> Optional[StateReference]:
         """Get state reference data for this asset (cached)."""
-        if self._state_reference is None and self.seller_data:
+        if self._state_reference is None and self.seller_data and self.seller_data.property:
             try:
                 self._state_reference = StateReference.objects.get(
-                    state_code=self.seller_data.state
+                    state_code=self.seller_data.property.state
                 )
             except StateReference.DoesNotExist:
                 self._state_reference = None
@@ -80,18 +84,26 @@ class UtilityAssumptionWorkflow:
         Returns:
             str: 'RESIDENTIAL' or 'COMMERCIAL'
         """
-        if not self.seller_data or not self.seller_data.property_type:
+        property_type = (
+            self.seller_data.property.property_type_merged
+            if self.seller_data and self.seller_data.property
+            else None
+        )
+        if not property_type:
             return 'RESIDENTIAL'  # Default to residential
         
         # Commercial property types
         commercial_types = [
-            SellerRawData.PropertyType.INDUSTRIAL,
-            SellerRawData.PropertyType.MIXED_USE,
-            SellerRawData.PropertyType.STORAGE,
-            SellerRawData.PropertyType.HEALTHCARE,
+            AcqAsset.CommercialSubclass.INDUSTRIAL,
+            AcqAsset.CommercialSubclass.MIXED_USE,
+            AcqAsset.CommercialSubclass.STORAGE,
+            AcqAsset.CommercialSubclass.HEALTHCARE,
+            AcqAsset.CommercialSubclass.OFFICE,
+            AcqAsset.CommercialSubclass.RETAIL,
+            AcqAsset.CommercialSubclass.HOSPITALITY,
         ]
         
-        if self.seller_data.property_type in commercial_types:
+        if property_type in commercial_types:
             return 'COMMERCIAL'
         
         return 'RESIDENTIAL'
@@ -103,15 +115,12 @@ class UtilityAssumptionWorkflow:
         Returns:
             Optional[int]: Square footage if available
         """
-        if not self.seller_data:
+        if not self.seller_data or not self.seller_data.property:
             return None
-        
-        # For commercial properties, use gross square footage
-        if self.get_property_category() == 'COMMERCIAL':
-            return getattr(self.seller_data, 'gross_square_footage', None)
-        
-        # For residential properties, use livable square footage
-        return getattr(self.seller_data, 'livable_square_ft_building', None)
+        # WHAT: Use AcqProperty square footage
+        # WHY: SellerRawData-specific sqft fields were removed
+        # HOW: Use unified sq_ft field for both residential and commercial
+        return getattr(self.seller_data.property, 'sq_ft', None)
     
     def get_unit_count(self) -> Optional[int]:
         """
@@ -122,17 +131,10 @@ class UtilityAssumptionWorkflow:
         """
         if not self.seller_data:
             return None
-        
-        # Only applicable for multifamily properties
-        multifamily_types = [
-            SellerRawData.PropertyType.TWO_TO_FOUR,
-            SellerRawData.PropertyType.MULTIFAMILY,
-        ]
-        
-        if self.seller_data.property_type not in multifamily_types:
-            return None
-        
-        return getattr(self.seller_data, 'units', None)
+        # WHAT: Unit counts are not yet modeled on AcqProperty
+        # WHY: The new split models do not include a units field
+        # HOW: Return None to force fallback to other assumption sources
+        return None
     
     def get_square_footage_assumption(self) -> Optional[SquareFootageAssumption]:
         """
@@ -192,12 +194,17 @@ class UtilityAssumptionWorkflow:
         Returns:
             Optional[PropertyTypeAssumption]: Matching assumption if found
         """
-        if not self.seller_data or not self.seller_data.property_type:
+        property_type = (
+            self.seller_data.property.property_type_merged
+            if self.seller_data and self.seller_data.property
+            else None
+        )
+        if not property_type:
             return None
         
         try:
             return PropertyTypeAssumption.objects.get(
-                property_type=self.seller_data.property_type,
+                property_type=property_type,
                 is_active=True
             )
         except PropertyTypeAssumption.DoesNotExist:

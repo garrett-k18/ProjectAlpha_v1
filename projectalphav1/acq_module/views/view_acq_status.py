@@ -37,7 +37,7 @@ from rest_framework.authentication import TokenAuthentication
 from rest_framework.response import Response
 from rest_framework import status
 
-from acq_module.models.model_acq_seller import Trade, SellerRawData
+from acq_module.models.model_acq_seller import Trade, AcqAsset
 
 
 # ============================================================================
@@ -179,13 +179,13 @@ def drop_asset(request, asset_id):
     """
     try:
         # WHAT: Find asset by asset_hub primary key
-        # WHY: SellerRawData uses asset_hub as primary key (OneToOne with AssetIdHub)
-        asset = SellerRawData.objects.get(asset_hub_id=asset_id)
+        # WHY: AcqAsset uses asset_hub as primary key (OneToOne with AssetIdHub)
+        asset = AcqAsset.objects.get(asset_hub_id=asset_id)
         
         # WHAT: Mark as dropped
         # WHY: Exclude from active bidding pool
         # HOW: Set acq_status to DROP (binary flag)
-        asset.acq_status = SellerRawData.AcquisitionStatus.DROP
+        asset.acq_status = AcqAsset.AcquisitionStatus.DROP
         asset.save()
         
         return Response({
@@ -193,7 +193,7 @@ def drop_asset(request, asset_id):
             'asset_id': asset_id
         }, status=status.HTTP_200_OK)
         
-    except SellerRawData.DoesNotExist:
+    except AcqAsset.DoesNotExist:
         return Response({
             'error': 'Asset not found',
             'asset_id': asset_id
@@ -232,11 +232,11 @@ def bulk_drop_assets(request):
             "error": "No valid asset IDs provided",
         }, status=status.HTTP_400_BAD_REQUEST)
 
-    qs = SellerRawData.objects.filter(asset_hub_id__in=normalized_ids)
+    qs = AcqAsset.objects.filter(asset_hub_id__in=normalized_ids)
     trade_ids = list(qs.values_list("trade_id", flat=True).distinct())
 
     with transaction.atomic():
-        updated_count = qs.update(acq_status=SellerRawData.AcquisitionStatus.DROP)
+        updated_count = qs.update(acq_status=AcqAsset.AcquisitionStatus.DROP)
 
         # Refresh trade-level status for affected trades
         for trade_id in trade_ids:
@@ -282,11 +282,11 @@ def bulk_restore_assets(request):
             "error": "No valid asset IDs provided",
         }, status=status.HTTP_400_BAD_REQUEST)
 
-    qs = SellerRawData.objects.filter(asset_hub_id__in=normalized_ids)
+    qs = AcqAsset.objects.filter(asset_hub_id__in=normalized_ids)
     trade_ids = list(qs.values_list("trade_id", flat=True).distinct())
 
     with transaction.atomic():
-        updated_count = qs.update(acq_status=SellerRawData.AcquisitionStatus.KEEP)
+        updated_count = qs.update(acq_status=AcqAsset.AcquisitionStatus.KEEP)
 
         for trade_id in trade_ids:
             if not trade_id:
@@ -324,13 +324,13 @@ def restore_asset(request, asset_id):
     """
     try:
         # WHAT: Find asset by asset_hub primary key
-        # WHY: SellerRawData uses asset_hub as primary key (OneToOne with AssetIdHub)
-        asset = SellerRawData.objects.get(asset_hub_id=asset_id)
+        # WHY: AcqAsset uses asset_hub as primary key (OneToOne with AssetIdHub)
+        asset = AcqAsset.objects.get(asset_hub_id=asset_id)
         
         # WHAT: Restore to active pool
         # WHY: Return asset to default KEEP status
         # HOW: Set acq_status to KEEP (default active status)
-        asset.acq_status = SellerRawData.AcquisitionStatus.KEEP
+        asset.acq_status = AcqAsset.AcquisitionStatus.KEEP
         asset.save()
         
         return Response({
@@ -338,7 +338,7 @@ def restore_asset(request, asset_id):
             'asset_id': asset_id
         }, status=status.HTTP_200_OK)
         
-    except SellerRawData.DoesNotExist:
+    except AcqAsset.DoesNotExist:
         return Response({
             'error': 'Asset not found',
             'asset_id': asset_id

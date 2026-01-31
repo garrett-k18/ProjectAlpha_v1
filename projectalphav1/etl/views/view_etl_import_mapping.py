@@ -34,7 +34,11 @@ from etl.serializers.serial_etl_import_mapping import (
     ImportMappingDetailSerializer,
     ImportMappingApplySerializer,
 )
-from acq_module.models.model_acq_seller import Seller, Trade, SellerRawData
+from acq_module.models.model_acq_seller import Seller, Trade, AcqAsset
+from etl.services.services_sellerTapeImport.etl_field_registry import (
+    get_import_field_specs,
+    get_import_field_targets,
+)
 
 # WHAT: Initialize logger for this module
 # WHY: Track mapping operations and debug issues
@@ -492,37 +496,23 @@ def field_schema(request, trade_id):
     
     # WHAT: Get records for sample data
     # WHY: Show what data is in each field
-    # HOW: Query SellerRawData filtered by trade
-    records = SellerRawData.objects.filter(trade=trade)
+    # HOW: Query AcqAsset filtered by trade
+    records = AcqAsset.objects.filter(trade=trade).select_related(
+        "loan", "property", "foreclosure_timeline"
+    )
     record_count = records.count()
     
     # WHAT: Get all available target fields for dropdown
     # WHY: User needs to see all options when changing mapping
-    # HOW: Get all SellerRawData fields
+    # HOW: Use registry to get importable fields
     available_fields = []
-    excluded_fields = ['asset_hub', 'seller', 'trade', 'id']
-    
-    for field in SellerRawData._meta.get_fields():
-        # Skip auto-created and relation fields
-        if field.auto_created or field.name in excluded_fields:
-            continue
-        
-        # Skip reverse relations
-        if hasattr(field, 'one_to_many') and field.one_to_many:
-            continue
-        if hasattr(field, 'many_to_many') and field.many_to_many:
-            continue
-        if hasattr(field, 'related_model') and hasattr(field, 'remote_field') and field.remote_field and hasattr(field.remote_field, 'multiple') and field.remote_field.multiple:
-            continue
-        
-        field_type = getattr(field, 'get_internal_type', lambda: 'Unknown')()
-        help_text = getattr(field, 'help_text', '') or ''
-        
+    field_specs = get_import_field_specs()
+    for field_name, spec in field_specs.items():
         available_fields.append({
-            'name': field.name,
-            'label': field.name.replace('_', ' ').title(),
-            'type': field_type,
-            'description': help_text or f'{field.name} ({field_type})'
+            'name': field_name,
+            'label': field_name.replace('_', ' ').title(),
+            'type': spec.field_type,
+            'description': spec.description or f'{field_name} ({spec.field_type})'
         })
     
     # WHAT: Build mappings list
@@ -530,46 +520,46 @@ def field_schema(request, trade_id):
     # HOW: Use stored mapping or generate from fields for legacy
     mappings = []
     
+    field_targets = get_import_field_targets()
+
+    def _get_samples_for_field(field_name: str):
+        """Return up to 3 sample values for a mapped field."""
+        target = field_targets.get(field_name)
+        if not target or record_count == 0:
+            return []
+
+        target_group, model_field_name = target
+        if target_group == "asset":
+            lookup = model_field_name
+        elif target_group == "loan":
+            lookup = f"loan__{model_field_name}"
+        elif target_group == "property":
+            lookup = f"property__{model_field_name}"
+        elif target_group == "foreclosure":
+            lookup = f"foreclosure_timeline__{model_field_name}"
+        else:
+            # NOTE: Special/valuation fields are not sampled here
+            return []
+
+        samples = []
+        try:
+            sample_queryset = records.exclude(**{f"{lookup}__isnull": True})
+            sample_values = sample_queryset.values_list(lookup, flat=True).distinct()[:3]
+            for v in sample_values:
+                if v is not None:
+                    samples.append(str(v)[:50])
+        except Exception:
+            pass
+        return samples
+
     if is_legacy:
         # WHAT: For legacy imports, show database fields with their data
         # WHY: No stored mapping exists for old imports
         # HOW: Generate mapping from populated fields
         logger.info(f"Legacy import detected for trade {trade_id}, showing field audit view")
         
-        for field in SellerRawData._meta.get_fields():
-            # Skip auto-created and relation fields
-            if field.auto_created or field.name in excluded_fields:
-                continue
-            
-            # Skip reverse relations
-            if hasattr(field, 'one_to_many') and field.one_to_many:
-                continue
-            if hasattr(field, 'many_to_many') and field.many_to_many:
-                continue
-            if hasattr(field, 'related_model') and hasattr(field, 'remote_field') and field.remote_field and hasattr(field.remote_field, 'multiple') and field.remote_field.multiple:
-                continue
-            
-            field_name = field.name
-            field_type = getattr(field, 'get_internal_type', lambda: 'Unknown')()
-            
-            # Get sample data
-            samples = []
-            if record_count > 0:
-                try:
-                    sample_queryset = records.exclude(**{f'{field_name}__isnull': True})
-                    
-                    if field_type in ['CharField', 'TextField']:
-                        sample_queryset = sample_queryset.exclude(**{field_name: ''})
-                    
-                    sample_values = sample_queryset.values_list(field_name, flat=True).distinct()[:3]
-                    
-                    for v in sample_values:
-                        if v is not None:
-                            samples.append(str(v)[:50])
-                except Exception:
-                    pass
-            
-            # Only show fields that have data
+        for field_name in field_specs.keys():
+            samples = _get_samples_for_field(field_name)
             if samples:
                 mappings.append({
                     'source_column': field_name.replace('_', ' ').title(),
@@ -591,23 +581,7 @@ def field_schema(request, trade_id):
             
             if target_field and record_count > 0:
                 try:
-                    # Get field type to handle filtering correctly
-                    try:
-                        field_obj = SellerRawData._meta.get_field(target_field)
-                        field_type = field_obj.get_internal_type()
-                    except:
-                        field_type = 'Unknown'
-                    
-                    sample_queryset = records.exclude(**{f'{target_field}__isnull': True})
-                    
-                    if field_type in ['CharField', 'TextField']:
-                        sample_queryset = sample_queryset.exclude(**{target_field: ''})
-                    
-                    sample_values = sample_queryset.values_list(target_field, flat=True).distinct()[:3]
-                    
-                    for v in sample_values:
-                        if v is not None:
-                            samples.append(str(v)[:50])
+                    samples = _get_samples_for_field(target_field)
                 except Exception:
                     pass
             

@@ -138,14 +138,14 @@ def _build_hub_label_map(hub_ids: set[int]) -> dict[int, tuple[str, str]]:
 
     hubs = (
         AssetIdHub.objects.filter(id__in=hub_ids)
-        .select_related("acq_raw")
+        .select_related("acq_asset")
         .prefetch_related("servicer_loan_data")
     )
     for hub in hubs:
         servicer_loan_id = (str(getattr(hub, "servicer_id", "") or "").strip())
 
         addr = ""
-        srd = getattr(hub, "acq_raw", None)
+        srd = getattr(hub, "acq_asset", None)
         if srd is not None:
             addr = _format_full_address(
                 getattr(srd, "street_address", None),

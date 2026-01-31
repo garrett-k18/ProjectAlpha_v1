@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Iterable, Optional
 from django.db.models import QuerySet, Q, F
-from acq_module.models.model_acq_seller import SellerRawData  # WHAT: Post-refactor boarded dataset source per docs (https://docs.djangoproject.com/en/stable/topics/db/models/)
+from acq_module.models.model_acq_seller import AcqAsset  # WHAT: Boarded dataset source per docs (https://docs.djangoproject.com/en/stable/topics/db/models/)
 from am_module.models.model_am_amData import AMMetrics
 from am_module.models.model_am_servicersCleaned import ServicerLoanData
 from core.models.model_co_valuations import Valuation
@@ -30,13 +30,13 @@ from am_module.logic.logi_am_modelLogic import (
 
 # Fields used by quick filter 'q'
 QUICK_FILTER_FIELDS = (
-    "street_address",
-    "city",
-    "state",
-    "zip",
-    "seller__name",  # WHAT: Map friendly seller_name search to SellerRawData->Seller join
+    "property__street_address",
+    "property__city",
+    "property__state",
+    "property__zip",
+    "seller__name",  # WHAT: Map friendly seller_name search to seller join
     "trade__trade_name",  # WHAT: Surfaced trade name via ForeignKey per Django join docs
-    "sellertape_id",
+    "loan__sellertape_id",
     "asset_hub__servicer_id",  # WHAT: Search by servicer loan ID (primary identifier for asset managers)
     "asset_hub__details__asset_status",
 )
@@ -68,9 +68,9 @@ def build_queryset(
     q: Optional[str] = None,
     filters: Optional[dict] = None,
     ordering: Optional[str] = None,
-) -> QuerySet[SellerRawData]:
+) -> QuerySet[AcqAsset]:
     """
-    Return a QuerySet of SellerRawData (boarded assets) with optimized joins.
+    Return a QuerySet of AcqAsset (boarded assets) with optimized joins.
 
     WHAT: Build optimized queryset with all necessary joins and annotations
     WHY: Centralize query optimization to avoid N+1 queries across the application
@@ -82,12 +82,13 @@ def build_queryset(
         ordering: Comma-separated list of fields to order by (supports - prefix for desc)
 
     Returns:
-        QuerySet of SellerRawData instances ready for serialization
+        QuerySet of AcqAsset instances ready for serialization
     """
     qs = (
-        SellerRawData.objects
+        AcqAsset.objects
         .filter(trade__status='BOARD')  # WHAT: Limit to assets from trades that have been boarded (promoted into AM module)
         .select_related("asset_hub")
+        .select_related("loan", "property")
         .select_related("asset_hub__details")
         .select_related("asset_hub__details__fund_legal_entity")  # WHAT: Optimize fund_name access
         .select_related("asset_hub__details__fund_legal_entity__fund")  # WHAT: Optimize fund name resolution
@@ -129,7 +130,7 @@ def build_queryset(
             q_obj |= Q(**{f"{f}__icontains": q})
         # Also try to match numeric sellertape_id if q is digits per legacy UX contract
         if q.isdigit():
-            q_obj |= Q(sellertape_id__icontains=q)
+            q_obj |= Q(loan__sellertape_id__icontains=q)
         qs = qs.filter(q_obj)
 
     if filters:
@@ -224,7 +225,7 @@ def build_queryset(
 
             # Translate friendly aliases to actual ORM paths
             if key == "asset_id":
-                model_field = "sellertape_id"
+                model_field = "loan__sellertape_id"
             elif key == "hold_days":
                 # Fallback to hub created_at when legacy metrics table is unavailable
                 model_field = "asset_hub__created_at"
@@ -261,7 +262,7 @@ class AssetInventoryEnricher:
         # HOW: Populated lazily on first valuation lookup for an asset
         self._valuation_cache: dict[int | str, dict[str, Valuation]] = {}
 
-    def enrich(self, obj: SellerRawData) -> SellerRawData:
+    def enrich(self, obj: AcqAsset) -> AcqAsset:
         """
         Add computed attributes to a SellerRawData instance.
 
@@ -339,7 +340,7 @@ class AssetInventoryEnricher:
 
         return obj
 
-    def enrich_queryset(self, qs: QuerySet[SellerRawData]) -> Iterable[SellerRawData]:
+    def enrich_queryset(self, qs: QuerySet[AcqAsset]) -> Iterable[AcqAsset]:
         """
         Enrich all objects in a queryset (generator for memory efficiency).
 
@@ -358,7 +359,7 @@ class AssetInventoryEnricher:
 
     # ========== Basic Computed Fields ==========
 
-    def get_asset_id(self, obj: SellerRawData) -> int | str | None:
+    def get_asset_id(self, obj: AcqAsset) -> int | str | None:
         """
         Return display asset ID (sellertape_id or pk fallback).
 
@@ -369,7 +370,7 @@ class AssetInventoryEnricher:
         stid = getattr(obj, "sellertape_id", None)
         return stid if stid is not None else getattr(obj, "pk", None)
 
-    def get_lifecycle_status(self, obj: SellerRawData) -> str | None:
+    def get_lifecycle_status(self, obj: AcqAsset) -> str | None:
         """
         Return the canonical lifecycle status stored on AssetIdHub.
 
@@ -386,7 +387,7 @@ class AssetInventoryEnricher:
                     return value
         return getattr(obj, 'asset_status', None)
 
-    def get_delinquency_status(self, obj: SellerRawData) -> str | None:
+    def get_delinquency_status(self, obj: AcqAsset) -> str | None:
         """
         Return the cached delinquency bucket from AMMetrics for this asset.
 
@@ -429,7 +430,7 @@ class AssetInventoryEnricher:
             # Relation doesn't exist or query failed - return None gracefully
             return None
 
-    def get_seller_name(self, obj: SellerRawData) -> str | None:
+    def get_seller_name(self, obj: AcqAsset) -> str | None:
         """
         Return seller display name from annotation or FK fallback.
 
@@ -445,7 +446,7 @@ class AssetInventoryEnricher:
         seller = getattr(obj, 'seller', None)
         return getattr(seller, 'name', None)
 
-    def get_trade_name(self, obj: SellerRawData) -> str | None:
+    def get_trade_name(self, obj: AcqAsset) -> str | None:
         """
         Return trade display name from annotation or FK fallback.
 
@@ -459,7 +460,7 @@ class AssetInventoryEnricher:
         trade = getattr(obj, 'trade', None)
         return getattr(trade, 'trade_name', None)
 
-    def get_active_tracks(self, obj: SellerRawData) -> str | None:
+    def get_active_tracks(self, obj: AcqAsset) -> str | None:
         """
         Return comma-separated list of active outcome tracks (DIL, Modification, REO, FC, Short Sale).
 
@@ -518,7 +519,7 @@ class AssetInventoryEnricher:
         # WHAT: Return comma-separated string or None for empty
         return ', '.join(tracks) if tracks else None
 
-    def get_active_tasks(self, obj: SellerRawData) -> str | None:
+    def get_active_tasks(self, obj: AcqAsset) -> str | None:
         """
         Return comma-separated list of active tasks with outcome type prefix (e.g., "DIL: Owner/Heirs contacted").
 
@@ -640,7 +641,7 @@ class AssetInventoryEnricher:
 
     # ========== Servicer Data ==========
 
-    def get_servicer_loan_data(self, obj: SellerRawData) -> ServicerLoanData | None:
+    def get_servicer_loan_data(self, obj: AcqAsset) -> ServicerLoanData | None:
         """
         Return the most recent ServicerLoanData record by asset_hub using prefetched data.
 
@@ -667,7 +668,7 @@ class AssetInventoryEnricher:
 
     # ========== Valuation Lookup Helpers ==========
 
-    def _latest_val_by_source(self, obj: SellerRawData, source: str) -> Valuation | None:
+    def _latest_val_by_source(self, obj: AcqAsset, source: str) -> Valuation | None:
         """
         Return latest Valuation row for the object's asset_hub and given source.
 
@@ -720,49 +721,49 @@ class AssetInventoryEnricher:
 
     # ========== Internal Initial UW Valuation ==========
 
-    def get_internal_initial_uw_asis_value(self, obj: SellerRawData):
+    def get_internal_initial_uw_asis_value(self, obj: AcqAsset):
         """Get as-is value from Internal Initial UW valuation source."""
         v = self._latest_val_by_source(obj, 'internalInitialUW')
         return getattr(v, 'asis_value', None) if v else None
 
-    def get_internal_initial_uw_arv_value(self, obj: SellerRawData):
+    def get_internal_initial_uw_arv_value(self, obj: AcqAsset):
         """Get ARV value from Internal Initial UW valuation source."""
         v = self._latest_val_by_source(obj, 'internalInitialUW')
         return getattr(v, 'arv_value', None) if v else None
 
-    def get_internal_initial_uw_asis_date(self, obj: SellerRawData):
+    def get_internal_initial_uw_asis_date(self, obj: AcqAsset):
         """Get value date from Internal Initial UW valuation source."""
         v = self._latest_val_by_source(obj, 'internalInitialUW')
         return getattr(v, 'value_date', None) if v else None
 
-    def get_internal_initial_uw_arv_date(self, obj: SellerRawData):
+    def get_internal_initial_uw_arv_date(self, obj: AcqAsset):
         """Get value date from Internal Initial UW valuation source."""
         v = self._latest_val_by_source(obj, 'internalInitialUW')
         return getattr(v, 'value_date', None) if v else None
 
-    def get_internal_asis_value(self, obj: SellerRawData):
+    def get_internal_asis_value(self, obj: AcqAsset):
         """Get as-is value from Internal valuation source."""
         v = self._latest_val_by_source(obj, 'internal')
         return getattr(v, 'asis_value', None) if v else None
 
-    def get_internal_arv_value(self, obj: SellerRawData):
+    def get_internal_arv_value(self, obj: AcqAsset):
         """Get ARV value from Internal valuation source."""
         v = self._latest_val_by_source(obj, 'internal')
         return getattr(v, 'arv_value', None) if v else None
 
-    def get_internal_asis_date(self, obj: SellerRawData):
+    def get_internal_asis_date(self, obj: AcqAsset):
         """Get value date from Internal valuation source."""
         v = self._latest_val_by_source(obj, 'internal')
         return getattr(v, 'value_date', None) if v else None
 
-    def get_internal_arv_date(self, obj: SellerRawData):
+    def get_internal_arv_date(self, obj: AcqAsset):
         """Get value date from Internal valuation source."""
         v = self._latest_val_by_source(obj, 'internal')
         return getattr(v, 'value_date', None) if v else None
 
     # ========== Seller Valuation ==========
 
-    def get_seller_asis_value(self, obj: SellerRawData):
+    def get_seller_asis_value(self, obj: AcqAsset):
         """
         Get as-is value from seller-provided valuations.
 
@@ -776,7 +777,7 @@ class AssetInventoryEnricher:
         )
         return getattr(valuation, 'asis_value', None) if valuation else None
 
-    def get_seller_arv_value(self, obj: SellerRawData):
+    def get_seller_arv_value(self, obj: AcqAsset):
         """
         Get ARV value from seller-provided valuations.
 
@@ -792,7 +793,7 @@ class AssetInventoryEnricher:
 
     # ========== Latest UW Value (Prioritized) ==========
 
-    def get_latest_uw_value(self, obj: SellerRawData):
+    def get_latest_uw_value(self, obj: AcqAsset):
         """
         Return the most recent as-is valuation across priority sources.
 

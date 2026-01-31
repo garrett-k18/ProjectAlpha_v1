@@ -3,7 +3,7 @@
 import logging
 from decimal import Decimal
 from acq_module.models.model_acq_assumptions import LoanLevelAssumption, TradeLevelAssumption
-from acq_module.models.model_acq_seller import SellerRawData
+from acq_module.models.model_acq_seller import AcqAsset
 from core.models.model_co_valuations import Valuation
 
 logger = logging.getLogger(__name__)
@@ -41,12 +41,17 @@ def purchase_price(asset_hub_id: int) -> Decimal:
     # WHAT: Try to calculate from pctUPB if available and bid method is PCT_UPB
     # WHY: Trade-level assumptions may define purchase price as % of UPB
     try:
-        raw_data = SellerRawData.objects.filter(asset_hub_id=asset_hub_id).select_related('trade').first()
+        asset = (
+            AcqAsset.objects
+            .select_related('trade', 'loan')
+            .filter(asset_hub_id=asset_hub_id)
+            .first()
+        )
 
-        if raw_data and raw_data.trade:
-            trade_assumption = TradeLevelAssumption.objects.filter(trade=raw_data.trade).first()
+        if asset and asset.trade:
+            trade_assumption = TradeLevelAssumption.objects.filter(trade=asset.trade).first()
 
-            if trade_assumption and trade_assumption.pctUPB and raw_data.current_balance:
+            if trade_assumption and trade_assumption.pctUPB and asset.loan and asset.loan.current_balance:
 
                 # WHAT: Respect the trade-level bid method when deriving price
                 # WHY: Only use pctUPB path when bid_method is PCT_UPB
@@ -58,16 +63,16 @@ def purchase_price(asset_hub_id: int) -> Decimal:
                     # WHY: Trade may define pricing as percentage of UPB
                     # NOTE: pctUPB is stored as a whole number percentage (e.g., 85.00 = 85%)
                     pct = Decimal(str(trade_assumption.pctUPB)) / Decimal('100')  # Convert percentage to decimal
-                    current_bal = Decimal(str(raw_data.current_balance)) if raw_data.current_balance else Decimal('0.00')
+                    current_bal = Decimal(str(asset.loan.current_balance)) if asset.loan.current_balance else Decimal('0.00')
                     price = pct * current_bal
                     price = price.quantize(Decimal('0.01'))
                     logger.info(
                         "=== ACQ PRICE LOG === source=pct_upb asset_hub_id=%s trade_id=%s bid_method=%s pctUPB=%s current_balance=%s price=%s",
                         asset_hub_id,
-                        getattr(raw_data, "trade_id", None),
+                        getattr(asset, "trade_id", None),
                         bid_method,
                         trade_assumption.pctUPB,
-                        raw_data.current_balance,
+                        asset.loan.current_balance,
                         price,
                     )
                     return price
@@ -132,11 +137,16 @@ def purchase_price_metrics(asset_hub_id: int) -> dict:
         # print(f"{'='*80}\n")
         return result
     
-    # WHAT: Get SellerRawData to access current balance and total debt
+    # WHAT: Get AcqAsset to access current balance and total debt
     # WHY: These are common metrics for price comparison
-    raw_data = SellerRawData.objects.filter(asset_hub_id=asset_hub_id).first()
+    asset = (
+        AcqAsset.objects
+        .select_related('loan')
+        .filter(asset_hub_id=asset_hub_id)
+        .first()
+    )
     
-    if not raw_data:
+    if not asset or not asset.loan:
         # print(f"❌ No SellerRawData found")
         # print(f"{'='*80}\n")
         return result
@@ -144,8 +154,8 @@ def purchase_price_metrics(asset_hub_id: int) -> dict:
     # print(f"\nCalculating metrics:")
     
     # WHAT: Calculate purchase price as % of current balance
-    if raw_data.current_balance and raw_data.current_balance > 0:
-        current_bal = Decimal(str(raw_data.current_balance))
+    if asset.loan.current_balance and asset.loan.current_balance > 0:
+        current_bal = Decimal(str(asset.loan.current_balance))
         result['purchase_of_currentBalance'] = ((price / current_bal) * Decimal('100')).quantize(Decimal('0.01'))
         # print(f"  ✓ Current Balance: ${current_bal:,.2f} → {result['purchase_of_currentBalance']}%")
     else:
@@ -153,8 +163,8 @@ def purchase_price_metrics(asset_hub_id: int) -> dict:
         pass
     
     # WHAT: Calculate purchase price as % of total debt
-    if raw_data.total_debt and raw_data.total_debt > 0:
-        total_debt = Decimal(str(raw_data.total_debt))
+    if asset.loan.total_debt and asset.loan.total_debt > 0:
+        total_debt = Decimal(str(asset.loan.total_debt))
         result['purchase_of_totalDebt'] = ((price / total_debt) * Decimal('100')).quantize(Decimal('0.01'))
         # print(f"  ✓ Total Debt: ${total_debt:,.2f} → {result['purchase_of_totalDebt']}%")
     else:

@@ -229,7 +229,7 @@ class ImportMappingDetailSerializer(ImportMappingSerializer):
     HOW: Adds field definitions and validation details
     """
     
-    # WHAT: Available target fields from SellerRawData model
+    # WHAT: Available target fields from ETL registry
     # WHY: Show users what fields they can map to
     # HOW: Get field list from model metadata
     available_target_fields = serializers.SerializerMethodField(read_only=True)
@@ -239,27 +239,24 @@ class ImportMappingDetailSerializer(ImportMappingSerializer):
     
     def get_available_target_fields(self, obj):
         """
-        WHAT: Get list of available target fields from SellerRawData
+        WHAT: Get list of available target fields from ETL registry
         WHY: Provide field options for mapping editor
         HOW: Extract field names and types from model
         """
-        from acq_module.models.model_acq_seller import SellerRawData
-        
+        from etl.services.services_sellerTapeImport.etl_field_registry import get_import_field_specs
+
         fields = []
-        # WHAT: Get all mappable fields from model
+        # WHAT: Get all mappable fields from registry
         # WHY: Users need to know what fields they can map to
-        # HOW: Filter out auto-created and FK fields
-        for field in SellerRawData._meta.get_fields():
-            if field.auto_created or field.name in ['asset_hub', 'seller', 'trade']:
-                continue
-            
+        # HOW: Convert registry specs to serializer-friendly dicts
+        for field_name, spec in get_import_field_specs().items():
             fields.append({
-                'name': field.name,
-                'type': field.get_internal_type(),
-                'required': not field.null and not field.blank,
-                'help_text': getattr(field, 'help_text', ''),
+                'name': field_name,
+                'type': spec.field_type,
+                'required': False,  # NOTE: Optional at import-time; model defaults handle requirements
+                'help_text': spec.description,
             })
-        
+
         return fields
 
 

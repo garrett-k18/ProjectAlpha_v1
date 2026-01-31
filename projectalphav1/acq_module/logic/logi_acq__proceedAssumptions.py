@@ -3,10 +3,23 @@
 from decimal import Decimal
 from typing import Optional
 
-from acq_module.models.model_acq_seller import SellerRawData
 from acq_module.models.model_acq_assumptions import NoteSaleAssumption
 from core.models.model_co_valuations import Valuation
 from acq_module.logic.logi_acq_outcomespecific import fcoutcomeLogic
+
+
+def _latest_seller_valuation(asset_hub_id: int) -> Optional[Valuation]:
+    """Return most recent seller-provided valuation for an asset."""
+    return (
+        Valuation.objects
+        .filter(
+            asset_hub_id=asset_hub_id,
+            source__in=[Valuation.Source.SELLER_PROVIDED, Valuation.Source.SELLER],
+        )
+        .only("asis_value", "arv_value", "value_date", "created_at")
+        .order_by("-value_date", "-created_at")
+        .first()
+    )
 
 
 def fc_sale_proceeds(asset_hub_id: int) -> Decimal:
@@ -30,13 +43,8 @@ def fc_sale_proceeds(asset_hub_id: int) -> Decimal:
     if total_debt <= 0:
         return Decimal('0.00')
     
-    # Get the seller raw data for this asset to find seller as-is value (fallback for valuation)
-    raw = (
-        SellerRawData.objects
-        .filter(asset_hub_id=asset_hub_id)
-        .only('seller_asis_value')
-        .first()
-    )
+    # Get seller valuation for fallback values
+    seller_val = _latest_seller_valuation(asset_hub_id)
     
     # Try to get initial UW valuation first
     initial_uw_valuation = (
@@ -53,8 +61,8 @@ def fc_sale_proceeds(asset_hub_id: int) -> Decimal:
     asset_value = None
     if initial_uw_valuation and initial_uw_valuation.asis_value:
         asset_value = initial_uw_valuation.asis_value
-    elif raw and raw.seller_asis_value:
-        asset_value = raw.seller_asis_value
+    elif seller_val and seller_val.asis_value:
+        asset_value = seller_val.asis_value
     
     if not asset_value or asset_value <= 0:
         return Decimal('0.00')
@@ -82,13 +90,8 @@ def reo_asis_proceeds(asset_hub_id: int) -> Decimal:
     Returns:
         Decimal: Initial UW asis value or seller asis value, or Decimal('0.00') if data is missing
     """
-    # Get the seller raw data for this asset to find seller as-is value
-    raw = (
-        SellerRawData.objects
-        .filter(asset_hub_id=asset_hub_id)
-        .only('seller_asis_value')
-        .first()
-    )
+    # Get seller valuation for fallback values
+    seller_val = _latest_seller_valuation(asset_hub_id)
     
     # Try to get initial UW valuation first
     initial_uw_valuation = (
@@ -105,8 +108,8 @@ def reo_asis_proceeds(asset_hub_id: int) -> Decimal:
     asset_value = None
     if initial_uw_valuation and initial_uw_valuation.asis_value:
         asset_value = initial_uw_valuation.asis_value
-    elif raw and raw.seller_asis_value:
-        asset_value = raw.seller_asis_value
+    elif seller_val and seller_val.asis_value:
+        asset_value = seller_val.asis_value
     
     if not asset_value or asset_value <= 0:
         return Decimal('0.00')
@@ -133,13 +136,8 @@ def reo_arv_proceeds(asset_hub_id: int) -> Decimal:
     Returns:
         Decimal: Initial UW arv value or seller arv value, or Decimal('0.00') if data is missing
     """
-    # Get the seller raw data for this asset to find seller ARV value
-    raw = (
-        SellerRawData.objects
-        .filter(asset_hub_id=asset_hub_id)
-        .only('seller_arv_value')
-        .first()
-    )
+    # Get seller valuation for fallback values
+    seller_val = _latest_seller_valuation(asset_hub_id)
     
     # Try to get initial UW valuation first
     initial_uw_valuation = (
@@ -156,8 +154,8 @@ def reo_arv_proceeds(asset_hub_id: int) -> Decimal:
     asset_value = None
     if initial_uw_valuation and initial_uw_valuation.arv_value:
         asset_value = initial_uw_valuation.arv_value
-    elif raw and raw.seller_arv_value:
-        asset_value = raw.seller_arv_value
+    elif seller_val and seller_val.arv_value:
+        asset_value = seller_val.arv_value
     
     if not asset_value or asset_value <= 0:
         return Decimal('0.00')

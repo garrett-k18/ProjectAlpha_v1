@@ -34,16 +34,20 @@ from django.db.models import (
     Sum,
     Value,
     F,
+    Case,
+    When,
     ExpressionWrapper,
     DurationField,
     IntegerField,
     FloatField,
+    CharField,
 )
 from django.db.models.functions import Coalesce, Cast, Extract
 # NTILE-based equal-frequency fallback removed per product decision.
 
 # Local selector helper (centralized seller+trade filtering)
-from .common import sellertrade_qs
+from .common import sellertrade_qs, annotate_seller_valuations
+from ..models.model_acq_seller import AcqAsset, AcqProperty
 
 # Module logger
 logger = logging.getLogger(__name__)
@@ -234,7 +238,13 @@ def current_balance_stratification_dynamic(
       }
     """
     # Base queryset: exclude null balances
-    qs = sellertrade_qs(seller_id, trade_id).exclude(current_balance__isnull=True)
+    # NOTE: current_balance now lives on AcqLoan
+    qs = (
+        annotate_seller_valuations(
+            sellertrade_qs(seller_id, trade_id)
+        )
+        .exclude(loan__current_balance__isnull=True)
+    )
 
     # If empty, return no bands
     if not qs.exists():
@@ -245,7 +255,7 @@ def current_balance_stratification_dynamic(
 
     # Rule-based path, keyed off max(current_balance)
     # Docs: Django aggregation and annotate APIs
-    max_only = qs.aggregate(mx=Max("current_balance"))
+    max_only = qs.aggregate(mx=Max("loan__current_balance"))
     max_v: Decimal = max_only.get("mx") or Decimal("0.00")
     rule_edges = _rule_edges_for_max(max_v)
     if rule_edges:
@@ -256,22 +266,22 @@ def current_balance_stratification_dynamic(
                 # First band: current_balance < edge0
                 lo: Optional[Decimal] = None
                 hi: Optional[Decimal] = rule_edges[0]
-                bin_qs = qs.filter(current_balance__lt=hi)
+                bin_qs = qs.filter(loan__current_balance__lt=hi)
             elif i == total_bands - 1:
                 # Last band: current_balance >= last edge
                 lo = rule_edges[-1]
                 hi = None
-                bin_qs = qs.filter(current_balance__gte=lo)
+                bin_qs = qs.filter(loan__current_balance__gte=lo)
             else:
                 # Middle bands: [edge_{i-1}, edge_i)
                 lo = rule_edges[i - 1]
                 hi = rule_edges[i]
-                bin_qs = qs.filter(current_balance__gte=lo, current_balance__lt=hi)
+                bin_qs = qs.filter(loan__current_balance__gte=lo, loan__current_balance__lt=hi)
 
             cnt = bin_qs.count()
             aggs = bin_qs.aggregate(
-                upb=Coalesce(Sum("current_balance"), zero_dec),
-                td=Coalesce(Sum("total_debt"), zero_dec),
+                upb=Coalesce(Sum("loan__current_balance"), zero_dec),
+                td=Coalesce(Sum("loan__total_debt"), zero_dec),
                 asis=Coalesce(Sum("seller_asis_value"), zero_dec),
             )
             label = _band_label(lo, hi, i + 1, total_bands)
@@ -304,7 +314,12 @@ def default_rate_stratification_static(
     - Decimal quantize: https://docs.python.org/3/library/decimal.html#decimal.Decimal.quantize
     """
 
-    qs = sellertrade_qs(seller_id, trade_id).exclude(default_rate__isnull=True)
+    qs = (
+        annotate_seller_valuations(
+            sellertrade_qs(seller_id, trade_id)
+        )
+        .exclude(loan__default_rate__isnull=True)
+    )
     zero_dec = Value(Decimal("0.00"), output_field=DecimalField(max_digits=15, decimal_places=2))
     edges = [Decimal("0.03"), Decimal("0.06"), Decimal("0.09"), Decimal("0.12")]
     total_bands = len(edges) + 1
@@ -332,20 +347,20 @@ def default_rate_stratification_static(
         if i == 0:
             lo: Optional[Decimal] = None
             hi: Optional[Decimal] = edges[0]
-            bin_qs = qs.filter(default_rate__lt=hi)
+            bin_qs = qs.filter(loan__default_rate__lt=hi)
         elif i == total_bands - 1:
             lo = edges[-1]
             hi = None
-            bin_qs = qs.filter(default_rate__gte=lo)
+            bin_qs = qs.filter(loan__default_rate__gte=lo)
         else:
             lo = edges[i - 1]
             hi = edges[i]
-            bin_qs = qs.filter(default_rate__gte=lo, default_rate__lt=hi)
+            bin_qs = qs.filter(loan__default_rate__gte=lo, loan__default_rate__lt=hi)
 
         cnt = bin_qs.count()
         aggs = bin_qs.aggregate(
-            upb=Coalesce(Sum("current_balance"), zero_dec),
-            td=Coalesce(Sum("total_debt"), zero_dec),
+            upb=Coalesce(Sum("loan__current_balance"), zero_dec),
+            td=Coalesce(Sum("loan__total_debt"), zero_dec),
             asis=Coalesce(Sum("seller_asis_value"), zero_dec),
         )
         label = pct_label(lo, hi, i + 1, total_bands)
@@ -392,9 +407,11 @@ def delinquency_stratification_categorical(
     """
     # Base queryset with required date fields present only
     qs = (
-        sellertrade_qs(seller_id, trade_id)
+        annotate_seller_valuations(
+            sellertrade_qs(seller_id, trade_id)
+        )
         .exclude(as_of_date__isnull=True)
-        .exclude(next_due_date__isnull=True)
+        .exclude(loan__next_due_date__isnull=True)
     )
 
     if not qs.exists():
@@ -406,7 +423,7 @@ def delinquency_stratification_categorical(
     # Annotate interval and whole-day delinquency using DB computation
     qs = qs.annotate(
         dlq_interval=ExpressionWrapper(
-            F('as_of_date') - F('next_due_date'),
+            F('as_of_date') - F('loan__next_due_date'),
             output_field=DurationField(),
         )
     ).annotate(
@@ -431,8 +448,8 @@ def delinquency_stratification_categorical(
         bin_qs = filtr(qs)
         cnt = bin_qs.count()
         aggs = bin_qs.aggregate(
-            upb=Coalesce(Sum("current_balance"), zero_dec),
-            td=Coalesce(Sum("total_debt"), zero_dec),
+            upb=Coalesce(Sum("loan__current_balance"), zero_dec),
+            td=Coalesce(Sum("loan__total_debt"), zero_dec),
             asis=Coalesce(Sum("seller_asis_value"), zero_dec),
         )
         results.append({
@@ -454,12 +471,12 @@ def property_type_stratification_categorical(
     seller_id: int,
     trade_id: int,
 ) -> List[Dict[str, object]]:
-    """Return categorical stratification aggregated by `property_type`.
+    """Return categorical stratification aggregated by unified property type.
 
     Behavior:
-    - Groups `SellerRawData` records by the categorical field `property_type`.
+    - Groups `AcqAsset` rows by subclass-derived property type.
     - Aggregates counts and sums of `current_balance`, `total_debt`, and `seller_asis_value`.
-    - Returns a list of dicts in a consistent order based on model-defined choices.
+    - Returns a list of dicts in a consistent order based on subclass choices.
 
     Output item shape matches other stratification endpoints:
       {
@@ -474,15 +491,34 @@ def property_type_stratification_categorical(
         label: str             # human-friendly label
       }
     """
-    # Local import to avoid any potential circular import issues on app load
-    from ..models.model_acq_seller import SellerRawData
-
-    # Base queryset filtered by selection; exclude null/blank property types to be safe
-    qs = (
+    # WHAT: Build base queryset with seller valuation annotations
+    # WHY: We need seller_asis_value for rollups
+    # HOW: Use annotate_seller_valuations helper
+    qs = annotate_seller_valuations(
         sellertrade_qs(seller_id, trade_id)
-        .exclude(property_type__isnull=True)
-        .exclude(property_type__exact="")
     )
+
+    # WHAT: Normalize property type using subclass fields
+    # WHY: Subclass is the single source of truth for property type
+    # HOW: Use Case/When to pick the correct subclass field
+    qs = qs.annotate(
+        property_type_unified=Case(
+            When(
+                asset_class=AcqAsset.AssetClass.REAL_ESTATE_1_4,
+                then=F('real_estate_subclass_type')
+            ),
+            When(
+                asset_class=AcqAsset.AssetClass.MULTIFAMILY_5_PLUS,
+                then=F('multifamily_subclass_type')
+            ),
+            When(
+                asset_class=AcqAsset.AssetClass.COMMERCIAL,
+                then=F('commercial_subclass_type')
+            ),
+            default=Value(None),
+            output_field=CharField(),
+        )
+    ).exclude(property_type_unified__isnull=True).exclude(property_type_unified__exact="")
 
     # If empty selection, return no bands
     if not qs.exists():
@@ -491,47 +527,59 @@ def property_type_stratification_categorical(
     # Typed zero for Decimal sums used by Coalesce so JSON always sees strings
     zero_dec = Value(Decimal("0.00"), output_field=DecimalField(max_digits=15, decimal_places=2))
 
-    # Single query to aggregate by property_type
+    # Single query to aggregate by property_type_unified
     rows = (
-        qs.values("property_type")
+        qs.values("property_type_unified")
         .annotate(
-            count=Count("pk"),  # Use pk since SellerRawData primary key is asset_hub (no 'id' field)
-            sum_current_balance=Coalesce(Sum("current_balance"), zero_dec),
-            sum_total_debt=Coalesce(Sum("total_debt"), zero_dec),
+            count=Count("pk"),
+            sum_current_balance=Coalesce(Sum("loan__current_balance"), zero_dec),
+            sum_total_debt=Coalesce(Sum("loan__total_debt"), zero_dec),
             sum_seller_asis_value=Coalesce(Sum("seller_asis_value"), zero_dec),
         )
     )
 
     # Index aggregated results by code for fast lookup
-    by_code: Dict[str, Dict[str, object]] = {r["property_type"]: r for r in rows}
+    by_code: Dict[str, Dict[str, object]] = {r["property_type_unified"]: r for r in rows}
+
+    # WHAT: Build ordered choices list from subclass enums
+    # WHY: Keep frontend ordering predictable across asset classes
+    # HOW: Combine subclass choice lists and de-duplicate by code
+    ordered_choices: List[tuple] = []
+    seen_codes = set()
+    for code, label in (
+        list(AcqAsset.RealEstateSubclass.choices)
+        + list(AcqAsset.MultifamilySubclass.choices)
+        + list(AcqAsset.CommercialSubclass.choices)
+    ):
+        if code in seen_codes:
+            continue
+        ordered_choices.append((code, label))
+        seen_codes.add(code)
 
     # Only include property types that have data (skip zero-count placeholders)
     results: List[Dict[str, object]] = []
     idx = 1
-    for code, label in getattr(SellerRawData, "PROPERTY_TYPE_CHOICES", []) or []:
+    for code, label in ordered_choices:
         r = by_code.get(code)
         if r is None:
-            # Skip zero-count rows to minimize frontend space
             idx += 1
             continue
-        else:
-            results.append({
-                "key": str(code),
-                "index": idx,
-                "lower": None,
-                "upper": None,
-                "count": int(r.get("count", 0)),
-                "sum_current_balance": r.get("sum_current_balance") or Decimal("0.00"),
-                "sum_total_debt": r.get("sum_total_debt") or Decimal("0.00"),
-                "sum_seller_asis_value": r.get("sum_seller_asis_value") or Decimal("0.00"),
-                "label": str(label),
-            })
+        results.append({
+            "key": str(code),
+            "index": idx,
+            "lower": None,
+            "upper": None,
+            "count": int(r.get("count", 0)),
+            "sum_current_balance": r.get("sum_current_balance") or Decimal("0.00"),
+            "sum_total_debt": r.get("sum_total_debt") or Decimal("0.00"),
+            "sum_seller_asis_value": r.get("sum_seller_asis_value") or Decimal("0.00"),
+            "label": str(label),
+        })
         idx += 1
 
-    # There could be unexpected codes not present in choices (legacy data). Append them at the end.
-    known_codes = {code for code, _ in getattr(SellerRawData, "PROPERTY_TYPE_CHOICES", []) or []}
+    # Append any unexpected codes not listed in choices (legacy data) at the end
     for code, r in by_code.items():
-        if code in known_codes:
+        if code in seen_codes:
             continue
         results.append({
             "key": str(code),
@@ -556,7 +604,7 @@ def occupancy_stratification_categorical(
     """Return categorical stratification aggregated by `occupancy`.
 
     Behavior mirrors `property_type_stratification_categorical()` but groups by
-    the `SellerRawData.occupancy` field using model-defined `OCCUPANCY_CHOICES`.
+    the `AcqProperty.occupancy` field using model-defined `Occupancy` choices.
 
     Output item shape matches other stratification endpoints:
       {
@@ -575,12 +623,12 @@ def occupancy_stratification_categorical(
     - Django aggregation and values/annotate: https://docs.djangoproject.com/en/stable/topics/db/aggregation/
     - Coalesce to avoid NULL in sums: https://docs.djangoproject.com/en/stable/ref/models/database-functions/#coalesce
     """
-    # Local import to avoid circulars at app load time
-    from ..models.model_acq_seller import SellerRawData
     from django.db.models.functions import Coalesce as CoalesceFunc
 
     # Base queryset filtered by selection; treat null/blank occupancy as "Unknown"
-    qs = sellertrade_qs(seller_id, trade_id)
+    qs = annotate_seller_valuations(
+        sellertrade_qs(seller_id, trade_id)
+    )
 
     # Typed zero for Decimal sums so JSON serializer yields strings consistently
     zero_dec = Value(Decimal("0.00"), output_field=DecimalField(max_digits=15, decimal_places=2))
@@ -588,13 +636,13 @@ def occupancy_stratification_categorical(
     # Aggregate in a single query by occupancy, coalescing null/blank to "Unknown"
     rows = (
         qs.annotate(
-            occupancy_normalized=CoalesceFunc("occupancy", Value("Unknown"))
+            occupancy_normalized=CoalesceFunc("property__occupancy", Value("Unknown"))
         )
         .values("occupancy_normalized")
         .annotate(
-            count=Count("pk"),  # Use pk since SellerRawData primary key is asset_hub (no 'id' field)
-            sum_current_balance=Coalesce(Sum("current_balance"), zero_dec),
-            sum_total_debt=Coalesce(Sum("total_debt"), zero_dec),
+            count=Count("pk"),
+            sum_current_balance=Coalesce(Sum("loan__current_balance"), zero_dec),
+            sum_total_debt=Coalesce(Sum("loan__total_debt"), zero_dec),
             sum_seller_asis_value=Coalesce(Sum("seller_asis_value"), zero_dec),
         )
     )
@@ -606,7 +654,7 @@ def occupancy_stratification_categorical(
     # categories missing from the dataset so the UI always shows a stable table.
     results: List[Dict[str, object]] = []
     idx = 1
-    for code, label in getattr(SellerRawData, "OCCUPANCY_CHOICES", []) or []:
+    for code, label in AcqProperty.Occupancy.choices:
         r = by_code.get(code)
         if r is None:
             results.append({
@@ -635,7 +683,7 @@ def occupancy_stratification_categorical(
         idx += 1
 
     # Append any unexpected codes not listed in choices (legacy data) at the end
-    known_codes = {code for code, _ in getattr(SellerRawData, "OCCUPANCY_CHOICES", []) or []}
+    known_codes = {code for code, _ in AcqProperty.Occupancy.choices}
     for code, r in by_code.items():
         if code in known_codes:
             continue
@@ -683,7 +731,12 @@ def wac_stratification_static(
     - Django ORM filters and aggregation: https://docs.djangoproject.com/en/stable/topics/db/aggregation/
     """
     # Base queryset: exclude null interest rates to avoid skewed bands
-    qs = sellertrade_qs(seller_id, trade_id).exclude(interest_rate__isnull=True)
+    qs = (
+        annotate_seller_valuations(
+            sellertrade_qs(seller_id, trade_id)
+        )
+        .exclude(loan__interest_rate__isnull=True)
+    )
 
     # Typed zero for Decimal sums
     zero_dec = Value(Decimal("0.00"), output_field=DecimalField(max_digits=15, decimal_places=2))
@@ -725,22 +778,22 @@ def wac_stratification_static(
             # First band: interest_rate < edges[0]
             lo: Optional[Decimal] = None
             hi: Optional[Decimal] = edges[0]
-            bin_qs = qs.filter(interest_rate__lt=hi)
+            bin_qs = qs.filter(loan__interest_rate__lt=hi)
         elif i == total_bands - 1:
             # Last band: interest_rate >= edges[-1]
             lo = edges[-1]
             hi = None
-            bin_qs = qs.filter(interest_rate__gte=lo)
+            bin_qs = qs.filter(loan__interest_rate__gte=lo)
         else:
             # Middle bands: [edges[i-1], edges[i])
             lo = edges[i - 1]
             hi = edges[i]
-            bin_qs = qs.filter(interest_rate__gte=lo, interest_rate__lt=hi)
+            bin_qs = qs.filter(loan__interest_rate__gte=lo, loan__interest_rate__lt=hi)
 
         cnt = bin_qs.count()
         aggs = bin_qs.aggregate(
-            upb=Coalesce(Sum("current_balance"), zero_dec),
-            td=Coalesce(Sum("total_debt"), zero_dec),
+            upb=Coalesce(Sum("loan__current_balance"), zero_dec),
+            td=Coalesce(Sum("loan__total_debt"), zero_dec),
             asis=Coalesce(Sum("seller_asis_value"), zero_dec),
         )
         label = pct_label(lo, hi, i + 1, total_bands)
@@ -775,7 +828,12 @@ def total_debt_stratification_dynamic(
     Output list item shape is identical to the current_balance API.
     """
     # Base queryset: exclude null total_debt
-    qs = sellertrade_qs(seller_id, trade_id).exclude(total_debt__isnull=True)
+    qs = (
+        annotate_seller_valuations(
+            sellertrade_qs(seller_id, trade_id)
+        )
+        .exclude(loan__total_debt__isnull=True)
+    )
 
     # If empty, return no bands
     if not qs.exists():
@@ -785,7 +843,7 @@ def total_debt_stratification_dynamic(
     zero_dec = Value(Decimal("0.00"), output_field=DecimalField(max_digits=15, decimal_places=2))
 
     # Rule-based path, keyed off max(total_debt)
-    max_only = qs.aggregate(mx=Max("total_debt"))
+    max_only = qs.aggregate(mx=Max("loan__total_debt"))
     max_v: Decimal = max_only.get("mx") or Decimal("0.00")
     rule_edges = _rule_edges_for_max(max_v)
     if rule_edges:
@@ -796,22 +854,22 @@ def total_debt_stratification_dynamic(
                 # First band: < edge0
                 lo = None
                 hi = rule_edges[0]
-                bin_qs = qs.filter(total_debt__lt=hi)
+                bin_qs = qs.filter(loan__total_debt__lt=hi)
             elif i == total_bands - 1:
                 # Last band: >= last edge
                 lo = rule_edges[-1]
                 hi = None
-                bin_qs = qs.filter(total_debt__gte=lo)
+                bin_qs = qs.filter(loan__total_debt__gte=lo)
             else:
                 # Middle bands: [edge_{i-1}, edge_i)
                 lo = rule_edges[i - 1]
                 hi = rule_edges[i]
-                bin_qs = qs.filter(total_debt__gte=lo, total_debt__lt=hi)
+                bin_qs = qs.filter(loan__total_debt__gte=lo, loan__total_debt__lt=hi)
 
             cnt = bin_qs.count()
             aggs = bin_qs.aggregate(
-                upb=Coalesce(Sum("current_balance"), zero_dec),
-                td=Coalesce(Sum("total_debt"), zero_dec),
+                upb=Coalesce(Sum("loan__current_balance"), zero_dec),
+                td=Coalesce(Sum("loan__total_debt"), zero_dec),
                 asis=Coalesce(Sum("seller_asis_value"), zero_dec),
             )
             label = _band_label(lo, hi, i + 1, total_bands)
@@ -855,7 +913,9 @@ def judicial_stratification_dynamic(
     from core.models.model_co_geoAssumptions import StateReference
     
     # Get the base queryset for this seller+trade combination
-    qs = sellertrade_qs(seller_id, trade_id)
+    qs = annotate_seller_valuations(
+        sellertrade_qs(seller_id, trade_id)
+    )
     
     # Early exit if empty
     if not qs.exists():
@@ -882,16 +942,16 @@ def judicial_stratification_dynamic(
     }
     
     # Aggregate by state first
-    states_data = qs.values('state').annotate(
-        count=Count('pk'),  # Use pk since SellerRawData primary key is asset_hub (no 'id' field)
-        sum_current_balance=Coalesce(Sum('current_balance'), Value(Decimal("0.00")), output_field=DecimalField()),
-        sum_total_debt=Coalesce(Sum('total_debt'), Value(Decimal("0.00")), output_field=DecimalField()),
+    states_data = qs.values('property__state').annotate(
+        count=Count('pk'),
+        sum_current_balance=Coalesce(Sum('loan__current_balance'), Value(Decimal("0.00")), output_field=DecimalField()),
+        sum_total_debt=Coalesce(Sum('loan__total_debt'), Value(Decimal("0.00")), output_field=DecimalField()),
         sum_seller_asis_value=Coalesce(Sum('seller_asis_value'), Value(Decimal("0.00")), output_field=DecimalField()),
     )
     
     # Sort states into judicial/non-judicial and sum their metrics
     for state_data in states_data:
-        state_code = state_data['state']
+        state_code = state_data['property__state']
         if not state_code:  # Skip empty states
             continue
             
@@ -948,7 +1008,12 @@ def seller_asis_value_stratification_dynamic(
     Output list item shape is identical to other stratification APIs.
     """
     # Base queryset: exclude null seller_asis_value
-    qs = sellertrade_qs(seller_id, trade_id).exclude(seller_asis_value__isnull=True)
+    qs = (
+        annotate_seller_valuations(
+            sellertrade_qs(seller_id, trade_id)
+        )
+        .exclude(seller_asis_value__isnull=True)
+    )
 
     # If empty, return no bands
     if not qs.exists():
@@ -983,8 +1048,8 @@ def seller_asis_value_stratification_dynamic(
 
             cnt = bin_qs.count()
             aggs = bin_qs.aggregate(
-                upb=Coalesce(Sum("current_balance"), zero_dec),
-                td=Coalesce(Sum("total_debt"), zero_dec),
+                upb=Coalesce(Sum("loan__current_balance"), zero_dec),
+                td=Coalesce(Sum("loan__total_debt"), zero_dec),
                 asis=Coalesce(Sum("seller_asis_value"), zero_dec),
             )
             label = _band_label(lo, hi, i + 1, total_bands)

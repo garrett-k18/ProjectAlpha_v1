@@ -35,7 +35,7 @@ from django.conf import settings
 from rest_framework.exceptions import PermissionDenied
 
 # Import models that contain date fields
-from acq_module.models.model_acq_seller import SellerRawData, Seller, Trade
+from acq_module.models.model_acq_seller import AcqAsset, Seller, Trade
 from acq_module.models.model_acq_assumptions import TradeLevelAssumption
 from am_module.models.model_am_servicersCleaned import ServicerLoanData as ServicerData
 
@@ -141,9 +141,9 @@ def get_calendar_events(request):
     # How: Call helper function for each model, each returns list of standardized dicts
     events = []
     
-    # 1. SellerRawData - Foreclosure dates, maturity dates, modification dates
+    # 1. AcqAsset/Loan - Foreclosure dates, maturity dates, modification dates
     # Currently empty date_fields list - add fields as needed
-    events.extend(_get_seller_raw_data_events(start_date, end_date, seller_id, trade_id))
+    events.extend(_get_acq_asset_events(start_date, end_date, seller_id, trade_id))
     
     # 2. ServicerData - Payment dates, maturity dates, bankruptcy dates
     # Currently includes: actual_fc_sale_date
@@ -174,14 +174,14 @@ def get_calendar_events(request):
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-def _get_seller_raw_data_events(start_date=None, end_date=None, seller_id=None, trade_id=None):
+def _get_acq_asset_events(start_date=None, end_date=None, seller_id=None, trade_id=None):
     """
-    Extract calendar events from SellerRawData model.
+    Extract calendar events from AcqAsset/Loan models.
     
-    What: Converts date fields from SellerRawData records into calendar events
+    What: Converts date fields from AcqLoan records into calendar events
     Why: Seller tape data contains important dates that should appear on calendar
     Where: Called by get_calendar_events() main endpoint
-    How: Queries SellerRawData, extracts configured date fields, formats as event dicts
+    How: Queries AcqAsset/Loan, extracts configured date fields, formats as event dicts
     
     Includes: maturity dates, foreclosure dates, modification dates, payment dates
     
@@ -200,7 +200,7 @@ def _get_seller_raw_data_events(start_date=None, end_date=None, seller_id=None, 
     events = []
     
     # Build queryset with filters
-    queryset = SellerRawData.objects.select_related('seller', 'trade').all()
+    queryset = AcqAsset.objects.select_related('seller', 'trade', 'loan', 'property').all()
     
     if seller_id:
         queryset = queryset.filter(seller_id=seller_id)
@@ -208,13 +208,13 @@ def _get_seller_raw_data_events(start_date=None, end_date=None, seller_id=None, 
         queryset = queryset.filter(trade_id=trade_id)
     
     # Get date fields from serializer config
-    # What: Filter CALENDAR_DATE_FIELDS for SellerRawData model
+    # What: Filter CALENDAR_DATE_FIELDS for AcqLoan model
     # Why: Single list in serial_co_calendar.py controls all calendar fields
     # Where: CALENDAR_DATE_FIELDS in core/serializers/serial_co_calendar.py
     # How: Just add/remove lines in that list - no need to edit this view
     date_fields = []
     for item in CALENDAR_DATE_FIELDS:
-        if item[0] == 'SellerRawData':
+        if item[0] == 'AcqLoan':
             if len(item) == 5:
                 model, field, title, event_type, sub_type = item
             else:
@@ -224,12 +224,16 @@ def _get_seller_raw_data_events(start_date=None, end_date=None, seller_id=None, 
     
     for record in queryset:
         # Get display address (use street_address or fallback to city/state)
-        address = record.street_address or f"{record.city or 'Unknown'}, {record.state or ''}"
+        address = (
+            record.property.street_address
+            if record.property and record.property.street_address
+            else f"{record.property.city if record.property else 'Unknown'}, {record.property.state if record.property else ''}"
+        )
         address = address[:30]  # Truncate for display
         
         # Extract each date field
         for field_name, title_template, category, desc_template, sub_type in date_fields:
-            date_value = getattr(record, field_name, None)
+            date_value = getattr(record.loan, field_name, None) if record.loan else None
             
             if date_value:
                 # Apply date range filter if specified
@@ -239,13 +243,13 @@ def _get_seller_raw_data_events(start_date=None, end_date=None, seller_id=None, 
                     continue
                 
                 events.append({
-                    'id': f'seller_raw_data:{record.asset_hub_id}:{field_name}',
+                    'id': f'acq_asset:{record.asset_hub_id}:{field_name}',
                     'title': title_template.format(address=address),
                     'date': date_value,
                     'time': 'All Day',
                     'description': desc_template.format(address=address),
                     'category': category,
-                    'source_model': 'SellerRawData',
+                    'source_model': 'AcqLoan',
                     'source_id': record.asset_hub_id,
                     'url': f'/acq/loan/{record.asset_hub_id}/',
                     'editable': False  # Model-based events are read-only
@@ -284,9 +288,9 @@ def _get_servicer_data_events(start_date=None, end_date=None, seller_id=None, tr
     if seller_id or trade_id:
         filters = Q()
         if seller_id:
-            filters &= Q(asset_hub__sellerrawdata__seller_id=seller_id)
+            filters &= Q(asset_hub__acq_asset__seller_id=seller_id)
         if trade_id:
-            filters &= Q(asset_hub__sellerrawdata__trade_id=trade_id)
+            filters &= Q(asset_hub__acq_asset__trade_id=trade_id)
         queryset = queryset.filter(filters)
     
     # Get date fields from serializer config
@@ -511,7 +515,7 @@ def _get_custom_calendar_events(request, start_date=None, end_date=None, seller_
     queryset = (
         CalendarEvent.objects.all()
         .select_related('asset_hub', 'seller', 'trade', 'created_by')
-        .prefetch_related('asset_hub__acq_raw')
+        .prefetch_related('asset_hub__acq_asset')
     )
     if user is None:
         queryset = queryset.filter(is_public=True)
@@ -540,7 +544,7 @@ def _get_custom_calendar_events(request, start_date=None, end_date=None, seller_
 
         if event.asset_hub_id and event.asset_hub is not None:
             servicer_id = event.asset_hub.servicer_id or ''
-            srd = getattr(event.asset_hub, 'acq_raw', None)
+            srd = getattr(event.asset_hub, 'acq_asset', None)
             if srd is not None:
                 base_addr = srd.street_address or ''
                 city = srd.city or ''
@@ -644,7 +648,7 @@ class CustomCalendarEventViewSet(viewsets.ModelViewSet):
             super()
             .get_queryset()
             .select_related('asset_hub', 'trade', 'seller', 'created_by', 'asset_hub__details')
-            .select_related('asset_hub__acq_raw')
+            .select_related('asset_hub__acq_asset')
         )
         logger.info(f"[CalendarEvent] Initial queryset count: {queryset.count()}")
         logger.info(f"[CalendarEvent] Query params: {dict(self.request.query_params)}")

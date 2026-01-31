@@ -16,7 +16,7 @@ from am_module.serializers.serial_am_servicerData import ServicerLoanDataSeriali
 from am_module.models.model_am_servicersCleaned import ServicerLoanData
 
 # Import acquisitions models to surface photos linked to SellerRawData (via sellertape_id)
-from acq_module.models.model_acq_seller import SellerRawData, Trade
+from acq_module.models.model_acq_seller import AcqAsset, Trade
 from core.models.attachments import Photo
 from core.models import AssetIdHub, AssetDetails
 from core.models.model_core_notification import Notification
@@ -104,7 +104,7 @@ class AssetInventoryViewSet(ViewSet):
         # NOTE: 'ammetrics' is a ForeignKey reverse relation (one-to-many), not usable with select_related
         # Only select_related for OneToOne and forward FK relations
         asset = get_object_or_404(
-            SellerRawData.objects.select_related("asset_hub__blended_outcome_model", "seller", "trade"),
+            AcqAsset.objects.select_related("asset_hub__blended_outcome_model", "seller", "trade", "loan", "property"),
             pk=pk,
             trade__status=Trade.Status.BOARD,
         )
@@ -130,7 +130,7 @@ class AssetInventoryViewSet(ViewSet):
         Docs: https://www.django-rest-framework.org/api-guide/viewsets/#marking-extra-actions-for-routing
         """
         asset = get_object_or_404(
-            SellerRawData.objects.select_related("asset_hub"),
+            AcqAsset.objects.select_related("asset_hub", "loan", "property"),
             pk=pk,
             trade__status=Trade.Status.BOARD,
         )
@@ -180,7 +180,7 @@ class AssetInventoryViewSet(ViewSet):
         Response: ServicerLoanDataSerializer
         """
         asset = get_object_or_404(
-            SellerRawData.objects.select_related("asset_hub"),
+            AcqAsset.objects.select_related("asset_hub", "loan", "property"),
             pk=pk,
             trade__status=Trade.Status.BOARD,
         )
@@ -205,7 +205,7 @@ class AssetInventoryViewSet(ViewSet):
         Response: List of servicer comments ordered by comment_date DESC
         """
         asset = get_object_or_404(
-            SellerRawData.objects.select_related("asset_hub"),
+            AcqAsset.objects.select_related("asset_hub", "loan", "property"),
             pk=pk,
             trade__status=Trade.Status.BOARD,
         )
@@ -244,7 +244,7 @@ class AssetInventoryViewSet(ViewSet):
         """
         # WHAT: Resolve boarded asset via SellerRawData rows flagged BOARD (legacy SellerBoardedData deprecated)
         asset = get_object_or_404(
-            SellerRawData.objects.select_related("asset_hub"),
+            AcqAsset.objects.select_related("asset_hub", "loan", "property"),
             pk=pk,
             trade__status=Trade.Status.BOARD,
         )
@@ -292,7 +292,7 @@ class AssetInventoryViewSet(ViewSet):
         
         # Get base queryset of all boarded assets
         qs = (
-            SellerRawData.objects
+            AcqAsset.objects
             .filter(trade__status='BOARD')
             .select_related('seller', 'trade', 'asset_hub__details__fund_legal_entity__fund')
         )
@@ -397,7 +397,7 @@ class AssetInventoryViewSet(ViewSet):
             type = serializers.CharField(required=False, allow_blank=True)
 
         asset = get_object_or_404(
-            SellerRawData.objects.select_related("asset_hub"),
+            AcqAsset.objects.select_related("asset_hub", "loan", "property"),
             pk=pk,
             trade__status=Trade.Status.BOARD,
         )
@@ -447,7 +447,7 @@ def asset_dashboard_stats(request):
     # 1. Overall master status counts (for top widgets)
     master_counts = (
         AssetDetails.objects
-        .filter(asset__acq_raw__trade__status=Trade.Status.BOARD)
+        .filter(asset__acq_asset__trade__status=Trade.Status.BOARD)
         .values('asset_status')
         .annotate(count=Count('asset_id'))
     )
@@ -461,7 +461,7 @@ def asset_dashboard_stats(request):
     class_counts = (
         AssetDetails.objects
         .filter(
-            asset__acq_raw__trade__status=Trade.Status.BOARD,
+            asset__acq_asset__trade__status=Trade.Status.BOARD,
             asset_status=AssetDetails.AssetStatus.ACTIVE
         )
         .values('asset_class')
@@ -595,7 +595,7 @@ def am_pipeline_dashboard(request):
         # WHAT: Get all active asset hub IDs (boarded + ACTIVE status)
         # WHY: Only show pipeline for assets currently being managed
         active_hub_ids = set(
-            SellerRawData.objects
+            AcqAsset.objects
             .filter(
                 trade__status=Trade.Status.BOARD,
                 asset_hub__details__asset_status=AssetDetails.AssetStatus.ACTIVE,
@@ -742,7 +742,7 @@ def am_pipeline_dashboard(request):
         # WHY: Show "Recently Liquidated" tab with breakdown by outcome track
         # HOW: Query LIQUIDATED assets and count by which track has a 'sold' task
         liquidated_hub_ids = set(
-            SellerRawData.objects
+            AcqAsset.objects
             .filter(
                 trade__status=Trade.Status.BOARD,
                 asset_hub__details__asset_status=AssetDetails.AssetStatus.LIQUIDATED,

@@ -5,7 +5,7 @@ signal receivers that forward work to dedicated logic/service modules. This
 keeps models thin and avoids performing network I/O inside model.save().
 
 Currently implemented:
-    - Post-save hook for `SellerRawData`: triggers geocoding after the DB
+    - Post-save hook for `AcqProperty`: triggers geocoding after the DB
       transaction commits by calling `logic.geocoding_logic.geocode_row`.
       The logic layer persists results to `LlDataEnrichment` so future
       requests reuse coordinates without hitting external APIs.
@@ -17,13 +17,13 @@ from django.db.models.signals import post_save
 from django.db import transaction
 from django.dispatch import receiver
 
-from .models.model_acq_seller import SellerRawData
+from .models.model_acq_seller import AcqProperty
 from core.services.serv_co_geocoding import geocode_row
 
 
-@receiver(post_save, sender=SellerRawData)
-def sellerrawdata_post_save(sender, instance: SellerRawData, created: bool, **kwargs):
-    """Post-save receiver for `SellerRawData`.
+@receiver(post_save, sender=AcqProperty)
+def acqproperty_post_save(sender, instance: AcqProperty, created: bool, **kwargs):
+    """Post-save receiver for `AcqProperty`.
 
     Behavior:
     - Only fires enrichment when a row is freshly created (`created is True`).

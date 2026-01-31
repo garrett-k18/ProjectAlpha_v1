@@ -20,7 +20,11 @@ from typing import Dict, List, Optional
 
 import anthropic
 
-from acq_module.models.model_acq_seller import SellerRawData
+from acq_module.models.model_acq_seller import AcqAsset, AcqLoan, AcqProperty
+from etl.services.services_sellerTapeImport.etl_field_registry import (
+    get_import_field_definitions,
+    get_import_field_specs,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +96,7 @@ class AIColumnMapper:
 SOURCE COLUMNS (from Excel/CSV file):
 {json.dumps(list(self.source_columns), indent=2)}
 
-TARGET DATABASE FIELDS (SellerRawData model):
+TARGET DATABASE FIELDS (Import registry):
 {json.dumps(field_definitions, indent=2)}
 
 INSTRUCTIONS:
@@ -169,8 +173,7 @@ Return only the JSON mapping, no explanations."""
             self.stdout.write(f'   [AI] Raw mapping from Claude: {len(mapping)} mappings\n')
 
         # Validate that mapped fields actually exist in the model
-        valid_fields = {f.name for f in SellerRawData._meta.get_fields()
-                       if not f.auto_created and f.name not in ['asset_hub', 'seller', 'trade']}
+        valid_fields = set(get_import_field_specs().keys())
 
         validated_mapping = {
             source: target for source, target in mapping.items()
@@ -189,15 +192,14 @@ Return only the JSON mapping, no explanations."""
     def _exact_matching(self) -> Dict[str, str]:
         """
         WHAT: Create column mapping using exact field name matching
-        WHY: Fast mapping when source columns already match model field names
-        HOW: Matches source columns to SellerRawData field names (case-insensitive)
+        WHY: Fast mapping when source columns already match import field names
+        HOW: Matches source columns to registered field names (case-insensitive)
 
         Returns:
             Dict mapping source columns to model fields
         """
-        # Get all field names from SellerRawData model
-        model_fields = {f.name.lower(): f.name for f in SellerRawData._meta.get_fields()
-                       if not f.auto_created and f.name not in ['asset_hub', 'seller', 'trade']}
+        # Get all field names from import registry
+        model_fields = {name.lower(): name for name in get_import_field_specs().keys()}
 
         mapping = {}
         for col in self.source_columns:
@@ -216,20 +218,7 @@ Return only the JSON mapping, no explanations."""
         Returns:
             Dict of field definitions: {field_name: {type, description}}
         """
-        definitions = {}
-        for field in SellerRawData._meta.get_fields():
-            if field.auto_created or field.name in ['asset_hub', 'seller', 'trade']:
-                continue
-
-            field_type = field.get_internal_type()
-            help_text = getattr(field, 'help_text', '')
-
-            definitions[field.name] = {
-                'type': field_type,
-                'description': help_text or f'{field.name} ({field_type})'
-            }
-
-        return definitions
+        return get_import_field_definitions()
 
     @classmethod
     def from_config(cls, config_path: str, stdout=None):
@@ -325,11 +314,18 @@ def validate_choice_value(field_name: str, value: str, use_ai: bool = True) -> O
     
     # Define valid choices for each field (matches model constraints)
     FIELD_CHOICES = {
-        'property_type': ['SFR', 'Manufactured', 'Condo', 'Townhouse', '2-4 Family', 
-                         'Land', 'Multifamily 5+', 'Industrial', 'Mixed Use', 'Storage', 'Healthcare'],
-        'product_type': ['BPL', 'HECM', 'VA', 'Conv', 'Commercial'],
-        'occupancy': ['Vacant', 'Occupied', 'Unknown'],
-        'asset_status': ['NPL', 'REO', 'PERF', 'RPL'],
+        # WHAT: Allow property_type normalization into subclass values
+        # WHY: Property type is now derived from asset subclass fields
+        # HOW: Combine all subclass choice values into a single list
+        'property_type': (
+            [choice[0] for choice in AcqAsset.RealEstateSubclass.choices]
+            + [choice[0] for choice in AcqAsset.MultifamilySubclass.choices]
+            + [choice[0] for choice in AcqAsset.CommercialSubclass.choices]
+            + [choice[0] for choice in AcqAsset.NoteSubclass.choices]
+        ),
+        'product_type': [choice[0] for choice in AcqLoan.ProductType.choices],
+        'occupancy': [choice[0] for choice in AcqProperty.Occupancy.choices],
+        'asset_status': [choice[0] for choice in AcqAsset.AssetStatus.choices],
     }
     
     # Return as-is for non-choice fields

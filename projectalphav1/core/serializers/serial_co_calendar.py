@@ -340,7 +340,7 @@ class CustomCalendarEventSerializer(serializers.ModelSerializer):
         asset = getattr(obj, 'asset_hub', None)
         if asset is None:
             return ''
-        acq_raw = getattr(asset, 'acq_raw', None)
+        acq_raw = getattr(asset, 'acq_asset', None)
         if acq_raw is None:
             return ''
         return acq_raw.city or ''
@@ -349,7 +349,7 @@ class CustomCalendarEventSerializer(serializers.ModelSerializer):
         asset = getattr(obj, 'asset_hub', None)
         if asset is None:
             return ''
-        acq_raw = getattr(asset, 'acq_raw', None)
+        acq_raw = getattr(asset, 'acq_asset', None)
         if acq_raw is None:
             return ''
         return acq_raw.state or ''
@@ -358,7 +358,7 @@ class CustomCalendarEventSerializer(serializers.ModelSerializer):
         asset = getattr(obj, 'asset_hub', None)
         if asset is None:
             return ''
-        acq_raw = getattr(asset, 'acq_raw', None)
+        acq_raw = getattr(asset, 'acq_asset', None)
         if acq_raw is None:
             return ''
         return acq_raw.street_address or ''
@@ -370,7 +370,7 @@ class CustomCalendarEventSerializer(serializers.ModelSerializer):
         if asset is None:
             return None
 
-        acq_raw = getattr(asset, 'acq_raw', None)
+        acq_raw = getattr(asset, 'acq_asset', None)
         if acq_raw is not None and getattr(acq_raw, 'trade', None) is not None:
             return acq_raw.trade.trade_name
 

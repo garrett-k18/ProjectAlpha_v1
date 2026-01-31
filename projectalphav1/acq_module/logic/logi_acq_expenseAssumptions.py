@@ -3,7 +3,7 @@
 from decimal import Decimal
 from typing import Optional
 
-from acq_module.models.model_acq_seller import SellerRawData
+from acq_module.models.model_acq_seller import AcqAsset
 from acq_module.models.model_acq_assumptions import LoanLevelAssumption, TradeLevelAssumption
 from am_module.models.model_am_modeling import BlendedOutcomeModel
 from core.models.model_co_geoAssumptions import StateReference
@@ -29,23 +29,24 @@ def _latest_seller_asis_value(asset_hub_id: int) -> Optional[Decimal]:
 def monthly_tax_for_asset(asset_hub_id: int) -> Decimal:
     """Convenience wrapper: compute monthly property tax for an asset ID.
 
-    Pulls `state` from `SellerRawData` and seller-provided as-is value from
+    Pulls `state` from `AcqProperty` and seller-provided as-is value from
     Valuation, then delegates to state tax rates.
     Returns Decimal('0.00') if the asset or required fields are missing.
     """
-    raw = (
-        SellerRawData.objects
+    asset = (
+        AcqAsset.objects
+        .select_related('property')
         .filter(asset_hub_id=asset_hub_id)
-        .only('state')
         .first()
     )
     asis_value = _latest_seller_asis_value(asset_hub_id)
-    if not raw or not raw.state or not asis_value:
+    state_code = asset.property.state if asset and asset.property else None
+    if not state_code or not asis_value:
         return Decimal('0.00')
 
     state = (
         StateReference.objects
-        .filter(state_code=raw.state)
+        .filter(state_code=state_code)
         .only('property_tax_rate')
         .first()
     )
@@ -62,23 +63,24 @@ def monthly_tax_for_asset(asset_hub_id: int) -> Decimal:
 def monthly_insurance_for_asset(asset_hub_id: int) -> Decimal:
     """Convenience wrapper: compute monthly insurance for an asset ID.
 
-    Pulls `state` from `SellerRawData` and seller-provided as-is value from
+    Pulls `state` from `AcqProperty` and seller-provided as-is value from
     Valuation, then delegates to state insurance rates.
     Returns Decimal('0.00') if the asset or required fields are missing.
     """
-    raw = (
-        SellerRawData.objects
+    asset = (
+        AcqAsset.objects
+        .select_related('property')
         .filter(asset_hub_id=asset_hub_id)
-        .only('state')
         .first()
     )
     asis_value = _latest_seller_asis_value(asset_hub_id)
-    if not raw or not raw.state or not asis_value:
+    state_code = asset.property.state if asset and asset.property else None
+    if not state_code or not asis_value:
         return Decimal('0.00')
 
     state = (
         StateReference.objects
-        .filter(state_code=raw.state)
+        .filter(state_code=state_code)
         .only('insurance_rate_avg')
         .first()
     )
@@ -110,7 +112,7 @@ def property_preservation(asset_hub_id: int) -> Decimal:
     # Get the loan level assumption for this asset
     assumption = (
         LoanLevelAssumption.objects
-        .filter(seller_raw_data__asset_hub_id=asset_hub_id)
+        .filter(asset_hub_id=asset_hub_id)
         .only('property_preservation_cost')
         .first()
     )
@@ -158,7 +160,7 @@ def property_preservation(asset_hub_id: int) -> Decimal:
 def monthly_hoa(asset_hub_id: int) -> Decimal:
     """Calculate monthly HOA fee for an asset.
     
-    Uses the property type from SellerRawData to cross-reference with the
+    Uses the property type from AcqProperty to cross-reference with the
     HOAAssumption table and return the monthly HOA fee for that property type.
     
     Args:
@@ -168,19 +170,20 @@ def monthly_hoa(asset_hub_id: int) -> Decimal:
         Decimal: Monthly HOA fee, or Decimal('0.00') if no HOA assumption exists
     """
     # Get the seller raw data for this asset to find property type
-    raw = (
-        SellerRawData.objects
+    asset = (
+        AcqAsset.objects
+        .select_related('property')
         .filter(asset_hub_id=asset_hub_id)
-        .only('property_type')
         .first()
     )
-    if not raw or not raw.property_type:
+    property_type = asset.property.property_type_merged if asset and asset.property else None
+    if not property_type:
         return Decimal('0.00')
     
     # Look up HOA assumption for this property type
     hoa_assumption = (
         HOAAssumption.objects
-        .filter(property_type=raw.property_type)
+        .filter(property_type=property_type)
         .only('monthly_hoa_fee')
         .first()
     )
@@ -221,13 +224,13 @@ def acq_broker_fee(asset_hub_id: int) -> Decimal:
         return Decimal('0.00')
     
     # Get the seller raw data to find the associated trade
-    seller_data = (
-        SellerRawData.objects
+    asset = (
+        AcqAsset.objects
+        .select_related('trade')
         .filter(asset_hub_id=asset_hub_id)
-        .only('trade')
         .first()
     )
-    if not seller_data or not seller_data.trade:
+    if not asset or not asset.trade:
         # Asset not associated with a trade, so no trade-level assumptions
         return Decimal('0.00')
     
@@ -236,7 +239,7 @@ def acq_broker_fee(asset_hub_id: int) -> Decimal:
     # HOW: Filter by trade and get acq_broker_fees field
     trade_assumptions = (
         TradeLevelAssumption.objects
-        .filter(trade=seller_data.trade)
+        .filter(trade=asset.trade)
         .only('acq_broker_fees')
         .first()
     )
@@ -280,20 +283,20 @@ def acq_fee_other(asset_hub_id: int) -> Decimal:
         return Decimal('0.00')
     
     # Get the seller raw data to find the associated trade
-    seller_data = (
-        SellerRawData.objects
+    asset = (
+        AcqAsset.objects
         .filter(asset_hub_id=asset_hub_id)
         .only('trade')
         .first()
     )
-    if not seller_data or not seller_data.trade:
+    if not asset or not asset.trade:
         # Asset not associated with a trade, so no trade-level assumptions
         return Decimal('0.00')
     
     # Get the trade-level assumptions for this asset's trade
     trade_assumptions = (
         TradeLevelAssumption.objects
-        .filter(trade=seller_data.trade)
+        .filter(trade=asset.trade)
         .only('acq_other_costs')
         .first()
     )

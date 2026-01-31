@@ -285,7 +285,7 @@ def get_projected_liquidation_events(start_date=None, end_date=None, seller_id=N
             # WHAT: Get address, city, and state from SellerRawData first, then ServicerLoanData as fallback
             # WHY: Address and location needed for event display
             # HOW: Try SellerRawData first, then ServicerLoanData
-            srd = getattr(blended_model.asset_hub, 'acq_raw', None)
+            srd = getattr(blended_model.asset_hub, 'acq_asset', None)
             if srd:
                 address = srd.street_address or f"{srd.city or 'Unknown'}, {srd.state or ''}"
                 city = srd.city or ''

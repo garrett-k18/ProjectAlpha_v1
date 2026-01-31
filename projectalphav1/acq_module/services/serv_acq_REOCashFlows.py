@@ -22,7 +22,7 @@ from decimal import Decimal
 from datetime import date
 from dateutil.relativedelta import relativedelta
 
-from acq_module.models.model_acq_seller import SellerRawData
+from acq_module.models.model_acq_seller import AcqAsset
 from acq_module.models.model_acq_assumptions import TradeLevelAssumption, LoanLevelAssumption
 from acq_module.services.serv_acq_REOModel import get_reo_timeline_sums, get_reo_expense_values
 from acq_module.logic.logi_acq_outcomespecific import reoAsIsOutcomeLogic, reoArvOutcomeLogic
@@ -109,8 +109,12 @@ def generate_reo_cashflow_series(
     # WHAT: Get asset and trade data to access settlement_date and total_discount
     # WHY: Need settlement_date to generate MM/YYYY period dates, total_discount (WACC) for NPV calculation
     try:
-        raw_data = SellerRawData.objects.get(asset_hub_id=asset_hub_id)
-        trade = raw_data.trade
+        asset = (
+            AcqAsset.objects
+            .select_related('trade')
+            .get(asset_hub_id=asset_hub_id)
+        )
+        trade = asset.trade
         trade_assumptions = TradeLevelAssumption.objects.filter(trade=trade).first()
         settlement_date = trade_assumptions.settlement_date if trade_assumptions else None
         # WHAT: Get total_discount (WACC) from trade assumptions, fallback to discount_rate, then default to 12%
@@ -120,7 +124,7 @@ def generate_reo_cashflow_series(
             discount_rate = float(trade_assumptions.discount_rate)
         else:
             discount_rate = 0.12  # Default to 12% if neither is set
-    except SellerRawData.DoesNotExist:
+    except AcqAsset.DoesNotExist:
         settlement_date = None
         discount_rate = 0.12  # Default to 12% if no trade data
     
@@ -543,11 +547,11 @@ def generate_pooled_reo_cashflow_series(
     
     # WHAT: Get all assets for this trade (exclude dropped)
     assets = list(
-        SellerRawData.objects
+        AcqAsset.objects
         .filter(seller_id=seller_id, trade_id=trade_id)
-        .exclude(acq_status=SellerRawData.AcquisitionStatus.DROP)
+        .exclude(acq_status=AcqAsset.AcquisitionStatus.DROP)
         .filter(asset_hub_id__isnull=False)
-        .select_related('trade')
+        .select_related('trade', 'property', 'loan')
         .order_by('pk')
     )
     
@@ -571,7 +575,7 @@ def generate_pooled_reo_cashflow_series(
     loan_assumptions_map = {la.asset_hub_id: la for la in loan_assumptions_qs}
     
     # WHAT: Get unique states and bulk fetch state references
-    states = set(a.state for a in assets if a.state)
+    states = set(a.property.state for a in assets if a.property and a.property.state)
     state_refs_qs = StateReference.objects.filter(state_code__in=states)
     state_refs_map = {sr.state_code: sr for sr in state_refs_qs}
     
@@ -587,7 +591,11 @@ def generate_pooled_reo_cashflow_series(
     from core.models.model_co_assumptions import HOAAssumption, PropertyTypeAssumption, SquareFootageAssumption
     
     # WHAT: Get unique property types for bulk HOA/PropertyType queries
-    property_types = set(a.property_type for a in assets if a.property_type)
+    property_types = set(
+        a.property.property_type_merged
+        for a in assets
+        if a.property and a.property.property_type_merged
+    )
     hoa_map = {hoa.property_type.lower(): hoa for hoa in HOAAssumption.objects.filter(property_type__in=property_types)}
     prop_type_map = {pt.property_type.lower(): pt for pt in PropertyTypeAssumption.objects.filter(property_type__in=property_types)}
     
@@ -626,7 +634,11 @@ def generate_pooled_reo_cashflow_series(
     
     for asset in assets:
         loan_assumption = loan_assumptions_map.get(asset.asset_hub_id)
-        state_ref = state_refs_map.get(asset.state) if asset.state else None
+        state_ref = (
+            state_refs_map.get(asset.property.state)
+            if asset.property and asset.property.state
+            else None
+        )
         
         # WHAT: This uses only the bulk-fetched data - NO DATABASE QUERIES
         model_data = calculate_asset_model_data_fast(

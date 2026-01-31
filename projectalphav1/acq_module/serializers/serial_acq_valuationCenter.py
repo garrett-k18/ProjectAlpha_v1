@@ -1,7 +1,7 @@
 """
 Serializer for Valuation Center data.
 
-WHAT: Combines basic asset info from SellerRawData with valuation data from Valuation model.
+WHAT: Combines basic asset info from AcqAsset/Loan/Property with valuation data from Valuation model.
 WHY: Valuation Center needs a focused, efficient data layer without MSA/geo overhead.
 HOW: Single serializer serves all tabs (Overview, Reconciliation, Brokers).
 
@@ -11,7 +11,7 @@ Usage:
 """
 
 from rest_framework import serializers
-from acq_module.models.model_acq_seller import SellerRawData
+from acq_module.models.model_acq_seller import AcqAsset
 from core.models.model_co_valuations import Valuation, ValuationGradeReference
 
 
@@ -20,38 +20,38 @@ class ValuationCenterRowSerializer(serializers.Serializer):
     Read-only serializer for valuation center list view.
     
     Combines:
-    - Basic asset identifiers and location from SellerRawData
-    - Seller-provided values from SellerRawData
+    - Basic asset identifiers and location from AcqAsset/Loan/Property
+    - Seller-provided values from Valuation model
     - Internal Initial UW valuation data from Valuation model
     - Broker valuation data from Valuation model
     """
     
     # -------------------------------------------------------------------------
-    # Asset Identifiers (from SellerRawData)
+    # Asset Identifiers (from AcqAsset/Loan)
     # -------------------------------------------------------------------------
     id = serializers.IntegerField(source='pk', read_only=True)
     asset_hub_id = serializers.IntegerField(read_only=True)
-    sellertape_id = serializers.CharField(read_only=True)
+    sellertape_id = serializers.CharField(source='loan.sellertape_id', read_only=True)
     
     # -------------------------------------------------------------------------
-    # Location (from SellerRawData)
+    # Location (from AcqProperty)
     # -------------------------------------------------------------------------
-    street_address = serializers.CharField(read_only=True)
-    city = serializers.CharField(read_only=True)
-    state = serializers.CharField(read_only=True)
-    zip = serializers.CharField(read_only=True)
+    street_address = serializers.CharField(source='property.street_address', read_only=True)
+    city = serializers.CharField(source='property.city', read_only=True)
+    state = serializers.CharField(source='property.state', read_only=True)
+    zip = serializers.CharField(source='property.zip', read_only=True)
     
     # -------------------------------------------------------------------------
-    # Loan Info (from SellerRawData)
+    # Loan Info (from AcqLoan)
     # -------------------------------------------------------------------------
-    current_balance = serializers.DecimalField(max_digits=14, decimal_places=2, read_only=True)
-    total_debt = serializers.DecimalField(max_digits=14, decimal_places=2, read_only=True)
+    current_balance = serializers.DecimalField(source='loan.current_balance', max_digits=14, decimal_places=2, read_only=True)
+    total_debt = serializers.DecimalField(source='loan.total_debt', max_digits=14, decimal_places=2, read_only=True)
     
     # -------------------------------------------------------------------------
-    # Seller Values (from SellerRawData)
+    # Seller Values (from Valuation model)
     # -------------------------------------------------------------------------
-    seller_asis_value = serializers.DecimalField(max_digits=14, decimal_places=2, read_only=True)
-    seller_arv_value = serializers.DecimalField(max_digits=14, decimal_places=2, read_only=True)
+    seller_asis_value = serializers.SerializerMethodField()
+    seller_arv_value = serializers.SerializerMethodField()
     
     # -------------------------------------------------------------------------
     # Internal Initial UW Valuation (from Valuation model, source='internalInitialUW')
@@ -187,6 +187,24 @@ class ValuationCenterRowSerializer(serializers.Serializer):
     def get_broker_notes(self, obj):
         vals = self._get_all_valuations_for_source(obj, 'broker')
         return self._get_field_from_valuations(vals, 'notes')
+
+    # -------------------------------------------------------------------------
+    # Seller Values Getters
+    # -------------------------------------------------------------------------
+
+    def _get_seller_valuations(self, obj):
+        """Return seller-provided valuations from any seller source tag."""
+        seller_vals = self._get_all_valuations_for_source(obj, 'seller')
+        seller_provided_vals = self._get_all_valuations_for_source(obj, 'sellerProvided')
+        return seller_vals + seller_provided_vals
+
+    def get_seller_asis_value(self, obj):
+        vals = self._get_seller_valuations(obj)
+        return self._get_field_from_valuations(vals, 'asis_value')
+
+    def get_seller_arv_value(self, obj):
+        vals = self._get_seller_valuations(obj)
+        return self._get_field_from_valuations(vals, 'arv_value')
 
 
 class ValuationUpdateSerializer(serializers.Serializer):

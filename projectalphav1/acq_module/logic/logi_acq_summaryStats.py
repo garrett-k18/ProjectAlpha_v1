@@ -1,9 +1,9 @@
 """
-State Summary helpers for SellerRawData.
+State Summary helpers for acquisition assets.
 
 Purpose:
 - Provide small, single-purpose helpers to compute state-based summaries.
-- No normalization here; state normalization is done in SellerRawData.save().
+- No normalization here; state normalization is handled upstream.
 
 Docs (Django ORM):
 - Aggregation: https://docs.djangoproject.com/en/stable/topics/db/aggregation/
@@ -35,7 +35,7 @@ from django.db.models import Count, DecimalField, Sum, Value
 from django.db.models.functions import Coalesce
 
 # Centralized base selector for seller+trade
-from .common import sellertrade_qs
+from .common import sellertrade_qs, annotate_seller_valuations
 
 # Module logger for diagnostics (widgets, summaries)
 logger = logging.getLogger(__name__)
@@ -57,7 +57,9 @@ def total_assets(seller_id: int, trade_id: int) -> int:
     # WHAT: Get queryset filtered to seller+trade, excluding dropped assets
     # WHY: sellertrade_qs() defaults to view='snapshot' which excludes DROP status
     # HOW: Filter applies acq_status != DROP automatically
-    qs = sellertrade_qs(seller_id, trade_id)
+    qs = annotate_seller_valuations(
+        sellertrade_qs(seller_id, trade_id)
+    )
     
     try:
         # WHAT: Ask database for count of matching rows
@@ -78,19 +80,19 @@ def total_current_balance(seller_id: int, trade_id: int) -> Decimal:
     """
     qs = sellertrade_qs(seller_id, trade_id)
     zero_dec = Value(Decimal("0.00"), output_field=DecimalField(max_digits=15, decimal_places=2))
-    agg = qs.aggregate(total=Coalesce(Sum("current_balance"), zero_dec))
+    agg = qs.aggregate(total=Coalesce(Sum("loan__current_balance"), zero_dec))
     return agg["total"]
 
 def total_debt(seller_id: int, trade_id: int) -> Decimal:
     """Return the sum of total_debt for the selected seller and trade (null-safe)."""
     qs = sellertrade_qs(seller_id, trade_id)
     zero_dec = Value(Decimal("0.00"), output_field=DecimalField(max_digits=15, decimal_places=2))
-    agg = qs.aggregate(total=Coalesce(Sum("total_debt"), zero_dec))
+    agg = qs.aggregate(total=Coalesce(Sum("loan__total_debt"), zero_dec))
     return agg["total"]
 
 def total_seller_asis_value(seller_id: int, trade_id: int) -> Decimal:
     """Return the sum of seller_asis_value for the selected seller and trade (null-safe)."""
-    qs = sellertrade_qs(seller_id, trade_id)
+    qs = annotate_seller_valuations(sellertrade_qs(seller_id, trade_id))
     zero_dec = Value(Decimal("0.00"), output_field=DecimalField(max_digits=15, decimal_places=2))
     agg = qs.aggregate(total=Coalesce(Sum("seller_asis_value"), zero_dec))
     return agg["total"]
@@ -116,14 +118,14 @@ def count_upb_td_val_summary(seller_id: int, trade_id: int) -> Dict[str, object]
       - Functions (Coalesce): https://docs.djangoproject.com/en/stable/ref/models/database-functions/
     """
     # Build the validated base queryset filtered by seller and trade
-    qs = sellertrade_qs(seller_id, trade_id)
+    qs = annotate_seller_valuations(sellertrade_qs(seller_id, trade_id))
     # Define a typed zero Decimal so Coalesce preserves Decimal typing in DB adapters
     zero_dec = Value(Decimal("0.00"), output_field=DecimalField(max_digits=15, decimal_places=2))
     # Execute a single aggregate call to compute all required metrics
     agg = qs.aggregate(
         assets=Count("asset_hub"),
-        current_balance=Coalesce(Sum("current_balance"), zero_dec),
-        total_debt=Coalesce(Sum("total_debt"), zero_dec),
+        current_balance=Coalesce(Sum("loan__current_balance"), zero_dec),
+        total_debt=Coalesce(Sum("loan__total_debt"), zero_dec),
         seller_asis_value=Coalesce(Sum("seller_asis_value"), zero_dec),
     )
     # Compute simple LTV percentages from the same aggregate to avoid extra queries
@@ -166,14 +168,14 @@ def upb_ltv(seller_id: int, trade_id: int) -> Decimal:
     """Return the UPB LTV for the selected seller and trade."""
     qs = sellertrade_qs(seller_id, trade_id)
     zero_dec = Value(Decimal("0.00"), output_field=DecimalField(max_digits=15, decimal_places=2))
-    agg = qs.aggregate(upb_ltv=Coalesce(Sum("current_balance"), zero_dec))
+    agg = qs.aggregate(upb_ltv=Coalesce(Sum("loan__current_balance"), zero_dec))
     return agg["upb_ltv"]
 
 def td_ltv(seller_id: int, trade_id: int) -> Decimal:
     """Return the Total Debt LTV for the selected seller and trade."""
     qs = sellertrade_qs(seller_id, trade_id)
     zero_dec = Value(Decimal("0.00"), output_field=DecimalField(max_digits=15, decimal_places=2))
-    agg = qs.aggregate(td_ltv=Coalesce(Sum("total_debt"), zero_dec))
+    agg = qs.aggregate(td_ltv=Coalesce(Sum("loan__total_debt"), zero_dec))
     return agg["td_ltv"]
 
 
@@ -194,11 +196,11 @@ def states_for_selection(seller_id: int, trade_id: int) -> List[str]:
     # Start from the validated base queryset
     qs = (
         sellertrade_qs(seller_id, trade_id)
-        .exclude(state__isnull=True)
-        .exclude(state__exact="")
+        .exclude(property__state__isnull=True)
+        .exclude(property__state__exact="")
     )
     # Ask the database for distinct state values and sort ascending
-    distinct_states = qs.values_list("state", flat=True).distinct().order_by("state")
+    distinct_states = qs.values_list("property__state", flat=True).distinct().order_by("property__state")
     # Materialize to a Python list for predictable consumption
     return list(distinct_states)
 
@@ -215,10 +217,10 @@ def state_count_for_selection(seller_id: int, trade_id: int) -> int:
     # Build the base queryset and count distinct states
     qs = (
         sellertrade_qs(seller_id, trade_id)
-        .exclude(state__isnull=True)
-        .exclude(state__exact="")
+        .exclude(property__state__isnull=True)
+        .exclude(property__state__exact="")
     )
-    return qs.values("state").distinct().count()
+    return qs.values("property__state").distinct().count()
 
 
 def count_by_state(seller_id: int, trade_id: int) -> List[Dict[str, object]]:
@@ -238,14 +240,14 @@ def count_by_state(seller_id: int, trade_id: int) -> List[Dict[str, object]]:
     # Base queryset with valid states only
     qs = (
         sellertrade_qs(seller_id, trade_id)
-        .exclude(state__isnull=True)
-        .exclude(state__exact="")
+        .exclude(property__state__isnull=True)
+        .exclude(property__state__exact="")
     )
     # Group by state and compute a row count per group
     aggregated = (
-        qs.values("state")
+        qs.values("property__state")
         .annotate(
-            count=Count("pk"),  # Use pk since SellerRawData primary key is asset_hub (no 'id' field)
+            count=Count("pk"),
         )
         .order_by("-count")
     )
@@ -265,15 +267,15 @@ def sum_current_balance_by_state(seller_id: int, trade_id: int) -> List[Dict[str
     # Build the base queryset with valid states only
     qs = (
         sellertrade_qs(seller_id, trade_id)
-        .exclude(state__isnull=True)
-        .exclude(state__exact="")
+        .exclude(property__state__isnull=True)
+        .exclude(property__state__exact="")
     )
     # Define a typed zero literal so DB adapters keep Decimal typing consistent
     zero_dec = Value(Decimal("0.00"), output_field=DecimalField(max_digits=15, decimal_places=2))
     # Group by state and compute sums, ordering by the sum descending
     aggregated = (
-        qs.values("state")
-        .annotate(sum_current_balance=Coalesce(Sum("current_balance"), zero_dec))
+        qs.values("property__state")
+        .annotate(sum_current_balance=Coalesce(Sum("loan__current_balance"), zero_dec))
         .order_by("-sum_current_balance")
     )
     # Return as a list of dicts
@@ -292,15 +294,15 @@ def sum_total_debt_by_state(seller_id: int, trade_id: int) -> List[Dict[str, obj
     # Base queryset with valid states only
     qs = (
         sellertrade_qs(seller_id, trade_id)
-        .exclude(state__isnull=True)
-        .exclude(state__exact="")
+        .exclude(property__state__isnull=True)
+        .exclude(property__state__exact="")
     )
     # Typed zero for Coalesce to ensure Decimal type
     zero_dec = Value(Decimal("0.00"), output_field=DecimalField(max_digits=15, decimal_places=2))
     # Group and sum, then order by the sum descending
     aggregated = (
-        qs.values("state")
-        .annotate(sum_total_debt=Coalesce(Sum("total_debt"), zero_dec))
+        qs.values("property__state")
+        .annotate(sum_total_debt=Coalesce(Sum("loan__total_debt"), zero_dec))
         .order_by("-sum_total_debt")
     )
     # Materialize to list
@@ -318,15 +320,17 @@ def sum_seller_asis_value_by_state(seller_id: int, trade_id: int) -> List[Dict[s
     """
     # Base queryset with valid states only
     qs = (
-        sellertrade_qs(seller_id, trade_id)
-        .exclude(state__isnull=True)
-        .exclude(state__exact="")
+        annotate_seller_valuations(
+            sellertrade_qs(seller_id, trade_id)
+        )
+        .exclude(property__state__isnull=True)
+        .exclude(property__state__exact="")
     )
     # Typed zero for Coalesce to ensure Decimal type
     zero_dec = Value(Decimal("0.00"), output_field=DecimalField(max_digits=15, decimal_places=2))
     # Group and sum, then order by the sum descending
     aggregated = (
-        qs.values("state")
+        qs.values("property__state")
         .annotate(sum_seller_asis_value=Coalesce(Sum("seller_asis_value"), zero_dec))
         .order_by("-sum_seller_asis_value")
     )
@@ -372,7 +376,7 @@ def valuation_completion_summary(seller_id: int, trade_id: int) -> Dict[str, int
     # WHY: Only count valuations for assets in active bidding pool
     qs = sellertrade_qs(seller_id, trade_id)
     
-    # WHAT: Count assets with seller values (from SellerRawData)
+    # WHAT: Count assets with seller values (from Valuation)
     # WHY: Seller provides initial as-is valuations on their tape
     seller_count = qs.filter(seller_asis_value__isnull=False).count()
     

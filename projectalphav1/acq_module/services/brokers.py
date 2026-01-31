@@ -16,7 +16,7 @@ from typing import List, Dict, Any, Tuple
 from django.db.models import QuerySet
 
 from core.models.model_co_crm import MasterCRM
-from ..models.model_acq_seller import SellerRawData
+from ..models.model_acq_seller import AcqAsset
 from core.models.model_co_valuations import Valuation
 from user_admin.models import BrokerTokenAuth
 
@@ -71,11 +71,17 @@ def list_latest_tokens_for_broker(broker: MasterCRM) -> QuerySet[BrokerTokenAuth
 
     WHAT: Hub-first query - uses asset_hub instead of seller_raw_data
     WHY: All joins go through AssetIdHub intentionally
-    HOW: PostgreSQL DISTINCT ON asset_hub_id, access ACQ data via asset_hub__acq_raw
+    HOW: PostgreSQL DISTINCT ON asset_hub_id, access ACQ data via asset_hub__acq_asset
     """
     return (
         BrokerTokenAuth.objects.filter(broker_id=broker.id)
-        .select_related("asset_hub__acq_raw", "asset_hub__acq_raw__seller", "asset_hub__acq_raw__trade")
+        .select_related(
+            "asset_hub__acq_asset",
+            "asset_hub__acq_asset__seller",
+            "asset_hub__acq_asset__trade",
+            "asset_hub__acq_asset__loan",
+            "asset_hub__acq_asset__property",
+        )
         .order_by("asset_hub_id", "-created_at")
         .distinct("asset_hub_id")
     )
@@ -86,7 +92,7 @@ def list_assigned_loan_entries(broker: MasterCRM) -> List[Dict[str, Any]]:
 
     WHAT: Hub-first architecture - returns asset hub IDs and ACQ data
     WHY: All joins happen through AssetIdHub intentionally
-    HOW: Access SellerRawData via asset_hub.acq_raw reverse relation
+    HOW: Access AcqAsset via asset_hub.acq_asset reverse relation
     
     Each entry includes asset_hub_id, minimal seller/trade info, address, an optional
     current_balance field (stringified), latest token info, and a submission flag.
@@ -104,10 +110,12 @@ def list_assigned_loan_entries(broker: MasterCRM) -> List[Dict[str, Any]]:
 
     results: List[Dict[str, Any]] = []
     for invite in latest_tokens:
-        # WHAT: Access SellerRawData via hub's acq_raw reverse relation
+        # WHAT: Access AcqAsset via hub's acq_asset reverse relation
         # WHY: Hub-first architecture - all domain data accessed through hub
-        # HOW: invite.asset_hub.acq_raw gives us the SellerRawData instance
-        srd: SellerRawData = invite.asset_hub.acq_raw
+        # HOW: invite.asset_hub.acq_asset gives us the AcqAsset instance
+        asset: AcqAsset = invite.asset_hub.acq_asset
+        loan = getattr(asset, "loan", None)
+        prop = getattr(asset, "property", None)
         results.append(
             {
                 # WHAT: Return asset_hub_id as primary identifier (same value as srd.id since srd uses hub as PK)
@@ -118,19 +126,19 @@ def list_assigned_loan_entries(broker: MasterCRM) -> List[Dict[str, Any]]:
                 # WHAT: Include sellertape_id for display in broker portal
                 # WHY: Brokers need to see the actual loan number, not just hub ID
                 # HOW: Extract from SellerRawData.sellertape_id field
-                "loan_number": srd.sellertape_id,
-                "seller": {"id": srd.seller_id, "name": getattr(srd.seller, "name", None)},
-                "trade": {"id": srd.trade_id, "name": getattr(srd.trade, "trade_name", None)},
+                "loan_number": loan.sellertape_id if loan else None,
+                "seller": {"id": asset.seller_id, "name": getattr(asset.seller, "name", None)},
+                "trade": {"id": asset.trade_id, "name": getattr(asset.trade, "trade_name", None)},
                 "address": {
-                    "street_address": srd.street_address,
-                    "city": srd.city,
-                    "state": srd.state,
-                    "zip": srd.zip,
+                    "street_address": prop.street_address if prop else None,
+                    "city": prop.city if prop else None,
+                    "state": prop.state if prop else None,
+                    "zip": prop.zip if prop else None,
                 },
                 # WHAT: Stringify decimal if present; use getattr for safety in schema changes
                 "current_balance": (
-                    str(getattr(srd, "current_balance", None))
-                    if getattr(srd, "current_balance", None) is not None
+                    str(getattr(loan, "current_balance", None))
+                    if getattr(loan, "current_balance", None) is not None
                     else None
                 ),
                 "token": {
